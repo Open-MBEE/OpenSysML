@@ -142,8 +142,7 @@ func WriteAPIJSONCompact(graph *rdf.Graph, opts CompactAPIJSONOptions) ([]byte, 
 				if values, ok := member.value.(apiJSONObject); ok {
 					filtered := make(apiJSONObject, 0, len(values))
 					for _, value := range values {
-						if property, ok := ontology.PropertyOf(metaclass, value.key); ok &&
-							property.Derived && !keep[value.key] {
+						if compactOmitsDerived(metaclass, value.key, keep) {
 							continue
 						}
 						filtered = append(filtered, value)
@@ -154,10 +153,8 @@ func WriteAPIJSONCompact(graph *rdf.Graph, opts CompactAPIJSONOptions) ([]byte, 
 					member.value = filtered
 				}
 			}
-			if opts.OmitDerived && metaclass != "" && !keep[member.key] {
-				if property, ok := ontology.PropertyOf(metaclass, member.key); ok && property.Derived {
-					continue
-				}
+			if opts.OmitDerived && metaclass != "" && compactOmitsDerived(metaclass, member.key, keep) {
+				continue
 			}
 			if member.key == apiJSONCompletedPropertiesKey && opts.OmitDerived && metaclass != "" {
 				// The marker names only the completed properties still written.
@@ -165,7 +162,7 @@ func WriteAPIJSONCompact(graph *rdf.Graph, opts CompactAPIJSONOptions) ([]byte, 
 				kept := make([]any, 0, len(names))
 				for _, name := range names {
 					text, _ := name.(string)
-					if property, ok := ontology.PropertyOf(metaclass, text); ok && property.Derived && !keep[text] {
+					if compactOmitsDerived(metaclass, text, keep) {
 						continue
 					}
 					kept = append(kept, name)
@@ -361,4 +358,21 @@ func writeCompactValue(w apiJSONWriter, value any, bare bool, handles map[string
 		return nil
 	}
 	return w.value(value)
+}
+
+// compactOmitsDerived reports whether OmitDerived drops name on metaclass: an unkept derived
+// property, or one completed from an unkept derived property that redefines it.
+func compactOmitsDerived(metaclass, name string, keep map[string]bool) bool {
+	if keep[name] {
+		return false
+	}
+	if property, ok := ontology.PropertyOf(metaclass, name); ok && property.Derived {
+		return true
+	}
+	for _, completed := range apiJSONCompletedPropertiesOf(metaclass) {
+		if completed.name == name && completed.redefinedBy != "" {
+			return compactOmitsDerived(metaclass, completed.redefinedBy, keep)
+		}
+	}
+	return false
 }

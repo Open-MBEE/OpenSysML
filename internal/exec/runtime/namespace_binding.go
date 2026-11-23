@@ -19,12 +19,9 @@ import (
 // equal or refused), or one object materialized for the earliest-declared
 // member and classified by every member's types when none declares one.
 
-// namespaceModelIndex is the model's namespace-owned bindings and subsetting
-// usages walked once over every document's namespace scopes: which usages a
-// binding joins (its equivalence class) and which usages subset a namespace
-// usage, both in document-name then declaration order.
+// namespaceModelIndex is the model's namespace-owned bindings walked once: which usages
+// a binding joins (its equivalence class), in document-name then declaration order.
 type namespaceModelIndex struct {
-	subsetters map[*symbols.Symbol][]*symbols.Symbol
 	// reaching is, per namespace usage, the subsetters of a feature reached through a
 	// chain starting at it (subsetting_reaching.go).
 	reaching    map[*symbols.Symbol][]reachingSubsetter
@@ -56,7 +53,6 @@ func (ctx *Context) namespaceModelIndex() *namespaceModelIndex {
 		return ctx.model.namespaceUsageIndex
 	}
 	out := &namespaceModelIndex{
-		subsetters:  make(map[*symbols.Symbol][]*symbols.Symbol),
 		reaching:    make(map[*symbols.Symbol][]reachingSubsetter),
 		classes:     make(map[*symbols.Symbol]*namespaceClass),
 		memberDecls: make(map[ast.Node]*symbols.Symbol),
@@ -83,25 +79,9 @@ func (ctx *Context) namespaceModelIndex() *namespaceModelIndex {
 		out.classes[b] = ca
 		return ca
 	}
-	var walk func(scope *symbols.Scope)
-	walk = func(scope *symbols.Scope) {
-		scope.ForEachMember(func(member *symbols.Symbol) bool {
-			if member.Scope != nil && member.Scope != scope && namespaceScope(member.Scope) {
-				walk(member.Scope)
-				return true
-			}
-			member = ctx.declaredSymbol(member)
-			if _, ok := member.Decl.(*ast.Usage); !ok {
-				return true
-			}
-			for _, rel := range ctx.relationshipsOfKind(member, ast.RelSubsets) {
-				if target := ctx.model.semantics.RelationshipTarget(member, rel); target != nil {
-					out.subsetters[target] = append(out.subsetters[target], member)
-				}
-			}
-			ctx.indexNamespaceReaching(out, member, nil)
-			return true
-		})
+	ctx.eachNamespaceUsage(func(member *symbols.Symbol) {
+		ctx.indexNamespaceReaching(out, member, nil)
+	}, func(scope *symbols.Scope) {
 		for _, binding := range lower.NamespaceBindings(scope) {
 			binding.Intern(ctx.model.exprs)
 			var class *namespaceClass
@@ -132,14 +112,7 @@ func (ctx *Context) namespaceModelIndex() *namespaceModelIndex {
 				}
 			}
 		}
-	}
-	if ctx.model.resolver != nil {
-		if idx := ctx.model.resolver.Index(); idx != nil {
-			for _, doc := range idx.Documents() {
-				walk(idx.DocumentRoot(doc))
-			}
-		}
-	}
+	})
 	for _, class := range out.classes {
 		sort.SliceStable(class.members, func(i, j int) bool { return declaredBefore(class.members[i], class.members[j]) })
 		for _, member := range class.members {
@@ -148,11 +121,61 @@ func (ctx *Context) namespaceModelIndex() *namespaceModelIndex {
 			}
 		}
 	}
-	for _, subs := range out.subsetters {
-		sort.SliceStable(subs, func(i, j int) bool { return declaredBefore(subs[i], subs[j]) })
-	}
 	ctx.model.namespaceUsageIndex = out
 	return out
+}
+
+// namespaceSubsetters is the usages subsetting each namespace usage, in declaration order;
+// built once per Model, apart from the index: only a subsetted namespace usage reads it.
+func (ctx *Context) namespaceSubsetters() map[*symbols.Symbol][]*symbols.Symbol {
+	if ctx.model.namespaceSubsetters != nil {
+		return ctx.model.namespaceSubsetters
+	}
+	out := make(map[*symbols.Symbol][]*symbols.Symbol)
+	ctx.eachNamespaceUsage(func(member *symbols.Symbol) {
+		for _, rel := range ctx.relationshipsOfKind(member, ast.RelSubsets) {
+			if target := ctx.model.semantics.RelationshipTarget(member, rel); target != nil {
+				out[target] = append(out[target], member)
+			}
+		}
+	}, nil)
+	for _, subs := range out {
+		sort.SliceStable(subs, func(i, j int) bool { return declaredBefore(subs[i], subs[j]) })
+	}
+	ctx.model.namespaceSubsetters = out
+	return out
+}
+
+// eachNamespaceUsage walks every document's namespace scopes in declaration order: usage
+// sees each usage that is a member of one, as declared, and scope each scope once its members are seen.
+func (ctx *Context) eachNamespaceUsage(usage func(*symbols.Symbol), scope func(*symbols.Scope)) {
+	if ctx.model.resolver == nil {
+		return
+	}
+	idx := ctx.model.resolver.Index()
+	if idx == nil {
+		return
+	}
+	var walk func(in *symbols.Scope)
+	walk = func(in *symbols.Scope) {
+		in.ForEachMember(func(member *symbols.Symbol) bool {
+			if member.Scope != nil && member.Scope != in && namespaceScope(member.Scope) {
+				walk(member.Scope)
+				return true
+			}
+			member = ctx.declaredSymbol(member)
+			if _, ok := member.Decl.(*ast.Usage); ok {
+				usage(member)
+			}
+			return true
+		})
+		if scope != nil {
+			scope(in)
+		}
+	}
+	for _, doc := range idx.Documents() {
+		walk(idx.DocumentRoot(doc))
+	}
 }
 
 // namespaceEndUsage resolves a binding end written as a name to the usage it
@@ -632,7 +655,7 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 	if !isOccurrenceUsage(sym) && !objectFeature(sym) {
 		return nil, false, nil
 	}
-	subs := ctx.namespaceModelIndex().subsetters[sym]
+	subs := ctx.namespaceSubsetters()[sym]
 	if len(subs) == 0 {
 		return nil, false, nil
 	}
@@ -822,7 +845,7 @@ func (ctx *Context) openDenotedValue(sym *symbols.Symbol, mult semantics.Range) 
 		return nil
 	}
 	contribute := func(sym *symbols.Symbol) error {
-		for _, sub := range ctx.namespaceModelIndex().subsetters[sym] {
+		for _, sub := range ctx.namespaceSubsetters()[sym] {
 			// A valueless optional usage nothing binds contributes what subsets it in turn, within
 			// its own multiplicity: subsetting is transitive, and no object is made up for it.
 			if ctx.optionalValueless(sub) && !ctx.namesObjects(sub) && !ctx.namespaceValued(sub) {

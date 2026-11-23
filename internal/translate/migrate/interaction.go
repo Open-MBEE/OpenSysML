@@ -1036,22 +1036,27 @@ func (s *scenario) inaccessible(expr string, line *lifelineRef) string {
 			e, _ = s.m.memberNamed(e, r.steps[n].name, chainKind(false))
 			n++
 		}
-		if e != nil && e.Parent == s.e {
-			if _, ok := s.m.sequenceParams[e]; ok {
-				continue
-			}
-			for _, ref := range s.lines {
-				if ref.rep == e {
-					e = nil
-					break
-				}
-			}
-		}
-		if e != nil && isFeature(e) {
+		if e != nil && isFeature(e) && !s.declares(e) {
 			return r.text(n)
 		}
 	}
 	return ""
+}
+
+// declares reports whether e is one of the interaction's own sequence parameters or the part a lifeline represents.
+func (s *scenario) declares(e *sysmlv1.Element) bool {
+	if e.Parent != s.e {
+		return false
+	}
+	if _, ok := s.m.sequenceParams[e]; ok {
+		return true
+	}
+	for _, ref := range s.lines {
+		if ref.rep == e {
+			return true
+		}
+	}
+	return false
 }
 
 // isFeature reports whether e is a feature of a classifier or behavior, which an

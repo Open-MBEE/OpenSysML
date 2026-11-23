@@ -1087,30 +1087,7 @@ func (m *migration) membersOf(e *sysmlv1.Element, kind memberKind) (visible, hid
 			return
 		}
 		seen[t] = true
-		for _, c := range t.Children {
-			n := m.nameOf(c)
-			if n == "" || (!m.sequenceFeature(c) && !m.written(c)) || (features && c.Type != "Property" && c.Type != "Port") {
-				continue
-			}
-			if m.hiddenFromHeirs(c) {
-				if hidden[n] == nil {
-					hidden[n] = c
-				}
-				continue
-			}
-			if visible[n] == nil {
-				visible[n] = c
-			}
-		}
-		for _, c := range t.Children {
-			if t.Type == "Interaction" && c.Name != "" && (m.sequenceFeature(c) || m.written(c)) && (!features || c.Type == "Property" || c.Type == "Port") {
-				if m.hiddenFromHeirs(c) {
-					hidden[c.Name] = c
-				} else {
-					visible[c.Name] = c
-				}
-			}
-		}
+		m.ownMembers(t, features, visible, hidden)
 		for _, g := range t.Owned("generalization") {
 			walk(m.model.Ref(g, "general"))
 		}
@@ -1129,6 +1106,35 @@ func (m *migration) membersOf(e *sysmlv1.Element, kind memberKind) (visible, hid
 		walk(e)
 	}
 	return visible, hidden
+}
+
+// ownMembers files t's own named members under visible or hidden, the first of a name winning, then an
+// interaction's members by their written name, the last winning.
+func (m *migration) ownMembers(t *sysmlv1.Element, features bool, visible, hidden map[string]*sysmlv1.Element) {
+	for _, c := range t.Children {
+		n := m.nameOf(c)
+		if n == "" || (!m.sequenceFeature(c) && !m.written(c)) || (features && c.Type != "Property" && c.Type != "Port") {
+			continue
+		}
+		if m.hiddenFromHeirs(c) {
+			if hidden[n] == nil {
+				hidden[n] = c
+			}
+			continue
+		}
+		if visible[n] == nil {
+			visible[n] = c
+		}
+	}
+	for _, c := range t.Children {
+		if t.Type == "Interaction" && c.Name != "" && (m.sequenceFeature(c) || m.written(c)) && (!features || c.Type == "Property" || c.Type == "Port") {
+			if m.hiddenFromHeirs(c) {
+				hidden[c.Name] = c
+			} else {
+				visible[c.Name] = c
+			}
+		}
+	}
 }
 
 // visibleFrom maps each name an expression in scope can resolve to the written

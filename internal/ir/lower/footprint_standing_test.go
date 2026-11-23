@@ -2,9 +2,11 @@ package lower
 
 import (
 	"slices"
+	"strconv"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // writesReadingByScan is WritesReading by a scan of the flows, the definition the
@@ -53,6 +55,13 @@ func TestStandingWritesReadingAgreesWithTheScan(t *testing.T) {
 		},
 	}
 	whole := Footprint{Reads: []Place{x, guard}, Writes: []Place{held, b}}
+	// The padded footprints hold more places than placeScanLimit, so their maps decide.
+	padded, paddedWhole := fp, whole
+	for i := range placeScanLimit {
+		filler := Place{Name: "filler" + strconv.Itoa(i), Sym: &symbols.Symbol{}}
+		padded.Reads, padded.Writes = append(slices.Clone(padded.Reads), filler), append(slices.Clone(padded.Writes), filler)
+		paddedWhole.Reads, paddedWhole.Writes = append(slices.Clone(paddedWhole.Reads), filler), append(slices.Clone(paddedWhole.Writes), filler)
+	}
 	all := func(Place) bool { return true }
 	cases := []struct {
 		name string
@@ -73,6 +82,15 @@ func TestStandingWritesReadingAgreesWithTheScan(t *testing.T) {
 		{"a stranger", fp, Place{Name: "z", Sym: &symbols.Symbol{}}, all},
 		{"whole move", whole, x, all},
 		{"whole move unmet", whole, y, all},
+	}
+	for _, tc := range slices.Clone(cases) {
+		tc.name += ", indexed"
+		if tc.fp.Flows == nil {
+			tc.fp = paddedWhole
+		} else {
+			tc.fp = padded
+		}
+		cases = append(cases, tc)
 	}
 	for _, tc := range cases {
 		s := tc.fp.Standing()
@@ -144,6 +162,59 @@ func TestFootprintPlacesEqual(t *testing.T) {
 	} {
 		if fp.PlacesEqual(other) {
 			t.Errorf("footprints differing in %s are PlacesEqual", name)
+		}
+	}
+}
+
+// The scan of a few places and the maps of many visit the same candidates.
+func TestPlaceIndexScanAgreesWithTheMaps(t *testing.T) {
+	sym, other := &symbols.Symbol{}, &symbols.Symbol{}
+	state, elsewhere := &ast.StateNode{}, &ast.StateNode{}
+	places := []Place{
+		{Name: "a", Sym: sym}, {Name: "a"}, {Name: "b", Sym: sym}, {Name: "a", Sym: other},
+		{Name: "s", State: state}, {Name: "a", State: elsewhere}, {Name: "", Sym: other}, {Name: "c"},
+	}
+	probes := append(slices.Clone(places), Place{Name: "z", Sym: &symbols.Symbol{}}, Place{Name: "c", Sym: sym}, Place{State: &ast.StateNode{}})
+	if scanned := indexPlaces(places); scanned.indexed {
+		t.Fatalf("%d places are indexed, over placeScanLimit %d", len(places), placeScanLimit)
+	}
+	var mapped placeIndex
+	mapped.indexed = true
+	mapped.bySym, mapped.byName = map[*symbols.Symbol][]int{}, map[string][]int{}
+	for i, p := range places {
+		mapped.insert(p, i)
+	}
+	visited := func(x placeIndex, p Place) []int {
+		var out []int
+		x.candidates(places, p, func(i int) bool { out = append(out, i); return true })
+		slices.Sort(out)
+		return out
+	}
+	for _, p := range probes {
+		got, want := visited(placeIndex{}, p), visited(mapped, p)
+		if !slices.Equal(got, want) {
+			t.Errorf("%v: the scan visits %v, the maps %v", p, got, want)
+		}
+		for i, q := range places {
+			if p.Conflicts(q) && !slices.Contains(got, i) {
+				t.Errorf("%v conflicts with %v, which the scan skips", p, q)
+			}
+		}
+	}
+	// An index grown one place at a time holds every place once it turns to maps.
+	var grown placeIndex
+	var many []Place
+	for i := range 2*placeScanLimit + 1 {
+		many = append(many, places[i%len(places)])
+		grown.add(many, i)
+	}
+	whole := indexPlaces(many)
+	for _, p := range probes {
+		var a, b []int
+		grown.candidates(many, p, func(i int) bool { a = append(a, i); return true })
+		whole.candidates(many, p, func(i int) bool { b = append(b, i); return true })
+		if !grown.indexed || !slices.Equal(a, b) {
+			t.Errorf("%v: grown index visits %v, built whole %v", p, a, b)
 		}
 	}
 }
