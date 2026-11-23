@@ -323,8 +323,7 @@ func invokeBoundAction(
 	ctx *Context,
 	inv actionInvocation,
 	sym *symbols.Symbol,
-	pins map[string]Value,
-	data map[string]Value,
+	pins, data map[string]Value,
 	self *Instance,
 ) (features, outputs map[string]Value, err error) {
 	if callee, resumed, err := popFrame[*calleeFrame](ctx); err != nil {

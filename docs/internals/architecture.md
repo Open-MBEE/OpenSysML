@@ -277,7 +277,7 @@ source → lexer → parser → AST → symbol index → resolve → passes
 
 ### 8. Standard library (`internal/workspace/libs`)
 
-- **Source of truth:** the 111 library files under `internal/workspace/libs/stdlib/`, embedded in
+- **Source of truth:** the 113 library files under `internal/workspace/libs/stdlib/`, embedded in
   the binary; `OPENSYSML_LIBRARY_PATH` substitutes a directory of files for them.
 - **Shared base:** `libs.SharedBase()` builds one frozen `symbols.Index` of the library per
   process; every model is an overlay over it (`NewOverlay`), reading the library without copying
@@ -700,7 +700,7 @@ See [the guide](../guide/) for VS Code configuration.
 
 | Component | Status |
 |-----------|--------|
-| Lexer/Parser (structural + behavioral) | ✅ Operational (111/111 stdlib clean - see [conformance gate](../../internal/workspace/libs/stdlib_conformance_test.go)) |
+| Lexer/Parser (structural + behavioral) | ✅ Operational (113/113 stdlib clean - see [conformance gate](../../internal/workspace/libs/stdlib_conformance_test.go)) |
 | Symbol resolution & type system | ✅ Complete |
 | Validation passes (syntax → constraints) | ✅ Complete |
 | Expression evaluator & instance model (Tiers 1-3) | ✅ Complete |
@@ -714,7 +714,7 @@ See [the guide](../guide/) for VS Code configuration.
 | Standard library bundling | ✅ Complete |
 | LSP server implementation | ✅ Complete |
 
-**Parser coverage:** 111/111 bundled library files parse cleanly — the 94 official SysML v2 standard library files and the 17 non-normative OpenSysML extensions: `OpenSysML Libraries/AnalysisRecords.sysml`, `DiagramLayout.sysml`, `DocumentQueries.sysml`, `IdentityMetadata.sysml`, `MOSA.sysml`, `MigrationMetadata.sysml`, `NPR7123.sysml`, `OOSEM.sysml`, `OpenSysMLMathFunctions.kerml`, `OpenSysMLRenderings.sysml`, `RandomFunctions.kerml`, `Simulation.sysml`, `StateActivity.kerml`, `StateMachines.sysml`, `StateSpaceIntegration.sysml`, `Stochastic.sysml` and `SysMLValidation.sysml`. The extensions are maintained upstream at [Open-MBEE/OpenSysML-Extensions-Library](https://github.com/Open-MBEE/OpenSysML-Extensions-Library) and vendored here pinned by `scripts/extension-libraries-pin.sh`; `engine-contract.json` beside them records the names the engine binds. Conformance verified by [stdlib_conformance_test.go](../../internal/workspace/libs/stdlib_conformance_test.go). Grammar reference available at [OMG Xtext grammar](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/master/org.omg.kerml.xtext/src/org/omg/kerml/xtext).
+**Parser coverage:** 113/113 bundled library files parse cleanly — the 94 official SysML v2 standard library files and the 19 non-normative OpenSysML extensions: `OpenSysML Libraries/AnalysisRecords.sysml`, `DiagramLayout.sysml`, `DocumentQueries.sysml`, `IdentityMetadata.sysml`, `MOSA.sysml`, `MigrationMetadata.sysml`, `NPR7123.sysml`, `NPR7150.sysml`, `OOSEM.sysml`, `OpenSysMLMathFunctions.kerml`, `OpenSysMLRenderings.sysml`, `QVTS.sysml`, `RandomFunctions.kerml`, `Simulation.sysml`, `StateActivity.kerml`, `StateMachines.sysml`, `StateSpaceIntegration.sysml`, `Stochastic.sysml` and `SysMLValidation.sysml`. The extensions are maintained upstream at [Open-MBEE/OpenSysML-Extensions-Library](https://github.com/Open-MBEE/OpenSysML-Extensions-Library) and vendored here pinned by `scripts/extension-libraries-pin.sh`; `engine-contract.json` beside them records the names the engine binds. Conformance verified by [stdlib_conformance_test.go](../../internal/workspace/libs/stdlib_conformance_test.go). Grammar reference available at [OMG Xtext grammar](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/master/org.omg.kerml.xtext/src/org/omg/kerml/xtext).
 
 ---
 
@@ -727,8 +727,8 @@ New grammar features require a **four-layer test contract** to ensure correctnes
 #### 1. Conformance Gate
 - **Purpose:** Ensure stdlib continues to parse cleanly
 - **Location:** `internal/workspace/libs/stdlib_conformance_test.go`
-- **Test:** `TestStdlibConformance` loads all 111 bundled library files
-- **Acceptance:** 111/111 files parse without errors
+- **Test:** `TestStdlibConformance` loads all 113 bundled library files
+- **Acceptance:** 113/113 files parse without errors
 - **Allowlist:** `testdata/stdlib_known_failures.txt` (currently empty)
 - **Failure mode:** Regression breaks previously-working stdlib files
 

@@ -648,7 +648,7 @@ func (m *Model) topLevel(raw *xmi.Element) {
 	m.Stereotypes = append(m.Stereotypes, m.newStereotype(raw))
 }
 
-func (m *Model) children(raw *xmi.Element, parent *Element, ref *Element) {
+func (m *Model) children(raw *xmi.Element, parent, ref *Element) {
 	for _, child := range raw.Children {
 		if xmi.IsXMINamespace(child.Space) {
 			m.special(child, parent, ref)

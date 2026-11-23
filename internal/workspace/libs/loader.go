@@ -72,7 +72,7 @@ func (l *Loader) LoadAll(idx *symbols.Index) error {
 	var errs []error
 	l.hits = 0
 	files := l.readAll()
-	parallelFor(len(files), func(i int) { files[i].hash(); files[i].parse() })
+	forEachLargestFirst(files, func(f *libraryFile) { f.hash(); f.parse() })
 	if l.digest == "" {
 		l.digest = digestOf(files)
 	}
@@ -190,6 +190,19 @@ func (f *libraryFile) parse() {
 	}
 }
 
+// forEachLargestFirst calls fn for every file concurrently, starting the
+// largest first so that one long file does not run alone after the others.
+func forEachLargestFirst(files []libraryFile, fn func(f *libraryFile)) {
+	order := make([]int, len(files))
+	for i := range order {
+		order[i] = i
+	}
+	sort.SliceStable(order, func(i, j int) bool {
+		return len(files[order[i]].content) > len(files[order[j]].content)
+	})
+	parallelFor(len(order), func(i int) { fn(&files[order[i]]) })
+}
+
 // parallelFor calls fn for every index below n, from up to GOMAXPROCS
 // goroutines, and returns once every call has.
 func parallelFor(n int, fn func(i int)) {
@@ -289,7 +302,7 @@ func (l *Loader) Hits() int {
 func (l *Loader) setDigest() string {
 	if l.digest == "" {
 		files := l.readAll()
-		parallelFor(len(files), func(i int) { files[i].hash() })
+		forEachLargestFirst(files, (*libraryFile).hash)
 		l.digest = digestOf(files)
 	}
 	return l.digest

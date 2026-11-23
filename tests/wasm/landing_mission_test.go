@@ -27,7 +27,7 @@ func TestLandingLunarMissionModel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("combined.New: %v", err)
 	}
-	call := func(method string, params any, into any) []byte {
+	call := func(method string, params, into any) []byte {
 		t.Helper()
 		raw, err := json.Marshal(params)
 		if err != nil {

@@ -85,7 +85,7 @@ end
     @test occursin("ParseFile failed:", timeout.message)
 end
 
-@testset "live IEEE-754 values use protobuf JSON spellings" begin
+@testset "live IEEE-754 values use protobuf JSON spellings and +Inf answers as `*`" begin
     if !isfile(GRPC_BINARY)
         @test_skip false
     else
@@ -107,6 +107,11 @@ end
             """)
             for input in (NaN, Inf, -Inf, -0.0)
                 output = execute_action(model, "Wire::Echo"; inputs=Dict("data" => input))["result"]
+                # The service reads the real +Inf as `*`, which answers on the infinity arm.
+                if input == Inf
+                    @test output === Infinity()
+                    continue
+                end
                 @test output isa Float64
                 if isnan(input)
                     @test isnan(output)

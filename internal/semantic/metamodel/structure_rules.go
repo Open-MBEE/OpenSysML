@@ -3431,8 +3431,7 @@ func (e *Evaluator) structureQualifiedNameNamespaceOwner(namespace Element) (Val
 }
 
 func (e *Evaluator) structureQualifiedNameHasEarlierName(
-	namespace Element,
-	element Element,
+	namespace, element Element,
 	name string,
 	memberships bool,
 ) (bool, Reason, bool) {
@@ -4406,17 +4405,25 @@ func (e *Evaluator) structureGeneralWithFeature(
 	if !known || owns {
 		return Element{}, false, known
 	}
-	generals, known := e.structureGeneralTypes(owner)
+	generals, known := e.sharedGeneralTypes(owner)
 	if !known {
 		return Element{}, false, false
 	}
+	// Each general is searched from the types visited on the way here, on one reused copy.
+	var searched map[ElementKey]bool
 	for _, general := range generals {
-		has, known := e.structureHasFeature(general, feature, maps.Clone(visited))
+		if searched == nil {
+			searched = maps.Clone(visited)
+		} else {
+			clear(searched)
+			maps.Copy(searched, visited)
+		}
+		has, known := e.structureHasFeature(general.Element, feature, searched)
 		if !known {
 			return Element{}, false, false
 		}
 		if has {
-			return general, true, true
+			return general.Element, true, true
 		}
 	}
 	return Element{}, false, true
@@ -4904,7 +4911,17 @@ func (e *Evaluator) computeStructureInheritedMemberships(element Element) ([]Val
 	return e.structureRemoveRedefinedMemberships(element, inherited)
 }
 
+// structureGeneralTypes lists the types the element specializes by clause, by role, by
+// chaining and by implication, computed once per element.
 func (e *Evaluator) structureGeneralTypes(element Element) ([]Element, bool) {
+	return elementsOfValues(e.sharedGeneralTypes(element))
+}
+
+func (e *Evaluator) sharedGeneralTypes(element Element) ([]Value, bool) {
+	return e.memoizedElementValues(memoGeneralTypes, element, e.computeStructureGeneralTypes)
+}
+
+func (e *Evaluator) computeStructureGeneralTypes(element Element) ([]Element, bool) {
 	bases, ok := e.structureSpecializedGeneralTypes(element)
 	if !ok {
 		return nil, false
