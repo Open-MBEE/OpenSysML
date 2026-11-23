@@ -530,3 +530,32 @@ func TestSequenceRenderingOrdersEventsOfExposedBehavior(t *testing.T) {
 		t.Errorf("edges = %v, want the one order between the events", rendering.Edges)
 	}
 }
+
+// A layout note about an exposed action that is not shown goes with its lifeline.
+func TestSequenceRenderingDropsNotesOfBehaviorNotShown(t *testing.T) {
+	const text = `package Demo {
+	private import DiagramLayout::*;
+	private import Views::*;
+	private import StandardViewDefinitions::*;
+	action def Run {
+		first start;
+		then action step;
+	}
+	part server;
+	metadata Note about Run { text = "runs once"; x = 40; y = 120; }
+	metadata Note about server { text = "listens"; x = 40; y = 20; }
+	view calls : SequenceView { expose Run; expose server; }
+}
+`
+	r, idx := loadSources(t, []string{"inline.sysml"}, [][]byte{[]byte(text)})
+	rendering, err := r.Render(lookup(t, idx, "Demo::calls"))
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	if got := lifelineNames(rendering); !slices.Equal(got, []string{"Demo::server"}) {
+		t.Fatalf("lifelines = %v, want the part only", got)
+	}
+	if len(rendering.Notes) != 1 || rendering.Notes[0].Text != "listens" || rendering.Notes[0].Anchor != rendering.Roots[0].ID {
+		t.Errorf("notes = %+v, want the one on the part's lifeline", rendering.Notes)
+	}
+}
