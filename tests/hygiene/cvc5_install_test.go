@@ -44,16 +44,15 @@ func cvc5Zip(t *testing.T, banner string) []byte {
 	return archive.Bytes()
 }
 
-// cvc5Host is a stand-in for the release host: it drops its first `drops` connections, then serves `asset`.
+// cvc5Host is a stand-in for the release host: it drops its first connections, then serves one asset.
 type cvc5Host struct {
 	server   *httptest.Server
 	bundle   string
-	drops    int32
-	asset    []byte
 	requests atomic.Int32
 }
 
-func newCVC5Host(t *testing.T) *cvc5Host {
+// newCVC5Host takes what it serves before it listens: its handler shares only the request count with the test.
+func newCVC5Host(t *testing.T, asset []byte, drops int32) *cvc5Host {
 	t.Helper()
 	for _, tool := range []string{"curl", "unzip", "sha256sum"} {
 		if _, err := exec.LookPath(tool); err != nil {
@@ -62,13 +61,13 @@ func newCVC5Host(t *testing.T) *cvc5Host {
 	}
 	host := &cvc5Host{}
 	host.server = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		if host.requests.Add(1) <= host.drops {
+		if host.requests.Add(1) <= drops {
 			if conn, _, err := w.(http.Hijacker).Hijack(); err == nil {
 				_ = conn.Close()
 			}
 			return
 		}
-		_, _ = w.Write(host.asset)
+		_, _ = w.Write(asset)
 	}))
 	t.Cleanup(host.server.Close)
 	host.bundle = filepath.Join(t.TempDir(), "ca.pem")
@@ -93,9 +92,8 @@ func (h *cvc5Host) install(t *testing.T, pinned []byte, cache, bin string) (stri
 // TestCVC5InstallRidesOutAFailedConnection: a dropped connection is retried, the verified zip is kept,
 // and a run that has it, or has a damaged copy of it, asks the host nothing, or once.
 func TestCVC5InstallRidesOutAFailedConnection(t *testing.T) {
-	host := newCVC5Host(t)
 	pinned := cvc5Zip(t, "This is cvc5 version pinned")
-	host.asset, host.drops = pinned, 1
+	host := newCVC5Host(t, pinned, 1)
 	cache, bin := filepath.Join(t.TempDir(), "cache"), t.TempDir()
 	kept := filepath.Join(cache, "cvc5-Linux-x86_64-static.zip")
 
@@ -143,8 +141,7 @@ func TestCVC5InstallRidesOutAFailedConnection(t *testing.T) {
 // TestCVC5InstallRefusesASubstitutedAsset: a zip that is not the pinned one fails the install at
 // once, with nothing kept and nothing installed.
 func TestCVC5InstallRefusesASubstitutedAsset(t *testing.T) {
-	host := newCVC5Host(t)
-	host.asset = cvc5Zip(t, "This is cvc5 version substituted")
+	host := newCVC5Host(t, cvc5Zip(t, "This is cvc5 version substituted"), 0)
 	cache, bin := filepath.Join(t.TempDir(), "cache"), t.TempDir()
 
 	out, err := host.install(t, cvc5Zip(t, "This is cvc5 version pinned"), cache, bin)
