@@ -235,12 +235,14 @@ func identifierSource(
 	declares func(*symbols.Symbol) bool,
 	from func(*symbols.Symbol) *symbols.Symbol,
 ) *symbols.Symbol {
-	seen := make(map[*symbols.Symbol]bool)
-	for sym != nil && !seen[sym] {
+	// Chains are a few features long, so the ones passed stay on the stack.
+	var passed [8]*symbols.Symbol
+	seen := passed[:0]
+	for sym != nil && !slices.Contains(seen, sym) {
 		if declares(sym) {
 			return sym
 		}
-		seen[sym] = true
+		seen = append(seen, sym)
 		sym = from(sym)
 	}
 	return nil

@@ -205,23 +205,16 @@ type treeWalk struct {
 // qualified name, which is what an exposed element is reported by; a member
 // nested in it is named as it was declared.
 func (r *Renderer) treeNode(walk treeWalk, sym, owner *symbols.Symbol, depth int, qualified bool) *Node {
-	if walk.occurrence == "" {
-		walk.occurrence = r.notationName(sym)
-	} else {
-		walk.occurrence += "::" + localName(sym)
-	}
+	walk.occurrence = r.occurrenceName(walk.occurrence, sym)
 	var foldKey treeQueryKey
 	var representative expansionRepresentative
 	canFold := false
 	if walk.fold != nil {
 		foldKey, representative, canFold = walk.fold.representative(sym, owner, walk.path, depth, qualified)
 	}
-	var key treeQueryKey
-	if walk.query != nil {
-		key = walk.query.key(sym, owner, walk.path, qualified)
-		if previous := walk.query.node(key, depth); previous != nil {
-			return previous
-		}
+	key, previous := walk.queried(sym, owner, depth, qualified)
+	if previous != nil {
+		return previous
 	}
 	view, out := walk.view, walk.out
 	node := r.treeNodeShallow(walk, sym, owner, qualified)
@@ -247,23 +240,12 @@ func (r *Renderer) treeNode(walk treeWalk, sym, owner *symbols.Symbol, depth int
 	// A parameter is a pin of its owner's node, drawn at every depth. At the depth
 	// bound, or collapsed, an element keeps its ports and pins — they count at
 	// their owner's depth — and nothing else nested is drawn.
-	bound, cut := 0, 0
-	if walk.query != nil {
-		bound = walk.query.bound
-	} else {
-		bound = r.walkBound(view)
-	}
+	bound, cut := walk.bound(r), 0
 	folded := depth >= bound || collapsed(node)
 	skipped := false
 	foldsBefore := out.foldedOccurrences
 	insideFold := walk.insideFold
-	var members []*symbols.Symbol
-	if walk.query != nil {
-		members = walk.query.members(sym)
-	} else {
-		members = r.walkMembers(view, sym)
-	}
-	for _, member := range members {
+	for _, member := range walk.members(r, sym) {
 		if recursive != nil && member.Owner() != sym {
 			continue
 		}
@@ -294,13 +276,52 @@ func (r *Renderer) treeNode(walk treeWalk, sym, owner *symbols.Symbol, depth int
 		node.Children = append(node.Children, r.annotationChildren(walk.ids, view, sym, out)...)
 	}
 	if walk.fold != nil {
-		if skipped {
-			walk.fold.note(out, sym, node, representative)
-		} else if !insideFold && out.foldedOccurrences == foldsBefore {
-			walk.fold.remember(foldKey, depth, walk.occurrence)
-		}
+		walk.recordFold(sym, node, representative, foldKey, depth, skipped, !insideFold && out.foldedOccurrences == foldsBefore)
 	}
 	return node
+}
+
+// occurrenceName is the name of sym's occurrence under the occurrence named outer, sym's own notation name at a root.
+func (r *Renderer) occurrenceName(outer string, sym *symbols.Symbol) string {
+	if outer == "" {
+		return r.notationName(sym)
+	}
+	return outer + "::" + localName(sym)
+}
+
+// queried is sym's key in the walk's query and the node the query already drew for it at depth, if any.
+func (walk treeWalk) queried(sym, owner *symbols.Symbol, depth int, qualified bool) (treeQueryKey, *Node) {
+	if walk.query == nil {
+		return treeQueryKey{}, nil
+	}
+	key := walk.query.key(sym, owner, walk.path, qualified)
+	return key, walk.query.node(key, depth)
+}
+
+// bound is the depth the walk draws to: its query's, else the view's.
+func (walk treeWalk) bound(r *Renderer) int {
+	if walk.query != nil {
+		return walk.query.bound
+	}
+	return r.walkBound(walk.view)
+}
+
+// members is the members of sym the walk draws: its query's, else the view's.
+func (walk treeWalk) members(r *Renderer, sym *symbols.Symbol) []*symbols.Symbol {
+	if walk.query != nil {
+		return walk.query.members(sym)
+	}
+	return r.walkMembers(walk.view, sym)
+}
+
+// recordFold notes the fold of sym's node when a member was skipped, else remembers the occurrence,
+// drawn whole, as the representative of its key.
+func (walk treeWalk) recordFold(sym *symbols.Symbol, node *Node, representative expansionRepresentative, key treeQueryKey, depth int, skipped, whole bool) {
+	if skipped {
+		walk.fold.note(walk.out, sym, node, representative)
+	} else if whole {
+		walk.fold.remember(key, depth, walk.occurrence)
+	}
 }
 
 // annotationChildren are the annotation nodes of what sym declares in its body

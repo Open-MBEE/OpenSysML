@@ -106,44 +106,50 @@ func (m *Model) transitionPartsOf(sym *symbols.Symbol) *transitionParts {
 		parts.withSourceChain(sym, trans.Source)
 	}
 	if payload != nil || event != nil {
-		if payload != nil && payload.Value != nil {
-			event = payload.Value
-		}
-		// The trigger's accept is an unnamed composite action of its own (SysML.xtext
-		// TriggerActionMember); the trigger node itself is its payload or event.
-		accept := &ast.Usage{Kind: ast.UsageAction}
-		accept.NodeSpan = trans.TriggerSpan
-		parts.accepter = transitionPart(sym, accept, trans.TriggerSpan, symbols.SymbolActionUsage, sym, symbols.ExpressionTriggerAction)
-		var decl ast.Node = payload
-		if payload == nil {
-			decl = event
-		}
-		if declared := sym.Scope.MemberDeclaring(decl); payload != nil && declared != nil {
-			// A named payload is the symbol the transition's scope declares for it, owned by the accept.
-			parts.payload = declared
-		} else {
-			parts.payload = transitionPart(sym, decl, decl.Span(), symbols.SymbolReferenceUsage, parts.accepter, symbols.ExpressionPayload)
-		}
-		if event != nil {
-			parts.payloadValue = transitionPart(sym, event, event.Span(), symbols.SymbolExpression, parts.payload, symbols.ExpressionValue)
-		}
-		if trans.Via != nil {
-			// Bind the port here too, so the receiver's referent reads where no document walk ran.
-			m.resolver.ResolveReference(resolve.Reference{Scope: sym.OwnerScope, QN: trans.Via, Via: true})
-			ref := &ast.FeatureReference{Name: trans.Via}
-			ref.NodeSpan = trans.Via.Span()
-			receiver := &ast.Usage{Kind: ast.UsageAttribute, IsReference: true, Direction: ast.DirIn, Value: ref}
-			receiver.NodeSpan = trans.Via.Span()
-			parts.receiver = transitionPart(sym, receiver, receiver.NodeSpan, symbols.SymbolReferenceUsage, parts.accepter, symbols.ExpressionPayload)
-			parts.receiver.Expr.Index = 1 // the accept's second parameter, so its identity is not the payload's
-			parts.receiverValue = transitionPart(sym, ref, ref.NodeSpan, symbols.SymbolExpression, parts.receiver, symbols.ExpressionValue)
-		}
+		m.withTriggerParts(parts, sym, trans, payload, event)
 	}
 	if trans.Guard != nil {
 		parts.guard = transitionPart(sym, trans.Guard, trans.Guard.Span(), symbols.SymbolExpression, sym, symbols.ExpressionGuard)
 	}
 	m.transitionParts[sym] = parts
 	return parts
+}
+
+// withTriggerParts adds to parts the accept a transition's trigger declares, with its payload, the
+// payload's value and its receiver.
+func (m *Model) withTriggerParts(parts *transitionParts, sym *symbols.Symbol, trans *ast.TransitionMember, payload *ast.Usage, event ast.Node) {
+	if payload != nil && payload.Value != nil {
+		event = payload.Value
+	}
+	// The trigger's accept is an unnamed composite action of its own (SysML.xtext
+	// TriggerActionMember); the trigger node itself is its payload or event.
+	accept := &ast.Usage{Kind: ast.UsageAction}
+	accept.NodeSpan = trans.TriggerSpan
+	parts.accepter = transitionPart(sym, accept, trans.TriggerSpan, symbols.SymbolActionUsage, sym, symbols.ExpressionTriggerAction)
+	var decl ast.Node = payload
+	if payload == nil {
+		decl = event
+	}
+	if declared := sym.Scope.MemberDeclaring(decl); payload != nil && declared != nil {
+		// A named payload is the symbol the transition's scope declares for it, owned by the accept.
+		parts.payload = declared
+	} else {
+		parts.payload = transitionPart(sym, decl, decl.Span(), symbols.SymbolReferenceUsage, parts.accepter, symbols.ExpressionPayload)
+	}
+	if event != nil {
+		parts.payloadValue = transitionPart(sym, event, event.Span(), symbols.SymbolExpression, parts.payload, symbols.ExpressionValue)
+	}
+	if trans.Via != nil {
+		// Bind the port here too, so the receiver's referent reads where no document walk ran.
+		m.resolver.ResolveReference(resolve.Reference{Scope: sym.OwnerScope, QN: trans.Via, Via: true})
+		ref := &ast.FeatureReference{Name: trans.Via}
+		ref.NodeSpan = trans.Via.Span()
+		receiver := &ast.Usage{Kind: ast.UsageAttribute, IsReference: true, Direction: ast.DirIn, Value: ref}
+		receiver.NodeSpan = trans.Via.Span()
+		parts.receiver = transitionPart(sym, receiver, receiver.NodeSpan, symbols.SymbolReferenceUsage, parts.accepter, symbols.ExpressionPayload)
+		parts.receiver.Expr.Index = 1 // the accept's second parameter, so its identity is not the payload's
+		parts.receiverValue = transitionPart(sym, ref, ref.NodeSpan, symbols.SymbolExpression, parts.receiver, symbols.ExpressionValue)
+	}
 }
 
 // withSuccession synthesizes the succession trans owns for `then target` (SysML.xtext TransitionSuccession), read

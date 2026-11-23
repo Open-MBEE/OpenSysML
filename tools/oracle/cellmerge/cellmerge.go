@@ -49,32 +49,9 @@ func Merge(base, ours, theirs []byte) (*Result, error) {
 		return nil, err
 	}
 	result := &Result{}
-	var merged []line
-	placed := make(map[string]bool)
-	emit := func(l line) {
-		merged = append(merged, l)
-		placed[l.key] = true
-	}
 	// Ours gives the order; a line theirs added follows the line it follows in theirs.
-	after := make(map[string][]line)
-	previous := ""
-	for _, l := range t {
-		if _, ok := inOurs[l.key]; !ok {
-			if _, ok := inBase[l.key]; !ok {
-				after[previous] = append(after[previous], l)
-				continue
-			}
-		}
-		previous = l.key
-	}
-	var follow func(key string)
-	follow = func(key string) {
-		for _, l := range after[key] {
-			emit(l)
-			follow(l.key)
-		}
-	}
-	follow("")
+	m := &merging{placed: make(map[string]bool), after: addedAfter(t, inBase, inOurs)}
+	m.follow("")
 	for _, l := range o {
 		theirLine, theirsHas := inTheirs[l.key]
 		baseLine, baseHas := inBase[l.key]
@@ -85,12 +62,12 @@ func Merge(base, ours, theirs []byte) (*Result, error) {
 			if summed {
 				result.Summed = append(result.Summed, l.text())
 			}
-			emit(l)
+			m.emit(l)
 		case theirsHas:
 			if !equal(l.counts, theirLine.counts) {
 				return nil, &Conflict{Reason: fmt.Sprintf("both sides added %q with different counts", l.text())}
 			}
-			emit(l)
+			m.emit(l)
 		case baseHas:
 			// Theirs removed the line: the removal stands unless ours moved a count on it.
 			if !equal(l.counts, baseLine.counts) {
@@ -98,30 +75,15 @@ func Merge(base, ours, theirs []byte) (*Result, error) {
 			}
 			continue
 		default:
-			emit(l)
+			m.emit(l)
 		}
-		follow(l.key)
+		m.follow(l.key)
 	}
-	for _, l := range t {
-		if placed[l.key] {
-			continue
-		}
-		if _, ok := inOurs[l.key]; ok {
-			continue
-		}
-		baseLine, ok := inBase[l.key]
-		if !ok {
-			// Added by theirs after a line ours removed: it has no neighbour left to follow.
-			emit(l)
-			continue
-		}
-		// Ours removed a line theirs still has: the removal stands unless theirs moved it.
-		if !equal(l.counts, baseLine.counts) {
-			return nil, &Conflict{Reason: fmt.Sprintf("one side removed %q and the other moved its counts", baseLine.text())}
-		}
+	if err := m.leftover(t, inBase, inOurs); err != nil {
+		return nil, err
 	}
 	var out strings.Builder
-	for _, l := range merged {
+	for _, l := range m.merged {
 		out.WriteString(l.text())
 		out.WriteByte('\n')
 	}
@@ -131,6 +93,66 @@ func Merge(base, ours, theirs []byte) (*Result, error) {
 	}
 	result.Content = []byte(content)
 	return result, nil
+}
+
+// merging is the merged file under construction: the lines placed so far and the lines theirs
+// added, by the key of the line each follows.
+type merging struct {
+	merged []line
+	placed map[string]bool
+	after  map[string][]line
+}
+
+func (m *merging) emit(l line) {
+	m.merged = append(m.merged, l)
+	m.placed[l.key] = true
+}
+
+// follow places the lines theirs added after key, each followed by its own.
+func (m *merging) follow(key string) {
+	for _, l := range m.after[key] {
+		m.emit(l)
+		m.follow(l.key)
+	}
+}
+
+// addedAfter lists the lines theirs added, by the key of the line each follows in theirs ("" at the top).
+func addedAfter(theirs []line, inBase, inOurs map[string]line) map[string][]line {
+	after := make(map[string][]line)
+	previous := ""
+	for _, l := range theirs {
+		if _, ok := inOurs[l.key]; !ok {
+			if _, ok := inBase[l.key]; !ok {
+				after[previous] = append(after[previous], l)
+				continue
+			}
+		}
+		previous = l.key
+	}
+	return after
+}
+
+// leftover settles the lines of theirs that ours does not have and nothing placed.
+func (m *merging) leftover(t []line, inBase, inOurs map[string]line) error {
+	for _, l := range t {
+		if m.placed[l.key] {
+			continue
+		}
+		if _, ok := inOurs[l.key]; ok {
+			continue
+		}
+		baseLine, ok := inBase[l.key]
+		if !ok {
+			// Added by theirs after a line ours removed: it has no neighbour left to follow.
+			m.emit(l)
+			continue
+		}
+		// Ours removed a line theirs still has: the removal stands unless theirs moved it.
+		if !equal(l.counts, baseLine.counts) {
+			return &Conflict{Reason: fmt.Sprintf("one side removed %q and the other moved its counts", baseLine.text())}
+		}
+	}
+	return nil
 }
 
 // replacedByBoth refuses a place where both sides dropped a line of base and each wrote its own

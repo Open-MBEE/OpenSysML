@@ -1265,7 +1265,12 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 	if ctx.valueBinds(fv.Feature) && !(fv.Feature.YieldsToBinding && ctx.bindingDeclaredFor(inst, name)) {
 		return inst.materializeDerived(ctx, fv, name)
 	}
+	return inst.materializeUnvalued(ctx, fv, name, open)
+}
 
+// materializeUnvalued is materializeIntrinsic for a feature no value of its own populates: it holds
+// what the model contributes to it, else the objects or values its declaration gives it.
+func (inst *Instance) materializeUnvalued(ctx *Context, fv *FeatureValue, name string, open *openPopulation) (*FeatureValue, error) {
 	// A collection an optional feature subsets fills its objects: it is read first.
 	if err := ctx.materializeSubsettedCollections(inst, fv); err != nil {
 		return nil, err

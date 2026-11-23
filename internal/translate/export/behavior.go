@@ -1114,34 +1114,9 @@ func (e *encoder) edgeEnds(subject rdf.Term, node ast.Node, owner string, src, t
 	}
 	for _, end := range ends {
 		if qualifiedText(end.end.name) == "" {
-			if _, done := end.end.member.(*ast.FinalNode); done {
-				// `then done;` reaches the library's Actions::Action::done
-				// feature, which an explicit succession end names outright.
-				e.graph.Add(subject, e.sysml(end.feature), e.doneReference(node))
-				e.graph.Add(subject, e.sysml(end.related), e.doneReference(node))
-				continue
+			if err := e.unnamedEdgeEnd(subject, node, end.end, end.feature, end.related, end.member, end.sequence); err != nil {
+				return err
 			}
-			fqn, ok := e.names.FQN[end.end.member]
-			if !ok {
-				return &UnsupportedError{
-					What: fmt.Sprintf("the succession at %s", e.where(node)),
-					Note: fmt.Sprintf("it neither names nor reaches the member it %s, so the order it declares cannot be written back", end.sequence),
-				}
-			}
-			member := e.ids.subjectForNode(end.end.member, fqn)
-			e.graph.Add(subject, e.sysx(end.member), member)
-			// The feature it reaches is the end's feature and the relationship's source or target too, as for a
-			// named one (KerML 8.3.4.5.1): the member, or the action a subaction (a StateSubactionMembership) performs.
-			element := member
-			if action := performedSubaction(end.end.member); action != nil {
-				actionFQN, ok := e.names.FQN[action]
-				if !ok {
-					actionFQN = naming.Qualify(fqn, e.names.EffectiveName(action), 0)
-				}
-				element = e.ids.subjectForNode(action, actionFQN)
-			}
-			e.graph.Add(subject, e.sysml(end.feature), element)
-			e.graph.Add(subject, e.sysml(end.related), element)
 			continue
 		}
 		// A name the parser took from an unnamed member is its naming feature's,
@@ -1166,6 +1141,40 @@ func (e *encoder) edgeEnds(subject rdf.Term, node ast.Node, owner string, src, t
 			}
 		}
 	}
+	return nil
+}
+
+// unnamedEdgeEnd writes a succession's end that names no member: the member it reaches by position,
+// or the library's done feature for `then done;`.
+func (e *encoder) unnamedEdgeEnd(subject rdf.Term, node ast.Node, end edgeEnd, feature, related, memberSlot, sequence string) error {
+	if _, done := end.member.(*ast.FinalNode); done {
+		// `then done;` reaches the library's Actions::Action::done
+		// feature, which an explicit succession end names outright.
+		e.graph.Add(subject, e.sysml(feature), e.doneReference(node))
+		e.graph.Add(subject, e.sysml(related), e.doneReference(node))
+		return nil
+	}
+	fqn, ok := e.names.FQN[end.member]
+	if !ok {
+		return &UnsupportedError{
+			What: fmt.Sprintf("the succession at %s", e.where(node)),
+			Note: fmt.Sprintf("it neither names nor reaches the member it %s, so the order it declares cannot be written back", sequence),
+		}
+	}
+	member := e.ids.subjectForNode(end.member, fqn)
+	e.graph.Add(subject, e.sysx(memberSlot), member)
+	// The feature it reaches is the end's feature and the relationship's source or target too, as for a
+	// named one (KerML 8.3.4.5.1): the member, or the action a subaction (a StateSubactionMembership) performs.
+	element := member
+	if action := performedSubaction(end.member); action != nil {
+		actionFQN, ok := e.names.FQN[action]
+		if !ok {
+			actionFQN = naming.Qualify(fqn, e.names.EffectiveName(action), 0)
+		}
+		element = e.ids.subjectForNode(action, actionFQN)
+	}
+	e.graph.Add(subject, e.sysml(feature), element)
+	e.graph.Add(subject, e.sysml(related), element)
 	return nil
 }
 
