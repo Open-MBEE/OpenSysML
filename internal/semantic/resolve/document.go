@@ -346,7 +346,7 @@ func (r *Resolver) resolveBehaviorDecl(scope *symbols.Scope, decl ast.Node) bool
 		// than at lowering, which consumes what this resolved.
 		// The guard, effect and body resolve against the parameters the
 		// transition's call trigger declares, which live in a scope of their own.
-		r.ResolveEndpoint(scope, d.Source)
+		r.ResolveTransitionSource(scope, d)
 		r.ResolveEndpoint(scope, d.Target)
 		r.resolveTrigger(scope, d.Trigger)
 		if d.Via != nil {
@@ -492,34 +492,6 @@ func (r *Resolver) resolveTrigger(scope *symbols.Scope, trigger ast.Node) {
 	default:
 		r.resolveExpr(scope, trigger)
 	}
-}
-
-// ParameterizedByName reports whether sym is a case or requirement — including
-// a concern or viewpoint, which are requirements — whose subject, actors and
-// stakeholders redefine the inherited ones by name (SysML 7.18.4, 7.19.4). That
-// is not modelled and not distinguishable from an ordinary feature here, so the
-// conflict rule skips such a body entirely.
-func ParameterizedByName(sym *symbols.Symbol) bool {
-	if sym.Recorded() {
-		return sym.Facts.Modifiers.Has(symbols.ModParameterizedByName)
-	}
-	switch decl := sym.Decl.(type) {
-	case *ast.Usage:
-		switch decl.Kind {
-		case ast.UsageRequirement, ast.UsageSatisfy, ast.UsageConcern,
-			ast.UsageFramedConcern, ast.UsageViewpoint,
-			ast.UsageCase, ast.UsageAnalysisCase,
-			ast.UsageVerificationCase, ast.UsageUseCase:
-			return true
-		}
-	case *ast.Definition:
-		switch decl.Kind {
-		case ast.DefRequirement, ast.DefConcern, ast.DefViewpoint, ast.DefCase,
-			ast.DefAnalysisCase, ast.DefVerificationCase, ast.DefUseCase:
-			return true
-		}
-	}
-	return false
 }
 
 // childScope finds the child scope whose node is decl.
@@ -1173,9 +1145,6 @@ func (r *Resolver) resolveRedefinition(scope *symbols.Scope, qn *ast.QualifiedNa
 	}
 
 	parents := r.generalsOf(scope.Owner())
-	if def, ok := ownerNode.(*ast.Definition); ok {
-		parents = append(parents, r.findImplicitSpecializations(scope, def)...)
-	}
 
 	if len(qn.Parts) == 1 {
 		featureName := qn.Parts[0].Text
@@ -1390,6 +1359,12 @@ func (r *Resolver) findGeneralizationTargets(sym *symbols.Symbol, rels []*ast.Re
 		default:
 			continue
 		}
+		// A general named through the feature itself (`:> f.g` on f) is read
+		// through f's other generals, not through this relationship again.
+		if _, busy := r.generalizing[rel]; busy {
+			continue
+		}
+		r.generalizing[rel] = struct{}{}
 		scope := r.relationshipScope(sym.OwnerScope, sym.Scope, rel)
 		target := rel.Target
 		if fr, ok := target.(*ast.FeatureReference); ok {
@@ -1419,6 +1394,7 @@ func (r *Resolver) findGeneralizationTargets(sym *symbols.Symbol, rels []*ast.Re
 				add(found)
 			}
 		}
+		delete(r.generalizing, rel)
 	}
 	return parents
 }
@@ -1470,59 +1446,6 @@ func (r *Resolver) findFeaturedByTargets(sym *symbols.Symbol, rels []*ast.Relati
 			}
 		}
 	}
-	return parents
-}
-
-// ownedEndCount counts the `end` features def declares in its body.
-func ownedEndCount(def *ast.Definition) int {
-	n := 0
-	for _, member := range def.Members {
-		if mb, ok := member.(*ast.Membership); ok {
-			member = mb.Member
-		}
-		if u, ok := member.(*ast.Usage); ok && u.IsEnd {
-			n++
-		}
-	}
-	return n
-}
-
-// findImplicitSpecializations returns implicit base types for a definition based on its kind.
-// For example, 'flow def' implicitly specializes 'MessageAction' from the systems library.
-func (r *Resolver) findImplicitSpecializations(scope *symbols.Scope, def *ast.Definition) []*symbols.Symbol {
-	var parents []*symbols.Symbol
-
-	// Map definition kind to base type FQN
-	var baseFQN string
-	switch def.Kind {
-	case ast.DefPart:
-		baseFQN = "Parts::Part"
-	case ast.DefItem:
-		baseFQN = "Items::Item"
-	case ast.DefFlow:
-		baseFQN = "Flows::MessageAction"
-		if ownedEndCount(def) == 2 {
-			baseFQN = "Flows::Message"
-		}
-	case ast.DefConnection:
-		baseFQN = "Connections::Connection"
-	case ast.DefInterface:
-		baseFQN = "Interfaces::Interface"
-	case ast.DefAllocation:
-		baseFQN = "Allocations::Allocation"
-	// Add more as needed
-	default:
-		return nil
-	}
-
-	// Look up base type in index
-	if r.idx != nil {
-		candidates := r.idx.LookupQualified(baseFQN)
-		if len(candidates) == 1 {
-			parents = append(parents, candidates[0])
-		}
-	}
-
 	return parents
 }
 
@@ -1925,6 +1848,18 @@ func (r *Resolver) getOperandSymbol(scope *symbols.Scope, e ast.Node) *symbols.S
 		}
 		r.resolveExpr(scope, v.Index)
 		return r.getOperandSymbol(scope, v.Operand)
+	case *ast.CastExpr:
+		// `(as T).f` reads f as a member of T, the type its operand is cast to
+		// (KerML 8.2.5.8.1: a FeatureChainMember names a member of the result).
+		r.resolveExpr(scope, e)
+		if v.TargetType == nil {
+			return nil
+		}
+		sym, ok := r.ResolveQualified(scope, v.TargetType)
+		if !ok {
+			return nil
+		}
+		return sym
 	default:
 		r.resolveExpr(scope, e)
 		return nil

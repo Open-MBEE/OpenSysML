@@ -196,7 +196,7 @@ func (r *Resolver) admitsUnderName(doc, from, fqn string, cand *symbols.Symbol) 
 	if !r.idx.ReexportVisible(doc, fqn, cand) {
 		return false
 	}
-	routed, admitted := r.idx.EachReexportGate(doc, fqn, cand, from, func(route []symbols.ElementFilter) bool {
+	routed, admitted := r.idx.EachReexportGate(doc, fqn, cand, from, r.excludedNamespaces(), func(route []symbols.ElementFilter) bool {
 		return r.admits(route, cand)
 	})
 	return !routed || admitted
@@ -291,6 +291,12 @@ func (r *Resolver) ImportedElements(scope *symbols.Scope, imp *ast.Import) []*sy
 	return r.withoutHiddenMembers(scope, r.importedMembersInto(scope, scope, imp, false), true)
 }
 
+// ImportedMemberships is ImportedElements with the unnamed members and the aliases
+// imp surfaces: every membership it brings into scope, named or not.
+func (r *Resolver) ImportedMemberships(scope *symbols.Scope, imp *ast.Import) []*symbols.Symbol {
+	return r.withoutHiddenMembers(scope, r.importedMembersInto(scope, scope, imp, true), true)
+}
+
 // ImportedElementsInto enumerates the elements imp, declared in scope, surfaces
 // into the namespace owning into, which inherits it: an inherited `expose` is
 // admitted against the inheriting view's conditions too (see importAdmitsInto).
@@ -317,6 +323,7 @@ type enumEdge struct {
 type keptMembers struct {
 	members []*symbols.Symbol
 	reads   *readCapture
+	route   routeDeps
 }
 
 type enumResult struct {
@@ -351,8 +358,9 @@ func (r *Resolver) importedMembersAdmitting(into, scope *symbols.Scope, imp *ast
 		return nil
 	}
 	key := enumResult{into: into, scope: scope, imp: imp, unnamed: includeUnnamed}
-	if kept, done := r.enumResults[key]; done && r.inCondition == 0 {
+	if kept, done := r.enumResults[key]; done && r.inCondition == 0 && r.routeHolds(kept.route, true) {
 		kept.reads.replay(r)
+		r.replayRoute(kept.route)
 		return kept.members
 	}
 	r.enumDepth++
@@ -363,17 +371,23 @@ func (r *Resolver) importedMembersAdmitting(into, scope *symbols.Scope, imp *ast
 		}
 	}()
 	cut := r.enumCut
+	mark := r.markRoute()
 	var members []*symbols.Symbol
 	reads := r.capturing(func() {
-		members = r.enumerateImported(scope, imp, includeUnnamed, admission)
+		r.reading(scope, func() {
+			members = r.enumerateImported(scope, imp, includeUnnamed, admission)
+		})
 	})
-	if r.enumCut == cut && len(r.resolvingImports) == 0 && r.inCondition == 0 && r.settled() {
+	// An answer cut at a namespace the route excludes is that route's alone.
+	route := r.routeDepsSince(mark, scope)
+	if r.enumCut == cut && len(route.cut) == 0 && len(r.resolvingImports) == 0 && r.inCondition == 0 && r.settled() {
 		journalNew(r, r.enumResults, key, imp)
-		r.enumResults[key] = keptMembers{members: members, reads: reads}
+		r.enumResults[key] = keptMembers{members: members, reads: reads, route: route}
 	}
 	return members
 }
 
+// enumerateImported lists what imp of scope brings, scope's namespace excluded.
 func (r *Resolver) enumerateImported(scope *symbols.Scope, imp *ast.Import, includeUnnamed bool, admission func() func(*symbols.Symbol) bool) []*symbols.Symbol {
 	target, ok := r.resolveImportTarget(scope, imp)
 	if !ok || target == nil {
@@ -392,7 +406,15 @@ func (r *Resolver) enumerateImported(scope *symbols.Scope, imp *ast.Import, incl
 		if admit(target) {
 			out.add(named)
 		}
+		// A recursive import of an excluded namespace is of the membership alone (KerML 8.3.2.4.6).
+		if imp.IsRecursive && !r.entersNamespace(target.Scope) {
+			return out.elems
+		}
 	} else {
+		// An import of an excluded namespace brings nothing (KerML 8.3.2.4.6).
+		if !r.entersNamespace(target.Scope) {
+			return nil
+		}
 		r.appendNamespaceMembers(out, target, imp, admit, includeUnnamed)
 	}
 	if imp.IsRecursive {
@@ -459,39 +481,59 @@ func (r *Resolver) declaredChildren(target *symbols.Symbol, imp *ast.Import, inc
 		}
 	}
 	imported := false
-	for _, childImp := range r.scopeImports(target.Scope) {
-		if !importAllowsPrivate(imp) && !r.importVisibleFrom(target, nil, childImp) {
-			continue
-		}
-		if r.importStack[childImp] {
-			r.enumCut++
-			continue
-		}
-		edge := enumEdge{imp: childImp, unnamed: includeUnnamed}
-		members, done := r.enumMembers[edge]
-		if kept, had := r.enumKept[edge]; !done && had && r.inCondition == 0 {
-			kept.reads.replay(r)
-			members, done = kept.members, true
-		}
-		if !done {
-			cut := r.enumCut
-			r.importStack[childImp] = true
-			reads := r.capturing(func() {
-				members = r.importedMembersInto(target.Scope, target.Scope, childImp, includeUnnamed)
-			})
-			delete(r.importStack, childImp)
-			r.enumMembers[edge] = members
-			if r.enumCut == cut && len(r.resolvingImports) == 0 && r.inCondition == 0 && r.settled() {
-				journalNew(r, r.enumKept, edge, childImp)
-				r.enumKept[edge] = keptMembers{members: members, reads: reads}
+	r.reading(target.Scope, func() {
+		for _, childImp := range r.scopeImports(target.Scope) {
+			if !importAllowsPrivate(imp) && !r.importVisibleFrom(target, nil, childImp) {
+				continue
 			}
+			if r.importStack[childImp] {
+				r.enumCut++
+				continue
+			}
+			members := r.edgeMembers(target.Scope, childImp, includeUnnamed)
+			for _, sym := range members {
+				children.add(sym)
+			}
+			imported = imported || len(members) > 0
 		}
-		for _, sym := range members {
-			children.add(sym)
-		}
-		imported = imported || len(members) > 0
-	}
+	})
 	return imported
+}
+
+// edgeMembers lists what childImp of scope brings on the route in progress,
+// from the enumeration's memo or the kept answers where one holds on it.
+func (r *Resolver) edgeMembers(scope *symbols.Scope, childImp *ast.Import, includeUnnamed bool) []*symbols.Symbol {
+	edge := enumEdge{imp: childImp, unnamed: includeUnnamed}
+	for _, kept := range r.enumMembers[edge] {
+		if r.routeHolds(kept.route, true) {
+			r.replayRoute(kept.route)
+			return kept.members
+		}
+	}
+	if kept, had := r.enumKept[edge]; had && r.inCondition == 0 && r.routeHolds(kept.route, true) {
+		kept.reads.replay(r)
+		r.replayRoute(kept.route)
+		return kept.members
+	}
+	cut := r.enumCut
+	mark := r.markRoute()
+	var members []*symbols.Symbol
+	r.importStack[childImp] = true
+	reads := r.capturing(func() {
+		members = r.importedMembersInto(scope, scope, childImp, includeUnnamed)
+	})
+	delete(r.importStack, childImp)
+	route := r.routeDepsSince(mark, scope)
+	// An answer cut at an import in progress is this read's alone.
+	if r.enumCut != cut {
+		return members
+	}
+	r.enumMembers[edge] = append(r.enumMembers[edge], keptMembers{members: members, route: route})
+	if len(route.cut) == 0 && len(r.resolvingImports) == 0 && r.inCondition == 0 && r.settled() {
+		journalNew(r, r.enumKept, edge, childImp)
+		r.enumKept[edge] = keptMembers{members: members, reads: reads, route: route}
+	}
+	return members
 }
 
 // reexportedUnder reports whether the index entry sym under prefix is a
@@ -551,11 +593,14 @@ func (r *Resolver) appendSubtree(out *elementList, target *symbols.Symbol, imp *
 			out.add(sym)
 		}
 	}
-	for _, sym := range children {
-		if r.ownsMember(target, sym) {
-			r.appendSubtree(out, sym, imp, admit, seen, includeUnnamed)
+	// The owned namespaces are read with this one excluded (KerML 8.3.2.4.5).
+	r.reading(target.Scope, func() {
+		for _, sym := range children {
+			if r.ownsMember(target, sym) {
+				r.appendSubtree(out, sym, imp, admit, seen, includeUnnamed)
+			}
 		}
-	}
+	})
 }
 
 // ownsMember reports whether target declares sym: a recursive import descends

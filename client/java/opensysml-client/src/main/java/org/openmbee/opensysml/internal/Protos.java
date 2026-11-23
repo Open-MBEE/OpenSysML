@@ -653,7 +653,14 @@ public final class Protos {
               values,
               present(property.getUnsupported())));
     }
-    return new ElementProperties(elementRef(response.getElement()), properties);
+    List<ElementProperties.ExcludedDocument> excluded =
+        new ArrayList<>(response.getExcludedDocumentsCount());
+    for (org.openmbee.opensysml.proto.ExcludedDocument document :
+        response.getExcludedDocumentsList()) {
+      excluded.add(
+          new ElementProperties.ExcludedDocument(document.getDocument(), document.getError()));
+    }
+    return new ElementProperties(elementRef(response.getElement()), properties, excluded);
   }
 
   private static ElementRef elementRef(org.openmbee.opensysml.proto.ElementRef reference) {
@@ -2766,7 +2773,7 @@ public final class Protos {
       }
       rows.add(documentRow(row.getElement(), cells));
     }
-    return new DocumentQueryResult(columns, rows);
+    return new DocumentQueryResult(columns, rows, response.getResultView());
   }
 
   private static DocumentRow documentRow(

@@ -552,7 +552,7 @@ func firstBlocking(diagnostics []diag.Diagnostic) *diag.Diagnostic {
 // since an element the parser could not read is an element no view exposes.
 // The diagnostic and doc are of one reading, so the position is of the text rendered.
 func analysisNotice(name string, doc *model.Document, d diag.Diagnostic) string {
-	at := spanToRange(doc.Content, d.Span).Start
+	at := positionsOf(doc).position(d.Span.Offset)
 	return fmt.Sprintf("%s did not analyse cleanly; nothing was rendered: %d:%d: %s",
 		filepath.Base(name), at.Line+1, at.Character+1, d.Message)
 }

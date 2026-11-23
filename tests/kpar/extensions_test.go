@@ -145,7 +145,7 @@ func loadedFromInstall(t *testing.T, report repl.LoadReport, install string, uni
 	}
 }
 
-// The install answering the repository IRI's usage loads its seventeen packages, linked by publisher
+// The install answering the repository IRI's usage loads its eighteen packages, linked by publisher
 // and name (elimination or ambiguity would warn), as a directory and as the archive of the same tree.
 func TestExtensionsLibraryInstallIsLinkedByNameAndLoadsItsPackages(t *testing.T) {
 	tree := extensionsProject(t, "")

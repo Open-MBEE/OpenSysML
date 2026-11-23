@@ -25,7 +25,7 @@ type ConvertInput struct {
 	OmitDerived             bool     `json:"omitDerived,omitempty" jsonschema:"with compact: leave out every derived property of the metamodel except keepDerived"`
 	KeepDerived             []string `json:"keepDerived,omitempty" jsonschema:"with omitDerived: the derived properties still written, as owner or qualifiedName"`
 	IncludeLibraryStubs     bool     `json:"includeLibraryStubs,omitempty" jsonschema:"for api-json: include ownerless standard-library stubs for legacy readers; off by default"`
-	InheritedMembers        bool     `json:"inheritedMembers,omitempty" jsonschema:"for api-json: also write the derived lists that repeat each Namespace's and Type's inherited and imported members (membership, member, inheritedMembership, featureMembership, feature, inheritedFeature); off by default, when an element carries its owned structure"`
+	InheritedMembers        bool     `json:"inheritedMembers,omitempty" jsonschema:"for api-json: also write the derived lists that repeat each Namespace's and Type's inherited and imported members (membership, member, inheritedMembership, importedMembership, featureMembership, feature, inheritedFeature); off by default, when an element carries its owned structure"`
 	IncludeCheckDiagnostics bool     `json:"includeCheckDiagnostics,omitempty" jsonschema:"notation sources: report the semantic check's diagnostics alongside the output, each with its severity and code as parse reports them; off, only syntax errors are reported"`
 }
 

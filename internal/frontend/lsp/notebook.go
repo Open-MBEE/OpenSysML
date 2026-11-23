@@ -172,10 +172,7 @@ func (d *notebookDocument) changed(version int32, change protocol.NotebookDocume
 		if cell == nil || cell.content == nil {
 			continue
 		}
-		content := bytes.Clone(cell.content)
-		for _, ch := range text.Changes {
-			content = applyContentChange(content, ch)
-		}
+		content := applyContentChanges(bytes.Clone(cell.content), text.Changes)
 		cell.content, cell.version = content, text.Document.Version
 	}
 	next.compose()

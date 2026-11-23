@@ -162,6 +162,15 @@ func TestNightlyReleasesAreAlwaysPrereleasesNeverLatest(t *testing.T) {
 	if needs := alias.needs(); !slices.Contains(needs, "publish") {
 		t.Errorf("the alias job needs %v, not the publish job whose release it copies", needs)
 	}
+	// A registry upload that fails must leave the alias, and the nights pruning would delete, where they were.
+	for _, registry := range []string{"pypi", "npm"} {
+		if needs := alias.needs(); !slices.Contains(needs, registry) {
+			t.Errorf("the alias job needs %v, not the %s job, so the alias moves to a night whose client did not publish", needs, registry)
+		}
+	}
+	if alias.If != "" {
+		t.Errorf("the alias job runs if %q, which can let it run past a failed job it needs", alias.If)
+	}
 	uploaded, released := -1, -1
 	for i, step := range publish.Steps {
 		if strings.HasPrefix(step.Uses, "actions/upload-artifact@") {

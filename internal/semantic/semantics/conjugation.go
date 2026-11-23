@@ -409,7 +409,7 @@ func (m *Model) interfaceFlows(sym *symbols.Symbol) []*symbols.Symbol {
 		}
 		return true
 	}
-	for _, owner := range append([]*symbols.Symbol{sym}, m.AllSupertypes(sym)...) {
+	for owner := range m.eachSelfAndSupertype(sym) {
 		if owner.Scope == nil {
 			continue
 		}

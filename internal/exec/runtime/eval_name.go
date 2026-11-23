@@ -353,11 +353,11 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName, unset *symbols.Sym
 // resolvedWithoutValue reads a name that resolves to sym but no value: undetermined
 // at model level, uninitialized (not unresolved) when an object features it.
 func (ec *EvalContext) resolvedWithoutValue(sym *symbols.Symbol, qn *ast.QualifiedName) (Value, error) {
-	return ec.withoutValue(sym, qualifiedNameToString(qn), qn)
+	return ec.withoutValue(sym, qualifiedNameToString(qn))
 }
 
 // withoutValue reads sym, spelled as written, when it binds no value.
-func (ec *EvalContext) withoutValue(sym *symbols.Symbol, spelled string, qn *ast.QualifiedName) (Value, error) {
+func (ec *EvalContext) withoutValue(sym *symbols.Symbol, spelled string) (Value, error) {
 	// Definitions are types, not values.
 	if declaresType(sym) {
 		return Value{}, fmt.Errorf("cannot evaluate definition %s", spelled)

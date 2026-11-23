@@ -2,6 +2,7 @@
 package queryexec
 
 import (
+	"math"
 	"strconv"
 	"strings"
 
@@ -131,6 +132,10 @@ func constantValue(constant semantics.Value) (Value, bool) {
 	case semantics.ValBool:
 		return BooleanValue(constant.Bool), true
 	case semantics.ValInfinity:
+		// ValueInfinity is the unbounded `*`; `-*` is the Real below every other.
+		if constant.IsNegativeInfinity() {
+			return RealValue(math.Inf(-1)), true
+		}
 		return Value{kind: ValueInfinity}, true
 	default:
 		return Value{}, false
@@ -218,6 +223,55 @@ func (v Value) Integer() (int64, bool) {
 // integer value.
 func (v Value) IntegerConst() (semantics.Value, bool) { return v.integer, v.kind == ValueInteger }
 
+// ValueText renders one typed value as plain, unescaped text: an element by the name
+// names gives it, by its qualified name when names is nil.
+func ValueText(value Value, names func(*symbols.Symbol) string) string {
+	if element, ok := value.Element(); ok {
+		if names == nil {
+			return symbols.FQNOf(element)
+		}
+		return names(element)
+	}
+	if _, label, ok := value.Object(); ok {
+		return label
+	}
+	if _, _, ok := value.ConnectorEnd(); ok {
+		return value.Label()
+	}
+	if verdict, ok := value.Verdict(); ok {
+		return verdict.Summary()
+	}
+	if state, ok := value.State(); ok {
+		return state.Label()
+	}
+	if event, ok := value.Event(); ok {
+		return event.Summary()
+	}
+	if text, ok := value.String(); ok {
+		return text
+	}
+	if integer, ok := value.IntegerConst(); ok {
+		return integer.FormatInt()
+	}
+	if rational, ok := value.Rational(); ok {
+		return RationalText(rational)
+	}
+	if realVal, ok := value.Real(); ok {
+		return strconv.FormatFloat(realVal, 'g', -1, 64)
+	}
+	if boolean, ok := value.Boolean(); ok {
+		return strconv.FormatBool(boolean)
+	}
+	if value.Kind() == ValueInfinity {
+		return "*"
+	}
+	if quantity, ok := value.Quantity(); ok {
+		magnitude, _ := value.Magnitude()
+		return quantity.TextWithMagnitude(ValueText(magnitude, names))
+	}
+	return ""
+}
+
 // RationalText spells an exact Rational as a document spells a number: a terminating
 // one in decimal, as strconv's shortest 'g' form spells a Real, else `numer/denom`.
 func RationalText(value semantics.Value) string {
@@ -246,6 +300,9 @@ func (v Value) Text(identity func(*symbols.Symbol) string) (string, bool) {
 	case ValueRational:
 		return RationalText(v.integer), true
 	case ValueReal:
+		if math.IsInf(v.real, 0) {
+			return semantics.FormatConst(semantics.ExtendedReal(v.real)), true
+		}
 		return strconv.FormatFloat(v.real, 'g', -1, 64), true
 	case ValueBoolean:
 		return strconv.FormatBool(v.boolean), true

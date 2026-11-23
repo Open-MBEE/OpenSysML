@@ -1394,14 +1394,14 @@ func (s *tokenStep) decide() {
 		}
 		picked := and(anyHolds, eq(s.travel, edgeValue(e.Sorts, f, out[p])))
 		branches = append(branches, and(eq(s.travel, edgeValue(e.Sorts, f, out[p])), holds[q]))
-		s.terms = append(s.terms, implies(picked, s.arrive(p, picked)))
+		s.terms = append(s.terms, implies(picked, s.arrive(p)))
 		q++
 	}
 	if len(branches) > 0 {
 		s.terms = append(s.terms, implies(anyHolds, or(branches...)))
 	}
 	if unguarded >= 0 {
-		s.terms = append(s.terms, implies(not(anyHolds), s.arrive(unguarded, not(anyHolds))))
+		s.terms = append(s.terms, implies(not(anyHolds), s.arrive(unguarded)))
 	} else {
 		s.terms = append(s.terms, implies(not(anyHolds), s.stay()))
 		undefined = append(undefined, not(anyHolds))
@@ -1420,7 +1420,7 @@ func (s *tokenStep) succeed() {
 	taken := solve.BoolTerm(false)
 	for p := range s.out {
 		isFirst := and(s.gate, guards[p], not(taken))
-		s.terms = append(s.terms, implies(isFirst, s.arrive(p, isFirst)))
+		s.terms = append(s.terms, implies(isFirst, s.arrive(p)))
 		taken = or(taken, isFirst)
 		count = add(count, ite(guards[p], solve.IntTerm(1), solve.IntTerm(0)))
 	}
@@ -1458,7 +1458,7 @@ func (s *tokenStep) freeRanks() (ranks []*solve.Term, total *solve.Term) {
 // performed n times the token lands pending its split: the interpreter's
 // splitRepeatedStep spends the step after arrival minting the siblings, so the
 // encoding places them on the token's next move, marked by the Pending edge.
-func (s *tokenStep) arrive(p int, taken *solve.Term) *solve.Term {
+func (s *tokenStep) arrive(p int) *solve.Term {
 	return s.land(s.next.Slots[s.t], p, s.actorID, true)
 }
 

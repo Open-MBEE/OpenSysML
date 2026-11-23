@@ -3,7 +3,10 @@ package opensysml
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -19,6 +22,19 @@ type dialOptions struct {
 	httpClient *http.Client
 	json       bool
 	token      string
+	clearToken bool
+	// maxResponse is the response bound WithMaxResponseBytes named; 0 is the default.
+	maxResponse int
+}
+
+// DefaultMaxResponseBytes bounds one response message unless WithMaxResponseBytes
+// names another bound.
+const DefaultMaxResponseBytes = 128 << 20
+
+// WithMaxResponseBytes bounds one response message; a larger one fails the call with
+// CodeResourceExhausted instead of being buffered. A bound of zero or less is ignored.
+func WithMaxResponseBytes(n int) DialOption {
+	return func(o *dialOptions) { o.maxResponse = n }
 }
 
 // TokenEnv is the environment variable Dial reads a bearer token from when
@@ -30,6 +46,12 @@ const TokenEnv = "OPENSYSML_GRPC_TOKEN" // #nosec G101 -- a variable name, not a
 // Without it Dial uses $OPENSYSML_GRPC_TOKEN when that is set.
 func WithToken(token string) DialOption {
 	return func(o *dialOptions) { o.token = token }
+}
+
+// WithInsecureTokenTransport sends the bearer token over plain http to an address other
+// machines reach, which Dial otherwise refuses: for a proxy or tunnel that encrypts it.
+func WithInsecureTokenTransport() DialOption {
+	return func(o *dialOptions) { o.clearToken = true }
 }
 
 // WithHTTPClient names the HTTP client the connection uses, for callers with
@@ -54,6 +76,8 @@ func WithJSONBody() DialOption {
 // scheme is dialed as http. Requests cross as Connect protobuf unless
 // WithJSONBody says otherwise. Closing leaves the service running: it was not
 // this package's to stop.
+// With a token set, an http address other machines reach is refused with
+// CodeInvalidArgument unless WithInsecureTokenTransport accepts it.
 func Dial(address string, opts ...DialOption) (Client, error) {
 	if strings.TrimSpace(address) == "" {
 		return nil, errors.New("opensysml: Dial needs an address")
@@ -68,7 +92,10 @@ func Dial(address string, opts ...DialOption) (Client, error) {
 	if !strings.Contains(address, "://") {
 		address = "http://" + address
 	}
-	var connectOpts []connect.ClientOption
+	if config.maxResponse <= 0 {
+		config.maxResponse = DefaultMaxResponseBytes
+	}
+	connectOpts := []connect.ClientOption{connect.WithReadMaxBytes(config.maxResponse)}
 	if config.json {
 		connectOpts = append(connectOpts, connect.WithProtoJSON())
 	}
@@ -76,11 +103,37 @@ func Dial(address string, opts ...DialOption) (Client, error) {
 		config.token = os.Getenv(TokenEnv)
 	}
 	if config.token != "" {
+		if err := tokenTransport(address, config.clearToken); err != nil {
+			return nil, err
+		}
 		connectOpts = append(connectOpts, connect.WithInterceptors(bearer(config.token)))
 	}
 	return &client{caller: &remote{
 		rpc: protoconnect.NewSysMLServiceClient(config.httpClient, address, connectOpts...),
 	}}, nil
+}
+
+// tokenTransport refuses an address a bearer token would cross in clear: one
+// that is not https and names a host other than this machine.
+func tokenTransport(address string, allowClear bool) error {
+	u, err := url.Parse(address)
+	if err != nil {
+		return &StatusError{Code: CodeInvalidArgument, Message: fmt.Sprintf("opensysml: the address %q is not a URL: %v", address, err)}
+	}
+	if strings.EqualFold(u.Scheme, "https") || allowClear || loopbackHost(u.Hostname()) {
+		return nil
+	}
+	return &StatusError{Code: CodeInvalidArgument, Message: fmt.Sprintf(
+		"opensysml: the bearer token would cross %s in clear: dial an https address, or pass WithInsecureTokenTransport when a proxy or tunnel encrypts the connection", address)}
+}
+
+// loopbackHost reports whether a host name or address is this machine's.
+func loopbackHost(host string) bool {
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 // bearer carries the token on every request a connection sends.
@@ -384,7 +437,7 @@ func (r *remote) close() error {
 func connectToError(err error) error {
 	var connectErr *connect.Error
 	if errors.As(err, &connectErr) {
-		return &StatusError{Code: Code(connectErr.Code()), Message: connectErr.Message()}
+		return &StatusError{Code: Code(connectErr.Code()), Message: connectErr.Message(), ResultView: resultViewOf(connectErr)}
 	}
 	return &StatusError{Code: CodeUnavailable, Message: err.Error()}
 }

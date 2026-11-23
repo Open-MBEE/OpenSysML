@@ -160,3 +160,37 @@ func TestSkipsDocumented(t *testing.T) {
 		}
 	}
 }
+
+// TestLineCommentsHoldNoLineTerminator: a model identifier, name, unit or description
+// with a line terminator stays inside its `//` comment and declares nothing.
+func TestLineCommentsHoldNoLineTerminator(t *testing.T) {
+	for _, nl := range []string{"\n", "\r", "\r\n", "\u2028", "\u2029", "\u0085", "\v", "\f"} {
+		inject := nl + "part def Injected {}" + nl
+		d := &execfmi.Description{
+			FMIVersion:   execfmi.Version3,
+			ModelName:    "Hostile",
+			CoSimulation: &execfmi.Interface{ModelIdentifier: "x" + inject},
+			Variables: []execfmi.Variable{
+				{Name: "n" + inject, Causality: execfmi.CausalityStructuralParameter, Kind: execfmi.KindInteger},
+				{Name: "u", Causality: execfmi.CausalityInput, Kind: execfmi.KindReal, Unit: "m" + inject, Description: "d" + inject},
+				{Name: "y", Causality: execfmi.CausalityOutput, Kind: execfmi.KindReal, Description: "out" + inject},
+			},
+		}
+		out, err := Notation(d, Options{URI: "file:///x.fmu"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		injected := 0
+		for _, line := range strings.FieldsFunc(string(out), func(r rune) bool { return strings.ContainsRune("\n\r\v\f\u0085\u2028\u2029", r) }) {
+			if before, _, found := strings.Cut(line, "part def Injected"); found {
+				injected++
+				if !strings.Contains(before, "//") {
+					t.Errorf("%q: the injected text is outside a comment: %q", nl, line)
+				}
+			}
+		}
+		if injected == 0 {
+			t.Errorf("%q: the hostile text is not in the notation at all:\n%s", nl, out)
+		}
+	}
+}

@@ -15,7 +15,9 @@ step 5: token 2@m, token 3@sender
 stmt send
   eval literal 7 -> 7
 materialize: Reader #1
+materialize: r #2
 step 3: token 1@keep
+materialize: keep #3
 stmt assign got
   eval chain n -> (7)
 step 4: token 1@done

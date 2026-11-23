@@ -618,7 +618,7 @@ func literalDatatypes(metaclass, predicate string) []string {
 	switch {
 	case isIndexProperty(predicate), IsSourceRangeProperty(predicate):
 		return integerLiterals
-	case strings.HasPrefix(name, "is"), name == xHasBody, name == xDeclaredID, name == xHasEffect, name == xBracedEffect, name == xConjugatedTyping, name == xSourceMultiplicityBeforeThen,
+	case strings.HasPrefix(name, "is"), name == xHasBody, name == xStatedDefaults, name == xDeclaredID, name == xHasEffect, name == xBracedEffect, name == xConjugatedTyping, name == xSourceMultiplicityBeforeThen,
 		name == xNoteOwnLine, name == xNoteTail, name == xNoteTrailing:
 		return booleanLiterals
 	case strings.HasPrefix(predicate, rdf.SysML) && (name == pLowerBound || name == pUpperBound):
@@ -1531,6 +1531,17 @@ func (d *decoder) libraryStubs() (map[string]bool, error) {
 			catalog := d.libraryCatalog
 			owned, ok := catalog.OwningMembership(id)
 			member := members[0]
+			if alias, found := sharedLibraryIndex().anonymous.AliasMembership(id); !ok && found {
+				target, resolved := sharedLibraryIndex().aliasTarget(alias)
+				if !resolved || len(members) != 1 || !member.IsIRI() || rdf.LocalName(member.Value) != target.ID {
+					return nil, &UnsupportedError{
+						What: fmt.Sprintf("the library membership <%s>", subject.Value),
+						Note: fmt.Sprintf("its id is that of the alias membership %s, and its memberElement is not the element the alias names", alias.Path),
+					}
+				}
+				stubs[subject.Value] = true
+				continue
+			}
 			memberName, memberNameKind, hasMemberName := d.librarySubjectName(member)
 			if !ok && len(members) == 1 && member.IsIRI() && hasMemberName {
 				if candidate, found := catalog.ElementNamed(memberName); found && d.libraryMetaclassCompatible(member, candidate) {
@@ -2318,6 +2329,11 @@ func (d *decoder) declarationHead(el *element) (string, error) {
 	if head, handled, err := d.behaviorHead(el); handled {
 		return head, err
 	}
+	// A KerML type declaration has no `def`: it is written in the usage form the parser
+	// reads, unless the graph records the `def` of the definition sharing its metaclass.
+	if kind, ok := kermlTypeMetaclassUsage[el.metaclass]; ok && !d.defForm(el) {
+		return d.usageHead(el, kind)
+	}
 	if kind, ok := metaclassDefinition[el.metaclass]; ok {
 		return d.definitionHead(el, kind)
 	}
@@ -2384,7 +2400,10 @@ func (d *decoder) definitionHead(el *element, kind ast.DefinitionKind) (string, 
 	if d.boolOf(el, rdf.SysML+"isVariation") && kind != ast.DefEnumeration {
 		words = append(words, "variation")
 	}
-	keyword := d.keywordOr(el, definitionKeyword(kind))
+	keyword := strings.TrimSuffix(d.keywordOr(el, definitionKeyword(kind)), defFormSuffix)
+	if el.metaclass == mClassifier {
+		keyword = "classifier"
+	}
 	// `individual def` states isIndividual by its kind keyword; writing the
 	// modifier as well would declare it twice (SysML.xtext OccurrenceDefinitionPrefix).
 	if d.boolOf(el, rdf.SysML+"isIndividual") && keyword != "individual" {
@@ -2409,7 +2428,7 @@ func (d *decoder) definitionHead(el *element, kind ast.DefinitionKind) (string, 
 	}
 	// Every definition kind but `metaclass` shares its keyword with a usage
 	// form, and is told apart from it by `def`.
-	if kind != ast.DefMetaclass {
+	if kind != ast.DefMetaclass && (keyword != "classifier" || d.defForm(el)) {
 		words = append(words, "def")
 	}
 	words = append(words, d.identWords(el)...)
@@ -2419,6 +2438,14 @@ func (d *decoder) definitionHead(el *element, kind ast.DefinitionKind) (string, 
 	}
 	words = append(words, relationships...)
 	return strings.Join(words, " "), nil
+}
+
+// defForm reports whether the graph records el as written with `def`, which the metaclass
+// a `class def` shares with the def-less `class` does not say.
+func (d *decoder) defForm(el *element) bool {
+	written, _ := d.stringOf(el, rdf.OpenSysML+xDeclaredKeyword)
+	_, definition := metaclassDefinition[el.metaclass]
+	return definition && strings.HasSuffix(written, defFormSuffix)
 }
 
 // enumeratedValue reports whether el is an enumerated value: an enumeration
@@ -2467,6 +2494,9 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		words = append(words, direction)
 	}
 	canonicalKeyword := usageKeyword(kind)
+	if written, ok := kermlTypeKeyword[el.metaclass]; ok {
+		canonicalKeyword = written
+	}
 	keyword := d.keywordOr(el, canonicalKeyword)
 	// A `message` is the flow whose ends are event occurrences it owns as
 	// parameters; their metaclass says `message` where the graph states none.
@@ -3432,6 +3462,10 @@ func (d *decoder) importedName(el *element) (string, error) {
 	}
 	if lib, ok := sharedLibraryIndex().catalog.OwningMembership(rdf.LocalName(term.Value)); ok {
 		return d.referenceName(rdf.ElementIRIForID(lib.ID), el)
+	}
+	// A library alias is imported under the name its Membership gives the member.
+	if alias, ok := sharedLibraryIndex().anonymous.AliasMembership(rdf.LocalName(term.Value)); ok {
+		return d.referenceName(rdf.String(alias.Owner.FQN+"::"+alias.Symbol.Name), el)
 	}
 	return d.referenceName(term, el)
 }
@@ -4460,6 +4494,10 @@ var headClauseKinds = map[string][]ast.RelationshipKind{
 	mSubsetting:           {ast.RelSubsets, ast.RelSpecializes},
 	mRedefinition:         {ast.RelRedefines},
 	mReferenceSubsetting:  {ast.RelReferences},
+	mCrossSubsetting:      {ast.RelCrosses},
+	mUnioning:             {ast.RelUnions},
+	mIntersecting:         {ast.RelIntersects},
+	mDifferencing:         {ast.RelDifferences},
 }
 
 // headClauseTargets are the properties that state a relationship element's
@@ -4473,6 +4511,10 @@ var headClauseTargets = map[string][]string{
 	mSubsetting:           {pSubsettedFeature, pGeneral, pTarget},
 	mRedefinition:         {"redefinedFeature", pSubsettedFeature, pGeneral, pTarget},
 	mReferenceSubsetting:  {pReferencedFeature, pSubsettedFeature, pGeneral, pTarget},
+	mCrossSubsetting:      {"crossedFeature", pSubsettedFeature, pGeneral, pTarget},
+	mUnioning:             {"unioningType", pTarget},
+	mIntersecting:         {"intersectingType", pTarget},
+	mDifferencing:         {"differencingType", pTarget},
 }
 
 // spelledHead reads the order el's head was spelled from what el owns in

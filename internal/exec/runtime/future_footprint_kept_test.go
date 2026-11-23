@@ -151,3 +151,91 @@ func TestGateReadsNoFutureTheLastGateKept(t *testing.T) {
 		t.Fatalf("a gate read %d sends out of the futures the last one kept", len(futures.senders))
 	}
 }
+
+func TestSumFootprintsIsTheUnionInOrderWithNoSpareRoom(t *testing.T) {
+	a := lower.Footprint{
+		Reads:   []lower.Place{{Name: "a"}},
+		Writes:  []lower.Place{{Name: "b"}},
+		Sends:   []lower.Channel{{Port: "out"}},
+		Flows:   []lower.Flow{{Reads: []lower.Place{{Name: "a"}}, Writes: []lower.Place{{Name: "b"}}}},
+		Creates: true,
+	}
+	b := lower.Footprint{Reads: []lower.Place{{Name: "c"}}, Accepts: []lower.Channel{{Port: "in"}}, Routes: true}
+	c := lower.Footprint{Writes: []lower.Place{{Name: "d"}}, Dynamic: true, Completion: true}
+
+	parts := []lower.Footprint{b, {}, a, c}
+	sum := sumFootprints(parts)
+	if want := unionFootprints(unionFootprints(b, a), c); !reflect.DeepEqual(sum, want) {
+		t.Fatalf("summed %+v, want the union %+v", sum, want)
+	}
+	if spare := cap(sum.Reads) - len(sum.Reads) + cap(sum.Writes) - len(sum.Writes); spare != 0 {
+		t.Fatalf("the sum keeps room for %d more places, want none", spare)
+	}
+	if got := sumFootprints(nil); !reflect.DeepEqual(got, lower.Footprint{}) {
+		t.Fatalf("the sum of no footprints is %+v, want the zero footprint", got)
+	}
+}
+
+func TestMachineFutureIsTheUnionOfWhatItsMovesTouch(t *testing.T) {
+	m := reductionModel(t, "por_two_machines", false)
+	ci := startCheckedInvocation(t, m, nil, []string{"turner", "router", "loner"})
+	ci.moveOf(t, "state machine turner")
+	defer ci.run.enter()()
+	ctx := ci.c.ctx
+
+	for _, w := range ctx.clock.waiters {
+		e, ok := w.(*StateExecutor)
+		if !ok {
+			continue
+		}
+		futures := newFutureFootprints(ctx)
+		got := futures.machineFuture(e)
+		parts, stepped := futures.machineParts(e, nil)
+		if !stepped || len(parts) == 0 {
+			t.Fatalf("%s: a started machine lists %d parts, stepped %t", w.dueLabel(), len(parts), stepped)
+		}
+		var want lower.Footprint
+		for _, part := range parts {
+			want = unionFootprints(want, part)
+		}
+		if want = withDrop(e, want); !reflect.DeepEqual(got, want) {
+			t.Fatalf("%s: future %+v, want the union of its parts %+v", w.dueLabel(), got, want)
+		}
+		if again := futures.machineFuture(e); !reflect.DeepEqual(again, got) {
+			t.Fatalf("%s: a second read %+v differs from the first %+v", w.dueLabel(), again, got)
+		}
+	}
+}
+
+func TestMachineFutureKeepsItsListOfPartsAndNothingInIt(t *testing.T) {
+	m := reductionModel(t, "por_two_machines", false)
+	ci := startCheckedInvocation(t, m, nil, []string{"turner", "router", "loner"})
+	ci.moveOf(t, "state machine turner")
+	defer ci.run.enter()()
+	ctx := ci.c.ctx
+
+	shared := newFutureFootprints(ctx)
+	machines := 0
+	for _, w := range ctx.clock.waiters {
+		e, ok := w.(*StateExecutor)
+		if !ok {
+			continue
+		}
+		machines++
+		got := shared.machineFuture(e)
+		if want := newFutureFootprints(ctx).machineFuture(e); !reflect.DeepEqual(got, want) {
+			t.Fatalf("%s: future %+v over a kept list, want %+v", w.dueLabel(), got, want)
+		}
+		if cap(shared.parts) == 0 {
+			t.Fatalf("%s: the list of parts was not kept", w.dueLabel())
+		}
+		for i, part := range shared.parts[:cap(shared.parts)] {
+			if !reflect.DeepEqual(part, lower.Footprint{}) {
+				t.Fatalf("%s: the kept list still holds part %d: %+v", w.dueLabel(), i, part)
+			}
+		}
+	}
+	if machines < 2 {
+		t.Fatalf("%d machines read, want the list kept from one to the next", machines)
+	}
+}

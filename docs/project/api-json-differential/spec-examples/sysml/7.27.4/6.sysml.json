@@ -8,14 +8,14 @@
       "oursOnly": 3,
       "pilotOnly": 0,
       "pilotOnlyImplied": 0,
-      "typeMismatch": 1
+      "typeMismatch": 0
     },
     "properties": {
       "presentEqual": 136,
       "presentDifferent": 0,
       "oursMissing": 19,
-      "pilotMissing": 7,
-      "absentBoth": 178,
+      "pilotMissing": 4,
+      "absentBoth": 181,
       "indeterminate": 3,
       "pilotNondeterministic": 0
     },
@@ -281,9 +281,9 @@
     "Usage.nestedEnumeration": [0,0,0,0,1,0,0],
     "Usage.nestedFlow": [0,0,0,0,1,0,0],
     "Usage.nestedInterface": [0,0,0,0,1,0,0],
-    "Usage.nestedItem": [0,0,0,1,0,0,0],
+    "Usage.nestedItem": [0,0,0,0,1,0,0],
     "Usage.nestedMetadata": [1,0,0,0,0,0,0],
-    "Usage.nestedOccurrence": [0,0,0,1,0,0,0],
+    "Usage.nestedOccurrence": [0,0,0,0,1,0,0],
     "Usage.nestedPart": [0,0,0,0,1,0,0],
     "Usage.nestedPort": [0,0,0,0,1,0,0],
     "Usage.nestedReference": [0,0,0,0,1,0,0],
@@ -291,7 +291,7 @@
     "Usage.nestedRequirement": [0,0,0,0,1,0,0],
     "Usage.nestedState": [0,0,0,0,1,0,0],
     "Usage.nestedTransition": [0,0,0,0,1,0,0],
-    "Usage.nestedUsage": [0,0,0,1,0,0,0],
+    "Usage.nestedUsage": [0,0,0,0,1,0,0],
     "Usage.nestedUseCase": [0,0,0,0,1,0,0],
     "Usage.nestedVerificationCase": [0,0,0,0,1,0,0],
     "Usage.nestedView": [0,0,0,0,1,0,0],

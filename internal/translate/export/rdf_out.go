@@ -66,6 +66,7 @@ const (
 	pImportOwningNamespace       = "importOwningNamespace"
 	pDirection                   = "direction"
 	pIsImplied                   = "isImplied"
+	pIsImpliedIncluded           = "isImpliedIncluded"
 	pLowerBound                  = "lowerBound"
 	pUpperBound                  = "upperBound"
 	pValue                       = "value"
@@ -895,7 +896,14 @@ func (e *encoder) importedMembership(name *ast.QualifiedName) rdf.Term {
 	if qualifiedText(name) == "" {
 		return rdf.String("")
 	}
-	decl, fqn, ok := e.linked(e.res.PartAlias(name, len(name.Parts)-1))
+	alias, aliased := e.res.PartAlias(name, len(name.Parts)-1)
+	decl, fqn, ok := e.linked(alias, aliased)
+	if !ok && aliased {
+		// A library alias is the Membership imported too (KerML 8.2.3.5), under its minted id.
+		if membership, minted := e.ids.libraryAliasMembership(alias); minted {
+			return membership
+		}
+	}
 	if !ok {
 		decl, fqn, ok = e.referent(name)
 	}
@@ -1506,7 +1514,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		return members(n.Members)
 
 	case *ast.Definition:
-		metaclass, ok := definitionMetaclass[n.Kind]
+		metaclass, ok := definitionMetaclassOf(n)
 		if !ok {
 			return &UnsupportedError{What: fmt.Sprintf("definition kind %q at %s", n.Kind, e.where(n))}
 		}
@@ -1515,7 +1523,9 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		// An individual definition owns its empty Multiplicity first, before its prefix
 		// metadata and its head's clauses (SysML.xtext OccurrenceDefinitionPrefix).
 		e.defaultMultiplicity(subject, n, nil)
-		if err := e.declaredKeyword(subject, n, n.Keyword, metaclassDefinitionKeyword(n.Kind), n.Ident.Name, false); err != nil {
+		if written := defFormKeyword(n, metaclass); written != "" {
+			e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String(written))
+		} else if err := e.declaredKeyword(subject, n, n.Keyword, metaclassDefinitionKeyword(n.Kind), n.Ident.Name, false); err != nil {
 			return err
 		}
 		e.flags(subject, []boolProperty{
@@ -1757,17 +1767,18 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		// A declaration head that binds ends (connect/bind/flow/succession),
 		// a transition, an accept action or a satisfy usage states its ends
 		// and form structurally, since the properties above do not.
-		if verbatimUsage(n) {
-			if err := e.bindingEnds(subject, within, n); err != nil {
-				return err
-			}
-			e.endForm(subject, n)
-		}
+		// A flow owns its payload ahead of its ends, as the pilot orders them (SysML.xtext FlowDeclaration).
 		if payload := e.names.PayloadOf(n); payload != nil {
 			h := memberHead{node: payload, owner: subject, index: e.names.CrossFeatureIndex(n), inline: true}
 			if err := e.encodeMember(h, fqn); err != nil {
 				return err
 			}
+		}
+		if verbatimUsage(n) {
+			if err := e.bindingEnds(subject, within, n); err != nil {
+				return err
+			}
+			e.endForm(subject, n)
 		}
 		if statement := naming.NodeStatement(n); statement != nil {
 			// The node is the statement it is written as: its parts are the
@@ -3325,6 +3336,7 @@ func chainTargets(rels []*ast.Relationship) map[*ast.Relationship]int {
 	chained := map[ast.RelationshipKind]bool{
 		ast.RelSpecializes: true, ast.RelSubsets: true,
 		ast.RelRedefines: true, ast.RelReferences: true,
+		ast.RelCrosses: true, ast.RelUnions: true, ast.RelIntersects: true, ast.RelDifferences: true,
 	}
 	chains := map[*ast.Relationship]int{}
 	for _, rel := range rels {

@@ -106,13 +106,15 @@ Features:
   limitIsUnbounded = true
 ```
 
-Comparisons work at the prompt too, and arithmetic over `*` is refused with an
-error naming the operator rather than answered with a finite result:
+Comparisons work at the prompt too. `*` is the positive infinity of the extended
+numbers and `-*` the negative one, so arithmetic over them answers what the
+extended reals determine and reports an indeterminate form:
 
 ```
 3 < *
 * == *
-* + 1
+1 - *
+* - *
 ```
 
 ```
@@ -120,7 +122,9 @@ error naming the operator rather than answered with a finite result:
   = true
 ✓ * == *
   = true
-error: evaluation failed: type mismatch: operator '+' is not defined for the unbounded value '*': * + 1
+✓ 1 - *
+  = -*
+error: evaluation failed: arithmetic domain error: * - * is undefined in the extended reals
 ```
 
 ## `.metadata` — what annotates an element

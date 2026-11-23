@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -24,6 +25,47 @@ var (
 	// cliBuildFlags are extra `go build` flags for the binary, as a tagged test build's tags.
 	cliBuildFlags []string
 )
+
+// needs skips a test of feature groups the build under test leaves out; re_test.go
+// holds what such a build answers instead.
+func needs(t *testing.T, groups ...*feature) {
+	t.Helper()
+	for _, group := range groups {
+		if !group.linked {
+			t.Skipf("built without %s", group.name)
+		}
+	}
+}
+
+// leftOut reports whether a command line uses a flag, a flag value or a marker
+// of a feature group the build under test leaves out.
+func leftOut(args ...string) bool {
+	line := strings.Join(args, " ")
+	for _, group := range features {
+		if group.linked {
+			continue
+		}
+		if group.mentionedIn(line) {
+			return true
+		}
+		for name, values := range group.values {
+			for i, arg := range args[:max(len(args)-1, 0)] {
+				if arg == "-"+name && slices.Contains(values, args[i+1]) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// needsArgs skips a case whose command line a build without a feature group refuses.
+func needsArgs(t *testing.T, args ...string) {
+	t.Helper()
+	if leftOut(args...) {
+		t.Skipf("the build leaves out a feature group of %v", args)
+	}
+}
 
 // buildCLI builds the sysml binary once per test binary so the tests exercise the
 // real command line, flag parsing included.
@@ -271,6 +313,7 @@ func TestConvertErrors(t *testing.T) {
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
+			needsArgs(t, tc.args...)
 			cmd := exec.Command(binary, tc.args...)
 			out, err := cmd.CombinedOutput()
 			if err == nil {
@@ -299,6 +342,7 @@ func TestConvertIDFormMisuse(t *testing.T) {
 		"with migrate":          {model, "-from", "xmi", "-migrate", "sysml", "-id", "uuid"},
 	} {
 		t.Run(name, func(t *testing.T) {
+			needsArgs(t, args...)
 			res := runCommand(t, exec.Command(binary, args...))
 			if res.status != 2 || !strings.Contains(res.stderr, "-id") {
 				t.Errorf("%v: status %d, stderr:\n%s", args, res.status, res.stderr)
@@ -437,6 +481,7 @@ func run(t *testing.T, binary string, args ...string) string {
 // target. -convert refuses the v1 model with the -migrate run that handles it,
 // and -migrate refuses a v2 model with the -convert run.
 func TestMigrateMigratesXMI(t *testing.T) {
+	needs(t, v1Feature)
 	binary := buildCLI(t)
 	dir := t.TempDir()
 	xmi := filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "vehicle.xmi")
@@ -569,6 +614,7 @@ const toolOnlyXMI = `<?xml version="1.0" encoding="UTF-8"?>
 // A migration that writes no element of a document holding some says so ahead
 // of its summary and exits 3, the output and the report written all the same.
 func TestMigrateThatWritesNothingExitsPartial(t *testing.T) {
+	needs(t, v1Feature)
 	binary := buildCLI(t)
 	dir := t.TempDir()
 	xmi := writeModel(t, dir, "mockup.xmi", toolOnlyXMI)
@@ -594,6 +640,7 @@ func TestMigrateThatWritesNothingExitsPartial(t *testing.T) {
 }
 
 func TestLoadingXMIDirectlyPointsAtMigration(t *testing.T) {
+	needs(t, v1Feature)
 	binary := buildCLI(t)
 	xmi := filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "vehicle.xmi")
 	for _, args := range [][]string{
@@ -609,6 +656,7 @@ func TestLoadingXMIDirectlyPointsAtMigration(t *testing.T) {
 }
 
 func TestMigrationReportRefusedBeforeEveryMode(t *testing.T) {
+	needs(t, v1Feature)
 	binary := buildCLI(t)
 	dir := t.TempDir()
 	model := filepath.Join(dir, "model.sysml")
@@ -624,6 +672,9 @@ func TestMigrationReportRefusedBeforeEveryMode(t *testing.T) {
 		{model, "-render-all", filepath.Join(dir, "views"), "-migration-report", report},
 		{model, "-render-documents", filepath.Join(dir, "docs"), "-migration-report", report},
 	} {
+		if leftOut(args...) {
+			continue
+		}
 		res := runCommand(t, exec.Command(binary, args...))
 		if res.status != 2 || !strings.Contains(res.stderr, "-migration-report accompanies -migrate") {
 			t.Errorf("%v: status %d, stderr:\n%s", args[1:], res.status, res.stderr)
@@ -661,6 +712,7 @@ func danglingLink(t *testing.T, dir, name, target string) string {
 // TestConvertLayoutAugment migrates the layout fixture with its MTIP export:
 // the views carry the export's geometry as DiagramLayout metadata.
 func TestConvertLayoutAugment(t *testing.T) {
+	needs(t, v1Feature)
 	binary := buildCLI(t)
 	xmi := filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "layout.xmi")
 	layout := filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "layout.layout.xml")
@@ -688,6 +740,7 @@ func TestConvertLayoutAugment(t *testing.T) {
 // against -image-base-url in a migration, refuses the flag on unmigrated
 // input, and refuses a base that is not an absolute http(s) URL.
 func TestConvertImageBaseURL(t *testing.T) {
+	needs(t, v1Feature)
 	binary := buildCLI(t)
 	dir := t.TempDir()
 	data, err := os.ReadFile(filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "documents.xmi"))
@@ -735,6 +788,7 @@ func TestConvertImageBaseURL(t *testing.T) {
 // migration's image files beside the model the link resolves to, and -o
 // naming a directory fails rather than scattering images into its parent.
 func TestConvertImagesLandBesideResolvedOutput(t *testing.T) {
+	needs(t, v1Feature)
 	binary := buildCLI(t)
 	dir := t.TempDir()
 	model := filepath.Join(dir, "documents.mdzip")
@@ -778,6 +832,7 @@ func TestConvertImagesLandBesideResolvedOutput(t *testing.T) {
 // destination can take leaves neither report nor results behind: stdout and a
 // directory -o are refused before the sidecars are written.
 func TestMigrateRefusedDestinationWritesNoSidecars(t *testing.T) {
+	needs(t, v1Feature)
 	binary := buildCLI(t)
 	dir := t.TempDir()
 	model := filepath.Join(dir, "documents.mdzip")
@@ -856,6 +911,7 @@ func documentsMdzip(t *testing.T) []byte {
 // TestConvertImageSidecarCollision refuses to write a migration image over a
 // path the run already uses, here the input model itself.
 func TestConvertImageSidecarCollision(t *testing.T) {
+	needs(t, v1Feature)
 	binary := buildCLI(t)
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, "images"), 0o755); err != nil {
@@ -881,6 +937,7 @@ func TestConvertImageSidecarCollision(t *testing.T) {
 // TestConvertImageSidecarIsTheModel refuses a -o an image would land on,
 // here through an images/ link back to the model's directory.
 func TestConvertImageSidecarIsTheModel(t *testing.T) {
+	needs(t, v1Feature)
 	binary := buildCLI(t)
 	dir := t.TempDir()
 	model := filepath.Join(dir, "documents.mdzip")
@@ -1039,6 +1096,7 @@ func TestConvertImageFailureKeepsModel(t *testing.T) {
 // TestStrictConvertWritesNoExtensionNotation runs a strict migration through
 // the command line: no OpenSysML extension statement is written.
 func TestStrictConvertWritesNoExtensionNotation(t *testing.T) {
+	needs(t, v1Feature)
 	binary := buildCLI(t)
 	xmi := filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "plant_states.xmi")
 	out := run(t, binary, xmi, "-strict", "-migrate", "sysml", "-from", "xmi")

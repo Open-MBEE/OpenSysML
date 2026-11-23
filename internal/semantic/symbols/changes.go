@@ -1,5 +1,7 @@
 package symbols
 
+import "slices"
+
 // Changes is what a run of writes to an index changed, at the granularity a ReadRecorder
 // records reads at: names, namespaces and documents. Reads meeting none saw nothing move.
 type Changes struct {
@@ -161,9 +163,12 @@ func (r registration) same(other registration) bool {
 			if !ok || claim.public != them.public || len(claim.routes) != len(them.routes) {
 				return false
 			}
+			if !slices.EqualFunc(claim.hops, them.hops, importHop.same) {
+				return false
+			}
 			for k, route := range claim.routes {
 				theirs := them.routes[k]
-				if route.private != theirs.private || len(route.filters) != len(theirs.filters) {
+				if route.private != theirs.private || len(route.filters) != len(theirs.filters) || !slices.Equal(route.via, theirs.via) {
 					return false
 				}
 				for f, filter := range route.filters {

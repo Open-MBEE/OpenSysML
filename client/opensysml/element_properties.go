@@ -13,6 +13,16 @@ import (
 type ElementProperties struct {
 	Element    ElementRef
 	Properties []ElementProperty
+	// ExcludedDocuments are the model's documents the answer leaves out, each
+	// with why; empty when the whole model was read.
+	ExcludedDocuments []ExcludedDocument
+}
+
+// ExcludedDocument is a document ElementProperties left out of the model: one the
+// parser could not read whole, or one declaring a top-level name again.
+type ExcludedDocument struct {
+	Document string
+	Error    string
 }
 
 // Property is the entry for the named property, nil when the read did not
@@ -153,6 +163,9 @@ func (c *client) elementProperties(ctx context.Context, model *Model, lookup pb.
 		return nil, &FailureError{Op: "ElementProperties", Message: resp.Error}
 	}
 	out := &ElementProperties{Element: elementRefFromProto(resp.Element)}
+	for _, excluded := range resp.ExcludedDocuments {
+		out.ExcludedDocuments = append(out.ExcludedDocuments, ExcludedDocument{Document: excluded.Document, Error: excluded.Error})
+	}
 	for _, property := range resp.Properties {
 		converted := ElementProperty{
 			Name:          property.Name,

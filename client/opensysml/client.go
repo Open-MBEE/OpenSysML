@@ -176,6 +176,13 @@ type Client interface {
 	// the oslc_query capability.
 	QueryOSLC(ctx context.Context, model *Model, oslc string) ([]QueryElement, error)
 
+	// QueryAsView is Query answering the selection with its QVTS::QueryResult view; a path error
+	// carries its view in the StatusError. Requires query_result_view.
+	QueryAsView(ctx context.Context, model *Model, query Query) (*QueryAnswer, error)
+
+	// QueryOSLCAsView is QueryOSLC answering as QueryAsView does.
+	QueryOSLCAsView(ctx context.Context, model *Model, oslc string) (*QueryAnswer, error)
+
 	// ElementProperties reads the named metamodel properties of one element, or all it carries, element being
 	// the legacy one string: the form's own id first, then a name. Requires the element_properties capability.
 	ElementProperties(ctx context.Context, model *Model, element string, properties ...string) (*ElementProperties, error)
@@ -195,6 +202,14 @@ type Client interface {
 	// RunInlineDocumentQuery runs a query expression written in place of a named
 	// query, as RunDocumentQuery runs one. Requires inline_document_query.
 	RunInlineDocumentQuery(ctx context.Context, model *Model, expression string, bindings ...Binding) (*Rows, error)
+
+	// RunDocumentQueryAsView is RunDocumentQuery whose Rows also carry the answer as a QVTS::QueryResult
+	// view; a path or model error carries its view in the StatusError. Requires query_result_view.
+	RunDocumentQueryAsView(ctx context.Context, model *Model, queryID string, bindings ...Binding) (*Rows, error)
+
+	// RunInlineDocumentQueryAsView is RunInlineDocumentQuery with the view, as
+	// RunDocumentQueryAsView carries it.
+	RunInlineDocumentQueryAsView(ctx context.Context, model *Model, expression string, bindings ...Binding) (*Rows, error)
 
 	// RenderDocument renders the named document to Markdown, or to the form
 	// WithDocumentForm names. Requires the render_document capability.

@@ -10,6 +10,7 @@
 package semantics
 
 import (
+	"iter"
 	"slices"
 	"strings"
 
@@ -87,8 +88,10 @@ type Model struct {
 	implicitBase map[*symbols.Symbol][]*symbols.Symbol
 	// featureBaseTypes memoizes baseFeatureTypes: the types a base feature supplies, read for every usage of its kind.
 	featureBaseTypes map[*symbols.Symbol][]*symbols.Symbol
-	// implicitGenerals memoizes ImplicitGenerals: the generals a declaration's kind implies, which every type query of a feature reads.
-	implicitGenerals map[*symbols.Symbol][]*symbols.Symbol
+	// impliedSupers holds the direct supertypes a symbol's kind implies; DirectSupertypes writes it as it appends them.
+	impliedSupers map[*symbols.Symbol][]*symbols.Symbol
+	// impliedSpecializations memoizes ImpliedSpecializations.
+	impliedSpecializations map[*symbols.Symbol][]*symbols.Symbol
 	// valueGenerals memoizes FeatureValueGeneral: the general a feature value implies, nil for none.
 	valueGenerals map[*symbols.Symbol]*symbols.Symbol
 	// allDeclaredSupers memoizes AllDeclaredSupertypes, which every variation-point query at run time reads.
@@ -117,6 +120,7 @@ type Model struct {
 
 	dimensions    map[*symbols.Symbol]dimensionResult // units to the dimension they measure in
 	dimensioning  map[*symbols.Symbol]bool            // units whose dimension is being derived, to detect a cycle
+	referencing   map[*symbols.Symbol]bool            // logarithmic scales whose referenceQuantity is being measured, to detect a cycle
 	libSymbols    map[string]*symbols.Symbol          // library elements resolved by qualified name
 	baseUnits     map[*symbols.Symbol]*symbols.Symbol // base quantities to SI::si's base units, nil until read
 	coherentUnits map[string][]coherentUnit           // declared coherent units by reduced factors, nil until indexed
@@ -159,6 +163,8 @@ type Model struct {
 	// computingRedefined holds the resolver depth of each RedefinedFeatures call on
 	// the stack, so a re-entrant query is cut short rather than memoized empty.
 	computingRedefined map[*symbols.Symbol]int
+	// computingDerivedFeaturing holds the resolver depth of each DerivedFeaturingTypes call on the stack.
+	computingDerivedFeaturing map[*symbols.Symbol]int
 	// redefLoss memoizes what each type does not inherit, redefOwn what its own
 	// features redefine (inheritance_loss.go).
 	redefLoss map[*symbols.Symbol]*inheritanceLoss
@@ -202,14 +208,25 @@ type Model struct {
 	// memberships, ownedAnnotations, annotatingRels and ownedImports memoize
 	// the Membership, Annotation and Import objects each element implies
 	// (see reflective_memberships.go, reflective_annotations.go).
-	memberships      map[*symbols.Symbol][]*symbols.Symbol
-	valueExpressions map[*symbols.Symbol]*symbols.Symbol
-	expressionParts  map[*symbols.Symbol]*expressionParts
-	transitionParts  map[*symbols.Symbol]*transitionParts
-	sendParts        map[*symbols.Symbol]*sendParts
-	ownedAnnotations map[*symbols.Symbol][]*symbols.Symbol
-	annotatingRels   map[*symbols.Symbol][]*symbols.Symbol
-	ownedImports     map[*symbols.Symbol][]*symbols.Symbol
+	memberships             map[*symbols.Symbol][]*symbols.Symbol
+	synthesized             map[*symbols.Symbol][]*symbols.Symbol
+	valueExpressions        map[*symbols.Symbol]*symbols.Symbol
+	multiplicityBounds      map[*symbols.Symbol][]*symbols.Symbol
+	statementSymbols        map[*symbols.Symbol][]*symbols.Symbol
+	filterPackages          map[*symbols.Symbol]*symbols.Symbol
+	filterPackageImports    map[*symbols.Symbol]*symbols.Symbol
+	filterPackageMembers    map[*symbols.Symbol]filterPackageParts
+	statementOwners         map[*symbols.Symbol]*symbols.Symbol
+	statementScopes         map[*symbols.Scope]*symbols.Symbol
+	statementOperandSymbols map[*symbols.Symbol][]*symbols.Symbol
+	expressionParts         map[*symbols.Symbol]*expressionParts
+	transitionParts         map[*symbols.Symbol]*transitionParts
+	sendParts               map[*symbols.Symbol]*sendParts
+	ownedAnnotations        map[*symbols.Symbol][]*symbols.Symbol
+	annotatingRels          map[*symbols.Symbol][]*symbols.Symbol
+	ownedImports            map[*symbols.Symbol][]*symbols.Symbol
+	// rootNamespaces memoizes each document's reflected RootNamespace (see reflective_root.go).
+	rootNamespaces map[string]*symbols.Symbol
 }
 
 // NewModel creates a semantic model backed by the given name resolver. The
@@ -255,7 +272,8 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		effectiveComposite:     make(map[*symbols.Symbol]bool),
 		implicitBase:           make(map[*symbols.Symbol][]*symbols.Symbol),
 		featureBaseTypes:       make(map[*symbols.Symbol][]*symbols.Symbol),
-		implicitGenerals:       make(map[*symbols.Symbol][]*symbols.Symbol),
+		impliedSupers:          make(map[*symbols.Symbol][]*symbols.Symbol),
+		impliedSpecializations: make(map[*symbols.Symbol][]*symbols.Symbol),
 		valueGenerals:          make(map[*symbols.Symbol]*symbols.Symbol),
 		allDeclaredSupers:      make(map[*symbols.Symbol][]*symbols.Symbol),
 		implicitSubsettings:    make(map[*symbols.Symbol][]*symbols.Symbol),
@@ -273,6 +291,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 
 		dimensions:   make(map[*symbols.Symbol]dimensionResult),
 		dimensioning: make(map[*symbols.Symbol]bool),
+		referencing:  make(map[*symbols.Symbol]bool),
 		libSymbols:   make(map[string]*symbols.Symbol),
 
 		filterPreds:      make(map[ast.Node]*symbols.FilterPredicate),
@@ -284,29 +303,32 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		layoutSites:      make(map[*symbols.Symbol][]*LayoutSite),
 		declSymbols:      make(map[*symbols.Scope]map[ast.Node]*symbols.Symbol),
 
-		redefined:             make(map[*symbols.Symbol][]*symbols.Symbol),
-		computingRedefined:    make(map[*symbols.Symbol]int),
-		redefLoss:             make(map[*symbols.Symbol]*inheritanceLoss),
-		redefOwn:              make(map[*symbols.Symbol]*ownRedefinitions),
-		walkingLoss:           make(map[*symbols.Symbol]int),
-		redefClosure:          make(map[*symbols.Symbol]map[*symbols.Symbol]bool),
-		restatesFrameRoot:     make(map[*symbols.Symbol]bool),
-		restatesReferenceRoot: make(map[*symbols.Symbol]bool),
-		computingRedefClosure: make(map[*symbols.Symbol]bool),
-		unique:                make(map[*symbols.Symbol]bool),
-		readOnly:              make(map[*symbols.Symbol]ReadOnly),
-		paramRanges:           make(map[*symbols.Symbol]Range),
-		ctorSlots:             make(map[*symbols.Symbol]constructorSlots),
-		members:               make(map[memberKey][]*symbols.Symbol),
-		shapes:                make(map[*symbols.Symbol][]ShapeFeature),
-		bodyApplications:      make(map[*ast.BodyExpr]bodyApplication),
-		bodyIndexed:           make(map[*symbols.Scope]bool),
-		assumedSupers:         make(map[*symbols.Symbol]assumedSupertypes),
-		implicitRels:          make(map[*symbols.Symbol][]*symbols.Symbol),
-		memberships:           make(map[*symbols.Symbol][]*symbols.Symbol),
-		ownedAnnotations:      make(map[*symbols.Symbol][]*symbols.Symbol),
-		annotatingRels:        make(map[*symbols.Symbol][]*symbols.Symbol),
-		ownedImports:          make(map[*symbols.Symbol][]*symbols.Symbol),
+		redefined:                 make(map[*symbols.Symbol][]*symbols.Symbol),
+		computingRedefined:        make(map[*symbols.Symbol]int),
+		computingDerivedFeaturing: make(map[*symbols.Symbol]int),
+		redefLoss:                 make(map[*symbols.Symbol]*inheritanceLoss),
+		redefOwn:                  make(map[*symbols.Symbol]*ownRedefinitions),
+		walkingLoss:               make(map[*symbols.Symbol]int),
+		redefClosure:              make(map[*symbols.Symbol]map[*symbols.Symbol]bool),
+		restatesFrameRoot:         make(map[*symbols.Symbol]bool),
+		restatesReferenceRoot:     make(map[*symbols.Symbol]bool),
+		computingRedefClosure:     make(map[*symbols.Symbol]bool),
+		unique:                    make(map[*symbols.Symbol]bool),
+		readOnly:                  make(map[*symbols.Symbol]ReadOnly),
+		paramRanges:               make(map[*symbols.Symbol]Range),
+		ctorSlots:                 make(map[*symbols.Symbol]constructorSlots),
+		members:                   make(map[memberKey][]*symbols.Symbol),
+		shapes:                    make(map[*symbols.Symbol][]ShapeFeature),
+		bodyApplications:          make(map[*ast.BodyExpr]bodyApplication),
+		bodyIndexed:               make(map[*symbols.Scope]bool),
+		assumedSupers:             make(map[*symbols.Symbol]assumedSupertypes),
+		implicitRels:              make(map[*symbols.Symbol][]*symbols.Symbol),
+		memberships:               make(map[*symbols.Symbol][]*symbols.Symbol),
+		synthesized:               make(map[*symbols.Symbol][]*symbols.Symbol),
+		ownedAnnotations:          make(map[*symbols.Symbol][]*symbols.Symbol),
+		annotatingRels:            make(map[*symbols.Symbol][]*symbols.Symbol),
+		ownedImports:              make(map[*symbols.Symbol][]*symbols.Symbol),
+		rootNamespaces:            make(map[string]*symbols.Symbol),
 	}
 	if resolver != nil {
 		resolver.SetModel(m)
@@ -350,6 +372,10 @@ func Generalizes(sym *symbols.Symbol, k ast.RelationshipKind) bool {
 // declaration, or nil for symbols that are not def/usage.
 func RelationshipsOf(sym *symbols.Symbol) []*ast.Relationship {
 	if sym == nil {
+		return nil
+	}
+	if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionTriggerAction {
+		// A trigger's accept shares its payload's node, whose head states the payload (SysML.xtext TriggerAction).
 		return nil
 	}
 	decl := sym.Decl
@@ -591,27 +617,12 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 		out = append(out, redefined)
 	}
 
-	// A declaration keeps its kind's bases whatever else it declares; implicitBases
-	// suppresses one only when a declared chain already reaches it. A metadata
-	// keyword supplies the kind itself, so its baseType stands in.
-	if !fromMetadata {
-		for _, base := range m.implicitBases(sym) {
-			if !seen[base] {
-				seen[base] = true
-				out = append(out, base)
-			}
-		}
-	}
-
-	// A usage also subsets the base usage of its kind, or Base::things when its
-	// kind names none — an implied Subsetting beside the typing (SysML v2 §7.6,
-	// §8.3.11.3 checkPartUsageSpecialization; KerML §8.4.2, §8.3.4.5.3).
-	for _, base := range m.implicitBaseFeatures(sym, out) {
-		if !seen[base] {
-			seen[base] = true
-			out = append(out, base)
-		}
-	}
+	// What the declaration's kind implies comes last: the one derivation that resolution,
+	// inheritance and ImpliedSpecializations read (KerML §8.4.2).
+	implied := m.deriveImpliedGenerals(sym, out, fromMetadata)
+	out = append(out, implied...)
+	journal(m, m.impliedSupers, sym, sym.Decl)
+	m.impliedSupers[sym] = implied
 
 	// An answer derived while a guard cut a query short saw fewer members than
 	// the finished model has, so it is recomputed on the next query, not memoized.
@@ -894,6 +905,21 @@ func (m *Model) inheritedFeatureNamed(sym *symbols.Symbol, name string) *symbols
 	return candidates[0]
 }
 
+// eachSelfAndSupertype yields sym and then every type it specializes
+// (AllSupertypes), without building the combined slice.
+func (m *Model) eachSelfAndSupertype(sym *symbols.Symbol) iter.Seq[*symbols.Symbol] {
+	return func(yield func(*symbols.Symbol) bool) {
+		if !yield(sym) {
+			return
+		}
+		for _, super := range m.AllSupertypes(sym) {
+			if !yield(super) {
+				return
+			}
+		}
+	}
+}
+
 // AllSupertypes returns the transitive closure of DirectSupertypes, excluding
 // sym itself, in a deterministic order (breadth-first over declaration order).
 // It is safe on cyclic graphs. The result is memoized.
@@ -1123,6 +1149,10 @@ func (m *Model) FeatureTypeSetWithImplied(sym *symbols.Symbol) []*symbols.Symbol
 func (m *Model) withUsageBases(sym *symbols.Symbol, bases []*symbols.Symbol) []*symbols.Symbol {
 	_, isUsage := sym.Decl.(*ast.Usage)
 	if !(isUsage || sym.Kind == symbols.SymbolPartUsage) || m.isKerMLDoc(sym) || m.resolver == nil || m.resolver.Index() == nil {
+		return bases
+	}
+	if isNamedTriggerPayload(sym) {
+		// A trigger's payload is a ReferenceUsage whatever it is typed by, so it takes no usage kind's base.
 		return bases
 	}
 	fqns := []string{}

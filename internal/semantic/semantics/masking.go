@@ -1,6 +1,8 @@
 package semantics
 
 import (
+	"slices"
+
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -115,17 +117,14 @@ func (m *Model) DirectRedefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 // directRedefinedFeatures returns the features sym redefines by clause, by
 // position, or by name in a metadata body.
 func (m *Model) directRedefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
-	explicit := m.RedefinedFeatures(sym)
-	out := make([]*symbols.Symbol, 0, len(explicit))
-	out = append(out, explicit...)
-	out = append(out, m.ImplicitParameterRedefinitions(sym)...)
-	out = append(out, m.implicitEndRedefinitions(sym)...)
-	out = append(out, m.ImplicitRoleRedefinitions(sym)...)
-	if target := m.flowEndFeatureRedefinition(sym); target != nil {
-		// The ReferenceUsage a flow's end owns is named by the feature it redefines (FlowFeatureMember).
-		out = append(out, target)
+	// What the notation states comes first: it names a feature that declares no name.
+	out := m.writtenRedefinedFeatures(sym)
+	for _, implied := range m.ImpliedRedefinitions(sym) {
+		if !slices.Contains(out, implied) {
+			out = append(out, implied)
+		}
 	}
-	return append(out, m.implicitMetadataBodyRedefinitions(sym)...)
+	return out
 }
 
 // RestatesMetadataBodyFeature reports whether sym is a metadata body's `mission = …`:
@@ -224,7 +223,9 @@ func (m *Model) declaresOwnIdentifier(sym *symbols.Symbol) bool {
 // declaresIdentifier reports whether sym's declaration states a name or a short
 // name of its own; a symbol named by its naming feature (KerML 7.3.4.5) declares neither.
 func declaresIdentifier(sym *symbols.Symbol) bool {
-	return sym.Naming == symbols.NamedByDeclaration && (sym.Named() || sym.HasShortName())
+	// A short name is always written by the declaration (`<R1> :>> x`); a name
+	// is declared only when the naming feature does not supply it.
+	return sym.HasShortName() || (sym.Naming == symbols.NamedByDeclaration && sym.Named())
 }
 
 // identifierSource is the first of sym and the features from leads to that
@@ -273,6 +274,15 @@ func (m *Model) namingFeature(sym *symbols.Symbol) *symbols.Symbol {
 		}
 	}
 	if redefinesChainFirst(sym) {
+		return nil
+	}
+	// A constructor's argument feature is named after the feature of the
+	// instantiated type it values (KerML 8.3.4.8.3).
+	if formal, _ := m.constructorArgumentFormal(sym); formal != nil {
+		return formal
+	}
+	// A flow end's feature is named by the feature the end names, its first redefinition, or not at all.
+	if _, ok := symbols.ImpliedFlowEndFeatureIndex(sym); ok && m.flowEndFeatureRedefinition(sym) == nil {
 		return nil
 	}
 	for _, candidate := range m.directRedefinedFeatures(sym) {

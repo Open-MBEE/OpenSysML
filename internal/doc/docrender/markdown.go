@@ -114,6 +114,9 @@ func Markdown(document *docir.Document, opts MarkdownOptions) (string, error) {
 	if err := drawAutomatic(document, &diagrams, opts.Drawer, &opts.DiagramSVG); err != nil {
 		return "", err
 	}
+	if err := checkInert(nil, opts.DiagramSVG); err != nil {
+		return "", err
+	}
 	w := &markdownWriter{
 		opts: diagrams, files: opts.Files, svg: opts.DiagramSVG, outputDir: opts.OutputDir,
 		numbers: captionNumbering{on: opts.NumberFigures}, tableColumns: opts.TableColumns, tableMeasure: opts.TableMeasure,
@@ -306,8 +309,7 @@ func (w *markdownWriter) diagramFigure(name, caption string, rendering *view.Ren
 		return nil, &Error{Kind: ErrorUnrenderableDiagram, Content: name, Actual: string(rendering.Kind)}
 	}
 	form, fallback := w.opts.formFor(rendering)
-	source, err := diagramSource(name, rendering, options, form)
-	if err != nil {
+	if err := renderableForm(name, rendering, form); err != nil {
 		return nil, err
 	}
 	if fallback != "" {
@@ -316,6 +318,10 @@ func (w *markdownWriter) diagramFigure(name, caption string, rendering *view.Ren
 	if w.diagrams < len(w.svg) && w.svg[w.diagrams] != "" {
 		blocks = append(blocks, "<figure class=\"sysml-diagram\">\n"+svgBlock(w.svg[w.diagrams])+"\n</figure>")
 	} else {
+		source, err := diagramSource(name, rendering, options, form)
+		if err != nil {
+			return nil, err
+		}
 		blocks = append(blocks, "```"+string(form)+"\n"+source+"\n```")
 	}
 	w.diagrams++
@@ -338,13 +344,21 @@ func svgBlock(svg string) string {
 	return strings.Join(lines, "\n")
 }
 
+// renderableForm refuses a diagram form the rendering's kind cannot be written in.
+func renderableForm(name string, rendering *view.Rendering, form view.Form) error {
+	if !rendering.Kind.SupportsForm(form) {
+		return &Error{Kind: ErrorUnrenderableForm, Content: name, Actual: string(rendering.Kind), DiagramForm: form}
+	}
+	return nil
+}
+
 // diagramSource writes a graph-shaped rendering in the resolved diagram form
 // with the diagram's direction, palette and placement of unplaced nodes,
 // without its trailing newline. A Mermaid chart past the size a chart is drawn
 // under is refused, not written.
 func diagramSource(name string, rendering *view.Rendering, options view.Options, form view.Form) (string, error) {
-	if !rendering.Kind.SupportsForm(form) {
-		return "", &Error{Kind: ErrorUnrenderableForm, Content: name, Actual: string(rendering.Kind), DiagramForm: form}
+	if err := renderableForm(name, rendering, form); err != nil {
+		return "", err
 	}
 	switch form {
 	case view.FormMermaid:
@@ -381,7 +395,7 @@ func diagramSource(name string, rendering *view.Rendering, options view.Options,
 // its element alone.
 func tableCells(row queryexec.Row, indexes []int, names namer) []string {
 	if len(indexes) == 0 {
-		return []string{valueText(names, row.Element())}
+		return []string{queryexec.ValueText(row.Element(), names)}
 	}
 	cells := row.Cells()
 	out := make([]string, len(indexes))
@@ -398,7 +412,7 @@ func cellText(cell queryexec.Cell, names namer) string {
 	values := cell.Values()
 	parts := make([]string, len(values))
 	for i, value := range values {
-		parts[i] = valueText(names, value)
+		parts[i] = queryexec.ValueText(value, names)
 	}
 	return strings.Join(parts, ", ")
 }
@@ -593,7 +607,7 @@ func (w *markdownWriter) runText(run docir.TextRun) string {
 		if run.TargetElement() != "" {
 			return inline(run.Text())
 		}
-		return "[" + inline(refText(run, w.labels)) + "](" + w.refDestination(run) + ")"
+		return "[" + inline(refText(run, w.labels)) + "](" + linkDestination(w.refDestination(run)) + ")"
 	default:
 		return inline(run.Text())
 	}
@@ -705,55 +719,23 @@ func destination(target string) string {
 	return strings.ReplaceAll(destinationEscaper.Replace(newlineNormalizer.Replace(target)), "\n", "%0A")
 }
 
+// linkDestination writes a destination built from a file name: bare, or in the
+// pointy-bracket form when a space, parenthesis or backslash would reshape a bare one.
+func linkDestination(target string) string {
+	bare := target != "" && !strings.HasPrefix(target, "<")
+	for _, r := range target {
+		if r <= ' ' || r == 0x7f || r == '(' || r == ')' || r == '\\' {
+			bare = false
+		}
+	}
+	if bare {
+		return target
+	}
+	return "<" + destination(target) + ">"
+}
+
 // namer is the name an element value is displayed by; a document's ElementName.
 type namer func(*symbols.Symbol) string
-
-// valueText renders one typed value as plain, unescaped text: elements by
-// names — their effective name, else qualified name — objects by the label the
-// session reaches them by (`car.wheels[2]`), verdicts, states and events by
-// their summary, strings as their text, integers in base 10, reals in shortest
-// 'g' form, booleans, infinity as "*", and quantities as their magnitude in
-// the unit written: `2290000 [kg]`.
-func valueText(names namer, value queryexec.Value) string {
-	if element, ok := value.Element(); ok {
-		return names(element)
-	}
-	if _, label, ok := value.Object(); ok {
-		return label
-	}
-	if verdict, ok := value.Verdict(); ok {
-		return verdict.Summary()
-	}
-	if state, ok := value.State(); ok {
-		return state.Label()
-	}
-	if event, ok := value.Event(); ok {
-		return event.Summary()
-	}
-	if text, ok := value.String(); ok {
-		return text
-	}
-	if integer, ok := value.IntegerConst(); ok {
-		return integer.FormatInt()
-	}
-	if rational, ok := value.Rational(); ok {
-		return queryexec.RationalText(rational)
-	}
-	if realVal, ok := value.Real(); ok {
-		return strconv.FormatFloat(realVal, 'g', -1, 64)
-	}
-	if boolean, ok := value.Boolean(); ok {
-		return strconv.FormatBool(boolean)
-	}
-	if value.Kind() == queryexec.ValueInfinity {
-		return "*"
-	}
-	if quantity, ok := value.Quantity(); ok {
-		magnitude, _ := value.Magnitude()
-		return quantity.TextWithMagnitude(valueText(names, magnitude))
-	}
-	return ""
-}
 
 // inlineEscaper backslash-escapes the characters that open Markdown or HTML
 // structure anywhere in a line, dollar math included.

@@ -804,6 +804,7 @@ impl Runner {
                 "sysml.QueryResponse",
                 &wire::QueryResponse {
                     elements: elements.into_iter().map(Into::into).collect(),
+                    result_view: String::new(),
                 },
             )),
             Err(error) => classify_error(error),
@@ -1720,6 +1721,14 @@ fn element_properties_wire(
                     })
                     .collect(),
                 unsupported: property.unsupported,
+            })
+            .collect(),
+        excluded_documents: read
+            .excluded_documents
+            .into_iter()
+            .map(|document| wire::ExcludedDocument {
+                document: document.document,
+                error: document.error,
             })
             .collect(),
         error: String::new(),

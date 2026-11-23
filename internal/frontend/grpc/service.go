@@ -3,10 +3,13 @@ package grpc
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"hash"
 	"math"
 	"os"
+	"slices"
 	"strings"
 
 	"connectrpc.com/connect"
@@ -468,6 +471,7 @@ var capabilities = []string{
 	CapabilitySymbolLookupKind,
 	CapabilitySymbolMemberDirection,
 	CapabilityCoordinateFrameValues,
+	CapabilityQueryResultView,
 }
 
 type capabilityAvailability struct {
@@ -483,6 +487,9 @@ func newCapabilityAvailability(withheld []string) (capabilityAvailability, error
 		if _, ok := available[capability]; !ok {
 			return capabilityAvailability{}, fmt.Errorf("unknown capability %q", capability)
 		}
+		delete(available, capability)
+	}
+	for _, capability := range unlinkedCapabilities {
 		delete(available, capability)
 	}
 	return capabilityAvailability{available: available}, nil
@@ -508,7 +515,9 @@ func (a capabilityAvailability) names() []string {
 
 // Capabilities returns the capability names this build of the service reports.
 func Capabilities() []string {
-	return append([]string(nil), capabilities...)
+	return slices.DeleteFunc(append([]string(nil), capabilities...), func(capability string) bool {
+		return slices.Contains(unlinkedCapabilities, capability)
+	})
 }
 
 // Service implements SysMLServiceServer
@@ -1034,20 +1043,20 @@ func (s *Service) parseModelKeeping(ctx context.Context, inputs []sourceInput, m
 	// different question in each mode, so one mode's diagnostics may not serve
 	// the other. Every field is length-delimited, so no document set can spell
 	// the key of another whose names or contents carry the delimiter.
-	var key strings.Builder
-	fmt.Fprintf(&key, "%s\x00%d", mode.String(), len(inputs))
+	key := newModelKey()
+	key.format("%s\x00%d", mode.String(), len(inputs))
 	for _, input := range inputs {
 		for _, field := range []string{input.name, input.language, input.content} {
-			fmt.Fprintf(&key, "\x00%d\x00%s", len(field), field)
+			key.field(field)
 		}
 		if len(input.warnings) > 0 {
-			fmt.Fprintf(&key, "\x00%d", len(input.warnings))
+			key.format("\x00%d", len(input.warnings))
 			for _, warning := range input.warnings {
-				fmt.Fprintf(&key, "\x00%d\x00%s", len(warning), warning)
+				key.field(warning)
 			}
 		}
 	}
-	modelHash := computeHash(key.String())
+	modelHash := key.sum()
 	if cached, ok := s.cache.Get(modelHash); ok {
 		return modelHash, cached, nil
 	}
@@ -1818,11 +1827,31 @@ func (s *Service) rootSymbol(model *CachedModel, doc *CachedDocument) *pb.Symbol
 	return s.symbolInfoToProto(symbolfacts.Root(model.SymbolContext(), rootScope), model.Index)
 }
 
-// computeHash generates SHA-256 hash of content
-func computeHash(content string) string {
-	hash := sha256.Sum256([]byte(content))
-	return fmt.Sprintf("%x", hash)
+// modelKey hashes a model's cache key as its fields arrive, so no copy of the
+// source text is built to be hashed.
+type modelKey struct {
+	hash  hash.Hash
+	chunk [4096]byte
 }
+
+func newModelKey() *modelKey { return &modelKey{hash: sha256.New()} }
+
+func (k *modelKey) format(layout string, args ...any) {
+	fmt.Fprintf(k.hash, layout, args...)
+}
+
+// field writes one length-delimited field.
+func (k *modelKey) field(text string) {
+	k.format("\x00%d\x00", len(text))
+	for len(text) > 0 {
+		n := copy(k.chunk[:], text)
+		k.hash.Write(k.chunk[:n])
+		text = text[n:]
+	}
+}
+
+// sum is the key in hexadecimal.
+func (k *modelKey) sum() string { return hex.EncodeToString(k.hash.Sum(nil)) }
 
 // resolveEvent finds the definition an event name denotes: as written, else as
 // each namespace enclosing action sees it, innermost first; nil for none.

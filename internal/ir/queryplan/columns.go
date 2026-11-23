@@ -354,7 +354,7 @@ func (c *compiler) compileColumnExpression(
 		if expression.Operand != nil {
 			return c.compileCollection(query, owner, column, expression, row)
 		}
-		return c.compileCellInvocation(query, owner, column, expression, row)
+		return c.compileCellInvocation(query, owner, expression, row)
 	default:
 		return Expression{}, columnType{}, &Error{
 			Kind:   ErrorUnsupportedExpression,
@@ -589,7 +589,7 @@ func (c *compiler) compileColumnOperator(
 		Actual: expression.Operator.String(),
 		Origin: symbols.NodeOrigin(owner.DocName, expression),
 	}
-	arity := 0
+	var arity int
 	switch expression.Operator {
 	case ast.OpAdd, ast.OpSub, ast.OpMul, ast.OpDiv, ast.OpNullCoalesce:
 		arity = 2

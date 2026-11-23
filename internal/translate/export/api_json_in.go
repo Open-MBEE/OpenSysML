@@ -688,6 +688,11 @@ func (emitter *apiJSONMappingEmitter) member(member apiJSONMember) error {
 	}, member.value, nil, emitter.cache, emitter.annotations); err != nil {
 		return fmt.Errorf("element %q: %w", object.id, err)
 	}
+	if emitter.statedDefaults && member.key == pIsImpliedIncluded {
+		// The document's marker follows the flag into the graph, which is
+		// otherwise taken for an external writer's element form.
+		emitter.builder.Add(emitter.subject, rdf.OpenSysMLTerm(xStatedDefaults), rdf.Bool(true))
+	}
 	return nil
 }
 
@@ -962,6 +967,15 @@ func apiJSONIdentity(object apiJSONElementData) error {
 	case object.typ == "":
 		return fmt.Errorf("element %q needs a string \"@type\"", object.id)
 	}
+	return apiJSONNameable("id", object.id)
+}
+
+// apiJSONNameable refuses text an IRI cannot hold, so an id, type or key read
+// from a document names one term and cannot spell further Turtle.
+func apiJSONNameable(what, text string) error {
+	if r, forbidden := rdf.IRIForbidden(text); forbidden {
+		return fmt.Errorf("the %s %q holds %q, which an IRI cannot; an id, a \"@type\" and a key are free of spaces, controls and <>\"{}|^`\\", what, text, r)
+	}
 	return nil
 }
 
@@ -1199,9 +1213,9 @@ func apiJSONObjectOf(dec *json.Decoder) (apiJSONElementData, error) {
 				if name, ok := value.(string); ok && name != "" {
 					object.mappingQualifiedName = name
 				}
-			case "isImpliedIncluded":
-				// Only an external writer's element form states this flag: the
-				// mapping's graph never does, and its own documents carry the marker.
+			case pIsImpliedIncluded:
+				// An external writer's element form states this flag and carries
+				// no marker; the mapping's own documents carry the marker.
 				object.toolkitForm = true
 			}
 			if id, ok := memberReference(value); ok {
@@ -1361,6 +1375,9 @@ func apiJSONValueOf(dec *json.Decoder) (any, error) {
 // apiJSONTypeIRI maps a "@type" to its metaclass IRI: a bare name is a sysml:
 // class, the sysx: CURIE an extension class; anything else cannot be named.
 func apiJSONTypeIRI(typ string) (rdf.Term, error) {
+	if err := apiJSONNameable("\"@type\"", typ); err != nil {
+		return rdf.Term{}, err
+	}
 	if name, ok := strings.CutPrefix(typ, "sysx:"); ok {
 		if name == "" {
 			return rdf.Term{}, fmt.Errorf("the \"@type\" %q has no metaclass name", typ)
@@ -1376,6 +1393,9 @@ func apiJSONTypeIRI(typ string) (rdf.Term, error) {
 // apiJSONPredicate maps a member key to its predicate IRI, reporting the sysml:
 // local name for the collection annotation it may carry.
 func apiJSONPredicate(key string) (rdf.Term, string, error) {
+	if err := apiJSONNameable("key", key); err != nil {
+		return rdf.Term{}, "", err
+	}
 	if name, ok := strings.CutPrefix(key, "sysx:"); ok {
 		if name == "" {
 			return rdf.Term{}, "", fmt.Errorf("the key %q has no property name", key)
@@ -1490,6 +1510,9 @@ func (cache *apiJSONTermCache) referenceTarget(subject rdf.Term, object map[stri
 			}
 			if target, ok := cache.references[key]; ok {
 				return target, nil
+			}
+			if err := apiJSONNameable("reference id", id); err != nil {
+				return rdf.Term{}, err
 			}
 			if strings.HasPrefix(id, rdf.Expression) || strings.HasPrefix(id, rdf.Element) {
 				// A service that hands a reference back as the IRI itself names

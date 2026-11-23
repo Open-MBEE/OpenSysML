@@ -4,6 +4,7 @@ stmt action body
   stmt declare k
     eval literal 3 -> 3
   stmt while
+materialize: Blocks #1
     iteration 1
         eval feature k -> 3
         eval literal 0 -> 0

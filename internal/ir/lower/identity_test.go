@@ -258,6 +258,64 @@ func TestAssignIDs_StateDeterministicAcrossLowerings(t *testing.T) {
 	}
 }
 
+// exprOrderMachine states expressions under several keys of every table the
+// machine's interning reads: attributes, features, transitions and entry transitions.
+const exprOrderMachine = `
+	package test {
+		state def Machine {
+			attribute limit : ScalarValues::Integer = 10;
+			entry; if limit > 9 then s1; then s0;
+			state s0 { attribute a0 : ScalarValues::Integer = 100; entry action e0 { in x0 = 20; } }
+			state s1 { attribute a1 : ScalarValues::Integer = 101; entry action e1 { in x1 = 21; } }
+			state s2 { attribute a2 : ScalarValues::Integer = 102; entry action e2 { in x2 = 22; } }
+			state s3 { attribute a3 : ScalarValues::Integer = 103; do action d3 { in x3 = 23; } }
+			state s4 { attribute a4 : ScalarValues::Integer = 104; exit action q4 { in x4 = 24; } }
+			state s5 {
+				attribute a5 : ScalarValues::Integer = 105;
+				entry; if limit > 50 then inner1; then inner0;
+				state inner0;
+				state inner1;
+				transition first inner0 if limit > 51 then inner1;
+			}
+			transition first s0 if limit > 30 then s1;
+			transition first s1 if limit > 31 then s2;
+			transition first s2 if limit > 32 then s3;
+			transition first s3 if limit > 33 then s4;
+			transition first s4 if limit > 34 then s5;
+			transition first s5 if limit > 35 then s0;
+		}
+	}
+`
+
+// exprSpans lists what each ExprID of the table names, by where it was written.
+func exprSpans(t *testing.T, table *ExprTable) []source.Span {
+	t.Helper()
+	var spans []source.Span
+	for id := program.ExprID(1); table.Entry(id) != nil; id++ {
+		spans = append(spans, table.Tree(id).Span())
+	}
+	if len(spans) < 20 {
+		t.Fatalf("fixture interns %d expressions, want at least 20", len(spans))
+	}
+	return spans
+}
+
+func TestAssignIDs_StateExprIDsDeterministicAcrossLowerings(t *testing.T) {
+	lowerOnce := func() []source.Span {
+		graph, err := ToStateGraph(stateDefinitionIn(t, exprOrderMachine), nil)
+		if err != nil {
+			t.Fatalf("ToStateGraph: %v", err)
+		}
+		return exprSpans(t, graph.Exprs)
+	}
+	first := lowerOnce()
+	for run := 1; run < 20; run++ {
+		if again := lowerOnce(); !reflect.DeepEqual(first, again) {
+			t.Fatalf("lowering %d assigns ExprIDs in another order:\n%v\n%v", run, first, again)
+		}
+	}
+}
+
 // The states a parallel body's usages stand for are graph-only (States leaves
 // them out) but head parent chains and region tables, so they are numbered too.
 func TestAssignIDs_StateHiddenRegionOwnersNumbered(t *testing.T) {

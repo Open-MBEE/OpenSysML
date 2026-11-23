@@ -43,6 +43,7 @@ export type WorkerWasmSource = string | ArrayBuffer | Uint8Array | WebAssembly.M
 export type WasmWorkerRequest =
   | { type: "init"; wasm: WorkerWasmSource; wasmExec?: string }
   | { type: "call"; id: number; method: string; params: string }
+  | { type: "cancel"; id: number }
   | { type: "close" };
 
 export type WasmWorkerResponse =
@@ -326,6 +327,7 @@ export class WorkerWasmHost implements WasmHost {
       } else {
         const onAbort = (): void => {
           this.removePending(id)?.reject(abortError(signal));
+          this.abandon(id);
         };
         this.pending.set(id, { resolve, reject, signal, onAbort });
         signal.addEventListener("abort", onAbort, { once: true });
@@ -357,6 +359,15 @@ export class WorkerWasmHost implements WasmHost {
       this.removePending(id)?.reject(closed);
     }
     await this.endpoint.terminate();
+  }
+
+  // Tells the worker not to start a call nobody waits for; one under way runs on.
+  private abandon(id: number): void {
+    try {
+      this.endpoint.post({ type: "cancel", id }, []);
+    } catch {
+      // A worker that has already failed has no queue to withdraw the call from.
+    }
   }
 
   private receive(message: WasmWorkerResponse): void {
@@ -426,6 +437,7 @@ export function serveWasmPort(port: WasmPortLike, loaders: WasmPortLoaders = {})
   let initializing = false;
   let closed = false;
   let calls = Promise.resolve();
+  const queued = new Set<number>();
 
   const onMessage = (event: MessageEvent<WasmWorkerRequest>): void => {
     const request = event.data;
@@ -443,7 +455,17 @@ export function serveWasmPort(port: WasmPortLike, loaders: WasmPortLoaders = {})
       void host?.close();
       return;
     }
+    if (request.type === "cancel") {
+      queued.delete(request.id);
+      return;
+    }
+    queued.add(request.id);
     calls = calls.then(async () => {
+      // The Go call blocks this thread, so cancellations sent meanwhile are read first.
+      await nextTask();
+      if (!queued.delete(request.id)) {
+        return;
+      }
       if (closed || host === undefined) {
         port.postMessage({
           type: "answer",
@@ -484,6 +506,18 @@ export function serveWasmPort(port: WasmPortLike, loaders: WasmPortLoaders = {})
 
   port.addEventListener("message", onMessage);
   port.start?.();
+}
+
+// Resolves once the messages already delivered to this thread have been handled.
+function nextTask(): Promise<void> {
+  return new Promise((resolve) => {
+    const channel = new MessageChannel();
+    channel.port1.onmessage = (): void => {
+      channel.port1.close();
+      resolve();
+    };
+    channel.port2.postMessage(undefined);
+  });
 }
 
 /** Loads and caches the Go constructor installed by wasm_exec.js. */

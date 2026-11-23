@@ -294,10 +294,13 @@ man-lint: ## Run the shipped pages through a formatter, without rebuilding the c
 		mandoc -T lint -W warning $(MAN_PAGES) || exit 1; \
 	elif command -v groff >/dev/null 2>&1; then \
 		groff -man -Tutf8 -ww -z $(MAN_PAGES) || exit 1; \
+	elif [ -n "$(MAN_LINT_OPTIONAL)" ]; then \
+		echo "note: neither mandoc nor groff is installed; the pages were not formatted"; exit 0; \
 	else \
-		echo "note: neither mandoc nor groff is installed; the pages were not formatted"; \
-	fi
-	@echo "✓ Manual pages are formatter-clean"
+		echo "error: neither mandoc nor groff is installed, so the pages cannot be checked;" >&2; \
+		echo "       install one, or set MAN_LINT_OPTIONAL=1 to skip the formatter" >&2; exit 1; \
+	fi; \
+	echo "✓ Manual pages are formatter-clean"
 
 pgo-profile: stdlib-snapshot ## Regenerate cmd/*/default.pgo, the CPU profile go build optimizes the binaries against
 	@echo "Collecting the PGO profile..."
@@ -356,8 +359,9 @@ test: stdlib-snapshot ## Run Go tests with race detection and coverage
 	go test -v -race -pgo=off -timeout 45m -coverprofile=coverage.txt -covermode=atomic ./...
 	go test -C $(TOOLS_DIR) -v -race -pgo=off -timeout 45m ./...
 
-# Run race-free by their own gate steps in the PR workflow's static-and-integrity job.
-RACE_SHARD_SKIP := ^(TestTrainingExamplesSemanticErrors|TestCorpusGatesCacheStateIndependent|TestPilotCorporaDiagnostics|TestPilotLibraryXMI|TestPSSMSuiteMigration|TestDifferentialRandomizedAssignments|TestDifferentialConformanceCorpus|TestDifferentialStandardLibrary|TestDifferentialTrainingCorpus|TestPortability|TestPortabilityGateIsRequired)$$
+# Run race-free by their own gate steps in the PR workflow's static-and-integrity job; the two element-form
+# differentials are there as each takes 24-26 minutes under -race, more than the rest shard's hour holds.
+RACE_SHARD_SKIP := ^(TestTrainingExamplesSemanticErrors|TestSymbolStructureMatchesGraphStructure|TestCorpusGatesCacheStateIndependent|TestPilotCorporaDiagnostics|TestPilotLibraryXMI|TestPSSMSuiteMigration|TestDifferentialRandomizedAssignments|TestDifferentialConformanceCorpus|TestDifferentialStandardLibrary|TestDifferentialTrainingCorpus|TestPortability|TestPortabilityGateIsRequired)$$
 # The runtime-corpus shard runs the four suites that walk the conformance corpus; the exploration
 # suite is as long as those four together, so runtime-exploration runs it as a shard of its own.
 RACE_RUNTIME_EXPLORATION := ^TestExploreWithIsExploreOverTheConformanceCorpus$$
@@ -495,7 +499,8 @@ audit-rust: ## Fail on RustSec advisories against client/rust/Cargo.lock (cargo 
 
 audit-java: ## Fail on OSV advisories against the Maven trees' compile and runtime dependencies (JAVA_PROJECT_DIRS=dir... narrows)
 	@# A CycloneDX SBOM carries the versions Maven resolved, reactor modules included, which osv-scanner's own pom resolver cannot follow.
-	@for dir in $(JAVA_PROJECT_DIRS); do echo "osv-scanner $$dir" && mvn -B -q -f "$$dir/pom.xml" org.cyclonedx:cyclonedx-maven-plugin:$(CYCLONEDX_MAVEN_VERSION):makeAggregateBom -DoutputFormat=json -DoutputName=bom -DincludeTestScope=false && $(SCA_BIN)/osv-scanner scan source -L "$$dir/target/bom.json" || exit 1; done
+	@# scripts/maven-sbom.sh asks a mirror of Maven Central for the plugin that writes it when Central refuses.
+	@for dir in $(JAVA_PROJECT_DIRS); do echo "osv-scanner $$dir" && scripts/maven-sbom.sh "$$dir" $(CYCLONEDX_MAVEN_VERSION) && $(SCA_BIN)/osv-scanner scan source -L "$$dir/target/bom.json" || exit 1; done
 
 audit: vulncheck audit-npm audit-python audit-rust audit-java ## Run every dependency audit, as CI and the release procedure do
 	@echo "✓ Dependency audits passed"
