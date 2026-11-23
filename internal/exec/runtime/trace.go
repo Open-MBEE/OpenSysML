@@ -367,7 +367,7 @@ func (tr *TraceRecorder) recordAcceptAt(mark int, origin TraceOrigin, serial uin
 }
 
 // RecordStateTransition records a transition fired, with the trigger it fired on.
-func (tr *TraceRecorder) RecordStateTransition(origin TraceOrigin, fromState, toState string, event string) {
+func (tr *TraceRecorder) RecordStateTransition(origin TraceOrigin, fromState, toState, event string) {
 	tr.add(TraceRecord{Kind: TraceTransition, Origin: origin, From: fromState, To: toState, Event: event})
 }
 

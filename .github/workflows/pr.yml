@@ -120,9 +120,9 @@ jobs:
           TIER: ${{ steps.areas.outputs.tier }}
         run: |
           if [ "$TIER" != quick ]; then
-            echo 'go_shards=["runtime","runtime-corpus","runtime-exploration","model","smt","corpus","corpus-sweep","export","export-library","export-examples","export-corpus","graph","graph-corpora","codegen","translate translate-structure","grpc","internal","rest","migrate","cli"]'
+            echo 'go_shards=["runtime","runtime-corpus","runtime-exploration","model","smt","corpus","corpus-sweep-committed","corpus-sweep-corpora","export","export-library","export-examples","export-corpus","graph","graph-corpora","codegen","translate translate-structure","grpc","internal","rest","migrate","cli"]'
           else
-            echo 'go_shards=["runtime runtime-corpus runtime-exploration model","codegen migrate","cli translate translate-structure","graph graph-corpora internal","smt","corpus corpus-sweep","export export-examples","export-library export-corpus","rest grpc"]'
+            echo 'go_shards=["runtime runtime-corpus runtime-exploration model","codegen migrate","cli translate translate-structure","graph graph-corpora internal","smt","corpus corpus-sweep-committed corpus-sweep-corpora","export export-examples","export-library export-corpus","rest grpc"]'
           fi | tee -a "$GITHUB_OUTPUT"
 
       # A cold fUML cache (a new key, and every merge-queue ref) would send each Go job to Maven
@@ -216,14 +216,8 @@ jobs:
       # apt package, so the official static release is what CI runs, pinned by
       # digest so a substituted asset is not run.
       - name: Install cvc5
-        run: |
-          curl -fsSL --proto '=https' --proto-redir '=https' -o /tmp/cvc5.zip \
-            https://github.com/cvc5/cvc5/releases/download/cvc5-1.3.4/cvc5-Linux-x86_64-static.zip
-          echo "dcdbfada0ce493ee98259c0816e0daafc561c223aadb3af298c2968e73ea39c6  /tmp/cvc5.zip" | sha256sum --check --strict
-          unzip -p /tmp/cvc5.zip '*/bin/cvc5' > /tmp/cvc5-bin
-          sudo install -m 0755 /tmp/cvc5-bin /usr/local/bin/cvc5
-          cvc5_version="$(cvc5 --version)"
-          echo "${cvc5_version%%$'\n'*}"
+        timeout-minutes: 20
+        uses: ./.github/actions/cvc5
 
       # Every corpus the suite's gates are required over, with the FMI gate's simulator
       # and FMUs; see .github/actions/corpora.
@@ -316,14 +310,8 @@ jobs:
 
       - name: Install cvc5
         if: needs.changes.outputs.tier != 'quick'
-        run: |
-          curl -fsSL --proto '=https' --proto-redir '=https' -o /tmp/cvc5.zip \
-            https://github.com/cvc5/cvc5/releases/download/cvc5-1.3.4/cvc5-Linux-x86_64-static.zip
-          echo "dcdbfada0ce493ee98259c0816e0daafc561c223aadb3af298c2968e73ea39c6  /tmp/cvc5.zip" | sha256sum --check --strict
-          unzip -p /tmp/cvc5.zip '*/bin/cvc5' > /tmp/cvc5-bin
-          sudo install -m 0755 /tmp/cvc5-bin /usr/local/bin/cvc5
-          cvc5_version="$(cvc5 --version)"
-          echo "${cvc5_version%%$'\n'*}"
+        timeout-minutes: 20
+        uses: ./.github/actions/cvc5
 
       # Every corpus below comes through this downloader, so it is checked first.
       - name: Test the pilot downloader

@@ -42,7 +42,7 @@ func ownedRelationsOf(graph *rdf.Graph, owner rdf.Term, metaclass string) []rdf.
 	return out
 }
 
-func assertReaches(t *testing.T, graph *rdf.Graph, subject rdf.Term, want rdf.Term, properties ...string) {
+func assertReaches(t *testing.T, graph *rdf.Graph, subject, want rdf.Term, properties ...string) {
 	t.Helper()
 	for _, property := range properties {
 		if got := graph.Objects(subject, rdf.SysML+property); len(got) != 1 || got[0] != want {

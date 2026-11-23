@@ -367,7 +367,7 @@ func (r *Resolver) BindsName(sym *symbols.Symbol) bool {
 
 // referencesFeature reports whether the reference subsetting target owned by
 // decl names a feature: a definition or nothing at all names no feature.
-func (r *Resolver) referencesFeature(scope *symbols.Scope, decl ast.Node, target ast.Node) bool {
+func (r *Resolver) referencesFeature(scope *symbols.Scope, decl, target ast.Node) bool {
 	if target == nil {
 		return true
 	}
@@ -383,7 +383,7 @@ func (r *Resolver) referencesFeature(scope *symbols.Scope, decl ast.Node, target
 
 // namesVisibleFeature reports whether a redefinition target owned by decl names
 // a feature the redefinition can see, chain segments included (KerML 8.2.3.5).
-func (r *Resolver) namesVisibleFeature(scope *symbols.Scope, decl ast.Node, target ast.Node) bool {
+func (r *Resolver) namesVisibleFeature(scope *symbols.Scope, decl, target ast.Node) bool {
 	if _, chain := target.(*ast.FeatureChainExpr); !chain && ast.AsQualifiedName(target) == nil {
 		return true
 	}
@@ -550,6 +550,10 @@ func (r *Resolver) lookupImports(scope *symbols.Scope, name string) (*symbols.Sy
 	return nil, false
 }
 
+// uncutVisit is the record of an import search that found nothing and was cut
+// at no excluded namespace. It is shared, so it is never appended to in place.
+var uncutVisit = [][]*symbols.Scope{nil}
+
 // lookupImportedMember resolves a segment surfaced by the namespace being
 // traversed, including a public membership import.
 func (r *Resolver) lookupImportedMember(target *symbols.Symbol, targetScope, from *symbols.Scope, name string, all bool) (*symbols.Symbol, bool) {
@@ -594,9 +598,14 @@ func (r *Resolver) lookupImportedMember(target *symbols.Symbol, targetScope, fro
 			}
 		}
 	})
-	deps := r.routeDepsSince(mark, nil)
+	cut := r.routeCutsSince(mark, nil)
 	if found == nil {
-		r.importVisits[visit] = append(r.importVisits[visit], deps.cut)
+		if len(cut) == 0 {
+			// A miss cut nowhere holds on every route, so it stands for the visit.
+			r.importVisits[visit] = uncutVisit
+		} else {
+			r.importVisits[visit] = append(r.importVisits[visit], cut)
+		}
 		return nil, false
 	}
 	return found, true
@@ -877,7 +886,7 @@ func (r *Resolver) importPrefixAvailable(scope *symbols.Scope, imp *ast.Import, 
 
 // eachSubtreeMatch yields each element named name in the target namespace and its visible
 // descendants, nested re-exports included, until yield returns false.
-func (r *Resolver) eachSubtreeMatch(target *symbols.Symbol, name string, imp *ast.Import, admit func(*symbols.Symbol) bool, yield func(*symbols.Symbol) bool) {
+func (r *Resolver) eachSubtreeMatch(target *symbols.Symbol, name string, imp *ast.Import, admit, yield func(*symbols.Symbol) bool) {
 	out := newElementList()
 	r.appendSubtree(out, target, imp, admit, map[symbols.ElementKey]bool{}, false)
 	for _, sym := range out.elems {

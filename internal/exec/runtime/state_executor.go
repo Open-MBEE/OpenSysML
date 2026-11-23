@@ -295,8 +295,7 @@ func newStateExecutor(ctx *Context, stateMachine *symbols.Symbol, self *Instance
 func newStateExecutorForOccurrence(
 	ctx *Context,
 	stateMachine *symbols.Symbol,
-	self *Instance,
-	occurrence *Instance,
+	self, occurrence *Instance,
 ) (*StateExecutor, error) {
 	return newStateExecutorLowering(ctx, stateMachine, stateMachine, self, occurrence)
 }
@@ -307,8 +306,7 @@ func newStateExecutorForOccurrence(
 func newStateExecutorLowering(
 	ctx *Context,
 	stateMachine, lowered *symbols.Symbol,
-	self *Instance,
-	occurrence *Instance,
+	self, occurrence *Instance,
 ) (*StateExecutor, error) {
 	if stateMachine.Kind != symbols.SymbolStateUsage && stateMachine.Kind != symbols.SymbolStateDef {
 		return nil, fmt.Errorf("symbol %s is not a state machine", stateMachine.Name)
@@ -319,8 +317,7 @@ func newStateExecutorLowering(
 
 	// Lower to StateGraph, in the scope the machine's body was written in, so
 	// that everything the graph carries is evaluated where it was declared.
-	// Endpoints come from the name-resolution tier, which reported on them already.
-	graph, err := lower.ToStateGraphWithEndpoints(lowered.Decl, DeclScope(lowered), lower.NewLibraryStateTypes(ctx.model.resolver))
+	graph, err := ctx.model.stateGraph(lowered)
 	if err != nil {
 		return nil, fmt.Errorf("lower state machine: %w", err)
 	}

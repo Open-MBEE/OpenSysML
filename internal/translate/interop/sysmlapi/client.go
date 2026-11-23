@@ -299,7 +299,7 @@ func (c *Client) getJSON(ctx context.Context, target string, into any, what stri
 	return nil
 }
 
-func (c *Client) postJSON(ctx context.Context, target string, request any, into any, what string) error {
+func (c *Client) postJSON(ctx context.Context, target string, request, into any, what string) error {
 	body, err := json.Marshal(request)
 	if err != nil {
 		return err
@@ -387,7 +387,7 @@ func (c *Client) commitPath(project, commit string) string {
 // Flexo spells them `pageSize` and `pageAfter` and links nothing, so both
 // spellings are sent and the next page is the linked one, else the one after
 // the last item. A short page ends the walk; so does a page repeating an item.
-func (c *Client) paged(ctx context.Context, target string, what string, each func(json.RawMessage) (id string, fresh bool)) error {
+func (c *Client) paged(ctx context.Context, target, what string, each func(json.RawMessage) (id string, fresh bool)) error {
 	next := withPaging(target, "")
 	for page := 1; page <= maxPages; page++ {
 		content, header, err := c.Do(ctx, http.MethodGet, next, nil, "", nil)

@@ -911,7 +911,7 @@ func (g *StateGraph) startShot(target, decl ast.Node) bool {
 // targetVertex is the vertex a transition ends at: the one its endpoint names,
 // or the completion of the body it is written in when that endpoint is `done`
 // and no vertex of the machine is declared under that name.
-func (g *StateGraph) targetVertex(scope *symbols.Scope, target ast.Node, owner ast.Node) (ast.Node, error) {
+func (g *StateGraph) targetVertex(scope *symbols.Scope, target, owner ast.Node) (ast.Node, error) {
 	node, err := g.vertex(scope, target)
 	if node == nil && isDoneEndpoint(target) {
 		return g.completion(owner, scope, target.Span()), nil
@@ -921,7 +921,7 @@ func (g *StateGraph) targetVertex(scope *symbols.Scope, target ast.Node, owner a
 
 // succeedingVertex is targetVertex for a succession's target, as endpointVertex
 // is vertex for its source.
-func (g *StateGraph) succeedingVertex(scope *symbols.Scope, target ast.Node, owner ast.Node) (ast.Node, error) {
+func (g *StateGraph) succeedingVertex(scope *symbols.Scope, target, owner ast.Node) (ast.Node, error) {
 	node, err := g.endpointVertex(scope, target)
 	if node == nil && err == nil && isDoneEndpoint(target) {
 		return g.completion(owner, scope, target.Span()), nil
@@ -1042,7 +1042,7 @@ func collectVertices(graph *StateGraph, members []ast.Node, scope *symbols.Scope
 // collectStates recursively collects states and builds parent relationships.
 // scope is the scope the state's own body was declared in, from which the scope
 // of each of its substates and regions is derived.
-func collectStates(graph *StateGraph, state *ast.StateNode, parent *ast.StateNode, scope *symbols.Scope) error {
+func collectStates(graph *StateGraph, state, parent *ast.StateNode, scope *symbols.Scope) error {
 	graph.States = append(graph.States, state)
 	graph.addVertex(state)
 	graph.recordDecl(state)
@@ -1063,7 +1063,7 @@ func collectStates(graph *StateGraph, state *ast.StateNode, parent *ast.StateNod
 
 // collectGraphOnlyState records a synthesized state's behavior and hierarchy
 // without exposing the region owner as a user-visible graph vertex.
-func collectGraphOnlyState(graph *StateGraph, state *ast.StateNode, parent *ast.StateNode, scope *symbols.Scope) error {
+func collectGraphOnlyState(graph *StateGraph, state, parent *ast.StateNode, scope *symbols.Scope) error {
 	graph.HiddenStates[state] = true
 	graph.recordDecl(state)
 	graph.StateScopes[state] = scope
@@ -1630,7 +1630,7 @@ func isNilEndpoint(target ast.Node) bool {
 // vertexFor is the graph node an endpoint names. An endpoint reaching into
 // content a state inherits (`nested.i1`, `nested::i1`) names that state's own
 // copy of the declaration, held by its materialization rather than the machine.
-func (g *StateGraph) vertexFor(scope *symbols.Scope, target ast.Node, decl ast.Node) (ast.Node, bool) {
+func (g *StateGraph) vertexFor(scope *symbols.Scope, target, decl ast.Node) (ast.Node, bool) {
 	if node, ok := g.findVertex(decl); ok {
 		return node, true
 	}

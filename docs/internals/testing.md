@@ -40,6 +40,7 @@ New grammar features require a **four-layer test contract**:
 - **Coverage:** 112/112 bundled library files — the 94 official SysML v2 standard library files and eighteen non-normative OpenSysML extensions
 - **Acceptance:** All stdlib files parse without errors
 - **Allowlist:** `testdata/stdlib_known_failures.txt` (currently empty)
+- **Documented figures:** `TestDocumentationStatesTheBundledLibraryCount` (tests/hygiene/) holds each sentence stating this count, and each list naming the extensions, to the files under `internal/workspace/libs/stdlib/`; `TestDocumentationStatesTheGoFloor` holds each stated minimum Go version to `go.mod`
 
 ```bash
 go test -v -run TestStdlibConformance ./internal/workspace/libs

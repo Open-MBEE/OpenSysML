@@ -584,7 +584,7 @@ func (d *decoder) verifyConjugated(el, parent *element) error {
 
 // verifySubjectParameter checks a satisfy's subject parameter: its value is a
 // FeatureReferenceExpression of one of the `by` targets the head states.
-func (d *decoder) verifySubjectParameter(el *element, parent *element, subjects []rdf.Term) error {
+func (d *decoder) verifySubjectParameter(el, parent *element, subjects []rdf.Term) error {
 	what := fmt.Sprintf("the subject parameter <%s>", el.iri)
 	iris := false
 	for _, subject := range subjects {

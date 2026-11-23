@@ -17,6 +17,7 @@ const (
 	memoInheritedMemberships
 	memoValueList
 	memoSpecializedGeneralTypes
+	memoGeneralTypes
 	memoFeatureDirections
 )
 

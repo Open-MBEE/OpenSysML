@@ -69,7 +69,7 @@ func (nb *notebookSession) change(version int, cells string) {
 }
 
 // callOn is a textDocument request on a cell at a position.
-func (nb *notebookSession) callOn(method string, cell int, line, character int) any {
+func (nb *notebookSession) callOn(method string, cell, line, character int) any {
 	nb.t.Helper()
 	return nb.call(method, fmt.Sprintf(
 		`{"textDocument":{"uri":%q},"position":{"line":%d,"character":%d}}`, nb.cells[cell], line, character))

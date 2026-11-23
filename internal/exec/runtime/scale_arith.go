@@ -99,7 +99,7 @@ func (ctx *Context) notIntervalError(what string, scale *CoordinateFrame) error 
 }
 
 // refusePoints refuses what when either operand is a point, naming the scale.
-func (ctx *Context) refusePoints(what string, why string, operands ...*Quantity) error {
+func (ctx *Context) refusePoints(what, why string, operands ...*Quantity) error {
 	for _, q := range operands {
 		scale, ok, err := ctx.pointOf(q)
 		if err != nil {
@@ -162,7 +162,7 @@ func (ctx *Context) cyclicOperands(operands ...*Quantity) ([]*Quantity, []*Coord
 
 // ratioOperands is cyclicOperands for an operation only ratio magnitudes have:
 // what is refused over a point on any other scale.
-func (ctx *Context) ratioOperands(what string, why string, operands ...*Quantity) ([]*Quantity, []*CoordinateFrame, error) {
+func (ctx *Context) ratioOperands(what, why string, operands ...*Quantity) ([]*Quantity, []*CoordinateFrame, error) {
 	out, cyclic, err := ctx.cyclicOperands(operands...)
 	if err != nil {
 		return nil, nil, err

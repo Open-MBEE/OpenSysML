@@ -55,7 +55,7 @@ func TestNegativeEmptyUnrestrictedName(t *testing.T) {
 		"package P { part ''x; }",
 	} {
 		p := New(source.New("neg.sysml", []byte(src)))
-		if root := p.ParseFile(); root == nil {
+		if p.ParseFile() == nil {
 			t.Errorf("%s: no tree", src)
 		}
 		if len(p.Diagnostics) == 0 {

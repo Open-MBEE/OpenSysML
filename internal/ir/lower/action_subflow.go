@@ -498,7 +498,7 @@ func lowerEffectiveAccept(graph *ActionGraph, node *ast.Usage, members []effecti
 // acceptPayloadSymbol is the feature the payload of node's accept member m
 // declares: a member of the node's own namespace, as resolution finds it
 // (resolve.acceptPayload); nil for a payload declaring no name.
-func acceptPayloadSymbol(graph *ActionGraph, node *ast.Usage, m *ast.Usage) *symbols.Symbol {
+func acceptPayloadSymbol(graph *ActionGraph, node, m *ast.Usage) *symbols.Symbol {
 	if !m.Ident.HasName() || graph.Scopes == nil {
 		return nil
 	}

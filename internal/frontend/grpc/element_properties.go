@@ -136,6 +136,13 @@ type elementReader struct {
 	idsRefusal error
 	addresses  map[*symbols.Symbol]string
 	bySymbol   map[string]*symbols.Symbol
+	// anonymous keeps what anonymousMember derived, a refusal included.
+	anonymous map[*symbols.Symbol]anonymousLookup
+}
+
+type anonymousLookup struct {
+	member identity.AnonymousMember
+	ok     bool
 }
 
 // elementReader is the model's symbol-backed property reader, built on first use.
@@ -562,7 +569,7 @@ func (r *elementReader) libraryMembershipRef(element metamodel.Element) (*pb.Ele
 	}
 	if library, ok := r.libraryCatalog().ElementForSymbol(membership.Member); ok && library != nil {
 		ref.Id = library.OwningMembershipID
-	} else if member, ok := identity.AnonymousMemberOf(r.semantics, r.libraryCatalog(), membership.Member); ok {
+	} else if member, ok := r.anonymousMember(membership.Member); ok {
 		ref.Id = member.OwningMembershipID
 		if member.MembershipMetaclass != "" {
 			ref.Metaclass = member.MembershipMetaclass
@@ -586,12 +593,26 @@ func (r *elementReader) libraryElementID(sym *symbols.Symbol) string {
 		if element, ok := r.libraryCatalog().ElementForSymbol(sym); ok && element != nil && element.ID != "" {
 			return element.ID
 		}
-		if member, ok := identity.AnonymousMemberOf(r.semantics, r.libraryCatalog(), sym); ok {
+		if member, ok := r.anonymousMember(sym); ok {
 			return member.ID
 		}
 		return r.semantics.QualifiedNameOf(sym)
 	}
 	return r.model.Index.GetFQN(sym)
+}
+
+// anonymousMember is identity.AnonymousMemberOf, derived once per symbol: placing a member walks
+// its owner's members, and every reference to an unnamed library member asks again.
+func (r *elementReader) anonymousMember(sym *symbols.Symbol) (identity.AnonymousMember, bool) {
+	if found, ok := r.anonymous[sym]; ok {
+		return found.member, found.ok
+	}
+	member, ok := identity.AnonymousMemberOf(r.semantics, r.libraryCatalog(), sym)
+	if r.anonymous == nil {
+		r.anonymous = map[*symbols.Symbol]anonymousLookup{}
+	}
+	r.anonymous[sym] = anonymousLookup{member: member, ok: ok}
+	return member, ok
 }
 
 func (r *elementReader) libraryCatalog() *identity.Catalog {
@@ -634,7 +655,7 @@ func (r *elementReader) libraryEffectiveQualifiedName(sym *symbols.Symbol) strin
 	name := r.semantics.EffectiveNameOf(sym)
 	owner := sym.Owner()
 	if name == "" || owner == nil {
-		if member, ok := identity.AnonymousMemberOf(r.semantics, r.libraryCatalog(), sym); ok {
+		if member, ok := r.anonymousMember(sym); ok {
 			return member.Path
 		}
 		return ""
