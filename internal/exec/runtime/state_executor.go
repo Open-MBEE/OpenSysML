@@ -295,8 +295,7 @@ func newStateExecutor(ctx *Context, stateMachine *symbols.Symbol, self *Instance
 func newStateExecutorForOccurrence(
 	ctx *Context,
 	stateMachine *symbols.Symbol,
-	self *Instance,
-	occurrence *Instance,
+	self, occurrence *Instance,
 ) (*StateExecutor, error) {
 	return newStateExecutorLowering(ctx, stateMachine, stateMachine, self, occurrence)
 }
@@ -307,8 +306,7 @@ func newStateExecutorForOccurrence(
 func newStateExecutorLowering(
 	ctx *Context,
 	stateMachine, lowered *symbols.Symbol,
-	self *Instance,
-	occurrence *Instance,
+	self, occurrence *Instance,
 ) (*StateExecutor, error) {
 	if stateMachine.Kind != symbols.SymbolStateUsage && stateMachine.Kind != symbols.SymbolStateDef {
 		return nil, fmt.Errorf("symbol %s is not a state machine", stateMachine.Name)

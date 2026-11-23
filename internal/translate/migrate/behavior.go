@@ -837,7 +837,7 @@ func realLiteral(v float64) string {
 // singleValue is the min of a duration interval whose max is a duration without
 // an expression in a MagicDraw document, which is how that tool stores and shows
 // a constraint written with one value, `{60s}`; ok is false for anything else.
-func (m *migration) singleValue(spec *sysmlv1.Element, lo string, lok bool, hok bool) (bound, note string, ok bool) {
+func (m *migration) singleValue(spec *sysmlv1.Element, lo string, lok, hok bool) (bound, note string, ok bool) {
 	if !lok || hok || !m.fromMagicDraw() {
 		return "", "", false
 	}

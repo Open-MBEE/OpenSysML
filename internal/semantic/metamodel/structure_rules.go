@@ -3431,8 +3431,7 @@ func (e *Evaluator) structureQualifiedNameNamespaceOwner(namespace Element) (Val
 }
 
 func (e *Evaluator) structureQualifiedNameHasEarlierName(
-	namespace Element,
-	element Element,
+	namespace, element Element,
 	name string,
 	memberships bool,
 ) (bool, Reason, bool) {

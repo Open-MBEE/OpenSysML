@@ -314,7 +314,7 @@ func (r runner) run(t *testing.T, binary string, args ...string) result {
 
 // runWithInput completes a process fed lines — a file of them on a file-driven
 // target, the lines themselves on a pipe-driven one — and returns what it wrote.
-func (r runner) runWithInput(t *testing.T, binary string, lines string, args ...string) result {
+func (r runner) runWithInput(t *testing.T, binary, lines string, args ...string) result {
 	t.Helper()
 	var stdin io.Reader = strings.NewReader(lines)
 	if r.stdin == stdinFile {

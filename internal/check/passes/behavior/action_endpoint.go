@@ -172,8 +172,7 @@ func (c *actionEndpointChecker) check(
 	hasInitial bool,
 	ref ast.Node,
 	sourceEnd bool,
-	from ast.Node,
-	subject ast.Node,
+	from, subject ast.Node,
 ) {
 	if ref == nil || lower.ActionEndpointAccepted(nodes, hasInitial, ref, sourceEnd) {
 		return

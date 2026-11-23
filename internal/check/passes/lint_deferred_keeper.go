@@ -24,6 +24,8 @@ type DeferredKeeperPass struct{}
 // signals' names are all it reads.
 func (DeferredKeeperPass) Level() PassLevel { return LevelNameResolution }
 
+func (DeferredKeeperPass) ElementScoped() { /* marker: per-element gating */ }
+
 // Run checks the deferring states of one workspace document.
 func (DeferredKeeperPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil || ctx.Index.IsLibraryDocument(name) {

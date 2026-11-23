@@ -87,7 +87,7 @@ func rootsByOwner(roots map[*symbols.Symbol]*Node, isRoot, isOwner func(symbols.
 }
 
 // renderState builds one state machine or state node with shared IDs.
-func (r *Renderer) renderState(view *symbols.Symbol, elem *symbols.Symbol, ids *nodeIDs, out *Rendering,
+func (r *Renderer) renderState(view, elem *symbols.Symbol, ids *nodeIDs, out *Rendering,
 	record func(*symbols.Symbol, *Node)) *Node {
 	if elem.Kind != symbols.SymbolStateDef && elem.Kind != symbols.SymbolStateUsage {
 		out.Notices = append(out.Notices, notShown(r, elem, "state machine", "state"))
@@ -786,7 +786,7 @@ func calculation(sym *symbols.Symbol) bool {
 }
 
 // renderAction builds one action graph with shared IDs.
-func (r *Renderer) renderAction(view *symbols.Symbol, elem *symbols.Symbol, ids *nodeIDs, out *Rendering,
+func (r *Renderer) renderAction(view, elem *symbols.Symbol, ids *nodeIDs, out *Rendering,
 	record func(*symbols.Symbol, *Node)) (*Node, bool) {
 	if !behaviorKind(elem.Kind) {
 		out.Notices = append(out.Notices, notShown(r, elem, "action", "action"))

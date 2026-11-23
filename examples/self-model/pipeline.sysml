@@ -202,9 +202,15 @@ package OpenSysMLPipeline {
             attribute :>> elementScoped = true;
         }
         // A lint: a signal trigger's name no declaration and no send accounts for.
-        part undeclaredSignals : NameResolutionCheck { attribute :>> goType = "UndeclaredSignalPass"; }
+        part undeclaredSignals : NameResolutionCheck {
+            attribute :>> goType = "UndeclaredSignalPass";
+            attribute :>> elementScoped = true;
+        }
         // A lint: a deferred signal's keeping loop written without its marker.
-        part deferredKeepers : NameResolutionCheck { attribute :>> goType = "DeferredKeeperPass"; }
+        part deferredKeepers : NameResolutionCheck {
+            attribute :>> goType = "DeferredKeeperPass";
+            attribute :>> elementScoped = true;
+        }
         part typeCheck : TypeCheck { attribute :>> goType = "TypeCheckPass"; }
         part transitionGuards : TypeCheck {
             attribute :>> goType = "TransitionGuardPass";

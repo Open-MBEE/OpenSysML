@@ -1766,8 +1766,7 @@ func (c *compiler) diagramSource(member *symbols.Symbol) (*symbols.Symbol, error
 // sourceTarget resolves a source declaration's named value, following
 // redefinition lineage when the declaration itself is unvalued.
 func (c *compiler) sourceTarget(
-	member *symbols.Symbol,
-	candidate *symbols.Symbol,
+	member, candidate *symbols.Symbol,
 	seen map[*symbols.Symbol]bool,
 ) (*symbols.Symbol, bool, error) {
 	resolved, _, stated, err := c.namedTarget(member, candidate, ErrorInvalidViewSource, ErrorUnknownViewSource, seen)
@@ -1778,10 +1777,8 @@ func (c *compiler) sourceTarget(
 // redefinition lineage when the declaration itself is unvalued. The second
 // symbol is the usage a dot-notation chain starts from, nil otherwise.
 func (c *compiler) namedTarget(
-	member *symbols.Symbol,
-	candidate *symbols.Symbol,
-	invalid ErrorKind,
-	unknown ErrorKind,
+	member, candidate *symbols.Symbol,
+	invalid, unknown ErrorKind,
 	seen map[*symbols.Symbol]bool,
 ) (*symbols.Symbol, *symbols.Symbol, bool, error) {
 	if candidate == nil || seen[candidate] {
@@ -1810,8 +1807,7 @@ func (c *compiler) resolveTargetValue(
 	member *symbols.Symbol,
 	scope *symbols.Scope,
 	value ast.Node,
-	invalid ErrorKind,
-	unknown ErrorKind,
+	invalid, unknown ErrorKind,
 	origin symbols.Origin,
 ) (*symbols.Symbol, *symbols.Symbol, error) {
 	target := value
@@ -2028,8 +2024,7 @@ func (c *compiler) typingTargetSeen(sym *symbols.Symbol, seen map[*symbols.Symbo
 // compileBindings compiles the `in` members of a query usage against the
 // compiled signature of the entry query.
 func (c *compiler) compileBindings(
-	content *symbols.Symbol,
-	usage *symbols.Symbol,
+	content, usage *symbols.Symbol,
 	entry string,
 	program *queryplan.Program,
 ) ([]Binding, error) {
@@ -2123,10 +2118,8 @@ func bindingFor(bindings []Binding, name string) Binding {
 // sequence is flat, so `null` contributes nothing and a nested sequence its own
 // values, in written order.
 func (c *compiler) bindingValues(
-	content *symbols.Symbol,
-	member *symbols.Symbol,
-	entry string,
-	parameter string,
+	content, member *symbols.Symbol,
+	entry, parameter string,
 	node ast.Node,
 ) ([]BindingValue, error) {
 	if node == nil {
@@ -2154,10 +2147,8 @@ func (c *compiler) bindingValues(
 }
 
 func (c *compiler) bindingValue(
-	content *symbols.Symbol,
-	member *symbols.Symbol,
-	entry string,
-	parameter string,
+	content, member *symbols.Symbol,
+	entry, parameter string,
 	node ast.Node,
 ) (BindingValue, error) {
 	origin := symbols.NodeOrigin(member.DocName, node)
@@ -2193,10 +2184,8 @@ func (c *compiler) bindingValue(
 
 // signedBinding compiles a unary-signed numeric literal binding.
 func (c *compiler) signedBinding(
-	content *symbols.Symbol,
-	member *symbols.Symbol,
-	entry string,
-	parameter string,
+	content, member *symbols.Symbol,
+	entry, parameter string,
 	expression *ast.OperatorExpr,
 	origin symbols.Origin,
 ) (BindingValue, error) {
@@ -2226,10 +2215,8 @@ func (c *compiler) signedBinding(
 }
 
 func (c *compiler) elementBinding(
-	content *symbols.Symbol,
-	member *symbols.Symbol,
-	entry string,
-	parameter string,
+	content, member *symbols.Symbol,
+	entry, parameter string,
 	name *ast.QualifiedName,
 	origin symbols.Origin,
 ) (BindingValue, error) {
@@ -2246,10 +2233,8 @@ func (c *compiler) elementBinding(
 // chainBinding compiles a dot-notation binding to the nested element the
 // chain names, as a diagram's source may name one.
 func (c *compiler) chainBinding(
-	content *symbols.Symbol,
-	member *symbols.Symbol,
-	entry string,
-	parameter string,
+	content, member *symbols.Symbol,
+	entry, parameter string,
 	chain *ast.FeatureChainExpr,
 	origin symbols.Origin,
 ) (BindingValue, error) {
@@ -2414,8 +2399,7 @@ func (c *compiler) optionalText(member *symbols.Symbol, attribute string) (strin
 // attributeText reads a declaration's string value, following redefinition
 // lineage when the declaration itself is unvalued.
 func (c *compiler) attributeText(
-	member *symbols.Symbol,
-	candidate *symbols.Symbol,
+	member, candidate *symbols.Symbol,
 	attribute string,
 	seen map[*symbols.Symbol]bool,
 ) (string, bool, error) {

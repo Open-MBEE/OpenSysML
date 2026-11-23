@@ -19,8 +19,7 @@ const (
 // Column(name, expression|cell|path) and RelatedColumn(...) invocations into a
 // planned column sequence.
 func (c *compiler) compileColumns(
-	query *symbols.Symbol,
-	owner *symbols.Symbol,
+	query, owner *symbols.Symbol,
 	params []Parameter,
 	node ast.Node,
 	dependency func(string),
@@ -49,8 +48,7 @@ func (c *compiler) compileColumns(
 }
 
 func (c *compiler) compileColumn(
-	query *symbols.Symbol,
-	owner *symbols.Symbol,
+	query, owner *symbols.Symbol,
 	params []Parameter,
 	node ast.Node,
 	dependency func(string),
@@ -195,8 +193,7 @@ func (c *compiler) columnName(query, owner *symbols.Symbol, nameNode ast.Node) (
 // columnArguments normalizes Column's positional or named arguments into its
 // name and computed-column source.
 func (c *compiler) columnArguments(
-	query *symbols.Symbol,
-	owner *symbols.Symbol,
+	query, owner *symbols.Symbol,
 	invocation *ast.InvocationExpr,
 ) (ast.Node, ast.Node, ast.Node, ast.Node, error) {
 	if len(invocation.Args) > 0 {
@@ -309,8 +306,7 @@ func scalarType(kind semantics.PrimType) columnType { return columnType{prim: ki
 // closed row-property, literal, parameter, operator, navigation and collection
 // operations, returning the statically known type where one is derivable.
 func (c *compiler) compileColumnExpression(
-	query *symbols.Symbol,
-	owner *symbols.Symbol,
+	query, owner *symbols.Symbol,
 	column string,
 	node ast.Node,
 	row *columnRow,
@@ -368,8 +364,7 @@ func (c *compiler) compileColumnExpression(
 // compileColumnReference resolves a feature reference to a query parameter or
 // to a declared feature read as a row property by its name.
 func (c *compiler) compileColumnReference(
-	query *symbols.Symbol,
-	owner *symbols.Symbol,
+	query, owner *symbols.Symbol,
 	column string,
 	expression *ast.FeatureReference,
 ) (Expression, columnType, error) {
@@ -418,8 +413,7 @@ func (c *compiler) compileColumnReference(
 // A head resolving in scope keeps its declaring type; a parameter or
 // unresolved head is row-relative.
 func (c *compiler) compileColumnChain(
-	query *symbols.Symbol,
-	owner *symbols.Symbol,
+	query, owner *symbols.Symbol,
 	column string,
 	expression *ast.FeatureChainExpr,
 	row *columnRow,
@@ -576,8 +570,7 @@ func (c *compiler) staticType(sym *symbols.Symbol) columnType {
 }
 
 func (c *compiler) compileColumnOperator(
-	query *symbols.Symbol,
-	owner *symbols.Symbol,
+	query, owner *symbols.Symbol,
 	column string,
 	expression *ast.OperatorExpr,
 	row *columnRow,
@@ -629,8 +622,7 @@ func (c *compiler) compileColumnOperator(
 // validateColumnOperator rejects statically detectable operand type
 // mismatches and derives the operator's result type where it is known.
 func (c *compiler) validateColumnOperator(
-	query *symbols.Symbol,
-	owner *symbols.Symbol,
+	query, owner *symbols.Symbol,
 	column string,
 	expression *ast.OperatorExpr,
 	kinds []semantics.PrimType,
@@ -711,8 +703,7 @@ func primTypeName(kind semantics.PrimType) string {
 // validateProject requires a nonempty projection and rejects duplicate
 // column names across literal properties and computed columns.
 func (c *compiler) validateProject(
-	query *symbols.Symbol,
-	owner *symbols.Symbol,
+	query, owner *symbols.Symbol,
 	expression *ast.InvocationExpr,
 	args []Argument,
 ) error {
@@ -813,8 +804,7 @@ func relatedColumnNameNode(invocation *ast.InvocationExpr) ast.Node {
 // direction, maxDepth, aggregate) into a planned related column named by its
 // target, whose arguments are type-checked against the library signature.
 func (c *compiler) compileRelatedColumn(
-	query *symbols.Symbol,
-	owner *symbols.Symbol,
+	query, owner *symbols.Symbol,
 	params []Parameter,
 	target *symbols.Symbol,
 	invocation *ast.InvocationExpr,

@@ -51,7 +51,7 @@ func connect(t *testing.T, root string) *sdk.ClientSession {
 
 // call makes one tool call and decodes its structured content into out; a
 // failed call is returned for the caller to judge.
-func call(t *testing.T, cs *sdk.ClientSession, name string, args any, out any) *sdk.CallToolResult {
+func call(t *testing.T, cs *sdk.ClientSession, name string, args, out any) *sdk.CallToolResult {
 	t.Helper()
 	res, err := cs.CallTool(context.Background(), &sdk.CallToolParams{Name: name, Arguments: args})
 	if err != nil {
@@ -70,7 +70,7 @@ func call(t *testing.T, cs *sdk.ClientSession, name string, args any, out any) *
 }
 
 // must is call for a tool that has to succeed.
-func must(t *testing.T, cs *sdk.ClientSession, name string, args any, out any) {
+func must(t *testing.T, cs *sdk.ClientSession, name string, args, out any) {
 	t.Helper()
 	if res := call(t, cs, name, args, out); res.IsError {
 		t.Fatalf("%s(%v) failed: %s", name, args, errText(res))

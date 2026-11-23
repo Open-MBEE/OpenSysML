@@ -816,7 +816,7 @@ func namesDecl(qn *ast.QualifiedName, decl ast.Node) bool {
 
 // resolveCondition resolves the condition expression of the require/assume
 // member decl; a lone name is the reference form, so it resolves as one.
-func (r *Resolver) resolveCondition(scope *symbols.Scope, decl ast.Node, expr ast.Node) {
+func (r *Resolver) resolveCondition(scope *symbols.Scope, decl, expr ast.Node) {
 	if ref := ast.ConditionReference(decl); ref != nil {
 		r.resolveTarget(scope, ref, referenceFilter(decl, ref))
 		return

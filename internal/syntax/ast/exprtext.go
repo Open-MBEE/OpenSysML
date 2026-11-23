@@ -48,6 +48,25 @@ func (p ExprPrinter) Text(node Node) string {
 			return p.join(p.primary(expr.Operand), " [", p.unit(expr.Index), "]")
 		}
 		return p.join(p.primary(expr.Operand), "#(", p.Text(expr.Index), ")")
+	case *CollectExpr:
+		return p.join(p.primary(expr.Operand), ".", p.Text(expr.Body))
+	case *SelectExpr:
+		return p.join(p.primary(expr.Operand), ".?", p.Text(expr.Body))
+	case *ConstructorExpr:
+		return p.join("new ", QualifiedNameText(expr.Type), p.arguments(expr.Args, expr.NamedArgs))
+	case *BodyExpr:
+		if text := p.body(expr); text != "" {
+			return text
+		}
+	case *SequenceExpr:
+		return p.join("(", p.list(expr.Elements), ")")
+	case *MetadataAccessExpr:
+		return p.join(QualifiedNameText(expr.Ref), ".metadata")
+	case *CastExpr:
+		if expr.Multiplicity == nil {
+			return p.join("(as ", QualifiedNameText(expr.TargetType), ")")
+		}
+		return p.join("(as ", QualifiedNameText(expr.TargetType), p.multiplicity(expr.Multiplicity), ")")
 	}
 	if p.Other == nil {
 		return ""
@@ -202,11 +221,25 @@ func operatorPrecedence(expr *OperatorExpr) int {
 // invocation spells `Type(args)`, `operand->Type(args)` or the bare-argument `operand->Type arg`,
 // a named argument as `name = value`.
 func (p ExprPrinter) invocation(expr *InvocationExpr) string {
-	args := make([]string, 0, len(expr.Args)+len(expr.NamedArgs))
-	for _, arg := range expr.Args {
+	callee := QualifiedNameText(expr.Type)
+	if expr.Type == nil {
+		callee = p.primary(expr.Operand)
+	} else if expr.Operand != nil {
+		callee = p.join(p.primary(expr.Operand), "->", callee)
+	}
+	if expr.BareArgument && len(expr.Args) == 1 && len(expr.NamedArgs) == 0 {
+		return p.join(callee, " ", p.Text(expr.Args[0]))
+	}
+	return p.join(callee, p.arguments(expr.Args, expr.NamedArgs))
+}
+
+// arguments spells a parenthesised argument list, a named argument as `name = value`.
+func (p ExprPrinter) arguments(positional []Node, named []NamedArg) string {
+	args := make([]string, 0, len(positional)+len(named))
+	for _, arg := range positional {
 		args = append(args, p.Text(arg))
 	}
-	for _, arg := range expr.NamedArgs {
+	for _, arg := range named {
 		args = append(args, p.join(QualifiedNameText(arg.Name), " = ", p.Text(arg.Value)))
 	}
 	for _, arg := range args {
@@ -214,14 +247,60 @@ func (p ExprPrinter) invocation(expr *InvocationExpr) string {
 			return ""
 		}
 	}
-	callee := QualifiedNameText(expr.Type)
-	if expr.Type == nil {
-		callee = p.primary(expr.Operand)
-	} else if expr.Operand != nil {
-		callee = p.join(p.primary(expr.Operand), "->", callee)
+	return "(" + strings.Join(args, ", ") + ")"
+}
+
+// list spells nodes separated by commas; "" when there is none or one has no spelling.
+func (p ExprPrinter) list(nodes []Node) string {
+	texts := make([]string, len(nodes))
+	for i, node := range nodes {
+		if texts[i] = p.Text(node); texts[i] == "" {
+			return ""
+		}
 	}
-	if expr.BareArgument && len(args) == 1 {
-		return p.join(callee, " ", args[0])
+	return strings.Join(texts, ", ")
+}
+
+// body spells `{in x : T; result}`; "" for a body declaring members, or a parameter
+// with more than a type and a default, which only the declaration printer spells.
+func (p ExprPrinter) body(expr *BodyExpr) string {
+	if len(expr.Members) > 0 || expr.Result == nil {
+		return ""
 	}
-	return p.join(callee, "(") + strings.Join(args, ", ") + ")"
+	var sb strings.Builder
+	sb.WriteString("{")
+	for _, param := range expr.Params {
+		if param.Multiplicity != nil || len(param.Members) > 0 || len(param.Relationships) > 0 {
+			return ""
+		}
+		sb.WriteString("in ")
+		if param.IsReference {
+			sb.WriteString("ref ")
+		}
+		sb.WriteString(source.NameText(param.Name))
+		if param.Type != nil {
+			sb.WriteString(" : " + QualifiedNameText(param.Type))
+		}
+		if param.Value != nil {
+			value := p.Text(param.Value)
+			if value == "" {
+				return ""
+			}
+			sb.WriteString(" = " + value)
+		}
+		sb.WriteString("; ")
+	}
+	result := p.Text(expr.Result)
+	if result == "" {
+		return ""
+	}
+	return sb.String() + result + "}"
+}
+
+// multiplicity spells `[n]` or `[lower..upper]`.
+func (p ExprPrinter) multiplicity(m *Multiplicity) string {
+	if m.IsRange {
+		return p.join("[", p.Text(m.Lower), "..", p.Text(m.Upper), "]")
+	}
+	return p.join("[", p.Text(m.Lower), "]")
 }

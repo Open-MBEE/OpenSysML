@@ -195,8 +195,7 @@ func newActionExecutor(ctx *Context, action *symbols.Symbol, self *Instance) (*A
 func newActionExecutorOf(
 	ctx *Context,
 	performed, action *symbols.Symbol,
-	self *Instance,
-	occurrence *Instance,
+	self, occurrence *Instance,
 ) (*ActionExecutor, error) {
 	return newActionExecutorOfGraph(ctx, performed, action, self, occurrence, nil)
 }
@@ -204,8 +203,7 @@ func newActionExecutorOf(
 func newActionExecutorOfGraph(
 	ctx *Context,
 	performed, action *symbols.Symbol,
-	self *Instance,
-	occurrence *Instance,
+	self, occurrence *Instance,
 	graph *lower.ActionGraph,
 ) (*ActionExecutor, error) {
 	if !action.Kind.IsAction() {

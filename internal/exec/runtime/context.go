@@ -1390,7 +1390,7 @@ func (ctx *Context) checkResultOf(holds bool, subject carrier) CheckResult {
 // declaration (holdBound) in one transaction, so a refused binding leaves nothing
 // behind. enclosing are the values bound around the element (a case run's, for its
 // objective), which the binding expressions read.
-func (ctx *Context) memberBindings(sym *symbols.Symbol, kind, element string, members []scopedMember, self *Instance, subject *Instance, enclosing frame) (map[string]Value, error) {
+func (ctx *Context) memberBindings(sym *symbols.Symbol, kind, element string, members []scopedMember, self, subject *Instance, enclosing frame) (map[string]Value, error) {
 	bindings := make(map[string]Value)
 	features := ctx.conditionFeatures(sym)
 	// The bindings are evaluated as one, so a calc usage two of them read answers

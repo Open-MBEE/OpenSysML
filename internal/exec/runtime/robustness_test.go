@@ -270,7 +270,7 @@ func findSymbolByName(scope *symbols.Scope, name string, kind ast.DefinitionKind
 // invokeCalcInSource invokes calcName with one Integer argument and returns the
 // error, on its own goroutine so a body that never terminates fails the case
 // instead of stalling the suite. maxSteps bounds the run.
-func invokeCalcInSource(t *testing.T, src, calcName string, arg int64, maxSteps int64) error {
+func invokeCalcInSource(t *testing.T, src, calcName string, arg, maxSteps int64) error {
 	t.Helper()
 
 	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))

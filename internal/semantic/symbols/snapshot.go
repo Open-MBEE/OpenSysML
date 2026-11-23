@@ -984,13 +984,18 @@ func (d *sectionReader) readTables() *Index {
 	n = d.r.Len()
 	reexportDocs := make(map[reexportKey]map[string]*reexportClaim, n)
 	claims := make([]reexportClaim, 0, n)
+	// The import graph is gathered from the claims as they are read: walking
+	// the decoded table again costs a map iteration per re-exported member.
+	graph := importGraph{}
 	for i := 0; i < n; i++ {
 		k := d.reexportKey()
+		importer, _ := splitFQN(k.fqn)
 		m := d.r.Len()
 		byDoc := make(map[string]*reexportClaim, m)
 		for j := 0; j < m; j++ {
 			doc := d.r.String()
 			claim := d.claim()
+			graph.addHops(importer, claim.hops)
 			if len(claims) == cap(claims) {
 				claims = make([]reexportClaim, 0, n)
 			}
@@ -1060,7 +1065,8 @@ func (d *sectionReader) readTables() *Index {
 		idx.aboutUsages[doc] = d.symbols()
 	}
 	idx.cyclic = newLayer[string, []string](gen)
-	idx.noteImportCycles(idx.readGraph())
+	graph.addLastTargets(idx)
+	idx.noteImportCycles(graph)
 	idx.takeLibraryIdentity()
 	idx.derived = &derivedMemo{}
 	idx.frozen = true
