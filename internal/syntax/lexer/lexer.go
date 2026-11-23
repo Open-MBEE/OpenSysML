@@ -205,13 +205,16 @@ var singleCharKind = map[byte]Kind{
 }
 
 func (lx *Lexer) scanWhitespace(start int) Token {
-	for lx.pos < len(lx.src) {
-		c := lx.src[lx.pos]
+	// The run is scanned over locals: a masked REPL transcript is megabytes of it.
+	src, pos := lx.src, lx.pos
+	for pos < len(src) {
+		c := src[pos]
 		if c != ' ' && c != '\t' && c != '\r' && c != '\n' {
 			break
 		}
-		lx.pos++
+		pos++
 	}
+	lx.pos = pos
 	return Token{Kind: Whitespace, Span: lx.span(start)}
 }
 
