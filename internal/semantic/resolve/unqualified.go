@@ -550,6 +550,10 @@ func (r *Resolver) lookupImports(scope *symbols.Scope, name string) (*symbols.Sy
 	return nil, false
 }
 
+// uncutVisit is the record of an import search that found nothing and was cut
+// at no excluded namespace. It is shared, so it is never appended to in place.
+var uncutVisit = [][]*symbols.Scope{nil}
+
 // lookupImportedMember resolves a segment surfaced by the namespace being
 // traversed, including a public membership import.
 func (r *Resolver) lookupImportedMember(target *symbols.Symbol, targetScope, from *symbols.Scope, name string, all bool) (*symbols.Symbol, bool) {
@@ -594,9 +598,14 @@ func (r *Resolver) lookupImportedMember(target *symbols.Symbol, targetScope, fro
 			}
 		}
 	})
-	deps := r.routeDepsSince(mark, nil)
+	cut := r.routeCutsSince(mark, nil)
 	if found == nil {
-		r.importVisits[visit] = append(r.importVisits[visit], deps.cut)
+		if len(cut) == 0 {
+			// A miss cut nowhere holds on every route, so it stands for the visit.
+			r.importVisits[visit] = uncutVisit
+		} else {
+			r.importVisits[visit] = append(r.importVisits[visit], cut)
+		}
 		return nil, false
 	}
 	return found, true

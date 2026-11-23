@@ -1,0 +1,1 @@
+- Name lookups through imports no longer copy the list of namespaces a lookup has entered each time an import search finds nothing, which had made rename and find-references in the language server allocate up to fifty times more and run up to twice as slow.
