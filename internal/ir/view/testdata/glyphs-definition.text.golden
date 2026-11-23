@@ -21,6 +21,7 @@ relationships:
   Plant @-- filling
   Plant @-- full
   Plant -> startup: event
+  LevelReq o-- Plant: plant
   LevelReq -> bounded: require
   LevelReq -> tight: assume
   LevelReq -> keepLevel: require

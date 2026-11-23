@@ -264,6 +264,8 @@ func generalNodeKind(r *Renderer, sym *symbols.Symbol) bool {
 		return sym.Kind != symbols.SymbolMetadataDef
 	case *ast.Usage:
 		return sym.Kind != symbols.SymbolMetadataUsage
+	case *ast.SubjectMember:
+		return true
 	case *ast.RequireMember, *ast.AssumeMember:
 		// The constraint a `require constraint` or `assume constraint` member
 		// declares; one naming a constraint instead is drawn as the edge to it.
@@ -500,7 +502,7 @@ func (g *generalGraph) structuralEdges(sym *symbols.Symbol) {
 // to: one declared as such, or the constraint a require or assume member declares.
 func ownedUsage(sym *symbols.Symbol) bool {
 	switch sym.Decl.(type) {
-	case *ast.Usage, *ast.RequireMember, *ast.AssumeMember:
+	case *ast.Usage, *ast.SubjectMember, *ast.RequireMember, *ast.AssumeMember:
 		return true
 	}
 	return false
@@ -588,7 +590,7 @@ func (g *generalGraph) featureEdges(sym *symbols.Symbol, from *Node) {
 		return
 	}
 	for _, member := range sym.Scope.Members() {
-		if _, usage := member.Decl.(*ast.Usage); !usage || g.drawn(member) != nil || !generalNodeKind(g.r, member) {
+		if !featureDecl(member) || g.drawn(member) != nil || !generalNodeKind(g.r, member) {
 			continue
 		}
 		kind := g.r.membershipKind(member)
@@ -598,6 +600,16 @@ func (g *generalGraph) featureEdges(sym *symbols.Symbol, from *Node) {
 			}
 		}
 	}
+}
+
+// featureDecl reports whether member is declared as a feature of its owner: a
+// usage, or the subject parameter of a requirement or case.
+func featureDecl(member *symbols.Symbol) bool {
+	switch member.Decl.(type) {
+	case *ast.Usage, *ast.SubjectMember:
+		return true
+	}
+	return false
 }
 
 func structuralEdgeKind(kind ast.RelationshipKind) (EdgeKind, string, bool) {
