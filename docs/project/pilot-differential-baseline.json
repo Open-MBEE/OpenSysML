@@ -69,7 +69,7 @@
         "dir": "examples",
         "origin": "ours",
         "files": 70,
-        "digest": "sha256:387b427931c830208bc4b6d5f92d7ae1c06de2e70646737b6a64b85c838bf9ab"
+        "digest": "sha256:fabc1aba66f18795cbfd9bef0a719ac5a042aba4ffc998fae8f5780c2c1edc81"
       },
       {
         "name": "probes",
@@ -94,9 +94,9 @@
     "agreement": 1119,
     "severityMismatch": 8,
     "openSysMLOnly": 133,
-    "pilotOnly": 2462,
+    "pilotOnly": 2463,
     "openSysMLDiagnostics": 1260,
-    "pilotDiagnostics": 3589
+    "pilotDiagnostics": 3590
   },
   "roots": [
     {
@@ -17758,9 +17758,9 @@
         "agreement": 4,
         "severityMismatch": 0,
         "openSysMLOnly": 21,
-        "pilotOnly": 77,
+        "pilotOnly": 78,
         "openSysMLDiagnostics": 25,
-        "pilotDiagnostics": 81
+        "pilotDiagnostics": 82
       },
       "files": [
         {
@@ -17884,31 +17884,31 @@
               "count": 1
             },
             {
-              "line": 195,
+              "line": 235,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 195,
+              "line": 235,
               "severity": "warning",
               "category": "unmapped",
               "count": 1
             },
             {
-              "line": 205,
+              "line": 245,
               "severity": "warning",
               "category": "unmapped",
               "count": 1
             },
             {
-              "line": 227,
+              "line": 267,
               "severity": "warning",
               "category": "unmapped",
               "count": 1
             },
             {
-              "line": 389,
+              "line": 429,
               "severity": "warning",
               "category": "unmapped",
               "count": 1
@@ -17916,25 +17916,31 @@
           ],
           "pilotOnly": [
             {
-              "line": 184,
+              "line": 208,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 188,
+              "line": 212,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 384,
+              "line": 228,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 398,
+              "line": 424,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 438,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -25339,9 +25345,9 @@
       "agreement": 1119,
       "severityMismatch": 8,
       "openSysMLOnly": 132,
-      "pilotOnly": 2462,
+      "pilotOnly": 2463,
       "openSysMLDiagnostics": 1259,
-      "pilotDiagnostics": 3589
+      "pilotDiagnostics": 3590
     },
     "findings": [
       {

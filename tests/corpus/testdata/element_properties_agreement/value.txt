@@ -209,9 +209,9 @@ IncludeUseCaseUsage::declaredName	4	symbol-01
 InterfaceDefinition::relatedElement	10	export-64
 InvocationExpression::argument	1	export-11
 InvocationExpression::function	42	export-57
-InvocationExpression::input	104	symbol-53
+InvocationExpression::input	108	symbol-53
 InvocationExpression::operand	15	symbol-52
-InvocationExpression::parameter	105	symbol-54
+InvocationExpression::parameter	109	symbol-54
 ItemUsage::ownedMember	13	symbol-08
 ItemUsage::ownedRelationship	6	symbol-03
 ItemUsage::type	5	export-01

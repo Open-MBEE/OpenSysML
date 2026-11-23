@@ -78,6 +78,10 @@ Render the report of M&S results or the Requirements Identification Matrix (Mark
     -render-document "'Lunar Night Survival Heater'::'Requirements Matrix'::'Heater Requirements Identification Matrix'"
 ```
 
+The report renders the two assessment outcomes, its explicit warning with the impact
+(`ReportedWarnings`) and, in one table, the uncertainty estimate and its process, the review
+findings, the qualifications and the risk acceptance (`ReportStatements`).
+
 The matrix is Table 1 over the project's entries, 42 rows for the 43 requirements ([M&S 51] is
 the deliberate gap); abridged:
 

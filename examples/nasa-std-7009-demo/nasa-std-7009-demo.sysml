@@ -161,6 +161,30 @@ package 'Lunar Night Survival Heater' {
 		private import 'Capability Assessment'::heaterCapability;
 		private import 'Results Assessment'::heaterResults;
 
+		calc def ReportedWarnings :> Query {
+			doc /* The warnings [M&S 32] has accompany the results: one row per ResultsWarning the
+			 * report nests, with the kind of occurrence and its impact.
+			 */
+			Project(
+				source = WhereType(source = Descendants(source = Named(qualifiedName = "'Lunar Night Survival Heater'::'Results Report'::'Heater Sizing Report'")), type = "NASASTD7009::ResultsWarning"),
+				properties = ("name", "kind", "impact"),
+				tolerate = true
+			)
+		}
+
+		calc def ReportStatements :> Query {
+			doc /* What sections 4.3.8.2 to 4.3.8.6 have a report state with the results: the estimate of
+			 * uncertainty and its process, the review findings, the qualifications and the risk
+			 * acceptance of the report at root.
+			 */
+			in root : KerML::Root::Element;
+			Project(
+				source = root,
+				properties = ("uncertaintyEstimate", "uncertaintyProcess", "technicalReviewFindings", "qualifications", "riskAcceptance"),
+				tolerate = true
+			)
+		}
+
 		part def 'Heater Sizing Report' :> MSResultsReport {
 			:>> title = "Lunar Night Survival Heater Sizing: Report of M&S Results";
 			:>> uncertaintyEstimate = UncertaintyEstimateKind::quantitative;
@@ -186,6 +210,22 @@ package 'Lunar Night Survival Heater' {
 				part resultsOutcome : Table {
 					:>> caption = "M&S results assessment";
 					calc rows : ResultsAssessmentRegister { in :>> root = heaterResults; }
+				}
+			}
+
+			part warnings : Section {
+				:>> title = "Warnings";
+				part explicitWarnings : Table {
+					:>> caption = "Explicit warnings accompanying the results [M&S 32]";
+					calc rows : ReportedWarnings;
+				}
+			}
+
+			part statements : Section {
+				:>> title = "Uncertainty, reviews, qualifications and risk";
+				part reportStatements : Table {
+					:>> caption = "What the report states with the results [M&S 33], [M&S 34], [M&S 36], [M&S 37], [M&S 39]";
+					calc rows : ReportStatements { in :>> root = heaterSizingReport; }
 				}
 			}
 		}

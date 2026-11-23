@@ -60,7 +60,7 @@
         "dir": "examples",
         "origin": "ours",
         "files": 70,
-        "digest": "sha256:387b427931c830208bc4b6d5f92d7ae1c06de2e70646737b6a64b85c838bf9ab"
+        "digest": "sha256:fabc1aba66f18795cbfd9bef0a719ac5a042aba4ffc998fae8f5780c2c1edc81"
       },
       {
         "name": "probes",
@@ -1086,24 +1086,24 @@
       "pilotFailed": 0,
       "pilotLibraryElements": 61003,
       "elements": {
-        "matched": 116367,
-        "oursOnly": 17677,
-        "pilotOnly": 27141,
+        "matched": 116514,
+        "oursOnly": 17695,
+        "pilotOnly": 27193,
         "pilotOnlyImplied": 0,
         "typeMismatch": 1317
       },
       "properties": {
-        "presentEqual": 2366267,
-        "presentDifferent": 170805,
-        "oursMissing": 188754,
-        "pilotMissing": 90091,
-        "absentBoth": 2481068,
-        "indeterminate": 72974,
+        "presentEqual": 2369208,
+        "presentDifferent": 171051,
+        "oursMissing": 189061,
+        "pilotMissing": 90196,
+        "absentBoth": 2484060,
+        "indeterminate": 73167,
         "pilotNondeterministic": 565
       },
       "rows": 11871,
-      "unkeyedReferences": 195327,
-      "extensionProperties": 302308,
+      "unkeyedReferences": 195682,
+      "extensionProperties": 302633,
       "duplicateElements": {
         "ours": 597,
         "pilot": 107831
@@ -1346,19 +1346,19 @@
         "oursColliding": 24,
         "pilotLibraryElements": 38296,
         "elements": {
-          "matched": 40095,
-          "oursOnly": 5997,
-          "pilotOnly": 11302,
+          "matched": 40242,
+          "oursOnly": 6015,
+          "pilotOnly": 11354,
           "pilotOnlyImplied": 0,
           "typeMismatch": 171
         },
         "properties": {
-          "presentEqual": 830711,
-          "presentDifferent": 59523,
-          "oursMissing": 58967,
-          "pilotMissing": 30094,
-          "absentBoth": 891463,
-          "indeterminate": 33746,
+          "presentEqual": 833652,
+          "presentDifferent": 59769,
+          "oursMissing": 59274,
+          "pilotMissing": 30199,
+          "absentBoth": 894455,
+          "indeterminate": 33939,
           "pilotNondeterministic": 181
         },
         "duplicateElements": {
