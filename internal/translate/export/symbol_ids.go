@@ -302,60 +302,9 @@ func (s *SymbolIDs) implicitID(rel *symbols.ImplicitRelationship) (string, bool)
 	}
 	switch rel.Form {
 	case symbols.ImplicitMembership:
-		if rel.Member == nil {
-			return "", false
-		}
-		if filter := semantics.FilterMemberOf(rel.Member); filter != nil {
-			// A `filter` member is written as the ElementFilterMembership itself.
-			return s.ids.OfDeclaration(doc, filter, "")
-		}
-		if semantics.IsFilterPackage(rel.Owner) {
-			base, ok := s.of(rel.Owner)
-			return base + filterMembershipSuffix, ok
-		}
-		if node, ok := semantics.SubactionMemberOf(rel.Owner, rel.Member); ok {
-			// An action a subaction performs is owned through the member written as the membership.
-			return s.ids.OfDeclaration(doc, node, "")
-		}
-		if body, ok := rel.Member.Decl.(*ast.BodyExpr); ok && rel.Member.Name != "" {
-			// A body's parameter is keyed by its body; its FeatureMembership is minted
-			// off the parameter (bodyParameter), not off the body's own membership.
-			_, membership, ok := s.ids.OfBodyParameter(doc, body, rel.Member.Name)
-			return membership, ok
-		}
-		if id, ok := s.ids.OwningMembershipOfDeclaration(doc, rel.Member.Decl, s.fqn(rel.Member)); ok && rel.Member.Expr == nil {
-			return id, true
-		}
-		member, ok := s.of(rel.Member)
-		if !ok {
-			return "", false
-		}
-		id := member + rdf.OwningMembershipSuffix
-		if rel.Owner != nil && s.model.IsRootNamespace(rel.Owner) {
-			// A root's membership is minted at wrap time, past any id the conversion writes (rootNamespaceIDs).
-			for s.ids.writes(id) {
-				id += rdf.OwningMembershipSuffix
-			}
-		}
-		return id, true
+		return s.implicitMembershipID(rel, doc)
 	case symbols.ImplicitWritten:
-		if rel.Node == nil {
-			return "", false
-		}
-		if _, ok := rel.Owner.Decl.(*ast.BodyExpr); ok && rel.Owner.Name != "" {
-			// A body parameter's head clauses are materialized off the parameter, in
-			// the order written per kind (bodyParameter, materializeRelationships).
-			return s.bodyParameterRelationshipID(rel)
-		}
-		if rel.Owner != nil && isConnectorEnd(rel.Owner) && rel.Kind.ReferenceSubsets() {
-			// An end's reference subsetting is minted off the end (connectorEnd).
-			end, ok := s.of(rel.Owner)
-			return rdf.ExpressionNodeID(end, "rs"), ok
-		}
-		if rel.Node.Span().Len == 0 && rel.Node.Target != nil {
-			return s.ids.RelationshipOf(doc, rel.Node.Target)
-		}
-		return s.ids.RelationshipOf(doc, rel.Node)
+		return s.implicitWrittenID(rel, doc)
 	case symbols.ImplicitSuccessionEndReference:
 		if rel.Owner == nil {
 			return "", false
@@ -391,34 +340,9 @@ func (s *SymbolIDs) implicitID(rel *symbols.ImplicitRelationship) (string, bool)
 		}
 		return s.ids.RelationshipOf(doc, node)
 	case symbols.ImplicitReferenceMembership:
-		if rel.Decl != nil {
-			// A `first x;` marker's Membership is minted from the marker itself.
-			return s.ids.OfDeclaration(doc, rel.Decl, "")
-		}
-		if rel.Owner == nil || rel.Slot == "" {
-			return "", false
-		}
-		_, membership, ok := s.ids.OfExpressionPart(doc, rel.Owner.Decl, rel.Slot)
-		if !ok && rel.Owner.Expr != nil {
-			return s.partID(rel.Owner, rel.Slot)
-		}
-		if !ok {
-			// A transition's source Membership is minted off the transition (transitionSourceMember).
-			base, ok := s.of(rel.Owner)
-			return rdf.ExpressionNodeID(base, rel.Slot), ok
-		}
-		return membership, ok
+		return s.implicitReferenceMembershipID(rel, doc)
 	case symbols.ImplicitFeatureChaining:
-		if rel.Owner == nil || rel.Slot == "" {
-			return "", false
-		}
-		if owner := rel.Owner; owner.Expr != nil && owner.Expr.Slot == "referent" {
-			// A subject's `by a.b` chain owns its chainings at referent.fcN (recordSatisfySubjectValue).
-			if element, _, ok := s.ids.OfExpressionPart(doc, owner.Decl, "referent."+rel.Slot); ok && element != "" {
-				return element, true
-			}
-		}
-		return s.partID(rel.Owner, rel.Slot)
+		return s.implicitFeatureChainingID(rel, doc)
 	case symbols.ImplicitPortConjugation:
 		// A conjugated port definition's PortConjugation is minted off the conjugate (conjugatedPortDefinition).
 		implied, ok := symbols.ImpliedDeclOf(rel.Owner)
@@ -429,6 +353,102 @@ func (s *SymbolIDs) implicitID(rel *symbols.ImplicitRelationship) (string, bool)
 		return conjugate.conjugation, ok
 	}
 	return "", false
+}
+
+// implicitMembershipID is the id of the membership through which rel's owner owns its member.
+func (s *SymbolIDs) implicitMembershipID(rel *symbols.ImplicitRelationship, doc string) (string, bool) {
+	if rel.Member == nil {
+		return "", false
+	}
+	if filter := semantics.FilterMemberOf(rel.Member); filter != nil {
+		// A `filter` member is written as the ElementFilterMembership itself.
+		return s.ids.OfDeclaration(doc, filter, "")
+	}
+	if semantics.IsFilterPackage(rel.Owner) {
+		base, ok := s.of(rel.Owner)
+		return base + filterMembershipSuffix, ok
+	}
+	if node, ok := semantics.SubactionMemberOf(rel.Owner, rel.Member); ok {
+		// An action a subaction performs is owned through the member written as the membership.
+		return s.ids.OfDeclaration(doc, node, "")
+	}
+	if body, ok := rel.Member.Decl.(*ast.BodyExpr); ok && rel.Member.Name != "" {
+		// A body's parameter is keyed by its body; its FeatureMembership is minted
+		// off the parameter (bodyParameter), not off the body's own membership.
+		_, membership, ok := s.ids.OfBodyParameter(doc, body, rel.Member.Name)
+		return membership, ok
+	}
+	if id, ok := s.ids.OwningMembershipOfDeclaration(doc, rel.Member.Decl, s.fqn(rel.Member)); ok && rel.Member.Expr == nil {
+		return id, true
+	}
+	member, ok := s.of(rel.Member)
+	if !ok {
+		return "", false
+	}
+	id := member + rdf.OwningMembershipSuffix
+	if rel.Owner != nil && s.model.IsRootNamespace(rel.Owner) {
+		// A root's membership is minted at wrap time, past any id the conversion writes (rootNamespaceIDs).
+		for s.ids.writes(id) {
+			id += rdf.OwningMembershipSuffix
+		}
+	}
+	return id, true
+}
+
+// implicitWrittenID is the id of a relationship written as a clause of its owner's declaration.
+func (s *SymbolIDs) implicitWrittenID(rel *symbols.ImplicitRelationship, doc string) (string, bool) {
+	if rel.Node == nil {
+		return "", false
+	}
+	if _, ok := rel.Owner.Decl.(*ast.BodyExpr); ok && rel.Owner.Name != "" {
+		// A body parameter's head clauses are materialized off the parameter, in
+		// the order written per kind (bodyParameter, materializeRelationships).
+		return s.bodyParameterRelationshipID(rel)
+	}
+	if rel.Owner != nil && isConnectorEnd(rel.Owner) && rel.Kind.ReferenceSubsets() {
+		// An end's reference subsetting is minted off the end (connectorEnd).
+		end, ok := s.of(rel.Owner)
+		return rdf.ExpressionNodeID(end, "rs"), ok
+	}
+	if rel.Node.Span().Len == 0 && rel.Node.Target != nil {
+		return s.ids.RelationshipOf(doc, rel.Node.Target)
+	}
+	return s.ids.RelationshipOf(doc, rel.Node)
+}
+
+// implicitReferenceMembershipID is the id of a Membership naming a member its owner does not own.
+func (s *SymbolIDs) implicitReferenceMembershipID(rel *symbols.ImplicitRelationship, doc string) (string, bool) {
+	if rel.Decl != nil {
+		// A `first x;` marker's Membership is minted from the marker itself.
+		return s.ids.OfDeclaration(doc, rel.Decl, "")
+	}
+	if rel.Owner == nil || rel.Slot == "" {
+		return "", false
+	}
+	_, membership, ok := s.ids.OfExpressionPart(doc, rel.Owner.Decl, rel.Slot)
+	if !ok && rel.Owner.Expr != nil {
+		return s.partID(rel.Owner, rel.Slot)
+	}
+	if !ok {
+		// A transition's source Membership is minted off the transition (transitionSourceMember).
+		base, ok := s.of(rel.Owner)
+		return rdf.ExpressionNodeID(base, rel.Slot), ok
+	}
+	return membership, ok
+}
+
+// implicitFeatureChainingID is the id of a FeatureChaining of the chain Feature that owns it.
+func (s *SymbolIDs) implicitFeatureChainingID(rel *symbols.ImplicitRelationship, doc string) (string, bool) {
+	if rel.Owner == nil || rel.Slot == "" {
+		return "", false
+	}
+	if owner := rel.Owner; owner.Expr != nil && owner.Expr.Slot == "referent" {
+		// A subject's `by a.b` chain owns its chainings at referent.fcN (recordSatisfySubjectValue).
+		if element, _, ok := s.ids.OfExpressionPart(doc, owner.Decl, "referent."+rel.Slot); ok && element != "" {
+			return element, true
+		}
+	}
+	return s.partID(rel.Owner, rel.Slot)
 }
 
 // expressionID mirrors the conversion's expression ids: a node of the notation
