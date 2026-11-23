@@ -116,6 +116,36 @@ func (m *Model) expressionPartsOf(expr *symbols.Symbol) *expressionParts {
 	}
 	journal(m, m.expressionParts, expr, expr.Decl)
 	parts := &expressionParts{}
+	if m.specialFormParts(expr, parts) {
+		m.expressionParts[expr] = parts
+		return parts
+	}
+	if _, constructor := expr.Decl.(*ast.ConstructorExpr); constructor {
+		// A constructor owns only its result, which owns the features its
+		// arguments value (KerML 8.3.4.8.3, KerML.xtext ConstructorResultMember).
+		parts.constructor = true
+		parts.result = m.expressionParameter(expr, symbols.ExpressionResult, 0)
+	}
+	operands, typeArgument := ast.ExpressionOperands(expr.Decl)
+	m.operandParts(expr, parts, operands)
+	if typeArgument >= 0 {
+		parts.params = append(parts.params, m.expressionParameter(expr, symbols.ExpressionParameter, typeArgument))
+		parts.operands = append(parts.operands, nil)
+	}
+	if resultBearingExpressions[expressionElementMetaclassName(expr)] && parts.result == nil {
+		parts.result = m.expressionParameter(expr, symbols.ExpressionResult, 0)
+	}
+	if slot, _, _ := m.expressionChainOf(expr); slot != "" {
+		parts.chain = m.expressionParameter(expr, symbols.ExpressionChainFeature, 0)
+		parts.chain.Expr.Slot = slot
+	}
+	m.expressionParts[expr] = parts
+	return parts
+}
+
+// specialFormParts fills parts for an expression whose form fixes them — a change wrapper, a body,
+// a `{ … }` reference, a change trigger, a satisfy subject's chain — and reports whether expr is one.
+func (m *Model) specialFormParts(expr *symbols.Symbol, parts *expressionParts) bool {
 	if expr.Expr.Role == symbols.ExpressionChangeWrapper {
 		// The wrapper owns the condition it refers to and its result; the
 		// condition's own parts hang off the condition (changeArgument).
@@ -128,8 +158,7 @@ func (m *Model) expressionPartsOf(expr *symbols.Symbol) *expressionParts {
 			Expr:       &symbols.ExpressionElement{Owner: expr, Role: symbols.ExpressionChangeCondition},
 		}
 		parts.result = m.expressionParameter(expr, symbols.ExpressionResult, 0)
-		m.expressionParts[expr] = parts
-		return parts
+		return true
 	}
 	if expr.Expr.Role == symbols.ExpressionBody {
 		// The body owns the parameters and members its scope declares, in the
@@ -151,8 +180,7 @@ func (m *Model) expressionPartsOf(expr *symbols.Symbol) *expressionParts {
 				Expr:       &symbols.ExpressionElement{Owner: expr, Role: symbols.ExpressionBodyResult},
 			}
 		}
-		m.expressionParts[expr] = parts
-		return parts
+		return true
 	}
 	if body, ok := expr.Decl.(*ast.BodyExpr); ok {
 		// A `{ … }` is a FeatureReferenceExpression whose referent is the body
@@ -171,8 +199,7 @@ func (m *Model) expressionPartsOf(expr *symbols.Symbol) *expressionParts {
 		journal(m, m.bodySymbols, body, body)
 		m.bodySymbols[body] = parts.body
 		parts.result = m.expressionParameter(expr, symbols.ExpressionResult, 0)
-		m.expressionParts[expr] = parts
-		return parts
+		return true
 	}
 	if event, ok := expr.Decl.(*ast.ChangeEvent); ok && event.Condition != nil {
 		// A change trigger binds one `in` parameter to a wrapper whose
@@ -188,24 +215,20 @@ func (m *Model) expressionPartsOf(expr *symbols.Symbol) *expressionParts {
 			Expr:       &symbols.ExpressionElement{Owner: parameter, Role: symbols.ExpressionChangeWrapper},
 		})
 		parts.result = m.expressionParameter(expr, symbols.ExpressionResult, 0)
-		m.expressionParts[expr] = parts
-		return parts
+		return true
 	}
 	if isSatisfySubjectChainValue(expr) {
 		// The subject's `by a.b` binds no parameter: its chain Feature leads its result.
 		parts.chain = m.expressionParameter(expr, symbols.ExpressionChainFeature, 0)
 		parts.chain.Expr.Slot = "referent"
 		parts.result = m.expressionParameter(expr, symbols.ExpressionResult, 0)
-		m.expressionParts[expr] = parts
-		return parts
+		return true
 	}
-	if _, constructor := expr.Decl.(*ast.ConstructorExpr); constructor {
-		// A constructor owns only its result, which owns the features its
-		// arguments value (KerML 8.3.4.8.3, KerML.xtext ConstructorResultMember).
-		parts.constructor = true
-		parts.result = m.expressionParameter(expr, symbols.ExpressionResult, 0)
-	}
-	operands, typeArgument := ast.ExpressionOperands(expr.Decl)
+	return false
+}
+
+// operandParts adds to parts the parameter each operand of expr binds and the operand it binds.
+func (m *Model) operandParts(expr *symbols.Symbol, parts *expressionParts, operands []ast.ExpressionOperand) {
 	for _, operand := range operands {
 		if operand.Index < 0 {
 			// A receiver no function is named for is an operand the
@@ -230,19 +253,6 @@ func (m *Model) expressionPartsOf(expr *symbols.Symbol) *expressionParts {
 			Expr:       &symbols.ExpressionElement{Owner: parameter, Role: symbols.ExpressionArgument, Index: operand.Index, Slot: operand.Slot},
 		})
 	}
-	if typeArgument >= 0 {
-		parts.params = append(parts.params, m.expressionParameter(expr, symbols.ExpressionParameter, typeArgument))
-		parts.operands = append(parts.operands, nil)
-	}
-	if resultBearingExpressions[expressionElementMetaclassName(expr)] && parts.result == nil {
-		parts.result = m.expressionParameter(expr, symbols.ExpressionResult, 0)
-	}
-	if slot, _, _ := m.expressionChainOf(expr); slot != "" {
-		parts.chain = m.expressionParameter(expr, symbols.ExpressionChainFeature, 0)
-		parts.chain.Expr.Slot = slot
-	}
-	m.expressionParts[expr] = parts
-	return parts
 }
 
 func (m *Model) expressionParameter(expr *symbols.Symbol, role symbols.ExpressionRole, index int) *symbols.Symbol {
@@ -463,6 +473,13 @@ func (m *Model) expressionMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		m.memberships[sym] = out
 		return out
 	}
+	out := m.ownedExpressionMemberships(sym)
+	m.memberships[sym] = out
+	return out
+}
+
+// ownedExpressionMemberships is the memberships through which sym owns the elements its form gives it.
+func (m *Model) ownedExpressionMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 	var out []*symbols.Symbol
 	if ends := m.synthesizedSuccessionEnds(sym); ends != nil {
 		// A transition's succession owns its two ends through an EndFeatureMembership each (SuccessionEndMembers).
@@ -509,7 +526,6 @@ func (m *Model) expressionMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 	} else if value := m.sendParameterValue(sym); value != nil {
 		out = appendOwningMembership(out, sym, value)
 	}
-	m.memberships[sym] = out
 	return out
 }
 
