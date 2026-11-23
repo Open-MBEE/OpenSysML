@@ -178,7 +178,9 @@ The rows are tried in that order for each metaclass, and when the view's filters
 one kind, `requirement` is drawn before `package`, `package` before `case` and `case` before
 `definition`, so the library's requirement-view filter list (`RequirementUsage or Specialization
 or AllocationUsage …`) draws a requirement graph, `@SysML::Definition or @SysML::UseCaseUsage`
-draws a case diagram and `@SysML::RequirementUsage or @SysML::UseCaseUsage` a requirement graph. Anything else keeps the view a tree, byte for byte as before: no
+draws a case diagram and `@SysML::RequirementUsage or @SysML::UseCaseUsage` a requirement graph. A requirement
+graph whose filters select definitions or usages too (`@SysML::RequirementDefinition or
+@SysML::PartDefinition`) draws those beside the requirements rather than dropping them. Anything else keeps the view a tree, byte for byte as before: no
 filter, a filter naming only relationships, a conjunction, a negation, a user metadata
 condition (`@Safety`), a feature test (`@Safety::isMandatory`), or any of them mixed into an `or`
 with a recognized condition. A recognized filter admitting nothing is an empty graph of its kind,
@@ -197,7 +199,7 @@ What each of the other graphs draws, as nodes from the exposed set and edges bet
 
 | Kind | Nodes | Edges (`EdgeKind`) |
 | --- | --- | --- |
-| `requirement` | requirement and concern definitions and usages, labelled with their short name as `id` and the first line of their documentation or text, and the drawn ends of the relationships below | `satisfy` (from the satisfying feature), `verify` (from each verification case whose objectives verify it: its own, and those it inherits and does not redefine or restate by name, as the runtime runs them), `derive` (a `#derivation` connection's `derivedRequirement` from its `originalRequirement`), `refine` (a `#refinement` dependency), `allocate`, `specialization`, `typing` |
+| `requirement` | requirement and concern definitions and usages, labelled with their short name as `id` and the first line of their documentation or text, and the drawn ends of the relationships below | `satisfy` (from the satisfying feature), `verify` (from each verification case whose objectives verify it: its own, and those it inherits and does not redefine or restate by name, as the runtime runs them), `derive` (a `#derivation` connection's `derivedRequirement` from its `originalRequirement`), `refine` (a `#refinement` dependency), `allocate`, `specialization`, `typing`, and a requirement's `«subject»`, `«actor»` and `«stakeholder»` (a composition or reference edge to the definition typing the feature, named by the role and the feature) |
 | `definition` | definitions and usages | `specialization` (subclassification, subsetting — a same-named subsetting to the inherited feature, as `DirectSupertypes` reads it — redefinition), `typing` (a drawn usage to its definition), `composition` (a drawn owner to a composite usage drawn as a node, its multiplicity at the usage's end; or, for a usage of the owner's that is not drawn, the owner to the drawn definitions typing it, named by the usage) and `reference` (a usage the model derives as non-composite — `ref`, attribute, port outside a port, end, directed or enumeration usage — likewise) |
 | `package` | packages | `containment` (an owned package) and `import` (a membership or namespace import, recursive or not, to the package it names, or to the package owning the member it names, labelled `::<member>`; one edge per import declaration, linked to it) |
 

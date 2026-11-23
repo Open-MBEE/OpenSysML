@@ -61,6 +61,9 @@ id R3.1`")
 **StopTest**`"]
   n14("`*«verification»*
 **stopTest**`")
+  n15["`*«part def»*
+**Vehicle**`"]
+  n0 ---|"◇ «subject» vehicle"| n15
   n2 -->|"specialization"| n1
   n3 -->|"typing"| n0
   n4 -->|"typing"| n0
