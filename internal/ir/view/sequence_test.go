@@ -504,3 +504,29 @@ func TestSequenceRenderingKeepsBehaviorAMessageReaches(t *testing.T) {
 		t.Errorf("notices = %v, want none", rendering.Notices)
 	}
 }
+
+// A succession stated in full between two events of an exposed action is an
+// order on its lifeline, as the member-attached form is.
+func TestSequenceRenderingOrdersEventsOfExposedBehavior(t *testing.T) {
+	const text = `package Demo {
+	action def Run {
+		event occurrence ready;
+		event occurrence sent;
+		succession first ready then sent;
+		action step;
+		succession first start then step;
+	}
+}
+`
+	r, idx := loadSources(t, []string{"inline.sysml"}, [][]byte{[]byte(text)})
+	rendering, err := r.RenderExposed([]*symbols.Symbol{lookup(t, idx, "Demo::Run")}, KindSequence, "#sequence")
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	if len(rendering.Roots) != 1 || len(rendering.Roots[0].Children) != 2 {
+		t.Fatalf("lifelines = %v, want the action with its two events", lifelineNames(rendering))
+	}
+	if len(rendering.Edges) != 1 || rendering.Edges[0].Kind != EdgeSuccession {
+		t.Errorf("edges = %v, want the one order between the events", rendering.Edges)
+	}
+}

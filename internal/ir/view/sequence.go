@@ -99,6 +99,11 @@ func (r *Renderer) lifeline(view, elem, participant *symbols.Symbol, ids *nodeID
 func (r *Renderer) addEventOrders(behavior *symbols.Symbol, into *interactions) {
 	stated := len(into.orders)
 	r.addSuccessionEdges(behavior, into)
+	for _, member := range r.containedMembers(behavior) {
+		if isSuccessionUsage(member) {
+			r.addSuccessionUsage(member, into)
+		}
+	}
 	kept := into.orders[:stated]
 	for _, o := range into.orders[stated:] {
 		if o.from != behavior && o.to != behavior && !behaviorLike(o.from) && !behaviorLike(o.to) {
