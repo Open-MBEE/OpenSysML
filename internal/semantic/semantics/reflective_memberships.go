@@ -178,16 +178,17 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 			ordinal++
 		}
 	}
-	scope := sym.Scope
+	scope, written := sym.Scope, sym.Decl
 	if statement := nodeStatementOf(sym.Decl); statement != nil {
 		// A node written as its statement (`action a while c { … }`) owns the
 		// members its statement's body declares.
+		written = statement
 		if child := scope.ChildFor(statement); child != nil {
 			scope = child
 		}
 	}
 	scope.ForEachMember(func(member *symbols.Symbol) bool {
-		if member.Decl == sym.Decl && IsStatementNode(sym.Decl) {
+		if member.Decl == written && IsStatementNode(written) {
 			// A `for` variable is a body-local name, not an element the
 			// conversion writes (sysx:loopVariable is a string).
 			return true

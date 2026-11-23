@@ -183,6 +183,7 @@ func (ids *ElementIDs) recordDeclaration(e *encoder, node ast.Node, parents map[
 	ids.recordFilterCondition(e, node, subject)
 	ids.recordSendArguments(e, node)
 	ids.recordGuard(e, node, subject)
+	ids.recordStatementOperands(e, node, subject)
 	ids.recordConstraintResult(e, node, subject)
 	ids.recordResultExpression(e, node, parents[node], subject)
 	ids.recordDefaultMultiplicity(e, node, subject)
@@ -243,6 +244,42 @@ func (ids *ElementIDs) recordSendArguments(e *encoder, node ast.Node) {
 		ids.partBySpan[spanPartKey{spanKey{e.file.Name(), send.Span()}, slot}] = part
 		if argument != nil {
 			ids.recordOwnedExpression(e, argument, param, pValue)
+		}
+	}
+}
+
+// recordStatementOperands records the expressions an action-body statement writes at its own slots
+// (encodeBehavior, encodeLoop), on the node written as the statement too (naming.NodeStatement), with their parts.
+func (ids *ElementIDs) recordStatementOperands(e *encoder, node ast.Node, subject rdf.Term) {
+	if usage, ok := node.(*ast.Usage); ok {
+		node = naming.NodeStatement(usage)
+	}
+	record := func(slot string, expression ast.Node) {
+		if expression != nil {
+			ids.recordOwnedExpression(e, expression, subject, slot)
+		}
+	}
+	switch n := node.(type) {
+	case *ast.PerformActionNode:
+		record(xExpression, n.ActionRef)
+	case *ast.ActionExecutionNode:
+		record(xExpression, n.Expression)
+	case *ast.AssignmentActionNode:
+		record(xTarget, n.Target)
+		record(pValue, n.Value)
+	case *ast.TerminateStatement:
+		record(xExpression, n.Target)
+	case *ast.IfActionNode:
+		record(xCondition, n.Condition)
+	case *ast.WhileLoopActionNode:
+		switch n.Kind {
+		case ast.LoopFor:
+			record(xCollection, n.Collection)
+		case ast.LoopWhile:
+			record(xWhileCondition, n.Condition)
+			record(xUntilCondition, n.Until)
+		default:
+			record(xUntilCondition, n.Condition)
 		}
 	}
 }
