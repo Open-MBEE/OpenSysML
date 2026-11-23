@@ -52,6 +52,11 @@ type Instance struct {
 	owner        *Instance
 	ownerFeature string
 
+	// performance is the action node performance this object is, nil for any other;
+	// performed marks an object an action's or a node's performance runs or ran as.
+	performance *actionFrame
+	performed   bool
+
 	// explicit marks an object a caller asked for by name, which stands on its
 	// own even where its usage is a feature of a type.
 	explicit bool
@@ -1107,6 +1112,7 @@ func (ctx *Context) adoptOccurrenceWrite(inst *Instance, fv *FeatureValue) {
 			exec.mirrorOccurrenceWrite(fv)
 		}
 	}
+	ctx.adoptPerformanceWrite(inst, fv)
 	if mirrored {
 		ctx.noteStateDataWrite()
 	}
@@ -1981,7 +1987,7 @@ func (ctx *Context) evalFeatureValueDefault(inst *Instance, fv *FeatureValue, na
 	}
 	scope := ctx.defaultScope(inst, fv)
 	ec := NewEvalContextIn(ctx, scope, ctx.bindingContext(inst, fv.Feature))
-	if isBehaviorDefKind(inst.Type.Kind) {
+	if inst.Type.Kind.IsBehaviorDef() {
 		// A feature default of a behavior def is evaluated on the def's
 		// occurrence, which the instance being evaluated is.
 		ec.occurrence = inst

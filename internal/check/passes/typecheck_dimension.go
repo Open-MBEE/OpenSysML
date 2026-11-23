@@ -69,6 +69,14 @@ func (ec *exprChecker) checkPointOperands(scope *symbols.Scope, e *ast.OperatorE
 	if !lpoint && !rpoint {
 		return
 	}
+	if e.Operator == ast.OpAdd || e.Operator == ast.OpSub {
+		for _, dim := range []semantics.Dimension{lhs, rhs} {
+			if dim.IsPoint() && !ec.model.IsIntervalScale(dim.Scale) {
+				ec.warnCode(codeIncommensurableOperands, e.Span(), "operator '%s' on a value on the measurement scale %s, which is no interval scale: its values have no interval between them to add or take", e.Operator, dim.Unit)
+				return
+			}
+		}
+	}
 	switch e.Operator {
 	case ast.OpAdd:
 		if lpoint && rpoint {

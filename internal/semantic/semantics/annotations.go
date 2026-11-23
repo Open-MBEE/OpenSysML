@@ -2164,6 +2164,18 @@ func (m *Model) reflectiveMetaclassConforms(sym *symbols.Symbol, name string) bo
 	return meta != nil && target != nil && m.Conforms(meta, target)
 }
 
+// IsActionUsageButNoState reports whether sym's metaclass is a kind of ActionUsage and no
+// kind of StateUsage; where no library declares the metaclasses, its symbol kind tells.
+func (m *Model) IsActionUsageButNoState(sym *symbols.Symbol) bool {
+	if sym == nil {
+		return false
+	}
+	if m.Metaclass("ActionUsage") == nil {
+		return sym.Kind.IsActionUsage()
+	}
+	return m.reflectiveMetaclassConforms(sym, "ActionUsage") && !m.reflectiveMetaclassConforms(sym, "StateUsage")
+}
+
 func (m *Model) ownsSubjectParameter(sym *symbols.Symbol) bool {
 	return m.reflectiveMetaclassConforms(sym, "CaseDefinition") ||
 		m.reflectiveMetaclassConforms(sym, "CaseUsage") ||

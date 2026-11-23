@@ -3,28 +3,30 @@ start: performed action go of #1
 materialize: go #2
 run: performed action go of #1
 step 1: token 1@begin
+materialize: begin #3
 stmt assign createdIsFresh
       enter calc OccurrenceFunctions::create
-materialize: Widget #3
-        eval feature fresh -> instance#3
-        bind occ = instance#3 [argument]
-create: Widget #3
-      exit calc OccurrenceFunctions::create -> instance#3
-    eval invoke create -> instance#3
-    eval feature fresh -> instance#3
+materialize: Widget #4
+        eval feature fresh -> instance#4
+        bind occ = instance#4 [argument]
+create: Widget #4
+      exit calc OccurrenceFunctions::create -> instance#4
+    eval invoke create -> instance#4
+    eval feature fresh -> instance#4
   eval operator === -> true
 stmt assign freshDuringGo
     enter calc OccurrenceFunctions::isDuring
-      eval feature fresh -> instance#3
-      bind occ = instance#3 [argument]
+      eval feature fresh -> instance#4
+      bind occ = instance#4 [argument]
     exit calc OccurrenceFunctions::isDuring -> true
   eval invoke isDuring -> true
 step 2: token 1@work
+materialize: work #5
 stmt assign armDuring
     enter calc OccurrenceFunctions::isDuring
-materialize: Widget #4
-      eval feature arm -> instance#4
-      bind occ = instance#4 [argument]
+materialize: Widget #6
+      eval feature arm -> instance#6
+      bind occ = instance#6 [argument]
     exit calc OccurrenceFunctions::isDuring -> true
   eval invoke isDuring -> true
 stmt assign goDuring
@@ -35,37 +37,37 @@ stmt assign goDuring
   eval invoke isDuring -> true
 stmt assign freshDuringWork
     enter calc OccurrenceFunctions::isDuring
-      eval feature fresh -> instance#3
-      bind occ = instance#3 [argument]
+      eval feature fresh -> instance#4
+      bind occ = instance#4 [argument]
     exit calc OccurrenceFunctions::isDuring -> true
   eval invoke isDuring -> true
 stmt assign spares
     enter calc OccurrenceFunctions::addNew
       eval feature spares -> ()
-materialize: Widget #5
-      eval feature spare -> instance#5
+materialize: Widget #7
+      eval feature spare -> instance#7
       bind group = () [argument]
-      bind occ = instance#5 [argument]
-create: Widget #5
-    exit calc OccurrenceFunctions::addNew -> (instance#5)
-  eval invoke addNew -> (instance#5)
+      bind occ = instance#7 [argument]
+create: Widget #7
+    exit calc OccurrenceFunctions::addNew -> (instance#7)
+  eval invoke addNew -> (instance#7)
 stmt assign spareCount
     enter calc SequenceFunctions::size
-      eval feature spares -> (instance#5)
-      bind seq = (instance#5) [argument]
+      eval feature spares -> (instance#7)
+      bind seq = (instance#7) [argument]
     exit calc SequenceFunctions::size -> 1
   eval invoke size -> 1
 stmt assign arm
     enter calc OccurrenceFunctions::destroy
-      eval feature arm -> instance#4
-      bind occ = instance#4 [argument]
-destroy: Widget #4
-    exit calc OccurrenceFunctions::destroy -> instance#4
-  eval invoke destroy -> instance#4
+      eval feature arm -> instance#6
+      bind occ = instance#6 [argument]
+destroy: Widget #6
+    exit calc OccurrenceFunctions::destroy -> instance#6
+  eval invoke destroy -> instance#6
 stmt assign armAfter
     enter calc OccurrenceFunctions::isDuring
-      eval feature arm -> instance#4
-      bind occ = instance#4 [argument]
+      eval feature arm -> instance#6
+      bind occ = instance#6 [argument]
     exit calc OccurrenceFunctions::isDuring -> false
   eval invoke isDuring -> false
 step 3: token 1@done

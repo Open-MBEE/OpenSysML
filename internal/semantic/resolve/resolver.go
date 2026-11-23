@@ -157,18 +157,21 @@ type Resolver struct {
 	imports          map[ast.Node][]*ast.Import
 	importStack      map[*ast.Import]bool
 	resolvingImports map[*ast.Import]bool
-	// importVisits are the import edges already searched for a name by the
-	// imported-member lookup in progress, and importDepth is its nesting:
-	// namespaces importing one another in a cycle are searched once per
-	// lookup, not once per path through the cycle, as the excluded set of
-	// Namespace::visibleMemberships intends (KerML 8.2.3.5; issue #633).
-	// A lookup made aside or for a filter condition starts with a set of its
-	// own (see freshImportVisits).
-	importVisits map[importVisit]bool
+	// importVisits are the import searches that found nothing in the lookup in
+	// progress (issue #633), each with its cuts; importDepth is the nesting.
+	importVisits map[importVisit][][]*symbols.Scope
 	importDepth  int
+	// importPath is the excluded set of KerML 8.3.2.4.5, the namespaces being
+	// read; importHits and importSeen record cuts and entries (routeDepsSince).
+	importPath []*symbols.Scope
+	// importNames names the leading scopes of importPath as the index does.
+	importNames []string
+	importHits  []*symbols.Scope
+	importSeen  []*symbols.Scope
+	importMarks int
 	// enumMembers memoizes each import edge's members within one enumeration (issue
-	// #633); enumKept/enumResults keep uncut ones across enumerations, journaled.
-	enumMembers map[enumEdge][]*symbols.Symbol
+	// #633), per route; enumKept/enumResults keep uncut ones across enumerations, journaled.
+	enumMembers map[enumEdge][]keptMembers
 	enumDepth   int
 	enumKept    map[enumEdge]keptMembers
 	enumResults map[enumResult]keptMembers
@@ -345,7 +348,7 @@ func New(idx *symbols.Index) *Resolver {
 		initials:              map[*ast.InitialNode]*symbols.Symbol{},
 		imports:               map[ast.Node][]*ast.Import{},
 		importStack:           map[*ast.Import]bool{},
-		enumMembers:           map[enumEdge][]*symbols.Symbol{},
+		enumMembers:           map[enumEdge][]keptMembers{},
 		enumKept:              map[enumEdge]keptMembers{},
 		enumResults:           map[enumResult]keptMembers{},
 		resolvingImports:      map[*ast.Import]bool{},
@@ -362,7 +365,7 @@ func New(idx *symbols.Index) *Resolver {
 		colliding:             map[*symbols.Scope]bool{},
 		below:                 map[*symbols.Scope]bool{},
 		bringing:              map[*symbols.Scope]bool{},
-		importVisits:          map[importVisit]bool{},
+		importVisits:          map[importVisit][][]*symbols.Scope{},
 		redefined:             map[*symbols.Symbol][]*symbols.Symbol{},
 		bodyOwners:            map[*symbols.Scope]*symbols.Symbol{},
 		effNames:              map[*symbols.Symbol]bool{},
@@ -830,16 +833,24 @@ func (r *Resolver) aside(f func()) {
 	r.freshImportVisits(f)
 }
 
-// freshImportVisits runs f as a lookup of its own: the import edges the
-// enclosing imported-member search has already visited must not cut it short.
+// freshImportVisits runs f as a lookup of its own: neither the searches the
+// enclosing imported-member lookup made nor the namespaces it excludes bear on it.
 func (r *Resolver) freshImportVisits(f func()) {
-	if r.importDepth == 0 {
+	if r.importDepth == 0 && len(r.importPath) == 0 && r.importMarks == 0 {
 		f()
 		return
 	}
 	visits, depth := r.importVisits, r.importDepth
-	r.importVisits, r.importDepth = map[importVisit]bool{}, 0
-	defer func() { r.importVisits, r.importDepth = visits, depth }()
+	path, hits, seen, marks := r.importPath, r.importHits, r.importSeen, r.importMarks
+	names := r.importNames
+	r.importNames = nil
+	r.importVisits, r.importDepth = map[importVisit][][]*symbols.Scope{}, 0
+	r.importPath, r.importHits, r.importSeen, r.importMarks = nil, nil, nil, 0
+	defer func() {
+		r.importVisits, r.importDepth = visits, depth
+		r.importPath, r.importHits, r.importSeen, r.importMarks = path, hits, seen, marks
+		r.importNames = names
+	}()
 	f()
 }
 

@@ -86,6 +86,7 @@ type imagedObject struct {
 	typ          *symbols.Symbol
 	classifiers  []*symbols.Symbol
 	explicit     bool
+	performed    bool
 	owner        int64
 	ownerFeature string
 	life         life
@@ -344,7 +345,7 @@ func (t *imaging) object(inst *Instance) error {
 	}
 	obj := imagedObject{
 		id: inst.ID, typ: inst.Type, classifiers: slices.Clone(inst.classifiers),
-		explicit: inst.explicit, ownerFeature: inst.ownerFeature,
+		explicit: inst.explicit, performed: inst.performed, ownerFeature: inst.ownerFeature,
 		life:      ctx.lives[inst.ID],
 		ends:      slices.Clone(inst.Ends),
 		anonymous: slices.Clone(inst.anonymous),
@@ -826,7 +827,7 @@ func (m *materializing) run() error {
 		inst := &Instance{
 			ID: obj.id, Type: obj.typ, classifiers: slices.Clone(obj.classifiers),
 			FeatureValues: make(map[string]*FeatureValue, len(obj.features)),
-			explicit:      obj.explicit, ownerFeature: obj.ownerFeature,
+			explicit:      obj.explicit, performed: obj.performed, ownerFeature: obj.ownerFeature,
 			anonymous:     slices.Clone(obj.anonymous),
 			keptAnonymous: slices.Clone(obj.keptAnon),
 			nested:        clonePendingRedefinitions(obj.nested),

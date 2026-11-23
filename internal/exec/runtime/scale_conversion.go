@@ -215,6 +215,20 @@ func (ctx *Context) toRatioReference(q Quantity) (Quantity, error) {
 			}
 		}
 		passed = append(passed, scale)
+		switch ctx.scaleKindOf(scale.Type) {
+		case ordinalScale:
+			return Quantity{}, ctx.notIntervalError("conversion to another reference", scale)
+		case cyclicRatioScale:
+			if q, err = ctx.ratioMagnitude(q, scale); err != nil {
+				return Quantity{}, err
+			}
+			continue
+		case logarithmicScale:
+			if q, err = ctx.fromLogarithm(q, scale); err != nil {
+				return Quantity{}, err
+			}
+			continue
+		}
 		anchor, err := ctx.anchorOf(scale)
 		if err != nil {
 			return Quantity{}, err
@@ -238,8 +252,16 @@ func (ctx *Context) onScale(q Quantity, scale *CoordinateFrame) (Quantity, error
 		return Quantity{}, err
 	} else if ok && current.equal(scale) {
 		return q, nil
-	} else if err := ctx.checkCommensurable(q, scale.Scale.Unit); err != nil {
+	} else if err := ctx.checkCommensurable(q, ctx.measuredUnit(scale)); err != nil {
 		return Quantity{}, err
+	}
+	switch ctx.scaleKindOf(scale.Type) {
+	case ordinalScale:
+		return Quantity{}, ctx.notIntervalError("conversion from another reference", scale)
+	case cyclicRatioScale:
+		return ctx.toCyclicScale(q, scale)
+	case logarithmicScale:
+		return ctx.toLogarithm(q, scale)
 	}
 	anchor, err := ctx.anchorOf(scale)
 	if err != nil {
@@ -267,10 +289,144 @@ func (ctx *Context) checkCommensurable(q Quantity, unit Unit) error {
 	if scale, ok, err := ctx.scaleOfUnit(q.Unit); err != nil {
 		return err
 	} else if ok {
-		from = scale.Scale.Unit
+		from = ctx.measuredUnit(scale)
 	}
 	_, err := semantics.ConvertQuantity(Quantity{Num: q.Num, Unit: from}, unit)
 	return err
+}
+
+// measuredUnit is a unit of the quantity a scale's values measure: the unit of a
+// logarithmic scale's referenceQuantity, else the scale's declared unit.
+func (ctx *Context) measuredUnit(scale *CoordinateFrame) Unit {
+	log := scale.Scale.Log
+	if log == nil || log.Reference == nil {
+		return scale.Scale.Unit
+	}
+	if on, ok, err := ctx.scaleOfUnit(log.Reference.Unit); err == nil && ok {
+		return on.Scale.Unit
+	}
+	return log.Reference.Unit
+}
+
+// unitFrame is the one-axis reference a unit is, as a conversion target.
+func unitFrame(unit Unit) *CoordinateFrame {
+	return scalarFrame(measurementRefOf(unit).MeasurementRef())
+}
+
+// toCyclicScale expresses a quantity on a cyclic ratio scale: its magnitude in the scale's unit.
+func (ctx *Context) toCyclicScale(q Quantity, scale *CoordinateFrame) (Quantity, error) {
+	if _, err := ctx.ratioMagnitude(q, scale); err != nil {
+		return Quantity{}, err
+	}
+	inUnit, err := ctx.convertToReference(q, unitFrame(scale.Scale.Unit))
+	if err != nil {
+		return Quantity{}, err
+	}
+	return Quantity{Num: inUnit.Num, Unit: scale.Axes[0]}, nil
+}
+
+// noScaleValueError marks a quantity a well-formed logarithmic scale has no value for,
+// or a value of one no quantity; a scale that is itself malformed is never this.
+type noScaleValueError struct{ err error }
+
+func (e noScaleValueError) Error() string { return e.err.Error() }
+func (e noScaleValueError) Unwrap() error { return e.err }
+
+// logReference is the ratio magnitude x_ref a logarithmic scale's values are relative to.
+func (ctx *Context) logReference(scale *CoordinateFrame) (*Quantity, error) {
+	name := ctx.scaleName(scale)
+	ref := scale.Scale.Log.Reference
+	if ref == nil {
+		return nil, fmt.Errorf("%w: %s states no referenceQuantity, the quantity its values are logarithms relative to, so they convert to no other reference",
+			errUnevaluableLibraryFunction, name)
+	}
+	if on, point, err := ctx.pointOf(ref); err != nil {
+		return nil, err
+	} else if point {
+		return nil, fmt.Errorf("%w: %s: its referenceQuantity %s is on %s; a logarithm is of a ratio of magnitudes in a unit",
+			errUnevaluableLibraryFunction, name, ref.String(), ctx.describeScale(on))
+	}
+	if !ref.Num.IsNumeric() || ref.Num.AsReal() == 0 {
+		return nil, fmt.Errorf("%w: %s: its referenceQuantity %s is no divisor", semantics.ErrArithmeticDomain, name, ref.String())
+	}
+	return ref, nil
+}
+
+// fromLogarithm is the quantity x a value v on a logarithmic scale stands for,
+// `v = factor * log_base((x / x_ref) ** exponent)` solved for the positive ratio.
+func (ctx *Context) fromLogarithm(q Quantity, scale *CoordinateFrame) (Quantity, error) {
+	ref, err := ctx.logReference(scale)
+	if err != nil {
+		return Quantity{}, err
+	}
+	log := scale.Scale.Log
+	num, err := semantics.RealResult(scaledPower(ref.Num.AsReal(), log.Base, q.Num.AsReal()/log.Factor/log.Exponent))
+	if err != nil {
+		return Quantity{}, noScaleValueError{fmt.Errorf("%s as a quantity in %s: %w", q.String(), ref.Unit, err)}
+	}
+	return Quantity{Num: num, Unit: ref.Unit}, nil
+}
+
+// minNormal is the least positive binary64 with full precision.
+const minNormal = 0x1p-1022
+
+// inRange reports a positive ratio binary64 holds with full precision.
+func inRange(ratio float64) bool { return ratio >= minNormal && !math.IsInf(ratio, 1) }
+
+// scaledPower is ref * base**e; a power binary64 does not hold is taken with ref in the exponent.
+func scaledPower(ref, base, e float64) float64 {
+	if power := math.Pow(base, e); inRange(power) {
+		return ref * power
+	}
+	return math.Copysign(math.Pow(base, e+logarithm(math.Abs(ref), base)), ref)
+}
+
+// logRatio is log_base(x / ref) for a positive ratio, as a difference where binary64 does not hold it.
+func logRatio(x, ref, base float64) float64 {
+	if ratio := x / ref; inRange(ratio) {
+		return logarithm(ratio, base)
+	}
+	return logarithm(math.Abs(x), base) - logarithm(math.Abs(ref), base)
+}
+
+// logarithm is log_base(x), by the exact functions where the base has one.
+func logarithm(x, base float64) float64 {
+	if x > 0 && x < minNormal {
+		// A subnormal is scaled into range first: math.Log is not accurate below it.
+		return logarithm(math.Ldexp(x, 64), base) - 64*logarithm(2, base)
+	}
+	switch base {
+	case 10:
+		return math.Log10(x)
+	case 2:
+		return math.Log2(x)
+	}
+	return math.Log(x) / math.Log(base)
+}
+
+// toLogarithm is a quantity's value on a logarithmic scale:
+// `factor * log_base((x / x_ref) ** exponent)`, defined where the ratio is positive.
+func (ctx *Context) toLogarithm(q Quantity, scale *CoordinateFrame) (Quantity, error) {
+	ref, err := ctx.logReference(scale)
+	if err != nil {
+		return Quantity{}, err
+	}
+	x, err := ctx.convertToReference(q, unitFrame(ref.Unit))
+	if err != nil {
+		return Quantity{}, err
+	}
+	log := scale.Scale.Log
+	ratio := x.Num.AsReal() / ref.Num.AsReal()
+	if x.Num.AsReal() == 0 || math.Signbit(x.Num.AsReal()) != math.Signbit(ref.Num.AsReal()) {
+		// A ratio that is not positive has no one value the mapping returns it from.
+		return Quantity{}, noScaleValueError{fmt.Errorf("%w: %s has no value on %s: its ratio to %s is %g, and a logarithm is of a positive ratio",
+			semantics.ErrArithmeticDomain, q.String(), ctx.describeScale(scale), ref.String(), ratio)}
+	}
+	num, err := semantics.RealResult(log.Factor * log.Exponent * logRatio(x.Num.AsReal(), ref.Num.AsReal(), log.Base))
+	if err != nil {
+		return Quantity{}, noScaleValueError{err}
+	}
+	return Quantity{Num: num, Unit: scale.Axes[0]}, nil
 }
 
 // convertToReference is ConvertQuantity over a target that may be a scale, or a
@@ -286,7 +442,16 @@ func (ctx *Context) convertToReference(q Quantity, target *CoordinateFrame) (Qua
 	if err != nil {
 		return Quantity{}, err
 	}
-	return semantics.ConvertQuantity(ratio, target.Axes[0])
+	converted, err := semantics.ConvertQuantity(ratio, target.Axes[0])
+	if err != nil || converted.Num.Kind != semantics.ValReal {
+		return converted, err
+	}
+	// A magnitude the target unit puts past binary64 is an overflow, not an infinite quantity.
+	num, err := semantics.RealResult(converted.Num.Real)
+	if err != nil {
+		return Quantity{}, noScaleValueError{fmt.Errorf("%s in %s: %w", q.String(), converted.Unit, err)}
+	}
+	return Quantity{Num: num, Unit: converted.Unit}, nil
 }
 
 // conversionTarget reads ConvertQuantity's targetMRef: a unit or a scale, as the

@@ -75,6 +75,9 @@ func TestJobsGovernLoads(t *testing.T) {
 		{"-render-all", t.TempDir()},
 		{"-compile", "A::X", "-o", filepath.Join(t.TempDir(), "x")},
 	} {
+		if leftOut(mode...) {
+			continue
+		}
 		got := checkPathsEnv(t, binary, []string{"OPENSYSML_JOBS=0"}, append(mode, paths...)...)
 		if got.status != 2 || !strings.Contains(got.output(), `OPENSYSML_JOBS="0" is not a positive integer`) || strings.Contains(got.output(), "Missing") {
 			t.Errorf("%s under OPENSYSML_JOBS=0: status %d\n%s", mode[0], got.status, got.output())

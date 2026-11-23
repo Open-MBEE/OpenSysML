@@ -28,6 +28,14 @@ type CoordinateFrame struct {
 type MeasurementScale struct {
 	Unit    Unit
 	Mapping *QuantityValueMapping
+	Modulus float64             // CyclicRatioScale::modulus, in Unit; 0 for another scale
+	Log     *LogarithmicMapping // what a LogarithmicScale states
+}
+
+// LogarithmicMapping is a LogarithmicScale's `v = factor * log_base((x / reference) ** exponent)`.
+type LogarithmicMapping struct {
+	Base, Factor, Exponent float64
+	Reference              *Quantity // referenceQuantity; nil when the scale states none
 }
 
 // QuantityValueMapping is one point given on the scale and on the reference it
@@ -198,6 +206,15 @@ func (f *CoordinateFrame) key() string {
 			b.WriteString("|map:" + strconv.FormatUint(valueHash(NewQuantityValue(&f.Scale.Mapping.Mapped)), 10))
 			b.WriteString("," + strconv.FormatUint(valueHash(NewQuantityValue(&f.Scale.Mapping.Reference)), 10))
 		}
+		if f.Scale.Modulus != 0 {
+			fmt.Fprintf(&b, "|mod:%g", f.Scale.Modulus)
+		}
+		if l := f.Scale.Log; l != nil {
+			fmt.Fprintf(&b, "|log:%g,%g,%g", l.Base, l.Factor, l.Exponent)
+			if l.Reference != nil {
+				b.WriteString("," + strconv.FormatUint(valueHash(NewQuantityValue(l.Reference)), 10))
+			}
+		}
 	}
 	if f.Transformation != nil {
 		b.WriteString("|xf:" + f.Transformation.key())
@@ -213,11 +230,30 @@ func (s *MeasurementScale) equal(other *MeasurementScale) bool {
 	if (s.Mapping == nil) != (other.Mapping == nil) {
 		return false
 	}
-	if s.Mapping == nil {
-		return true
+	if s.Mapping != nil && !(sameQuantity(&s.Mapping.Mapped, &other.Mapping.Mapped) &&
+		sameQuantity(&s.Mapping.Reference, &other.Mapping.Reference)) {
+		return false
 	}
-	return valueEqual(NewQuantityValue(&s.Mapping.Mapped), NewQuantityValue(&other.Mapping.Mapped)) &&
-		valueEqual(NewQuantityValue(&s.Mapping.Reference), NewQuantityValue(&other.Mapping.Reference))
+	return s.Modulus == other.Modulus && s.Log.equal(other.Log)
+}
+
+// sameQuantity holds for two quantities valueEqual tells no difference between.
+func sameQuantity(a, b *Quantity) bool {
+	return valueEqual(NewQuantityValue(a), NewQuantityValue(b))
+}
+
+// equal compares two logarithmic mappings by what they state.
+func (l *LogarithmicMapping) equal(other *LogarithmicMapping) bool {
+	if l == nil || other == nil {
+		return l == other
+	}
+	if l.Base != other.Base || l.Factor != other.Factor || l.Exponent != other.Exponent {
+		return false
+	}
+	if l.Reference == nil || other.Reference == nil {
+		return l.Reference == other.Reference
+	}
+	return sameQuantity(l.Reference, other.Reference)
 }
 
 // Name is how the transformation is referred to in diagnostics.

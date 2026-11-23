@@ -147,7 +147,25 @@ func TestImportAllCycleTerminates(t *testing.T) {
 		package C2 { public import all C1::*; private part def InC2; }
 		package Use { private import C1::*; part x : InC2; }
 		package Use2 { private import C2::*; part y : InC1; part z : C2::InC1; }
-	`)
+	`) // A private member does not come back to its namespace through the cycle:
+	// the other's import of it is of an excluded namespace (KerML 8.3.2.4.6).
+	wantUnresolved(t, `
+		package C1 { public import all C2::*; private part def InC1; }
+		package C2 { public import all C1::*; private part def InC2; }
+		package Use { private import C1::*; part x : InC1; part y : C1::InC1; }
+		package Use2 { private import C2::*; part x : InC2; part y : C2::InC2; }
+	`, "C1::InC1", "C2::InC2", "InC1", "InC2")
+}
+
+// A recursive import reads an owned namespace with its owner excluded, so the
+// owner's private member does not come back by an `import all` of the owner.
+func TestRecursiveImportExcludesTheOwnerOfANamespaceItDescends(t *testing.T) {
+	const model = `
+		package N { private part def Hidden; package K { public import X::*; } }
+		package X { public import all N::*; }
+	`
+	wantUnresolved(t, model+`package Use { private import N::**; part x : Hidden; }`, "Hidden")
+	wantUnresolved(t, model+`package Use { private import X::*; part x : Hidden; }`)
 }
 
 // What a public `import all` took is a public membership of its namespace, so an

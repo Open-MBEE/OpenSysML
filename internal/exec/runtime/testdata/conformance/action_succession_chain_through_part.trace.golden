@@ -1,0 +1,25 @@
+step 1: token 1@perform vehicle.doorClosed
+stmt perform
+materialize: vehicle #1
+  eval feature vehicle -> instance#1
+  stmt assign n
+      eval feature n -> 0
+      eval literal 1 -> 1
+    eval operator + -> 1
+step 1: no active tokens
+step 2: token 1@perform driver.driverReady
+stmt perform
+materialize: driver #2
+  eval feature driver -> instance#2
+  stmt assign m
+      eval feature m -> 0
+      eval literal 10 -> 10
+    eval operator + -> 10
+step 1: no active tokens
+step 3: token 1@read
+stmt assign result
+    eval chain n -> 1
+    eval chain m -> 10
+  eval operator + -> 11
+step 4: token 1@done
+step 5: no active tokens

@@ -70,7 +70,9 @@ connection.model(first.hash);                 // a model the service already hol
 ```
 
 Both `Connection` and `Model` implement `Symbol.asyncDispose`, so `await using`
-closes them; `close()` is the explicit form, and is safe to call twice.
+closes them; `close()` is the explicit form, and is safe to call twice. Closing a
+connection cancels the calls still under way on it, which fail with
+`ClosedConnectionError`.
 
 ## Values are discriminated unions
 
@@ -258,6 +260,10 @@ The worker remains referenced while the connection is open, so `close()` or
 it is useful when a worker is unavailable, but blocks that thread during a call.
 Closing an inline connection disables its client surface; Go has no exit hook to
 stop the running module.
+
+A WASM call that Go has started runs to completion: `timeoutMs` and `close()`
+settle the caller's promise at once, and a worker never starts a call cancelled
+while it waited its turn, but neither interrupts the evaluation under way.
 A worker-mode deadline rejects the waiting call without interrupting Go, so
 later worker calls queue behind work that outlived its deadline. Inline calls
 run synchronously and cannot be interrupted while they block the JavaScript
