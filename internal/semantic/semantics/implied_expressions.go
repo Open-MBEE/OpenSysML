@@ -116,8 +116,13 @@ func (m *Model) namedArgumentRedefinitions(sym *symbols.Symbol) []*symbols.Symbo
 	var out []*symbols.Symbol
 	scope := m.expressionScopeOf(owner)
 	for _, general := range m.ImpliedSpecializations(owner) {
-		if target, _ := m.LookupBinding(scope, general, name); target != nil && target != sym && !slices.Contains(out, target) {
-			out = append(out, target)
+		if !behaviorLike(general) {
+			continue
+		}
+		// The name binds as a call binds it: to an input parameter of what is invoked, or to nothing.
+		sig := m.signatureOf(general)
+		if i := m.parameterIndex(scope, sig, name); i >= 0 && sig.params[i].sym != sym && !slices.Contains(out, sig.params[i].sym) {
+			out = append(out, sig.params[i].sym)
 		}
 	}
 	return out

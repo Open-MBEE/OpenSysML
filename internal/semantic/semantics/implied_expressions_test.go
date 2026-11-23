@@ -25,6 +25,8 @@ const impliedExpressionModel = `package P {
 		feature selfTested = @D;
 		feature sequence = (d1, d2);
 		feature unresolved : D = Missing(d1);
+		feature unresolvedNamed : D = Missing(G::b = d1);
+		feature foreign : D = O(G::b = d1);
 		feature built : S = new S(py = d1);
 		feature selected = d1.?{in v : D; true};
 		feature list : Collections::OrderedCollection;
@@ -73,6 +75,9 @@ func TestExpressionParametersRedefineTheFunctionParameters(t *testing.T) {
 		{"P::E::sequence", false, [][]string{{"BaseFunctions::,::seq1"}, {"BaseFunctions::,::seq2"}}, []string{"Performances::Evaluation::result", "BaseFunctions::,::"}},
 		// What names no function that resolves redefines the parameters of no function.
 		{"P::E::unresolved", false, [][]string{nil}, []string{"Performances::Evaluation::result"}},
+		// A name that is no parameter of what is invoked binds nothing, however it resolves.
+		{"P::E::unresolvedNamed", true, [][]string{nil}, []string{"Performances::Evaluation::result"}},
+		{"P::E::foreign", true, [][]string{nil}, []string{"Performances::Evaluation::result", "P::O::r"}},
 	}
 	for _, tc := range cases {
 		expr := expressionOf(t, m, root, tc.feature)
