@@ -315,26 +315,11 @@ func (e *Evaluator) structureVisibleMemberships(namespace Element, walk *importW
 		if !recursive {
 			continue
 		}
-		owning, known := e.isMetaclass(handle, "OwningMembership")
-		if !known {
-			return nil, false
-		}
-		if !owning {
-			continue
-		}
-		members, ok := e.structureMembershipMemberElements(handle)
+		namespaces, ok := e.structureOwnedNamespaces(handle)
 		if !ok {
 			return nil, false
 		}
-		for _, member := range members {
-			isNamespace, known := e.isMetaclass(member, "Namespace")
-			if !known {
-				return nil, false
-			}
-			if isNamespace {
-				nested = append(nested, member)
-			}
-		}
+		nested = append(nested, namespaces...)
 	}
 	entries, ok := e.structureImportedEntries(namespace, walk)
 	if !ok {
@@ -360,18 +345,44 @@ func (e *Evaluator) structureVisibleMemberships(namespace Element, walk *importW
 		}
 		visible = append(visible, memberships...)
 	}
-	isType, known := e.isMetaclass(namespace, "Type")
-	if !known {
+	inherited, ok := e.structureVisibleInheritedOfType(namespace, walk, recursive, all)
+	if !ok {
 		return nil, false
 	}
-	if isType {
-		inherited, ok := e.structureVisibleInherited(namespace, walk, recursive, all)
-		if !ok {
+	visible = append(visible, inherited...)
+	return uniqueOwnedStructureValues(visible, e.options.Structure), true
+}
+
+// structureVisibleInheritedOfType is the visible memberships namespace inherits: none unless it is a Type.
+func (e *Evaluator) structureVisibleInheritedOfType(namespace Element, walk *importWalk, recursive, all bool) ([]Value, bool) {
+	isType, known := e.isMetaclass(namespace, "Type")
+	if !known || !isType {
+		return nil, known
+	}
+	return e.structureVisibleInherited(namespace, walk, recursive, all)
+}
+
+// structureOwnedNamespaces is the namespaces the membership owns as members: none for a membership that owns none.
+func (e *Evaluator) structureOwnedNamespaces(membership Element) ([]Element, bool) {
+	owning, known := e.isMetaclass(membership, "OwningMembership")
+	if !known || !owning {
+		return nil, known
+	}
+	members, ok := e.structureMembershipMemberElements(membership)
+	if !ok {
+		return nil, false
+	}
+	var nested []Element
+	for _, member := range members {
+		isNamespace, known := e.isMetaclass(member, "Namespace")
+		if !known {
 			return nil, false
 		}
-		visible = append(visible, inherited...)
+		if isNamespace {
+			nested = append(nested, member)
+		}
 	}
-	return uniqueOwnedStructureValues(visible, e.options.Structure), true
+	return nested, true
 }
 
 // structureVisibleInherited is the inherited part of Type::visibleMemberships (KerML
@@ -444,49 +455,16 @@ func (e *Evaluator) structureWalkInheritedMemberships(
 			continue
 		}
 		if library, ok := e.structureLibraryBase(base); ok {
-			var members []Value
-			if excludeImplied {
-				members, ok = e.libraryStatedNonPrivate(library.Symbol)
-			} else {
-				members, ok = e.structureLibraryTypeMembers(library, "membership")
-			}
+			members, ok := e.structureLibraryInheritable(library, excludeImplied)
 			if !ok {
 				return nil, false
 			}
 			inheritable = append(inheritable, members...)
 			continue
 		}
-		owned, handled, ok := e.structureOwnedFilter(base, "Membership", true)
-		if !handled || !ok {
-			return nil, false
-		}
-		var public, protected []Value
-		for _, value := range owned.Values {
-			if value.Kind != MembershipValue {
-				return nil, false
-			}
-			visibility, ok := e.structureVisibilityName(Element{Membership: value.Membership, IsMembership: true})
-			if !ok {
-				return nil, false
-			}
-			switch visibility {
-			case "public":
-				public = append(public, value)
-			case "protected":
-				protected = append(protected, value)
-			}
-		}
-		imported, ok := e.structureImportedEntries(base, walk)
+		public, protected, ok := e.structureInheritableMemberships(base, walk)
 		if !ok {
 			return nil, false
-		}
-		for _, entry := range imported {
-			switch entry.visibility {
-			case "public":
-				public = append(public, entry.membership)
-			case "protected":
-				protected = append(protected, entry.membership)
-			}
 		}
 		inherited, ok := e.structureWalkInheritedMemberships(base, walk, visited, excludeImplied)
 		if !ok {
@@ -496,6 +474,50 @@ func (e *Evaluator) structureWalkInheritedMemberships(
 	}
 	inheritable = uniqueOwnedStructureValues(inheritable, e.options.Structure)
 	return e.structureRemoveRedefinedMemberships(element, inheritable)
+}
+
+// structureLibraryInheritable is the memberships a library base passes on: the stated ones only when excludeImplied.
+func (e *Evaluator) structureLibraryInheritable(library Element, excludeImplied bool) ([]Value, bool) {
+	if excludeImplied {
+		return e.libraryStatedNonPrivate(library.Symbol)
+	}
+	return e.structureLibraryTypeMembers(library, "membership")
+}
+
+// structureInheritableMemberships is the public and the protected memberships base owns or imports.
+func (e *Evaluator) structureInheritableMemberships(base Element, walk *importWalk) (public, protected []Value, ok bool) {
+	owned, handled, ok := e.structureOwnedFilter(base, "Membership", true)
+	if !handled || !ok {
+		return nil, nil, false
+	}
+	for _, value := range owned.Values {
+		if value.Kind != MembershipValue {
+			return nil, nil, false
+		}
+		visibility, ok := e.structureVisibilityName(Element{Membership: value.Membership, IsMembership: true})
+		if !ok {
+			return nil, nil, false
+		}
+		switch visibility {
+		case "public":
+			public = append(public, value)
+		case "protected":
+			protected = append(protected, value)
+		}
+	}
+	imported, ok := e.structureImportedEntries(base, walk)
+	if !ok {
+		return nil, nil, false
+	}
+	for _, entry := range imported {
+		switch entry.visibility {
+		case "public":
+			public = append(public, entry.membership)
+		case "protected":
+			protected = append(protected, entry.membership)
+		}
+	}
+	return public, protected, true
 }
 
 // structureStatedSupertypes is Type::supertypes(true) (KerML 8.3.3.1.10): the original
