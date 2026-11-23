@@ -220,6 +220,10 @@ func (r *Renderer) renderGeneral(view *symbols.Symbol, exposed []*symbols.Symbol
 	var related []Edge
 	if g.kind == KindRequirement {
 		related = g.requirementRelationships()
+		// Drawn before any edge, so an edge to a party does not depend on node order.
+		for _, sym := range exposedNodes {
+			g.requirementParties(sym)
+		}
 	}
 	for _, sym := range exposedNodes {
 		if g.kind == KindPackage {
@@ -517,6 +521,9 @@ func (g *generalGraph) structuralEdges(sym *symbols.Symbol) {
 	if owner := g.drawn(sym.OwnerScope.Owner()); owner != nil && owner != from {
 		edge := Edge{From: owner.ID, To: from.ID, ToLabel: g.r.usageMultiplicity(sym), Origin: symbolOrigin(sym)}
 		g.r.memberEdge(sym, &edge)
+		if role := g.requirementRole(sym.OwnerScope.Owner(), sym); role != "" {
+			edge.Label = role
+		}
 		g.add(edge)
 	}
 }
@@ -619,12 +626,8 @@ func (g *generalGraph) featureEdges(sym *symbols.Symbol, from *Node) {
 		}
 		kind := g.r.membershipKind(member)
 		role := g.requirementRole(sym, member)
-		for _, typ := range g.r.drawnTypes(member) {
-			to := g.drawn(typ)
-			if to == nil && role != "" && g.besides(typ) {
-				to = g.node(typ)
-			}
-			if to != nil {
+		for _, typ := range g.roleTypes(member, role) {
+			if to := g.drawn(typ); to != nil {
 				edge := Edge{From: from.ID, To: to.ID, Kind: kind, Label: role, ToLabel: symbols.LastSegment(g.r.fqn(member)), Origin: symbolOrigin(member)}
 				// Unnamed features of one type read the same and are still one edge each.
 				g.addKeyed(edge, member.Name == "" || edge.Kind == EdgeImport || g.exposed != nil)
@@ -653,13 +656,39 @@ func (g *generalGraph) requirementRole(owner, member *symbols.Symbol) string {
 	return ""
 }
 
-// besides reports whether the graph draws an undrawn relationship end beside
-// the drawn one: a model element, exposed when the graph overlays another.
-func (g *generalGraph) besides(end *symbols.Symbol) bool {
-	if g.r.libraryDeclared(end) || !generalNodeKind(g.r, end) {
-		return false
+// roleTypes is what the edge of a feature goes to: its declared types, and for
+// a role declared without one the types of the features it redefines or subsets.
+func (g *generalGraph) roleTypes(member *symbols.Symbol, role string) []*symbols.Symbol {
+	types := g.r.drawnTypes(member)
+	if len(types) > 0 || role == "" || g.drawn(member) != nil {
+		return types
 	}
-	return g.exposed == nil || g.exposed[symbols.KeyOf(end)]
+	for _, typ := range g.r.model.DeclaredFeatureTypes(member) {
+		if original := semantics.OriginalPortDefinitionOf(typ); original != nil {
+			typ = original
+		}
+		types = append(types, typ)
+	}
+	return types
+}
+
+// requirementParties draws, beside a requirement, the model's own types of its
+// subject, actors and stakeholders.
+func (g *generalGraph) requirementParties(sym *symbols.Symbol) {
+	if sym.Scope == nil {
+		return
+	}
+	for _, member := range sym.Scope.AllMembers() {
+		role := g.requirementRole(sym, member)
+		if role == "" {
+			continue
+		}
+		for _, typ := range g.roleTypes(member, role) {
+			if g.drawn(typ) == nil && !g.r.libraryDeclared(typ) && generalNodeKind(g.r, typ) {
+				g.node(typ)
+			}
+		}
+	}
 }
 
 // featureDecl reports whether member is declared as a feature of its owner: a
