@@ -131,6 +131,18 @@ runs:
       shell: bash
       run: ./scripts/download-pilot-library-xmi.sh
 
+    # The normative SysML.json the api-json schema gate measures against; the
+    # script pins its digest, so the script is the whole key.
+    - name: Cache the OMG JSON schema
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: build/omg-json-schema
+        key: omg-json-schema-${{ hashFiles('scripts/download-omg-json-schema.sh') }}
+
+    - name: Download the OMG JSON schema
+      shell: bash
+      run: ./scripts/download-omg-json-schema.sh
+
     # The FMI gate's simulator: the reference runner (client/python) is a
     # Python subprocess, so the library it drives is installed here, pinned
     # and wheel-only like every pip install of the workflows.
