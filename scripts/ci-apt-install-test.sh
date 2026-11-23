@@ -50,8 +50,13 @@ done
 read -r -a wanted <<<"${FAKE_APT_SET:-}"
 case $command in
   update)
-    [[ ${FAKE_APT_UPDATE:-ok} == ok ]] && exit 0
-    echo "Err: no reply from the mirror" >&2
+    # ppa-down and mirror-down fail as apt does, naming the index a repository did not serve.
+    case ${FAKE_APT_UPDATE:-ok} in
+      ok) exit 0 ;;
+      ppa-down) echo "E: Failed to fetch https://ppa.example/git-core/ppa/ubuntu/dists/noble/main/binary-amd64/Packages  503  Service Unavailable" >&2 ;;
+      mirror-down) echo "E: Failed to fetch http://mirror.example/dists/noble/main/binary-amd64/Packages  503  Service Unavailable" >&2 ;;
+      *) echo "Err: no reply from the mirror" >&2 ;;
+    esac
     exit 100 ;;
   install) ;;
   *) echo "apt-get stand-in: unexpected command: $*" >&2; exit 2 ;;
@@ -201,6 +206,31 @@ if run_case offline 0 FAKE_APT_SET="${z3[*]}" FAKE_APT_UPDATE=fail CI_APT_ARCHIV
   mentions offline 'no mirror served z3'
   mentions offline 'installing z3 offline from the 2 archives'
   set_holds offline libz3-4_4.13.3-1_amd64.deb z3_4.13.3-1_amd64.deb
+fi
+
+# A repository the install fetches nothing from fails its index: one update, no retry of it,
+# the mirrors untouched, and the packages installed from the mirror that did answer.
+if run_case unneeded-index-down 0 FAKE_APT_SET="${z3[*]}" FAKE_APT_UPDATE=ppa-down -- z3; then
+  [[ $(calls unneeded-index-down ' update ') == 1 ]] || fail "unneeded-index-down: update attempted $(calls unneeded-index-down ' update ') times, expected 1"
+  [[ $(calls unneeded-index-down "$fetch_option") == 1 ]] || fail "unneeded-index-down: fetched $(calls unneeded-index-down "$fetch_option") times"
+  [[ $(grep -c . "$work/unneeded-index-down/mirrors") == 2 ]] || fail "unneeded-index-down: a mirror was dropped for another repository's failure"
+  mentions unneeded-index-down 'failed only on indexes z3 does not install from'
+  mentions unneeded-index-down 'https://ppa.example/git-core/ppa/ubuntu'
+  installed unneeded-index-down z3
+fi
+
+# The same outage with the archives unreachable too is a real failure: the fetch is retried, then the step fails.
+if run_case unneeded-index-down-fetch-fails 1 FAKE_APT_SET="${z3[*]}" FAKE_APT_UPDATE=ppa-down FAKE_APT_FETCH=fail -- z3; then
+  [[ $(calls unneeded-index-down-fetch-fails "$fetch_option") == 3 ]] || fail "unneeded-index-down-fetch-fails: fetched $(calls unneeded-index-down-fetch-fails "$fetch_option") times, expected 3"
+  [[ -z $(installs unneeded-index-down-fetch-fails) ]] || fail "unneeded-index-down-fetch-fails: installed anyway"
+  mentions unneeded-index-down-fetch-fails 'no mirror served z3'
+fi
+
+# The index of the repository the packages come from fails: update is retried and the step fails.
+if run_case needed-index-down 1 FAKE_APT_SET="${z3[*]}" FAKE_APT_UPDATE=mirror-down -- z3; then
+  [[ $(calls needed-index-down ' update ') == 3 ]] || fail "needed-index-down: update attempted $(calls needed-index-down ' update ') times, expected 3"
+  [[ $(calls needed-index-down "$fetch_option") == 0 ]] || fail "needed-index-down: fetched against lists the update did not refresh"
+  [[ -z $(installs needed-index-down) ]] || fail "needed-index-down: installed anyway"
 fi
 
 # No set to fall back on: the failure names both the mirrors and the missing set.
