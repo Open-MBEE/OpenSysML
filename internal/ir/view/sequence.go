@@ -512,6 +512,10 @@ func (r *Renderer) inheritedOrders(orders []order, ends *lifelineEnds, lifelines
 	for end := range ends.proxies {
 		held[end] = true
 	}
+	// An order named through a lifeline puts its event there as a message does.
+	for _, o := range orders {
+		held[ends.orderEnd(o.from, o.fromThrough)], held[ends.orderEnd(o.to, o.toThrough)] = true, true
+	}
 	inherited := make([][]timing, len(orders))
 	read := map[[2]int]bool{}
 	for grew := true; grew; {

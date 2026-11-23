@@ -225,3 +225,37 @@ func TestSequenceRenderingReadsAnInheritedOrderOverARedefinedEvent(t *testing.T)
 		t.Errorf("got %q\nwant %q", got, want)
 	}
 }
+
+// An inherited order holds on a lifeline whose events only successions name, so
+// the messages those successions lead from and to are ordered through it.
+func TestSequenceRenderingReadsAnInheritedOrderBetweenEventsOnlySuccessionsName(t *testing.T) {
+	rendering := renderSequenceOf(t, `package P {
+	item def Ping;
+	part def Client {
+		event occurrence sent;
+		event occurrence got;
+		succession first got then sent;
+	}
+	part def Scene {
+		part server {
+			event occurrence a;
+			event occurrence b;
+		}
+		part peer {
+			event occurrence c;
+			event occurrence d;
+		}
+		part client : Client;
+		message late of Ping from server.b to peer.d;
+		message early of Ping from server.a to peer.c;
+		succession first peer.c then client.got;
+		succession first client.sent then server.b;
+	}
+}`, "Client", "Scene")
+	if got := messageLabels(rendering); !slices.Equal(got, []string{"early of Ping", "late of Ping"}) {
+		t.Errorf("messages = %v, want early before late through client's inherited order", got)
+	}
+	if got := sequenceEnds(rendering); !slices.Contains(got, ": client.got -> client.sent") {
+		t.Errorf("edges = %q, want the inherited order drawn on client", got)
+	}
+}
