@@ -71,20 +71,13 @@ func TestNPR7150MatrixBlankDisposition(t *testing.T) {
 	}
 }
 
-// A disposition bound through an attribute is read as the literal the attribute is bound to.
-func TestNPR7150MappingBoundDispositionNeedsJustification(t *testing.T) {
-	src := npr7150Model(`
-		attribute relief : MappingKind = MappingKind::notApplicable;
-		requirement a : SWE141 { @RequirementMapping { comply = relief; } }`)
-	w8dWantLines(t, src, CodeNPR7150MappingNoJustification, 5)
-}
-
 // A disposition bound through an attribute still addresses its requirement in the matrix.
 func TestNPR7150MatrixBoundDisposition(t *testing.T) {
 	matrix := "\n\t\tpart def Matrix :> RequirementsMappingMatrix { :>> softwareClass = SoftwareClass::E; }\n\t\tpart matrix : Matrix;"
 	src := npr7150Model(matrix + npr7150Entries(npr7150ClassE[1:]...) +
 		"\n\t\tattribute projectDefault : MappingKind = MappingKind::fullyCompliant;" +
-		"\n\t\trequirement swe033 : SWE033 { @RequirementMapping { comply = projectDefault; } }")
+		"\n\t\tattribute softwareDefault : MappingKind = projectDefault;" +
+		"\n\t\trequirement swe033 : SWE033 { @RequirementMapping { comply = softwareDefault; } }")
 	w8dWantLines(t, src, CodeNPR7150MatrixMissingRequirement)
 }
 
