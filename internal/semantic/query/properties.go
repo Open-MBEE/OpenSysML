@@ -159,8 +159,9 @@ func (r *PropertyReader) nameValues(sym *symbols.Symbol, property string) ([]str
 		}
 		return valueIfPresent(sym.Name, sym.Named())
 	case PropertyDeclaredName:
-		// A metadata body's `mission = …` declares no name: the Redefinition it implies names it.
-		if sym.EffectiveName() || declaresMemberNames(sym) ||
+		// A metadata body's `mission = …` declares no name: the Redefinition it implies names it. Nor does
+		// an implied conjugate: `~P` is the name its effectiveName() derives (SysML v2.1 8.3.12.2).
+		if sym.EffectiveName() || declaresMemberNames(sym) || sym.IsConjugatedPortDefinition() ||
 			(r.semantics != nil && r.semantics.RestatesMetadataBodyFeature(sym)) {
 			return nil, false
 		}
