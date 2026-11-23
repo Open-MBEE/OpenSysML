@@ -532,6 +532,13 @@ func (s *SymbolIDs) expressionID(sym *symbols.Symbol) (string, bool) {
 			return base + encodedSegment(fmt.Sprintf("@%d", sym.Expr.Index)), true
 		}
 	}
+	return s.declaredExpressionID(sym, owner)
+}
+
+// declaredExpressionID is the id of an expression element no role above mints: a value, the
+// declaration it is written as, or an argument at its position under its expression.
+func (s *SymbolIDs) declaredExpressionID(sym, owner *symbols.Symbol) (string, bool) {
+	doc := sym.DocName
 	if sym.Expr.Role == symbols.ExpressionValue && owner.Expr != nil && owner.Expr.Role == symbols.ExpressionPayload &&
 		owner.Expr.Owner != nil && owner.Expr.Owner.Kind == symbols.SymbolSendActionUsage {
 		// The value of a send's argument parameter is the parameter's `value` part.
