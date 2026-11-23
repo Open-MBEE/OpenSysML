@@ -540,7 +540,8 @@ func (g *generalGraph) statedEdges(sym *symbols.Symbol, from *Node) {
 	if sym.Scope == nil {
 		return
 	}
-	for _, member := range append(slices.Clone(sym.Scope.Members()), sym.Scope.AnonymousMembers()...) {
+	// AllMembers keeps declaration order across named and unnamed features.
+	for _, member := range sym.Scope.AllMembers() {
 		kind, ref, ok := statedReference(member)
 		if !ok {
 			continue
@@ -589,7 +590,8 @@ func (g *generalGraph) featureEdges(sym *symbols.Symbol, from *Node) {
 	if sym.Scope == nil {
 		return
 	}
-	for _, member := range append(slices.Clone(sym.Scope.Members()), sym.Scope.AnonymousMembers()...) {
+	// AllMembers keeps declaration order across named and unnamed features.
+	for _, member := range sym.Scope.AllMembers() {
 		if !featureDecl(member) || g.drawn(member) != nil || !generalNodeKind(g.r, member) {
 			continue
 		}
@@ -915,7 +917,8 @@ func ownObjectives(sym *symbols.Symbol) []*symbols.Symbol {
 		return nil
 	}
 	var out []*symbols.Symbol
-	for _, member := range append(slices.Clone(sym.Scope.Members()), sym.Scope.AnonymousMembers()...) {
+	// AllMembers keeps declaration order across named and unnamed features.
+	for _, member := range sym.Scope.AllMembers() {
 		if usage, ok := member.Decl.(*ast.Usage); ok && usage.Kind == ast.UsageObjective && member.Scope != nil {
 			out = append(out, member)
 		}
