@@ -64,6 +64,15 @@ func leading(x Expr) (int64, Expr) {
 		var m int64
 		x.Args, m = leadingArgs(x.Args)
 		return m, x
+	case Let:
+		m, v := leading(x.Value)
+		x.Value = v
+		if infallible(v) {
+			k, in := leading(x.In)
+			x.In = in
+			m += k
+		}
+		return m, x
 	case LibCall:
 		var m int64
 		x.Args, m = leadingArgs(x.Args)

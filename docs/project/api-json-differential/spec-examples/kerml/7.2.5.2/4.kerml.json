@@ -15,7 +15,7 @@
       "presentDifferent": 0,
       "oursMissing": 6,
       "pilotMissing": 8,
-      "absentBoth": 161,
+      "absentBoth": 169,
       "indeterminate": 0,
       "pilotNondeterministic": 0
     },
@@ -175,7 +175,8 @@
     "OwningMembership.isLibraryElement": [7,0,0,0,0,0,0],
     "OwningMembership.memberElement": [7,0,0,0,0,0,0],
     "OwningMembership.memberElementId": [7,0,0,0,0,0,0],
-    "OwningMembership.memberName": [6,0,0,0,0,0,0],
+    "OwningMembership.memberName": [6,0,0,0,1,0,0],
+    "OwningMembership.memberShortName": [0,0,0,0,7,0,0],
     "OwningMembership.membershipOwningNamespace": [7,0,0,0,0,0,0],
     "OwningMembership.ownedAnnotation": [0,0,0,0,7,0,0],
     "OwningMembership.ownedElement": [0,0,0,0,7,0,0],

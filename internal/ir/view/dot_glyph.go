@@ -62,11 +62,7 @@ func DrawDOTGlyphs(svg []byte) ([]byte, error) {
 		return svg, nil
 	}
 	decoder := xml.NewDecoder(bytes.NewReader(svg))
-	var edits []svgEdit
-	var edge *glyphEdge
-	var open []xml.StartElement
-	var starts []int
-	var text strings.Builder
+	scan := glyphScan{svg: svg}
 	for {
 		before := int(decoder.InputOffset())
 		token, err := decoder.Token()
@@ -78,44 +74,18 @@ func DrawDOTGlyphs(svg []byte) ([]byte, error) {
 		}
 		switch element := token.(type) {
 		case xml.StartElement:
-			switch {
-			case edge != nil:
-				open, starts = append(open, element.Copy()), append(starts, before)
-				text.Reset()
-			case element.Name.Local == "g":
-				if class := dotGlyphClass(svgAttr(element, "class")); class != "" {
-					edge = &glyphEdge{class: class}
-					open, starts = append(open, element.Copy()), append(starts, before)
-				}
-			}
+			scan.start(element, before)
 		case xml.CharData:
-			if edge != nil {
-				text.Write(element)
+			if scan.edge != nil {
+				scan.text.Write(element)
 			}
 		case xml.EndElement:
-			if edge == nil {
-				continue
-			}
-			last := len(open) - 1
-			end := int(decoder.InputOffset())
-			edits = append(edits, edge.draw(open[last], starts[last], end, text.String())...)
-			if last == 1 && edge.labelled {
-				// The label goes with the link Graphviz wraps it in.
-				edge.plus, edge.labelled = &svgEdit{from: starts[last], to: end}, false
-			}
-			open, starts = open[:last], starts[:last]
-			if last == 0 {
-				if edge.plus != nil && edge.crossed {
-					// The label's line goes with it.
-					if bytes.HasPrefix(svg[edge.plus.to:], []byte("\n")) {
-						edge.plus.to++
-					}
-					edits = append(edits, *edge.plus)
-				}
-				edge = nil
+			if scan.edge != nil {
+				scan.end(int(decoder.InputOffset()))
 			}
 		}
 	}
+	edits := scan.edits
 	if len(edits) == 0 {
 		return svg, nil
 	}
@@ -127,6 +97,54 @@ func DrawDOTGlyphs(svg []byte) ([]byte, error) {
 		written = edit.to
 	}
 	return append(out, svg[written:]...), nil
+}
+
+// glyphScan is DrawDOTGlyphs' read of the drawing: the edits so far, the marked edge group being
+// read with its open elements and where each starts, and the text of the element being read.
+type glyphScan struct {
+	svg    []byte
+	edits  []svgEdit
+	edge   *glyphEdge
+	open   []xml.StartElement
+	starts []int
+	text   strings.Builder
+}
+
+// start opens element, read at offset before: a marked edge group, or an element inside one.
+func (s *glyphScan) start(element xml.StartElement, before int) {
+	switch {
+	case s.edge != nil:
+		s.open, s.starts = append(s.open, element.Copy()), append(s.starts, before)
+		s.text.Reset()
+	case element.Name.Local == "g":
+		if class := dotGlyphClass(svgAttr(element, "class")); class != "" {
+			s.edge = &glyphEdge{class: class}
+			s.open, s.starts = append(s.open, element.Copy()), append(s.starts, before)
+		}
+	}
+}
+
+// end closes the innermost open element of the edge group at offset end, drawing what it calls for.
+func (s *glyphScan) end(end int) {
+	edge := s.edge
+	last := len(s.open) - 1
+	s.edits = append(s.edits, edge.draw(s.open[last], s.starts[last], end, s.text.String())...)
+	if last == 1 && edge.labelled {
+		// The label goes with the link Graphviz wraps it in.
+		edge.plus, edge.labelled = &svgEdit{from: s.starts[last], to: end}, false
+	}
+	s.open, s.starts = s.open[:last], s.starts[:last]
+	if last > 0 {
+		return
+	}
+	if edge.plus != nil && edge.crossed {
+		// The label's line goes with it.
+		if bytes.HasPrefix(s.svg[edge.plus.to:], []byte("\n")) {
+			edge.plus.to++
+		}
+		s.edits = append(s.edits, *edge.plus)
+	}
+	s.edge = nil
 }
 
 // dotGlyphClass is the glyph class of an SVG group of these classes when it is

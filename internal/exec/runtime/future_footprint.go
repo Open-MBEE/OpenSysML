@@ -279,22 +279,8 @@ func (f *futureFootprints) machineFuture(e *StateExecutor) lower.Footprint {
 // machineParts lists into parts, in order, the footprints a started machine's future
 // is the union of; false where a transition out of its configuration has no step.
 func (f *futureFootprints) machineParts(e *StateExecutor, parts []lower.Footprint) ([]lower.Footprint, bool) {
-	timerDue := false
-	for _, wait := range e.armedWaits() {
-		if _, timer := wait.what.(transitionWait); timer && wait.Due <= f.ctx.clock.now {
-			timerDue = true
-		}
-	}
-	active := make(map[*ast.StateNode]bool)
-	var work []*ast.StateNode
-	for _, leaf := range e.activeStates() {
-		for _, state := range e.getParentChain(leaf) {
-			if !active[state] {
-				active[state] = true
-				work = append(work, state)
-			}
-		}
-	}
+	timerDue := f.timerDue(e)
+	active, work := activeChains(e)
 	for _, act := range e.doActions {
 		parts = append(parts, f.doFuture(e, act))
 	}
@@ -326,6 +312,32 @@ func (f *futureFootprints) machineParts(e *StateExecutor, parts []lower.Footprin
 		}
 	}
 	return parts, true
+}
+
+// timerDue reports whether one of the machine's armed transition timers has come due.
+func (f *futureFootprints) timerDue(e *StateExecutor) bool {
+	due := false
+	for _, wait := range e.armedWaits() {
+		if _, timer := wait.what.(transitionWait); timer && wait.Due <= f.ctx.clock.now {
+			due = true
+		}
+	}
+	return due
+}
+
+// activeChains is every state on the parent chain of an active leaf, as a set and in the order met.
+func activeChains(e *StateExecutor) (map[*ast.StateNode]bool, []*ast.StateNode) {
+	active := make(map[*ast.StateNode]bool)
+	var work []*ast.StateNode
+	for _, leaf := range e.activeStates() {
+		for _, state := range e.getParentChain(leaf) {
+			if !active[state] {
+				active[state] = true
+				work = append(work, state)
+			}
+		}
+	}
+	return active, work
 }
 
 // doFuture is what a do behavior under way or pending may still do at this

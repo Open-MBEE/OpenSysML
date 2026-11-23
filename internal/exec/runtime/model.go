@@ -189,9 +189,10 @@ type Model struct {
 	bindingRoots     map[*symbols.Symbol]map[string]bool
 	bindingFeatures  map[*symbols.Symbol]map[string][]lower.Binding
 
-	// namespaceUsageIndex is the model's namespace-owned bindings and subsetting
-	// usages walked once, on the first namespace denotation that needs them.
+	// namespaceUsageIndex is the model's namespace-owned bindings walked once, on the
+	// first namespace denotation that needs them; namespaceSubsetters likewise.
 	namespaceUsageIndex *namespaceModelIndex
+	namespaceSubsetters map[*symbols.Symbol][]*symbols.Symbol
 
 	// classifierBehaviors memoizes the behaviors each type binds to its objects:
 	// the machines it exhibits and the actions it performs.
@@ -377,6 +378,7 @@ func (m *Model) RegisterScope(scope *symbols.Scope) {
 	m.census = nil
 	m.conformers = nil
 	m.namespaceUsageIndex = nil
+	m.namespaceSubsetters = nil
 	m.behaviorOrdersReady = false
 	m.behaviorOrders = nil
 	m.behaviorOrdersByEnd = nil

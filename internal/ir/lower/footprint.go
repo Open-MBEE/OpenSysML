@@ -149,23 +149,43 @@ type flowIndex struct {
 	writes []int
 }
 
-// placeIndex finds, among a slice of places, the ones a place may conflict with:
-// the three ways Conflicts matches, by declaration, by name and by state, which it still decides.
+// placeIndex finds, among a slice of places, the ones a place may conflict with: by
+// declaration, name or state, as Conflicts matches; up to placeScanLimit it scans, mapless.
 type placeIndex struct {
+	indexed bool
 	bySym   map[*symbols.Symbol][]int
 	byName  map[string][]int
 	byState map[*ast.StateNode][]int
 }
 
+// placeScanLimit is the most places scanned rather than indexed: a move of a
+// typical model holds a handful, where building the maps costs more than they save.
+const placeScanLimit = 8
+
 func indexPlaces(places []Place) placeIndex {
-	x := placeIndex{bySym: make(map[*symbols.Symbol][]int), byName: make(map[string][]int)}
-	for i, p := range places {
-		x.add(p, i)
+	var x placeIndex
+	if len(places) > 0 {
+		x.add(places, len(places)-1)
 	}
 	return x
 }
 
-func (x *placeIndex) add(p Place, i int) {
+// add records places[i], the last of places, whose earlier ones x already holds.
+func (x *placeIndex) add(places []Place, i int) {
+	if !x.indexed {
+		if len(places) <= placeScanLimit {
+			return
+		}
+		x.indexed = true
+		x.bySym, x.byName = make(map[*symbols.Symbol][]int), make(map[string][]int)
+		for j := range places[:i] {
+			x.insert(places[j], j)
+		}
+	}
+	x.insert(places[i], i)
+}
+
+func (x *placeIndex) insert(p Place, i int) {
 	if p.State != nil {
 		if x.byState == nil {
 			x.byState = make(map[*ast.StateNode][]int)
@@ -182,6 +202,17 @@ func (x *placeIndex) add(p Place, i int) {
 // candidates calls visit with the index of each place p may conflict with, each
 // once, until visit returns false; it reports whether every candidate was visited.
 func (x *placeIndex) candidates(places []Place, p Place, visit func(int) bool) bool {
+	if !x.indexed {
+		for i, q := range places {
+			if q.State != p.State || p.State == nil && q.Name != p.Name && (p.Sym == nil || q.Sym != p.Sym) {
+				continue
+			}
+			if !visit(i) {
+				return false
+			}
+		}
+		return true
+	}
 	if p.State != nil {
 		for _, i := range x.byState[p.State] {
 			if !visit(i) {
@@ -223,7 +254,7 @@ func (x *placeIndex) find(places []Place, p Place) int {
 // Standing indexes the footprint's flows by what they read and write.
 func (f Footprint) Standing() *Standing {
 	s := &Standing{Reads: f.Reads, Writes: f.Writes, flows: make([]flowIndex, 0, len(f.Flows))}
-	s.readIndex, s.writeIndex = indexPlaces(nil), indexPlaces(f.Writes)
+	s.writeIndex = indexPlaces(f.Writes)
 	writtenAt := make(map[Place]int)
 	for _, flow := range f.Flows {
 		var index flowIndex
@@ -263,8 +294,8 @@ func (s *Standing) addRead(p Place) int {
 	if i := s.readIndex.find(s.reads, p); i >= 0 {
 		return i
 	}
-	s.readIndex.add(p, len(s.reads))
 	s.reads = append(s.reads, p)
+	s.readIndex.add(s.reads, len(s.reads)-1)
 	return len(s.reads) - 1
 }
 

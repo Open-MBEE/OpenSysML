@@ -27,6 +27,9 @@ type apiJSONCompletedProperty struct {
 	// overStated marks a property the graph states with the mapping's own, narrower
 	// meaning: the element form writes the derived value and keeps the stated one as a mapping value.
 	overStated bool
+	// redefinedBy names the property listed above that redefines this one under another name:
+	// the element form writes this one with that one's value, null where the form omits it.
+	redefinedBy string
 }
 
 // apiJSONCompletedProperties lists the completed properties in the order the
@@ -37,6 +40,9 @@ var apiJSONCompletedProperties = []apiJSONCompletedProperty{
 	{class: "OwningMembership", name: "ownedMemberElementId", clause: "8.3.2.4.8 ownedMemberElementId redefines memberElementId"},
 	{class: "OwningMembership", name: "ownedMemberName", clause: "8.3.2.4.8 deriveOwningMembershipOwnedMemberName"},
 	{class: "OwningMembership", name: "ownedMemberShortName", clause: "8.3.2.4.8 deriveOwningMembershipOwnedMemberShortName"},
+	// KerML 10.4.5 serializes a redefined property under its own name beside the redefining one.
+	{class: "OwningMembership", name: "memberName", clause: "8.3.2.4.8 ownedMemberName redefines memberName", redefinedBy: "ownedMemberName"},
+	{class: "OwningMembership", name: "memberShortName", clause: "8.3.2.4.8 ownedMemberShortName redefines memberShortName", redefinedBy: "ownedMemberShortName"},
 	{class: "Membership", name: "visibility", clause: "8.3.2.4.3 visibility : VisibilityKind = public", defaultValue: "public"},
 	{class: "Import", name: "visibility", clause: "8.3.2.4.2 visibility : VisibilityKind = private", defaultValue: "private"},
 	{class: "Element", name: "name", clause: "8.3.2.1.2 deriveElementName"},
@@ -273,7 +279,14 @@ func (w *apiJSONElementWriter) completeDerived(subject rdf.Term, metaclass strin
 			continue
 		}
 		spelled := property.defaultValue
-		if spelled == nil {
+		if property.redefinedBy != "" {
+			for _, member := range element {
+				if member.key == property.redefinedBy {
+					spelled = member.value
+					break
+				}
+			}
+		} else if spelled == nil {
 			var ok bool
 			if spelled, ok = w.completedValue(subject, metaclass, semanticElement, property); !ok {
 				continue
