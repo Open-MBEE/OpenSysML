@@ -201,6 +201,8 @@ type Model struct {
 	// actionInterfaces the interface a tool performance binds. Lazy, like names.
 	actionGraphs     map[*symbols.Symbol]*loweredAction
 	actionInterfaces map[*symbols.Symbol]*loweredAction
+	// stateGraphs memoizes, per state machine, its lowered graph. Lazy, like names.
+	stateGraphs map[*symbols.Symbol]*lower.StateGraph
 	// declaredShapes memoizes, by the usage performed through, the shape of a
 	// performance whose features are that usage's members (ActionExecutor.declared).
 	declaredShapes map[*symbols.Symbol]*performanceShape
@@ -563,6 +565,24 @@ func (m *Model) actionGraph(sym *symbols.Symbol) (*lower.ActionGraph, error) {
 		m.actionGraphs = map[*symbols.Symbol]*loweredAction{}
 	}
 	m.actionGraphs[sym] = &loweredAction{graph: graph}
+	return graph, nil
+}
+
+// stateGraph is the lowered graph of sym's body, lowered once per Model: a function of
+// the model alone, which every execution of the machine reads and none writes.
+func (m *Model) stateGraph(sym *symbols.Symbol) (*lower.StateGraph, error) {
+	if graph, ok := m.stateGraphs[sym]; ok {
+		return graph, nil
+	}
+	// Endpoints come from the name-resolution tier, which reported on them already.
+	graph, err := lower.ToStateGraphWithEndpoints(sym.Decl, DeclScope(sym), lower.NewLibraryStateTypes(m.resolver))
+	if err != nil {
+		return nil, err
+	}
+	if m.stateGraphs == nil {
+		m.stateGraphs = map[*symbols.Symbol]*lower.StateGraph{}
+	}
+	m.stateGraphs[sym] = graph
 	return graph, nil
 }
 

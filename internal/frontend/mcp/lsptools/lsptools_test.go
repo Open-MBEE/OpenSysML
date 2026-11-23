@@ -112,7 +112,7 @@ func (f *fixture) read(name string) string {
 
 // call invokes a tool, decoding the structured content into out when the
 // call succeeded, and returns the result for the error and text checks.
-func (f *fixture) call(name string, args any, out any) *mcp.CallToolResult {
+func (f *fixture) call(name string, args, out any) *mcp.CallToolResult {
 	f.t.Helper()
 	res, err := f.cs.CallTool(context.Background(), &mcp.CallToolParams{Name: name, Arguments: args})
 	if err != nil {
@@ -136,7 +136,7 @@ func (f *fixture) call(name string, args any, out any) *mcp.CallToolResult {
 }
 
 // ok invokes a tool that must succeed.
-func (f *fixture) ok(name string, args any, out any) *mcp.CallToolResult {
+func (f *fixture) ok(name string, args, out any) *mcp.CallToolResult {
 	f.t.Helper()
 	res := f.call(name, args, out)
 	if res.IsError {

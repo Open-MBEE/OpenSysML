@@ -358,20 +358,21 @@ func implicitMembershipID(read ElementIDReader, idx *symbols.Index, member *symb
 // featureChainingID reads the elementId of the FeatureChaining rel records under the chain
 // Feature that owns it; empty for a chain the conversion never writes.
 func featureChainingID(read ElementIDReader, rel *symbols.ImplicitRelationship) (string, error) {
+	slot := "chain." + rel.Slot
 	if chain := rel.Owner; chain != nil && chain.Expr != nil && chain.Expr.Owner != nil {
 		element, _, err := read.ReadExpressionPart(chain.DocName, chain.Expr.Owner.Decl, chain.Expr.Slot+"."+rel.Slot)
 		return element, err
 	}
 	if end, ok := connectorEndChain(rel.Owner); ok {
-		element, _, err := read.ReadExpressionPart(rel.Owner.DocName, end, "chain."+rel.Slot)
+		element, _, err := read.ReadExpressionPart(rel.Owner.DocName, end, slot)
 		return element, err
 	}
 	if prefix, ok := flowEndChain(rel.Owner); ok {
-		element, _, err := read.ReadExpressionPart(rel.Owner.DocName, prefix, "chain."+rel.Slot)
+		element, _, err := read.ReadExpressionPart(rel.Owner.DocName, prefix, slot)
 		return element, err
 	}
 	if target, ok := headClauseChain(rel.Owner); ok {
-		element, _, err := read.ReadExpressionPart(rel.Owner.DocName, target, "chain."+rel.Slot)
+		element, _, err := read.ReadExpressionPart(rel.Owner.DocName, target, slot)
 		return element, err
 	}
 	return "", nil

@@ -47,7 +47,7 @@ func (m machineEndpoints) EndpointNames(scope *symbols.Scope, target ast.Node) b
 	return m.resolver.EndpointNames(scope, target)
 }
 
-func (m machineEndpoints) RedefinitionTarget(scope *symbols.Scope, decl ast.Node, target ast.Node) (*symbols.Symbol, bool) {
+func (m machineEndpoints) RedefinitionTarget(scope *symbols.Scope, decl, target ast.Node) (*symbols.Symbol, bool) {
 	if scope == nil {
 		scope = m.scope
 	}

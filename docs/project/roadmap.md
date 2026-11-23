@@ -222,7 +222,7 @@ request, draft or ready; *full* for a merge-queue commit, a pull request labelle
 touching a package where `-race` has found bugs (`scripts/ci-changed-areas.sh`) — and which of the
 client, editor and documentation jobs the diff touches; the Go suite runs sharded (twenty-one race
 shards in the full tier — `runtime`, `runtime-corpus`, `runtime-exploration`, `model`, `smt`, `corpus`,
-`corpus-sweep`, `export`, `export-library`, `export-examples`, `export-corpus`, `graph`, `graph-corpora`, `codegen`,
+`corpus-sweep-committed`, `corpus-sweep-corpora`, `export`, `export-library`, `export-examples`, `export-corpus`, `graph`, `graph-corpora`, `codegen`,
 `translate`, `translate-structure`, `grpc`, `internal`, `rest`, `migrate` and `cli`, in twenty jobs, #1440 — and nine race-free groups of them in the quick tier) with every corpus
 required — `OPENSYSML_REQUIRE_TRAINING_CORPUS`, `_PILOT_CORPORA`, `_SPEC_EXAMPLES`, `_PSSM_SUITE`,
 `_SYSML_V1TOV2`, `_FUML_SUITE`, `_PILOT_LIBRARY_XMI`, `_SMT`, `_WASM` and `_REFERENCE_FMUS` set to

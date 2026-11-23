@@ -132,7 +132,7 @@ func (w *interfaceWriter) checkAnnotation(sym *symbols.Symbol, a symbols.Annotat
 func isQuantity(v symbols.FilterValue) bool { return v.Quantity != nil }
 
 // ref is the reference a fact restores sym by, failing when none reaches it.
-func (w *interfaceWriter) ref(of *symbols.Symbol, sym *symbols.Symbol, what string) symbols.ElementRef {
+func (w *interfaceWriter) ref(of, sym *symbols.Symbol, what string) symbols.ElementRef {
 	ref, ok := w.idx.RefTo(sym)
 	if !ok {
 		w.fail(of, fmt.Sprintf("%s (%s %q at %s:%d)", what, sym.Kind, sym.Name, sym.DocName, sym.DeclSpan.Offset))

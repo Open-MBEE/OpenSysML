@@ -265,8 +265,7 @@ func (c *compiler) parameter(sym *symbols.Symbol) Parameter {
 // names an element binds that element; any other form is compiled as an
 // expression in the declaring query's scope.
 func (c *compiler) compileDefault(
-	query *symbols.Symbol,
-	sym *symbols.Symbol,
+	query, sym *symbols.Symbol,
 	params []Parameter,
 	param *Parameter,
 	dependency func(string),
@@ -344,8 +343,7 @@ func declaringQuery(param *symbols.Symbol) *symbols.Symbol {
 }
 
 func (c *compiler) compileDefaultExpression(
-	query *symbols.Symbol,
-	owner *symbols.Symbol,
+	query, owner *symbols.Symbol,
 	parameter string,
 	params []Parameter,
 	node ast.Node,
@@ -587,8 +585,7 @@ func declarationMembers(sym *symbols.Symbol) []ast.Node {
 }
 
 func (c *compiler) compileExpression(
-	query *symbols.Symbol,
-	owner *symbols.Symbol,
+	query, owner *symbols.Symbol,
 	params []Parameter,
 	node ast.Node,
 	dependency func(string),
@@ -673,8 +670,7 @@ func (c *compiler) compileExpression(
 // compileReference applies the %run-query binding rule: a query input parameter
 // name reads that parameter; any other name binds the model element it denotes.
 func (c *compiler) compileReference(
-	query *symbols.Symbol,
-	owner *symbols.Symbol,
+	query, owner *symbols.Symbol,
 	expression *ast.FeatureReference,
 ) (typedExpression, error) {
 	unknown := &Error{
@@ -729,8 +725,7 @@ func (c *compiler) parameterIncludes(param, target *symbols.Symbol) bool {
 }
 
 func (c *compiler) compileInvocation(
-	query *symbols.Symbol,
-	owner *symbols.Symbol,
+	query, owner *symbols.Symbol,
 	params []Parameter,
 	expression *ast.InvocationExpr,
 	dependency func(string),
@@ -857,8 +852,7 @@ func (c *compiler) compileInvocation(
 }
 
 func (c *compiler) compileBuiltinArguments(
-	query *symbols.Symbol,
-	owner *symbols.Symbol,
+	query, owner *symbols.Symbol,
 	params []Parameter,
 	expression *ast.InvocationExpr,
 	target string,
@@ -925,8 +919,7 @@ func (c *compiler) compileBuiltinArguments(
 }
 
 func (c *compiler) compileNamedArguments(
-	query *symbols.Symbol,
-	owner *symbols.Symbol,
+	query, owner *symbols.Symbol,
 	callerParams []Parameter,
 	target string,
 	targetParams []Parameter,
@@ -1036,8 +1029,7 @@ func (c *compiler) literalExpression(
 	query *symbols.Symbol,
 	node ast.Node,
 	kind LiteralKind,
-	value string,
-	typeName string,
+	value, typeName string,
 ) typedExpression {
 	return typedExpression{
 		expression: Expression{
@@ -1054,8 +1046,7 @@ func (c *compiler) literalExpression(
 // quantityExpression folds `magnitude [unit]` in the owner's scope; the value
 // has no static type, so its use is checked where it is consumed.
 func (c *compiler) quantityExpression(
-	query *symbols.Symbol,
-	owner *symbols.Symbol,
+	query, owner *symbols.Symbol,
 	node *ast.IndexExpr,
 ) (typedExpression, error) {
 	quantity, ok := c.model.EvalQuantity(owner.Scope, node)

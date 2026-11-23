@@ -588,7 +588,7 @@ func (ec *EvalContext) applyValueBody(body Value, args ...Value) (Value, error) 
 // `Boolean[1]` — a selector, a rejector, a test — and reports a result that is
 // not a Boolean rather than reading it as false, which would silently drop the
 // element it was asked about.
-func (ec *EvalContext) applyPredicate(op string, body Value, arg Value) (bool, error) {
+func (ec *EvalContext) applyPredicate(op string, body, arg Value) (bool, error) {
 	val, err := ec.applyTest(op, body, arg)
 	if err != nil {
 		return false, err
@@ -601,7 +601,7 @@ func (ec *EvalContext) applyPredicate(op string, body Value, arg Value) (bool, e
 
 // applyTest is applyPredicate admitting a test the model leaves undetermined,
 // which it returns as such for the operation to weigh.
-func (ec *EvalContext) applyTest(op string, body Value, arg Value) (Value, error) {
+func (ec *EvalContext) applyTest(op string, body, arg Value) (Value, error) {
 	val, err := ec.applyBody(body, arg)
 	if err != nil {
 		return Value{}, err
@@ -685,7 +685,7 @@ func builtinArrayIndex(ec *EvalContext, args []Value) (Value, error) {
 // arrayIndex addresses an array — or a vector, which is an Array of one
 // dimension — by its indexes in row-major order. The library body answers null
 // for an array of rank 0, which no index addresses.
-func arrayIndex(op string, arr Value, indexesVal Value) (Value, error) {
+func arrayIndex(op string, arr, indexesVal Value) (Value, error) {
 	arr = soleElement(arr)
 	indexes, err := indexList(op, elementsOf(indexesVal))
 	if err != nil {

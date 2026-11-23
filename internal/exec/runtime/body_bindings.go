@@ -183,8 +183,7 @@ func (ctx *Context) registerBodyBinding(
 	name string,
 	value ast.Node,
 	scope *symbols.Scope,
-	check func(*Value) error,
-	onDerived func(*Value) error,
+	check, onDerived func(*Value) error,
 ) *bodyCell {
 	return ctx.registerBodyBindingInContext(cells, name, value, scope, check, nil, onDerived)
 }

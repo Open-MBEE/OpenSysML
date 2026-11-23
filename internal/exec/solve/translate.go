@@ -850,7 +850,7 @@ func negate(term *Term, negated bool) *Term {
 // expr translates an expression, resolving names in scope.
 func (t *translator) expr(node *lower.ExprEntry, scope *symbols.Scope) (*Term, error) {
 	if node == nil {
-		return nil, t.refuse(node, describe(node), "it is outside the subset")
+		return nil, t.refuse(node, describe(node), outsideSubset)
 	}
 	switch n := node; n.Kind {
 	case program.ExprBool:
@@ -888,7 +888,7 @@ func (t *translator) expr(node *lower.ExprEntry, scope *symbols.Scope) (*Term, e
 		}
 		return nil, t.refuse(n, "sequence", "a collection is outside the subset")
 	}
-	return nil, t.refuse(node, describe(node), "it is outside the subset")
+	return nil, t.refuse(node, describe(node), outsideSubset)
 }
 
 // operatorText is an operator as the notation writes it.
@@ -972,6 +972,9 @@ func ratOfScale(scale semantics.Scale) (*big.Rat, bool) {
 // msgOperatorPrefix names the operator a refusal is about.
 const msgOperatorPrefix = "operator `"
 
+// outsideSubset is the reason given for a construct no narrower reason names.
+const outsideSubset = "it is outside the subset"
+
 // operator translates an operator application, refusing one whose meaning this
 // term language does not carry.
 func (t *translator) operator(n *lower.ExprEntry, scope *symbols.Scope) (*Term, error) {
@@ -1034,7 +1037,7 @@ func operatorReason(op program.Operator) string {
 	case program.OpBitNot:
 		return "bitwise negation is outside the subset"
 	}
-	return "it is outside the subset"
+	return outsideSubset
 }
 
 // unaryBool translates `not e`, whose operand is read in a negated position.

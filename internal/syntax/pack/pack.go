@@ -270,8 +270,8 @@ func (r *Reader) Int() int64 {
 // left is the bytes not yet read, over every stream and what follows them.
 func (r *Reader) left() uint64 {
 	n := r.extra
-	for _, s := range r.streams {
-		n += len(s)
+	for i := range r.streams {
+		n += len(r.streams[i])
 	}
 	return uint64(n) // #nosec G115 -- a sum of lengths is not negative
 }
@@ -279,11 +279,13 @@ func (r *Reader) left() uint64 {
 // holds reports whether at least n bytes are left, stopping at the first
 // stream that settles it.
 func (r *Reader) holds(n uint64) bool {
-	for _, s := range r.streams {
-		if n <= uint64(len(s)) {
+	// Indexed, since ranging over the array's values copies all of it on every call.
+	for i := range r.streams {
+		size := uint64(len(r.streams[i]))
+		if n <= size {
 			return true
 		}
-		n -= uint64(len(s))
+		n -= size
 	}
 	return false
 }

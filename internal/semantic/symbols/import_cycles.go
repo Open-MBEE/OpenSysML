@@ -6,32 +6,32 @@ import (
 	"sort"
 )
 
-// readGraph maps each importer to the namespaces its re-exports were read from
-// and the ones its imports last named, as the index records them.
-func (idx *Index) readGraph() map[string][]string {
-	graph := make(map[string][]string)
-	add := func(importer, target string) {
-		if target == "" || target == importer {
-			return
-		}
-		if at, found := slices.BinarySearch(graph[importer], target); !found {
-			graph[importer] = slices.Insert(graph[importer], at, target)
-		}
+// importGraph maps each importer to the namespaces it reads from, in name order.
+type importGraph map[string][]string
+
+func (g importGraph) add(importer, target string) {
+	if target == "" || target == importer {
+		return
 	}
-	for _, key := range idx.reexportDocs.keys() {
-		importer, _ := splitFQN(key.fqn)
-		for _, claim := range idx.reexportDocs.at(key) {
-			for _, hop := range claim.hops {
-				add(importer, hop.from)
-			}
-		}
+	if at, found := slices.BinarySearch(g[importer], target); !found {
+		g[importer] = slices.Insert(g[importer], at, target)
 	}
+}
+
+// addHops adds the namespaces a re-export into importer was read from.
+func (g importGraph) addHops(importer string, hops []importHop) {
+	for i := range hops {
+		g.add(importer, hops[i].from)
+	}
+}
+
+// addLastTargets adds the namespaces the index's imports last named.
+func (g importGraph) addLastTargets(idx *Index) {
 	for _, importer := range idx.lastTargets.keys() {
 		for _, imp := range idx.lastTargets.at(importer) {
-			add(importer, imp.fqn)
+			g.add(importer, imp.fqn)
 		}
 	}
-	return graph
 }
 
 // importComponents returns the strongly connected components of graph, each
