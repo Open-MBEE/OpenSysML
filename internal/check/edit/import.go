@@ -261,7 +261,7 @@ func nameSegmentsEqual(a, b []string) bool {
 
 // filterTokensEqual compares two filter expressions by token kind and text,
 // each lexed in its own source, so whitespace differences do not count.
-func filterTokensEqual(aSF *source.SourceFile, a ast.Node, b ast.Node, bSF *source.SourceFile) bool {
+func filterTokensEqual(aSF *source.SourceFile, a, b ast.Node, bSF *source.SourceFile) bool {
 	if a == nil || b == nil {
 		return a == nil && b == nil
 	}
@@ -388,7 +388,7 @@ func (m Model) importStatementEnd(imp *ast.Import) int {
 // line above it, ahead of any whole-line trivia that precedes the member inside
 // a body (a comment stays with what it documents), or inline when the member
 // shares a line with the `{`.
-func (m Model) insertionBeforeMember(owner ast.Node, first ast.Node, text string) insertion {
+func (m Model) insertionBeforeMember(owner, first ast.Node, text string) insertion {
 	content := m.Source.Bytes()
 	offset := first.Span().Offset
 	lineStart := offset

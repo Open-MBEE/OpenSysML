@@ -234,7 +234,7 @@ func mustRoot() string {
 }
 
 // runCheckFails asserts the mutation leaves the gate non-zero and names why.
-func runCheckFails(t *testing.T, root string, want string) {
+func runCheckFails(t *testing.T, root, want string) {
 	t.Helper()
 	err := runCheck(root, options{}, &bytes.Buffer{})
 	if err == nil {

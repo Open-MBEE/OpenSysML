@@ -926,8 +926,7 @@ func apiJSONPropertyValuesEqual(
 	graph *rdf.Graph,
 	nameIndex *apiJSONNameIndex,
 	subject rdf.Term,
-	predicate string,
-	key, metaclass string,
+	predicate, key, metaclass string,
 	value any,
 	keep bool,
 	cache *apiJSONTermCache,
@@ -972,8 +971,7 @@ func apiJSONPropertyValuesEqual(
 }
 
 func apiJSONCollectionMemberMatches(
-	subject rdf.Term,
-	object rdf.Term,
+	subject, object rdf.Term,
 	member rdf.CollectionMember,
 ) (bool, error) {
 	if member.ID != "" {
@@ -1171,8 +1169,7 @@ func apiJSONSysMLValue(
 	subject rdf.Term,
 	predicate, key, metaclass string,
 	property ontology.Property,
-	propertyKnown bool,
-	objectProperty bool,
+	propertyKnown, objectProperty bool,
 	nameIndex *apiJSONNameIndex,
 	cache *apiJSONTermCache,
 ) (any, error) {
@@ -1268,8 +1265,7 @@ func apiJSONResolveUnresolvedProperty(
 	graph *rdf.Graph,
 	nameIndex *apiJSONNameIndex,
 	subject rdf.Term,
-	metaclass string,
-	key string,
+	metaclass, key string,
 	value any,
 	options APIJSONOptions,
 ) (any, bool) {

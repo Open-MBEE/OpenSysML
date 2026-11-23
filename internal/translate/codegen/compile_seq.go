@@ -541,7 +541,7 @@ func (fc *funcCompiler) seqResult(op SeqOp, elem Type) (Type, error) {
 }
 
 // compileBodyOp is an operation applying body per element of operand.
-func (fc *funcCompiler) compileBodyOp(op SeqOp, operand ast.Node, body ast.Node) (Expr, error) {
+func (fc *funcCompiler) compileBodyOp(op SeqOp, operand, body ast.Node) (Expr, error) {
 	fc.c.collections = true
 	b, ok := body.(*ast.BodyExpr)
 	if !ok {

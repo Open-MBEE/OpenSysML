@@ -400,8 +400,7 @@ func TestAPIJSONWritersNeverEmitNameReferences(t *testing.T) {
 
 func assertAPIJSONUnresolvedValuesOmitted(
 	t *testing.T,
-	path string,
-	format string,
+	path, format string,
 	document []byte,
 	omissions []export.APIJSONOmission,
 ) {
