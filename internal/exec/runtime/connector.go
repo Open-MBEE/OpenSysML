@@ -310,6 +310,14 @@ func connectorFeatureName(owner *Instance, connSym *symbols.Symbol) string {
 	return name
 }
 
+// ownerFeatureValue is the feature value owner holds under feature, nil when it holds none.
+func ownerFeatureValue(owner *Instance, feature string) *FeatureValue {
+	if owner == nil || feature == "" {
+		return nil
+	}
+	return owner.FeatureValues[feature]
+}
+
 // materializeConnectorStarting is materializeConnectorAs, its classifier behaviors started only
 // when start is set: a namespace path records what the usage denotes first, then starts them.
 func (ctx *Context) materializeConnectorStarting(owner *Instance, connSym, base *symbols.Symbol, id int64, start bool, keep func(*Instance)) error {
@@ -338,10 +346,16 @@ func (ctx *Context) materializeConnectorStarting(owner *Instance, connSym, base 
 		endBoundary()
 		rollback()
 	}
-	inst, err := ctx.materialize(base, id, owner, connectorFeatureName(owner, connSym))
+	feature := connectorFeatureName(owner, connSym)
+	inst, err := ctx.materialize(base, id, owner, feature)
 	if err != nil {
 		abandon()
 		return err
+	}
+	// Only a composite usage makes owner the object's home: a `ref connection` takes the
+	// nested redefinitions written on owner, and is no portion that ends with it.
+	if fv := ownerFeatureValue(owner, feature); fv == nil || fv.Feature == nil || !ctx.ownsHeld(fv.Feature) {
+		inst.owner, inst.ownerFeature = nil, ""
 	}
 
 	var unnamed []Value
