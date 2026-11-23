@@ -120,6 +120,7 @@ type Model struct {
 
 	dimensions    map[*symbols.Symbol]dimensionResult // units to the dimension they measure in
 	dimensioning  map[*symbols.Symbol]bool            // units whose dimension is being derived, to detect a cycle
+	referencing   map[*symbols.Symbol]bool            // logarithmic scales whose referenceQuantity is being measured, to detect a cycle
 	libSymbols    map[string]*symbols.Symbol          // library elements resolved by qualified name
 	baseUnits     map[*symbols.Symbol]*symbols.Symbol // base quantities to SI::si's base units, nil until read
 	coherentUnits map[string][]coherentUnit           // declared coherent units by reduced factors, nil until indexed
@@ -290,6 +291,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 
 		dimensions:   make(map[*symbols.Symbol]dimensionResult),
 		dimensioning: make(map[*symbols.Symbol]bool),
+		referencing:  make(map[*symbols.Symbol]bool),
 		libSymbols:   make(map[string]*symbols.Symbol),
 
 		filterPreds:      make(map[ast.Node]*symbols.FilterPredicate),

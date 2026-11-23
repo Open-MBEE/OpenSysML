@@ -1,0 +1,1 @@
+- Quick fixes: a fix that inserts a line of its own (an import, an element identifier) ends it in the document's line ending, so applying one to a CRLF file no longer leaves a bare LF.

@@ -95,7 +95,10 @@ func Dial(address string, opts ...DialOption) (Client, error) {
 	if config.maxResponse <= 0 {
 		config.maxResponse = DefaultMaxResponseBytes
 	}
-	connectOpts := []connect.ClientOption{connect.WithReadMaxBytes(config.maxResponse)}
+	connectOpts := []connect.ClientOption{
+		connect.WithReadMaxBytes(config.maxResponse),
+		connect.WithInterceptors(knownValues{}),
+	}
 	if config.json {
 		connectOpts = append(connectOpts, connect.WithProtoJSON())
 	}
