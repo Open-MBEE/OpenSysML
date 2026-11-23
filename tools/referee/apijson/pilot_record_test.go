@@ -17,7 +17,7 @@ func recordStub(t *testing.T, opts options, store, launcher string) (*pilotExpor
 		t.Fatal(err)
 	}
 	dir := filepath.Join(opts.repo, "tests", "testdata")
-	return recordedPilot(store, launcher, "21", record, "testdata", dir, []string{opts.libraries}, stubFiles, opts.timeout, io.Discard)
+	return recordedPilot(store, pilotLaunch{launcher, "21", opts.timeout, io.Discard}, record, pilotRoot{"testdata", dir, []string{opts.libraries}, stubFiles})
 }
 
 // The recorded export answers a later run without the pilot, and answers what the pilot did.

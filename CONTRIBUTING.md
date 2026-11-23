@@ -429,7 +429,13 @@ reports an artifact it could not fetch: the second and fourth read
 `settings.xml` and its proxy still apply), which sends `central` to Google's mirror of it, and
 every attempt after the first passes `-U` so that Maven asks again for what it was just refused.
 Any other Maven failure fails the audit on the first attempt, and osv-scanner scans only an SBOM
-Maven wrote. `scripts/maven-sbom-test.sh` plays the outage on every pull request.
+Maven wrote. Each attempt runs under GNU `timeout` for 90 seconds (`MAVEN_SBOM_TIMEOUT_SECONDS`),
+because the resolver's own backoff from a 429 can last minutes and a stalled transfer has no end;
+a `timeout` that knows no `-k`, as BusyBox 1.30's, bounds it without the kill;
+an attempt cut there is retried as a refusal is, so a tree's SBOM takes under eight minutes or
+fails. In `pr.yml` the audit step has `timeout-minutes: 10` and follows the job's Maven tests and
+conformance run, so its wait for Maven Central is never taken from them.
+`scripts/maven-sbom-test.sh` plays the outage and the stall on every pull request.
 
 The pinned pilot validator, which `scripts/download-pilot-validator.sh` builds with Maven from a
 clone outside those trees, has a cache of its own: `.github/actions/pilot-validator` restores
