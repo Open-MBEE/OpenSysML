@@ -296,57 +296,7 @@ func (ctx *Context) appendConditions(out []Condition, node ast.Node, scope *symb
 		if m.Expression != nil {
 			out = append(out, Condition{Expr: m.Expression, ExprID: ctx.model.exprs.Intern(m.Expression, scope), Scope: scope, Negated: negated, Required: required})
 		}
-		if len(m.Body) == 0 {
-			return out
-		}
-		var body []Condition
-		var steps []lower.Statement
-		var stepMembers []ast.Node
-		var stepNode ast.Node
-		hasStatements := bodyHasStatements(m.Body)
-		bodyScope := symbols.ConstraintBodyScope(scope, m)
-		for _, nested := range m.Body {
-			if hasStatements {
-				if stmt, ok := ctx.constraintBodyStep(nested, bodyScope); ok {
-					if stepNode == nil {
-						stepNode = nested
-					}
-					steps = append(steps, stmt)
-					stepMembers = append(stepMembers, nested)
-					continue
-				}
-			}
-			body = ctx.appendConditions(body, nested, bodyScope, true, false, seen)
-		}
-		if len(steps) > 0 {
-			withSteps := Condition{Group: body, Required: required,
-				Steps: ctx.constraintBodySteps(steps, stepMembers, bodyScope, stepNode)}
-			if !negated {
-				for i := range withSteps.Group {
-					withSteps.Group[i].Required = withSteps.Group[i].Required && required
-				}
-				return append(out, withSteps)
-			}
-			withSteps.Negated = true
-			return append(out, withSteps)
-		}
-		if !negated {
-			for _, c := range body {
-				c.Required = c.Required && required
-				out = append(out, c)
-			}
-			return out
-		}
-		// A body means the conjunction of its conditions, so negating it negates
-		// that conjunction rather than each condition (De Morgan). A conjunction
-		// of one is that one condition.
-		if len(body) == 1 {
-			only := body[0]
-			only.Negated = !only.Negated
-			only.Required = only.Required && required
-			return append(out, only)
-		}
-		out = append(out, Condition{Group: body, Negated: true, Required: required})
+		out = ctx.appendConstraintBody(out, m, scope, required, negated, seen)
 	case *ast.RequireMember:
 		out = ctx.appendRequirementConditions(out, m, m.Expression, m.Body, scope, true, seen)
 	case *ast.AssumeMember:
@@ -363,6 +313,63 @@ func (ctx *Context) appendConditions(out []Condition, node ast.Node, scope *symb
 		// the caller that knew the body.
 	}
 	return out
+}
+
+// appendConstraintBody appends what a constraint's body states: its conditions, grouped with the
+// steps they read when the body has statements, and negated as one conjunction.
+func (ctx *Context) appendConstraintBody(out []Condition, m *ast.ConstraintMember, scope *symbols.Scope, required, negated bool,
+	seen map[*symbols.Symbol]bool) []Condition {
+	if len(m.Body) == 0 {
+		return out
+	}
+	var body []Condition
+	var steps []lower.Statement
+	var stepMembers []ast.Node
+	var stepNode ast.Node
+	hasStatements := bodyHasStatements(m.Body)
+	bodyScope := symbols.ConstraintBodyScope(scope, m)
+	for _, nested := range m.Body {
+		if hasStatements {
+			if stmt, ok := ctx.constraintBodyStep(nested, bodyScope); ok {
+				if stepNode == nil {
+					stepNode = nested
+				}
+				steps = append(steps, stmt)
+				stepMembers = append(stepMembers, nested)
+				continue
+			}
+		}
+		body = ctx.appendConditions(body, nested, bodyScope, true, false, seen)
+	}
+	if len(steps) > 0 {
+		withSteps := Condition{Group: body, Required: required,
+			Steps: ctx.constraintBodySteps(steps, stepMembers, bodyScope, stepNode)}
+		if !negated {
+			for i := range withSteps.Group {
+				withSteps.Group[i].Required = withSteps.Group[i].Required && required
+			}
+			return append(out, withSteps)
+		}
+		withSteps.Negated = true
+		return append(out, withSteps)
+	}
+	if !negated {
+		for _, c := range body {
+			c.Required = c.Required && required
+			out = append(out, c)
+		}
+		return out
+	}
+	// A body means the conjunction of its conditions, so negating it negates
+	// that conjunction rather than each condition (De Morgan). A conjunction
+	// of one is that one condition.
+	if len(body) == 1 {
+		only := body[0]
+		only.Negated = !only.Negated
+		only.Required = only.Required && required
+		return append(out, only)
+	}
+	return append(out, Condition{Group: body, Negated: true, Required: required})
 }
 
 // appendSubrequirementConditions appends sub as one constraint of its container (Requirements.sysml
