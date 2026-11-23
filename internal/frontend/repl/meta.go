@@ -260,6 +260,7 @@ var metaCommandTable = []metaCommand{
 	{name: "%eval", effect: Executes, group: groupRuntime, args: "[in <name>|<path>|#<id> :] <expr>", desc: "evaluate an expression, in the named element or object when one is named"},
 	{name: "%features", effect: Reads, group: groupRuntime, args: "<object> [all|depth <n>] [json]", desc: "show an object's feature values and what its behaviors are doing, bounded unless all or a depth is asked for; json writes the object graph as the API does; an object is named, #<id>, or a path such as car.fl or #1.wheels[2]",
 		part: graphLinked, partArgs: "<object> [all|depth <n>]", partDesc: "show an object's feature values and what its behaviors are doing, bounded unless all or a depth is asked for; an object is named, #<id>, or a path such as car.fl or #1.wheels[2]"},
+	{name: "%metadata", effect: Reads, group: groupRuntime, args: "<element-or-object>", desc: "list the metadata annotating a definition or usage, `about` annotations included, with the values each binds or defaults; for an object (named, #<id>, or a path such as car.fl), the annotations of its usage and of the types that usage specializes, each under the element it annotates"},
 	{name: "%instances", effect: Reads, group: groupRuntime, desc: "list all instantiated objects"},
 	{name: cmdInvoke, effect: Executes, group: groupRuntime, args: "<object> <op> [<expr>... | <p>=<expr>...]", desc: "invoke an operation of an object's type, performed by that object, with arguments by position or by name; an object is named, #<id>, or a path such as car.fl"},
 
@@ -763,6 +764,11 @@ func (s *Session) metaModelCommand(fields []string, line string) (metaResult, bo
 			return metaOut([]string{errPrefix + perr.Error(), featuresUsageLine()}, false, nil), true
 		}
 		return metaOut(s.doFeatures(fields[1], listing)), true
+	case "%metadata":
+		if len(fields) != 2 {
+			return metaOut([]string{metadataUsage}, false, nil), true
+		}
+		return metaOut(s.doMetadata(fields[1])), true
 	case "%instances":
 		return metaOut(s.doInstances()), true
 	case "%calc":

@@ -169,7 +169,7 @@ func atPaletteArgument(head string) bool {
 // argument.
 func atObjectArgument(head string) bool {
 	switch firstToken(head) {
-	case "%features", "%invoke":
+	case "%features", "%invoke", "%metadata":
 		return argumentIndex(head) == 1
 	case "%state":
 		at := argumentIndex(head)
