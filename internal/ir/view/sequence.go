@@ -485,31 +485,32 @@ func (r *Renderer) successions(view *symbols.Symbol, orders []order, ends *lifel
 // inheritedOn is the lifeline an occurrence is on by inheritance: the one of the
 // feature it is named through or stated within, when that is shown and inherits it.
 func (e *lifelineEnds) inheritedOn(occurrence, through *symbols.Symbol) *Node {
-	if through == nil || occurrence == nil || e.lifelines[through] == nil ||
-		!e.r.specializes(through, occurrence.Owner()) || e.r.memberFor(through, occurrence) != occurrence {
+	if through == nil || occurrence == nil || occurrence.Owner() == through || e.lifelines[through] == nil ||
+		e.r.memberFor(through, occurrence) != occurrence {
 		return nil
 	}
 	return e.lifelines[through]
 }
 
-// memberFor is the member of owner that a feature is there: the feature itself
-// where owner declares or inherits it, the member redefining it where one does,
-// nil where it is no member at all.
+// memberFor is the feature that stands for one in owner: the feature itself where
+// owner declares or inherits it, the member redefining it where it is masked, nil
+// where owner neither declares nor inherits it. An unnamed feature, which no member
+// list holds, stands for itself.
 func (r *Renderer) memberFor(owner, feature *symbols.Symbol) *symbols.Symbol {
-	if owner == nil || feature == nil {
+	if owner == nil || feature == nil || feature.Owner() != owner && !r.specializes(owner, feature.Owner()) {
 		return nil
 	}
-	for _, member := range r.model.MembersOf(owner) {
-		if symbols.SameElement(member, feature) {
-			return feature
-		}
-		if slices.ContainsFunc(r.model.AllRedefinedFeatures(member), func(redefined *symbols.Symbol) bool {
-			return symbols.SameElement(redefined, feature)
-		}) {
+	members := r.model.MembersOf(owner)
+	same := func(sym *symbols.Symbol) bool { return symbols.SameElement(sym, feature) }
+	if slices.ContainsFunc(members, same) {
+		return feature
+	}
+	for _, member := range members {
+		if slices.ContainsFunc(r.model.AllRedefinedFeatures(member), same) {
 			return member
 		}
 	}
-	return nil
+	return feature
 }
 
 // specializes reports whether general is among what sym specializes or is typed by.

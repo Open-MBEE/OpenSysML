@@ -383,3 +383,53 @@ func TestSequenceRenderingReadsAnInheritedOrderOverAnEventATypeRedefines(t *test
 		t.Errorf("got %q\nwant %q", got, want)
 	}
 }
+
+// An inherited chain of `then` runs through an event its definition leaves
+// unnamed, which no member list holds, and still orders the messages at its ends.
+func TestSequenceRenderingFollowsAnInheritedChainThroughAnUnnamedEvent(t *testing.T) {
+	rendering := renderSequenceOf(t, `package P {
+	item def Ping;
+	part def Client {
+		event occurrence sent;
+		then event occurrence;
+		then event occurrence got;
+	}
+	part def Scene {
+		part server {
+			event occurrence a;
+			event occurrence b;
+		}
+		part client : Client;
+		message reply of Ping from server.a to client.got;
+		message ask of Ping from client.sent to server.b;
+	}
+}`, "Client", "Scene")
+	if got := messageLabels(rendering); !slices.Equal(got, []string{"ask of Ping", "reply of Ping"}) {
+		t.Errorf("messages = %v, want ask before reply through the unnamed event; edges %q", got, sequenceEnds(rendering))
+	}
+}
+
+// An event one supertype redefines privately and another still supplies is the
+// event a message names, on the lifeline it names it through.
+func TestSequenceRenderingKeepsAnEventAnotherBranchRedefines(t *testing.T) {
+	rendering := renderSequenceOf(t, `package P {
+	item def Ping;
+	part def Client {
+		event occurrence sent;
+	}
+	part def Quiet :> Client {
+		private event occurrence hushed :>> sent;
+	}
+	part def Both :> Quiet, Client;
+	part def Scene {
+		part server {
+			event occurrence a;
+		}
+		part both : Both;
+		message ask of Ping from both.sent to server.a;
+	}
+}`, "Client", "Scene")
+	if got := sequenceEnds(rendering); !slices.Contains(got, "ask of Ping: both.sent -> server.a") {
+		t.Errorf("edges = %q, want the message on the both lifeline; notices %q", got, rendering.Notices)
+	}
+}
