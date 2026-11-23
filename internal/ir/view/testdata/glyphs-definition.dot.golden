@@ -34,6 +34,7 @@ digraph "NotationGlyphs::Diagrams::definitionGlyphs" {
   "n0" -> "n3" [dir=back, arrowtail=dot, class="portion-relationship"];
   "n0" -> "n4" [dir=back, arrowtail=dot, class="portion-relationship"];
   "n0" -> "n5" [label="event", arrowhead=vee];
+  "n6" -> "n0" [headlabel="plant", dir=back, arrowtail=odiamond];
   "n6" -> "n9" [label="require", arrowhead=vee];
   "n6" -> "n10" [label="assume", arrowhead=vee];
   "n6" -> "n7" [label="require", arrowhead=vee];
