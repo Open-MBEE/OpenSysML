@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"hash/fnv"
+	"strconv"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -80,9 +81,15 @@ func (ctx *Context) valueKey(v Value) valueKey {
 		key.literal = v.Literal()
 	case ValQuantity:
 		if v.Quantity() != nil {
-			q := ctx.canonicalQuantity(*v.Quantity())
-			key.realVal = q.BaseMagnitude()
-			key.strVal = q.Unit.Term.DimensionKey()
+			if m, cyclic := ctx.cyclicMember(v.Quantity()); cyclic {
+				// A cyclic value is keyed by its cycle and class, apart from every magnitude in a unit.
+				key.strVal = m.unit.Term.DimensionKey() + "|cycle:" + strconv.FormatFloat(m.cycle, 'g', -1, 64)
+				key.realVal = m.class
+			} else {
+				q := ctx.canonicalQuantity(*v.Quantity())
+				key.strVal = q.Unit.Term.DimensionKey()
+				key.realVal = q.BaseMagnitude()
+			}
 		}
 	case ValArray, ValVector, ValVectorQuantity, ValTensorQuantity:
 		key.colHash = ctx.structuredKey(v)
