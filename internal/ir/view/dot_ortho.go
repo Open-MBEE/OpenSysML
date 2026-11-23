@@ -127,7 +127,7 @@ func (a *arranger) layoutNode(node *Node) layout.Node {
 const dotAnchorClearance = 4
 
 // anchorPoint is where a cluster's anchor is pinned: its box's centre, or under the orthogonal
-// routing the nearest point clear of its nodes and pins, since Graphviz routes none once two nodes touch.
+// routing the nearest point clear of its nodes, the pins and the notes, since Graphviz routes none once two nodes touch.
 func (w *dotWriter) anchorPoint(node *Node, box nodeBox) Point {
 	centre := box.centre()
 	if w.lines != LinesOrtho {
@@ -147,6 +147,11 @@ func (w *dotWriter) anchorPoint(node *Node, box nodeBox) Point {
 	members(node.Children)
 	for _, pin := range w.pins {
 		obstacles = append(obstacles, pin)
+	}
+	for _, note := range w.noteBoxes {
+		if !note.encloses(box) {
+			obstacles = append(obstacles, note)
+		}
 	}
 	free := func(p Point) bool {
 		for _, o := range obstacles {

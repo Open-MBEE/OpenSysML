@@ -370,3 +370,24 @@ func TestDOTOrthoLeavesGraphvizItsOwn(t *testing.T) {
 		}
 	}
 }
+
+// A note placed beside the node at a cluster's centre is a Graphviz node too:
+// the anchor is pinned clear of both.
+func TestDOTOrthoPlacedAnchorClearOfNotes(t *testing.T) {
+	const view = "V"
+	place := func(x, y float64) *Geometry { return &Geometry{X: x, Y: y, Width: 80, Height: 40, HasSize: true} }
+	rendering := &Rendering{View: view, Kind: KindInterconnection,
+		Roots: []*Node{{ID: "c", Name: "c", Children: []*Node{
+			{ID: "a", Name: "a", Geometry: place(0, 0)},
+			{ID: "b", Name: "b", Geometry: place(200, 100)},
+			{ID: "d", Name: "d", Geometry: place(400, 200)},
+		}}},
+		Edges: []Edge{{From: "a", To: "b"}, {From: "b", To: "d"}},
+		Notes: []Note{{Text: "n", X: 180, Y: 30, Width: 120, Height: 66, HasSize: true}}}
+	got, err := rendering.DOTWith(orthoOptions)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkAnchorsClear(t, view, got)
+	drawWithGraphviz(t, installedDot(t), "ortho-note", "-n", got)
+}
