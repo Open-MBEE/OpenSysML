@@ -4,6 +4,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // The occurrences an interaction declares are its lifelines, flat and in
@@ -422,4 +424,50 @@ func lifelineName(rendering *Rendering, id string) string {
 		}
 	}
 	return ""
+}
+
+// An action exposed beside an interaction — as rendering a whole document does —
+// is behavior, not a participant: it is no lifeline, its control flow is not
+// drawn as successions on one, and it is reported rather than dropped.
+func TestSequenceRenderingReportsExposedBehavior(t *testing.T) {
+	const text = `package Demo {
+	item def Start;
+	action def Drive {
+		first start;
+		then action unlock;
+		then fork f;
+		then action startEngine;
+		first startEngine then done;
+	}
+	part scenario {
+		part driver {
+			event occurrence sendStart;
+		}
+		part car {
+			event occurrence recvStart;
+		}
+		message startMsg of Start from driver.sendStart to car.recvStart;
+	}
+}
+`
+	r, idx := loadSources(t, []string{"inline.sysml"}, [][]byte{[]byte(text)})
+	exposed := []*symbols.Symbol{lookup(t, idx, "Demo::Drive"), lookup(t, idx, "Demo::scenario")}
+	rendering, err := r.RenderExposed(exposed, KindSequence, "#sequence")
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	if got := lifelineNames(rendering); !slices.Equal(got, []string{"driver", "car"}) {
+		t.Errorf("lifelines = %v, want the parts of the interaction only", got)
+	}
+	if got := messageLabels(rendering); !slices.Equal(got, []string{"startMsg of Start"}) {
+		t.Errorf("messages = %v, want the one message", got)
+	}
+	for _, edge := range rendering.Edges {
+		if edge.Kind == EdgeSuccession {
+			t.Errorf("succession %s -> %s is drawn; the action's control flow is no order of the interaction", edge.From, edge.To)
+		}
+	}
+	if len(rendering.Notices) != 1 || !strings.Contains(rendering.Notices[0], "action def Drive is behavior, not a participant") {
+		t.Errorf("notices = %v, want the exposed action reported", rendering.Notices)
+	}
 }

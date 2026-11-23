@@ -1,0 +1,1 @@
+- A sequence rendering no longer draws an action or state exposed on its own as a lifeline with its control flow as unlabelled successions on it — which rendering a whole document as a message sequence (`#sequence`) did for every action definition beside the interaction. Such behavior is reported as not shown, as the behavior nested in an interaction already was.

@@ -44,6 +44,11 @@ func (r *Renderer) renderSequence(view *symbols.Symbol, exposed []*symbols.Symbo
 			r.addSuccessionUsage(elem, stated)
 		case r.model.IsConnectorUsage(elem):
 			stated.addConnector(elem)
+		case behaviorLike(elem):
+			// Behavior exposed on its own states an action flow, which is no interaction.
+			out.Notices = append(out.Notices, fmt.Sprintf(
+				"%s is behavior, not a participant in an interaction; a sequence rendering does not show it",
+				r.noticeSubject(elem)))
 		case occurrenceContainer(elem), lifelineLike(elem):
 			for _, participant := range r.lifelinesOf(elem) {
 				if ends.lifelines[participant] != nil {
