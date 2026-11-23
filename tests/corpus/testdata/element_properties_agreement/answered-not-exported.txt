@@ -435,7 +435,6 @@ OperatorExpression::input	16	symbol-51
 OperatorExpression::operand	953	symbol-30
 OwningMembership::ownedMemberFeature	9	symbol-16
 OwningMembership::owningType	9	symbol-45
-ParameterMembership::memberName	2851	symbol-85
 ParameterMembership::ownedMemberFeature	7	symbol-16
 ParameterMembership::ownedMemberName	2851	symbol-85
 PartDefinition::ownedFlow	11	symbol-45
@@ -525,7 +524,6 @@ RequirementUsage::requirementDefinition	73	symbol-45
 RequirementUsage::type	62	symbol-19
 RequirementVerificationMembership::verifiedRequirement	26	symbol-45
 ResultExpressionMembership::ownedMemberFeature	2	symbol-16
-ReturnParameterMembership::memberName	3783	symbol-85
 ReturnParameterMembership::ownedMemberFeature	1	symbol-16
 ReturnParameterMembership::ownedMemberName	3783	symbol-85
 SatisfyRequirementUsage::behavior	2	symbol-26
