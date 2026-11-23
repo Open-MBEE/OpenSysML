@@ -2,6 +2,7 @@ package resolve
 
 import (
 	"slices"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -184,67 +185,104 @@ func (r *Resolver) plainRegion(scope *symbols.Scope) bool {
 	var outer, filtered []*symbols.Scope
 	named := map[string]*symbols.Symbol{}
 	seen := map[*symbols.Scope]bool{scope: true}
-	for pending := []*symbols.Scope{scope}; len(pending) > 0; {
-		ns := pending[len(pending)-1]
-		pending = pending[:len(pending)-1]
-		if len(ns.Imports()) != 0 && len(r.namespaceFilters(ns)) != 0 {
-			filtered = append(filtered, ns)
-		}
-		if ns != scope {
-			unique := plainNamespace(ns)
-			ns.ForEachNamedMember(func(name string, sym *symbols.Symbol) bool {
-				if held, dup := named[name]; dup && held != sym {
-					unique = false
-				}
-				named[name] = sym
-				return unique
-			})
-			if !unique {
+	region := []*symbols.Scope{scope}
+	// unique reports whether no member of ns has the name of another read before it.
+	unique := func(ns *symbols.Scope) bool {
+		distinct := true
+		ns.ForEachNamedMember(func(name string, sym *symbols.Symbol) bool {
+			if held, dup := named[name]; dup && held != sym {
+				distinct = false
+			}
+			named[name] = sym
+			return distinct
+		})
+		return distinct
+	}
+	// reach reads the namespaces of the region not read yet, and those their own imports reach.
+	read := 0
+	reach := func() bool {
+		for ; read < len(region); read++ {
+			ns := region[read]
+			if len(ns.Imports()) != 0 && len(r.namespaceFilters(ns)) != 0 {
+				filtered = append(filtered, ns)
+			}
+			if ns != scope && !(plainNamespace(ns) && unique(ns)) {
 				return false
 			}
-		}
-		for _, imp := range ns.Imports() {
-			if imp.Kind != ast.ImportNamespace || imp.IsAll || imp.IsRecursive || imp.FilterExpr != nil || imp.IsExpose {
-				return false
-			}
-			// A lookup passes over an import whose target is being resolved; an enumeration reads it.
-			if r.resolvingImports[imp] {
-				if r.enumDepth > 0 {
+			for _, imp := range ns.Imports() {
+				if !plainImportOf(imp) {
 					return false
 				}
-				continue
-			}
-			first, target, ok := ownedTarget(ns, imp, &outer)
-			if !ok {
-				return false
-			}
-			imports = append(imports, plainImport{imp: imp, from: ns, named: first, target: target})
-			if !seen[target.Scope] {
-				seen[target.Scope] = true
-				pending = append(pending, target.Scope)
+				// A lookup passes over an import whose target is being resolved; an enumeration reads it.
+				if r.resolvingImports[imp] {
+					if r.enumDepth > 0 {
+						return false
+					}
+					continue
+				}
+				first, target, ok := ownedTarget(ns, imp, &outer)
+				if !ok {
+					return false
+				}
+				imports = append(imports, plainImport{imp: imp, from: ns, named: first, target: target})
+				if !seen[target.Scope] {
+					seen[target.Scope] = true
+					region = append(region, target.Scope)
+				}
 			}
 		}
+		return true
+	}
+	if !reach() {
+		return false
 	}
 	if len(seen) == 1 {
 		return false
 	}
+	var outside []symbols.OutsideImport
 	if len(filtered) != 0 {
-		// Past scope a route takes public imports alone (KerML 8.3.2.4.5 visibleMemberships).
 		routes := map[*symbols.Scope][]*symbols.Scope{}
+		root := rootOf(scope)
+		stating := map[*symbols.Scope]bool{}
+		// A namespace another document declares too has the imports stated there, each read as its own are.
+		for at := 0; at < len(region); at++ {
+			ns := region[at]
+			stated := r.importsStatedOutside(ns)
+			if len(stated) != 0 && len(ns.Imports()) == 0 && len(r.namespaceFilters(ns)) != 0 {
+				filtered = append(filtered, ns)
+			}
+			for _, stated := range stated {
+				target := r.namespaceNamed(root, stated.Target)
+				if target == nil || !plainImportOf(stated.Import) {
+					return false
+				}
+				// The members stated beside the import are the namespace's too, unless it is the reader.
+				if ns != scope && !stating[stated.From] {
+					stating[stated.From] = true
+					if !unique(stated.From) {
+						return false
+					}
+				}
+				outside = append(outside, stated)
+				if !seen[target] {
+					seen[target] = true
+					region = append(region, target)
+				}
+				if ns == scope || stated.Import.Visibility != ast.VisibilityPrivate {
+					routes[ns] = append(routes[ns], target)
+				}
+			}
+			if !reach() {
+				return false
+			}
+		}
+		// Past scope a route takes public imports alone (KerML 8.3.2.4.5 visibleMemberships).
 		for _, read := range imports {
 			if read.from == scope || read.imp.Visibility != ast.VisibilityPrivate {
 				routes[read.from] = append(routes[read.from], read.target.Scope)
 			}
 		}
 		routed := reachedFrom(routes, scope, nil)
-		// Another document declaring a namespace gives it imports, and so routes, these do not hold.
-		if r.idx != nil {
-			for ns := range routed {
-				if fqn := r.namespaceFQNOf(ns); fqn != "" && r.idx.ImportsStatedOutside(fqn, r.documentOf(ns)) {
-					return false
-				}
-			}
-		}
 		for _, ns := range filtered {
 			if routed[ns] && !filtersEveryRoute(routes, scope, ns) {
 				return false
@@ -254,6 +292,12 @@ func (r *Resolver) plainRegion(scope *symbols.Scope) bool {
 	// A namespace around an import may bring names of its own only as one of these.
 	for _, ns := range outer {
 		if !seen[ns] && len(ns.Imports()) != 0 {
+			return false
+		}
+	}
+	for _, stated := range outside {
+		// The index names its target from the root: no member read may answer to that name first.
+		if _, had := named[stated.Import.Imported.Parts[0].Text]; had {
 			return false
 		}
 	}
@@ -267,6 +311,37 @@ func (r *Resolver) plainRegion(scope *symbols.Scope) bool {
 		}
 	}
 	return true
+}
+
+// plainImportOf reports whether imp imports the visible members of a namespace and nothing else.
+func plainImportOf(imp *ast.Import) bool {
+	return imp.Kind == ast.ImportNamespace && !imp.IsAll && !imp.IsRecursive && imp.FilterExpr == nil && !imp.IsExpose
+}
+
+// importsStatedOutside are the imports the namespace owning scope is given by its declarations in other documents.
+func (r *Resolver) importsStatedOutside(scope *symbols.Scope) []symbols.OutsideImport {
+	fqn := r.namespaceFQNOf(scope)
+	if fqn == "" {
+		return nil
+	}
+	return r.idx.ImportsStatedOutside(fqn, r.documentOf(scope))
+}
+
+// namespaceNamed is the scope of the one namespace fqn names: the one the document of root declares,
+// else the one another document does, or nil.
+func (r *Resolver) namespaceNamed(root *symbols.Scope, fqn string) *symbols.Scope {
+	if fqn == "" {
+		return nil
+	}
+	at := root
+	for name := range strings.SplitSeq(fqn, "::") {
+		found := at.LookupLocalAll(name)
+		if len(found) != 1 || found[0].Scope == nil {
+			return r.idx.NamespaceAt(fqn)
+		}
+		at = found[0].Scope
+	}
+	return at
 }
 
 // reachedFrom is start and the namespaces the routes from it reach, none of them through stop.

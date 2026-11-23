@@ -2,6 +2,7 @@ package model_test
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"testing"
@@ -148,6 +149,74 @@ package V { part e : P::Extra; part e2 : Q::Extra; part k : Q::Kept; }
 				})
 			}
 		}
+	}
+}
+
+// A private import another document states for a package of the cycle is on no route a reader outside
+// takes, so the cycle is still read once: wherever the namespace it names is declared.
+func TestImportCycleWithAPrivateImportAnotherDocumentStatesAnalysesPromptly(t *testing.T) {
+	const n = 15
+	var cycle strings.Builder
+	cycle.WriteString("package Marked {\n\tmetadata def Safety;\n\t#Safety part def Kept;\n\tpart def Dropped;\n}\n")
+	cycle.WriteString("package Filtered {\n\tpublic import Marked::*;\n\tfilter @Marked::Safety;\n}\n")
+	for i := 1; i <= n; i++ {
+		fmt.Fprintf(&cycle, "package P%d {\n", i)
+		for k := 1; k <= n; k++ {
+			if k != i {
+				fmt.Fprintf(&cycle, "\tpublic import P%d::*;\n", k)
+			}
+		}
+		if i == 1 {
+			cycle.WriteString("\tprivate import Filtered::*;\n")
+		}
+		fmt.Fprintf(&cycle, "\tpart def D%d;\n}\n", i)
+	}
+	fmt.Fprintf(&cycle, "package Use {\n\tpublic import P1::*;\n\tpart x : D%d;\n\tpart y : Missing;\n\tpart z : E;\n}\n", n)
+	const elsewhere = "package Elsewhere {\n\tpart def E;\n}\n"
+	const reopened = "package P2 {\n\tprivate import Elsewhere::*;\n\tpart e : E;\n}\n"
+
+	for _, tc := range []struct {
+		name string
+		docs map[string]string
+	}{
+		{"named in the document of the cycle", map[string]string{"cycle.sysml": elsewhere + cycle.String(), "reopened.sysml": reopened}},
+		{"named in the document stating it", map[string]string{"cycle.sysml": cycle.String(), "reopened.sysml": reopened + elsewhere}},
+		{"named in a third document", map[string]string{"cycle.sysml": cycle.String(), "reopened.sysml": reopened, "elsewhere.sysml": elsewhere}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			done := make(chan map[string][]diag.Diagnostic, 1)
+			go func() {
+				ws := model.NewWorkspace()
+				for _, name := range slices.Sorted(maps.Keys(tc.docs)) {
+					ws.Open(name, []byte(tc.docs[name]), 1)
+				}
+				diags := map[string][]diag.Diagnostic{}
+				for name := range tc.docs {
+					diags[name] = ws.Diagnostics(name)
+				}
+				done <- diags
+			}()
+			select {
+			case diags := <-done:
+				// The private import brings E to the declaration stating it, and to no reader of the cycle.
+				var unresolved []string
+				for name, found := range diags {
+					for _, d := range found {
+						if name != "cycle.sysml" {
+							t.Errorf("%s: %v", name, d)
+						}
+						missing, _ := strings.CutPrefix(d.Message, "unresolved reference: ")
+						missing, _, _ = strings.Cut(missing, " ")
+						unresolved = append(unresolved, missing)
+					}
+				}
+				if want := []string{"Missing", "E"}; !slices.Equal(unresolved, want) {
+					t.Fatalf("unresolved names %q, want %q: %v", unresolved, want, diags)
+				}
+			case <-time.After(importCycleLimit):
+				t.Fatalf("analysing %d packages in a cycle, one given a private import by another document, did not finish in %v", n, importCycleLimit)
+			}
+		})
 	}
 }
 
