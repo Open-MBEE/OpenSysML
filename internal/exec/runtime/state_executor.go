@@ -319,8 +319,7 @@ func newStateExecutorLowering(
 
 	// Lower to StateGraph, in the scope the machine's body was written in, so
 	// that everything the graph carries is evaluated where it was declared.
-	// Endpoints come from the name-resolution tier, which reported on them already.
-	graph, err := lower.ToStateGraphWithEndpoints(lowered.Decl, DeclScope(lowered), lower.NewLibraryStateTypes(ctx.model.resolver))
+	graph, err := ctx.model.stateGraph(lowered)
 	if err != nil {
 		return nil, fmt.Errorf("lower state machine: %w", err)
 	}
