@@ -264,6 +264,8 @@ func generalNodeKind(r *Renderer, sym *symbols.Symbol) bool {
 		return sym.Kind != symbols.SymbolMetadataDef
 	case *ast.Usage:
 		return sym.Kind != symbols.SymbolMetadataUsage
+	case *ast.SubjectMember:
+		return true
 	case *ast.RequireMember, *ast.AssumeMember:
 		// The constraint a `require constraint` or `assume constraint` member
 		// declares; one naming a constraint instead is drawn as the edge to it.
@@ -349,10 +351,16 @@ func (g *generalGraph) drawn(sym *symbols.Symbol) *Node {
 
 // add records an edge once: an import edge once per import declaration.
 func (g *generalGraph) add(edge Edge) {
+	g.addKeyed(edge, edge.Kind == EdgeImport || g.exposed != nil)
+}
+
+// addKeyed records an edge once, or once per declaration when distinct: what
+// tells apart two edges that read the same.
+func (g *generalGraph) addKeyed(edge Edge, distinct bool) {
 	key := generalEdgeKey{from: edge.From, to: edge.To, label: edge.text(), kind: edge.Kind}
 	// Distinct declarations draw distinct import edges, and distinct exposed
 	// relationships distinct edges, each with its own route.
-	if edge.Kind == EdgeImport || g.exposed != nil {
+	if distinct {
 		key.origin = edge.Origin
 	}
 	if g.edges[key] {
@@ -500,7 +508,7 @@ func (g *generalGraph) structuralEdges(sym *symbols.Symbol) {
 // to: one declared as such, or the constraint a require or assume member declares.
 func ownedUsage(sym *symbols.Symbol) bool {
 	switch sym.Decl.(type) {
-	case *ast.Usage, *ast.RequireMember, *ast.AssumeMember:
+	case *ast.Usage, *ast.SubjectMember, *ast.RequireMember, *ast.AssumeMember:
 		return true
 	}
 	return false
@@ -587,17 +595,30 @@ func (g *generalGraph) featureEdges(sym *symbols.Symbol, from *Node) {
 	if sym.Scope == nil {
 		return
 	}
-	for _, member := range sym.Scope.Members() {
-		if _, usage := member.Decl.(*ast.Usage); !usage || g.drawn(member) != nil || !generalNodeKind(g.r, member) {
+	// AllMembers keeps declaration order across named and unnamed features.
+	for _, member := range sym.Scope.AllMembers() {
+		if !featureDecl(member) || g.drawn(member) != nil || !generalNodeKind(g.r, member) {
 			continue
 		}
 		kind := g.r.membershipKind(member)
 		for _, typ := range g.r.drawnTypes(member) {
 			if to := g.drawn(typ); to != nil {
-				g.add(Edge{From: from.ID, To: to.ID, Kind: kind, ToLabel: symbols.LastSegment(g.r.fqn(member)), Origin: symbolOrigin(member)})
+				edge := Edge{From: from.ID, To: to.ID, Kind: kind, ToLabel: symbols.LastSegment(g.r.fqn(member)), Origin: symbolOrigin(member)}
+				// Unnamed features of one type read the same and are still one edge each.
+				g.addKeyed(edge, member.Name == "" || edge.Kind == EdgeImport || g.exposed != nil)
 			}
 		}
 	}
+}
+
+// featureDecl reports whether member is declared as a feature of its owner: a
+// usage, or the subject parameter of a requirement or case.
+func featureDecl(member *symbols.Symbol) bool {
+	switch member.Decl.(type) {
+	case *ast.Usage, *ast.SubjectMember:
+		return true
+	}
+	return false
 }
 
 func structuralEdgeKind(kind ast.RelationshipKind) (EdgeKind, string, bool) {

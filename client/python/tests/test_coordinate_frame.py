@@ -53,7 +53,8 @@ def test_a_frame_reads_with_its_identity_and_axes():
     assert got.type_id == "ISQSpaceTime::CartesianSpatial3dCoordinateFrame"
     assert got.dimensions == (3,)
     assert [axis.unit_id for axis in got.axes] == ["SI::millimetre"] * 3
-    assert got.transformation is None and got.scale is None
+    assert got.transformation is None
+    assert got.scale is None
     assert str(got) == "datum [mm, mm, mm]"
 
 
@@ -71,13 +72,18 @@ def test_a_posed_frame_carries_its_sequence_and_pose():
         pose=sysml_pb2.FramePose(origin=[10, 0, 0], basis=[-1, 0, 0, 0, -1, 0, 0, 0, 1]),
     ))
     got = value_to_python(sysml_pb2.Value(coordinate_frame=posed)).transformation
-    assert got.source.frame_id == "Frames::datum" and got.target is None
-    assert got.placement is None and got.affine is None
+    assert got.source.frame_id == "Frames::datum"
+    assert got.target is None
+    assert got.placement is None
+    assert got.affine is None
     shift, turn = got.steps
-    assert isinstance(shift.translation, VectorQuantity) and shift.rotation is None
+    assert isinstance(shift.translation, VectorQuantity)
+    assert shift.rotation is None
     assert shift.instance_id == 7
-    assert turn.translation is None and turn.rotation.intrinsic
-    assert isinstance(turn.rotation.angle, Quantity) and turn.rotation.angle.magnitude == 180
+    assert turn.translation is None
+    assert turn.rotation.intrinsic
+    assert isinstance(turn.rotation.angle, Quantity)
+    assert turn.rotation.angle.magnitude == 180
     assert got.pose == FramePose(origin=(10, 0, 0), basis=(-1, 0, 0, 0, -1, 0, 0, 0, 1))
 
 
@@ -90,7 +96,8 @@ def test_a_transformation_reads_its_endpoints_and_shape():
     got = value_to_python(sysml_pb2.Value(coordinate_transformation=placed))
     assert isinstance(got, CoordinateTransformation)
     assert (got.source.name, got.target.name) == ("datum", "placed")
-    assert got.steps is None and got.pose is None
+    assert got.steps is None
+    assert got.pose is None
     assert [q.magnitude for q in got.placement.origin] == [1.0, 2.0, 3.0]
     assert len(got.placement.basis_directions) == 1
     assert str(got) == "placement (datum → placed)"
@@ -107,7 +114,8 @@ def test_a_measurement_scale_reads_its_unit_and_mapping():
         unit=millimetre(),
         mapping=sysml_pb2.QuantityValueMapping(mapped=length(0.0), reference=length(273.15))))
     got = value_to_python(sysml_pb2.Value(coordinate_frame=scale))
-    assert got.axes == () and got.scale.unit.unit_id == "SI::millimetre"
+    assert got.axes == ()
+    assert got.scale.unit.unit_id == "SI::millimetre"
     assert (got.scale.mapped.magnitude, got.scale.reference.magnitude) == (0.0, 273.15)
     assert str(got) == "celsius [mm]"
 
@@ -128,7 +136,8 @@ def test_frames_in_a_sequence_are_read_element_by_element():
         sysml_pb2.Value(coordinate_frame=frame("datum")),
     ]))
     first, second = value_to_python(sequence)
-    assert first == 1 and second.name == "datum"
+    assert first == 1
+    assert second.name == "datum"
 
 
 def test_frames_are_exported_with_their_capability():
@@ -145,25 +154,33 @@ def test_frames_and_transformations_compare_as_the_service_does():
         pose=FramePose(origin=(1.0,), basis=(1.0,)))
     posed = CoordinateFrame(name="posed", frame_id="F::posed", instance_id=7, axes=(mm,) * 3, transformation=own)
     cut = replace(posed, transformation=None)
-    assert posed == cut and cut == posed and hash(posed) == hash(cut)
+    assert posed == cut
+    assert cut == posed
+    assert hash(posed) == hash(cut)
     assert posed != replace(posed, instance_id=8)
     assert cut != replace(cut, name="datum", frame_id="F::datum")
 
     composed = CoordinateFrame(name="datum / s", dimensions=(3,), axes=(mm,) * 3)
     renamed = replace(composed, name="rate", type_id="F::Rate")
-    assert composed == renamed and hash(composed) == hash(renamed)
+    assert composed == renamed
+    assert hash(composed) == hash(renamed)
     assert composed != replace(composed, dimensions=(1,))
-    assert composed != datum and composed != "datum / s"
+    assert composed != datum
+    assert composed != "datum / s"
 
     direct = replace(own, name="trs", target=cut, pose=None)
-    assert own == direct and hash(own) == hash(direct)
+    assert own == direct
+    assert hash(own) == hash(direct)
     constructed = CoordinateTransformation(name="a", source=datum, placement=FramePlacement(origin=1.0))
     assert constructed == replace(constructed, name="b", type_id="F::P", pose=own.pose)
     assert constructed != replace(constructed, placement=FramePlacement(origin=2.0))
     assert constructed != replace(constructed, target=cut)
     reshaped = replace(own, placement=None, affine=AffineTransformation3d(), source=None)
-    assert own == reshaped and hash(own) == hash(reshaped) and len({own, direct, reshaped}) == 1
+    assert own == reshaped
+    assert hash(own) == hash(reshaped)
+    assert len({own, direct, reshaped}) == 1
     shapeless = CoordinateTransformation(name="a", instance_id=4, source=datum)
     assert shapeless != replace(shapeless, instance_id=5)
     step = FrameStep(translation=1.0, instance_id=7)
-    assert step == replace(step, instance_id=8) and step != FrameStep(rotation=FrameRotation(intrinsic=True))
+    assert step == replace(step, instance_id=8)
+    assert step != FrameStep(rotation=FrameRotation(intrinsic=True))

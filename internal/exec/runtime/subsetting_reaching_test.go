@@ -274,3 +274,23 @@ func TestNoSubsetterDeclaredElsewhereAllocatesNothing(t *testing.T) {
 		t.Errorf("%v allocations per query, want 0", allocs)
 	}
 }
+
+// TestSubsettingElsewhereLeavesNamespaceSubsettersUnresolved pins that reading a feature no
+// namespace usage subsets resolves no subsetting target of the model's namespace usages.
+func TestSubsettingElsewhereLeavesNamespaceSubsettersUnresolved(t *testing.T) {
+	ctx, inst, err := instantiateWithLibraries(t, "package test {"+subsettingElsewherePrelude+`
+		part x1 : Sub;
+		part rig : V { part redefines subsystem = (x1); }
+		part bench { part beam : Sub :> rig.subsystem; }
+	}`, "test::bench")
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+	if !ctx.subsetsElsewhere(inst, "beam") {
+		t.Fatal("bench.beam subsets nothing declared elsewhere, want rig.subsystem")
+	}
+	if ctx.model.namespaceUsageIndex == nil || ctx.model.namespaceSubsetters != nil {
+		t.Errorf("index built: %t, subsetters built: %t; want the index alone",
+			ctx.model.namespaceUsageIndex != nil, ctx.model.namespaceSubsetters != nil)
+	}
+}

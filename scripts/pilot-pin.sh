@@ -102,7 +102,8 @@ pilot_tree_sha256() {
 
 # pilot_kernel_digests prints the two digests of the kernel jar $1 and library directory $2.
 pilot_kernel_digests() {
-	printf 'PILOT_KERNEL_JAR_SHA256=%s\nPILOT_KERNEL_LIBRARY_SHA256=%s\n' "$(pilot_sha256 "$1")" "$(pilot_tree_sha256 "$2")"
+	local jar=$1 library=$2
+	printf 'PILOT_KERNEL_JAR_SHA256=%s\nPILOT_KERNEL_LIBRARY_SHA256=%s\n' "$(pilot_sha256 "$jar")" "$(pilot_tree_sha256 "$library")"
 }
 
 # pilot_verify_kernel fails unless the kernel jar $1 and the library directory $2 are the
