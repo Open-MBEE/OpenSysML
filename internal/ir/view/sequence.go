@@ -215,7 +215,10 @@ type message struct {
 // names it.
 type order struct {
 	from, to *symbols.Symbol
-	name     string
+	// The features a succession usage names its ends through (`client` of
+	// `client.sent`), nil for an end named on its own.
+	fromThrough, toThrough *symbols.Symbol
+	name                   string
 	// succession is the usage stating the order, nil for a member-attached `then`,
 	// which has no declaration of its own.
 	succession *symbols.Symbol
@@ -318,7 +321,10 @@ func (r *Renderer) addSuccessionUsage(succession *symbols.Symbol, into *interact
 	if succession.Named() && !succession.EffectiveName() {
 		name = localName(succession)
 	}
-	into.orders = append(into.orders, order{from: from, to: to, name: name, succession: succession, origin: symbolOrigin(succession)})
+	fromThrough, _ := r.resolver.ResolveTarget(succession.OwnerScope, chainOperand(usage.ConnectorEnds[0].AttachedTarget()))
+	toThrough, _ := r.resolver.ResolveTarget(succession.OwnerScope, chainOperand(usage.ConnectorEnds[1].AttachedTarget()))
+	into.orders = append(into.orders, order{from: from, to: to, fromThrough: fromThrough, toThrough: toThrough,
+		name: name, succession: succession, origin: symbolOrigin(succession)})
 }
 
 // addSuccessionEdges records the orders a member-attached `then` states, which
@@ -429,10 +435,9 @@ func (r *Renderer) messages(view *symbols.Symbol, flows []*symbols.Symbol, ends 
 // `producer` lifeline. An event the chain reaches through a lifeline that inherits
 // it is an event of that lifeline, not of the one declaring it.
 func (r *Renderer) messageEnd(flow *symbols.Symbol, end ast.Node, ends *lifelineEnds) (*symbols.Symbol, *Node) {
-	if operand := chainOperand(end); operand != nil {
-		named, ok := r.resolver.ResolveTarget(flow.OwnerScope, end)
-		through, known := r.resolver.ResolveTarget(flow.OwnerScope, operand)
-		if lifeline := ends.lifelines[through]; ok && known && lifeline != nil && !owns(through, named) {
+	if named, ok := r.resolver.ResolveTarget(flow.OwnerScope, end); ok {
+		through, _ := r.resolver.ResolveTarget(flow.OwnerScope, chainOperand(end))
+		if lifeline := ends.inheritedOn(named, through); lifeline != nil {
 			return named, lifeline
 		}
 	}
@@ -454,19 +459,16 @@ func (r *Renderer) messageEnd(flow *symbols.Symbol, end ast.Node, ends *lifeline
 func (r *Renderer) successions(view *symbols.Symbol, orders []order, ends *lifelineEnds, out *Rendering) ([]succession, []timing) {
 	var successions []succession
 	var timings []timing
-	for _, o := range orders {
-		from, to := ends.lifelineOf(o.from), ends.lifelineOf(o.to)
-		placed := [][2]*Node{{from, to}}
-		for _, lifeline := range ends.inheriting(o, out.Roots) {
-			placed = append(placed, [2]*Node{lifeline, lifeline})
-		}
-		for _, on := range placed {
-			timings = append(timings, timing{from: lifelineEnd{on[0], o.from}, to: lifelineEnd{on[1], o.to}, name: o.name})
-			if on[0] == nil || on[1] == nil {
+	inherited := r.inheritedOrders(orders, ends, out.Roots)
+	for i, o := range orders {
+		placed := []timing{{from: ends.orderEnd(o.from, o.fromThrough), to: ends.orderEnd(o.to, o.toThrough), name: o.name}}
+		for _, t := range append(placed, inherited[i]...) {
+			timings = append(timings, t)
+			if t.from.lifeline == nil || t.to.lifeline == nil {
 				continue
 			}
-			fromNode, fromPort := ends.end(o.from, on[0])
-			toNode, toPort := ends.end(o.to, on[1])
+			fromNode, fromPort := ends.end(t.from.occurrence, t.from.lifeline)
+			toNode, toPort := ends.end(t.to.occurrence, t.to.lifeline)
 			edge := Edge{From: fromNode, To: toNode, FromPort: fromPort, ToPort: toPort, Label: o.name, Name: o.name, Kind: EdgeSuccession, Origin: o.origin}
 			if o.succession != nil {
 				edge.Route = r.routeOf(view, o.succession, out)
@@ -478,23 +480,82 @@ func (r *Renderer) successions(view *symbols.Symbol, orders []order, ends *lifel
 	return successions, timings
 }
 
-// inheriting are the lifelines that hold an end of an order as an event they
-// inherit, in the order drawn: the order between two events of one definition
-// holds on every lifeline typed by it.
-func (e *lifelineEnds) inheriting(o order, lifelines []*Node) []*Node {
-	if o.from == nil || o.to == nil || o.from.Owner() != o.to.Owner() {
+// inheritedOn is the lifeline an occurrence is on by inheritance: the one of the
+// feature it is named through, when that feature is shown and does not declare it.
+func (e *lifelineEnds) inheritedOn(occurrence, through *symbols.Symbol) *Node {
+	if through == nil || owns(through, occurrence) {
 		return nil
 	}
-	var inheriting []*Node
-	for _, lifeline := range lifelines {
-		if lifeline == e.lifelineOf(o.from) || lifeline == e.lifelineOf(o.to) {
-			continue
-		}
-		if e.proxies[lifelineEnd{lifeline, o.from}] != nil || e.proxies[lifelineEnd{lifeline, o.to}] != nil {
-			inheriting = append(inheriting, lifeline)
+	return e.lifelines[through]
+}
+
+// orderEnd is an end of an order on the lifeline it is read on: the one it is
+// named through when that inherits it, else the nearest owner shown.
+func (e *lifelineEnds) orderEnd(occurrence, through *symbols.Symbol) lifelineEnd {
+	if lifeline := e.inheritedOn(occurrence, through); lifeline != nil {
+		return lifelineEnd{lifeline, occurrence}
+	}
+	return lifelineEnd{e.lifelineOf(occurrence), occurrence}
+}
+
+// inheritedOrders are, per order, its readings on the lifelines that inherit it,
+// in the order drawn: an order a definition states between two of its events holds
+// on every lifeline holding one of them by inheritance, the events it redefines
+// standing in for the ones redefined. A chain of orders carries a lifeline's
+// events along it, so the readings are taken until none adds an event.
+func (r *Renderer) inheritedOrders(orders []order, ends *lifelineEnds, lifelines []*Node) [][]timing {
+	shown := make(map[*Node]*symbols.Symbol, len(ends.lifelines))
+	for sym, lifeline := range ends.lifelines {
+		shown[lifeline] = sym
+	}
+	held := make(map[lifelineEnd]bool, len(ends.proxies))
+	for end := range ends.proxies {
+		held[end] = true
+	}
+	inherited := make([][]timing, len(orders))
+	read := map[[2]int]bool{}
+	for grew := true; grew; {
+		grew = false
+		for i, o := range orders {
+			if o.from == nil || o.to == nil || o.fromThrough != nil || o.toThrough != nil || o.from.Owner() != o.to.Owner() {
+				continue
+			}
+			for at, lifeline := range lifelines {
+				if read[[2]int{i, at}] || lifeline == ends.lifelineOf(o.from) || lifeline == ends.lifelineOf(o.to) {
+					continue
+				}
+				from := lifelineEnd{lifeline, r.redefinedBy(shown[lifeline], o.from)}
+				to := lifelineEnd{lifeline, r.redefinedBy(shown[lifeline], o.to)}
+				if !held[from] && !held[to] {
+					continue
+				}
+				held[from], held[to] = true, true
+				read[[2]int{i, at}] = true
+				inherited[i] = append(inherited[i], timing{from: from, to: to, name: o.name})
+				grew = true
+			}
 		}
 	}
-	return inheriting
+	for _, readings := range inherited {
+		sort.SliceStable(readings, func(i, j int) bool {
+			return slices.Index(lifelines, readings[i].from.lifeline) < slices.Index(lifelines, readings[j].from.lifeline)
+		})
+	}
+	return inherited
+}
+
+// redefinedBy is the member of owner that redefines an inherited feature, else
+// the feature itself.
+func (r *Renderer) redefinedBy(owner, feature *symbols.Symbol) *symbols.Symbol {
+	if owner == nil {
+		return feature
+	}
+	for _, member := range r.containedMembers(owner) {
+		if slices.Contains(r.model.AllRedefinedFeatures(member), feature) {
+			return member
+		}
+	}
+	return feature
 }
 
 // owns reports whether owner is sym or one of its owners.

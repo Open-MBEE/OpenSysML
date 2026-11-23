@@ -108,3 +108,120 @@ func TestSequenceRenderingKeepsAnEventOnItsDefinitionWhenNoUsageIsShown(t *testi
 		t.Errorf("got %q\nwant %q", got, want)
 	}
 }
+
+// renderSequenceOf renders the named members of package P of a model as one sequence.
+func renderSequenceOf(t *testing.T, model string, names ...string) *Rendering {
+	t.Helper()
+	r, idx := loadSources(t, []string{"inline.sysml"}, [][]byte{[]byte(model)})
+	var exposed []*symbols.Symbol
+	for _, name := range names {
+		exposed = append(exposed, lookup(t, idx, "P::"+name))
+	}
+	rendering, err := r.RenderExposed(exposed, KindSequence, "#sequence")
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	return rendering
+}
+
+// A succession naming its ends through two usages orders their two events: it is
+// one arrow between the lifelines named, not an order within each.
+func TestSequenceRenderingDrawsASuccessionBetweenTheLifelinesItNames(t *testing.T) {
+	rendering := renderSequenceOf(t, `package P {
+	item def Ping;
+	part def Client {
+		event occurrence sent;
+		event occurrence got;
+	}
+	part server {
+		event occurrence a;
+		event occurrence b;
+	}
+	part client : Client;
+	part other : Client;
+	message m1 of Ping from other.got to server.a;
+	message m2 of Ping from client.sent to server.b;
+	succession handover first client.sent then other.got;
+}`, "server", "client", "other", "m1", "m2", "handover")
+	want := []string{
+		"m2 of Ping: P::client.sent -> b",
+		"handover: P::client.sent -> P::other.got",
+		"m1 of Ping: P::other.got -> a",
+	}
+	if got := sequenceEnds(rendering); !slices.Equal(got, want) {
+		t.Errorf("got %q\nwant %q", got, want)
+	}
+}
+
+// A chain of inherited orders reaches a lifeline's events whichever link is
+// stated first, so the messages at its two ends are ordered by it.
+func TestSequenceRenderingFollowsAnInheritedChainStatedOutOfOrder(t *testing.T) {
+	rendering := renderSequenceOf(t, `package P {
+	item def Ping;
+	part def Client {
+		event occurrence first_;
+		event occurrence x;
+		event occurrence y;
+		event occurrence last_;
+		succession first x then y;
+		succession first first_ then x;
+		succession first y then last_;
+	}
+	part server {
+		event occurrence a;
+		event occurrence b;
+	}
+	part client : Client;
+	message late of Ping from client.last_ to server.a;
+	message early of Ping from client.first_ to server.b;
+}`, "Client", "server", "client", "late", "early")
+	if got := messageLabels(rendering); !slices.Equal(got, []string{"early of Ping", "late of Ping"}) {
+		t.Errorf("messages = %v, want early before late through the inherited chain", got)
+	}
+	var inherited []string
+	for _, end := range sequenceEnds(rendering) {
+		if len(end) > 2 && end[:2] == ": " && end[2] == 'P' {
+			inherited = append(inherited, end)
+		}
+	}
+	want := []string{
+		": P::client.first_ -> P::client.x",
+		": P::client.x -> P::client.y",
+		": P::client.y -> P::client.last_",
+	}
+	if !slices.Equal(inherited, want) {
+		t.Errorf("inherited successions = %q, want %q", inherited, want)
+	}
+}
+
+// An inherited order reaches the event a lifeline redefines, not the one redefined.
+func TestSequenceRenderingReadsAnInheritedOrderOverARedefinedEvent(t *testing.T) {
+	rendering := renderSequenceOf(t, `package P {
+	item def Ping;
+	part def Client {
+		event occurrence sent;
+		event occurrence got;
+		succession first sent then got;
+	}
+	part def Scene {
+		part server {
+			event occurrence a;
+			event occurrence b;
+		}
+		part client : Client {
+			event occurrence answered :>> got;
+		}
+		message reply of Ping from server.a to client.answered;
+		message ask of Ping from client.sent to server.b;
+	}
+}`, "Client", "Scene")
+	want := []string{
+		"ask of Ping: client.sent -> server.b",
+		": client.sent -> client.answered",
+		"reply of Ping: server.a -> client.answered",
+		": sent -> got",
+	}
+	if got := sequenceEnds(rendering); !slices.Equal(got, want) {
+		t.Errorf("got %q\nwant %q", got, want)
+	}
+}
