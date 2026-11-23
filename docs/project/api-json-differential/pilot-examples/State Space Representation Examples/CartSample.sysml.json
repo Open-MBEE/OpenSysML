@@ -11,16 +11,16 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 3636,
-      "presentDifferent": 293,
-      "oursMissing": 257,
+      "presentEqual": 3642,
+      "presentDifferent": 290,
+      "oursMissing": 254,
       "pilotMissing": 125,
       "absentBoth": 3828,
       "indeterminate": 54,
       "pilotNondeterministic": 2
     },
     "unkeyedReferences": 202,
-    "extensionProperties": 464,
+    "extensionProperties": 467,
     "duplicateElements": {
       "ours": 0,
       "pilot": 0
@@ -452,12 +452,12 @@
     "ConstructorExpression.featureMembership": [0,3,0,0,0,0,0],
     "ConstructorExpression.featureTarget": [3,0,0,0,0,0,0],
     "ConstructorExpression.featuringType": [3,0,0,0,0,0,0],
-    "ConstructorExpression.function": [0,3,0,0,0,0,0],
+    "ConstructorExpression.function": [3,0,0,0,0,0,0],
     "ConstructorExpression.importedMembership": [0,0,0,0,3,0,0],
     "ConstructorExpression.inheritedFeature": [0,3,0,0,0,0,0],
     "ConstructorExpression.inheritedMembership": [0,3,0,0,0,0,0],
     "ConstructorExpression.input": [0,0,0,0,3,0,0],
-    "ConstructorExpression.instantiatedType": [0,0,3,0,0,0,0],
+    "ConstructorExpression.instantiatedType": [3,0,0,0,0,0,0],
     "ConstructorExpression.intersectingType": [0,0,0,0,3,0,0],
     "ConstructorExpression.isAbstract": [3,0,0,0,0,0,0],
     "ConstructorExpression.isComposite": [3,0,0,0,0,0,0],
