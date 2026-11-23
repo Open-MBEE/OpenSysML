@@ -28,7 +28,7 @@ func (BehaviorOrderPass) Run(ctx *kit.Context, name string, root *ast.RootNamesp
 	orders := lower.BehaviorOrders(model, scope)
 	var diags []diag.Diagnostic
 	for _, order := range orders {
-		if order.Refusal == nil || ctx.DownstreamOfFailure(order.Decl) {
+		if order.Refusal == nil {
 			continue
 		}
 		if order.Refusal.Code == "succession-orders-nothing" &&

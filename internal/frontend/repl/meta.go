@@ -42,12 +42,8 @@ const (
 	renderRunUsage = "usage: %render-run <timeline|sequence> [text|mermaid|plantuml|svg|svg-animated|dot] [link=<template>] [limit=<count>]"
 )
 
-// parseArgs splits a command line into arguments, handling quoted strings.
-// A double-quoted string is one argument with its quotes removed, which is how a
-// file path holding spaces is written; a SysML single-quoted name is one
-// argument with its quotes kept, since the quotes are part of the notation the
-// name is then parsed as ('My Pkg'::Car).
-// Example: `%load "path with spaces/file.sysml"` -> ["%load", "path with spaces/file.sysml"]
+// parseArgs splits a command line into arguments: "…" is one argument without its quotes, a
+// quoted name ('My Pkg'::Car) one with them; a backslash escapes only a following space or quote.
 func parseArgs(line string) []string {
 	var args []string
 	var current strings.Builder
@@ -62,12 +58,12 @@ func parseArgs(line string) []string {
 			// Previous char was backslash - add this char literally
 			current.WriteRune(r)
 			escaped = false
-		case r == '\\':
+		case r == '\\' && inName:
 			// Inside a name the backslash is the notation's own escape, so it stays
 			// with the character it escapes.
-			if inName {
-				current.WriteRune(r)
-			}
+			current.WriteRune(r)
+			escaped = true
+		case r == '\\' && escapesNext(runes[i+1:]):
 			escaped = true
 		case r == '"' && !inName:
 			// Toggle quote mode
@@ -96,6 +92,19 @@ func parseArgs(line string) []string {
 	}
 
 	return args
+}
+
+// escapesNext reports whether a backslash before rest escapes its first character: a
+// space or a quote. Any other backslash is text, as in a Windows path (`C:\models`, `\\host\share`).
+func escapesNext(rest []rune) bool {
+	if len(rest) == 0 {
+		return false
+	}
+	switch rest[0] {
+	case ' ', '\t', '"', '\'':
+		return true
+	}
+	return false
 }
 
 // SplitBehavior splits a behavior spec as `%action` and `-action` take it: the name,

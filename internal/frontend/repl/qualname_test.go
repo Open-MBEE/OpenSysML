@@ -82,6 +82,15 @@ func TestParseArgsKeepsQuotedNamesWhole(t *testing.T) {
 		// are still separate arguments.
 		{"%load ~/o'brien/a.sysml b.sysml", []string{"%load", "~/o'brien/a.sysml", "b.sysml"}},
 		{"%load a.sysml ~/o'brien/b.sysml", []string{"%load", "a.sysml", "~/o'brien/b.sysml"}},
+		// A backslash is kept as written, so a Windows path survives, quoted or not.
+		{`%load C:\models\ro.sysml`, []string{"%load", `C:\models\ro.sysml`}},
+		{`%load "C:\my models\ro.sysml"`, []string{"%load", `C:\my models\ro.sysml`}},
+		{`%load \\host\share\ro.sysml`, []string{"%load", `\\host\share\ro.sysml`}},
+		{`%save out\`, []string{"%save", `out\`}},
+		// Before a space or a quote it escapes that character.
+		{`%load my\ models/ro.sysml b.sysml`, []string{"%load", "my models/ro.sysml", "b.sysml"}},
+		{`%load "say \"hi\".sysml"`, []string{"%load", `say "hi".sysml`}},
+		{`%load o\'brien.sysml`, []string{"%load", "o'brien.sysml"}},
 		// Nor does a quote the line never closes.
 		{"%instantiate 'My Pkg::Car other", []string{"%instantiate", "'My", "Pkg::Car", "other"}},
 	} {
