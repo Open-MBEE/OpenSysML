@@ -65,12 +65,15 @@ public record RenderedView(
       boolean inherited,
       String parent,
       String compartment,
+      /** The notation outline derived from the metaclass; empty when the server withholds it. */
+      String shape,
       List<Port> ports,
       Optional<Span> origin,
       Optional<Geometry> geometry,
       Optional<Style> style) {
     public Node {
       Objects.requireNonNull(compartment, "compartment");
+      Objects.requireNonNull(shape, "shape");
       ports = List.copyOf(ports);
       Objects.requireNonNull(origin, "origin");
       Objects.requireNonNull(geometry, "geometry");
@@ -178,6 +181,7 @@ public record RenderedView(
                         node.getInherited(),
                         node.getParent(),
                         node.getCompartment(),
+                        node.getShape(),
                         node.getPortsList().stream()
                             .map(
                                 port ->

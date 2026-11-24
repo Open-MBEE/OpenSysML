@@ -63,6 +63,9 @@ type NodeData struct {
 	Arrow string `json:",omitempty"`
 	// Parallel marks a state whose substates run in parallel, «parallel» in its name compartment.
 	Parallel bool `json:",omitempty"`
+	// Shape is the notation outline of the node, derived from its metaclass and
+	// the rendering kind; empty when no shape was derived.
+	Shape Shape `json:",omitempty"`
 	// Ports are the pins drawn on the node's border, which an edge may end at.
 	Ports []Port
 	// Parent is the ID of the node this one is nested in, "" for a root.
@@ -149,6 +152,9 @@ func (r *Rendering) data(ports *portView) Data {
 	}
 	for _, root := range r.Roots {
 		out.Nodes = appendNodeData(out.Nodes, root, "", ports)
+	}
+	for i := range out.Nodes {
+		out.Nodes[i].Shape = NodeShape(out.Kind, out.Nodes[i])
 	}
 	for _, edge := range r.Edges {
 		out.Edges = append(out.Edges, EdgeData{From: edge.From, To: edge.To, FromPort: edge.FromPort, ToPort: edge.ToPort,

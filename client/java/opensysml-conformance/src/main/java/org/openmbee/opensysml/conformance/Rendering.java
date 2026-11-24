@@ -1000,7 +1000,8 @@ final class Rendering {
               .setDetail(node.detail())
               .setText(node.text())
               .setStandIn(node.standIn())
-              .setParent(node.parent());
+              .setParent(node.parent())
+              .setShape(node.shape());
       node.ports()
           .forEach(
               port ->

@@ -449,7 +449,7 @@ func marshalRenderView(model *cachedModel, data view.Data, text string) ([]byte,
 			ID: node.ID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
 			Type: node.Type, Detail: node.Detail, Text: node.Text, StandIn: node.StandIn,
 			Parent: node.Parent, Compartment: node.Compartment, Origin: origins.span(node.Origin), Style: jRenderStyle(node.Style),
-			Inherited: node.Inherited, Arrow: node.Arrow,
+			Inherited: node.Inherited, Arrow: node.Arrow, Shape: string(node.Shape),
 		}
 		for _, port := range node.Ports {
 			item.Ports = append(item.Ports, JRenderPort{

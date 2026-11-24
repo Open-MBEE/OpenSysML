@@ -433,6 +433,7 @@ type JRenderNode struct {
 	Style           *JRenderStyle    `json:"style,omitempty"`
 	Inherited       bool             `json:"inherited,omitempty"`
 	Arrow           string           `json:"arrow,omitempty"`
+	Shape           string           `json:"shape,omitempty"`
 }
 
 type JRenderPort struct {

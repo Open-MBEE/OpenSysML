@@ -284,6 +284,9 @@ class RenderNode:
     #: The state's substates run in parallel; the notation writes «parallel»
     #: under the name.
     parallel: bool = False
+    #: The notation outline derived from the node's metaclass, empty when the
+    #: server withholds the render_node_shape capability.
+    shape: str = ""
 
 
 @dataclass(frozen=True)
@@ -423,6 +426,7 @@ def render_view_result(response):
             _render_style(node.style if node.HasField("style") else None),
             inherited=node.inherited,
             parallel=node.parallel,
+            shape=node.shape,
         )
         for node in response.nodes
     )

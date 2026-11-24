@@ -14,15 +14,14 @@ import {
   CONTAINER_PAD,
   GAP,
   glyphSize,
+  headerSize,
   labelLines,
-  labelSize,
   MARGIN,
   PLACEABLE_KINDS,
   PORT_SIZE,
   portKind,
-  shapeOf,
+  shapeOfNode,
   snap,
-  symbolSize,
   type Side,
   simpleNames,
 } from "./layout";
@@ -153,8 +152,7 @@ async function layOut(result: RenderResult, free: boolean): Promise<AutoLayout> 
   const names = simpleNames(result.nodes ?? []);
   const elkNode = (node: RenderNode, packing = false): ElkNode => {
     const label =
-      symbolSize(shapeOf(node.kind)) ??
-      labelSize(labelLines(node, result.shown, names));
+      headerSize(shapeOfNode(node), labelLines(node, result.shown, names));
     // A stated size is the box ELK lays the node's siblings out around; its label is the padding above its children.
     const size =
       !free && node.width !== undefined && node.height !== undefined
@@ -381,8 +379,7 @@ function reconcile(
     }
     const geometry = placed.get(node.id)!;
     const header =
-      symbolSize(shapeOf(node.kind)) ??
-      labelSize(labelLines(node, result.shown, names));
+      headerSize(shapeOfNode(node), labelLines(node, result.shown, names));
     let left = geometry.x;
     let top = geometry.y;
     let right = geometry.x + (geometry.width ?? 0);

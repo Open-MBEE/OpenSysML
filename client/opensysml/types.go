@@ -27,6 +27,7 @@ const (
 	CapabilityRenderDocument                 = sysmlgrpc.CapabilityRenderDocument
 	CapabilityRenderView                     = sysmlgrpc.CapabilityRenderView
 	CapabilityRenderViewForm                 = sysmlgrpc.CapabilityRenderViewForm
+	CapabilityRenderNodeShape                = sysmlgrpc.CapabilityRenderNodeShape
 	CapabilityExportGraphs                   = sysmlgrpc.CapabilityExportGraphs
 	CapabilityInstancePaths                  = sysmlgrpc.CapabilityInstancePaths
 	CapabilitySymbolMembers                  = sysmlgrpc.CapabilitySymbolMembers

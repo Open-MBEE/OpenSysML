@@ -490,6 +490,9 @@ pub struct RenderNode {
     /// The compartment of the parent this node is a row of ("attributes",
     /// "parts", "ports", ...); empty for a node drawn as a box.
     pub compartment: String,
+    /// The notation outline derived from the node's metaclass; empty when the
+    /// server withholds the render_node_shape capability.
+    pub shape: String,
     /// Ports included for this node.
     pub ports: Vec<RenderPort>,
     /// Source location, when available.
@@ -662,6 +665,7 @@ pub(crate) fn rendered_view_of(response: wire::RenderViewResponse) -> RenderedVi
                 parallel: node.parallel,
                 parent: node.parent,
                 compartment: node.compartment,
+                shape: node.shape,
                 ports: node
                     .ports
                     .into_iter()
@@ -774,6 +778,7 @@ mod render_view_tests {
                     text: "text".to_owned(),
                     stand_in: true,
                     parallel: true,
+                    shape: "stadium".to_owned(),
                     ports: vec![wire::RenderPort {
                         id: "n0.0".to_owned(),
                         name: "api".to_owned(),
@@ -854,6 +859,7 @@ mod render_view_tests {
         assert!(rendered.nodes[0].ports[0].inherited);
         assert!(!rendered.nodes[0].inherited);
         assert!(rendered.nodes[0].parallel);
+        assert_eq!(rendered.nodes[0].shape, "stadium");
         assert_eq!(rendered.nodes[0].origin.as_ref().unwrap().start_line, 4);
         assert!(rendered.nodes[0].geometry.as_ref().unwrap().collapsed);
         assert!(rendered.nodes[0].geometry.as_ref().unwrap().unplaced);

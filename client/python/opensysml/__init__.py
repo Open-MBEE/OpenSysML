@@ -50,6 +50,7 @@ from opensysml.capabilities import (
     CAPABILITY_CONVERT_CHECK_DIAGNOSTICS,
     CAPABILITY_PARSE_SOURCES_AFFECTED,
     CAPABILITY_RENDER_DOCUMENT_FILE_NAME,
+    CAPABILITY_RENDER_NODE_SHAPE,
     MissingCapabilityError,
     ServerInfo,
 )

@@ -238,6 +238,9 @@ public final class Capabilities {
   /** The {@code RenderView} RPC also writes the view in a named form, with writer options. */
   public static final String RENDER_VIEW_FORM = "render_view_form";
 
+  /** {@code shape} on a rendered node carries its notation outline without parsing a written form. */
+  public static final String RENDER_NODE_SHAPE = "render_node_shape";
+
   /** The {@code ExportGraphs} RPC exports a behavior's lowered graph as {@code graphs:1} JSON. */
   public static final String EXPORT_GRAPHS = "export_graphs";
 

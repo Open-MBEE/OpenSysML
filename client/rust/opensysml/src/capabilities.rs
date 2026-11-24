@@ -37,6 +37,8 @@ pub const CAPABILITY_RENDER_DOCUMENT_ASCIIDOC: &str = "render_document_asciidoc"
 pub const CAPABILITY_RENDER_VIEW: &str = "render_view";
 /// `form` and the writer options on `RenderViewRequest`, answered in `text`.
 pub const CAPABILITY_RENDER_VIEW_FORM: &str = "render_view_form";
+/// `shape` on a rendered node carries its notation outline without parsing a written form.
+pub const CAPABILITY_RENDER_NODE_SHAPE: &str = "render_node_shape";
 /// The `ExportGraphs` RPC, exporting a behavior's lowered graph as `graphs:1` JSON.
 pub const CAPABILITY_EXPORT_GRAPHS: &str = "export_graphs";
 /// The ImportData RPC, which sets the feature values data files assign.

@@ -185,10 +185,14 @@ type RenderNode struct {
 	// Compartment names the compartment of Parent this node is a row of
 	// ("attributes", "parts", "ports", ...); empty for a node drawn as a box.
 	Compartment string
-	Ports       []RenderPort
-	Origin      *Span
-	Geometry    *RenderGeometry
-	Style       *RenderStyle
+	// Shape is the notation outline derived from the node's metaclass:
+	// "rectangle", "rounded", "stadium", "actor", "note", "diamond",
+	// "circle", "ring", "cross", "bar", "history" or "item".
+	Shape    string
+	Ports    []RenderPort
+	Origin   *Span
+	Geometry *RenderGeometry
+	Style    *RenderStyle
 }
 
 // RenderPort is a port shown on a rendered node.
@@ -332,7 +336,7 @@ func renderedViewFromProto(response *pb.RenderViewResponse) *RenderedView {
 		converted := RenderNode{
 			ID: node.Id, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
 			Type: node.Type, Detail: node.Detail, Text: node.Text, StandIn: node.StandIn, Parallel: node.Parallel, Parent: node.Parent,
-			Compartment: node.Compartment, Origin: renderSpanFromProto(node.Origin),
+			Compartment: node.Compartment, Shape: node.Shape, Origin: renderSpanFromProto(node.Origin),
 		}
 		for _, port := range node.Ports {
 			converted.Ports = append(converted.Ports, RenderPort{

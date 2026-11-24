@@ -1344,6 +1344,15 @@ with `INVALID_ARGUMENT` as any form its kind is not written in. All of it is adv
 `query_result_view`, and the document forms need `render_view_form` as well; a service without
 the capability does not know the fields, so a client checks the capability before asking.
 
+Every `RenderNode` carries a `shape` naming the notation outline derived from the element's
+metaclass and the rendering kind: `rectangle` (a definition), `rounded` (a usage), `stadium`
+(a case), `actor`, `note`, `diamond`, `circle`, `ring`, `cross`, `bar`, `history` or `item`.
+A canvas can draw a use case, requirement or actor without parsing a written diagram form. The
+field is additive — written forms are byte-for-byte unchanged — and gated by `render_node_shape`:
+a service without it leaves `shape` empty. The same field is carried by the JSON-RPC engine's
+`RenderViewResponse`, by `opensysml/render` in the language server, by the typed Go, Python,
+Node, Java and Rust clients, and as a declared capability in Julia and MATLAB.
+
 Both name a loaded model by its hash and a definition by qualified name, and
 compose the engine packages the REPL and CLI compose — `queryplan` →
 `queryexec` for a query, `docplan` → `docir` → `docrender` for a document — so

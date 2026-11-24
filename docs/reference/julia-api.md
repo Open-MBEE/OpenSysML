@@ -223,7 +223,9 @@ those [optional notation elements](../project/view-rendering-forms.md#optional-n
 besides the ones the view's rendering shows (`"all"` for every one), and the
 `RenderedView`'s `shown` lists the elements drawn. `compartments` says how a
 tree rendering folds owned members into compartment rows (`"positioned"`, the
-default, `"most"` or `"ports"`); a folded `RenderNode` names its `compartment`.
+default, `"most"` or `"ports"`); a folded `RenderNode` names its `compartment`, and a node
+reported by a server with `render_node_shape` also names its `shape`, the notation outline
+derived from its metaclass so a canvas need not parse a written form.
 
 Conversion is available through `convert_file(conn, path, to_format; ...)`,
 `convert_source(conn, content, to_format; from_format, ...)`,

@@ -4623,6 +4623,10 @@ pub struct RenderNode {
     /// The state's substates run in parallel; a label writes «parallel» under the name.
     #[prost(bool, tag="17")]
     pub parallel: bool,
+    /// The notation outline derived from the node's metaclass: "rectangle", "rounded",
+    /// "stadium", "actor", "note", "diamond", "circle", "ring", "cross", "bar", "history", "item".
+    #[prost(string, tag="18")]
+    pub shape: ::prost::alloc::string::String,
 }
 /// RenderPort is a feature drawn on a node's border.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
