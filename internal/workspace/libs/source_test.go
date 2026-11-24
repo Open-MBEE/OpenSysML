@@ -142,3 +142,32 @@ func TestDirSourceRejectsSymlinksOutsideBase(t *testing.T) {
 		t.Errorf("Read(Out.kerml) under a relative directory = %q, want an error", data)
 	}
 }
+
+// A directory named with ".." is read where the system resolves it when the working
+// directory was entered through a symbolic link, which $PWD still spells.
+func TestDirSourceReadsBesideAWorkingDirectoryEnteredThroughALink(t *testing.T) {
+	physical, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	project := filepath.Join(physical, "project")
+	library := filepath.Join(physical, "libs")
+	for _, dir := range []string{project, library} {
+		if err := os.Mkdir(dir, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(library, "Real.kerml"), []byte("package Real;"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(t.TempDir(), "entered")
+	if err := os.Symlink(project, link); err != nil {
+		t.Skipf("symbolic links are not available: %v", err)
+	}
+	t.Chdir(link)
+	t.Setenv("PWD", link)
+	src := &dirSource{dir: filepath.Join("..", "libs")}
+	if data, err := src.Read("Real.kerml"); err != nil || string(data) != "package Real;" {
+		t.Errorf("Read beside a linked working directory = %q, %v", data, err)
+	}
+}

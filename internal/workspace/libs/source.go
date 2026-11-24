@@ -137,6 +137,23 @@ func (s *dirSource) List() []string {
 	return out
 }
 
+// resolvedDir is dir, absolute and with its symbolic links followed. A relative dir is
+// taken from the working directory as the system resolves it, not as $PWD spells it.
+func resolvedDir(dir string) (string, error) {
+	if !filepath.IsAbs(dir) {
+		wd, err := os.Getwd()
+		if err != nil {
+			return "", err
+		}
+		if wd, err = filepath.EvalSymlinks(wd); err != nil {
+			return "", err
+		}
+		// Joined uncleaned: a ".." after a link must leave the link's target.
+		dir = wd + string(filepath.Separator) + dir
+	}
+	return filepath.EvalSymlinks(dir)
+}
+
 func (s *dirSource) Read(name string) ([]byte, error) {
 	// Subdirectories are allowed; escaping the base directory is not, by a ".."
 	// element or by a symbolic link that leads out of it.
@@ -145,11 +162,8 @@ func (s *dirSource) Read(name string) ([]byte, error) {
 	}
 	// The directory and the file are both resolved first, so a link that stays
 	// inside the directory reads whether its target is relative or absolute.
-	dir, err := filepath.Abs(s.dir)
+	dir, err := resolvedDir(s.dir)
 	if err != nil {
-		return nil, err
-	}
-	if dir, err = filepath.EvalSymlinks(dir); err != nil {
 		return nil, err
 	}
 	resolved, err := filepath.EvalSymlinks(filepath.Join(dir, name))
