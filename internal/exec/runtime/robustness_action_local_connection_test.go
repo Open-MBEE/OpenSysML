@@ -15,6 +15,7 @@ func TestRuntimeRobustnessActionLocalConnection(t *testing.T) {
 	t.Run("one_connector_per_performance", testActionLocalConnectionReadTwice)
 	t.Run("inherited_from_the_definition", testActionLocalConnectionInherited)
 	t.Run("read_by_a_nested_action", testActionLocalConnectionNested)
+	t.Run("nested_action_declaring_the_same_name", testActionLocalConnectionShadowed)
 	t.Run("end_selecting_nothing", testActionLocalConnectionEndSelectingNothing)
 }
 
@@ -54,6 +55,18 @@ const actionLocalConnectionFixture = `
 				connection link : Link connect firstNode to secondNode;
 				action inner { assign links := link; }
 				assign again := link;
+			}
+			action connectShadowed {
+				in ref firstNode : Node;
+				in ref secondNode : Node;
+				connection link : Link connect firstNode to secondNode;
+				assign links := link;
+				action inner {
+					in ref x : Node = secondNode;
+					in ref y : Node = firstNode;
+					connection link : Link connect x to y;
+					assign again := link;
+				}
 			}
 			action connectIndexed {
 				in ref firstNode : Node;
@@ -150,6 +163,18 @@ func testActionLocalConnectionNested(t *testing.T) {
 	}
 	if inner, outer := wantLinkEnds(t, ctx, inst, "links", a, b), wantLinkEnds(t, ctx, inst, "again", a, b); inner != outer {
 		t.Errorf("nested and enclosing reads hold connectors #%d and #%d, want one", inner, outer)
+	}
+}
+
+// testActionLocalConnectionShadowed: a nested action declaring a connection of the enclosing
+// one's name reads its own connector, though the enclosing one was read first.
+func testActionLocalConnectionShadowed(t *testing.T) {
+	ctx, inst, a, b := actionLocalConnectionNetwork(t)
+	if _, err := ctx.invokeOperation(inst, "connectShadowed", map[string]Value{"firstNode": a, "secondNode": b}); err != nil {
+		t.Fatalf("connectShadowed(a, b): %v", err)
+	}
+	if outer, inner := wantLinkEnds(t, ctx, inst, "links", a, b), wantLinkEnds(t, ctx, inst, "again", b, a); outer == inner {
+		t.Errorf("both actions hold connector #%d, want one each", outer)
 	}
 }
 

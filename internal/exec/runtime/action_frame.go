@@ -118,6 +118,8 @@ type actionFrame struct {
 	// connections are the connectors a send in this flow may route through:
 	// those of every flow around it, this one's own included.
 	connections []lower.Connection
+	// connectors holds the connectors of each connection usage the performed behavior declares.
+	connectors map[*symbols.Symbol]Value
 	// data holds the values the performance's own features hold.
 	data  map[string]Value
 	cells *bodyCells

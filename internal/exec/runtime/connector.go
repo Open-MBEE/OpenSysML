@@ -921,6 +921,9 @@ func (ec *EvalContext) performedConnector(sym *symbols.Symbol) (Value, bool, err
 	if perf == nil {
 		return Value{}, false, nil
 	}
+	if val, ok := perf.connectors[sym]; ok {
+		return val, true, nil
+	}
 	scope := sym.OwnerScope
 	if origin := ctx.model.semantics.ConnectorEndsOrigin(sym); origin != nil && origin.OwnerScope != nil {
 		scope = origin.OwnerScope
@@ -939,7 +942,11 @@ func (ec *EvalContext) performedConnector(sym *symbols.Symbol) (Value, bool, err
 	if err != nil {
 		return Value{}, true, err
 	}
-	ctx.writeBodyValue(perf.cells, perf.data, sym.Name, val)
+	if perf.connectors == nil {
+		perf.connectors = make(map[*symbols.Symbol]Value)
+	}
+	ctx.noteProbeUndo(func() { delete(perf.connectors, sym) })
+	perf.connectors[sym] = val
 	return val, true, nil
 }
 
