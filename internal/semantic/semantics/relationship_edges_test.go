@@ -226,6 +226,13 @@ func TestRelationshipEdgesOfDerivationKeepEndPaths(t *testing.T) {
 		part f : E;
 		#derivation connection mixed { end #original ::> e.held::s; end #derive ::> e::held::s; }
 		#derivation connection holders { end #original ::> e.held::s; end #derive ::> f::held::s; }
+		part ps : D [2];
+		ref one = ps#(1);
+		ref other = ps#(2);
+		#derivation connection indexed { end #original ::> one.r; end #derive ::> other.r; }
+		requirement top;
+		part h { alias t for top; }
+		#derivation connection aliased { end #original ::> top; end #derive ::> h.t; }
 		part outer : D {
 			part inner : D {
 				#derivation connection nested { end #original ::> outer.r; end #derive ::> inner.r; }
@@ -258,6 +265,8 @@ func TestRelationshipEdgesOfDerivationKeepEndPaths(t *testing.T) {
 		{"P::c::inherited", []string{"P::c"}, []string{"P::c"}, true},
 		{"P::mixed", []string{"P::e"}, []string{"P::e"}, true},
 		{"P::holders", []string{"P::e"}, []string{"P::f"}, false},
+		{"P::indexed", []string{"P::one"}, []string{"P::other"}, false},
+		{"P::aliased", nil, nil, true},
 		{"P::outer::inner::nested", []string{"P::outer"}, []string{"P::outer::inner"}, false},
 		{"P::outer::inner::bare", []string{"P::outer::inner"}, []string{"P::outer::inner"}, true},
 	} {

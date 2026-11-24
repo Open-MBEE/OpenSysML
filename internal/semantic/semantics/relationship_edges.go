@@ -231,11 +231,22 @@ func (m *Model) derivationPath(scope *symbols.Scope, node ast.Node) []*symbols.S
 	var path []*symbols.Symbol
 	for i, step := range steps[:len(steps)-1] {
 		declarer := steps[i+1].Owner()
-		if step.DeclaresUsage() && declarer != nil && !symbols.SameElement(declarer, step) && m.Conforms(step, declarer) {
+		if step.DeclaresUsage() && declarer != nil && !symbols.SameElement(declarer, step) && m.readsMembersOf(scope, step, declarer) {
 			path = append(path, step)
 		}
 	}
 	return path
+}
+
+// readsMembersOf reports whether a chain through step reaches declarer's members: step, or a
+// type or value its member lookup passes to (`x = ps#(1)` reads ps's), conforms to declarer.
+func (m *Model) readsMembersOf(scope *symbols.Scope, step, declarer *symbols.Symbol) bool {
+	if m.Conforms(step, declarer) {
+		return true
+	}
+	return slices.ContainsFunc(m.resolver.ChainHolders(scope, step), func(holder *symbols.Symbol) bool {
+		return symbols.SameElement(holder, declarer) || m.Conforms(holder, declarer)
+	})
 }
 
 // resolvedSteps is what each name segment of the chain node resolves to, outermost first, a
