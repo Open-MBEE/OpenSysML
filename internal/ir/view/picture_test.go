@@ -586,7 +586,20 @@ func TestPictureOutsideItsModelDirectoryIsRefusedByForms(t *testing.T) {
 		if err := os.Symlink(outside, filepath.Join(model, "linked")); err != nil {
 			t.Fatal(err)
 		}
-		within, beyond = append(within, "inner.png"), append(beyond, "linked/secret.png")
+		// Read as spelled, the last names a file under the model; opened, its ".." follows the link out.
+		within = append(within, "inner.png")
+		beyond = append(beyond, "linked/secret.png", strings.Join([]string{model, "linked", "..", "outside", "secret.png"}, string(filepath.Separator)))
+		// A model reached through a link states a picture beside it by the path the link leads to.
+		alias := filepath.Join(top, "alias")
+		if err := os.Symlink(model, alias); err != nil {
+			t.Fatal(err)
+		}
+		if err := pictureRefusal(Picture{Location: filepath.Join(model, "mark.png"), Dir: alias}); err != nil {
+			t.Errorf("a picture beside a model reached through a link is refused: %v", err)
+		}
+		if err := pictureRefusal(Picture{Location: filepath.Join(alias, "mark.png"), Dir: model}); err != nil {
+			t.Errorf("a picture named through a link to its model's directory is refused: %v", err)
+		}
 	}
 	rendering := &Rendering{Kind: KindInterconnection, Roots: []*Node{{ID: "n", Kind: "part", Name: "part"}}}
 	for _, location := range slices.Concat(within, beyond) {
