@@ -7,7 +7,7 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
 
 ## Unreleased
 
-## 0.13.0 — 2026-11-23
+## 0.13.0 — 2026-11-24
 
 ### Added
 
