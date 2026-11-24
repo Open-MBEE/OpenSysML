@@ -48,7 +48,7 @@ func (ec *EvalContext) evalSubactionPath(perf *actionFrame, parts []ast.NameSegm
 			perf = inner
 			continue
 		}
-		if i != len(parts)-1 && !perf.declares(part.Text) {
+		if i != len(parts)-1 && !perf.holds(part.Text) {
 			return Value{}, fmt.Errorf("%w: %s declares no node or pin %s to read %s through",
 				errNodePin, perf.describe(), part.Text, parts[len(parts)-1].Text)
 		}
