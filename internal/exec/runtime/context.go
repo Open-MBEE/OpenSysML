@@ -204,6 +204,8 @@ type Context struct {
 	trace *TraceRecorder
 	// stepWrites is the ledger of the action step under way, nil between steps.
 	stepWrites *stepWriteLedger
+	// choiceSerials numbers the choice points this context classifies (order_marks.go).
+	choiceSerials *choiceSerials
 	// controls is the choice points the move under way stands on by control: the
 	// guards read and branches drawn around it (order_marks.go), each once.
 	controls []int64
@@ -448,6 +450,8 @@ func NewContext(model *Model, maxSteps int64) *Context {
 		fired:       make(map[int64][]int64),
 
 		compileCalcs: calcCompileFromEnv(),
+
+		choiceSerials: &choiceSerials{},
 
 		run: &runState{
 			calcUsageRuns: make(map[int64]map[calcUsageKey]*calcRun),

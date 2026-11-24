@@ -862,7 +862,7 @@ func (e *stmtEngine) pickStatement(stmts []lower.Statement, next []int, order *l
 		Alternatives: alts,
 	}
 	choice.alike = e.ctx.heldAlike
-	classifyBy(&choice, fps, func(a, b int) bool { return order.Dependent(next[a], next[b], divided) },
+	classifyBy(e.ctx.choiceSerials, &choice, fps, func(a, b int) bool { return order.Dependent(next[a], next[b], divided) },
 		func(int, int) lower.Relation { return lower.Relation{} })
 	if e.ctx.statementOrderSweep != nil {
 		choice.Taken = e.ctx.statementOrderSweep.choose(&choice)
