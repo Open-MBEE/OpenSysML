@@ -86,6 +86,9 @@ func runExporter(launcher, dir, libraries string, files []string, timeout time.D
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 		return nil, fmt.Errorf("pilot export of %s exceeded %s", dir, timeout)
 	}
+	if ctx.Err() != nil {
+		return nil, fmt.Errorf("pilot export of %s: %w", dir, subprocess.ErrInterrupted)
+	}
 	status, err := exporter.Status(dir, runErr, string(stderr.Bytes()))
 	if err != nil {
 		return nil, err

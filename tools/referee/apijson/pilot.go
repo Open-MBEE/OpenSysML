@@ -135,6 +135,9 @@ func launchPilot(launcher, dir, out string, libraries, files []string, timeout t
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 		return pilotRun{}, fmt.Errorf("pilot export of %s exceeded %s", dir, timeout)
 	}
+	if ctx.Err() != nil {
+		return pilotRun{}, fmt.Errorf("pilot export of %s: %w", dir, subprocess.ErrInterrupted)
+	}
 	status, err := exporter.Status(dir, runErr, string(stderr.Bytes()))
 	if err != nil {
 		return pilotRun{}, err

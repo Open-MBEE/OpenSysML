@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"os/signal"
 	"sync"
 	"time"
 )
@@ -15,17 +16,22 @@ import (
 var (
 	ErrTimeout = errors.New("subprocess exceeded its time limit")
 	ErrOutput  = errors.New("subprocess exceeded its output limit")
+	// ErrInterrupted is a run ended because this process was interrupted.
+	ErrInterrupted = errors.New("subprocess stopped by an interrupt")
 )
 
 // WaitDelay is how long a killed program's descendants may hold its pipes open.
 const WaitDelay = 10 * time.Second
 
-// Timeout is ctx bounded by timeout, where zero or less means no limit.
+// Timeout is ctx bounded by timeout, where zero or less means no limit, and ended by an
+// interrupt of this process, which a helper in a process group of its own never receives.
 func Timeout(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
+	ctx, release := signal.NotifyContext(ctx, interrupts...)
 	if timeout <= 0 {
-		return context.WithCancel(ctx)
+		return ctx, release
 	}
-	return context.WithTimeout(ctx, timeout)
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	return ctx, func() { cancel(); release() }
 }
 
 // Output runs name and returns its streams, each held to limit bytes, within timeout.
@@ -44,6 +50,8 @@ func Output(timeout time.Duration, limit int, name string, args ...string) (stdo
 		return stdout, stderr, fmt.Errorf("%s: %w of %d bytes on one stream", name, ErrOutput, limit)
 	case errors.Is(ctx.Err(), context.DeadlineExceeded):
 		return stdout, stderr, fmt.Errorf("%s: %w of %s", name, ErrTimeout, timeout)
+	case ctx.Err() != nil:
+		return stdout, stderr, fmt.Errorf("%s: %w", name, ErrInterrupted)
 	}
 	return stdout, stderr, runErr
 }

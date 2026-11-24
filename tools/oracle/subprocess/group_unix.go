@@ -3,6 +3,7 @@
 package subprocess
 
 import (
+	"os"
 	"os/exec"
 	"syscall"
 )
@@ -18,3 +19,6 @@ func Group(cmd *exec.Cmd) {
 		return nil
 	}
 }
+
+// interrupts are the signals a terminal or a supervisor stops this process with.
+var interrupts = []os.Signal{os.Interrupt, syscall.SIGTERM}
