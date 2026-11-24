@@ -274,6 +274,7 @@ func (ids *ElementIDs) recordStatementOperands(e *encoder, node ast.Node, subjec
 	case *ast.WhileLoopActionNode:
 		switch n.Kind {
 		case ast.LoopFor:
+			ids.recordLoopVariable(e, n, subject)
 			record(xCollection, n.Collection)
 		case ast.LoopWhile:
 			record(xWhileCondition, n.Condition)
@@ -282,6 +283,16 @@ func (ids *ElementIDs) recordStatementOperands(e *encoder, node ast.Node, subjec
 			record(xUntilCondition, n.Condition)
 		}
 	}
+}
+
+// recordLoopVariable records the ReferenceUsage a `for` loop writes for its variable
+// (loopVariable) and the membership owning it: the variable declares no node of its own.
+func (ids *ElementIDs) recordLoopVariable(e *encoder, loop *ast.WhileLoopActionNode, subject rdf.Term) {
+	variable := e.ids.mintedNode(rdf.ExpressionIRI(subject, xLoopVariable), subject, xLoopVariable)
+	membership := e.ids.minted(rdf.OwningMembershipIRIOf(variable), variable, rdf.OwningMembershipSuffix)
+	recorded := partIDs{element: rdf.LocalName(variable.Value), membership: rdf.LocalName(membership.Value)}
+	ids.partByNode[partKey{loop, xLoopVariable}] = recorded
+	ids.partBySpan[spanPartKey{spanKey{e.file.Name(), loop.Span()}, xLoopVariable}] = recorded
 }
 
 // recordGuard records the guard a transition owns through its TransitionFeatureMembership

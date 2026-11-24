@@ -157,10 +157,11 @@ func (s *SymbolIDs) compute(sym *symbols.Symbol) (string, bool) {
 			return rdf.LocalName(membership.Value), true
 		}
 	}
-	// A `for` variable is keyed by its loop, which the conversion writes as a
-	// string (sysx:loopVariable), not as an element of its own.
-	if _, ok := sym.Decl.(*ast.WhileLoopActionNode); ok && sym.Name != "" {
-		return "", false
+	// A `for` variable declares no node of its own: its symbol is keyed by the
+	// loop, which the conversion writes it under (loopVariable).
+	if semantics.IsLoopVariable(sym) {
+		element, _, ok := s.ids.OfExpressionPart(doc, sym.Decl, xLoopVariable)
+		return element, ok
 	}
 	// A body's parameter declares no node of its own: its symbol is keyed by the
 	// body, which the conversion writes as the reference the parameter is in<i> of.
@@ -372,6 +373,11 @@ func (s *SymbolIDs) implicitMembershipID(rel *symbols.ImplicitRelationship, doc 
 		// An action a subaction performs is owned through the member written as the membership.
 		return s.ids.OfDeclaration(doc, node, "")
 	}
+	if semantics.IsLoopVariable(rel.Member) {
+		// A `for` variable is keyed by its loop; its FeatureMembership is minted off the variable.
+		_, membership, ok := s.ids.OfExpressionPart(doc, rel.Member.Decl, xLoopVariable)
+		return membership, ok
+	}
 	if body, ok := rel.Member.Decl.(*ast.BodyExpr); ok && rel.Member.Name != "" {
 		// A body's parameter is keyed by its body; its FeatureMembership is minted
 		// off the parameter (bodyParameter), not off the body's own membership.
@@ -403,6 +409,10 @@ func (s *SymbolIDs) implicitWrittenID(rel *symbols.ImplicitRelationship, doc str
 	if _, ok := rel.Owner.Decl.(*ast.BodyExpr); ok && rel.Owner.Name != "" {
 		// A body parameter's head clauses are materialized off the parameter, in
 		// the order written per kind (bodyParameter, materializeRelationships).
+		return s.bodyParameterRelationshipID(rel)
+	}
+	if semantics.IsLoopVariable(rel.Owner) {
+		// A `for` variable's head clauses are materialized off the variable (loopVariable).
 		return s.bodyParameterRelationshipID(rel)
 	}
 	if rel.Owner != nil && isConnectorEnd(rel.Owner) && rel.Kind.ReferenceSubsets() {
@@ -608,8 +618,8 @@ func isConnectorEnd(sym *symbols.Symbol) bool {
 	return sym.Kind == symbols.SymbolConnectorEnd || sym.Expr != nil && sym.Expr.Role == symbols.ExpressionConnectorEnd
 }
 
-// bodyParameterRelationshipID spells the relationship a body parameter's head clause writes (`in a : T :> f`):
-// the parameter's id and the suffix the conversion mints for the clause's kind at its position.
+// bodyParameterRelationshipID spells the relationship a head clause of a body parameter (`in a : T :> f`)
+// or of a `for` variable writes: the parameter's id and the suffix the conversion mints for the clause's kind at its position.
 func (s *SymbolIDs) bodyParameterRelationshipID(rel *symbols.ImplicitRelationship) (string, bool) {
 	element, ok := s.of(rel.Owner)
 	if !ok {

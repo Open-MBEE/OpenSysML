@@ -74,6 +74,7 @@ const (
 	pGuardExpression                   = "guardExpression"
 	pTriggerAction                     = "triggerAction"
 	pPayloadParameter                  = "payloadParameter"
+	pLoopVariable                      = "loopVariable"
 	pPayloadArgument                   = "payloadArgument"
 	pReceiverArgument                  = "receiverArgument"
 	pSenderArgument                    = "senderArgument"
