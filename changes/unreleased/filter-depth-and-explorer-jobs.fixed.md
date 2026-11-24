@@ -1,0 +1,1 @@
+- A filter condition that nests its operators more than 256 deep is reported once as not evaluated (`filter-not-evaluated`) and keeps every candidate, instead of being compiled and checked by recursion as deep as the document writes it; an exploration puts at most 256 jobs to work however many `OPENSYSML_JOBS` and the runs budget name, with the same result.

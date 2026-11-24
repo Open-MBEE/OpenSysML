@@ -78,7 +78,17 @@ func (fc *filterChecker) walk(scope *symbols.Scope) {
 
 // check reports the faults of one condition.
 func (fc *filterChecker) check(f symbols.ElementFilter) {
-	if fc.model == nil || fc.gated(f.Expr) {
+	if fc.model == nil {
+		return
+	}
+	// A condition nested past the bound is reported as not evaluated and walked no further.
+	if semantics.FilterNestsTooDeep(f.Expr) {
+		for _, p := range fc.model.CheckElementFilter(f) {
+			fc.diags = append(fc.diags, filterDiagnostic(p))
+		}
+		return
+	}
+	if fc.gated(f.Expr) {
 		return
 	}
 	for _, p := range fc.model.CheckElementFilter(f) {

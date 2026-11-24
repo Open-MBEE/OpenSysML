@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -307,4 +308,21 @@ func stringForSpan(t *testing.T, src string, span source.Span) string {
 		t.Fatalf("span %#v is outside source of length %d", span, len(src))
 	}
 	return src[span.Offset : span.Offset+span.Len]
+}
+
+// nestedNots writes a filter condition of n `not` operators around one classification test.
+func nestedNots(n int) string {
+	return filterMetadata + "package P { filter " + strings.Repeat("not (", n) + "@Safety" + strings.Repeat(")", n) + "; }\n"
+}
+
+// TestAFilterNestedPastTheBoundIsNotEvaluated: the pass recurses once per operator, so a
+// condition past the bound is reported once as not evaluated instead of being walked.
+func TestAFilterNestedPastTheBoundIsNotEvaluated(t *testing.T) {
+	if diags := filterDiags(t, nestedNots(semantics.MaxFilterDepth-1)); len(diags) != 0 {
+		t.Fatalf("a condition inside the bound: got %v, want no findings", diags)
+	}
+	diags := filterDiags(t, nestedNots(semantics.MaxFilterDepth+1))
+	if len(diags) != 1 || diags[0].Code != "filter-not-evaluated" {
+		t.Fatalf("a condition past the bound: got %v, want one filter-not-evaluated", diags)
+	}
 }

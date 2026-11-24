@@ -139,10 +139,50 @@ func (m *Model) CompileElementFilter(f symbols.ElementFilter) *symbols.FilterPre
 	// The names a condition uses are not subject to the condition itself, so
 	// they resolve through the namespace's imports unfiltered.
 	var pred *symbols.FilterPredicate
-	m.resolver.InCondition(func() { pred = m.compileCondition(f.Scope, f.Expr) })
+	if FilterNestsTooDeep(f.Expr) {
+		pred = evaluatorUnsupported(spanOf(f.Expr), filterDepthLimitation, nil)
+	} else {
+		m.resolver.InCondition(func() { pred = m.compileCondition(f.Scope, f.Expr) })
+	}
 	journal(m, m.filterPreds, f.Expr, f.Expr)
 	m.filterPreds[f.Expr] = pred
 	return pred
+}
+
+// MaxFilterDepth bounds how deep a filter condition nests its operators: compiling,
+// checking and evaluating one recurse per level, on a depth the document chooses.
+const MaxFilterDepth = 256
+
+const filterDepthLimitation = "the condition nests its operators too deeply"
+
+// FilterNestsTooDeep reports whether a condition nests operators past MaxFilterDepth.
+// It walks with a stack of its own, so the answer costs no call depth.
+func FilterNestsTooDeep(expr ast.Node) bool {
+	type level struct {
+		node  ast.Node
+		depth int
+	}
+	pending := []level{{expr, 1}}
+	for len(pending) > 0 {
+		at := pending[len(pending)-1]
+		pending = pending[:len(pending)-1]
+		var operands []ast.Node
+		switch e := at.node.(type) {
+		case *ast.OperatorExpr:
+			operands = e.Operands
+		case *ast.SequenceExpr:
+			operands = e.Elements
+		default:
+			continue
+		}
+		if at.depth > MaxFilterDepth {
+			return true
+		}
+		for _, o := range operands {
+			pending = append(pending, level{o, at.depth + 1})
+		}
+	}
+	return false
 }
 
 // compileCondition compiles one filter expression, resolving every element it
