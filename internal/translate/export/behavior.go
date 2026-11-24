@@ -503,6 +503,10 @@ func (e *encoder) nodeParameter(subject rdf.Term, slot, metaclass string) rdf.Te
 	if metaclass == mParameterMembership {
 		e.graph.Add(param, e.sysml(pDirection), rdf.String("in"))
 		e.graph.Add(membership, e.sysml(pOwnedMemberParameter), param)
+		// The node owning it is an action, and so an occurrence its referential usage varies over.
+		if e.ids.model.UsageMayTimeVaryUnderKind(ast.UsageAction) {
+			e.flags(param, []boolProperty{{"isVariable", true}, {"mayTimeVary", true}})
+		}
 	}
 	return param
 }

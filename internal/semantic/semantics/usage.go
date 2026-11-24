@@ -69,7 +69,8 @@ func (m *Model) UsageMayTimeVary(sym *symbols.Symbol) bool {
 }
 
 // synthesizedUsageMayTimeVary derives Usage::mayTimeVary for a referential part the model synthesizes:
-// a flow end's ReferenceUsage, a transition's link parameter, or a trigger's payload and receiver parameters.
+// a flow end's ReferenceUsage, a transition's link parameter, a trigger's payload and receiver parameters,
+// or an assignment's or a loop's node parameter.
 func (m *Model) synthesizedUsageMayTimeVary(sym *symbols.Symbol) (varies, ok bool) {
 	if _, ok := symbols.ImpliedFlowEndFeatureIndex(sym); ok {
 		// A flow end's ReferenceUsage is owned by the FlowEnd, which redefines Flows::Flow::source
@@ -89,6 +90,10 @@ func (m *Model) synthesizedUsageMayTimeVary(sym *symbols.Symbol) (varies, ok boo
 	case symbols.ExpressionPayload:
 		// A trigger's parameters are owned by the AcceptActionUsage the trigger implies, an action.
 		return m.UsageMayTimeVaryUnderKind(ast.UsageAction), true
+	case symbols.ExpressionNodeParameter:
+		// An assignment's or a loop's parameter is owned by that action; a feature a parameter nests is not.
+		nested := sym.Expr.Owner != nil && sym.Expr.Owner.Expr != nil && sym.Expr.Owner.Expr.Role == symbols.ExpressionNodeParameter
+		return !nested && m.UsageMayTimeVaryUnderKind(ast.UsageAction), true
 	case symbols.ExpressionTransitionLink:
 		// The pilot exports a transition's transitionLink as neither variable nor time-varying.
 		return false, true
