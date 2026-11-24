@@ -101,13 +101,11 @@ func pictureRefusal(p Picture) error {
 }
 
 // outside is whether the file the picture's path opens lies outside the directory of the model
-// stating it, links followed as the system follows them; a picture stated in no file has no such directory.
+// stating it, links followed; a picture stated in no file has no such directory.
 func (p Picture) outside() bool {
 	if p.Dir == "" {
 		return false
 	}
-	// An absolute location is opened as written, so it is resolved as written: cleaning it
-	// first would drop a ".." after a link, which leads elsewhere than the path's spelling.
 	dir, path := p.Dir, p.Path()
 	if cwd, err := os.Getwd(); err == nil {
 		if !filepath.IsAbs(dir) {
@@ -117,15 +115,22 @@ func (p Picture) outside() bool {
 			path = filepath.Join(cwd, path)
 		}
 	}
+	// A ".." after a link leaves the link's target on one system and the link's own directory
+	// on another, so the path is held to the model's directory read both ways.
+	return !pathUnder(path, dir) || !pathUnder(filepath.Clean(path), dir)
+}
+
+// pathUnder is whether path, links followed, is under dir; a path that does not
+// resolve is not read, and its spelling alone says where it would be.
+func pathUnder(path, dir string) bool {
 	if file, err := filepath.EvalSymlinks(path); err == nil {
 		path = file
 		if dir, err = filepath.EvalSymlinks(dir); err != nil {
-			return true
+			return false
 		}
 	}
-	// A file that does not resolve is not read; its path alone says where it would be.
 	rel, err := filepath.Rel(dir, path)
-	return err != nil || !filepath.IsLocal(rel)
+	return err == nil && filepath.IsLocal(rel)
 }
 
 func (r *Rendering) pictureRefusals() []error {

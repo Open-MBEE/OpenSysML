@@ -589,6 +589,14 @@ func TestPictureOutsideItsModelDirectoryIsRefusedByForms(t *testing.T) {
 		// Read as spelled, the last names a file under the model; opened, its ".." follows the link out.
 		within = append(within, "inner.png")
 		beyond = append(beyond, "linked/secret.png", strings.Join([]string{model, "linked", "..", "outside", "secret.png"}, string(filepath.Separator)))
+		// A ".." after a link into the model names the outside file where ".." is taken before the link.
+		if err := os.Symlink(filepath.Join(model, "images"), filepath.Join(outside, "into")); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(outside, "mark.png"), pngData.Bytes(), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		beyond = append(beyond, strings.Join([]string{outside, "into", "..", "mark.png"}, string(filepath.Separator)))
 		// A model reached through a link states a picture beside it by the path the link leads to.
 		alias := filepath.Join(top, "alias")
 		if err := os.Symlink(model, alias); err != nil {
