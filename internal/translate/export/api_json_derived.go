@@ -24,6 +24,8 @@ type apiJSONCompletedProperty struct {
 	clause string
 	// defaultValue completes a non-derived attribute at its metamodel default when set.
 	defaultValue any
+	// declaring is the class declaring the property, where class narrows the metaclasses the entry applies to.
+	declaring string
 	// overStated marks a property the graph states with the mapping's own, narrower
 	// meaning: the element form writes the derived value and keeps the stated one as a mapping value.
 	overStated bool
@@ -74,6 +76,8 @@ var apiJSONCompletedProperties = []apiJSONCompletedProperty{
 	{class: "Type", name: "feature", clause: "8.3.3.1.10 deriveTypeFeature"},
 	{class: "Type", name: "inheritedFeature", clause: "8.3.3.1.10 deriveTypeInheritedFeature"},
 	{class: "Type", name: "directedFeature", clause: "8.3.3.1.10 deriveTypeDirectedFeature"},
+	// The graph's sysml:input of a send action is its owned parameters alone.
+	{class: "SendActionUsage", declaring: "Type", name: "input", clause: "8.3.3.1.10 deriveTypeInput", overStated: true},
 	{class: "Type", name: "input", clause: "8.3.3.1.10 deriveTypeInput"},
 	{class: "Type", name: "output", clause: "8.3.3.1.10 deriveTypeOutput"},
 	{class: "Type", name: "endFeature", clause: "8.3.3.1.10 deriveTypeEndFeature"},
@@ -102,7 +106,12 @@ var apiJSONCompletedProperties = []apiJSONCompletedProperty{
 	{class: "Conjugation", name: "owningType", clause: "8.3.3.1.2 owningType"},
 	{class: "Disjoining", name: "owningType", clause: "8.3.3.1.4 owningType"},
 	{class: "Step", name: "behavior", clause: "8.3.4.6.3 deriveStepBehavior"},
+	// The graph's sysml:function of a constructor is the type it instantiates, which the mapping reads back.
+	{class: "ConstructorExpression", declaring: "Expression", name: "function", clause: "8.3.4.7.3 deriveExpressionFunction", overStated: true},
 	{class: "Expression", name: "function", clause: "8.3.4.7.3 deriveExpressionFunction"},
+	{class: "ConstructorExpression", declaring: "InstantiationExpression", name: "instantiatedType", clause: "8.3.4.8.7 deriveInstantiationExpressionInstantiatedType"},
+	// The graph's sysml:argument of a constructor follows the written order.
+	{class: "ConstructorExpression", declaring: "InstantiationExpression", name: "argument", clause: "8.3.4.8.3 deriveConstructorExpressionArgument", overStated: true},
 	{class: "Expression", name: "result", clause: "8.3.4.7.3 deriveExpressionResult"},
 	{class: "MultiplicityRange", name: "bound", clause: "8.3.4.11.2 deriveMultiplicityRangeBound"},
 	{class: "Usage", name: "owningDefinition", clause: "SysML 8.3.6.4 deriveUsageOwningDefinition"},
@@ -304,11 +313,15 @@ func (w *apiJSONElementWriter) completeDerived(subject rdf.Term, metaclass strin
 // completedValue evaluates one completed property of subject and spells it in
 // the element form; a value the form does not spell is reported as omitted.
 func (w *apiJSONElementWriter) completedValue(subject rdf.Term, metaclass string, semanticElement metamodel.Element, property apiJSONMetaclassCompletion) (any, bool) {
-	value, supported := w.evaluation.evaluator.PropertyReadOnlyUncached(semanticElement, property.class, property.name)
+	class := property.class
+	if property.declaring != "" {
+		class = property.declaring
+	}
+	value, supported := w.evaluation.evaluator.PropertyReadOnlyUncached(semanticElement, class, property.name)
 	if !supported {
-		reason, explained := w.evaluation.evaluator.Explain(semanticElement, property.class, property.name)
+		reason, explained := w.evaluation.evaluator.Explain(semanticElement, class, property.name)
 		if !explained {
-			reason = metamodel.Reason{Category: metamodel.ReasonNoRule, Detail: property.class + "::" + property.name}
+			reason = metamodel.Reason{Category: metamodel.ReasonNoRule, Detail: class + "::" + property.name}
 		}
 		w.completionOmitted(subject, metaclass, property.name, reason)
 		return nil, false

@@ -121,3 +121,80 @@ func (a *arranger) layoutNode(node *Node) layout.Node {
 	}
 	return out
 }
+
+// dotAnchorClearance is how far, in pixels, an orthogonal drawing keeps a
+// cluster's anchor from the nodes and pins drawn in the cluster.
+const dotAnchorClearance = 4
+
+// anchorPoint is where a cluster's anchor is pinned: its box's centre, or under the orthogonal
+// routing the nearest point clear of its nodes, the pins and the notes, since Graphviz routes none once two nodes touch.
+func (w *dotWriter) anchorPoint(node *Node, box nodeBox) Point {
+	centre := box.centre()
+	if w.lines != LinesOrtho {
+		return centre
+	}
+	var obstacles []nodeBox
+	var members func(nodes []*Node)
+	members = func(nodes []*Node) {
+		for _, member := range nodes {
+			if len(member.Children) > 0 || w.omitted[member.ID] {
+				members(member.Children)
+			} else if drawn, ok := w.boxes[member.ID]; ok {
+				obstacles = append(obstacles, drawn)
+			}
+		}
+	}
+	members(node.Children)
+	for _, pin := range w.pins {
+		obstacles = append(obstacles, pin)
+	}
+	for _, note := range w.noteBoxes {
+		if !note.encloses(box) {
+			obstacles = append(obstacles, note)
+		}
+	}
+	free := func(p Point) bool {
+		for _, o := range obstacles {
+			if p.X > o.low.X-dotAnchorClearance && p.X < o.high.X+dotAnchorClearance &&
+				p.Y > o.low.Y-dotAnchorClearance && p.Y < o.high.Y+dotAnchorClearance {
+				return false
+			}
+		}
+		return true
+	}
+	if free(centre) {
+		return centre
+	}
+	// Beside an obstacle the nearest clear point lies on a line one clearance off a box's side.
+	xs, ys := []float64{centre.X}, []float64{centre.Y}
+	for _, o := range obstacles {
+		xs = append(xs, o.low.X-dotAnchorClearance, o.high.X+dotAnchorClearance)
+		ys = append(ys, o.low.Y-dotAnchorClearance, o.high.Y+dotAnchorClearance)
+	}
+	best, found := centre, false
+	for _, x := range xs {
+		for _, y := range ys {
+			p := Point{X: x, Y: y}
+			if x <= box.low.X || x >= box.high.X || y <= box.low.Y || y >= box.high.Y || !free(p) {
+				continue
+			}
+			if !found || nearer(p, best, centre) {
+				best, found = p, true
+			}
+		}
+	}
+	return best
+}
+
+// nearer reports whether p lies closer to the target than q, the upper and
+// then the left one of two as close.
+func nearer(p, q, target Point) bool {
+	dp, dq := math.Hypot(p.X-target.X, p.Y-target.Y), math.Hypot(q.X-target.X, q.Y-target.Y)
+	if dp != dq {
+		return dp < dq
+	}
+	if p.Y != q.Y {
+		return p.Y < q.Y
+	}
+	return p.X < q.X
+}
