@@ -47,3 +47,37 @@ func TestElementPropertiesReadAForLoopVariable(t *testing.T) {
 		}
 	}
 }
+
+// A `for` variable keeps the short name its head declares, and owns nothing of the loop's
+// body: a nested loop is the outer loop's member alone.
+func TestElementPropertiesReadAForLoopVariableShortNameAndBody(t *testing.T) {
+	r := parseForElementProperties(t, `package P {
+    private import ScalarValues::*;
+    action def S { for <c> i : Integer in (1, 2, 3) { while true { action each; } action other; } }
+}`)
+	loop := propertyElementIDs(r.property("P__S", "ownedFeature").Values)[0]
+	features := propertyElementIDs(r.property(loop, "ownedFeature").Values)
+	if len(features) != 3 {
+		t.Fatalf("%s: ownedFeature = %v, want the variable, the nested loop and other", loop, features)
+	}
+	variable := features[0]
+	if names := r.property(variable, "declaredShortName").Values; len(names) != 1 || names[0].GetStringValue() != "c" {
+		t.Errorf("%s: declaredShortName = %v, want c", variable, names)
+	}
+	if names := r.property(variable, "declaredName").Values; len(names) != 1 || names[0].GetStringValue() != "i" {
+		t.Errorf("%s: declaredName = %v, want i", variable, names)
+	}
+	for _, property := range []string{"ownedFeature", "ownedMember", "ownedElement"} {
+		if got := propertyElementIDs(r.property(variable, property).Values); len(got) != 0 {
+			t.Errorf("%s: %s = %v, want none: the body is the loop's", variable, property, got)
+		}
+	}
+	if got := propertyElementIDs(r.property(variable, "ownedRelationship").Values); len(got) != 1 {
+		t.Errorf("%s: ownedRelationship = %v, want its typing alone", variable, got)
+	}
+	for _, member := range features[1:] {
+		if got := propertyElementIDs(r.property(member, "owner").Values); !slices.Equal(got, []string{loop}) {
+			t.Errorf("%s: owner = %v, want %s", member, got, loop)
+		}
+	}
+}

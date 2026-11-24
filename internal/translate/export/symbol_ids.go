@@ -2,6 +2,7 @@ package export
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 
@@ -625,6 +626,19 @@ func encodedSegment(segment string) string {
 	return strings.TrimPrefix(rdf.EncodeElementID("x::"+segment), "x")
 }
 
+// clauseTarget tells apart the targets owner's head clauses name, as clauseObject does: a
+// name by its referent, or as written when it resolves to none, and a chain by its own clause.
+func (s *SymbolIDs) clauseTarget(owner *symbols.Symbol, rel *ast.Relationship) any {
+	name, ok := rel.Target.(*ast.QualifiedName)
+	if !ok || qualifiedNameHasChain(name) {
+		return rel
+	}
+	if target := s.model.RelationshipTarget(owner, rel); target != nil {
+		return target
+	}
+	return qualifiedText(name)
+}
+
 // isConnectorEnd reports whether sym is a connector's end, declared or synthesized.
 func isConnectorEnd(sym *symbols.Symbol) bool {
 	return sym.Kind == symbols.SymbolConnectorEnd || sym.Expr != nil && sym.Expr.Role == symbols.ExpressionConnectorEnd
@@ -637,18 +651,33 @@ func (s *SymbolIDs) bodyParameterRelationshipID(rel *symbols.ImplicitRelationshi
 	if !ok {
 		return "", false
 	}
-	count, index, ordinal := 0, 0, 0
+	// As pendingRelationships numbers them: the distinct targets in clause order, then each repeat.
+	var targets []any
+	var repeated []bool
+	at, ordinal := -1, 0
 	for _, written := range semantics.RelationshipsOf(rel.Owner) {
 		if written == nil {
 			continue
 		}
 		if written.Kind == rel.Kind {
-			if ordinal < rel.Ordinal {
-				index++
+			if ordinal == rel.Ordinal {
+				at = len(targets)
 			}
-			count++
+			target := s.clauseTarget(rel.Owner, written)
+			repeated = append(repeated, slices.Contains(targets, target))
+			targets = append(targets, target)
 		}
 		ordinal++
 	}
-	return element + relationshipSuffix(rel.Kind, false, count, index), true
+	if at < 0 {
+		return "", false
+	}
+	index := 0
+	for i, repeat := range repeated {
+		// A distinct target counts ahead of every repeat, and its own kind in clause order.
+		if !repeat && repeated[at] || repeat == repeated[at] && i < at {
+			index++
+		}
+	}
+	return element + relationshipSuffix(rel.Kind, false, len(targets), index), true
 }

@@ -2880,7 +2880,7 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		// A qualified usage's redefinition follows the reference as `:>>`
 		// (SysML.xtext PerformActionUsageDeclaration & co.); `event` spells it.
 		if usageQualifier[el.metaclass] != "" {
-			redefined, err := d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelRedefines])
+			redefined, err := d.clauseNames(el, ast.RelRedefines)
 			if err != nil {
 				return "", err
 			}
@@ -2976,7 +2976,7 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		skip = append(skip, ast.RelTyping)
 	}
 	if isResult && el.metaclass == mReferenceUsage {
-		subsets, err := d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelSubsets])
+		subsets, err := d.clauseNames(el, ast.RelSubsets)
 		if err != nil {
 			return "", err
 		}
@@ -4559,17 +4559,22 @@ func (d *decoder) spelledHead(el *element) []headClause {
 		if len(targets) == 0 {
 			continue
 		}
-		var candidates []headClause
+		var free, repeated []headClause
 		for _, kind := range headClauseKinds[metaclass] {
 			for index, object := range objects[kind] {
 				clause := headClause{kind: kind, index: index}
-				if slices.Contains(targets, object) && !taken[clause] {
-					candidates = append(candidates, clause)
-					break
+				if !slices.Contains(targets, object) {
+					continue
 				}
+				if taken[clause] {
+					repeated = append(repeated, clause)
+					continue
+				}
+				free = append(free, clause)
+				break
 			}
 		}
-		if clause, ok := d.headClauseOf(owned, candidates); ok {
+		if clause, ok := d.headClauseOf(owned, free, repeated); ok {
 			taken[clause] = true
 			clauses = append(clauses, clause)
 		}
@@ -4577,30 +4582,52 @@ func (d *decoder) spelledHead(el *element) []headClause {
 	return clauses
 }
 
-// headClauseOf picks the clause a relationship element states among the candidates its
-// metaclass admits: the keyword it carries decides between several, else the kinds' fixed order.
-func (d *decoder) headClauseOf(owned rdf.Term, candidates []headClause) (headClause, bool) {
-	switch len(candidates) {
-	case 0:
-		return headClause{}, false
-	case 1:
-		return candidates[0], true
-	}
+// headClauseOf picks the clause a relationship element states: the one its keyword names, else
+// a free clause before a repeated one (`: T, T`), each in the kinds' fixed order.
+func (d *decoder) headClauseOf(owned rdf.Term, free, repeated []headClause) (headClause, bool) {
 	if keyword, ok := d.graph.Object(owned, rdf.OpenSysML+xHeadClause); ok {
-		for _, clause := range candidates {
+		for _, clause := range slices.Concat(free, repeated) {
 			if relationshipSyntax[clause.kind] == keyword.Value {
 				return clause, true
 			}
 		}
 	}
-	for _, kind := range relationshipOrder {
-		for _, clause := range candidates {
-			if clause.kind == kind {
-				return clause, true
+	for _, candidates := range [][]headClause{free, repeated} {
+		for _, kind := range relationshipOrder {
+			for _, clause := range candidates {
+				if clause.kind == kind {
+					return clause, true
+				}
 			}
 		}
+		if len(candidates) > 0 {
+			return candidates[0], true
+		}
 	}
-	return candidates[0], true
+	return headClause{}, false
+}
+
+// clauseNames are the names el's head states for kind as its relationship elements order
+// them, a repeated one (`:> a, a`) as often as they state it.
+func (d *decoder) clauseNames(el *element, kind ast.RelationshipKind) ([]string, error) {
+	names, err := d.referenceList(el, rdf.SysML+relationshipProperty[kind])
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	written := make([]bool, len(names))
+	for _, clause := range d.spelledHead(el) {
+		if !clause.multiplicity && clause.kind == kind && clause.index < len(names) {
+			out = append(out, names[clause.index])
+			written[clause.index] = true
+		}
+	}
+	for index, name := range names {
+		if !written[index] {
+			out = append(out, name)
+		}
+	}
+	return out, nil
 }
 
 func (d *decoder) multiplicityText(el *element) string {

@@ -1628,6 +1628,9 @@ func (e *stmtEngine) forIteration(stmt lower.Loop, f *loopFrame, resumed bool) (
 		e.syncLoopCells(f)
 		e.ctx.resetBodyCells(f.cells)
 		f.locals[stmt.Variable] = f.elements[f.iteration-1]
+		if stmt.Alias != "" {
+			f.locals[stmt.Alias] = f.elements[f.iteration-1]
+		}
 	}
 	control := e.ctx.underControl(f.control)
 	flow, err = e.runBlock(stmt.Body)

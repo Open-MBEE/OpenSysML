@@ -1,0 +1,1 @@
+- A feature typed by a port definition and by its conjugate (`port socket : Plug, ~Plug;`) answers a separate `elementId` for each typing in a document query; both read the first typing's id before, and the second id named nothing.
