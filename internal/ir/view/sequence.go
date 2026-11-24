@@ -851,50 +851,41 @@ func reaches(later [][]int, at map[lifelineEnd]int) func(a, b lifelineEnd) bool 
 func sequenceRows(messages []message, successions []succession, orders []timing, before func(a, b lifelineEnd) bool) []Edge {
 	follows := rowsFollowed(messages, successions, orders, before)
 	placed := make([]bool, len(follows))
-	rows := make([]int, 0, len(follows))
-	// lead places a succession above the row it leads to, once its messages are placed.
-	var lead func(row int)
-	lead = func(row int) {
-		if placed[row] || slices.ContainsFunc(follows[row], func(r int) bool { return r < len(messages) && !placed[r] }) {
-			return
-		}
-		placed[row] = true
-		for _, earlier := range follows[row] {
-			lead(earlier)
-		}
-		rows = append(rows, row)
-	}
-	// settle places the successions following placed rows only, earliest declared first.
-	settle := func() {
+	edges := make([]Edge, 0, len(follows))
+	// take places the earliest declared succession admitted whose rows above are placed,
+	// or when forced the earliest one left, which opens a cycle where it is declared.
+	take := func(admits func(row int) bool, force bool) bool {
+		next := -1
 		for row := len(messages); row < len(follows); row++ {
-			if placed[row] || len(follows[row]) == 0 || slices.ContainsFunc(follows[row], func(r int) bool { return !placed[r] }) {
+			if placed[row] || !admits(row) {
 				continue
 			}
-			placed[row] = true
-			rows = append(rows, row)
-			row = len(messages) - 1
+			if !slices.ContainsFunc(follows[row], func(r int) bool { return !placed[r] }) {
+				next = row
+				break
+			}
+			if force && next < 0 {
+				next = row
+			}
 		}
-	}
-	for row := range messages {
-		for _, earlier := range follows[row] {
-			lead(earlier)
+		if next < 0 {
+			return false
 		}
-		settle()
-		placed[row] = true
-		rows = append(rows, row)
-		settle()
+		placed[next] = true
+		edges = append(edges, successions[next-len(messages)].edge)
+		return true
 	}
-	for row := len(messages); row < len(follows); row++ {
-		lead(row)
-		settle()
+	followsMessage := func(row int) bool {
+		return slices.ContainsFunc(follows[row], func(r int) bool { return r < len(messages) })
 	}
-	edges := make([]Edge, 0, len(rows))
-	for _, row := range rows {
-		if row < len(messages) {
-			edges = append(edges, messages[row].edge)
-		} else {
-			edges = append(edges, successions[row-len(messages)].edge)
+	for m, msg := range messages {
+		leadsHere := func(row int) bool { return slices.Contains(follows[m], row) }
+		for take(followsMessage, false) || take(leadsHere, true) {
 		}
+		placed[m] = true
+		edges = append(edges, msg.edge)
+	}
+	for take(followsMessage, false) || take(func(int) bool { return true }, true) {
 	}
 	return edges
 }
@@ -903,8 +894,6 @@ func sequenceRows(messages []message, successions []succession, orders []timing,
 // drawn below: those holding an event at or before its source, a message's at or after its target.
 func rowsFollowed(messages []message, successions []succession, orders []timing, before func(a, b lifelineEnd) bool) [][]int {
 	follows := make([][]int, len(messages)+len(successions))
-	chained := make([][]int, len(successions))
-	indegree := make([]int, len(successions))
 	for i, s := range successions {
 		o, row := orders[s.order], len(messages)+i
 		for m, msg := range messages {
@@ -916,20 +905,11 @@ func rowsFollowed(messages []message, successions []succession, orders []timing,
 				follows[m] = append(follows[m], row)
 			}
 		}
+		// Successions leading back to each other form a cycle, and stay as declared.
 		for j, then := range successions {
-			if i != j && before(o.to, orders[then.order].from) {
-				chained[i] = append(chained[i], j)
-				indegree[j]++
+			if next := orders[then.order]; i != j && before(o.to, next.from) && !before(next.to, o.from) {
+				follows[len(messages)+j] = append(follows[len(messages)+j], row)
 			}
-		}
-	}
-	// Successions forming a cycle follow no succession, so they stay as declared.
-	if _, ok := stableTopological(chained, slices.Clone(indegree)); !ok {
-		return follows
-	}
-	for i, later := range chained {
-		for _, j := range later {
-			follows[len(messages)+j] = append(follows[len(messages)+j], len(messages)+i)
 		}
 	}
 	return follows

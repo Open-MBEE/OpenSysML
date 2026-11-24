@@ -688,6 +688,12 @@ func TestSequenceRenderingDrawsSuccessionChainInCausalOrder(t *testing.T) {
 		{"a branch into a later step declared after an unordered one",
 			`succession first c then d; succession first a then b; succession first a then c;`, sending,
 			[]string{"a then c", "c then d", "d then got", "a then b"}},
+		{"a step declared after a succession it shares no event with",
+			`succession first a then b; succession first c then d; succession first b then e;`, "",
+			[]string{"a then b", "c then d", "b then e"}},
+		{"a chain declared last step first after a cycle",
+			`succession first c then d; succession first d then c; succession first b then e; succession first a then b;`, "",
+			[]string{"c then d", "d then c", "a then b", "b then e"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			rendering := renderSource(t, "Chained::shown", `package Chained {
@@ -696,7 +702,7 @@ func TestSequenceRenderingDrawsSuccessionChainInCausalOrder(t *testing.T) {
 	part def Run {
 		part client { event occurrence sent; event occurrence got; }
 		part server {
-			event occurrence a; event occurrence b; event occurrence c; event occurrence d;
+			event occurrence a; event occurrence b; event occurrence c; event occurrence d; event occurrence e;
 			`+tc.body+`
 		}
 		`+tc.message+`
