@@ -74,6 +74,19 @@ func TestStatementOperandsReadTheConversionIDs(t *testing.T) {
 			}
 		}
 		walk(fixture.symbol(t, tc.definition))
+		if strings.HasSuffix(tc.definition, "For") {
+			// The loop owns its variable once, minted off the loop rather than sharing the loop's id.
+			variable := strings.TrimSuffix(tc.want[0], "_pcollection") + "_ploopVariable"
+			var found int
+			for member := range seen {
+				if elementID(member) == variable && fixture.model.MetaclassOf(member).Name == "ReferenceUsage" {
+					found++
+				}
+			}
+			if found != 1 {
+				t.Errorf("%s: %d ReferenceUsages read %s, want 1", tc.definition, found, variable)
+			}
+		}
 		slices.Sort(expressions)
 		if got, want := strings.Join(expressions, " "), strings.Join(tc.want, " "); got != want {
 			t.Errorf("%s: expression ids =\n  %s\nwant\n  %s", tc.definition, got, want)

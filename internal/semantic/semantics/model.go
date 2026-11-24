@@ -397,6 +397,12 @@ func RelationshipsOf(sym *symbols.Symbol) []*ast.Relationship {
 		return bodyParamRelationships(d, sym.Name)
 	case *ast.SubjectMember:
 		return subjectRelationships(d)
+	case *ast.WhileLoopActionNode:
+		if sym.Kind == symbols.SymbolReferenceUsage {
+			// A `for` variable shares the loop's node, which holds what it was declared with.
+			return d.VariableRelationships
+		}
+		return nil
 	case *ast.AssumeMember:
 		return d.Relationships
 	case *ast.RequireMember:

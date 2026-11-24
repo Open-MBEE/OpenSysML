@@ -88,6 +88,7 @@ var servedRules = []Rule{
 	{DefiningClass: "SendActionUsage", Property: "payloadArgument", Constraint: "deriveSendActionUsagePayloadArgument"},
 	{DefiningClass: "SendActionUsage", Property: "senderArgument", Constraint: "deriveSendActionUsageSenderArgument"},
 	{DefiningClass: "SendActionUsage", Property: "receiverArgument", Constraint: "deriveSendActionUsageReceiverArgument"},
+	{DefiningClass: "ForLoopActionUsage", Property: "loopVariable", Constraint: "deriveForLoopActionUsageLoopVariable"},
 	{DefiningClass: "ActionUsage", Property: "actionDefinition", Basis: "Behavior-valued typing of the ActionUsage"},
 	{DefiningClass: "AllocationUsage", Property: "allocationDefinition", Basis: "AllocationDefinition-valued typing of the AllocationUsage"},
 	{DefiningClass: "AnalysisCaseUsage", Property: "analysisCaseDefinition", Basis: "AnalysisCaseDefinition-valued typing of the AnalysisCaseUsage"},

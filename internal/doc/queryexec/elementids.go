@@ -189,6 +189,11 @@ func ElementIDOf(read ElementIDReader, idx *symbols.Index, sym *symbols.Symbol) 
 		element, _, err := read.ReadExpressionPart(sym.DocName, send, slot)
 		return element, err
 	}
+	if semantics.IsLoopVariable(sym) {
+		// A `for` variable shares its loop's node, so it is minted as a part of the loop.
+		element, _, err := read.ReadExpressionPart(sym.DocName, sym.Decl, semantics.LoopVariableSlot)
+		return element, err
+	}
 	if declaring, slot, ok := rangeBoundSlot(sym); ok {
 		element, _, err := read.ReadExpressionPart(sym.DocName, declaring, slot)
 		return element, err
@@ -326,6 +331,10 @@ func implicitMembershipID(read ElementIDReader, idx *symbols.Index, member *symb
 	}
 	if send, slot, ok := sendArgumentSlot(member); ok {
 		_, membership, err := read.ReadExpressionPart(member.DocName, send, slot)
+		return membership, true, err
+	}
+	if semantics.IsLoopVariable(member) {
+		_, membership, err := read.ReadExpressionPart(member.DocName, member.Decl, semantics.LoopVariableSlot)
 		return membership, true, err
 	}
 	if flow, slot, ok := flowEndFeatureSlot(member); ok {

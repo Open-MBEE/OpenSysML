@@ -274,6 +274,16 @@ func (ids *ElementIDs) recordStatementOperands(e *encoder, node ast.Node, subjec
 	case *ast.WhileLoopActionNode:
 		switch n.Kind {
 		case ast.LoopFor:
+			if n.Variable.Declared() {
+				// The variable shares the loop's node, so it is filed as a part of it.
+				variable := e.ids.mintedNode(rdf.ExpressionIRI(subject, xLoopVariable), subject, xLoopVariable)
+				part := partIDs{
+					element:    rdf.LocalName(variable.Value),
+					membership: rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(variable), variable, rdf.OwningMembershipSuffix).Value),
+				}
+				ids.partByNode[partKey{n, xLoopVariable}] = part
+				ids.partBySpan[spanPartKey{spanKey{e.file.Name(), n.Span()}, xLoopVariable}] = part
+			}
 			record(xCollection, n.Collection)
 		case ast.LoopWhile:
 			record(xWhileCondition, n.Condition)

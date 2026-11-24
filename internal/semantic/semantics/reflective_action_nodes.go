@@ -171,7 +171,8 @@ func statementBodyOf(decl ast.Node) []ast.Node {
 // statementOperands are the expressions an action node statement writes at its
 // own slots, named as the conversion mints them (condition, target, value, ...).
 func (m *Model) statementOperands(sym *symbols.Symbol) []*symbols.Symbol {
-	if m == nil || sym == nil || sym.Implicit != nil || sym.Expr != nil || sym.Recorded() {
+	if m == nil || sym == nil || sym.Implicit != nil || sym.Expr != nil || sym.Recorded() || IsLoopVariable(sym) {
+		// A `for` variable shares its loop's node but writes none of the loop's expressions.
 		return nil
 	}
 	if cached, ok := m.statementOperandSymbols[sym]; ok {
@@ -275,4 +276,17 @@ func isBodySuccessionNode(node ast.Node) bool {
 		return node.Successor != nil
 	}
 	return false
+}
+
+// LoopVariableSlot is the slot of its loop the conversion mints a `for` variable at.
+const LoopVariableSlot = "loopVariable"
+
+// IsLoopVariable reports whether sym is the iteration variable a `for` loop declares,
+// a ReferenceUsage sharing the loop's node (SysML v2 8.3.16.7 ForLoopActionUsage::loopVariable).
+func IsLoopVariable(sym *symbols.Symbol) bool {
+	if sym == nil || sym.Kind != symbols.SymbolReferenceUsage || sym.Implicit != nil || sym.Expr != nil {
+		return false
+	}
+	loop, ok := sym.Decl.(*ast.WhileLoopActionNode)
+	return ok && loop.Kind == ast.LoopFor
 }

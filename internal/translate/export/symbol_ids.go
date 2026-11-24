@@ -158,10 +158,10 @@ func (s *SymbolIDs) compute(sym *symbols.Symbol) (string, bool) {
 			return rdf.LocalName(membership.Value), true
 		}
 	}
-	// A `for` variable is keyed by its loop, which the conversion writes as a
-	// string (sysx:loopVariable), not as an element of its own.
-	if _, ok := sym.Decl.(*ast.WhileLoopActionNode); ok && sym.Name != "" {
-		return "", false
+	// A `for` variable declares no node of its own: it is minted off its loop (recordStatementOperands).
+	if semantics.IsLoopVariable(sym) {
+		element, _, ok := s.ids.OfExpressionPart(doc, sym.Decl, semantics.LoopVariableSlot)
+		return element, ok
 	}
 	// A body's parameter declares no node of its own: its symbol is keyed by the
 	// body, which the conversion writes as the reference the parameter is in<i> of.
@@ -377,6 +377,11 @@ func (s *SymbolIDs) implicitMembershipID(rel *symbols.ImplicitRelationship, doc 
 		// A body's parameter is keyed by its body; its FeatureMembership is minted
 		// off the parameter (bodyParameter), not off the body's own membership.
 		_, membership, ok := s.ids.OfBodyParameter(doc, body, rel.Member.Name)
+		return membership, ok
+	}
+	if semantics.IsLoopVariable(rel.Member) {
+		// A `for` variable's FeatureMembership is minted off the variable, not off its loop's own membership.
+		_, membership, ok := s.ids.OfExpressionPart(doc, rel.Member.Decl, semantics.LoopVariableSlot)
 		return membership, ok
 	}
 	if id, ok := s.ids.OwningMembershipOfDeclaration(doc, rel.Member.Decl, s.fqn(rel.Member)); ok && rel.Member.Expr == nil {

@@ -475,6 +475,10 @@ func (e *Evaluator) structureProperty(element Element, class, name string) (Valu
 		case "receiverArgument":
 			return e.structureActionArgument(element, "receiverArgument", 3)
 		}
+	case "ForLoopActionUsage":
+		if name == "loopVariable" {
+			return e.structureLoopVariable(element)
+		}
 	case "PerformActionUsage":
 		if name == "performedAction" {
 			return e.structurePerformedAction(element)
@@ -7234,6 +7238,26 @@ func (e *Evaluator) structureFirstParameter(element Element) (Value, bool, bool)
 		return nullValue(), true, true
 	}
 	return parameters.Values[0], true, true
+}
+
+// structureLoopVariable is a for loop's first owned feature, the ReferenceUsage its
+// declaration starts with (SysML v2 8.3.16.7 deriveForLoopActionUsageLoopVariable).
+func (e *Evaluator) structureLoopVariable(element Element) (Value, bool, bool) {
+	features, handled, ok := e.structureOwnedFeatures(element)
+	if !handled || !ok {
+		return Value{}, true, false
+	}
+	if len(features.Values) == 0 || features.Values[0].Kind != ElementValue {
+		return nullValue(), true, true
+	}
+	reference, known := e.isMetaclass(features.Values[0].Element, "ReferenceUsage")
+	if !known {
+		return Value{}, true, false
+	}
+	if !reference {
+		return nullValue(), true, true
+	}
+	return features.Values[0], true, true
 }
 
 func (e *Evaluator) structurePerformedAction(element Element) (Value, bool, bool) {
