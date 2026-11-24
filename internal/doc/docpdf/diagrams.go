@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"html"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -149,6 +150,31 @@ var (
 	svgImageHref     = regexp.MustCompile(`\s(?:xlink:)?href\s*=\s*(?:"([^"]*)"|'([^']*)')`)
 )
 
+// errOutsidePicture is why a picture file that is not under the directory the
+// pictures' paths are relative to is neither read nor left for a converter to read.
+var errOutsidePicture = errors.New("the file is not readable under the working directory")
+
+// readPicture reads a picture file under base, named relative to it or by an
+// absolute path into it; ".." elements and symbolic links out of base are refused.
+func readPicture(base, file string) ([]byte, error) {
+	if filepath.IsAbs(file) {
+		rel, err := filepath.Rel(base, file)
+		if err != nil {
+			return nil, errOutsidePicture
+		}
+		file = rel
+	}
+	if !filepath.IsLocal(file) {
+		return nil, errOutsidePicture
+	}
+	root, err := os.OpenRoot(base)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = root.Close() }()
+	return root.ReadFile(file)
+}
+
 // embedImages inlines each safe local image an SVG refers to; refused images
 // become comments, while valid data URIs and unread or unsupported files stay as written.
 func embedImages(path, base string) error {
@@ -205,13 +231,14 @@ func embedImages(path, base string) error {
 			at = end
 			continue
 		}
-		file := filepath.FromSlash(location)
-		if !filepath.IsAbs(file) {
-			file = filepath.Join(base, file)
-		}
-		data, err := os.ReadFile(file) // #nosec G304 -- the path is one the drawn view states
-		if err != nil {
+		data, err := readPicture(base, filepath.FromSlash(location))
+		if errors.Is(err, fs.ErrNotExist) {
 			out = append(out, svg[start:end]...)
+			at = end
+			continue
+		}
+		if err != nil {
+			out = append(out, refusedImageComment(location, errOutsidePicture.Error())...)
 			at = end
 			continue
 		}

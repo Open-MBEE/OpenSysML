@@ -97,3 +97,34 @@ func TestReadUnknownFileErrors(t *testing.T) {
 		t.Fatal("expected error reading unknown library file")
 	}
 }
+
+// A library file that is a symbolic link out of the directory is not read: the
+// containment the directory source promises holds for what the name resolves to.
+func TestDirSourceRejectsSymlinksOutsideBase(t *testing.T) {
+	outside := t.TempDir()
+	if err := os.WriteFile(filepath.Join(outside, "Secret.kerml"), []byte("package Secret;"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	base := t.TempDir()
+	if err := os.WriteFile(filepath.Join(base, "Real.kerml"), []byte("package Real;"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for link, target := range map[string]string{
+		"Out.kerml":    filepath.Join(outside, "Secret.kerml"),
+		"outdir":       outside,
+		"Inside.kerml": "Real.kerml",
+	} {
+		if err := os.Symlink(target, filepath.Join(base, link)); err != nil {
+			t.Skipf("symbolic links are not available: %v", err)
+		}
+	}
+	src := &dirSource{dir: base}
+	for _, name := range []string{"Out.kerml", filepath.Join("outdir", "Secret.kerml")} {
+		if data, err := src.Read(name); err == nil {
+			t.Errorf("Read(%q) = %q, want an error for a link out of the directory", name, data)
+		}
+	}
+	if data, err := src.Read("Inside.kerml"); err != nil || string(data) != "package Real;" {
+		t.Errorf("Read of a link within the directory = %q, %v", data, err)
+	}
+}

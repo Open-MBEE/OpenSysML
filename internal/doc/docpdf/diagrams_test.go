@@ -1009,3 +1009,42 @@ func TestDefineMasksMovesD2MasksIntoDefs(t *testing.T) {
 		t.Error("a missing SVG must be an error")
 	}
 }
+
+// A picture outside the directory the pictures' paths are relative to is not
+// read, whether an absolute path, a ".." path or a symbolic link names it.
+func TestEmbedImagesRefusesPicturesOutsideTheBase(t *testing.T) {
+	pngData, err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==")
+	if err != nil {
+		t.Fatal(err)
+	}
+	outside := t.TempDir()
+	secret := filepath.Join(outside, "secret.png")
+	if err := os.WriteFile(secret, pngData, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	base := t.TempDir()
+	locations := []string{secret, "../" + filepath.Base(outside) + "/secret.png"}
+	if err := os.Symlink(secret, filepath.Join(base, "link.png")); err == nil {
+		locations = append(locations, "link.png")
+	}
+	for _, location := range locations {
+		path := filepath.Join(t.TempDir(), "diagram.svg")
+		source := `<svg xmlns="http://www.w3.org/2000/svg"><image href="` + location + `"/></svg>`
+		if err := os.WriteFile(path, []byte(source), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := embedImages(path, base); err != nil {
+			t.Fatalf("embedImages: %v", err)
+		}
+		out, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if bytes.Contains(out, []byte("data:image/png")) || bytes.Contains(out, []byte("<image")) {
+			t.Errorf("picture %s outside the base was kept or inlined:\n%s", location, out)
+		}
+		if !bytes.Contains(out, []byte(errOutsidePicture.Error())) {
+			t.Errorf("picture %s: no refusal recorded:\n%s", location, out)
+		}
+	}
+}

@@ -138,14 +138,15 @@ func (s *dirSource) List() []string {
 }
 
 func (s *dirSource) Read(name string) ([]byte, error) {
-	// Subdirectories are allowed; escaping the base directory is not. A prefix
-	// test would accept a sibling whose name merely starts with the base ("/libs"
-	// against "/libs-evil"), so containment is decided on path elements.
-	path := filepath.Join(s.dir, name)
-	rel, err := filepath.Rel(s.dir, path)
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
+	// Subdirectories are allowed; escaping the base directory is not, by a ".."
+	// element or by a symbolic link that leads out of it.
+	if !filepath.IsLocal(name) {
 		return nil, fmt.Errorf("libs: invalid library file path %q", name)
 	}
-	// #nosec G304 -- path is confined to s.dir by the check above.
-	return os.ReadFile(path)
+	root, err := os.OpenRoot(s.dir)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = root.Close() }()
+	return root.ReadFile(name)
 }
