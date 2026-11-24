@@ -114,8 +114,8 @@ func (m *Model) impliedTypeFeaturings(feature *symbols.Symbol, deriving map[*sym
 			return m.derivedFeaturingTypes(end, deriving)
 		}
 		return m.impliedTypeFeaturings(bounded, deriving)
-	case feature.Expr != nil && feature.Expr.Role == symbols.ExpressionValue:
-		// KerML checkExpressionTypeFeaturing: a value shares its featureWithValue's.
+	case feature.Expr != nil && (feature.Expr.Role == symbols.ExpressionValue || feature.Expr.Role == symbols.ExpressionArgument):
+		// KerML checkExpressionTypeFeaturing: a value shares its featureWithValue's, an operand its parameter's.
 		return m.derivedFeaturingTypes(owner, deriving)
 	case IsVariant(feature) && IsVariation(owner):
 		// SysML checkUsageVariationUsageTypeFeaturing: a variant shares its variation usage's.

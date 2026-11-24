@@ -44,6 +44,9 @@ func (m *Model) computeImplicitSubsettings(sym *symbols.Symbol) []*symbols.Symbo
 // nestedSubsettingFQN is the qualified name of the library feature the rules say sym implicitly
 // subsets, "" when they name none; read from the declarations alone, library loaded or not.
 func (m *Model) nestedSubsettingFQN(sym *symbols.Symbol) string {
+	if sym != nil && sym.Expr != nil {
+		return expressionNestedFQN(sym)
+	}
 	if sym == nil || sym.OwnerScope == nil {
 		return ""
 	}
@@ -813,4 +816,17 @@ func nestedOwnerOfMetaclass(metaclass string) (NestedOwner, bool) {
 		return NestedOwner{Def: d, IsDef: true}, true
 	}
 	return NestedOwner{}, false
+}
+
+// expressionNestedFQN is the feature an expression a behavior or step owns as a feature subsets: a
+// body, a result expression, a change condition (KerML checkStepEnclosedPerformanceSpecialization).
+func expressionNestedFQN(sym *symbols.Symbol) string {
+	if sym.Kind != symbols.SymbolExpression {
+		return ""
+	}
+	switch sym.Expr.Role {
+	case symbols.ExpressionBody, symbols.ExpressionBodyResult, symbols.ExpressionChangeCondition:
+		return "Performances::Performance::enclosedPerformances"
+	}
+	return ""
 }

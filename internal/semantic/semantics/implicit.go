@@ -1336,14 +1336,17 @@ func (m *Model) ImplicitGenerals(sym *symbols.Symbol) []*symbols.Symbol {
 // implicitTypedReferenceBases returns the base features a SysML reference usage or an owned cross
 // feature subsets for the kind of each type it has (KerML Table 9 checkFeature{DataValue,Object,Occurrence}Specialization).
 func (m *Model) implicitTypedReferenceBases(sym *symbols.Symbol) []*symbols.Symbol {
-	if sym == nil || sym.Expr != nil {
+	if sym == nil {
 		return nil
 	}
 	var types []*symbols.Symbol
 	switch {
+	case sym.Expr != nil:
+		// The result of a constructor expression is typed by the type it instantiates.
+		types = m.constructorResultTypes(sym)
 	case m.owningEndOf(sym) != nil:
 		types = m.DeclaredFeatureTypes(m.owningEndOf(sym))
-	case sym.Kind == symbols.SymbolReferenceUsage && !m.isKerMLDoc(sym):
+	case sym.Kind == symbols.SymbolReferenceUsage && (!m.isKerMLDoc(sym) || isBodyParameter(sym)):
 		for _, rel := range RelationshipsOf(sym) {
 			if rel != nil && rel.Kind == ast.RelTyping {
 				types = append(types, m.relationshipTarget(sym, rel))
@@ -1366,4 +1369,10 @@ func (m *Model) implicitTypedReferenceBases(sym *symbols.Symbol) []*symbols.Symb
 		}
 	}
 	return out
+}
+
+// isBodyParameter reports whether sym is a parameter a `{ … }` body declares.
+func isBodyParameter(sym *symbols.Symbol) bool {
+	_, ok := sym.Decl.(*ast.BodyExpr)
+	return ok && sym.Expr == nil
 }

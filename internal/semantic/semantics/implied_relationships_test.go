@@ -21,7 +21,19 @@ func impliedRelationshipRows(t *testing.T, m *Model, root *symbols.Scope) []stri
 		if k, ok := keys[sym]; ok {
 			return k
 		}
-		return m.resolver.Index().GetFQN(sym)
+		// A library element is keyed by its segments' effective names, quoted where no basic name.
+		var segments []string
+		for at := sym; at != nil; at = m.ownerOf(at) {
+			name, named := m.EffectiveNamed(at)
+			if !named {
+				return m.resolver.Index().GetFQN(sym)
+			}
+			if !source.IsIdentifier(name) {
+				name = source.UnrestrictedNameText(name)
+			}
+			segments = append([]string{name}, segments...)
+		}
+		return strings.Join(segments, "::")
 	}
 	var rows []string
 	seen := map[*symbols.Symbol]bool{}
@@ -118,10 +130,15 @@ var impliedDifferenceReasons = map[string]string{
 		"the pilot states none for the value of a variable feature",
 	"crossing": "checkFeatureCrossingSpecialization: the CrossSubsetting targets a feature chain, an element the model does not hold yet; " +
 		"with it the end's Occurrences::occurrences is redundant",
-	"expression-owned": "the parameter and result redefinitions of expressions, the specializations of the features they own " +
-		"and the featurings under them are not derived yet",
+	"chain-target-feature": "checkFeatureChainExpressionTargetRedefinition, checkFeatureChainExpressionSourceTargetRedefinition and " +
+		"checkFeatureChainExpressionResultSpecialization name the feature nested in a chain expression's source parameter and " +
+		"the chain its result owns, elements the model does not hold yet",
+	"lazy-operand": "the pilot owns the then and else operands of a conditional through a FeatureReferenceExpression referring to " +
+		"the written expression; the model holds the written expression as the operand, so the rows under it differ",
+	"valuation-result": "checkFeatureValuationSpecialization: a valued feature declaring no specialization subsets the result of its value, " +
+		"which the pilot states as a chain the feature owns, an element the model does not hold yet; the model derives the kind's base",
 	"action-parameter": "the parameters of an assignment action and a for loop (target, startingAt, accessedFeature, " +
-		"replacementValues; var, seq, body) are elements the model does not hold yet",
+		"replacementValues; var, seq, body) are elements the model does not hold yet, and so are the expressions they own",
 	"action-kind-feature": "SysML Table 32: checkAssignmentActionUsageSubactionSpecialization and checkForLoopActionUsageSubactionSpecialization " +
 		"are not derived beside the Actions::Action::subactions every nested action subsets",
 }

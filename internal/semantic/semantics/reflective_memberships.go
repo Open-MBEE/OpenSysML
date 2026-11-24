@@ -575,6 +575,10 @@ func (m *Model) OwningMembership(sym *symbols.Symbol) *symbols.Symbol {
 	if m == nil || sym == nil || sym.Implicit != nil || sym.Chain != nil || sym.Kind == symbols.SymbolAlias {
 		return nil
 	}
+	if sym.Expr != nil && IsFilterMembership(sym.Expr.Owner) && sym.Expr.Owner.Implicit.Member == sym {
+		// A filter package's condition is held by the package's filter membership.
+		return sym.Expr.Owner
+	}
 	owner := m.ownerOf(sym)
 	if owner == nil {
 		owner = m.rootNamespaceOwner(sym)

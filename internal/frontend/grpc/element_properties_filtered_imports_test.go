@@ -63,3 +63,22 @@ func TestElementPropertiesReadEachFilteredImportOfANamespace(t *testing.T) {
 		}
 	}
 }
+
+// A filter package's condition is owned by the package through its filter membership, so the
+// condition's parameters have no qualified name: the package is unnamed.
+func TestElementPropertiesFilterPackageOwnsItsCondition(t *testing.T) {
+	r := parseForElementProperties(t, `package P { metadata def M; package L { part a; } view v { expose L::**[@M]; } }`)
+	for _, tc := range []struct{ element, property, want string }{
+		{"P__v___400_pfilter", "owner", "Package"},
+		{"P__v___400_pfilter", "owningNamespace", "Package"},
+		{"P__v___400_pfilter", "owningRelationship", "ElementFilterMembership"},
+	} {
+		values := r.property(tc.element, tc.property).Values
+		if len(values) != 1 || values[0].GetElement().Metaclass != tc.want {
+			t.Errorf("%s.%s = %v, want one %s", tc.element, tc.property, values, tc.want)
+		}
+	}
+	if values := r.property("P__v___400_pfilter_pin0", "qualifiedName").Values; len(values) != 0 {
+		t.Errorf("the condition's parameter has the qualified name %v, want none", values)
+	}
+}

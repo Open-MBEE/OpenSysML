@@ -27,6 +27,7 @@ func (m *Model) ImpliedRedefinitions(sym *symbols.Symbol) []*symbols.Symbol {
 		}
 	}
 	add(m.ImplicitParameterRedefinitions(sym))
+	add(m.expressionParameterRedefinitions(sym))
 	add(m.implicitEndRedefinitions(sym))
 	add(m.ImplicitRoleRedefinitions(sym))
 	add(m.flowFeatureRedefinitions(sym))
@@ -38,13 +39,14 @@ func (m *Model) ImpliedRedefinitions(sym *symbols.Symbol) []*symbols.Symbol {
 }
 
 // writtenRedefinedFeatures returns the features sym redefines by what its notation states: a
-// clause, the feature a flow's end names, or the name a metadata body restates.
+// clause, the feature a flow's end names, the name a metadata body restates or an argument is given under.
 func (m *Model) writtenRedefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 	out := slices.Clone(m.RedefinedFeatures(sym))
 	if target := m.flowEndFeatureRedefinition(sym); target != nil {
 		out = append(out, target)
 	}
-	return append(out, m.implicitMetadataBodyRedefinitions(sym)...)
+	out = append(out, m.implicitMetadataBodyRedefinitions(sym)...)
+	return append(out, m.namedArgumentRedefinitions(sym)...)
 }
 
 // flowFeatureRedefinitions returns the library features a flow's payload and the features its
