@@ -428,8 +428,8 @@ export type SysMLVerdict =
  *   is not a number, a vector quantity with no components, a set listing a
  *   member twice, a tensor quantity whose components do not fill its
  *   dimensions, a quantity (alone or as a component) with no magnitude, a
- *   measurement reference naming no unit or a unit without its reduction, a
- *   metaobject naming no element, or a real that is not a finite number.
+ *   measurement reference naming no unit or a unit without its reduction, or a
+ *   metaobject naming no element.
  */
 export function decodeValue(value: Value | undefined): SysMLValue {
   if (value === undefined) {
@@ -444,9 +444,6 @@ export function decodeValue(value: Value | undefined): SysMLValue {
     case "rationalValue":
       return { kind: "rational", ...decodeRational(kind.value) };
     case "realValue":
-      if (!Number.isFinite(kind.value)) {
-        throw new MalformedValueError(`a real value is a finite number, not ${kind.value}`);
-      }
       return { kind: "real", value: kind.value };
     case "complex":
       return { kind: "complex", value: { real: kind.value.real, imaginary: kind.value.imaginary } };
@@ -511,9 +508,8 @@ export function decodeValue(value: Value | undefined): SysMLValue {
  * Encodes the union as the `sysml.Value` the service decodes: the inverse of
  * {@link decodeValue} for every kind but `absent`, which is no value at all.
  *
- * @throws {MalformedValueError} for an `absent` value, a real that is not a
- *   finite number (the unbounded value is `{ kind: "infinity" }`), or a
- *   structured value the service would refuse (see {@link decodeValue}).
+ * @throws {MalformedValueError} for an `absent` value, or a structured value
+ *   the service would refuse (see {@link decodeValue}).
  */
 export function encodeValue(value: SysMLValue): Value {
   switch (value.kind) {
@@ -521,11 +517,6 @@ export function encodeValue(value: SysMLValue): Value {
     case "rational":
       return encodeMagnitude(value);
     case "real":
-      if (!Number.isFinite(value.value)) {
-        throw new MalformedValueError(
-          `a real value is a finite number, not ${value.value}; the unbounded value is { kind: "infinity" }`,
-        );
-      }
       return create(ValueSchema, { kind: { case: "realValue", value: value.value } });
     case "complex":
       return create(ValueSchema, {

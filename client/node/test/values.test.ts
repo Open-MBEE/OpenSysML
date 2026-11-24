@@ -1176,12 +1176,3 @@ test("only an asserted infinity arm is the unbounded value", () => {
   });
   assert.throws(() => decodeValue(nested), MalformedValueError);
 });
-
-test("a real that is not a finite number is refused in both directions", () => {
-  for (const value of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
-    assert.throws(() => encodeValue({ kind: "real", value }), MalformedValueError);
-    assert.throws(() => decodeValue(real(value)), MalformedValueError);
-  }
-  assert.deepEqual(decodeValue(encodeValue({ kind: "real", value: 1.5 })), { kind: "real", value: 1.5 });
-  assert.deepEqual(decodeValue(encodeValue({ kind: "infinity" })), { kind: "infinity" });
-});

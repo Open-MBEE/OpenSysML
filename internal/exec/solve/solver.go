@@ -200,9 +200,6 @@ func Discover() (*Solver, error) {
 	return nil, &NoSolverError{Looked: candidates}
 }
 
-// versionTimeout bounds asking a solver of an unrecognised name for its version.
-const versionTimeout = 2 * time.Second
-
 // newSolver builds a solver for an executable, with the arguments its family
 // needs to read a script from standard input.
 func newSolver(path string) *Solver {
@@ -213,34 +210,8 @@ func newSolver(path string) *Solver {
 		s.Args = []string{"-smt2", "-in"}
 	case strings.Contains(name, "cvc5"):
 		s.Args = []string{"--lang=smt2", "--incremental"}
-	default:
-		s.Args = familyArgs(versionBanner(path))
 	}
 	return s
-}
-
-// familyArgs are the arguments of the solver family a version banner names, nil
-// for a banner naming neither.
-func familyArgs(banner string) []string {
-	banner = strings.ToLower(banner)
-	switch {
-	case strings.Contains(banner, "z3 version"):
-		return []string{"-smt2", "-in"}
-	case strings.Contains(banner, "cvc5"):
-		return []string{"--lang=smt2", "--incremental"}
-	}
-	return nil
-}
-
-// versionBanner is what an executable whose name tells no family prints for
-// --version, empty when it does not answer within versionTimeout.
-func versionBanner(path string) string {
-	ctx, cancel := context.WithTimeout(context.Background(), versionTimeout)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, path, "--version") // #nosec G204 G702 -- the path is the operator's own solver choice
-	cmd.WaitDelay = versionTimeout
-	out, _ := cmd.Output()
-	return string(out)
 }
 
 // baseName is the executable's file name, without a directory or an extension.

@@ -12,6 +12,16 @@ func TestTurtleRelativeIRIResolvesAgainstBase(t *testing.T) {
 		{"http://example.org/a/b", "/c", "http://example.org/c"},
 		{"http://example.org/a/b", "#c", "http://example.org/a/b#c"},
 		{"http://example.org/a/b", "", "http://example.org/a/b"},
+		{"http://example.org/a/b", "#", "http://example.org/a/b#"},
+		{"http://example.org/a/b#old", "#c", "http://example.org/a/b#c"},
+		{"http://example.org/a/b?q", "", "http://example.org/a/b?q"},
+		{"http://example.org/a/b?q", "?r", "http://example.org/a/b?r"},
+		{"http://example.org/a/b?q", "c", "http://example.org/a/c"},
+		{"http://example.org/a/b", "é/ü", "http://example.org/a/é/ü"},
+		{"http://example.org/a/b", "./c/./d/..", "http://example.org/a/c/"},
+		{"http://example.org/a/b", "../../../c", "http://example.org/c"},
+		{"http://example.org", "c", "http://example.org/c"},
+		{"file:///a/b", "c", "file:///a/c"},
 		{"urn:x:", "c", "urn:x:c"},
 	}
 	for _, tc := range cases {
