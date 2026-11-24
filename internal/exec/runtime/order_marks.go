@@ -29,7 +29,8 @@ import (
 // context's own and is never rewound: a serial drawn on a path a restore
 // abandoned is not drawn again, and a choice point's serial stays above every
 // serial of the sets it joins. A context whose notes another reports draws from
-// that context's sequence (NewDeclaredReaderIn).
+// that context's sequence (NewDeclaredReaderIn), and one a held image is
+// materialized into draws above the serials the image carries.
 type choiceSerials struct {
 	last atomic.Int64
 }
@@ -37,6 +38,16 @@ type choiceSerials struct {
 // next is the serial of the next choice point; no serial is 0.
 func (s *choiceSerials) next() int64 {
 	return s.last.Add(1)
+}
+
+// atLeast raises the sequence so the next serial is above n.
+func (s *choiceSerials) atLeast(n int64) {
+	for {
+		last := s.last.Load()
+		if last >= n || s.last.CompareAndSwap(last, n) {
+			return
+		}
+	}
 }
 
 // markSeed is what a choice point left when it was noted: the instant drawn at,

@@ -51,3 +51,20 @@ func TestChoiceSerialsAreSharedWithASeededReader(t *testing.T) {
 		t.Fatalf("the seeding context reports serials %v, want [1 2 3]", got)
 	}
 }
+
+// A context a held image is materialized into draws no serial the image's
+// runs already stand on.
+func TestChoiceSerialsContinueAboveAMaterializedImage(t *testing.T) {
+	_, ctx, bulb := lampBulb(t)
+	choice := ChoicePoint{Kind: ChoiceDueOrder, Alternatives: []string{"a", "b"}}
+	for i := 0; i < 3; i++ {
+		ctx.note(choice)
+	}
+	want := ctx.choiceSerials.last.Load() + 1
+	dst := imageInto(t, ctx, bulb)
+	dst.note(choice)
+	got := noteSerials(dst)
+	if len(got) == 0 || got[len(got)-1] != want {
+		t.Fatalf("the materialized context drew serials %v, want the last to be %d", got, want)
+	}
+}
