@@ -130,4 +130,15 @@ func TestDirSourceRejectsSymlinksOutsideBase(t *testing.T) {
 			t.Errorf("Read(%q), a link within the directory = %q, %v", name, data, err)
 		}
 	}
+	// A directory named relative to the working directory reads the same links.
+	t.Chdir(filepath.Dir(base))
+	relative := &dirSource{dir: filepath.Base(base)}
+	for _, name := range []string{"Inside.kerml", "Abs.kerml"} {
+		if data, err := relative.Read(name); err != nil || string(data) != "package Real;" {
+			t.Errorf("Read(%q) under a relative directory = %q, %v", name, data, err)
+		}
+	}
+	if data, err := relative.Read("Out.kerml"); err == nil {
+		t.Errorf("Read(Out.kerml) under a relative directory = %q, want an error", data)
+	}
 }

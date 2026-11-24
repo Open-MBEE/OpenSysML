@@ -145,8 +145,11 @@ func (s *dirSource) Read(name string) ([]byte, error) {
 	}
 	// The directory and the file are both resolved first, so a link that stays
 	// inside the directory reads whether its target is relative or absolute.
-	dir, err := filepath.EvalSymlinks(s.dir)
+	dir, err := filepath.Abs(s.dir)
 	if err != nil {
+		return nil, err
+	}
+	if dir, err = filepath.EvalSymlinks(dir); err != nil {
 		return nil, err
 	}
 	resolved, err := filepath.EvalSymlinks(filepath.Join(dir, name))

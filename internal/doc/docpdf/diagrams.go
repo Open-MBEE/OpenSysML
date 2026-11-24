@@ -157,6 +157,10 @@ var errOutsidePicture = errors.New("the file is not readable under the working d
 // readPicture reads a picture file under base, named relative to it or by an
 // absolute path into it; ".." elements and symbolic links out of base are refused.
 func readPicture(base, file string) ([]byte, error) {
+	base, err := filepath.Abs(base)
+	if err != nil {
+		return nil, err
+	}
 	if !filepath.IsAbs(file) {
 		if !filepath.IsLocal(file) {
 			return nil, errOutsidePicture
