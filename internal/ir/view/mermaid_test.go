@@ -887,6 +887,9 @@ func installedMermaidCases(t *testing.T) []installedMermaidCase {
 		Style: &Style{Text: "#00AA00", Font: "Times New Roman", FontSize: 22, Bold: true, Italic: true},
 	}}}
 	cases = append(cases, installedMermaidCase{name: "node and edge styles", source: styled.Mermaid()})
+	unlabeledItem := &Rendering{Kind: KindInterconnection, Shown: Shown{},
+		Roots: []*Node{{ID: "item", Kind: "flow", Arrow: arrowRight}}}
+	cases = append(cases, installedMermaidCase{name: "unlabeled item box", source: unlabeledItem.Mermaid()})
 	dir := t.TempDir()
 	var imageData bytes.Buffer
 	if err := png.Encode(&imageData, image.NewRGBA(image.Rect(0, 0, 2, 2))); err != nil {

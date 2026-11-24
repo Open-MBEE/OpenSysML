@@ -1318,6 +1318,10 @@ func mermaidLabel(node *Node, labels labeller, lines []string, title bool) strin
 		}
 		markdown = append(markdown, entry.Text)
 	}
+	if len(markdown) == 0 {
+		// Mermaid rejects an empty markdown string in brackets.
+		return `" "`
+	}
 	return `"` + "`" + strings.Join(markdown, "\n") + "`" + `"`
 }
 
