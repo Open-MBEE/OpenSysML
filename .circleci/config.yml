@@ -194,8 +194,7 @@ commands:
       - run:
           name: Install Z3
           command: |
-            sudo apt-get update
-            sudo apt-get install -y z3
+            scripts/ci-apt-install.sh z3
             z3 --version
 
       # The second verified backend, for the portability gate: cvc5 has no apt
@@ -212,8 +211,7 @@ commands:
       - run:
           name: Install fmpy
           command: |
-            sudo apt-get update
-            sudo apt-get install -y --no-install-recommends python3-venv
+            scripts/ci-apt-install.sh --no-install-recommends python3-venv
             python3 -m venv "$HOME/fmpy-venv"
             "$HOME/fmpy-venv/bin/pip" install --only-binary ":all:" fmpy==0.3.32
             echo 'export PATH="$HOME/fmpy-venv/bin:$PATH"' >> "$BASH_ENV"
@@ -265,8 +263,7 @@ commands:
       - run:
           name: Extract the OMG specification examples
           command: |
-            sudo apt-get update
-            sudo apt-get install -y --no-install-recommends poppler-utils
+            scripts/ci-apt-install.sh --no-install-recommends poppler-utils
             ./scripts/download-spec-examples.sh
 
       - save_cache:
@@ -600,7 +597,7 @@ jobs:
       - run:
           name: Verify the committed manual pages are current
           command: |
-            sudo apt-get update && sudo apt-get install -y --no-install-recommends mandoc
+            scripts/ci-apt-install.sh --no-install-recommends mandoc
             make man-check
 
       # Internal work-item labels (waves, F<n>, P<n>, K<n>/S<n>) have no public
@@ -1732,12 +1729,11 @@ jobs:
       - halt-if-verified
 
       # The julia image carries no make, which the build and conformance steps
-      # run; it runs as root, so apt needs no sudo.
+      # run; it runs as root and carries no sudo, which the installer allows for.
       - run:
           name: Install make
           command: |
-            apt-get update
-            apt-get install -y --no-install-recommends make
+            scripts/ci-apt-install.sh --no-install-recommends make
             make_version="$(make --version)"
             echo "${make_version%%$'\n'*}"
 
@@ -1781,8 +1777,7 @@ jobs:
       - run:
           name: Install GNU Octave
           command: |
-            sudo apt-get update
-            sudo apt-get install -y octave
+            scripts/ci-apt-install.sh octave
 
       - run:
           name: Build sysml-grpc
@@ -1971,8 +1966,7 @@ jobs:
       - run:
           name: Install Z3
           command: |
-            sudo apt-get update
-            sudo apt-get install -y z3
+            scripts/ci-apt-install.sh z3
             z3 --version
 
       - run:
@@ -3292,7 +3286,7 @@ jobs:
           name: Stamp this release's service digests into the package
           command: |
             if ! command -v python3 >/dev/null; then
-              sudo apt-get update -q && sudo apt-get install -yq python3
+              scripts/ci-apt-install.sh python3
             fi
             python3 client/python/scripts/pin_release_checksums.py \
               --version "${CIRCLE_TAG}" \
@@ -3662,7 +3656,7 @@ jobs:
           name: Stamp this release's service digests into the package
           command: |
             if ! command -v python3 >/dev/null; then
-              sudo apt-get update -q && sudo apt-get install -yq python3
+              scripts/ci-apt-install.sh python3
             fi
             python3 client/python/scripts/pin_release_checksums.py \
               --version "${CIRCLE_TAG}" \
@@ -3725,8 +3719,7 @@ jobs:
       - run:
           name: Install Z3
           command: |
-            sudo apt-get update
-            sudo apt-get install -y z3
+            scripts/ci-apt-install.sh z3
             z3 --version
 
       - run:
@@ -3939,7 +3932,7 @@ jobs:
           name: Stamp this release's service digests into the jar's resources
           command: |
             if ! command -v python3 >/dev/null; then
-              sudo apt-get update -q && sudo apt-get install -yq python3
+              scripts/ci-apt-install.sh python3
             fi
             python3 client/python/scripts/pin_release_checksums.py \
               --version "${CIRCLE_TAG}" \
@@ -4034,7 +4027,7 @@ jobs:
           name: Import the signing key
           command: |
             if ! command -v gpg > /dev/null; then
-              sudo apt-get update && sudo apt-get install -y gnupg
+              scripts/ci-apt-install.sh gnupg
             fi
             # The context may hold the key ASCII-armoured or base64-encoded (the
             # CircleCI UI does not keep newlines), so accept both.
@@ -4153,7 +4146,7 @@ jobs:
           name: Stamp this release's service digests into the crate
           command: |
             if ! command -v python3 >/dev/null; then
-              sudo apt-get update -q && sudo apt-get install -yq python3
+              scripts/ci-apt-install.sh python3
             fi
             python3 client/python/scripts/pin_release_checksums.py \
               --version "${CIRCLE_TAG}" \

@@ -134,6 +134,12 @@ func collapsedOf(metaclass string) (string, bool) {
 		return "intersects", true
 	case mDifferencing:
 		return "differences", true
+	case mDisjoining:
+		return "disjointFrom", true
+	case mFeatureInverting:
+		return "inverseOf", true
+	case mTypeFeaturing:
+		return "featuringType", true
 	}
 	return "", false
 }
@@ -152,6 +158,9 @@ var collapsedKindsOf = map[string][]ast.RelationshipKind{
 	mUnioning:             {ast.RelUnions},
 	mIntersecting:         {ast.RelIntersects},
 	mDifferencing:         {ast.RelDifferences},
+	mDisjoining:           {ast.RelDisjoint},
+	mFeatureInverting:     {ast.RelInverseOf},
+	mTypeFeaturing:        {ast.RelFeaturedBy},
 	mAnnotation:           {ast.RelAnnotates},
 }
 
@@ -1602,7 +1611,7 @@ func (d *defaultDropper) dropsRestatedEnd(subject rdf.Term, local string, object
 // declared relationship backs.
 func (d *defaultDropper) dropsDerivedEdge(subject rdf.Term, local string, object rdf.Term) bool {
 	switch local {
-	case "type", "specializes", "subsets", "redefines", "references":
+	case "type", "specializes", "subsets", "redefines", "references", "featuringType":
 		return !relationshipLike(d.meta(subject)) && !d.backed[subject.Value][object.Value] && d.impliedIncluded(subject)
 	case pArgument:
 		// The argument list is derived from the parameters the expression
