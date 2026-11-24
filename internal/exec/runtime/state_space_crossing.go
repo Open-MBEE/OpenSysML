@@ -42,27 +42,9 @@ func (e *ActionExecutor) locateCrossing(run *stateSpaceRun) {
 	preview := func(span float64) ([]float64, bool) { return e.previewGuards(run, state, input, span) }
 
 	rest := run.step - run.into
-	var samples []guardPreview
-	now := 0
-	if before != nil {
-		samples, now = append(samples, guardPreview{-lead, before}), 1
-	}
-	samples = append(samples, guardPreview{0, run.guards})
-	for i := 1; i <= crossingQuarters; i++ {
-		span := rest
-		if i < crossingQuarters {
-			span = rest * float64(i) / crossingQuarters
-		}
-		guards, ok := preview(span)
-		if !ok {
-			return
-		}
-		samples = append(samples, guardPreview{span, guards})
-	}
-	last := len(samples) - 1
-	// Past the step's end the preview extrapolates, only to see a guard turn back there.
-	if guards, ok := preview(rest * (crossingQuarters + 1) / crossingQuarters); ok && !slices.ContainsFunc(guards, math.IsNaN) {
-		samples = append(samples, guardPreview{rest * (crossingQuarters + 1) / crossingQuarters, guards})
+	samples, now, last, ok := crossingSamples(run, before, lead, preview)
+	if !ok {
+		return
 	}
 
 	// A guard the search cannot follow is blind: it keeps its latest sample, and is
@@ -94,15 +76,7 @@ func (e *ActionExecutor) locateCrossing(run *stateSpaceRun) {
 		}
 		followed = followed && !blind[i]
 	}
-	seen := func(guards []float64) []float64 {
-		guards = slices.Clone(guards)
-		for i := range guards {
-			if blind[i] {
-				guards[i] = math.NaN()
-			}
-		}
-		return guards
-	}
+	seen := func(guards []float64) []float64 { return blinded(guards, blind) }
 	if cut < rest {
 		// The guards just short of the crossing stand as the sample before it, so a
 		// guard that left zero unseen and is back at it has crossed.
@@ -120,6 +94,44 @@ func (e *ActionExecutor) locateCrossing(run *stateSpaceRun) {
 		run.before, run.lead = samples[last-1].guards, rest-samples[last-1].span
 	}
 	run.hold(seen(samples[last-1].guards))
+}
+
+// crossingSamples is the guards previewed over the rest of run's step: the sample before the step
+// when there is one, the step's start at index now, its quarters through index last, and one past its end.
+func crossingSamples(run *stateSpaceRun, before []float64, lead float64, preview func(float64) ([]float64, bool)) (samples []guardPreview, now, last int, ok bool) {
+	rest := run.step - run.into
+	if before != nil {
+		samples, now = append(samples, guardPreview{-lead, before}), 1
+	}
+	samples = append(samples, guardPreview{0, run.guards})
+	for i := 1; i <= crossingQuarters; i++ {
+		span := rest
+		if i < crossingQuarters {
+			span = rest * float64(i) / crossingQuarters
+		}
+		guards, ok := preview(span)
+		if !ok {
+			return nil, 0, 0, false
+		}
+		samples = append(samples, guardPreview{span, guards})
+	}
+	last = len(samples) - 1
+	// Past the step's end the preview extrapolates, only to see a guard turn back there.
+	if guards, ok := preview(rest * (crossingQuarters + 1) / crossingQuarters); ok && !slices.ContainsFunc(guards, math.IsNaN) {
+		samples = append(samples, guardPreview{rest * (crossingQuarters + 1) / crossingQuarters, guards})
+	}
+	return samples, now, last, true
+}
+
+// blinded is guards with each guard the search cannot follow read as unknown.
+func blinded(guards []float64, blind []bool) []float64 {
+	guards = slices.Clone(guards)
+	for i := range guards {
+		if blind[i] {
+			guards[i] = math.NaN()
+		}
+	}
+	return guards
 }
 
 // previewGuards is every guard span past the run's latest sample, NaN for one that

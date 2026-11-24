@@ -67,7 +67,7 @@ The pip package installs a kernelspec holding the binary itself and naming it th
 ```
 
 Beside `kernel.json`, both installs write `logo-32x32.png` and `logo-64x64.png`, the
-OpenSysML mark, which the launcher and the kernel indicator show.
+OpenMBEE icon (the OpenSysML badge is not legible at these sizes), which the launcher and the kernel indicator show.
 
 `interrupt_mode: "message"` makes the front end interrupt through the protocol's control
 channel rather than with a signal, so a kernel on Windows is interrupted the same way. The

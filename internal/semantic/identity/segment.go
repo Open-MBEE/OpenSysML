@@ -30,9 +30,10 @@ func QuotedSegment(name string) string {
 // QualifiedSegments joins declared names, outermost first, as the qualified
 // identity a derived element id encodes.
 func QualifiedSegments(names []string) string {
-	segments := make([]string, len(names))
-	for i, name := range names {
-		segments[i] = Segment(name)
+	var buf [16]string
+	segments := buf[:0]
+	for _, name := range names {
+		segments = append(segments, Segment(name))
 	}
 	return strings.Join(segments, "::")
 }

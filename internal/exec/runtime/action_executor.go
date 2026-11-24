@@ -321,15 +321,7 @@ func (e *ActionExecutor) performanceFeatures() []lower.Attribute {
 			continue
 		}
 		if i, ok := declared[name]; ok {
-			switch {
-			case e.declared != nil && features[i].Node != ast.Node(usage):
-				if e.redefinesAttribute(member, features[i]) {
-					features[i] = e.redefinedAttribute(features[i], member, usage)
-				}
-			case features[i].Value == nil && features[i].Node == ast.Node(usage):
-				features[i].Value, features[i].Scope, features[i].Binding = e.inheritedValue(member)
-			}
-			features[i].Optional = e.ctx.admitsNoValue(member)
+			e.refineDeclared(&features[i], member, usage)
 			continue
 		}
 		declared[name] = len(features)
@@ -366,6 +358,19 @@ func (e *ActionExecutor) performanceFeatures() []lower.Attribute {
 		features[i].ValueID = e.ctx.model.exprs.Intern(features[i].Value, scope)
 	}
 	return features
+}
+
+// refineDeclared folds member into the feature already held under its name.
+func (e *ActionExecutor) refineDeclared(feature *lower.Attribute, member *symbols.Symbol, usage *ast.Usage) {
+	switch {
+	case e.declared != nil && feature.Node != ast.Node(usage):
+		if e.redefinesAttribute(member, *feature) {
+			*feature = e.redefinedAttribute(*feature, member, usage)
+		}
+	case feature.Value == nil && feature.Node == ast.Node(usage):
+		feature.Value, feature.Scope, feature.Binding = e.inheritedValue(member)
+	}
+	feature.Optional = e.ctx.admitsNoValue(member)
 }
 
 // inheritedAttribute is the attribute a performance holds for an inherited member,

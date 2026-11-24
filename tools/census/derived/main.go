@@ -119,21 +119,8 @@ func run(opts options) error {
 		}
 	}
 	if !present {
-		if recorded, err = readCommitted(committed); err != nil && !os.IsNotExist(err) {
+		if recorded, err = recordedColumn(opts, committed, &record); err != nil {
 			return err
-		}
-		if opts.update {
-			if err := reusable(recorded, record); err != nil {
-				return err
-			}
-			if recorded != nil {
-				record.Recorded = recorded.Provenance.Recorded
-			}
-		}
-		if opts.recordedPilot {
-			fmt.Fprintf(opts.log, "the pilot column is the one %s records; our side alone is measured\n", CommittedBaseline)
-		} else {
-			fmt.Fprintf(opts.log, "pilot JSON exporter is absent at %s; the pilot column is the one %s records (run %s to re-export it)\n", opts.launcher, CommittedBaseline, exporter.ProvisionCommand)
 		}
 	}
 	classes := newMetaclasses()
@@ -142,47 +129,14 @@ func run(opts options) error {
 		if len(opts.roots) > 0 && !slices.Contains(opts.roots, root.Name) {
 			continue
 		}
-		files, err := diff.CollectFiles(opts.repo, root)
+		entry, err := measureRoot(opts, root, classes, present, recorded)
 		if err != nil {
 			return err
 		}
-		if len(files) == 0 {
+		if entry == nil {
 			continue
 		}
-		dir := filepath.Join(opts.repo, filepath.FromSlash(root.Dir))
-		fmt.Fprintf(opts.log, "%s: %d files\n", root.Name, len(files))
-		ours, err := censusRoot(dir, files)
-		if err != nil {
-			return fmt.Errorf("%s: %w", root.Name, err)
-		}
-		entry := RootReport{Name: root.Name, Dir: root.Dir, Files: len(files), Rejected: len(ours.Rejected),
-			Elements: ours.Elements, Implied: ours.Implied, Rules: map[string]RuleCounts{}}
-		for name, counts := range ours.Rules {
-			entry.Rules[name] = RuleCounts{Ours: counts}
-		}
-		if present {
-			pilot, err := runExporter(opts.launcher, dir, opts.libraries, files, opts.timeout, classes)
-			if err != nil {
-				return err
-			}
-			entry.PilotElements, entry.PilotImplied, entry.PilotDuplicates, entry.PilotFailed = pilot.Elements, pilot.Implied, pilot.Duplicates, len(pilot.Failed)
-			for name, counts := range pilot.Rules {
-				row := entry.Rules[name]
-				row.Pilot = counts
-				entry.Rules[name] = row
-			}
-		} else if previous, ok := recorded.root(root.Name); ok {
-			entry.PilotElements, entry.PilotImplied, entry.PilotDuplicates, entry.PilotFailed = previous.PilotElements, previous.PilotImplied, previous.PilotDuplicates, previous.PilotFailed
-			if err := unrecordedRules(opts, root.Name, entry.Rules, previous.Rules); err != nil {
-				return err
-			}
-			for name, counts := range previous.Rules {
-				row := entry.Rules[name]
-				row.Pilot = counts.Pilot
-				entry.Rules[name] = row
-			}
-		}
-		report.Roots = append(report.Roots, entry)
+		report.Roots = append(report.Roots, *entry)
 	}
 	report.finish()
 	if _, err := writeReports(opts.out, report, opts.log); err != nil {
@@ -194,45 +148,126 @@ func run(opts options) error {
 		}
 	}
 	if opts.update {
-		if len(opts.roots) > 0 {
-			return fmt.Errorf("-update records every root; drop -roots")
-		}
-		head, err := committedHeader(report)
-		if err != nil {
-			return err
-		}
-		if err := baseline.Write(committed, head, opts.log); err != nil {
-			return err
-		}
-		if err := os.WriteFile(recordsPath(committed), encodeRecords(report), 0o600); err != nil {
-			return err
-		}
-		fmt.Fprintf(opts.log, "recorded %s\n", recordsPath(committed))
-		return nil
+		return recordBaseline(opts, committed, report)
 	}
 	if opts.check {
-		if err := baseline.CheckCommitted(committed, refreshCommand, record); err != nil {
-			return err
-		}
-		if recorded == nil {
-			if recorded, err = readCommitted(committed); err != nil {
-				return err
-			}
-		}
-		if newly := newlySilent(recorded, report); len(newly) > 0 {
-			return fmt.Errorf("served rules answer nothing on every element where the pilot answers, and %s does not record them as silent:\n  %s",
-				CommittedBaseline, strings.Join(newly, "\n  "))
-		}
-		head, err := committedHeader(report)
-		if err != nil {
-			return err
-		}
-		if err := baseline.Reproduces(committed, head); err != nil {
-			return err
-		}
-		return recordsReproduce(recordsPath(committed), encodeRecords(report))
+		return checkBaseline(committed, record, recorded, report)
 	}
 	return nil
+}
+
+// recordedColumn reads the pilot column the committed baseline records, for a run without the pilot
+// exporter, holding an update to the provenance that column was recorded under.
+func recordedColumn(opts options, committed string, record *baseline.Record) (*Report, error) {
+	recorded, err := readCommitted(committed)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
+	if opts.update {
+		if err := reusable(recorded, *record); err != nil {
+			return nil, err
+		}
+		if recorded != nil {
+			record.Recorded = recorded.Provenance.Recorded
+		}
+	}
+	if opts.recordedPilot {
+		fmt.Fprintf(opts.log, "the pilot column is the one %s records; our side alone is measured\n", CommittedBaseline)
+	} else {
+		fmt.Fprintf(opts.log, "pilot JSON exporter is absent at %s; the pilot column is the one %s records (run %s to re-export it)\n", opts.launcher, CommittedBaseline, exporter.ProvisionCommand)
+	}
+	return recorded, nil
+}
+
+// measureRoot censuses one corpus root, its pilot column exported when the exporter is present and
+// taken from the recorded baseline otherwise. It is nil for a root with no files.
+func measureRoot(opts options, root diff.Root, classes metaclasses, present bool, recorded *Report) (*RootReport, error) {
+	files, err := diff.CollectFiles(opts.repo, root)
+	if err != nil {
+		return nil, err
+	}
+	if len(files) == 0 {
+		return nil, nil
+	}
+	dir := filepath.Join(opts.repo, filepath.FromSlash(root.Dir))
+	fmt.Fprintf(opts.log, "%s: %d files\n", root.Name, len(files))
+	ours, err := censusRoot(dir, files)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", root.Name, err)
+	}
+	entry := RootReport{Name: root.Name, Dir: root.Dir, Files: len(files), Rejected: len(ours.Rejected),
+		Elements: ours.Elements, Implied: ours.Implied, Rules: map[string]RuleCounts{}}
+	for name, counts := range ours.Rules {
+		entry.Rules[name] = RuleCounts{Ours: counts}
+	}
+	if present {
+		pilot, err := runExporter(opts.launcher, dir, opts.libraries, files, opts.timeout, classes)
+		if err != nil {
+			return nil, err
+		}
+		entry.PilotElements, entry.PilotImplied, entry.PilotDuplicates, entry.PilotFailed = pilot.Elements, pilot.Implied, pilot.Duplicates, len(pilot.Failed)
+		for name, counts := range pilot.Rules {
+			row := entry.Rules[name]
+			row.Pilot = counts
+			entry.Rules[name] = row
+		}
+	} else if previous, ok := recorded.root(root.Name); ok {
+		entry.PilotElements, entry.PilotImplied, entry.PilotDuplicates, entry.PilotFailed = previous.PilotElements, previous.PilotImplied, previous.PilotDuplicates, previous.PilotFailed
+		if err := unrecordedRules(opts, root.Name, entry.Rules, previous.Rules); err != nil {
+			return nil, err
+		}
+		for name, counts := range previous.Rules {
+			row := entry.Rules[name]
+			row.Pilot = counts.Pilot
+			entry.Rules[name] = row
+		}
+	}
+	return &entry, nil
+}
+
+// recordBaseline re-records the committed baseline and its records from the report.
+func recordBaseline(opts options, committed string, report *Report) error {
+	if len(opts.roots) > 0 {
+		return fmt.Errorf("-update records every root; drop -roots")
+	}
+	head, err := committedHeader(report)
+	if err != nil {
+		return err
+	}
+	if err := baseline.Write(committed, head, opts.log); err != nil {
+		return err
+	}
+	if err := os.WriteFile(recordsPath(committed), encodeRecords(report), 0o600); err != nil {
+		return err
+	}
+	fmt.Fprintf(opts.log, "recorded %s\n", recordsPath(committed))
+	return nil
+}
+
+// checkBaseline holds the report to the committed baseline: the same provenance, no newly silent rule,
+// and the same header and records.
+func checkBaseline(committed string, record baseline.Record, recorded, report *Report) error {
+	if err := baseline.CheckCommitted(committed, refreshCommand, record); err != nil {
+		return err
+	}
+	if recorded == nil {
+		var err error
+		if recorded, err = readCommitted(committed); err != nil {
+			return err
+		}
+	}
+	if newly := newlySilent(recorded, report); len(newly) > 0 {
+		return fmt.Errorf("served rules answer nothing on every element where the pilot answers, and %s does not record them as silent:\n  %s",
+			CommittedBaseline, strings.Join(newly, "\n  "))
+	}
+	head, err := committedHeader(report)
+	if err != nil {
+		return err
+	}
+	if err := baseline.Reproduces(committed, head); err != nil {
+		return err
+	}
+	return recordsReproduce(recordsPath(committed), encodeRecords(report))
 }
 
 // underDeclaredJVM holds the export to the declared JVM: a record is written under no

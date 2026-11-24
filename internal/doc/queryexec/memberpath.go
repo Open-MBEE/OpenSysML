@@ -19,7 +19,7 @@ func (e *executor) memberPathStep(current *symbols.Symbol, segment string) []*sy
 	if member, ok := e.context.Model.LookupMember(current, segment); ok && member != nil {
 		return []*symbols.Symbol{member}
 	}
-	if elements, ok := e.context.Model.ReflectiveElements(current, segment); ok {
+	if elements, ok := e.context.Model.StatedReflectiveElements(current, segment); ok {
 		return elements
 	}
 	return nil

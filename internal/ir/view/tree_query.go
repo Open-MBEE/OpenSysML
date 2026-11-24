@@ -147,45 +147,13 @@ func (q *treeQuery) members(sym *symbols.Symbol) []*symbols.Symbol {
 // prepare condenses member cycles and indexes local expansion tokens and edges.
 // Types are tokens enter tests, not additional member walks.
 func (q *treeQuery) prepare(roots []*symbols.Symbol) {
-	order, low := map[*symbols.Symbol]int{}, map[*symbols.Symbol]int{}
-	active := map[*symbols.Symbol]bool{}
-	var stack []*symbols.Symbol
-	var components [][]*symbols.Symbol
-	var visit func(*symbols.Symbol)
-	visit = func(sym *symbols.Symbol) {
-		order[sym] = len(order) + 1
-		low[sym] = order[sym]
-		stack = append(stack, sym)
-		active[sym] = true
-		for _, member := range q.members(sym) {
-			if order[member] == 0 {
-				visit(member)
-				low[sym] = min(low[sym], low[member])
-			} else if active[member] {
-				low[sym] = min(low[sym], order[member])
-			}
-		}
-		if low[sym] != order[sym] {
-			return
-		}
-		var component []*symbols.Symbol
-		for {
-			last := stack[len(stack)-1]
-			stack = stack[:len(stack)-1]
-			active[last] = false
-			q.component[last] = len(components)
-			component = append(component, last)
-			if last == sym {
-				break
-			}
-		}
-		components = append(components, component)
-	}
+	walk := treeComponents{q: q, order: map[*symbols.Symbol]int{}, low: map[*symbols.Symbol]int{}, active: map[*symbols.Symbol]bool{}}
 	for _, root := range roots {
-		if order[root] == 0 {
-			visit(root)
+		if walk.order[root] == 0 {
+			walk.visit(root)
 		}
 	}
+	order, components := walk.order, walk.components
 	types := map[*symbols.Symbol][]*symbols.Symbol{}
 	for sym := range order {
 		types[sym] = q.r.drawnTypes(sym)
@@ -222,6 +190,47 @@ func (q *treeQuery) prepare(roots []*symbols.Symbol) {
 	}
 }
 
+// treeComponents is the search for the strongly connected components of a query's member graph:
+// each symbol's visit order and low link, the symbols on the stack, and the components closed so far.
+type treeComponents struct {
+	q          *treeQuery
+	order, low map[*symbols.Symbol]int
+	active     map[*symbols.Symbol]bool
+	stack      []*symbols.Symbol
+	components [][]*symbols.Symbol
+}
+
+// visit searches from sym, closing the component sym roots once its members are searched.
+func (c *treeComponents) visit(sym *symbols.Symbol) {
+	c.order[sym] = len(c.order) + 1
+	c.low[sym] = c.order[sym]
+	c.stack = append(c.stack, sym)
+	c.active[sym] = true
+	for _, member := range c.q.members(sym) {
+		if c.order[member] == 0 {
+			c.visit(member)
+			c.low[sym] = min(c.low[sym], c.low[member])
+		} else if c.active[member] {
+			c.low[sym] = min(c.low[sym], c.order[member])
+		}
+	}
+	if c.low[sym] != c.order[sym] {
+		return
+	}
+	var component []*symbols.Symbol
+	for {
+		last := c.stack[len(c.stack)-1]
+		c.stack = c.stack[:len(c.stack)-1]
+		c.active[last] = false
+		c.q.component[last] = len(c.components)
+		component = append(component, last)
+		if last == sym {
+			break
+		}
+	}
+	c.components = append(c.components, component)
+}
+
 func (q *treeQuery) tokens(sym *symbols.Symbol, types []*symbols.Symbol) []*symbols.Symbol {
 	return append(append([]*symbols.Symbol{sym}, types...), q.r.annotatingMembers(sym)...)
 }
@@ -232,6 +241,46 @@ func (q *treeQuery) exposedDescendants(exposed []*symbols.Symbol, annotations bo
 	if len(exposed) < 2 {
 		return nil
 	}
+	containers := q.exposedContainers(exposed)
+	by := make([]map[symbols.ElementKey]bool, len(exposed))
+	members := func(sym *symbols.Symbol) []*symbols.Symbol {
+		if annotations {
+			return append(slices.Clone(q.members(sym)), q.r.annotatingMembers(sym)...)
+		}
+		return q.members(sym)
+	}
+	suppressed := map[symbols.ElementKey]bool{}
+	for range exposed {
+		changed := false
+		for i, elem := range exposed {
+			key := symbols.KeyOf(elem)
+			contained := slices.ContainsFunc(containers[i], func(j int) bool {
+				if suppressed[symbols.KeyOf(exposed[j])] {
+					return false
+				}
+				if by[j] == nil {
+					by[j] = q.r.treeDescendants(q.view, exposed[j], members)
+				}
+				return by[j][key]
+			})
+			if contained != suppressed[key] {
+				changed = true
+				if contained {
+					suppressed[key] = true
+				} else {
+					delete(suppressed, key)
+				}
+			}
+		}
+		if !changed {
+			break
+		}
+	}
+	return suppressed
+}
+
+// exposedContainers lists, for each exposed element, the other exposed elements whose member graph reaches it.
+func (q *treeQuery) exposedContainers(exposed []*symbols.Symbol) [][]int {
 	targets := map[int][]int{}
 	for i, sym := range exposed {
 		for _, id := range q.keys[symbols.KeyOf(sym)] {
@@ -265,45 +314,7 @@ func (q *treeQuery) exposedDescendants(exposed []*symbols.Symbol, annotations bo
 		}
 		visit(q.component[sym])
 	}
-	by := make([]map[symbols.ElementKey]bool, len(exposed))
-	members := func(sym *symbols.Symbol) []*symbols.Symbol {
-		if annotations {
-			return append(slices.Clone(q.members(sym)), q.r.annotatingMembers(sym)...)
-		}
-		return q.members(sym)
-	}
-	suppressed := map[symbols.ElementKey]bool{}
-	for range exposed {
-		changed := false
-		for i, elem := range exposed {
-			key := symbols.KeyOf(elem)
-			contained := false
-			for _, j := range containers[i] {
-				if suppressed[symbols.KeyOf(exposed[j])] {
-					continue
-				}
-				if by[j] == nil {
-					by[j] = q.r.treeDescendants(q.view, exposed[j], members)
-				}
-				if by[j][key] {
-					contained = true
-					break
-				}
-			}
-			if contained != suppressed[key] {
-				changed = true
-				if contained {
-					suppressed[key] = true
-				} else {
-					delete(suppressed, key)
-				}
-			}
-		}
-		if !changed {
-			break
-		}
-	}
-	return suppressed
+	return containers
 }
 
 // key keeps reachable recursion barriers and actual ancestors eligible for box-to-line/dot lowering.

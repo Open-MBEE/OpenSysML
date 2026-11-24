@@ -363,33 +363,44 @@ func (m *Model) roleNamed(sym *symbols.Symbol) bool {
 // declared name is, and so is a member under either (`T::obj::massRequirement`);
 // "" where sym has no name, an owner naming nothing is skipped as FQNOf skips it.
 func (m *Model) QualifiedNameOf(sym *symbols.Symbol) string {
-	names, _ := m.QualifiedNamesOf(sym)
+	var buf [16]string
+	names, _ := m.appendQualifiedNames(buf[:0], sym)
 	return strings.Join(names, "::")
 }
 
 // QualifiedNamesOf is the names QualifiedNameOf joins, outermost first, and
 // whether sym has one: kept apart they tell the empty name from none.
 func (m *Model) QualifiedNamesOf(sym *symbols.Symbol) ([]string, bool) {
-	if m == nil || sym == nil {
+	names, ok := m.appendQualifiedNames(nil, sym)
+	if !ok {
 		return nil, false
+	}
+	return names, true
+}
+
+// appendQualifiedNames appends sym's QualifiedNamesOf to names, which it returns
+// as given when sym has none.
+func (m *Model) appendQualifiedNames(names []string, sym *symbols.Symbol) ([]string, bool) {
+	if m == nil || sym == nil {
+		return names, false
 	}
 	name := sym.Name
 	if !sym.Named() {
 		if !m.PositionallyNamed(sym) && !m.roleNamed(sym) {
-			return nil, false
+			return names, false
 		}
 		name = m.EffectiveNameOf(sym)
 	}
 	owner := sym.Owner()
 	if owner == nil {
-		return []string{name}, true
+		return append(names, name), true
 	}
-	ownerNames, ok := m.QualifiedNamesOf(owner)
+	qualified, ok := m.appendQualifiedNames(names, owner)
 	if !ok {
 		if !sym.Named() {
-			return nil, false
+			return names, false
 		}
-		return symbols.NameChain(sym), true
+		return append(names, symbols.NameChain(sym)...), true
 	}
-	return append(ownerNames, name), true
+	return append(qualified, name), true
 }

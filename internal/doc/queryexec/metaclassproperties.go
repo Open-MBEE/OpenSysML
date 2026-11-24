@@ -236,7 +236,7 @@ func (e *executor) metaclassPropertyValues(sym *symbols.Symbol, property string)
 		return nil, false, nil
 	}
 	model := e.context.Model
-	if elements, ok := model.ReflectiveElements(sym, property); ok {
+	if elements, ok := e.context.Model.StatedReflectiveElements(sym, property); ok {
 		return reflectiveElementValues(sym, elements), true, nil
 	}
 	values, ok := model.ReflectiveFeatureValues(sym, property)

@@ -1267,6 +1267,29 @@ func sysmlMetaclassName(sym *symbols.Symbol) string {
 		// A trigger's payload parameter is a ReferenceUsage, named or not (SysML.xtext PayloadParameter).
 		return "ReferenceUsage"
 	}
+	if name := declaredMetaclassName(sym); name != "" {
+		return name
+	}
+	switch sym.Kind {
+	case symbols.SymbolConnectorEnd:
+		return ConnectorEndMetaclassName(sym)
+	case symbols.SymbolUnknown:
+		if kind, ok := sym.UsageKind(); ok {
+			return usageMetaclassNames[kind]
+		}
+	case symbols.SymbolActionUsage:
+		if sym.DeclaresTransition() {
+			return usageMetaclassNames[ast.UsageTransition]
+		}
+	}
+	if name := recordedNodeMetaclassName(sym); name != "" {
+		return name
+	}
+	return metaclassName(sym.Kind)
+}
+
+// declaredMetaclassName is the metaclass sym's declaration node fixes, empty when its kind decides.
+func declaredMetaclassName(sym *symbols.Symbol) string {
 	switch decl := sym.Decl.(type) {
 	case *ast.ForkNode:
 		return "ForkNode"
@@ -1313,31 +1336,25 @@ func sysmlMetaclassName(sym *symbols.Symbol) string {
 			return "IncludeUseCaseUsage"
 		}
 	}
-	switch sym.Kind {
-	case symbols.SymbolConnectorEnd:
-		return ConnectorEndMetaclassName(sym)
-	case symbols.SymbolUnknown:
-		if kind, ok := sym.UsageKind(); ok {
-			return usageMetaclassNames[kind]
-		}
-	case symbols.SymbolActionUsage:
-		if sym.DeclaresTransition() {
-			return usageMetaclassNames[ast.UsageTransition]
-		}
+	return ""
+}
+
+// recordedNodeMetaclassName is the control-node metaclass a recorded symbol's facts name, empty for any other symbol.
+func recordedNodeMetaclassName(sym *symbols.Symbol) string {
+	if !sym.Recorded() {
+		return ""
 	}
-	if sym.Recorded() {
-		switch sym.Facts.Node {
-		case symbols.NodeFork:
-			return "ForkNode"
-		case symbols.NodeJoin:
-			return "JoinNode"
-		case symbols.NodeMerge:
-			return "MergeNode"
-		case symbols.NodeDecision:
-			return "DecisionNode"
-		}
+	switch sym.Facts.Node {
+	case symbols.NodeFork:
+		return "ForkNode"
+	case symbols.NodeJoin:
+		return "JoinNode"
+	case symbols.NodeMerge:
+		return "MergeNode"
+	case symbols.NodeDecision:
+		return "DecisionNode"
 	}
-	return metaclassName(sym.Kind)
+	return ""
 }
 
 // extendedDefinition reports whether sym is an extended definition: a
@@ -2540,53 +2557,54 @@ func (m *Model) successionEndFeatureTargets(sym *symbols.Symbol) (targets []*sym
 	if owner == nil {
 		return nil, false
 	}
-	var ends []ActionSuccessionEnd
-	found := false
-	for _, succession := range m.ActionSuccessions(owner) {
-		if succession.Decl != sym.Decl {
-			continue
-		}
-		ends = []ActionSuccessionEnd{succession.Source, succession.Target}
-		found = true
-		break
-	}
-	if !found {
-		for _, succession := range m.DeclaredSuccessions(sym.OwnerScope, owner, []ast.Node{sym.Decl}) {
-			if succession.Decl == sym.Decl {
-				ends = []ActionSuccessionEnd{succession.Source, succession.Target}
-				break
-			}
-		}
-	}
-	for _, end := range ends {
-		target := end.Symbol
-		if target == nil && end.Node != nil {
-			target = memberSymbol(sym.OwnerScope, end.Node)
-		}
-		if target == nil && end.Node != nil {
-			// `then assign x := 1;` sequences the statement itself, which the structure
-			// reflects as a node of the owner's body (statementNodes).
-			for _, statement := range m.statementNodes(owner) {
-				if statement.Decl == end.Node {
-					target = statement
-					break
-				}
-			}
-		}
-		if target == nil && end.Node != nil {
-			// `then done;` and `first start;` reach the library's done and start the
-			// action inherits; a member no element stands for yet leaves its position nil.
-			switch node := end.Node.(type) {
-			case *ast.FinalNode:
-				target = m.actionSymbolNamed(sym.OwnerScope, owner, "done")
-			case *ast.InitialNode:
-				target = m.actionSymbolNamed(sym.OwnerScope, owner, node.Name())
-			}
-			unrepresented = unrepresented || target == nil
-		}
+	for _, end := range m.successionEndsOf(sym, owner) {
+		target, missing := m.successionEndTarget(sym, owner, end)
+		unrepresented = unrepresented || missing
 		targets = append(targets, target)
 	}
 	return targets, unrepresented
+}
+
+// successionEndsOf is the source and target of the succession sym declares in owner: none when no succession is.
+func (m *Model) successionEndsOf(sym, owner *symbols.Symbol) []ActionSuccessionEnd {
+	for _, succession := range m.ActionSuccessions(owner) {
+		if succession.Decl == sym.Decl {
+			return []ActionSuccessionEnd{succession.Source, succession.Target}
+		}
+	}
+	for _, succession := range m.DeclaredSuccessions(sym.OwnerScope, owner, []ast.Node{sym.Decl}) {
+		if succession.Decl == sym.Decl {
+			return []ActionSuccessionEnd{succession.Source, succession.Target}
+		}
+	}
+	return nil
+}
+
+// successionEndTarget is the element an end of sym's succession targets; unrepresented reports a
+// `then done;` or `first start;` end no element stands for yet, whose position stays nil.
+func (m *Model) successionEndTarget(sym, owner *symbols.Symbol, end ActionSuccessionEnd) (target *symbols.Symbol, unrepresented bool) {
+	if end.Symbol != nil || end.Node == nil {
+		return end.Symbol, false
+	}
+	if target = memberSymbol(sym.OwnerScope, end.Node); target != nil {
+		return target, false
+	}
+	// `then assign x := 1;` sequences the statement itself, which the structure
+	// reflects as a node of the owner's body (statementNodes).
+	for _, statement := range m.statementNodes(owner) {
+		if statement.Decl == end.Node {
+			return statement, false
+		}
+	}
+	// `then done;` and `first start;` reach the library's done and start the
+	// action inherits; a member no element stands for yet leaves its position nil.
+	switch node := end.Node.(type) {
+	case *ast.FinalNode:
+		target = m.actionSymbolNamed(sym.OwnerScope, owner, "done")
+	case *ast.InitialNode:
+		target = m.actionSymbolNamed(sym.OwnerScope, owner, node.Name())
+	}
+	return target, target == nil
 }
 
 // successionChainedEnds reports which end of the succession decl is written as a feature chain (`first a.b then c.d;`).

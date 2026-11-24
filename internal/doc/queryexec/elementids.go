@@ -297,6 +297,11 @@ func implicitRelationshipID(read ElementIDReader, idx *symbols.Index, sym *symbo
 		return "", true, nil
 	case symbols.ImplicitPortConjugation, symbols.ImplicitMetadataBodyRedefinition, symbols.ImplicitTypeArgumentTyping,
 		symbols.ImplicitShorthandReference:
+		if slot, ok := expressionPartSlot(rel.Owner); ok && rel.Form == symbols.ImplicitTypeArgumentTyping {
+			// The FeatureTyping of a type argument's parameter is minted under the parameter (`ft0`).
+			element, _, err := read.ReadExpressionPart(rel.Owner.DocName, rel.Owner.Expr.Owner.Decl, slot+".ft0")
+			return element, true, err
+		}
 		if flow, slot, ok := flowEndFeatureSlot(rel.Owner); ok && rel.Form != symbols.ImplicitShorthandReference {
 			// The Redefinition the ReferenceUsage a flow's end owns states is minted under it (`rd0`).
 			element, _, err := read.ReadExpressionPart(rel.Owner.DocName, flow, slot+".rd0")
