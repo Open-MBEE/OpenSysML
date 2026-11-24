@@ -118,6 +118,10 @@ within these records and means nothing outside this repository.
   the 17 common technical processes, life-cycle reviews with the Appendix G criteria, work-product
   maturity, TRLs, the active SE requirements, the generated compliance matrix and the warning-only
   checks
+- **[NASASTD7009 library](nasastd7009-library.md)** — NASA-STD-7009B, the Standard for Models and
+  Simulations, as a bundled OpenSysML library: the 43 M&S requirements, the criticality assessment
+  matrix, the capability and results assessment factors, the report of M&S results, the generated
+  Requirements Identification Matrix and the warning-only checks
 - **[StateMachines library](statemachines-library.md)** — pseudostates as bundled
   `SemanticMetadata`, so a state machine's `choice`, `junction` and history pseudostates
   spell standard, conforming SysML v2

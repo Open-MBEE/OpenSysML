@@ -219,6 +219,7 @@ exclude_docs: |
   project/oosem-library.md
   project/mosa-library.md
   project/npr7123-library.md
+  project/nasastd7009-library.md
   project/statemachines-library.md
   project/extension-libraries.md
 

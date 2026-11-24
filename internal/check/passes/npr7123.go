@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/kit"
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
@@ -77,10 +76,7 @@ type npr7123MinimumProduct struct {
 }
 
 type npr7123Audit struct {
-	ctx   *Context
-	model *semantics.Model
-	// defs holds the library definitions by qualified name.
-	defs map[string]*symbols.Symbol
+	*libraryAudit
 	// minimumProducts maps a review kind literal name to its required products;
 	// it, requirements and processes are filled by loadTables.
 	minimumProducts map[string][]npr7123MinimumProduct
@@ -88,39 +84,21 @@ type npr7123Audit struct {
 	requirements []*symbols.Symbol
 	// processes are the 17 common technical process definitions, in library order.
 	processes []*symbols.Symbol
-	// conforms memoizes conformance of a type to a library definition.
-	conforms map[[2]*symbols.Symbol]bool
 	// tablesLoaded marks minimumProducts, requirements and processes as read.
 	tablesLoaded bool
-	diags        []diag.Diagnostic
 }
 
-// newNPR7123Audit returns nil when the bundled NPR7123 library is not loaded:
-// a workspace package of the same name is not the NPR's vocabulary.
+// newNPR7123Audit returns nil when the bundled NPR7123 library is not loaded.
 func newNPR7123Audit(ctx *Context) *npr7123Audit {
-	a := &npr7123Audit{
-		ctx:             ctx,
-		model:           ctx.Model(),
-		defs:            map[string]*symbols.Symbol{},
-		minimumProducts: map[string][]npr7123MinimumProduct{},
-		conforms:        map[[2]*symbols.Symbol]bool{},
-	}
-	for _, fqn := range []string{
+	base := newLibraryAudit(ctx, npr7123Source,
 		npr7123LifeCycleReview, npr7123EntranceCriterion, npr7123SuccessCriterion, npr7123WorkProduct,
 		npr7123MaturityExpectation, npr7123ReviewKind, npr7123WorkProductMaturity, npr7123Compliance,
 		npr7123ComplyKind, npr7123ComplianceMatrix, npr7123SERequirement, npr7123SERequirements,
-		npr7123SEMP, npr7123TechnicalProcess,
-	} {
-		def := npr7123LibraryElement(ctx, fqn)
-		if def == nil {
-			return nil
-		}
-		a.defs[fqn] = def
-	}
-	if a.defs[npr7123WorkProduct].OwnerScope == nil {
+		npr7123SEMP, npr7123TechnicalProcess)
+	if base == nil || base.defs[npr7123WorkProduct].OwnerScope == nil {
 		return nil
 	}
-	return a
+	return &npr7123Audit{libraryAudit: base, minimumProducts: map[string][]npr7123MinimumProduct{}}
 }
 
 // loadTables reads Table 5-1, the SE requirements and the technical processes off the
@@ -156,16 +134,6 @@ func (a *npr7123Audit) loadTables() {
 	}
 }
 
-// npr7123LibraryElement returns the bundled library element registered under fqn, or nil.
-func npr7123LibraryElement(ctx *Context, fqn string) *symbols.Symbol {
-	for _, def := range ctx.Index.LookupQualified(fqn) {
-		if def != nil && ctx.Index.Library(def) {
-			return def
-		}
-	}
-	return nil
-}
-
 // noteMinimumProducts records the required cells of Table 5-1 a work product
 // definition carries as @MaturityExpectation annotations.
 func (a *npr7123Audit) noteMinimumProducts(product *symbols.Symbol) {
@@ -180,9 +148,9 @@ func (a *npr7123Audit) noteMinimumProducts(product *symbols.Symbol) {
 			case "required":
 				required = v.Value.Kind == symbols.FilterValueBool && v.Value.Bool
 			case "review":
-				review = npr7123Literal(v.Value, npr7123ReviewKind)
+				review = enumLiteral(v.Value, npr7123ReviewKind)
 			case "maturity":
-				maturity = npr7123Literal(v.Value, npr7123WorkProductMaturity)
+				maturity = enumLiteral(v.Value, npr7123WorkProductMaturity)
 			case "requirementId":
 				if v.Value.Kind == symbols.FilterValueString {
 					requirementID = v.Value.Str
@@ -194,70 +162,6 @@ func (a *npr7123Audit) noteMinimumProducts(product *symbols.Symbol) {
 				npr7123MinimumProduct{product: product, maturity: maturity, requirementID: requirementID})
 		}
 	}
-}
-
-// npr7123Literal returns the literal name of an enumeration value of enumFQN, or "".
-func npr7123Literal(v symbols.FilterValue, enumFQN string) string {
-	if v.Kind != symbols.FilterValueRef || !strings.HasPrefix(v.RefFQN, enumFQN+"::") {
-		return ""
-	}
-	return strings.TrimPrefix(v.RefFQN, enumFQN+"::")
-}
-
-// annotationIs reports whether an annotation's type is, or conforms to, the library metadata definition.
-func (a *npr7123Audit) annotationIs(facts symbols.AnnotationFacts, fqn string) bool {
-	def := a.defs[fqn]
-	for _, t := range a.ctx.Index.LookupQualified(facts.TypeFQN) {
-		if t == def || a.model.Conforms(t, def) {
-			return true
-		}
-	}
-	return false
-}
-
-// conformsTo reports whether a type is, or specializes, the library definition fqn.
-func (a *npr7123Audit) conformsTo(t *symbols.Symbol, fqn string) bool {
-	def := a.defs[fqn]
-	key := [2]*symbols.Symbol{t, def}
-	if ok, seen := a.conforms[key]; seen {
-		return ok
-	}
-	ok := t == def || a.model.Conforms(t, def)
-	a.conforms[key] = ok
-	return ok
-}
-
-// isA reports whether a feature is typed, directly or through a keyword, by a
-// type conforming to the library definition fqn.
-func (a *npr7123Audit) isA(sym *symbols.Symbol, fqn string) bool {
-	if sym == nil || !sym.IsFeature() {
-		return false
-	}
-	return a.anyConformsTo(a.model.FeatureTypeSet(sym), fqn)
-}
-
-// anyConformsTo reports whether one of types conforms to the library definition fqn.
-func (a *npr7123Audit) anyConformsTo(types []*symbols.Symbol, fqn string) bool {
-	for _, t := range types {
-		if a.conformsTo(t, fqn) {
-			return true
-		}
-	}
-	return false
-}
-
-// features returns the features sym states: those of its own body and those it
-// inherits from the types and generals the model, not the library, declares.
-func (a *npr7123Audit) features(sym *symbols.Symbol) []*symbols.Symbol {
-	var out []*symbols.Symbol
-	seen := map[*symbols.Symbol]bool{}
-	for _, member := range a.model.MembersOf(sym) {
-		if member.Kind != symbols.SymbolAlias && member.IsFeature() && !seen[member] && !a.ctx.Index.Library(member) {
-			seen[member] = true
-			out = append(out, member)
-		}
-	}
-	return out
 }
 
 // statesAs reports whether f subsets, redefines or references, directly or through
@@ -288,20 +192,6 @@ func (a *npr7123Audit) specializesFeature(f, target *symbols.Symbol, seen map[*s
 		}
 	}
 	return false
-}
-
-// literalOf reads an enumeration-valued feature of sym as its literal name, or "".
-func (a *npr7123Audit) literalOf(sym *symbols.Symbol, feature, enumFQN string) string {
-	values, present, err := a.model.DeclaredFeatureValues(sym, feature)
-	if err != nil || !present {
-		return ""
-	}
-	for _, v := range values {
-		if lit := npr7123Literal(v, enumFQN); lit != "" {
-			return lit
-		}
-	}
-	return ""
 }
 
 func (a *npr7123Audit) check(root *symbols.Scope) {
@@ -430,7 +320,7 @@ func (a *npr7123Audit) checkCompliance(sym *symbols.Symbol) {
 		for _, v := range facts.Values {
 			switch v.Feature {
 			case "comply":
-				comply = npr7123Literal(v.Value, npr7123ComplyKind)
+				comply = enumLiteral(v.Value, npr7123ComplyKind)
 			case "justification":
 				justified = v.Value.Kind == symbols.FilterValueString && v.Value.Str != ""
 			}
@@ -545,17 +435,4 @@ func npr7123Keyword(name string) string {
 		return name
 	}
 	return strings.ToLower(name[:1]) + name[1:]
-}
-
-func (a *npr7123Audit) report(sym *symbols.Symbol, code, message string) {
-	if sym == nil || sym.Decl == nil {
-		return
-	}
-	a.diags = append(a.diags, diag.Diagnostic{
-		Severity: diag.SeverityWarning,
-		Span:     sym.Decl.Span(),
-		Message:  message,
-		Code:     code,
-		Source:   npr7123Source,
-	})
 }

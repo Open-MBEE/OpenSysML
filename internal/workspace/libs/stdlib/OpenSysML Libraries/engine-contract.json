@@ -722,6 +722,157 @@
       ]
     },
     {
+      "name": "NASASTD7009::Applicability",
+      "kind": "metadata",
+      "attributes": [
+        "applicable",
+        "comments",
+        "recordLocation"
+      ],
+      "consumers": [
+        "internal/check/passes/nasastd7009.go"
+      ]
+    },
+    {
+      "name": "NASASTD7009::Applicable",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/nasastd7009.go"
+      ]
+    },
+    {
+      "name": "NASASTD7009::CapabilityFactor",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/nasastd7009.go"
+      ]
+    },
+    {
+      "name": "NASASTD7009::CapabilityFactorAssessment",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/nasastd7009.go"
+      ]
+    },
+    {
+      "name": "NASASTD7009::CriticalityAssessment",
+      "kind": "metadata",
+      "attributes": [
+        "consequence",
+        "influence",
+        "rating",
+        "method"
+      ],
+      "consumers": [
+        "internal/check/passes/nasastd7009.go"
+      ]
+    },
+    {
+      "name": "NASASTD7009::CriticalityRating",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/nasastd7009.go"
+      ]
+    },
+    {
+      "name": "NASASTD7009::DecisionConsequence",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/nasastd7009.go"
+      ]
+    },
+    {
+      "name": "NASASTD7009::FactorLevel",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/nasastd7009.go"
+      ]
+    },
+    {
+      "name": "NASASTD7009::MSCapabilityAssessment",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/nasastd7009.go"
+      ]
+    },
+    {
+      "name": "NASASTD7009::MSInfluence",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/nasastd7009.go"
+      ]
+    },
+    {
+      "name": "NASASTD7009::MSRequirement",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/nasastd7009.go"
+      ]
+    },
+    {
+      "name": "NASASTD7009::MSRequirements",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/nasastd7009.go"
+      ]
+    },
+    {
+      "name": "NASASTD7009::MSResultsAssessment",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/nasastd7009.go"
+      ]
+    },
+    {
+      "name": "NASASTD7009::MSResultsReport",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/nasastd7009.go"
+      ]
+    },
+    {
+      "name": "NASASTD7009::RequirementsIdentificationMatrix",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/nasastd7009.go"
+      ]
+    },
+    {
+      "name": "NASASTD7009::ResultsFactor",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/nasastd7009.go"
+      ]
+    },
+    {
+      "name": "NASASTD7009::ResultsFactorAssessment",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/nasastd7009.go"
+      ]
+    },
+    {
+      "name": "NASASTD7009::ResultsWarning",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/nasastd7009.go"
+      ]
+    },
+    {
+      "name": "NASASTD7009::UncertaintyEstimateKind",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/nasastd7009.go"
+      ]
+    },
+    {
+      "name": "NASASTD7009::WarningOccurrence",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/nasastd7009.go"
+      ]
+    },
+    {
       "name": "NPR7123::Compliance",
       "kind": "metadata",
       "attributes": [
@@ -827,6 +978,77 @@
       "kind": "element",
       "consumers": [
         "internal/check/passes/npr7123.go"
+      ]
+    },
+    {
+      "name": "NPR7150::ClassApplicability",
+      "kind": "metadata",
+      "attributes": [
+        "softwareClass"
+      ],
+      "consumers": [
+        "internal/check/passes/npr7150.go"
+      ]
+    },
+    {
+      "name": "NPR7150::MappingKind",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/npr7150.go"
+      ]
+    },
+    {
+      "name": "NPR7150::RequirementMapping",
+      "kind": "metadata",
+      "attributes": [
+        "comply",
+        "justification"
+      ],
+      "consumers": [
+        "internal/check/passes/npr7150.go"
+      ]
+    },
+    {
+      "name": "NPR7150::RequirementsMappingMatrix",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/npr7150.go"
+      ]
+    },
+    {
+      "name": "NPR7150::SWERequirement",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/npr7150.go"
+      ]
+    },
+    {
+      "name": "NPR7150::SWERequirements",
+      "kind": "package",
+      "consumers": [
+        "internal/check/passes/npr7150.go"
+      ]
+    },
+    {
+      "name": "NPR7150::SafetyCriticalSoftwareCondition",
+      "kind": "metadata",
+      "attributes": [],
+      "consumers": [
+        "internal/check/passes/npr7150.go"
+      ]
+    },
+    {
+      "name": "NPR7150::SoftwareClass",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/npr7150.go"
+      ]
+    },
+    {
+      "name": "NPR7150::SoftwareSystem",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/npr7150.go"
       ]
     },
     {

@@ -13538,6 +13538,12 @@
       "note": "Audits the elements a model classifies with the MOSA extension library against that method's openness rules, beyond KerML and SysML."
     },
     {
+      "file": "internal/check/passes/nasastd7009.go",
+      "pass": "NASASTD7009Pass",
+      "basis": "extension",
+      "note": "Audits the elements a model classifies with the NASASTD7009 extension library against what NASA-STD-7009B states of them, beyond KerML and SysML."
+    },
+    {
       "file": "internal/check/passes/npr7123.go",
       "pass": "NPR7123Pass",
       "basis": "extension",

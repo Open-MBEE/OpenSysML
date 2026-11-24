@@ -31,6 +31,7 @@ const (
 	specMOSA  = "MOSA extension library"
 	specOOSEM = "OOSEM extension library"
 	specNPR   = "NPR7123 extension library (NASA NPR 7123.1D)"
+	specMS    = "NASASTD7009 extension library (NASA-STD-7009B)"
 )
 
 // methodCodes are the codes of the method rules: findings of the MOSA and OOSEM
@@ -77,6 +78,55 @@ var methodCodes = []Entry{
 		Meaning: "The connection joins two major system components (or modular systems), a boundary MOSA expects to be designated a modular system interface. " +
 			"Type the connection by a `#modularSystemInterface` definition or mark it so.",
 		Spec: specMOSA,
+	},
+	{
+		Code: "nasastd7009-assessment-missing-factor", Tier: TierMethod, Severity: "warning",
+		Summary: "an M&S capability or results assessment recording no level for one of its factors",
+		Meaning: "NASA-STD-7009B [M&S 48] has the assessed M&S capability recorded according to each of the five factors of Appendix E.3, and [M&S 31] the assessed M&S results according to each of the six factors of Appendix E.4, so an `MSCapabilityAssessment` or `MSResultsAssessment` usage is expected to nest one factor assessment per factor stating its `level`. " +
+			"Nest the missing factors (`#capabilityFactor item pedigree { :>> factor = CapabilityFactor::msDataPedigree; :>> level = FactorLevel::level2; }`).",
+		Spec: specMS,
+	},
+	{
+		Code: "nasastd7009-report-missing-content", Tier: TierMethod, Severity: "warning",
+		Summary: "a report of M&S results omitting something section 4.3.8 has it include",
+		Meaning: "NASA-STD-7009B section 4.3.8 has a report of M&S results to decision makers include the outcome of the M&S capability assessment [M&S 50] and of the M&S results assessment [M&S 35], an estimate of results uncertainty or the statement that none is available [M&S 33] with the processes that obtained it [M&S 34], the qualifications of the developers, users, operators or analysts [M&S 37], and the assessment of, and rationale for, acceptance of the risks [M&S 39]. " +
+			"Nest or subset the two assessments under the `MSResultsReport` usage and state its `uncertaintyEstimate`, `uncertaintyProcess`, `qualifications` and `riskAcceptance`.",
+		Spec: specMS,
+	},
+	{
+		Code: "nasastd7009-report-missing-warning", Tier: TierMethod, Severity: "warning",
+		Summary: "a report of M&S results with a factor assessed below its threshold and no warning of it",
+		Meaning: "NASA-STD-7009B [M&S 32] a has unachieved acceptance criteria reported to decision makers with an explicit warning, and [M&S 43] e makes the M&S assessment level thresholds acceptance criteria, so a report holding a factor assessed below its `threshold` is expected to nest a `ResultsWarning` of kind `unachievedAcceptanceCriteria`. " +
+			"Add the warning with its `impact`; the Standard sets no threshold of its own.",
+		Spec: specMS,
+	},
+	{
+		Code: "nasastd7009-warning-missing-impact", Tier: TierMethod, Severity: "warning",
+		Summary: "a warning of a report of M&S results stating no impact",
+		Meaning: "NASA-STD-7009B [M&S 32] has each warning reported to decision makers accompanied by at least a qualitative estimate of the impact of the occurrence. " +
+			"Give the `ResultsWarning` an `impact`.",
+		Spec: specMS,
+	},
+	{
+		Code: "nasastd7009-criticality-rating-differs-from-matrix", Tier: TierMethod, Severity: "warning",
+		Summary: "a criticality rating that differs from Figure 1 with no method recorded",
+		Meaning: "NASA-STD-7009B section 4.1.1.2 has the method of the criticality assessment [M&S 6] recorded, Appendix D as is or modified or another method, so a `@CriticalityAssessment` whose `rating` is not the cell of the Appendix D matrix (Figure 1) for its `consequence` and `influence` is expected to state its `method`. " +
+			"Correct the `rating` or record the `method` the project uses.",
+		Spec: specMS,
+	},
+	{
+		Code: "nasastd7009-requirement-entry-incomplete", Tier: TierMethod, Severity: "warning",
+		Summary: "a matrix entry not applicable with no comments, or applicable with no record location",
+		Meaning: "Appendix A of NASA-STD-7009B has the Comments column of the Requirements Identification Matrix explain or justify a requirement that is not applicable, and section 4.3.8.8 adds that the location of applicable/required records is also necessary for compliance. " +
+			"Give the `@Applicability` annotation its `comments` when not applicable, and a requirement's entry its `recordLocation` when applicable.",
+		Spec: specMS,
+	},
+	{
+		Code: "nasastd7009-matrix-missing-requirement", Tier: TierMethod, Severity: "warning",
+		Summary: "a Requirements Identification Matrix whose document has no entry for a requirement",
+		Meaning: "Table 1 of NASA-STD-7009B lists every `[M&S n]` requirement, so a `RequirementsIdentificationMatrix` usage expects its document to hold an `@Applicability`-annotated usage of each definition in `NASASTD7009::MSRequirements`. " +
+			"Add the missing entries, marking each applicable or not.",
+		Spec: specMS,
 	},
 	{
 		Code: "npr7123-review-missing-entrance-or-success-criteria", Tier: TierMethod, Severity: "warning",

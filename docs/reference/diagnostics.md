@@ -2010,6 +2010,13 @@ A transition's `accept when <name>` or `when <name>` trigger names something no 
 | [`mosa-interface-no-standard`](#mosa-interface-no-standard) | warning | a modular system interface conforming to no standard |
 | [`mosa-interface-not-traced`](#mosa-interface-not-traced) | warning | a modular system interface satisfying no requirement |
 | [`mosa-proprietary-no-rationale`](#mosa-proprietary-no-rationale) | warning | an element marked `@Proprietary` with no rationale |
+| [`nasastd7009-assessment-missing-factor`](#nasastd7009-assessment-missing-factor) | warning | an M&S capability or results assessment recording no level for one of its factors |
+| [`nasastd7009-criticality-rating-differs-from-matrix`](#nasastd7009-criticality-rating-differs-from-matrix) | warning | a criticality rating that differs from Figure 1 with no method recorded |
+| [`nasastd7009-matrix-missing-requirement`](#nasastd7009-matrix-missing-requirement) | warning | a Requirements Identification Matrix whose document has no entry for a requirement |
+| [`nasastd7009-report-missing-content`](#nasastd7009-report-missing-content) | warning | a report of M&S results omitting something section 4.3.8 has it include |
+| [`nasastd7009-report-missing-warning`](#nasastd7009-report-missing-warning) | warning | a report of M&S results with a factor assessed below its threshold and no warning of it |
+| [`nasastd7009-requirement-entry-incomplete`](#nasastd7009-requirement-entry-incomplete) | warning | a matrix entry not applicable with no comments, or applicable with no record location |
+| [`nasastd7009-warning-missing-impact`](#nasastd7009-warning-missing-impact) | warning | a warning of a report of M&S results stating no impact |
 | [`npr7123-compliance-matrix-missing-requirement`](#npr7123-compliance-matrix-missing-requirement) | warning | a compliance matrix whose document has no compliance entry for an active SE requirement |
 | [`npr7123-compliance-missing-justification`](#npr7123-compliance-missing-justification) | warning | a compliance entry marked tailored or not applicable with no justification |
 | [`npr7123-review-missing-entrance-or-success-criteria`](#npr7123-review-missing-entrance-or-success-criteria) | warning | a life-cycle review stating no entrance criteria or no success criteria |
@@ -2068,6 +2075,62 @@ Specification: MOSA extension library
 MOSA expects the justification for each proprietary element to be recorded with it. Give the annotation a `rationale`.
 
 Specification: MOSA extension library
+
+#### `nasastd7009-assessment-missing-factor`
+
+**warning** · Method rules · an M&S capability or results assessment recording no level for one of its factors
+
+NASA-STD-7009B [M&S 48] has the assessed M&S capability recorded according to each of the five factors of Appendix E.3, and [M&S 31] the assessed M&S results according to each of the six factors of Appendix E.4, so an `MSCapabilityAssessment` or `MSResultsAssessment` usage is expected to nest one factor assessment per factor stating its `level`. Nest the missing factors (`#capabilityFactor item pedigree { :>> factor = CapabilityFactor::msDataPedigree; :>> level = FactorLevel::level2; }`).
+
+Specification: NASASTD7009 extension library (NASA-STD-7009B)
+
+#### `nasastd7009-criticality-rating-differs-from-matrix`
+
+**warning** · Method rules · a criticality rating that differs from Figure 1 with no method recorded
+
+NASA-STD-7009B section 4.1.1.2 has the method of the criticality assessment [M&S 6] recorded, Appendix D as is or modified or another method, so a `@CriticalityAssessment` whose `rating` is not the cell of the Appendix D matrix (Figure 1) for its `consequence` and `influence` is expected to state its `method`. Correct the `rating` or record the `method` the project uses.
+
+Specification: NASASTD7009 extension library (NASA-STD-7009B)
+
+#### `nasastd7009-matrix-missing-requirement`
+
+**warning** · Method rules · a Requirements Identification Matrix whose document has no entry for a requirement
+
+Table 1 of NASA-STD-7009B lists every `[M&S n]` requirement, so a `RequirementsIdentificationMatrix` usage expects its document to hold an `@Applicability`-annotated usage of each definition in `NASASTD7009::MSRequirements`. Add the missing entries, marking each applicable or not.
+
+Specification: NASASTD7009 extension library (NASA-STD-7009B)
+
+#### `nasastd7009-report-missing-content`
+
+**warning** · Method rules · a report of M&S results omitting something section 4.3.8 has it include
+
+NASA-STD-7009B section 4.3.8 has a report of M&S results to decision makers include the outcome of the M&S capability assessment [M&S 50] and of the M&S results assessment [M&S 35], an estimate of results uncertainty or the statement that none is available [M&S 33] with the processes that obtained it [M&S 34], the qualifications of the developers, users, operators or analysts [M&S 37], and the assessment of, and rationale for, acceptance of the risks [M&S 39]. Nest or subset the two assessments under the `MSResultsReport` usage and state its `uncertaintyEstimate`, `uncertaintyProcess`, `qualifications` and `riskAcceptance`.
+
+Specification: NASASTD7009 extension library (NASA-STD-7009B)
+
+#### `nasastd7009-report-missing-warning`
+
+**warning** · Method rules · a report of M&S results with a factor assessed below its threshold and no warning of it
+
+NASA-STD-7009B [M&S 32] a has unachieved acceptance criteria reported to decision makers with an explicit warning, and [M&S 43] e makes the M&S assessment level thresholds acceptance criteria, so a report holding a factor assessed below its `threshold` is expected to nest a `ResultsWarning` of kind `unachievedAcceptanceCriteria`. Add the warning with its `impact`; the Standard sets no threshold of its own.
+
+Specification: NASASTD7009 extension library (NASA-STD-7009B)
+
+#### `nasastd7009-requirement-entry-incomplete`
+
+**warning** · Method rules · a matrix entry not applicable with no comments, or applicable with no record location
+
+Appendix A of NASA-STD-7009B has the Comments column of the Requirements Identification Matrix explain or justify a requirement that is not applicable, and section 4.3.8.8 adds that the location of applicable/required records is also necessary for compliance. Give the `@Applicability` annotation its `comments` when not applicable, and a requirement's entry its `recordLocation` when applicable.
+
+Specification: NASASTD7009 extension library (NASA-STD-7009B)
+
+#### `nasastd7009-warning-missing-impact`
+
+**warning** · Method rules · a warning of a report of M&S results stating no impact
+
+NASA-STD-7009B [M&S 32] has each warning reported to decision makers accompanied by at least a qualitative estimate of the impact of the occurrence. Give the `ResultsWarning` an `impact`.
+
+Specification: NASASTD7009 extension library (NASA-STD-7009B)
 
 #### `npr7123-compliance-matrix-missing-requirement`
 
