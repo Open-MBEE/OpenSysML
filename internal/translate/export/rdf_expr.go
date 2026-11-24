@@ -570,6 +570,10 @@ func (e *encoder) bodyParameter(subject, base rdf.Term, owner string, body *ast.
 	if param.Type != nil {
 		e.headRelationship(node, ast.RelTyping, e.reference(param.Type), param.Type)
 	}
+	// `in p : A, ~B` types the parameter by B's conjugate, as a usage's `: ~B` does.
+	if slices.ContainsFunc(param.Relationships, func(rel *ast.Relationship) bool { return rel.Kind == ast.RelTyping && rel.Conjugated }) {
+		e.graph.Add(node, e.sysx(xConjugatedTyping), rdf.Bool(true))
+	}
 	e.relationships(node, owner, param.Relationships)
 	// Both notations override KerMLExpressions' ExpressionBody with a type
 	// body (KerML.xtext FunctionBodyPart, SysML.xtext CalculationBody), whose
