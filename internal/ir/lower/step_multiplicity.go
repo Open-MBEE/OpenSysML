@@ -633,7 +633,7 @@ func (g *ActionGraph) checkRepeatedPins(node ast.Node, model *semantics.Model) e
 		}
 		for _, connection := range graph.Connections {
 			for _, end := range connection.Ends {
-				if connectionEndStartsAt(end, path) {
+				if connectionEndStartsAt(end.Path, path) {
 					return g.stepError(node, model, StepMultiplicityUnsupportedCode,
 						"connections at features of a repeated action step are unsupported", nil)
 				}
