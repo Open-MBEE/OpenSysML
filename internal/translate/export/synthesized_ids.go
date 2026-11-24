@@ -51,6 +51,10 @@ func SynthesizedElementID(sym *symbols.Symbol, ownerID func(*symbols.Symbol) str
 		return rdf.ExpressionNodeID(owner, part.Slot), true
 	case symbols.ExpressionGuard:
 		return rdf.ExpressionNodeID(owner, xGuard), true
+	case symbols.ExpressionNodeParameter:
+		return rdf.ExpressionNodeID(owner, part.Slot), true
+	case symbols.ExpressionLoopBody:
+		return owner + loopBodySuffix, true
 	case symbols.ExpressionTriggerAction:
 		return memberElementID(owner, naming.TriggerSegment), true
 	case symbols.ExpressionPayload:

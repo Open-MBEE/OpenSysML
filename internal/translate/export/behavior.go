@@ -476,11 +476,14 @@ func (e *encoder) encodeLoop(n *ast.WhileLoopActionNode, head func(rdf.Term), su
 	return e.loopBody(n, subject, fqn)
 }
 
+// loopBodySuffix lengthens a loop's id to its body's.
+const loopBodySuffix = "_loopBody"
+
 // loopBody emits a loop's body as the ActionUsage the loop owns as a parameter
 // (SysML.xtext ActionBodyParameterMember), which owns what the body declares.
 func (e *encoder) loopBody(n *ast.WhileLoopActionNode, subject rdf.Term, fqn string) error {
 	e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(e.bracedBody(n, n.Body)))
-	body := e.ids.minted(rdf.IRI(subject.Value+"_loopBody"), subject, "_loopBody")
+	body := e.ids.minted(rdf.IRI(subject.Value+loopBodySuffix), subject, loopBodySuffix)
 	e.typed(body, usageMetaclass[ast.UsageAction])
 	e.graph.Add(body, e.sysml(pElementID), rdf.String(rdf.LocalName(body.Value)))
 	e.graph.Add(body, e.sysx(xLoopBody), rdf.Bool(true))

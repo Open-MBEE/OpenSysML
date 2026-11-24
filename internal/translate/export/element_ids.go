@@ -266,7 +266,7 @@ func (ids *ElementIDs) recordStatementOperands(e *encoder, node ast.Node, subjec
 		record(xExpression, n.Expression)
 	case *ast.AssignmentActionNode:
 		record(xTarget, n.Target)
-		record(pValue, n.Value)
+		ids.recordNodeParameterValue(e, n.Value, subject, xValueParameter)
 	case *ast.TerminateStatement:
 		record(xExpression, n.Target)
 	case *ast.IfActionNode:
@@ -275,13 +275,21 @@ func (ids *ElementIDs) recordStatementOperands(e *encoder, node ast.Node, subjec
 		switch n.Kind {
 		case ast.LoopFor:
 			ids.recordLoopVariable(e, n, subject)
-			record(xCollection, n.Collection)
+			ids.recordNodeParameterValue(e, n.Collection, subject, xCollectionParameter)
 		case ast.LoopWhile:
 			record(xWhileCondition, n.Condition)
 			record(xUntilCondition, n.Until)
 		default:
 			record(xUntilCondition, n.Condition)
 		}
+	}
+}
+
+// recordNodeParameterValue records the expression the parameter at slot is bound to
+// (nodeParameterValue), with its parts.
+func (ids *ElementIDs) recordNodeParameterValue(e *encoder, value ast.Node, subject rdf.Term, slot string) {
+	if value != nil {
+		ids.recordOwnedExpression(e, value, e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot), pValue)
 	}
 }
 
