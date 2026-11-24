@@ -625,7 +625,7 @@ func (m *Model) transitionSourceMember(sym *symbols.Symbol) (*symbols.Symbol, bo
 		if d.Source == nil {
 			// A sourceless transition leaves the state before it (SysML v2 §7.18.3), which the conversion
 			// names through a Membership where that state is a substate member (transitionSourceTerm).
-			if before, ok := ast.ImplicitTransitionSource(bodyMembers(m.ownerOf(sym)), d).(*ast.SubstateMember); ok {
+			if before := ast.ImplicitTransitionSource(bodyMembers(m.ownerOf(sym)), d); ast.LeavableByTransition(before) {
 				sourceMember = before
 				break
 			}

@@ -36,6 +36,7 @@ func (r *Renderer) renderSequence(view *symbols.Symbol, exposed []*symbols.Symbo
 		lifelines: map[*symbols.Symbol]*Node{}, proxies: map[*symbols.Symbol]*Node{}, ports: map[*symbols.Symbol]string{}}
 	stated := &interactions{}
 	visited := map[*symbols.Symbol]bool{}
+	var behaviors []*symbols.Symbol
 	for _, elem := range exposed {
 		switch {
 		case isFlowUsage(elem):
@@ -44,19 +45,19 @@ func (r *Renderer) renderSequence(view *symbols.Symbol, exposed []*symbols.Symbo
 			r.addSuccessionUsage(elem, stated)
 		case r.model.IsConnectorUsage(elem):
 			stated.addConnector(elem)
+		case behaviorLike(elem):
+			if ends.lifelines[elem] == nil {
+				ends.lifelines[elem] = r.lifeline(view, elem, elem, ends.ids, out)
+				out.Roots = append(out.Roots, ends.lifelines[elem])
+				behaviors = append(behaviors, elem)
+				r.addEventOrders(elem, stated)
+			}
 		case occurrenceContainer(elem), lifelineLike(elem):
 			for _, participant := range r.lifelinesOf(elem) {
 				if ends.lifelines[participant] != nil {
 					continue
 				}
-				name := r.notationName(participant)
-				if participant != elem {
-					name = localName(participant)
-				}
-				node := &Node{ID: ends.ids.take(), Kind: declKind(participant), Name: name, NameSynthesized: r.model.NameSynthesized(participant),
-					Type: r.headType(participant), Typings: r.headTypings(participant), Origin: symbolOrigin(participant),
-					Geometry: r.geometryOf(view, participant, out)}
-				r.dress(view, participant, node, out)
+				node := r.lifeline(view, elem, participant, ends.ids, out)
 				out.Roots = append(out.Roots, node)
 				ends.lifelines[participant] = node
 			}
@@ -75,7 +76,69 @@ func (r *Renderer) renderSequence(view *symbols.Symbol, exposed []*symbols.Symbo
 	}
 	messages := r.messages(view, stated.flows, ends, out)
 	out.Edges = r.orderMessages(messages, r.successions(view, stated.orders, ends, out), stated.orders, out)
+	r.dropIdleBehaviors(behaviors, ends, out)
 	ends.sortProxies()
+}
+
+// lifeline is the node drawn for a participant of the exposed element elem, named
+// in full when it is that element itself.
+func (r *Renderer) lifeline(view, elem, participant *symbols.Symbol, ids *nodeIDs, out *Rendering) *Node {
+	name := r.notationName(participant)
+	if participant != elem {
+		name = localName(participant)
+	}
+	node := &Node{ID: ids.take(), Kind: declKind(participant), Name: name, NameSynthesized: r.model.NameSynthesized(participant),
+		Type: r.headType(participant), Typings: r.headTypings(participant), Origin: symbolOrigin(participant),
+		Geometry: r.geometryOf(view, participant, out)}
+	r.dress(view, participant, node, out)
+	return node
+}
+
+// addEventOrders records the orders an exposed behavior states between the events
+// it holds; a succession reaching one of its actions is its control flow, not one.
+func (r *Renderer) addEventOrders(behavior *symbols.Symbol, into *interactions) {
+	stated := len(into.orders)
+	r.addSuccessionEdges(behavior, into)
+	for _, member := range r.containedMembers(behavior) {
+		if isSuccessionUsage(member) {
+			r.addSuccessionUsage(member, into)
+		}
+	}
+	kept := into.orders[:stated]
+	for _, o := range into.orders[stated:] {
+		if o.from != behavior && o.to != behavior && !behaviorLike(o.from) && !behaviorLike(o.to) {
+			kept = append(kept, o)
+		} else if o.succession != nil {
+			// Left for a view that exposes the succession itself.
+			delete(into.seen, o.succession)
+		}
+	}
+	into.orders = kept
+}
+
+// dropIdleBehaviors takes the lifeline of each exposed behavior no message or order
+// reaches out of the rendering and reports it: only its action flow was there to show.
+func (r *Renderer) dropIdleBehaviors(behaviors []*symbols.Symbol, ends *lifelineEnds, out *Rendering) {
+	reached := map[string]bool{}
+	for _, edge := range out.Edges {
+		reached[edge.From], reached[edge.To] = true, true
+	}
+	for _, behavior := range behaviors {
+		node := ends.lifelines[behavior]
+		idle := !reached[node.ID]
+		for _, proxy := range node.Children {
+			idle = idle && !reached[proxy.ID]
+		}
+		if !idle {
+			continue
+		}
+		delete(ends.lifelines, behavior)
+		out.Roots = slices.DeleteFunc(out.Roots, func(root *Node) bool { return root == node })
+		out.Notes = slices.DeleteFunc(out.Notes, func(note Note) bool { return note.Anchor == node.ID })
+		out.Notices = append(out.Notices, fmt.Sprintf(
+			"%s is behavior, not a participant in an interaction; a sequence rendering does not show it",
+			r.noticeSubject(behavior)))
+	}
 }
 
 // lifelineEnds are the places a message or succession ends on the lifelines: the

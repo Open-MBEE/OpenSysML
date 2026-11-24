@@ -17,6 +17,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
@@ -200,6 +201,41 @@ func TestSweepPartsPartitionTheExamples(t *testing.T) {
 	}
 }
 
+// sweepProgressEvery is how often a running sweep reports, well inside CI's no-output limits.
+const sweepProgressEvery = time.Minute
+
+// sweepProgress counts what a sweep has finished, for the lines it logs while it runs.
+type sweepProgress struct {
+	models, directories atomic.Int64
+}
+
+// report logs the counts every interval until the test ends; -v and -json print each line as it
+// is logged, so a long sweep is not silent until it ends.
+func (p *sweepProgress) report(t *testing.T, part sweepPart, models, directories int, every time.Duration) {
+	start := time.Now()
+	done := make(chan struct{})
+	var reporting sync.WaitGroup
+	reporting.Add(1)
+	go func() {
+		defer reporting.Done()
+		tick := time.NewTicker(every)
+		defer tick.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-tick.C:
+				t.Logf("sweep %s: %d of %d models loaded, %d of %d directories checked after %s", part.name,
+					p.models.Load(), models, p.directories.Load(), directories, time.Since(start).Round(time.Second))
+			}
+		}
+	}()
+	t.Cleanup(func() {
+		close(done)
+		reporting.Wait()
+	})
+}
+
 // examplesSweep loads every model of its part once and checks every per-model property on that
 // load: both round-trip ratchets, settled collections, the gRPC agreement, modelsync's read-back.
 func examplesSweep(t *testing.T, part sweepPart) {
@@ -231,6 +267,8 @@ func examplesSweep(t *testing.T, part sweepPart) {
 	var counts sweepCounts
 	var agreement agreementCounts
 	ctx := context.Background()
+	var progress sweepProgress
+	progress.report(t, part, len(models), len(directories), sweepProgressEvery)
 
 	// A directory is checked as soon as its last document is loaded, in one of the slots the
 	// per-model workers load in: -parallel bounds the models in hand, a whole-directory model among them.
@@ -248,6 +286,7 @@ func examplesSweep(t *testing.T, part sweepPart) {
 			<-slots
 			settled := d.check(t)
 			slots <- struct{}{}
+			progress.directories.Add(1)
 			if settled {
 				counts.add(sweepTally{settled: 1})
 			}
@@ -281,6 +320,7 @@ func examplesSweep(t *testing.T, part sweepPart) {
 					counts.add(sweepProperties(t, ctx, srv, m, &agreement))
 				}
 				slots <- struct{}{}
+				progress.models.Add(1)
 				if !strings.HasSuffix(m.path, ".sysml") {
 					m.doc = export.ModelDocument{}
 					continue

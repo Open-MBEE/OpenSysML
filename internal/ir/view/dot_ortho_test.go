@@ -67,7 +67,7 @@ func TestDOTOrthoLayeredWithInstalledDot(t *testing.T) {
 			t.Errorf("%s is noticed, not laid out:\n%s", fixture.view, got)
 		}
 		checkOrthoDOT(t, fixture.view, got, fixture.pins)
-		drawWithGraphviz(t, dot, fixture.name, got)
+		drawWithGraphviz(t, dot, fixture.name, "-n2", got)
 	}
 }
 
@@ -97,13 +97,13 @@ func installedDot(t *testing.T) string {
 	return path
 }
 
-// drawWithGraphviz draws the DOT as its header says, `neato -n2`, and fails
+// drawWithGraphviz draws the DOT as its header says, neato under the flag, and fails
 // on anything Graphviz has to say about it: an edge it had to reroute, say.
-func drawWithGraphviz(t *testing.T, dot, name, source string) {
+func drawWithGraphviz(t *testing.T, dot, name, flag, source string) {
 	t.Helper()
 	engine, flags := DOTLayout(source)
-	if engine != "neato" || len(flags) != 1 || flags[0] != "-n2" {
-		t.Fatalf("%s: layout header names %s %v, not neato -n2", name, engine, flags)
+	if engine != "neato" || len(flags) != 1 || flags[0] != flag {
+		t.Fatalf("%s: layout header names %s %v, not neato %s", name, engine, flags, flag)
 	}
 	file := filepath.Join(t.TempDir(), name+".dot")
 	if err := os.WriteFile(file, []byte(source), 0o644); err != nil {
@@ -113,10 +113,10 @@ func drawWithGraphviz(t *testing.T, dot, name, source string) {
 	cmd := exec.Command(dot, "-K"+engine, flags[0], "-Tsvg", file, "-o", file+".svg")
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
-		t.Fatalf("%s: %s -n2 -Tsvg: %v, stderr:\n%s", name, engine, err, stderr.String())
+		t.Fatalf("%s: %s %s -Tsvg: %v, stderr:\n%s", name, engine, flag, err, stderr.String())
 	}
 	if stderr.Len() != 0 {
-		t.Errorf("%s: %s -n2 -Tsvg warns:\n%s", name, engine, stderr.String())
+		t.Errorf("%s: %s %s -Tsvg warns:\n%s", name, engine, flag, stderr.String())
 	}
 }
 
@@ -126,7 +126,55 @@ var (
 	orthoPinLine  = regexp.MustCompile(`^\s*"([^"]+)" \[shape=box, (?:style="rounded,filled", )?label="[^"]*", xlabel=.*?width=([0-9.]+), height=([0-9.]+), fixedsize=true, pos="([-0-9.]+),([-0-9.]+)!"`)
 	orthoEdgeLine = regexp.MustCompile(`^\s*"([^"]+)" -> "([^"]+)" \[(.*)\];$`)
 	orthoPosAttr  = regexp.MustCompile(`pos="([^"]*)"`)
+	orthoNodeID   = regexp.MustCompile(`^\s*"([^"]+)" \[`)
+	orthoPinned   = regexp.MustCompile(`pos="([-0-9.]+),([-0-9.]+)!"`)
+	orthoSize     = regexp.MustCompile(`width=([0-9.]+), height=([0-9.]+)`)
 )
+
+// checkAnchorsClear checks that no cluster's sizeless anchor is pinned on a
+// sized node's box: Graphviz then routes no orthogonal edge of the drawing.
+func checkAnchorsClear(t *testing.T, view, got string) {
+	t.Helper()
+	boxes, anchors := map[string]nodeBox{}, map[string]Point{}
+	for _, line := range strings.Split(got, "\n") {
+		id, pos, size := orthoNodeID.FindStringSubmatch(line), orthoPinned.FindStringSubmatch(line), orthoSize.FindStringSubmatch(line)
+		if id == nil || pos == nil || size == nil {
+			continue
+		}
+		x, _ := strconv.ParseFloat(pos[1], 64)
+		y, _ := strconv.ParseFloat(pos[2], 64)
+		w, _ := strconv.ParseFloat(size[1], 64)
+		h, _ := strconv.ParseFloat(size[2], 64)
+		if w == 0 && h == 0 {
+			anchors[id[1]] = Point{X: x, Y: y}
+			continue
+		}
+		boxes[id[1]] = nodeBox{low: Point{X: x - w*36, Y: y - h*36}, high: Point{X: x + w*36, Y: y + h*36}}
+	}
+	if len(anchors) == 0 {
+		t.Errorf("%s pins no anchor:\n%s", view, got)
+	}
+	for id, anchor := range anchors {
+		for node, box := range boxes {
+			if anchor.X >= box.low.X && anchor.X <= box.high.X && anchor.Y >= box.low.Y && anchor.Y <= box.high.Y {
+				t.Errorf("%s: the anchor %s at %v is on node %s, %v to %v", view, id, anchor, node, box.low, box.high)
+			}
+		}
+	}
+}
+
+// Graphviz routes a drawing the model places, and no right angle once two nodes
+// touch: the anchor is pinned off the decision diamond at the cluster's centre.
+func TestDOTOrthoPlacedAnchorClearOfNodes(t *testing.T) {
+	const view = "ChargingViews::placed"
+	got, err := render(t, "ortho-placed.sysml", view).DOTWith(orthoOptions)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkGolden(t, filepath.Join("testdata", "ortho-placed.ortho.dot.golden"), got)
+	checkAnchorsClear(t, view, got)
+	drawWithGraphviz(t, installedDot(t), "ortho-placed", "-n", got)
+}
 
 // checkOrthoDOT checks a routed orthogonal drawing: Graphviz is told to draw
 // where the writer put things, every node sits inside the clusters around it
@@ -178,6 +226,7 @@ func checkOrthoDOT(t *testing.T, view, got string, pins bool) {
 			}
 		}
 	}
+	checkAnchorsClear(t, view, got)
 	for _, line := range strings.Split(got, "\n") {
 		m := orthoEdgeLine.FindStringSubmatch(line)
 		if m == nil {
@@ -320,4 +369,25 @@ func TestDOTOrthoLeavesGraphvizItsOwn(t *testing.T) {
 			t.Errorf("%s with lines ortho:\n%s", fixture.view, got)
 		}
 	}
+}
+
+// A note placed beside the node at a cluster's centre is a Graphviz node too:
+// the anchor is pinned clear of both.
+func TestDOTOrthoPlacedAnchorClearOfNotes(t *testing.T) {
+	const view = "V"
+	place := func(x, y float64) *Geometry { return &Geometry{X: x, Y: y, Width: 80, Height: 40, HasSize: true} }
+	rendering := &Rendering{View: view, Kind: KindInterconnection,
+		Roots: []*Node{{ID: "c", Name: "c", Children: []*Node{
+			{ID: "a", Name: "a", Geometry: place(0, 0)},
+			{ID: "b", Name: "b", Geometry: place(200, 100)},
+			{ID: "d", Name: "d", Geometry: place(400, 200)},
+		}}},
+		Edges: []Edge{{From: "a", To: "b"}, {From: "b", To: "d"}},
+		Notes: []Note{{Text: "n", X: 180, Y: 30, Width: 120, Height: 66, HasSize: true}}}
+	got, err := rendering.DOTWith(orthoOptions)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkAnchorsClear(t, view, got)
+	drawWithGraphviz(t, installedDot(t), "ortho-note", "-n", got)
 }

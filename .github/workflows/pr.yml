@@ -526,7 +526,7 @@ jobs:
           OPENSYSML_CORPUS_SUBSET: ${{ needs.changes.outputs.tier == 'queue' && 'construct-cover' || '' }}
         run: |
           set -o pipefail
-          go test -count=1 -v ./tests/corpus -run 'TestExamplesSweep' | tee corpus-roundtrip-gate.log
+          go test -count=1 -v -timeout 30m ./tests/corpus -run 'TestExamplesSweep' | tee corpus-roundtrip-gate.log
           grep -E ': corpus round trip: [0-9]+ files:' corpus-roundtrip-gate.log
           grep -E 'api-json corpus round trip: [0-9]+ files:' corpus-roundtrip-gate.log
           if grep -qE '^\s*--- SKIP' corpus-roundtrip-gate.log; then
