@@ -36,8 +36,8 @@ flowchart LR
     end
     n3("`*«part»*
 **chassis**`")
-    n4@{ shape: text, label: "`*«flow»*
-—▶`" }
+    n4["`*«flow»*
+—▶`"]@{ shape: text }
   end
   n2.0 === n4
   n4 === n1.0

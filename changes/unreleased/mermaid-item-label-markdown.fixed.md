@@ -1,0 +1,1 @@
+- The Mermaid form writes the label of a flow or message drawn on a connection in brackets ahead of its `shape: text`, so Mermaid reads it as markdown: `«flow»` shows in italics instead of as `` `*«flow»* `` with its backticks and asterisks, and SVG text labels (`htmlLabels: false`) no longer leave it blank.

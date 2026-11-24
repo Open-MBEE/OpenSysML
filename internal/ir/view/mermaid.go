@@ -1261,7 +1261,8 @@ func mermaidNodeShape(kind Kind, node *Node, labels labeller, options Options) s
 		return `(("H*"))`
 	}
 	if itemBox(node) {
-		return `@{ shape: text, label: ` + mermaidNodeLabel(node, labels) + ` }`
+		// A shape data label is not read as markdown (mermaid-js/mermaid#7012); a bracket label is.
+		return "[" + mermaidNodeLabel(node, labels) + "]@{ shape: text }"
 	}
 	var rounded bool
 	if options.Style == StyleCameo {

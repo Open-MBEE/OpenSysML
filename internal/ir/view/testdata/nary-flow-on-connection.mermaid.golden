@@ -40,11 +40,11 @@ flowchart LR
       direction LR
       n3.0["^fuelIn"]
     end
-    n4@{ shape: text, label: "`*«flow»*
-—▶`" }
-    n5@{ shape: text, label: "`*«flow»*
-◀—`" }
-    n6@{ shape: text, label: "«message»<br>—#gt;" }
+    n4["`*«flow»*
+—▶`"]@{ shape: text }
+    n5["`*«flow»*
+◀—`"]@{ shape: text }
+    n6["«message»<br>—#gt;"]@{ shape: text }
     note1@{ shape: notch-rect, label: "shared<br>shared" }
     note2@{ shape: notch-rect, label: "the reading" }
   end
