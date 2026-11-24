@@ -317,9 +317,8 @@ func (a *hdbkAudit) link(relation hdbkRelation, element, other *symbols.Symbol) 
 	}
 }
 
-// noteDerivation records derived as derived from original. The two may be one
-// declaration reached by two paths (`a.r` from `b.r`), which the gathered
-// edges and records have already told from a derivation of one from itself.
+// noteDerivation records derived as derived from original, which may be one declaration
+// reached by two paths (`a.r` from `b.r`): the gatherers drop a self-derivation.
 func (a *hdbkAudit) noteDerivation(derived, original *symbols.Symbol) {
 	if derived == nil || original == nil {
 		return

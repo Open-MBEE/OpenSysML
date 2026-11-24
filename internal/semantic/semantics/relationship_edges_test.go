@@ -207,6 +207,12 @@ func TestRelationshipEdgesOfDerivationKeepEndPaths(t *testing.T) {
 		part b : D;
 		#derivation connection across { end #original ::> a.r; end #derive ::> b.r; }
 		#derivation connection within { end #original ::> a.r; end #derive ::> a.r; }
+		part p {
+			requirement q;
+			#derivation connection declared { end #original ::> q; end #derive ::> p.q; }
+		}
+		#derivation connection qualified { end #original ::> p.q; end #derive ::> p::q; }
+		part c : D { #derivation connection inherited { end #original ::> r; end #derive ::> c.r; } }
 	}`)
 	index := m.resolver.Index()
 	fqns := func(path []*symbols.Symbol) []string {
@@ -217,20 +223,23 @@ func TestRelationshipEdgesOfDerivationKeepEndPaths(t *testing.T) {
 		return out
 	}
 	for _, tc := range []struct {
-		symbol   string
-		target   []string
-		sameEnds bool
+		symbol         string
+		source, target []string
+		sameEnds       bool
 	}{
-		{"P::across", []string{"P::b", "P::D::r"}, false},
-		{"P::within", []string{"P::a", "P::D::r"}, true},
+		{"P::across", []string{"P::a", "P::D::r"}, []string{"P::b", "P::D::r"}, false},
+		{"P::within", []string{"P::a", "P::D::r"}, []string{"P::a", "P::D::r"}, true},
+		{"P::p::declared", []string{"P::p::q"}, []string{"P::p::q"}, true},
+		{"P::qualified", []string{"P::p", "P::p::q"}, []string{"P::p::q"}, true},
+		{"P::c::inherited", []string{"P::D::r"}, []string{"P::D::r"}, true},
 	} {
 		edges := m.RelationshipEdgesOf(nestedSym(t, root, tc.symbol), RelationshipDerivation)
 		if len(edges) != 1 {
 			t.Fatalf("RelationshipEdgesOf(%s) = %v, want one edge", tc.symbol, edges)
 		}
 		edge := edges[0]
-		if got, want := fqns(edge.SourcePath), []string{"P::a", "P::D::r"}; !reflect.DeepEqual(got, want) {
-			t.Errorf("%s: source path %v, want %v", tc.symbol, got, want)
+		if got := fqns(edge.SourcePath); !reflect.DeepEqual(got, tc.source) {
+			t.Errorf("%s: source path %v, want %v", tc.symbol, got, tc.source)
 		}
 		if got := fqns(edge.TargetPath); !reflect.DeepEqual(got, tc.target) {
 			t.Errorf("%s: target path %v, want %v", tc.symbol, got, tc.target)

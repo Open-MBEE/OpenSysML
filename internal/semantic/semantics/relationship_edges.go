@@ -24,15 +24,32 @@ const (
 type RelationshipEdge struct {
 	Source *symbols.Symbol
 	Target *symbols.Symbol
-	// SourcePath and TargetPath are the features a derivation's end is written
-	// as, outermost first (`a.r` is [a r]); nil for an end no reference names.
+	// SourcePath and TargetPath are a derivation end as written, outermost first and
+	// less the features the derivation lies inside (`a.r` is [a r]); nil when unnamed.
 	SourcePath, TargetPath []*symbols.Symbol
 }
 
 // SameEnds reports an edge from an element to itself reached the same way:
 // `a.r` and `b.r` are two requirements though both name one inherited r.
 func (e RelationshipEdge) SameEnds() bool {
-	return symbols.SameElement(e.Source, e.Target) && slices.EqualFunc(e.SourcePath, e.TargetPath, symbols.SameElement)
+	return symbols.SameElement(e.Source, e.Target) &&
+		slices.EqualFunc(reachedThrough(e.Source, e.SourcePath), reachedThrough(e.Target, e.TargetPath), symbols.SameElement)
+}
+
+// reachedThrough is path without each feature that declares the one after it,
+// so `p.r` and `r` agree where p declares r; a nil path is element alone.
+func reachedThrough(element *symbols.Symbol, path []*symbols.Symbol) []*symbols.Symbol {
+	if len(path) == 0 {
+		return []*symbols.Symbol{element}
+	}
+	out := make([]*symbols.Symbol, 0, len(path))
+	for i, sym := range path {
+		if i+1 < len(path) && path[i+1].OwnerScope != nil && symbols.SameElement(path[i+1].OwnerScope.Owner(), sym) {
+			continue
+		}
+		out = append(out, sym)
+	}
+	return out
 }
 
 // RelationshipEdgesOf returns the resolved edges sym's declaration states, in declaration order.
@@ -216,6 +233,25 @@ type derivationReferent struct {
 	path    []*symbols.Symbol
 }
 
+// derivationPath is the path node is written as in scope, less the leading
+// features scope lies inside: there `c.r` names what a bare `r` does.
+func (m *Model) derivationPath(scope *symbols.Scope, node ast.Node) []*symbols.Symbol {
+	path := m.attachmentPath(scope, node)
+	for len(path) > 1 && encloses(path[0], scope) {
+		path = path[1:]
+	}
+	return path
+}
+
+func encloses(sym *symbols.Symbol, scope *symbols.Scope) bool {
+	for s := scope; s != nil; s = s.Parent() {
+		if symbols.SameElement(s.Owner(), sym) {
+			return true
+		}
+	}
+	return false
+}
+
 func (m *Model) derivationUsageEnds(sym *symbols.Symbol) []derivationEnd {
 	var ends []derivationEnd
 	for _, attachment := range m.ConnectorEndAttachments(sym) {
@@ -226,7 +262,7 @@ func (m *Model) derivationUsageEnds(sym *symbols.Symbol) []derivationEnd {
 		end := derivationEnd{role: m.derivationRoleOf(attachment.EndFeature)}
 		if attachment.Attachment != nil {
 			if target, ok := m.resolver.ResolveTarget(sym.OwnerScope, attachment.Attachment); ok && target != nil {
-				end.referents = append(end.referents, derivationReferent{target, m.attachmentPath(sym.OwnerScope, attachment.Attachment)})
+				end.referents = append(end.referents, derivationReferent{target, m.derivationPath(sym.OwnerScope, attachment.Attachment)})
 			}
 		}
 		ends = append(ends, end)
@@ -241,7 +277,7 @@ func (m *Model) derivationUsageEnds(sym *symbols.Symbol) []derivationEnd {
 			if !ok || target == nil || m.isDerivationRoleFeature(target) {
 				continue
 			}
-			end.referents = append(end.referents, derivationReferent{target, m.attachmentPath(feature.OwnerScope, rel.Target)})
+			end.referents = append(end.referents, derivationReferent{target, m.derivationPath(feature.OwnerScope, rel.Target)})
 		}
 		ends = append(ends, end)
 	}
@@ -265,7 +301,7 @@ func (m *Model) derivationDefinitionEnds(sym *symbols.Symbol) []derivationEnd {
 			if !ok || target == nil || m.isDerivationRoleFeature(target) || !m.conformsToLibrary(target, "Requirements::RequirementCheck") {
 				continue
 			}
-			end.referents = append(end.referents, derivationReferent{target, m.attachmentPath(feature.OwnerScope, rel.Target)})
+			end.referents = append(end.referents, derivationReferent{target, m.derivationPath(feature.OwnerScope, rel.Target)})
 		}
 		ends = append(ends, end)
 	}

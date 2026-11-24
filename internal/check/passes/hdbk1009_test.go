@@ -100,6 +100,27 @@ func TestHDBK1009DerivationBetweenTwoPathsToOneInheritedRequirement(t *testing.T
 		CodeHDBK1009RequirementNotDerived, 3, 5)
 }
 
+// A requirement named bare at one end and through its declaring part at the
+// other is one requirement, so the derivation between them gives it no origin.
+func TestHDBK1009SelfDerivationThroughTheDeclaringPart(t *testing.T) {
+	w8dWantLines(t, hdbkModel(`
+		#subsystemRequirement requirement loose;
+		part p {
+			#subsystemRequirement requirement r;
+			#derivation connection { end #original ::> r; end #derive ::> p.r; }
+		}`), CodeHDBK1009RequirementNotDerived, 3, 5)
+	w8dWantLines(t, hdbkModel(`
+		#subsystemRequirement requirement loose;
+		part p { #subsystemRequirement requirement r; }
+		#derivation connection { end #original ::> p.r; end #derive ::> p::r; }`),
+		CodeHDBK1009RequirementNotDerived, 3, 4)
+	w8dWantLines(t, hdbkModel(`
+		#subsystemRequirement requirement loose;
+		part def D { #subsystemRequirement requirement r; }
+		part c : D { #derivation connection { end #original ::> r; end #derive ::> c.r; } }`),
+		CodeHDBK1009RequirementNotDerived, 3, 4)
+}
+
 // The peer that makes a lone subsystem requirement warn may sit in another document.
 func TestHDBK1009SubsystemRequirementPeersAcrossDocuments(t *testing.T) {
 	w := newSharedWorkspace()
