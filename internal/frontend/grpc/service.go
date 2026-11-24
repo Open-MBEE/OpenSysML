@@ -20,6 +20,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	engineset "github.com/Open-MBEE/OpenSysML/internal/exec/engines"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/toolkit"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/protoconv"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -524,6 +525,8 @@ func Capabilities() []string {
 type Service struct {
 	pb.UnimplementedSysMLServiceServer
 	cache *Cache
+	// fileRoot confines the files a request names (ConfineFilesTo); nil reads any path.
+	fileRoot *toolkit.Root
 	// libIndexes hands each model an overlay over the one standard library index
 	// the service holds: the library does not depend on the model, so no model
 	// pays for loading it, and no model keeps a copy of it.
@@ -563,6 +566,13 @@ type serviceOptions struct {
 	unavailable []string
 	serve       []string
 	records     *libs.Cache
+	fileRoot    string
+}
+
+// ConfineFilesTo has the service read a file a request names by path only under dir,
+// symbolic links followed; without it the service reads any path its privileges reach.
+func ConfineFilesTo(dir string) Option {
+	return func(o *serviceOptions) { o.fileRoot = dir }
 }
 
 // WithRecordCache has the service read a parsed model's analysis from cache when one is
@@ -656,7 +666,16 @@ func newService(cacheSize int, version string, opts []Option) (*Service, error) 
 	if len(options.serve) == 0 {
 		availability.withhold(CapabilityEnginesExternal)
 	}
+	var fileRoot *toolkit.Root
+	if options.fileRoot != "" {
+		root, err := toolkit.NewRoot(options.fileRoot)
+		if err != nil {
+			return nil, err
+		}
+		fileRoot = &root
+	}
 	return &Service{
+		fileRoot:       fileRoot,
 		cache:          cache,
 		libIndexes:     newLibraryBase(buildLibraryIndex),
 		lineages:       newLineages(maxLineages),
@@ -870,7 +889,7 @@ func (s *Service) ParseFile(ctx context.Context, req *pb.ParseFileRequest) (*pb.
 	case *pb.ParseFileRequest_Content:
 		input, err = inlineInput("<content>", req.Language, src.Content)
 	case *pb.ParseFileRequest_FilePath:
-		input, err = fileInput(src.FilePath)
+		input, err = s.fileInput(src.FilePath)
 	default:
 		return nil, statusError(connect.CodeInvalidArgument, "source must be file_path or content")
 	}
@@ -964,7 +983,7 @@ func (s *Service) documentInput(doc *pb.SourceDocument, position int) (sourceInp
 		}
 		return inlineInput(name, doc.Language, src.Content)
 	case *pb.SourceDocument_FilePath:
-		return fileInput(src.FilePath)
+		return s.fileInput(src.FilePath)
 	default:
 		return sourceInput{}, statusErrorf(connect.CodeInvalidArgument,
 			"document %d must carry file_path or content", position)
@@ -986,14 +1005,30 @@ func inlineInput(name, language, content string) (sourceInput, error) {
 	return sourceInput{name: name, language: language, content: content, kind: kind}, nil
 }
 
-// fileInput reads a document from the path the client named.
-func fileInput(path string) (sourceInput, error) {
-	// #nosec G304 -- the client names the model file it wants parsed; reading
-	// arbitrary paths is the service's purpose, and it runs with the caller's
-	// own privileges.
+// readNamedFile reads the file a request names by path: any path when the service
+// is not confined, and otherwise only one under the root it is confined to.
+func (s *Service) readNamedFile(path string) ([]byte, error) {
+	if s.fileRoot != nil {
+		resolved, err := s.fileRoot.Resolve(path)
+		if err != nil {
+			return nil, statusErrorf(connect.CodePermissionDenied, "file not readable: %v", err)
+		}
+		path = resolved.Real
+	}
+	// #nosec G304 -- reading the file the client names is the point; a confined
+	// service has resolved it under its root.
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return sourceInput{}, statusErrorf(connect.CodeNotFound, "file not found: %v", err)
+		return nil, statusErrorf(connect.CodeNotFound, msgFileNotFound, err)
+	}
+	return data, nil
+}
+
+// fileInput reads a document from the path the client named.
+func (s *Service) fileInput(path string) (sourceInput, error) {
+	data, err := s.readNamedFile(path)
+	if err != nil {
+		return sourceInput{}, err
 	}
 	var warnings []string
 	text, converted, err := convert.ModelSource(path, data, func(message string) {

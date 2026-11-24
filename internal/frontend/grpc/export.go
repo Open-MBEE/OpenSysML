@@ -3,7 +3,6 @@ package grpc
 import (
 	"context"
 	"errors"
-	"os"
 	"slices"
 	"strings"
 
@@ -294,11 +293,9 @@ func (s *Service) convertSource(req *pb.ConvertRequest) (string, []byte, error) 
 		}
 		return doc.Source.Name(), doc.Source.Bytes(), nil
 	case *pb.ConvertRequest_FilePath:
-		// #nosec G304 -- reading the model file the client names is the point,
-		// and the service runs with the caller's own privileges.
-		data, err := os.ReadFile(src.FilePath)
+		data, err := s.readNamedFile(src.FilePath)
 		if err != nil {
-			return "", nil, statusErrorf(connect.CodeNotFound, msgFileNotFound, err)
+			return "", nil, err
 		}
 		return src.FilePath, data, nil
 	default:

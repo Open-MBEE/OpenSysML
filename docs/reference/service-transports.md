@@ -207,6 +207,13 @@ peer. The token itself is never logged. The private child a client starts for it
 it without `OPENSYSML_GRPC_TOKEN` in its environment, so a token set for a remote service is
 never one the child demands.
 
+**Files named by path.** A request may name a file for the service to read (`file_path` on
+`ParseFile`, `ParseSources`, `Convert` and `Migrate`, and `layout_path` on `Migrate`). By default
+the service reads any path its own privileges reach, which is what the private child a client
+starts for itself needs. `-file-root <dir>` confines those reads to a directory: a relative path
+is taken from it, and a path elsewhere, a `..` out of it or a symbolic link that leads out of it
+is refused with `PERMISSION_DENIED`. Set it on any service that callers on other machines reach.
+
 **TLS.** `-tls-cert` and `-tls-key` (both or neither) serve everything above over HTTPS on the
 same port, negotiating `h2` and `http/1.1`, minimum TLS 1.2. A browser on an `https://` page
 cannot post to `http://`, so this is a prerequisite rather than a hardening step. Without the

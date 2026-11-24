@@ -29,6 +29,7 @@ type options struct {
 	tlsCert              string
 	tlsKey               string
 	serveExternal        string
+	fileRoot             string
 }
 
 // registerFlags declares the command's flags on fs, so a run, the help and the
@@ -74,6 +75,10 @@ func registerFlags(fs *flag.FlagSet) *options {
 		"Comma-separated names of the OPENSYSML_ENGINES manifest engines this service runs "+
 			"for its clients, or all; without it they are listed by ListEngines but a request "+
 			"naming one is refused, since it would run a program on the server")
+	fs.StringVar(&o.fileRoot, "file-root", "",
+		"Directory the files a request names by path (file_path, layout_path) must lie "+
+			"under, relative paths taken from it; without it the service reads any path "+
+			"its own privileges reach")
 	return &o
 }
 
