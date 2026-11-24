@@ -14,7 +14,9 @@ destination=${1:-/usr/local/bin/buf}
 
 download=$(mktemp -t buf.XXXXXX)
 trap 'rm -f "$download"' EXIT
-curl -fsSL --proto '=https' --proto-redir '=https' --retry 3 -o "$download" \
+# Bounded, so a stalled or oversized response fails here instead of holding the job; the binary is about 45 MB.
+curl -fsSL --proto '=https' --proto-redir '=https' --retry 3 \
+  --connect-timeout 20 --max-time 300 --max-filesize 209715200 -o "$download" \
   "https://github.com/bufbuild/buf/releases/download/$BUF_VERSION/buf-Linux-x86_64"
 echo "$BUF_SHA256  $download" | sha256sum --check --strict
 
