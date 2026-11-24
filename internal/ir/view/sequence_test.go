@@ -658,37 +658,48 @@ func TestSequenceRenderingDropsNotesOnEventsOfBehaviorNotShown(t *testing.T) {
 	}
 }
 
-// A chain of successions declared out of order beside a branch is drawn first step
-// first: each succession follows the ones that lead to its source.
+// Successions declared out of order are drawn first step first, below the message
+// that reaches their first event and above the one their last event sends.
 func TestSequenceRenderingDrawsSuccessionChainInCausalOrder(t *testing.T) {
+	const reaching = `message ping of Ping from client.sent to server.a;`
+	const sending = `message pong of Ping from server.d to client.got;`
 	for _, tc := range []struct {
-		name, body string
-		want       []string
+		name, body, message string
+		want                []string
 	}{
 		{"the chain's second step declared before a branch and its first step",
-			`succession first b then d; succession first a then c; succession first a then b;`,
+			`succession first b then d; succession first a then c; succession first a then b;`, reaching,
 			[]string{"sent then a", "a then c", "a then b", "b then d"}},
 		{"a three-step chain declared last step first",
-			`succession first c then d; succession first b then c; succession first a then b;`,
+			`succession first c then d; succession first b then c; succession first a then b;`, reaching,
 			[]string{"sent then a", "a then b", "b then c", "c then d"}},
 		{"a chain declared in order beside a branch",
-			`succession first a then b; succession first a then c; succession first b then d;`,
+			`succession first a then b; succession first a then c; succession first b then d;`, reaching,
 			[]string{"sent then a", "a then b", "a then c", "b then d"}},
 		{"a cycle is placed as declared",
-			`succession first b then d; succession first d then b; succession first a then b;`,
+			`succession first b then d; succession first d then b; succession first a then b;`, reaching,
 			[]string{"sent then a", "a then b", "b then d", "d then b"}},
+		{"a chain declared last step first ending at a send, beside a branch",
+			`succession first b then d; succession first a then c; succession first a then b;`, sending,
+			[]string{"a then b", "b then d", "d then got", "a then c"}},
+		{"a chain between a message received and a message sent",
+			`succession first b then d; succession first a then c; succession first a then b;`, reaching + sending,
+			[]string{"sent then a", "a then c", "a then b", "b then d", "d then got"}},
+		{"a branch into a later step declared after an unordered one",
+			`succession first c then d; succession first a then b; succession first a then c;`, sending,
+			[]string{"a then c", "c then d", "d then got", "a then b"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			rendering := renderSource(t, "Chained::shown", `package Chained {
 	private import StandardViewDefinitions::*;
 	item def Ping;
 	part def Run {
-		part client { event occurrence sent; }
+		part client { event occurrence sent; event occurrence got; }
 		part server {
 			event occurrence a; event occurrence b; event occurrence c; event occurrence d;
 			`+tc.body+`
 		}
-		message ping of Ping from client.sent to server.a;
+		`+tc.message+`
 	}
 	view shown : SequenceView { expose Run; }
 }`)

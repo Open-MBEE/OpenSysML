@@ -846,74 +846,93 @@ func reaches(later [][]int, at map[lifelineEnd]int) func(a, b lifelineEnd) bool 
 	}
 }
 
-// sequenceRows are the rows of the sequence in order: the messages as sorted, then
-// each succession's arrow after the last row holding its source or an event ordered
-// before it, else before the first row holding its target or an event ordered after
-// it, else after the messages. A placed succession's row holds its two events, so a
-// chain declared out of order still settles by its events; successions nothing orders
-// keep declaration order. before is the events' order, identity when cyclic.
+// sequenceRows are the rows of the sequence: the messages as sorted, each succession's
+// arrow below the rows it follows and above the ones it leads to, else as declared.
 func sequenceRows(messages []message, successions []succession, orders []timing, before func(a, b lifelineEnd) bool) []Edge {
-	type row struct {
-		edge       Edge
-		events     []lifelineEnd
-		succession bool
-	}
-	rows := make([]row, 0, len(messages)+len(successions))
-	for _, msg := range messages {
-		rows = append(rows, row{edge: msg.edge, events: msg.events()})
-	}
-	for _, s := range causalSuccessions(successions, orders, before) {
-		o := orders[s.order]
-		after, ahead := -1, len(rows)
-		for i, r := range rows {
-			for _, held := range r.events {
-				if before(held, o.from) {
-					after = max(after, i)
-				}
-				if before(o.to, held) {
-					ahead = min(ahead, i)
-				}
-			}
+	follows := rowsFollowed(messages, successions, orders, before)
+	placed := make([]bool, len(follows))
+	rows := make([]int, 0, len(follows))
+	// lead places a succession above the row it leads to, once its messages are placed.
+	var lead func(row int)
+	lead = func(row int) {
+		if placed[row] || slices.ContainsFunc(follows[row], func(r int) bool { return r < len(messages) && !placed[r] }) {
+			return
 		}
-		// After its source's row and the successions already there, in declaration order.
-		place := ahead
-		if after >= 0 {
-			place = after + 1
-			for place < ahead && rows[place].succession {
-				place++
-			}
+		placed[row] = true
+		for _, earlier := range follows[row] {
+			lead(earlier)
 		}
-		rows = slices.Insert(rows, place, row{edge: s.edge, events: []lifelineEnd{o.from, o.to}, succession: true})
+		rows = append(rows, row)
+	}
+	// settle places the successions following placed rows only, earliest declared first.
+	settle := func() {
+		for row := len(messages); row < len(follows); row++ {
+			if placed[row] || len(follows[row]) == 0 || slices.ContainsFunc(follows[row], func(r int) bool { return !placed[r] }) {
+				continue
+			}
+			placed[row] = true
+			rows = append(rows, row)
+			row = len(messages) - 1
+		}
+	}
+	for row := range messages {
+		for _, earlier := range follows[row] {
+			lead(earlier)
+		}
+		settle()
+		placed[row] = true
+		rows = append(rows, row)
+		settle()
+	}
+	for row := len(messages); row < len(follows); row++ {
+		lead(row)
+		settle()
 	}
 	edges := make([]Edge, 0, len(rows))
-	for _, r := range rows {
-		edges = append(edges, r.edge)
+	for _, row := range rows {
+		if row < len(messages) {
+			edges = append(edges, messages[row].edge)
+		} else {
+			edges = append(edges, successions[row-len(messages)].edge)
+		}
 	}
 	return edges
 }
 
-// causalSuccessions are the successions, each after those leading to its source;
-// declaration order stands otherwise, and throughout when they form a cycle.
-func causalSuccessions(successions []succession, orders []timing, before func(a, b lifelineEnd) bool) []succession {
-	later := make([][]int, len(successions))
+// rowsFollowed lists, for each message row and then each succession, the rows it is
+// drawn below: those holding an event at or before its source, a message's at or after its target.
+func rowsFollowed(messages []message, successions []succession, orders []timing, before func(a, b lifelineEnd) bool) [][]int {
+	follows := make([][]int, len(messages)+len(successions))
+	chained := make([][]int, len(successions))
 	indegree := make([]int, len(successions))
-	for i, first := range successions {
+	for i, s := range successions {
+		o, row := orders[s.order], len(messages)+i
+		for m, msg := range messages {
+			events := msg.events()
+			switch {
+			case slices.ContainsFunc(events, func(held lifelineEnd) bool { return before(held, o.from) }):
+				follows[row] = append(follows[row], m)
+			case slices.ContainsFunc(events, func(held lifelineEnd) bool { return before(o.to, held) }):
+				follows[m] = append(follows[m], row)
+			}
+		}
 		for j, then := range successions {
-			if i != j && before(orders[first.order].to, orders[then.order].from) {
-				later[i] = append(later[i], j)
+			if i != j && before(o.to, orders[then.order].from) {
+				chained[i] = append(chained[i], j)
 				indegree[j]++
 			}
 		}
 	}
-	placed, ok := stableTopological(later, indegree)
-	if !ok {
-		return successions
+	// Successions forming a cycle follow no succession, so they stay as declared.
+	if _, ok := stableTopological(chained, slices.Clone(indegree)); !ok {
+		return follows
 	}
-	sorted := make([]succession, len(placed))
-	for i, at := range placed {
-		sorted[i] = successions[at]
+	for i, later := range chained {
+		for _, j := range later {
+			follows[len(messages)+j] = append(follows[len(messages)+j], len(messages)+i)
+		}
 	}
-	return sorted
+	return follows
 }
 
 // sortMessageRows sorts the messages by the orders between their rows, or
