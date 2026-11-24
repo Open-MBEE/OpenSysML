@@ -15,8 +15,10 @@ verification lightMassTest
 verification heavyMassTest
 verification def StopTest
 verification stopTest
+part def Vehicle
 
 relationships:
+  MassRequirement o-- Vehicle: «subject» vehicle
   EmergencyStopRequirement --|> StoppingRequirement
   vehicleMass --:|> MassRequirement
   chassisMass --:|> MassRequirement

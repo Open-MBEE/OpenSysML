@@ -181,9 +181,10 @@ func (e *encoder) constructorArguments(subject, result rdf.Term, owner string, n
 		if err := e.expressionNode(child, owner, arg); err != nil {
 			return err
 		}
-		e.constructorArgumentOwnership(subject, result, child, index)
+		e.constructorArgumentOwnership(subject, result, child, index, nil)
 		index++
 	}
+	instantiated := e.invokedBehavior(owner, n)
 	for i, arg := range n.NamedArgs {
 		if arg.Value == nil {
 			continue
@@ -193,15 +194,15 @@ func (e *encoder) constructorArguments(subject, result rdf.Term, owner string, n
 		if err := e.expressionNode(child, owner, arg.Value); err != nil {
 			return err
 		}
-		e.constructorArgumentOwnership(subject, result, child, len(n.Args)+i)
+		e.constructorArgumentOwnership(subject, result, child, len(n.Args)+i, e.ids.model.ConstructorNamedFeature(instantiated, arg.Name))
 		e.graph.Add(child, e.sysx(xArgumentName), rdf.String(qualifiedText(arg.Name)))
 	}
 	return nil
 }
 
-// constructorArgumentOwnership owns one argument feature of a constructor's result through a
-// FeatureMembership, the feature valued by the argument (ArgumentMember, ArgumentValue).
-func (e *encoder) constructorArgumentOwnership(node, result, argument rdf.Term, index int) {
+// constructorArgumentOwnership owns one result feature of a constructor, valued by its argument; a
+// named one redefines the feature it names (checkConstructorExpressionResultFeatureRedefinition).
+func (e *encoder) constructorArgumentOwnership(node, result, argument rdf.Term, index int, redefined *symbols.Symbol) {
 	feature := e.ids.mintedNode(rdf.ExpressionIRI(node, fmt.Sprintf("in%d", index)), node, fmt.Sprintf("in%d", index))
 	membership := e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix)
 	valueMembership := e.ids.minted(rdf.OwningMembershipIRIOf(argument), argument, rdf.OwningMembershipSuffix)
@@ -214,6 +215,12 @@ func (e *encoder) constructorArgumentOwnership(node, result, argument rdf.Term, 
 	e.graph.Add(result, e.sysml(pOwnedFeatureMembership), membership)
 	e.graph.Add(result, e.sysml(pOwnedFeature), feature)
 	e.graph.Add(membership, e.sysml(pOwnedMemberFeature), feature)
+	if redefined != nil {
+		if target := e.symbolTerm(redefined); target.IsIRI() {
+			spec, _ := e.relationshipSpec(feature, ast.RelRedefines, 1, 0)
+			e.emitRelationship(feature, target, spec)
+		}
+	}
 	e.graph.Add(feature, e.sysml(pOwnedRelationship), valueMembership)
 	e.graph.Add(feature, e.sysml(pOwnedMembership), valueMembership)
 	e.emitMembershipCore(valueMembership, argument, feature, mFeatureValue, true)

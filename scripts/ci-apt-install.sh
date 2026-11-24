@@ -48,7 +48,8 @@ trap 'rm -rf "$update_log"' EXIT
 
 # repositories <marker>: the repository roots of the http(s) URIs on stdin, cut at /dists/ or /pool/.
 repositories() {
-  sed -n "s|^\(https\{0,1\}://.*\)/$1/.*|\1|p" | sort -u
+  local marker=$1
+  sed -n "s|^\(https\{0,1\}://.*\)/$marker/.*|\1|p" | sort -u
 }
 
 # True when every index the last update failed on belongs to a repository the install fetches
@@ -69,21 +70,21 @@ only_unneeded_indexes_failed() {
 
 # run_apt <per-attempt bound in seconds> <apt-get arguments>...
 run_apt() {
-  local bound=$1 attempt left status
+  local bound=$1 verb=$2 attempt left status
   shift
   for attempt in 1 2 3; do
     left=$((deadline - SECONDS))
     if ((left <= 0)); then
-      echo "apt-get $1: no time left for attempt $attempt of 3" >&2
+      echo "apt-get $verb: no time left for attempt $attempt of 3" >&2
       return 1
     fi
     status=0
     sudo timeout --kill-after=10s $((left < bound ? left : bound)) env LC_ALL=C apt-get "${acquire[@]}" "${cache[@]}" "$@" 2>&1 |
       tee "$update_log" || status=$?
     ((status == 0)) && return 0
-    echo "apt-get $1 failed (attempt $attempt of 3)" >&2
+    echo "apt-get $verb failed (attempt $attempt of 3)" >&2
     # apt's own exit, not a timeout: the lists it could fetch are complete, so the failure can be judged.
-    if [[ $1 == update && $status == 100 ]] && only_unneeded_indexes_failed; then
+    if [[ $verb == update && $status == 100 ]] && only_unneeded_indexes_failed; then
       return 0
     fi
     demote_mirror

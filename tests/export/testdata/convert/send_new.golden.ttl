@@ -612,8 +612,12 @@ expr:SendNew__Downlink___402___400_pvalue_pin0
     sysml:owner expr:SendNew__Downlink___402___400_pvalue_pout ;
     sysml:owningRelationship expr:SendNew__Downlink___402___400_pvalue_pin0_om ;
     sysml:owningMembership expr:SendNew__Downlink___402___400_pvalue_pin0_om ;
-    sysml:ownedRelationship expr:SendNew__Downlink___402___400_pvalue_pn0_om ;
-    sysml:ownedMembership expr:SendNew__Downlink___402___400_pvalue_pn0_om .
+    sysml:ownedRedefinition expr:SendNew__Downlink___402___400_pvalue_pin0_rd0 ;
+    sysml:ownedSubsetting expr:SendNew__Downlink___402___400_pvalue_pin0_rd0 ;
+    sysml:ownedSpecialization expr:SendNew__Downlink___402___400_pvalue_pin0_rd0 ;
+    sysml:ownedRelationship expr:SendNew__Downlink___402___400_pvalue_pin0_rd0, expr:SendNew__Downlink___402___400_pvalue_pn0_om ;
+    sysml:ownedMembership expr:SendNew__Downlink___402___400_pvalue_pn0_om ;
+    json:ownedRelationship "[{\"@id\":\"SendNew__Downlink___402___400_pvalue_pin0_rd0\"},{\"@id\":\"SendNew__Downlink___402___400_pvalue_pn0_om\"}]" .
 
 expr:SendNew__Downlink___402___400_pvalue_pin0_om
     a sysml:FeatureMembership ;
@@ -629,6 +633,23 @@ expr:SendNew__Downlink___402___400_pvalue_pin0_om
     sysml:relatedElement expr:SendNew__Downlink___402___400_pvalue_pout, expr:SendNew__Downlink___402___400_pvalue_pin0 ;
     sysml:ownedMemberFeature expr:SendNew__Downlink___402___400_pvalue_pin0 ;
     json:relatedElement "[{\"@id\":\"SendNew__Downlink___402___400_pvalue_pout\"},{\"@id\":\"SendNew__Downlink___402___400_pvalue_pin0\"}]" .
+
+expr:SendNew__Downlink___402___400_pvalue_pin0_rd0
+    a sysml:Redefinition ;
+    sysml:elementId "SendNew__Downlink___402___400_pvalue_pin0_rd0" ;
+    sysml:redefiningFeature expr:SendNew__Downlink___402___400_pvalue_pin0 ;
+    sysml:subsettingFeature expr:SendNew__Downlink___402___400_pvalue_pin0 ;
+    sysml:owningFeature expr:SendNew__Downlink___402___400_pvalue_pin0 ;
+    sysml:specific expr:SendNew__Downlink___402___400_pvalue_pin0 ;
+    sysml:source expr:SendNew__Downlink___402___400_pvalue_pin0 ;
+    sysml:owningRelatedElement expr:SendNew__Downlink___402___400_pvalue_pin0 ;
+    sysml:redefinedFeature elmt:SendNew__Telemetry__frames ;
+    sysml:subsettedFeature elmt:SendNew__Telemetry__frames ;
+    sysml:general elmt:SendNew__Telemetry__frames ;
+    sysml:target elmt:SendNew__Telemetry__frames ;
+    sysml:owner expr:SendNew__Downlink___402___400_pvalue_pin0 ;
+    sysml:relatedElement expr:SendNew__Downlink___402___400_pvalue_pin0, elmt:SendNew__Telemetry__frames ;
+    json:relatedElement "[{\"@id\":\"SendNew__Downlink___402___400_pvalue_pin0\"},{\"@id\":\"SendNew__Telemetry__frames\"}]" .
 
 expr:SendNew__Downlink___402___400_pvalue_pn0_om
     a sysml:FeatureValue ;
