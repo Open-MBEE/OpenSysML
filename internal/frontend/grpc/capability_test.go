@@ -248,6 +248,14 @@ func TestCapabilityGatedRequestsAreRefused(t *testing.T) {
 			})
 			return err
 		}},
+		{"parse sources keep", CapabilityParseSourcesKeep, func(s *Service) error {
+			keep := false
+			_, err := s.ParseSources(ctx, &pb.ParseSourcesRequest{
+				Documents: inlineDocuments("p.sysml", "package P;"),
+				Keep:      &keep,
+			})
+			return err
+		}},
 		{"inline language", CapabilityInlineLanguage, func(s *Service) error {
 			_, err := s.ParseFile(ctx, &pb.ParseFileRequest{
 				Source:   &pb.ParseFileRequest_Content{Content: "package P;"},

@@ -1106,6 +1106,10 @@ pub struct ParseSourcesRequest {
     /// is relative to it. Reported as the "parse_sources_affected" capability.
     #[prost(string, tag="3")]
     pub base_model_hash: ::prost::alloc::string::String,
+    /// False answers the parse without keeping the model, so a transient union evicts nothing.
+    /// Absent keeps it; stating the field requires "parse_sources_keep".
+    #[prost(bool, optional, tag="4")]
+    pub keep: ::core::option::Option<bool>,
 }
 /// ParseSourcesResponse contains the parsed model, whose documents are one model
 /// for every later request: a model_hash names all of them together.
