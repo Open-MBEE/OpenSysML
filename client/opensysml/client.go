@@ -416,8 +416,12 @@ type client struct {
 
 	mu     sync.Mutex
 	closed bool
-	// calls counts the calls begin admitted that are not over yet.
-	calls sync.WaitGroup
+	// calls counts the calls admitted that are not over yet, and idle closes
+	// once a closed client has none left.
+	calls int
+	idle  chan struct{}
+	// released closes once Close has released the implementation.
+	released chan struct{}
 	// info is the service's answer to ServerInfo, kept once a preflight asks
 	// for it: a service does not change build while a client is open to it.
 	info *ServerInfo
@@ -429,17 +433,41 @@ func (c *client) sealed() { /* marker: Client is closed to outside implementatio
 // the way a closed connection refuses one. The caller runs the returned func
 // when the call is over: Close waits for every call it admitted.
 func (c *client) begin() (done func(), err error) {
+	return c.admit(false)
+}
+
+// within admits a step of a call already admitted, such as its preflight's
+// ServerInfo: a closing Client refuses it only once no call is left in flight.
+func (c *client) within() (done func(), err error) {
+	return c.admit(true)
+}
+
+func (c *client) admit(inCall bool) (done func(), err error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.closed {
+	if c.closed && (!inCall || c.calls == 0) {
 		return nil, &StatusError{Code: CodeUnavailable, Message: "the client is closed"}
 	}
-	c.calls.Add(1)
-	return c.calls.Done, nil
+	c.calls++
+	return c.end, nil
+}
+
+func (c *client) end() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.calls--
+	if c.closed && c.calls == 0 {
+		close(c.idle)
+	}
 }
 
 func (c *client) ServerInfo(ctx context.Context) (*ServerInfo, error) {
-	done, err := c.begin()
+	return c.askServerInfo(ctx, c.begin)
+}
+
+// askServerInfo asks the service for its ServerInfo as a call admit lets in.
+func (c *client) askServerInfo(ctx context.Context, admit func() (func(), error)) (*ServerInfo, error) {
+	done, err := admit()
 	if err != nil {
 		return nil, err
 	}
@@ -814,12 +842,19 @@ func (c *client) InstancePaths(ctx context.Context, model *Model, ref ObjectRef)
 func (c *client) Close() error {
 	c.mu.Lock()
 	if c.closed {
+		released := c.released
 		c.mu.Unlock()
+		<-released
 		return nil
 	}
 	c.closed = true
+	c.idle, c.released = make(chan struct{}), make(chan struct{})
+	if c.calls == 0 {
+		close(c.idle)
+	}
 	c.mu.Unlock()
-	c.calls.Wait()
+	<-c.idle
+	defer close(c.released)
 	return c.caller.close()
 }
 
@@ -897,7 +932,7 @@ func (c *client) serverInfo(ctx context.Context) (*ServerInfo, error) {
 	if info != nil {
 		return info, nil
 	}
-	info, err := c.ServerInfo(ctx)
+	info, err := c.askServerInfo(ctx, c.within)
 	var status *StatusError
 	if errors.As(err, &status) && status.Code == CodeUnimplemented {
 		info, err = &ServerInfo{}, nil
