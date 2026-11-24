@@ -32,5 +32,5 @@ func targetInTheWay(err error) bool {
 	return errors.Is(err, fs.ErrExist) ||
 		errors.Is(err, syscall.EISDIR) ||
 		errors.Is(err, syscall.ENOTDIR) ||
-		errors.Is(err, syscall.ENOTEMPTY)
+		targetNotEmpty(err)
 }
