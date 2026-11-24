@@ -197,8 +197,9 @@ func TestRelationshipEdgesOfDerivationRefinementAndDependency(t *testing.T) {
 	}
 }
 
-// A derivation edge keeps the path each end is written as, so two paths to one
-// inherited requirement are told from one path named at both ends.
+// A derivation edge keeps the features each end inherits its requirement through, however
+// the end is spelled: two parts inheriting one requirement are told apart, and every
+// spelling of one requirement is the same end.
 func TestRelationshipEdgesOfDerivationKeepEndPaths(t *testing.T) {
 	m, root := buildRelationshipModelWithStdlib(t, "t.sysml", source.KindSysML, `package P {
 		private import RequirementDerivation::*;
@@ -207,16 +208,24 @@ func TestRelationshipEdgesOfDerivationKeepEndPaths(t *testing.T) {
 		part b : D;
 		#derivation connection across { end #original ::> a.r; end #derive ::> b.r; }
 		#derivation connection within { end #original ::> a.r; end #derive ::> a.r; }
+		#derivation connection names { end #original ::> a::r; end #derive ::> b::r; }
+		package Q { public import P::a; }
+		#derivation connection imported { end #original ::> a::r; end #derive ::> Q::a::r; }
+		#derivation connection rooted { end #original ::> $::P::a::r; end #derive ::> a::r; }
 		part p {
 			requirement q;
 			#derivation connection declared { end #original ::> q; end #derive ::> p.q; }
+			#derivation connection self connect q to this.q;
 		}
 		#derivation connection qualified { end #original ::> p.q; end #derive ::> p::q; }
+		package Shown { public import p::q; }
+		#derivation connection reexported { end #original ::> Shown::q; end #derive ::> p::q; }
 		part c : D { #derivation connection inherited { end #original ::> r; end #derive ::> c.r; } }
-		package Q { public import P::a; }
-		#derivation connection rooted { end #original ::> a::r; end #derive ::> $::P::a::r; }
-		#derivation connection reexported { end #original ::> a::r; end #derive ::> Q::a::r; }
-		#derivation connection names { end #original ::> a::r; end #derive ::> b::r; }
+		part def E { part held { requirement s; } }
+		part e : E;
+		part f : E;
+		#derivation connection mixed { end #original ::> e.held::s; end #derive ::> e::held::s; }
+		#derivation connection holders { end #original ::> e.held::s; end #derive ::> f::held::s; }
 		part outer : D {
 			part inner : D {
 				#derivation connection nested { end #original ::> outer.r; end #derive ::> inner.r; }
@@ -237,16 +246,20 @@ func TestRelationshipEdgesOfDerivationKeepEndPaths(t *testing.T) {
 		source, target []string
 		sameEnds       bool
 	}{
-		{"P::across", []string{"P::a", "P::D::r"}, []string{"P::b", "P::D::r"}, false},
-		{"P::within", []string{"P::a", "P::D::r"}, []string{"P::a", "P::D::r"}, true},
-		{"P::p::declared", []string{"P::p::q"}, []string{"P::p", "P::p::q"}, true},
-		{"P::qualified", []string{"P::p", "P::p::q"}, []string{"P::p", "P::p::q"}, true},
-		{"P::c::inherited", []string{"P::c", "P::D::r"}, []string{"P::c", "P::D::r"}, true},
-		{"P::outer::inner::nested", []string{"P::outer", "P::D::r"}, []string{"P::outer::inner", "P::D::r"}, false},
-		{"P::outer::inner::bare", []string{"P::outer::inner", "P::D::r"}, []string{"P::outer", "P::outer::inner", "P::D::r"}, true},
-		{"P::rooted", []string{"P::a", "P::D::r"}, []string{"P", "P::a", "P::D::r"}, true},
-		{"P::reexported", []string{"P::a", "P::D::r"}, []string{"P::Q", "P::a", "P::D::r"}, true},
-		{"P::names", []string{"P::a", "P::D::r"}, []string{"P::b", "P::D::r"}, false},
+		{"P::across", []string{"P::a"}, []string{"P::b"}, false},
+		{"P::within", []string{"P::a"}, []string{"P::a"}, true},
+		{"P::names", []string{"P::a"}, []string{"P::b"}, false},
+		{"P::rooted", []string{"P::a"}, []string{"P::a"}, true},
+		{"P::imported", []string{"P::a"}, []string{"P::a"}, true},
+		{"P::p::declared", nil, nil, true},
+		{"P::p::self", nil, nil, true},
+		{"P::qualified", nil, nil, true},
+		{"P::reexported", nil, nil, true},
+		{"P::c::inherited", []string{"P::c"}, []string{"P::c"}, true},
+		{"P::mixed", []string{"P::e"}, []string{"P::e"}, true},
+		{"P::holders", []string{"P::e"}, []string{"P::f"}, false},
+		{"P::outer::inner::nested", []string{"P::outer"}, []string{"P::outer::inner"}, false},
+		{"P::outer::inner::bare", []string{"P::outer::inner"}, []string{"P::outer::inner"}, true},
 	} {
 		edges := m.RelationshipEdgesOf(nestedSym(t, root, tc.symbol), RelationshipDerivation)
 		if len(edges) != 1 {

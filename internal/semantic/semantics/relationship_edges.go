@@ -24,8 +24,8 @@ const (
 type RelationshipEdge struct {
 	Source *symbols.Symbol
 	Target *symbols.Symbol
-	// SourcePath and TargetPath are a derivation end as written, outermost first (`a.r` is
-	// [a r]), led by the feature that inherits a bare first name; nil when unnamed.
+	// SourcePath and TargetPath are the features a derivation's end inherits its requirement
+	// through, outermost first: [a] for `a.r` where a's definition declares r, else nil.
 	SourcePath, TargetPath []*symbols.Symbol
 }
 
@@ -33,24 +33,7 @@ type RelationshipEdge struct {
 // `a.r` and `b.r` are two requirements though both name one inherited r.
 func (e RelationshipEdge) SameEnds() bool {
 	return symbols.SameElement(e.Source, e.Target) &&
-		slices.EqualFunc(reachedThrough(e.Source, e.SourcePath), reachedThrough(e.Target, e.TargetPath), symbols.SameElement)
-}
-
-// reachedThrough is path's last element after the features it is inherited through:
-// a namespace, and a feature declaring the next (`p.r` where p declares r), drop out.
-func reachedThrough(element *symbols.Symbol, path []*symbols.Symbol) []*symbols.Symbol {
-	if len(path) == 0 {
-		return []*symbols.Symbol{element}
-	}
-	out := make([]*symbols.Symbol, 0, len(path))
-	for i, sym := range path {
-		if i+1 < len(path) && (!sym.Kind.IsFeature() ||
-			path[i+1].OwnerScope != nil && symbols.SameElement(path[i+1].OwnerScope.Owner(), sym)) {
-			continue
-		}
-		out = append(out, sym)
-	}
-	return out
+		slices.EqualFunc(e.SourcePath, e.TargetPath, symbols.SameElement)
 }
 
 // RelationshipEdgesOf returns the resolved edges sym's declaration states, in declaration order.
@@ -228,51 +211,78 @@ type derivationEnd struct {
 	referents []derivationReferent
 }
 
-// derivationReferent is a requirement an end refers to and the path naming it.
+// derivationReferent is a requirement an end refers to and the features it
+// is inherited through (see RelationshipEdge).
 type derivationReferent struct {
 	element *symbols.Symbol
 	path    []*symbols.Symbol
 }
 
-// derivationPath is the path node is written as in scope, led by the enclosing
-// feature a bare first name is inherited by: in `c : D`, `r` is `c.r`.
+// derivationPath is the features node inherits its requirement through, read from what each
+// segment resolves to: a namespace, or a feature declaring the next segment, is no step.
 func (m *Model) derivationPath(scope *symbols.Scope, node ast.Node) []*symbols.Symbol {
-	path := m.attachmentPath(scope, node)
-	if len(path) == 0 {
+	steps := m.resolvedSteps(scope, node)
+	if len(steps) == 0 {
 		return nil
 	}
-	prefixes := chainPrefixes(node)
-	path = append(m.qualifierPath(scope, prefixes[len(prefixes)-1]), path...)
-	first := func(member *symbols.Symbol) bool { return symbols.SameElement(member, path[0]) }
-	for s := scope; s != nil; s = s.Parent() {
-		holder := s.Owner()
-		if holder == nil || !slices.ContainsFunc(m.MembersOf(holder), first) {
-			continue
+	if holder := m.inheritingScopeOwner(scope, steps[0]); holder != nil {
+		steps = append([]*symbols.Symbol{holder}, steps...)
+	}
+	var path []*symbols.Symbol
+	for i, step := range steps[:len(steps)-1] {
+		if _, usage := step.Decl.(*ast.Usage); usage && !symbols.SameElement(steps[i+1].Owner(), step) {
+			path = append(path, step)
 		}
-		if path[0].OwnerScope != s {
-			path = append([]*symbols.Symbol{holder}, path...)
-		}
-		break
 	}
 	return path
 }
 
-// qualifierPath is what qualifies a name written `a::b::r` in scope, [a b],
-// each of which may hold the next by inheritance as a chain's features do.
-func (m *Model) qualifierPath(scope *symbols.Scope, node ast.Node) []*symbols.Symbol {
-	name, ok := node.(*ast.QualifiedName)
-	if !ok {
-		return nil
-	}
-	var path []*symbols.Symbol
-	for i := 1; i < len(name.Parts); i++ {
-		qualifier, ok := m.resolver.ResolveQualified(scope, &ast.QualifiedName{Global: name.Global, Parts: name.Parts[:i]})
-		if !ok || qualifier == nil {
+// resolvedSteps is what each name segment of the chain node resolves to, outermost first, a
+// chain's operand as what its member is read from (`this` is the object owning the chain).
+func (m *Model) resolvedSteps(scope *symbols.Scope, node ast.Node) []*symbols.Symbol {
+	var steps []*symbols.Symbol
+	prefixes := chainPrefixes(node)
+	for i := len(prefixes) - 1; i >= 0; i-- {
+		target, ok := m.resolver.ResolveTarget(scope, prefixes[i])
+		if !ok || target == nil {
 			return nil
 		}
-		path = append(path, qualifier)
+		name, _ := prefixes[i].(*ast.QualifiedName)
+		if chain, chained := prefixes[i].(*ast.FeatureChainExpr); chained {
+			name = chain.Member
+		}
+		if name == nil {
+			steps = append(steps, target)
+		}
+		for j := 0; name != nil && j < len(name.Parts); j++ {
+			part, ok := m.resolver.PartSymbol(name, j)
+			if !ok {
+				return nil
+			}
+			steps = append(steps, part)
+		}
+		if holders := m.resolver.ChainHolders(scope, target); i > 0 && len(holders) != 0 {
+			steps[len(steps)-1] = holders[0]
+		}
 	}
-	return path
+	return steps
+}
+
+// inheritingScopeOwner is the element enclosing scope that a bare name finds first as an
+// inherited member: in `c : D { … r … }`, r is c's.
+func (m *Model) inheritingScopeOwner(scope *symbols.Scope, first *symbols.Symbol) *symbols.Symbol {
+	named := func(member *symbols.Symbol) bool { return symbols.SameElement(member, first) }
+	for s := scope; s != nil; s = s.Parent() {
+		holder := s.Owner()
+		if holder == nil || !slices.ContainsFunc(m.MembersOf(holder), named) {
+			continue
+		}
+		if first.OwnerScope != s {
+			return holder
+		}
+		return nil
+	}
+	return nil
 }
 
 func (m *Model) derivationUsageEnds(sym *symbols.Symbol) []derivationEnd {

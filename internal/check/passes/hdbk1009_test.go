@@ -143,6 +143,36 @@ func TestHDBK1009SelfDerivationThroughTheDeclaringPart(t *testing.T) {
 		}`), CodeHDBK1009RequirementNotDerived, 3)
 }
 
+// However a derivation spells its two ends, one requirement named twice gives it
+// no origin, and one requirement inherited by two parts is two requirements.
+func TestHDBK1009DerivationEndSpellings(t *testing.T) {
+	const model = `
+		#subsystemRequirement requirement loose;
+		part def D { #subsystemRequirement requirement r; }
+		part a : D;
+		part b : D;
+		part p {
+			#subsystemRequirement requirement q;
+			part held { #subsystemRequirement requirement s; }
+		}
+		package Shown { public import p::q; }
+		`
+	for _, tc := range []struct {
+		name, derivation string
+		underived        []int
+	}{
+		{"root-qualified", `#derivation connection { end #original ::> $::M::a::r; end #derive ::> a::r; }`, []int{3, 4, 8, 9}},
+		{"chain then qualified name", `#derivation connection { end #original ::> p.held::s; end #derive ::> p::held::s; }`, []int{3, 4, 8, 9}},
+		{"re-exporting package", `#derivation connection { end #original ::> Shown::q; end #derive ::> p::q; }`, []int{3, 4, 8, 9}},
+		{"this", `part p2 :> p { #derivation connection connect q to this.q; }`, []int{3, 4, 8, 9}},
+		{"two inheriting parts", `#derivation connection { end #original ::> a.r; end #derive ::> b.r; }`, []int{3, 8, 9}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			w8dWantLines(t, hdbkModel(model+tc.derivation), CodeHDBK1009RequirementNotDerived, tc.underived...)
+		})
+	}
+}
+
 // The peer that makes a lone subsystem requirement warn may sit in another document.
 func TestHDBK1009SubsystemRequirementPeersAcrossDocuments(t *testing.T) {
 	w := newSharedWorkspace()
