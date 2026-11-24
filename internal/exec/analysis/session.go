@@ -624,12 +624,16 @@ func (s *session) send(method string, params any, sink *progressSink) (int64, ch
 	return id, reply, nil
 }
 
+// unwritableGrace is how long the reader is given to report the end of a process whose
+// pipe refused a write, before the process is ended for the write's own error.
+const unwritableGrace = time.Second
+
 // unwritable is the error of a message the pipe did not take: the process's end, as the
 // reader reports it once it sees the pipe close, else the write's own error.
 func (s *session) unwritable(err error) error {
 	select {
 	case <-s.ended:
-	case <-time.After(s.timeout):
+	case <-time.After(min(s.timeout, unwritableGrace)):
 		s.end(&EngineExitedError{Engine: s.entry.Name, Process: s.entry.Executable, Started: true,
 			Err: err, Stderr: strings.TrimSpace(string(s.stderr.Bytes()))})
 	}

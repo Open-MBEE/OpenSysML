@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
@@ -143,6 +144,28 @@ func TestSessionDuplicateAnswerEndsTheSession(t *testing.T) {
 		if err := s.failed(); !errors.Is(err, ErrProtocol) {
 			t.Fatalf("iteration %d: the session ended with %v; want a protocol error", i, err)
 		}
+	}
+}
+
+// An engine that stops reading requests but keeps its output open fails the request it
+// refused at once, as an exit carrying the write's error, not after the whole timeout.
+func TestSessionRefusedWriteDoesNotWaitTheTimeout(t *testing.T) {
+	t.Setenv(engineStandinMode, "stdin-closed")
+	record := t.TempDir() + "/record"
+	t.Setenv(engineStandinRecord, record)
+	s := standinSession(t, standinEntry(t), time.Minute)
+	for closed := false; !closed; time.Sleep(10 * time.Millisecond) {
+		log, _ := os.ReadFile(record)
+		closed = strings.Contains(string(log), "stdin closed")
+	}
+	began := time.Now()
+	_, err := s.call(context.Background(), enginewire.MethodCovers, enginewire.CoversParams{Question: questionA()}, nil)
+	var exited *EngineExitedError
+	if !errors.As(err, &exited) || !errors.Is(err, syscall.EPIPE) {
+		t.Fatalf("got %v; want the engine's exit with the broken pipe", err)
+	}
+	if took := time.Since(began); took > 30*time.Second {
+		t.Fatalf("the refused write took %s under a one-minute timeout", took)
 	}
 }
 

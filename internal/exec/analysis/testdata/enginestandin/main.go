@@ -74,6 +74,7 @@ const (
 	ModeDescribeAndExit     = "describe-and-exit"
 	ModeAnswerAndExit       = "answer-and-exit"
 	ModeDuplicateAnswer     = "duplicate-answer"
+	ModeStdinClosed         = "stdin-closed"
 )
 
 func main() {
@@ -139,6 +140,12 @@ func serve() error {
 		}
 		if err := e.take(msg); err != nil {
 			return err
+		}
+		if e.mode == ModeStdinClosed && msg.Method == enginewire.MethodDescribe {
+			// Refuses every later request while its standard output stays open.
+			_ = os.Stdin.Close()
+			e.log("stdin closed")
+			time.Sleep(time.Hour)
 		}
 	}
 	e.wg.Wait()
