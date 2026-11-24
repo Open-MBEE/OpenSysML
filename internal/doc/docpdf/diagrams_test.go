@@ -1010,83 +1010,29 @@ func TestDefineMasksMovesD2MasksIntoDefs(t *testing.T) {
 	}
 }
 
-// A picture outside the directory the pictures' paths are relative to is not
-// read, whether an absolute path, a ".." path or a symbolic link names it.
-func TestEmbedImagesRefusesPicturesOutsideTheBase(t *testing.T) {
-	pngData, err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==")
+// A drawn view names each picture by the path of the model stating it, which need not be
+// under the working directory the relative ones resolve against: that picture is drawn too.
+func TestEmbedImagesDrawsAPictureBesideAModelElsewhere(t *testing.T) {
+	var data bytes.Buffer
+	if err := png.Encode(&data, image.NewRGBA(image.Rect(0, 0, 2, 2))); err != nil {
+		t.Fatal(err)
+	}
+	picture := filepath.Join(t.TempDir(), "mark.png")
+	if err := os.WriteFile(picture, data.Bytes(), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "diagram-1.svg")
+	if err := os.WriteFile(path, []byte(`<svg xmlns="http://www.w3.org/2000/svg"><image href="`+filepath.ToSlash(picture)+`"/></svg>`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := embedImages(path, t.TempDir()); err != nil {
+		t.Fatalf("embedImages: %v", err)
+	}
+	out, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	outside := t.TempDir()
-	secret := filepath.Join(outside, "secret.png")
-	if err := os.WriteFile(secret, pngData, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	base := t.TempDir()
-	locations := []string{secret, "../" + filepath.Base(outside) + "/secret.png"}
-	if err := os.Symlink(secret, filepath.Join(base, "link.png")); err == nil {
-		locations = append(locations, "link.png")
-	}
-	for _, location := range locations {
-		path := filepath.Join(t.TempDir(), "diagram.svg")
-		source := `<svg xmlns="http://www.w3.org/2000/svg"><image href="` + location + `"/></svg>`
-		if err := os.WriteFile(path, []byte(source), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		if err := embedImages(path, base); err != nil {
-			t.Fatalf("embedImages: %v", err)
-		}
-		out, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if bytes.Contains(out, []byte("data:image/png")) || bytes.Contains(out, []byte("<image")) {
-			t.Errorf("picture %s outside the base was kept or inlined:\n%s", location, out)
-		}
-		if !bytes.Contains(out, []byte(errOutsidePicture.Error())) {
-			t.Errorf("picture %s: no refusal recorded:\n%s", location, out)
-		}
-	}
-}
-
-// A picture under the base is read however the base and the picture are reached:
-// through a link to the base, by the picture's resolved absolute path, or through a
-// link under the base whose target is an absolute path into it.
-func TestEmbedImagesReadsPicturesThroughLinksIntoTheBase(t *testing.T) {
-	pngData, err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==")
-	if err != nil {
-		t.Fatal(err)
-	}
-	realBase, err := filepath.EvalSymlinks(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	picture := filepath.Join(realBase, "picture.png")
-	if err := os.WriteFile(picture, pngData, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	linkedBase := filepath.Join(t.TempDir(), "work")
-	if err := os.Symlink(realBase, linkedBase); err != nil {
-		t.Skipf("symbolic links are not available: %v", err)
-	}
-	if err := os.Symlink(picture, filepath.Join(realBase, "link.png")); err != nil {
-		t.Fatal(err)
-	}
-	for _, location := range []string{picture, "picture.png", "link.png", filepath.Join(linkedBase, "picture.png")} {
-		path := filepath.Join(t.TempDir(), "diagram.svg")
-		source := `<svg xmlns="http://www.w3.org/2000/svg"><image href="` + location + `"/></svg>`
-		if err := os.WriteFile(path, []byte(source), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		if err := embedImages(path, linkedBase); err != nil {
-			t.Fatalf("embedImages: %v", err)
-		}
-		out, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !bytes.Contains(out, []byte("data:image/png")) {
-			t.Errorf("picture %s under the base was not inlined:\n%s", location, out)
-		}
+	if want := `<image href="data:image/png;base64,` + base64.StdEncoding.EncodeToString(data.Bytes()) + `"/>`; !strings.Contains(string(out), want) {
+		t.Errorf("the picture is not drawn:\n%s", out)
 	}
 }

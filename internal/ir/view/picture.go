@@ -10,6 +10,9 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/ir/imagefile"
 )
 
+// ErrOutsidePicture is why a picture whose file is not under the directory of the model stating it is not read.
+var ErrOutsidePicture = errors.New("the file is outside the directory of the model that states it")
+
 // ErrRemotePicture is why a picture located by a URL scheme other than data: is neither drawn nor fetched.
 var ErrRemotePicture = errors.New("remote pictures are not drawn")
 
@@ -83,6 +86,9 @@ func pictureRefusal(p Picture) error {
 	if RemotePictureLocation(p.Location) || strings.HasPrefix(strings.ToLower(strings.TrimSpace(p.Location)), "data:") {
 		return CheckPicture(p.Location, nil)
 	}
+	if p.outside() {
+		return ErrOutsidePicture
+	}
 	info, err := os.Stat(p.Path())
 	if err != nil || !info.Mode().IsRegular() {
 		return nil
@@ -94,12 +100,28 @@ func pictureRefusal(p Picture) error {
 	return CheckPicture(p.Location, data)
 }
 
+// outside is whether the picture's file lies outside the directory of the model stating
+// it, by its path or by a symbolic link; a picture stated in no file has no such directory.
+func (p Picture) outside() bool {
+	if p.Dir == "" {
+		return false
+	}
+	_, within := drawioPictureWithin(p.Location, p.Dir)
+	return !within
+}
+
 func (r *Rendering) pictureRefusals() []error {
 	refusals := make([]error, len(r.Pictures))
 	for i, picture := range r.Pictures {
 		refusals[i] = pictureRefusal(picture)
 	}
 	return refusals
+}
+
+// RefusedPictures states, one notice a reason, the pictures no form draws: the unsafe,
+// the remote, and those outside the directory of the model stating them.
+func (r *Rendering) RefusedPictures() []string {
+	return refusedPictureNotices(r.Pictures, r.pictureRefusals())
 }
 
 func refusedPictureNotices(pictures []Picture, refusals []error) []string {

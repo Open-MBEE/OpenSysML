@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"html"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -150,45 +149,6 @@ var (
 	svgImageHref     = regexp.MustCompile(`\s(?:xlink:)?href\s*=\s*(?:"([^"]*)"|'([^']*)')`)
 )
 
-// errOutsidePicture is why a picture file that is not under the directory the
-// pictures' paths are relative to is neither read nor left for a converter to read.
-var errOutsidePicture = errors.New("the file is not readable under the working directory")
-
-// readPicture reads a picture file under base, named relative to it or by an
-// absolute path into it; ".." elements and symbolic links out of base are refused.
-func readPicture(base, file string) ([]byte, error) {
-	base, err := filepath.Abs(base)
-	if err != nil {
-		return nil, err
-	}
-	if !filepath.IsAbs(file) {
-		if !filepath.IsLocal(file) {
-			return nil, errOutsidePicture
-		}
-		file = filepath.Join(base, file)
-	}
-	// Both are resolved first, so base may be reached through a link, and a link
-	// under it may name its target by either a relative or an absolute path.
-	dir, err := filepath.EvalSymlinks(base)
-	if err != nil {
-		return nil, err
-	}
-	resolved, err := filepath.EvalSymlinks(file)
-	if err != nil {
-		return nil, err
-	}
-	rel, err := filepath.Rel(dir, resolved)
-	if err != nil || !filepath.IsLocal(rel) {
-		return nil, errOutsidePicture
-	}
-	root, err := os.OpenRoot(dir)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = root.Close() }()
-	return root.ReadFile(rel)
-}
-
 // embedImages inlines each safe local image an SVG refers to; refused images
 // become comments, while valid data URIs and unread or unsupported files stay as written.
 func embedImages(path, base string) error {
@@ -245,14 +205,13 @@ func embedImages(path, base string) error {
 			at = end
 			continue
 		}
-		data, err := readPicture(base, filepath.FromSlash(location))
-		if errors.Is(err, fs.ErrNotExist) {
-			out = append(out, svg[start:end]...)
-			at = end
-			continue
+		file := filepath.FromSlash(location)
+		if !filepath.IsAbs(file) {
+			file = filepath.Join(base, file)
 		}
+		data, err := os.ReadFile(file) // #nosec G304 -- the path is one the drawn view states
 		if err != nil {
-			out = append(out, refusedImageComment(location, errOutsidePicture.Error())...)
+			out = append(out, svg[start:end]...)
 			at = end
 			continue
 		}
