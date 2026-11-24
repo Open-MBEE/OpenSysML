@@ -20,12 +20,14 @@ func TestRuntimeRobustnessActionLocalConnection(t *testing.T) {
 	t.Run("read_by_qualified_name", testActionLocalConnectionQualified)
 	t.Run("read_from_the_enclosing_action", testActionLocalConnectionReadFromParent)
 	t.Run("held_by_the_performance_occurrence", testActionLocalConnectionOccurrence)
+	t.Run("carried_by_a_held_image", testActionLocalConnectionHeldImage)
 	t.Run("end_selecting_nothing", testActionLocalConnectionEndSelectingNothing)
 }
 
 const actionLocalConnectionFixture = `
 	package test {
 		part def Node;
+		item def Go;
 		connection def Link { end left : Node; end right : Node; }
 		action def Connect {
 			in ref firstNode : Node;
@@ -46,6 +48,8 @@ const actionLocalConnectionFixture = `
 			part b : Node;
 			ref links : Link [0..*];
 			ref again : Link [0..*];
+			ref staged : Link [0..*];
+			ref stagedAgain : Link [0..*];
 			action connectNodes {
 				in ref firstNode : Node;
 				in ref secondNode : Node;
@@ -116,6 +120,18 @@ const actionLocalConnectionFixture = `
 			perform action connectPerformed : Recorded {
 				in ref firstNode = a;
 				in ref secondNode = b;
+			}
+			perform action connectStaged {
+				in ref firstNode : Node = a;
+				in ref secondNode : Node = b;
+				action child {
+					in ref x : Node = firstNode;
+					in ref y : Node = secondNode;
+					connection link : Link connect x to y;
+					assign staged := link;
+				}
+				then action wait { accept Go; }
+				then action read { assign stagedAgain := child.link; }
 			}
 			action connectIndexed {
 				in ref firstNode : Node;
@@ -304,6 +320,52 @@ func testActionLocalConnectionOccurrence(t *testing.T) {
 		if got := wantLinkEnds(t, ctx, occ, feature, a, b); got != held {
 			t.Errorf("%s holds connector #%d, want the occurrence's #%d", feature, got, held)
 		}
+	}
+}
+
+// testActionLocalConnectionHeldImage: a copy of a waiting performance holds its step's connector
+// as an object of its own, which the copy reads on resuming.
+func testActionLocalConnectionHeldImage(t *testing.T) {
+	ctx, inst, a, b := actionLocalConnectionNetwork(t)
+	if behavior, ok := inst.behavior("connectStaged"); !ok || behavior.Action == nil || behavior.Action.state != StateWaiting {
+		t.Fatal("connectStaged is not waiting past its connecting step")
+	}
+	held := wantLinkEnds(t, ctx, inst, "staged", a, b)
+	img, err := ctx.Image(inst)
+	if err != nil {
+		t.Fatalf("Image: %v", err)
+	}
+	dst := NewContext(ctx.Model(), 10000)
+	if err := img.Materialize(dst); err != nil {
+		t.Fatalf("Materialize: %v", err)
+	}
+	copied, ok := dst.Instance(inst.ID)
+	if !ok {
+		t.Fatalf("the copy holds no object #%d", inst.ID)
+	}
+	if got := wantLinkEnds(t, dst, copied, "staged", a, b); got != held {
+		t.Fatalf("the copy's staged holds connector #%d, want #%d", got, held)
+	}
+	work, ok := copied.behavior("connectStaged")
+	if !ok || work.Action == nil {
+		t.Fatal("the copy performs no connectStaged")
+	}
+	carried := 0
+	for _, perf := range work.Action.reachableFrames() {
+		link, ok := perf.data["link"]
+		if !ok {
+			continue
+		}
+		carried++
+		if link.Kind != ValInstance || link.Instance != held || dst.instances[held] == nil {
+			t.Errorf("the copied step holds link = %v, want the copy's connector #%d", link, held)
+		}
+	}
+	if carried != 1 {
+		t.Errorf("%d copied performances hold link, want the connecting step alone", carried)
+	}
+	if dst.instances[held] == ctx.instances[held] {
+		t.Error("the copy's connector is the source's object, not one of its own")
 	}
 }
 
