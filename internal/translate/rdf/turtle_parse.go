@@ -457,8 +457,8 @@ func (p *parser) readWhile(keep func(rune) bool) string {
 // resolveIRI resolves a relative reference against base as RFC 3986 section 5.2
 // does, on the text as written; a base with no hierarchy has it appended.
 func resolveIRI(base, ref string) string {
-	scheme := strings.Index(base, ":")
-	if scheme < 0 || !strings.HasPrefix(base[scheme+1:], "/") {
+	scheme := strings.IndexAny(base, ":/?#")
+	if scheme <= 0 || base[scheme] != ':' || !strings.HasPrefix(base[scheme+1:], "/") {
 		return base + ref
 	}
 	base, _, _ = strings.Cut(base, "#")
@@ -479,6 +479,12 @@ func resolveIRI(base, ref string) string {
 		out = stem
 		if !hasQuery && baseQuery != "" {
 			query, hasQuery = baseQuery, true
+		}
+	case strings.HasPrefix(path, "//"):
+		authority, rooted, _ := strings.Cut(path[2:], "/")
+		out = stem[:scheme+1] + "//" + authority
+		if rooted != "" || strings.HasSuffix(path, "/") {
+			out += removeDotSegments("/" + rooted)
 		}
 	case strings.HasPrefix(path, "/"):
 		out += removeDotSegments(path)
