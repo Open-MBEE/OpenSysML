@@ -258,6 +258,51 @@ func TestSequenceRenderingOrdersAChainOfSuccessionsByTheirEvents(t *testing.T) {
 	}
 }
 
+// Successions no message orders are drawn in the order they are declared, whether
+// a `succession` usage or a member-attached `then` states each.
+func TestSequenceRenderingDrawsSuccessionsInDeclarationOrder(t *testing.T) {
+	for _, tc := range []struct {
+		name, body string
+		want       []string
+	}{
+		{"a then closing a chain of usages",
+			`event occurrence a; event occurrence b; event occurrence c;
+			succession first a then b; succession first b then c; then event occurrence d;`,
+			[]string{"a then b", "b then c", "c then d"}},
+		{"a then between usages it shares no event with",
+			`event occurrence a; event occurrence b; succession first a then b;
+			event occurrence c; then event occurrence d;
+			event occurrence e; event occurrence f; succession first e then f;`,
+			[]string{"a then b", "c then d", "e then f"}},
+		{"a then opening a chain of usages",
+			`event occurrence a; then event occurrence b;
+			event occurrence c; succession first b then c;`,
+			[]string{"a then b", "b then c"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rendering := renderSource(t, "Ordered::shown", `package Ordered {
+	private import StandardViewDefinitions::*;
+	part def System { part server { `+tc.body+` } }
+	view shown : SequenceView { expose System; }
+}`)
+			names := map[string]string{}
+			for _, proxy := range rendering.Roots[0].Children {
+				names[proxy.ID] = proxy.Name
+			}
+			var rows []string
+			for _, edge := range rendering.Edges {
+				rows = append(rows, names[edge.From]+" then "+names[edge.To])
+			}
+			if !slices.Equal(rows, tc.want) {
+				t.Errorf("rows = %v, want %v", rows, tc.want)
+			}
+			if len(rendering.Notices) != 0 {
+				t.Errorf("notices = %v, want none", rendering.Notices)
+			}
+		})
+	}
+}
+
 // Messages nothing orders keep declaration order.
 func TestSequenceRenderingKeepsDeclarationOrderWhereNothingIsStated(t *testing.T) {
 	rendering := render(t, "sequence-lifelines.sysml", "LifelineViews::unorderedView")
