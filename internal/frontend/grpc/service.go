@@ -20,7 +20,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	engineset "github.com/Open-MBEE/OpenSysML/internal/exec/engines"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
-	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/toolkit"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/protoconv"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -526,7 +525,7 @@ type Service struct {
 	pb.UnimplementedSysMLServiceServer
 	cache *Cache
 	// fileRoot confines the files a request names (ConfineFilesTo); nil reads any path.
-	fileRoot *toolkit.Root
+	fileRoot *fileRoot
 	// libIndexes hands each model an overlay over the one standard library index
 	// the service holds: the library does not depend on the model, so no model
 	// pays for loading it, and no model keeps a copy of it.
@@ -567,12 +566,13 @@ type serviceOptions struct {
 	serve       []string
 	records     *libs.Cache
 	fileRoot    string
+	confined    bool
 }
 
 // ConfineFilesTo has the service read a file a request names by path only under dir,
 // symbolic links followed; without it the service reads any path its privileges reach.
 func ConfineFilesTo(dir string) Option {
-	return func(o *serviceOptions) { o.fileRoot = dir }
+	return func(o *serviceOptions) { o.fileRoot, o.confined = dir, true }
 }
 
 // WithRecordCache has the service read a parsed model's analysis from cache when one is
@@ -666,16 +666,16 @@ func newService(cacheSize int, version string, opts []Option) (*Service, error) 
 	if len(options.serve) == 0 {
 		availability.withhold(CapabilityEnginesExternal)
 	}
-	var fileRoot *toolkit.Root
-	if options.fileRoot != "" {
-		root, err := toolkit.NewRoot(options.fileRoot)
+	var confinedTo *fileRoot
+	if options.confined {
+		root, err := newFileRoot(options.fileRoot)
 		if err != nil {
 			return nil, err
 		}
-		fileRoot = &root
+		confinedTo = root
 	}
 	return &Service{
-		fileRoot:       fileRoot,
+		fileRoot:       confinedTo,
 		cache:          cache,
 		libIndexes:     newLibraryBase(buildLibraryIndex),
 		lineages:       newLineages(maxLineages),
@@ -1009,19 +1009,22 @@ func inlineInput(name, language, content string) (sourceInput, error) {
 // is not confined, and otherwise only one under the root it is confined to.
 func (s *Service) readNamedFile(path string) ([]byte, error) {
 	if s.fileRoot != nil {
-		resolved, err := s.fileRoot.Resolve(path)
-		if err != nil {
-			return nil, statusErrorf(connect.CodePermissionDenied, "file not readable: %v", err)
-		}
-		path = resolved.Real
+		return s.fileRoot.read(path)
 	}
-	// #nosec G304 -- reading the file the client names is the point; a confined
-	// service has resolved it under its root.
+	// #nosec G304 -- reading the file the client names is the point of an unconfined service.
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, statusErrorf(connect.CodeNotFound, msgFileNotFound, err)
 	}
 	return data, nil
+}
+
+// namedFilePath is the path readNamedFile reads for path, for what opens the file again.
+func (s *Service) namedFilePath(path string) string {
+	if s.fileRoot != nil {
+		return s.fileRoot.path(path)
+	}
+	return path
 }
 
 // fileInput reads a document from the path the client named.

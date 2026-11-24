@@ -85,9 +85,82 @@ func TestUnconfinedServiceReadsAnyNamedFile(t *testing.T) {
 	}
 }
 
-func TestConfiningToAMissingDirectoryIsAConfigurationError(t *testing.T) {
-	if srv, err := NewService(10, "test", ConfineFilesTo(filepath.Join(t.TempDir(), "absent"))); err == nil {
-		srv.Close()
-		t.Error("NewService accepted a file root that does not exist")
+// A root is a directory that is there: a missing one, a regular file and an empty
+// name are each refused when the service starts, not served unconfined.
+func TestConfiningToWhatIsNotADirectoryIsAConfigurationError(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "model.sysml")
+	if err := os.WriteFile(file, []byte("package P;"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for name, dir := range map[string]string{
+		"a missing directory": filepath.Join(t.TempDir(), "absent"),
+		"a regular file":      file,
+		"an empty name":       "",
+	} {
+		if srv, err := NewService(10, "test", ConfineFilesTo(dir)); err == nil {
+			srv.Close()
+			t.Errorf("NewService accepted %s as its file root", name)
+		}
+	}
+}
+
+// A confined service reads the file the system would for the name: one whose name
+// starts with a space, and the sibling of a link's target for a ".." after the link.
+func TestConfinedServiceReadsTheFileTheNameResolvesTo(t *testing.T) {
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	files := map[string]string{
+		" spaced.sysml":                       "package Spaced;",
+		"spaced.sysml":                        "package Trimmed;",
+		"beside.sysml":                        "package BesideTheLink;",
+		filepath.Join("deep", "beside.sysml"): "package BesideTheTarget;",
+	}
+	if err := os.MkdirAll(filepath.Join(root, "deep", "target"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for name, text := range files {
+		if err := os.WriteFile(filepath.Join(root, name), []byte(text), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	names := map[string]string{" spaced.sysml": "package Spaced;"}
+	if err := os.Symlink(filepath.Join(root, "deep", "target"), filepath.Join(root, "link")); err == nil {
+		sep := string(filepath.Separator)
+		names["link"+sep+".."+sep+"beside.sysml"] = "package BesideTheTarget;"
+	}
+	srv, err := NewService(10, "test", ConfineFilesTo(root))
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	t.Cleanup(srv.Close)
+	for name, want := range names {
+		if data, err := srv.readNamedFile(name); err != nil || string(data) != want {
+			t.Errorf("readNamedFile(%q) = %q, %v; want %q", name, data, err, want)
+		}
+	}
+}
+
+// A link put where a checked file was does not lead the read out of the root.
+func TestConfinedReadGoesThroughTheRoot(t *testing.T) {
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	secret := filepath.Join(t.TempDir(), "secret.sysml")
+	if err := os.WriteFile(secret, []byte("package Secret;"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	opened, err := os.OpenRoot(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = opened.Close() }()
+	if err := os.Symlink(secret, filepath.Join(root, "swapped.sysml")); err != nil {
+		t.Skipf("symbolic links are not available: %v", err)
+	}
+	if data, err := opened.ReadFile("swapped.sysml"); err == nil {
+		t.Errorf("a read through the root followed a link out of it: %q", data)
 	}
 }
