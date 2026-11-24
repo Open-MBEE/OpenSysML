@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
@@ -40,6 +41,9 @@ type Session struct {
 	// that call's run when its context ends.
 	turn chan struct{}
 	stop atomic.Bool
+	// call is the context of the call Under is running, which a tool it puts
+	// to the engines is bound to.
+	call atomic.Pointer[context.Context]
 }
 
 // errSessionInterrupted is a run stopped because the context of the call Under
@@ -61,6 +65,8 @@ func (ss *Session) Under(ctx context.Context, call func() error) error {
 	if ctx.Err() != nil {
 		return endedStatus(ctx)
 	}
+	ss.call.Store(&ctx)
+	defer ss.call.Store(nil)
 	raised := make(chan struct{})
 	halt := context.AfterFunc(ctx, func() {
 		defer close(raised)
@@ -77,6 +83,22 @@ func (ss *Session) Under(ctx context.Context, call func() error) error {
 	}
 	return endedStatus(ctx)
 }
+
+// turnScoped is a context following the call Under is running when it is
+// consulted, or the background one outside a call bound to a context.
+type turnScoped struct{ ss *Session }
+
+func (t turnScoped) current() context.Context {
+	if ctx := t.ss.call.Load(); ctx != nil {
+		return *ctx
+	}
+	return context.Background()
+}
+
+func (t turnScoped) Deadline() (time.Time, bool) { return t.current().Deadline() }
+func (t turnScoped) Done() <-chan struct{}       { return t.current().Done() }
+func (t turnScoped) Err() error                  { return t.current().Err() }
+func (turnScoped) Value(any) any                 { return nil }
 
 // endedStatus is the status of a call whose context ended.
 func endedStatus(ctx context.Context) error {
@@ -212,10 +234,11 @@ func (s *Service) OpenSession(modelHash string) (*Session, error) {
 	}
 	w, release := cached.worker()
 	// A session runtime outlives any one call; plans rebind the runner on the worker.
-	rt := s.newRuntimeOver(context.Background(), w)
+	ss := &Session{svc: s, cached: cached, worker: w, release: release, turn: make(chan struct{}, 1)}
+	rt := s.newRuntimeOver(turnScoped{ss}, w)
 	rt.SetMaxInstances(s.maxHeldObjects)
-	ss := &Session{svc: s, cached: cached, worker: w, release: release, rt: rt, turn: make(chan struct{}, 1)}
 	rt.SetInterrupt(&ss.stop)
+	ss.rt = rt
 	return ss, nil
 }
 
