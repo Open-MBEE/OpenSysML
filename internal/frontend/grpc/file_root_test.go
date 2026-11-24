@@ -164,3 +164,92 @@ func TestConfinedReadGoesThroughTheRoot(t *testing.T) {
 		t.Errorf("a read through the root followed a link out of it: %q", data)
 	}
 }
+
+// A name that leaves the root on its way to a file under it is refused as a missing
+// file is, so the answer does not tell which paths outside the root lead into it.
+func TestConfinedServiceRefusesAWayIntoTheRootFromOutside(t *testing.T) {
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	outside, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "inside.sysml"), []byte("package P;"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(root, "inside.sysml"), filepath.Join(outside, "alias.sysml")); err != nil {
+		t.Skipf("symbolic links are not available: %v", err)
+	}
+	for _, link := range [][2]string{
+		{root, filepath.Join(outside, "back")},
+		{outside, filepath.Join(root, "out")},
+	} {
+		if err := os.Symlink(link[0], link[1]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	srv, err := NewService(10, "test", ConfineFilesTo(root))
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	t.Cleanup(srv.Close)
+	sep := string(filepath.Separator)
+	missing := connect.CodeOf(srv.readNamedFileError(filepath.Join(outside, "absent.sysml")))
+	for _, name := range []string{
+		filepath.Join(outside, "alias.sysml"),
+		filepath.Join(outside, "back", "inside.sysml"),
+		".." + sep + filepath.Base(outside) + sep + "alias.sysml",
+		"out" + sep + "back" + sep + "inside.sysml",
+		"out" + sep + "alias.sysml",
+	} {
+		err := srv.readNamedFileError(name)
+		if err == nil || connect.CodeOf(err) != missing {
+			t.Errorf("readNamedFile(%q) = %v, want the refusal a missing file gets (%v)", name, err, missing)
+		}
+	}
+}
+
+// The root is the same directory by the name it was given and by the one that
+// resolves to, and a link inside it may name its target by either.
+func TestConfinedServiceReadsUnderEitherNameOfItsRoot(t *testing.T) {
+	physical, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(physical, "inside.sysml"), []byte("package P;"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	given := filepath.Join(t.TempDir(), "given")
+	if err := os.Symlink(physical, given); err != nil {
+		t.Skipf("symbolic links are not available: %v", err)
+	}
+	for name, target := range map[string]string{
+		"by-given.sysml":    filepath.Join(given, "inside.sysml"),
+		"by-physical.sysml": filepath.Join(physical, "inside.sysml"),
+		"relative.sysml":    "inside.sysml",
+	} {
+		if err := os.Symlink(target, filepath.Join(physical, name)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	srv, err := NewService(10, "test", ConfineFilesTo(given))
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	t.Cleanup(srv.Close)
+	for _, name := range []string{
+		filepath.Join(given, "inside.sysml"), filepath.Join(physical, "inside.sysml"),
+		"by-given.sysml", "by-physical.sysml", "relative.sysml",
+	} {
+		if data, err := srv.readNamedFile(name); err != nil || string(data) != "package P;" {
+			t.Errorf("readNamedFile(%q) = %q, %v", name, data, err)
+		}
+	}
+}
+
+func (s *Service) readNamedFileError(name string) error {
+	_, err := s.readNamedFile(name)
+	return err
+}

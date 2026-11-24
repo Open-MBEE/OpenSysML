@@ -211,8 +211,8 @@ never one the child demands.
 `ParseFile`, `ParseSources`, `Convert` and `Migrate`, and `layout_path` on `Migrate`). By default
 the service reads any path its own privileges reach, which is what the private child a client
 starts for itself needs. `-file-root <dir>` confines those reads to a directory: a relative path
-is taken from it, and a path elsewhere, a `..` out of it or a symbolic link that leads out of it
-is refused with `PERMISSION_DENIED`, as is a file that is not there, so the answer does not tell what exists outside the directory. The service does not start when the directory is missing, is not a directory or is given empty. Set it on any service that callers on other machines reach.
+is taken from it, and a path elsewhere, a `..` out of it or a symbolic link that leads out of it,
+even one that comes back in, is refused with `PERMISSION_DENIED`, as is a file that is not there, so the answer does not tell what exists outside the directory. The service does not start when the directory is missing, is not a directory or is given empty. Set it on any service that callers on other machines reach.
 
 **TLS.** `-tls-cert` and `-tls-key` (both or neither) serve everything above over HTTPS on the
 same port, negotiating `h2` and `http/1.1`, minimum TLS 1.2. A browser on an `https://` page
