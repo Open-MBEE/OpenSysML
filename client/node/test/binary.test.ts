@@ -219,12 +219,16 @@ test("a repository, tag or asset that would change the URL's path or query is re
   }
   process.env[REPO_ENV] = "Owner/Repo/../../evil/repo";
   assert.throws(() => releaseDownloadUrl(VERSION, asset), DownloadError);
-  for (const version of ["v1.0.0/../../v0.1.0", "v1.0.0?x", "v1.0.0#x", "..", "v1..0", ""]) {
+  for (const version of ["v1.0.0/../../v0.1.0", "v1.0.0?x", "v1.0.0#x", "..", ".", "v1..0", ""]) {
     assert.throws(() => releaseDownloadUrl(version, asset, { githubRepo: REPO }), DownloadError, version);
   }
   for (const name of ["../SHA256SUMS", "a/b", "a?b", ""]) {
     assert.throws(() => releaseDownloadUrl(VERSION, name, { githubRepo: REPO }), DownloadError, name);
   }
+  assert.equal(
+    releaseDownloadUrl("_nightly", asset, { githubRepo: REPO }),
+    `https://github.com/${REPO}/releases/download/_nightly/${asset}`,
+  );
   assert.equal(
     releaseDownloadUrl("nightly-2026.01.02+build.3", "SHA256SUMS.sigstore.json", { githubRepo: "my-org/Open.SysML_2" }),
     "https://github.com/my-org/Open.SysML_2/releases/download/nightly-2026.01.02+build.3/SHA256SUMS.sigstore.json",

@@ -246,7 +246,7 @@ export function expectedDigest(request: {
 }
 
 const REPO_PATTERN = /^[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9._-]+$/;
-const URL_SEGMENT_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._+-]*$/;
+const URL_SEGMENT_PATTERN = /^[A-Za-z0-9._+-]+$/;
 
 /** The repository as owner/name, refused when it would change the path or query of a URL built from it. */
 export function checkedGithubRepo(repo: string): string {
@@ -261,7 +261,7 @@ export function checkedGithubRepo(repo: string): string {
 }
 
 function checkedSegment(value: string, what: string): string {
-  if (!URL_SEGMENT_PATTERN.test(value) || value.includes("..")) {
+  if (!URL_SEGMENT_PATTERN.test(value) || value === "." || value.includes("..")) {
     throw new DownloadError(`${JSON.stringify(value)} is not a ${what} a release URL can name`);
   }
   return value;
