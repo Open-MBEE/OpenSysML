@@ -135,7 +135,11 @@ func (r *Renderer) dropIdleBehaviors(behaviors []*symbols.Symbol, ends *lifeline
 		}
 		delete(ends.lifelines, behavior)
 		out.Roots = slices.DeleteFunc(out.Roots, func(root *Node) bool { return root == node })
-		out.Notes = slices.DeleteFunc(out.Notes, func(note Note) bool { return note.Anchor == node.ID })
+		gone := map[string]bool{node.ID: true}
+		for _, proxy := range node.Children {
+			gone[proxy.ID] = true
+		}
+		out.Notes = slices.DeleteFunc(out.Notes, func(note Note) bool { return gone[note.Anchor] })
 		out.Notices = append(out.Notices, fmt.Sprintf(
 			"%s is behavior, not a participant in an interaction; a sequence rendering does not show it",
 			r.noticeSubject(behavior)))
