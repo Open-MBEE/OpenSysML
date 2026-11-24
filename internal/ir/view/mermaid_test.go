@@ -739,6 +739,16 @@ func TestMermaidPicturesAndNotices(t *testing.T) {
 		!strings.Contains(source, "missing.png at (50, 60) size 20×10; the file does not read") {
 		t.Errorf("picture source, geometry or notice:\n%s", source)
 	}
+	const special = "plant`north#1;x.png"
+	if err := os.WriteFile(filepath.Join(dir, special), imageData.Bytes(), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	specialRendering := &Rendering{Kind: KindTree, Roots: rendering.Roots,
+		Pictures: []Picture{{Location: special, Dir: dir, Width: 2, Height: 2}}}
+	inlined := InlineMermaidImages(specialRendering.Mermaid(), dir)
+	if !strings.Contains(inlined, "data:image/png;base64,"+base64.StdEncoding.EncodeToString(imageData.Bytes())) {
+		t.Errorf("picture named %q is not inlined:\n%s", special, inlined)
+	}
 }
 
 func TestInlineMermaidImages(t *testing.T) {

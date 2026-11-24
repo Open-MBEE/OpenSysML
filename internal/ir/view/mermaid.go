@@ -1533,7 +1533,7 @@ func (r *Rendering) writePictures(b *strings.Builder) {
 			continue
 		}
 		fmt.Fprintf(b, "  picture%d@{ img: \"%s\", label: \"%s\", w: %s, h: %s }\n",
-			i, mermaidText(src), mermaidText(picture.Alt), formatCoord(picture.Width), formatCoord(picture.Height))
+			i, src, mermaidText(picture.Alt), formatCoord(picture.Width), formatCoord(picture.Height))
 	}
 }
 
