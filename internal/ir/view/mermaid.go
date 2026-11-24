@@ -2089,7 +2089,7 @@ func mermaidEdgeLabel(kind Kind, edge Edge) string {
 // ends a statement, which an unquoted label — a sequence participant or a
 // message — would be cut short by.
 func mermaidText(text string) string {
-	replacer := strings.NewReplacer("#", "#35;", "\"", "#quot;", "\n", " ", "<", "#lt;", ">", "#gt;", ";", "#59;")
+	replacer := strings.NewReplacer("#", "#35;", "\"", "#quot;", "`", "#96;", "\n", " ", "<", "#lt;", ">", "#gt;", ";", "#59;")
 	return replacer.Replace(text)
 }
 

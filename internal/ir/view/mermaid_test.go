@@ -890,6 +890,11 @@ func installedMermaidCases(t *testing.T) []installedMermaidCase {
 	unlabeledItem := &Rendering{Kind: KindInterconnection, Shown: Shown{},
 		Roots: []*Node{{ID: "item", Kind: "flow", Arrow: arrowRight}}}
 	cases = append(cases, installedMermaidCase{name: "unlabeled item box", source: unlabeledItem.Mermaid()})
+	backtickItem := &Rendering{Kind: KindInterconnection, Shown: Shown{ElementEdgeLabels: true},
+		Roots: []*Node{{ID: "item", Kind: "flow", Name: "`sample", Arrow: arrowRight}}}
+	cases = append(cases, installedMermaidCase{
+		name: "item box with leading backtick", source: backtickItem.MermaidWith(Options{Style: StyleCameo}),
+	})
 	dir := t.TempDir()
 	var imageData bytes.Buffer
 	if err := png.Encode(&imageData, image.NewRGBA(image.Rect(0, 0, 2, 2))); err != nil {
