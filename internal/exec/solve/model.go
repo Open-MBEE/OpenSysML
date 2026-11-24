@@ -10,6 +10,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // ModelValue is one variable's value in a model, read back exactly from the
@@ -89,7 +90,7 @@ func (v ModelValue) Render(variable *Var) string {
 	case SortBool:
 		return strconv.FormatBool(v.Bool)
 	case SortString:
-		return `"` + v.Text + `"`
+		return source.StringText(v.Text)
 	case SortDatatype:
 		return v.Text
 	case SortInt:
