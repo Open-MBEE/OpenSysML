@@ -533,7 +533,7 @@ func (r *Renderer) successions(view *symbols.Symbol, orders []order, ends *lifel
 		placed := []timing{{from: ends.orderEnd(o, o.from, o.fromThrough), to: ends.orderEnd(o, o.to, o.toThrough), name: o.name}}
 		for _, t := range append(placed, inherited[i]...) {
 			timings = append(timings, t)
-			if t.from.lifeline == nil || t.to.lifeline == nil {
+			if t.from.lifeline == nil || t.to.lifeline == nil || t.undrawn {
 				continue
 			}
 			fromNode, fromPort := ends.end(t.from.occurrence, t.from.lifeline)
@@ -567,15 +567,20 @@ func (r *Renderer) memberFor(owner, feature *symbols.Symbol) *symbols.Symbol {
 	if owner == nil || feature == nil || feature.Owner() != owner && !r.specializes(owner, feature.Owner()) {
 		return nil
 	}
+	// A private feature of a supertype is not inherited (KerML 8.3.3.1).
+	inherits := feature.Owner() == owner || semantics.Inheritable(feature)
 	members := r.model.MembersOf(owner)
 	same := func(sym *symbols.Symbol) bool { return symbols.SameElement(sym, feature) }
-	if slices.ContainsFunc(members, same) {
+	if inherits && slices.ContainsFunc(members, same) {
 		return feature
 	}
 	for _, member := range members {
 		if slices.ContainsFunc(r.model.AllRedefinedFeatures(member), same) {
 			return member
 		}
+	}
+	if !inherits {
+		return nil
 	}
 	return feature
 }
@@ -629,14 +634,15 @@ func (r *Renderer) inheritedOrders(orders []order, ends *lifelineEnds, lifelines
 				if read[[2]int{i, at}] || !r.specializes(shown[lifeline], o.within) {
 					continue
 				}
-				from := lifelineEnd{lifeline, r.memberFor(shown[lifeline], o.from)}
-				to := lifelineEnd{lifeline, r.memberFor(shown[lifeline], o.to)}
+				from, fromDrawn := r.orderedOn(lifeline, shown[lifeline], o.from)
+				to, toDrawn := r.orderedOn(lifeline, shown[lifeline], o.to)
+				undrawn := !fromDrawn || !toDrawn
 				if from.occurrence == nil || to.occurrence == nil || !held[from] && !held[to] {
 					continue
 				}
 				held[from], held[to] = true, true
 				read[[2]int{i, at}] = true
-				inherited[i] = append(inherited[i], timing{from: from, to: to, name: o.name})
+				inherited[i] = append(inherited[i], timing{from: from, to: to, name: o.name, undrawn: undrawn})
 				grew = true
 			}
 		}
@@ -649,11 +655,24 @@ func (r *Renderer) inheritedOrders(orders []order, ends *lifelineEnds, lifelines
 	return inherited
 }
 
+// orderedOn is the event an inherited order is read over on a lifeline and whether
+// it is drawn there: a private event of a supertype orders the lifeline unseen.
+func (r *Renderer) orderedOn(lifeline *Node, sym, event *symbols.Symbol) (lifelineEnd, bool) {
+	member := r.memberFor(sym, event)
+	if member == nil && !semantics.Inheritable(event) {
+		return lifelineEnd{lifeline, event}, false
+	}
+	return lifelineEnd{lifeline, member}, member != nil
+}
+
 // timing is an order between two events, each on the lifeline it is read on (none
 // for an end no lifeline shows), and how a notice names it.
 type timing struct {
 	from, to lifelineEnd
 	name     string
+	// undrawn is an order that sorts the rows and has no arrow: one read on a
+	// lifeline over an event it does not inherit.
+	undrawn bool
 }
 
 // succession is a timing drawn as an arrow: the timing it draws and its edge.
