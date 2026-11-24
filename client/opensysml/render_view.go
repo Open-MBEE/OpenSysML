@@ -185,9 +185,8 @@ type RenderNode struct {
 	// Compartment names the compartment of Parent this node is a row of
 	// ("attributes", "parts", "ports", ...); empty for a node drawn as a box.
 	Compartment string
-	// Shape is the notation outline derived from the node's metaclass:
-	// "rectangle", "rounded", "stadium", "actor", "note", "diamond",
-	// "circle", "ring", "cross", "bar", "history" or "item".
+	// Shape is the notation outline derived from the node's metaclass: a rectangle,
+	// rounded box, stadium, actor, note, diamond, circle, ring, cross, bar, history or item.
 	Shape    string
 	Ports    []RenderPort
 	Origin   *Span

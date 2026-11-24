@@ -63,15 +63,22 @@ func NodeShape(kind Kind, node NodeData) Shape {
 	if node.Arrow != "" {
 		return ShapeItem
 	}
-	if (kind == KindCase || kind == KindMixed) && caseNodeKind(node.Kind) {
+	caseRendering := kind == KindCase || kind == KindMixed
+	if caseRendering && caseNodeKind(node.Kind) {
 		return ShapeStadium
 	}
+	if caseRendering {
+		switch node.Kind {
+		case "actor":
+			return ShapeActor
+		case "subject":
+			return ShapeRectangle
+		case "objective":
+			return ShapeNote
+		}
+	}
 	switch node.Kind {
-	case "actor":
-		return ShapeActor
-	case "subject":
-		return ShapeRectangle
-	case "objective", commentKind, docKind, repKind:
+	case commentKind, docKind, repKind:
 		return ShapeNote
 	case startKind, "initial", "junction", connectionDotKind, connectionDefDotKind, dependencyDotKind:
 		return ShapeCircle

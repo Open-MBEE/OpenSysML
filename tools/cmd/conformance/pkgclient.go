@@ -1419,7 +1419,7 @@ func (c *pkgClient) renderView(ctx context.Context, request protoreflect.Message
 		converted := &pb.RenderNode{
 			Id: node.ID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
 			Type: node.Type, Detail: node.Detail, Text: node.Text, StandIn: node.StandIn, Parent: node.Parent,
-			Origin: origin,
+			Shape: node.Shape, Origin: origin,
 		}
 		for _, port := range node.Ports {
 			converted.Ports = append(converted.Ports, &pb.RenderPort{

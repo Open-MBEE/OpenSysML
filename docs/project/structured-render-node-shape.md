@@ -34,8 +34,9 @@ detail, stereotype and parent, but no shape.
 
 - `internal/ir/view/shape.go` defines `Shape` and the one derivation, `NodeShape(renderingKind,
   node)`. It covers rectangles (definitions), rounded boxes (usages), the case family's stadium,
-  the actor glyph, notes, diamonds, the control-node circles, bars and crosses, history nodes and
-  borderless item boxes. It follows the cases of the written forms without calling a writer.
+  notes, diamonds, the control-node circles, bars and crosses, history nodes and borderless item
+  boxes. The actor, subject and objective glyphs belong to case and mixed renderings; in any
+  other rendering those roles are drawn as their ordinary rounded usage boxes.
 - `internal/ir/view/data.go` fills `NodeData.Shape` for every flattened node, including
   compartment rows, once when the structured rendering is made. The immutable AST is untouched
   and no semantic data is recomputed downstream.
@@ -46,6 +47,8 @@ detail, stereotype and parent, but no shape.
   the capability. The VS Code canvas draws a stadium as a pill-shaped rectangle and an actor as
   the UML stick figure beside its name. Where a server reports no shape, the canvas falls back
   to its old kind-based symbol.
+- The Go conformance wrapper and the WebAssembly test's expected-node decoder copy the field
+  alongside the other node fields, so a shape the client decoded is not dropped before comparison.
 
 ## Design decisions and alternatives rejected
 
@@ -62,9 +65,10 @@ detail, stereotype and parent, but no shape.
   so an older client ignores it and an older server leaves it empty. Because a server predating
   the field cannot be distinguished from one that simply omits it, the capability makes the
   distinction explicit and the gRPC service clears the field when a client does not advertise it.
-- **Rendering kind participates in the derivation.** A case's stadium belongs to a case or mixed
-  rendering; the same element in a tree is a box. Ignoring the rendering kind would have made the
-  structured field disagree with the text form for a valid view.
+- **Rendering kind participates in the derivation.** A case's stadium and the actor, subject and
+  objective glyphs belong to a case or mixed rendering; the same roles in a tree or interconnection
+  are ordinary rounded usages, as the written forms draw them. Ignoring the rendering kind would
+  have made the structured field disagree with the text form for a valid view.
 - **Kind-based fallback in the canvas.** A server that does not report a shape still draws as
   before, so the field can roll out without a coordinated client release.
 
@@ -97,36 +101,45 @@ stubs are committed for Go, Python, Node and Rust.
 | Written-form byte identity is unchanged | `internal/ir/view/render_test.go` `TestGoldenRenderings` runs against the unchanged goldens; `shape_test.go` `TestNodeShapeMatchesWrittenNotation` pins the correspondence between the derived shape and the Mermaid writer's shape for the same nodes |
 | Capability gating and client parity | `TestRenderViewWithholdsNodeShapeWithoutCapability`, `TestRenderNodeShapeCapabilityIsTheNewest`, `tests/hygiene/client_capabilities_test.go` `TestClientCapabilityChecklist` and `TestCapabilityDecodesAreRead` |
 | Every transport and client decodes the field | `client/opensysml/render_view_internal_test.go`, `client/python/tests/test_document.py`, `client/node/test/render-view-wasm.test.ts`, `client/rust/opensysml/src/document.rs` render-view tests |
+| The Go conformance wrapper does not drop the field | language-independent scenario `render_view/a_node_reports_its_notation_shape` in `conformance/scenarios/17-render-view.json` with fixture `conformance/fixtures/render_node_shape.sysml`, run by `tools/cmd/conformance` over gRPC, Connect, Connect-JSON and the Go package client |
 
 ## Verification
 
-`gofmt -l .` printed nothing. `go build ./...` and `go vet ./...` both succeeded. Targeted Go
-tests passed for the view (`TestNodeDataCarriesNotationShape`, `TestNodeShapeMatchesWrittenNotation`,
-`TestNodeShapeUnknownAndShapeSet`, `TestGoldenRenderings`), gRPC (shape carried and withheld,
-capability order), language server (shape carried and capability advertised), the Go client
-(proto decode) and hygiene (capability checklist and decodes). `make proto-buf`, `make
-python-proto`, `make proto-ts`, `make proto-rust`, `make proto-lint` and `make proto-breaking`
-all succeeded; the last reported no breaking schema change against the develop baseline.
-`make spec-compliance-check` passed (16 harness tests; 57 sources well-formed).
-`python3 scripts/check-doc-ids.py`, `python3 scripts/check-doc-figures.py` and
-`python3 scripts/changelog.py check` passed. `make docs-check` stopped at a pre-existing broken
-link in `docs/project/third-party-notices.md`, unrelated to this change; the other three checks
-it runs were run separately and passed. The VS Code extension's `npm run typecheck` and `npm
-test` passed (473 tests). The Node client's targeted `render-view-wasm.test.js` passed (3 tests),
-and the Python client's `test_render_view_decodes_all_fields_and_optional_messages` passed.
-The LSP suite's recorded `collapsed-ports.json` fixture was re-recorded: the only differences
-are the new `shape` lines, one per node, and `TestRenderCollapsedKeepsBoundaryPorts` passes
-again. The full Go suite did not finish in this shared build environment: a parallel run was
-killed under memory pressure and a serial run timed out after 45 minutes, having completed
-`client/opensysml` in 425 seconds. The affected packages were therefore run directly:
-`internal/frontend/lsp` passed in 242 seconds, `tests/hygiene` and `tests/grpc` passed, and the
-one gRPC lineage test that timed out in the loaded run passed alone in 41 seconds. A full gRPC
-package run reached its 20-minute test timeout inside an unrelated edit test while building the
-shared library index, with no assertion failure reported; the shape tests in that package pass.
-A run of
-`internal/ir/view` reached one pre-existing environment failure — the local Graphviz warns
-about a non-ASCII character in `TestQuotedNameEscapesDecodeInLabels` — with every other view
-test passing, including all byte-identity goldens.
+The checks recorded for this tree:
+
+- `gofmt -l .` is empty; `go build ./...` and `go vet ./...` pass; the Go comment-length gate over
+  the diff prints nothing.
+- `make proto-buf`, `make python-proto`, `make proto-ts`, `make proto-rust`, `make proto-lint` and
+  `make proto-breaking` pass; the last reports no breaking schema change against the develop
+  baseline. `make spec-compliance-check` passes (16 harness tests, 57 sources well-formed).
+  `changelog.py check`, `check-doc-ids.py`, `check-doc-figures.py` and `git diff --check` pass.
+  `make docs-check` is blocked by a broken link in `docs/project/third-party-notices.md`; its
+  other three checks pass when run directly.
+- View: `TestNodeDataCarriesNotationShape`, `TestNodeShapeMatchesWrittenNotation`,
+  `TestNodeShapeUnknownAndShapeSet` and `TestGoldenRenderings` pass. The case-role derivation is
+  gated on case and mixed renderings, and the parity table includes tree and interconnection rows
+  for actor, subject and objective. The installed Graphviz warns about a non-ASCII character in
+  `TestQuotedNameEscapesDecodeInLabels`, which fails that one test; every other view test and all
+  byte-identity goldens pass.
+- gRPC: the shape-carried, shape-withheld and capability-order tests pass. A whole-package run has
+  no pass: a 20-minute timeout occurred in an edit test with no assertion failure, and the lineage
+  test named in a loaded run passes alone in 41 seconds.
+- Language server: `TestRenderNodesCarryNotationShape`,
+  `TestInitializeAdvertisesTheRenderNodeShapeCapability`, `TestRenderCollapsedKeepsBoundaryPorts`,
+  `TestRenderMixedCarriesConnectorPortData` and `TestRenderTakesAPortDisplay` pass. The recorded
+  `collapsed-ports.json` carries only added `shape` lines, one per node. The full LSP suite passes
+  in 242 seconds.
+- WebAssembly: `TestEngineRenderView` passes with the expected-node decoder copying the field.
+  MCP: `go test ./internal/frontend/mcp/runtimetools` passes with the capability mapped to
+  `render_model_view`. Go client: proto-decode and capability-parity tests pass.
+- Conformance: the new scenario passes over gRPC, Connect, Connect-JSON, the Go package client and
+  MCP. With the wrapper's `Shape` copy removed it fails with an empty shape list, so the assertion
+  is load-bearing; `go test -C tools ./cmd/conformance` passes. `tests/grpc` passes in 321 seconds.
+- VS Code: typecheck passes and `npm test` reports 473 passed, 0 failed. The Node client's
+  `render-view-wasm.test.js` reports 3 passed; the Python client's render-decode test reports 1
+  passed. `tests/hygiene` passes in 43 seconds and `client/opensysml` passes in 425 seconds.
+- The whole-tree `go test ./...` command has no recorded pass; verification is the sum of these
+  package-level runs.
 
 ## Known limitations and follow-ups
 
@@ -137,7 +150,6 @@ test passing, including all byte-identity goldens.
 - Requirement nodes report `rectangle` for a definition and `rounded` for a usage, matching the
   written forms; a tool that wants a requirement-specific badge can layer it from `kind`.
 - The capability is output-only: there is no request field to ask for a shape or to draw by one.
-- Rust and Java client test runs were not available in the build environment used here (no Rust
-  toolchain; the installed Java runtime cannot target the projects' release 17). Their sources,
-  generated stubs and conformance writer were updated and are covered by the Go-side hygiene
-  checks; running those language suites is a follow-up for a machine with the toolchains.
+- Rust and Java client suites have no recorded run: they need a Rust toolchain and a Java runtime
+  targeting release 17. Their sources, generated stubs and conformance writer are covered by the
+  Go-side hygiene checks; running those suites is a follow-up.

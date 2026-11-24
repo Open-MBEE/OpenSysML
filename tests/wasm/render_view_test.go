@@ -190,7 +190,7 @@ func assertRenderDataParity(t *testing.T, got engine.JRenderViewResponse, want v
 		item := engine.JRenderNode{
 			ID: node.ID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
 			Type: node.Type, Detail: node.Detail, Text: node.Text, StandIn: node.StandIn, Parent: node.Parent,
-			Style: renderStyleJSON(node.Style), Inherited: node.Inherited,
+			Shape: string(node.Shape), Style: renderStyleJSON(node.Style), Inherited: node.Inherited,
 		}
 		if node.Geometry != nil {
 			item.Geometry = &engine.JRenderGeometry{

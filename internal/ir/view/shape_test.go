@@ -5,9 +5,8 @@ import (
 	"testing"
 )
 
-// A structured render reports the notation shape of each node without reading
-// any written form: the case is a stadium, the actor its glyph and the
-// requirement a rectangle.
+// A render reports each node's shape without reading a written form: a case is
+// a stadium, its actor a stick figure, a requirement a rectangle.
 func TestNodeDataCarriesNotationShape(t *testing.T) {
 	renderer, index := loadFixture(t, "shape-nodes.sysml")
 	rendering, err := renderer.Render(lookup(t, index, "ShapeExamples::shapes"))
@@ -41,10 +40,8 @@ func TestNodeDataCarriesNotationShape(t *testing.T) {
 	}
 }
 
-// A shape is derived from the writing-independent kind, not from a style or
-// from the text a Mermaid or DOT form happens to write. These cases pin the
-// correspondence with the shapes those forms draw. Written goldens stay
-// byte-for-byte unchanged: the structured field is additive.
+// These cases pin the derived shape against the written Mermaid shape for each
+// kind; written goldens stay byte-identical because the field is additive.
 func TestNodeShapeMatchesWrittenNotation(t *testing.T) {
 	labels := labeller{shown: AllShown()}
 	cases := []struct {
@@ -55,11 +52,17 @@ func TestNodeShapeMatchesWrittenNotation(t *testing.T) {
 	}{
 		{KindCase, NodeData{Kind: "case def"}, ShapeStadium, "(["},
 		{KindCase, NodeData{Kind: "actor"}, ShapeActor, "["},
+		{KindTree, NodeData{Kind: "actor"}, ShapeRounded, "("},
+		{KindInterconnection, NodeData{Kind: "actor"}, ShapeRounded, "("},
 		{KindCase, NodeData{Kind: "subject"}, ShapeRectangle, "["},
+		{KindTree, NodeData{Kind: "subject"}, ShapeRounded, "("},
+		{KindInterconnection, NodeData{Kind: "subject"}, ShapeRounded, "("},
 		{KindRequirement, NodeData{Kind: "requirement def"}, ShapeRectangle, "["},
 		{KindRequirement, NodeData{Kind: "requirement"}, ShapeRounded, "("},
 		{KindTree, NodeData{Kind: "case def"}, ShapeRectangle, "["},
 		{KindCase, NodeData{Kind: "objective"}, ShapeNote, "@{ shape: notch-rect,"},
+		{KindTree, NodeData{Kind: "objective"}, ShapeRounded, "("},
+		{KindInterconnection, NodeData{Kind: "objective"}, ShapeRounded, "("},
 		{KindAction, NodeData{Kind: "decision"}, ShapeDiamond, "{"},
 		{KindAction, NodeData{Kind: "fork"}, ShapeBar, "@{ shape: fork,"},
 		{KindState, NodeData{Kind: "final"}, ShapeRing, "@{ shape: fr-circ,"},

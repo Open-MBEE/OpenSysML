@@ -89,6 +89,34 @@
         "status": "NOT_FOUND",
         "status_message_contains": "no view named"
       }
+    },
+    {
+      "id": "render_view/a_node_reports_its_notation_shape",
+      "description": "A structured render carries each node's notation shape, so a canvas draws case, requirement and actor notation without parsing a written form.",
+      "rpc": "RenderView",
+      "requires_capabilities": [
+        "render_view",
+        "render_node_shape"
+      ],
+      "model": {
+        "fixture": "render_node_shape.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "view": "ShapeNodes::shapes"
+      },
+      "expect": {
+        "non_empty": [
+          "nodes"
+        ],
+        "contains_all": {
+          "nodes.*.shape": [
+            "stadium",
+            "actor",
+            "rectangle"
+          ]
+        }
+      }
     }
   ]
 }

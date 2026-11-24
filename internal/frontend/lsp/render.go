@@ -80,9 +80,8 @@ const RenderDepthCapability = "openSysmlRenderDepth"
 // each node drawn that way `included`.
 const RenderIncludeCapability = "openSysmlRenderInclude"
 
-// RenderNodeShapeCapability is the capability a server advertises when its
-// render result carries each node's notation shape, so a canvas draws the
-// case, requirement and actor glyphs without parsing a written form.
+// RenderNodeShapeCapability is advertised when the render result carries each
+// node's notation shape, so a canvas needs no written form to draw its glyph.
 const RenderNodeShapeCapability = "openSysmlRenderNodeShape"
 
 // renderElementNames lists the optional notation elements, then "all".
