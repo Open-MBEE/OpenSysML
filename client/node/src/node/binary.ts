@@ -245,14 +245,38 @@ export function expectedDigest(request: {
   return pinned;
 }
 
+const REPO_PATTERN = /^[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9._-]+$/;
+const URL_SEGMENT_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._+-]*$/;
+
+/** The repository as owner/name, refused when it would change the path or query of a URL built from it. */
+export function checkedGithubRepo(repo: string): string {
+  const name = repo.slice(repo.indexOf("/") + 1);
+  if (!REPO_PATTERN.test(repo) || name === "." || name === "..") {
+    throw new DownloadError(
+      `${JSON.stringify(repo)} is not a GitHub repository of the form owner/name; ` +
+        `check $${REPO_ENV}`,
+    );
+  }
+  return repo;
+}
+
+function checkedSegment(value: string, what: string): string {
+  if (!URL_SEGMENT_PATTERN.test(value) || value.includes("..")) {
+    throw new DownloadError(`${JSON.stringify(value)} is not a ${what} a release URL can name`);
+  }
+  return value;
+}
+
 /** URL a release publishes an asset at. */
 export function releaseDownloadUrl(
   version: string,
   asset: string,
   options: DownloadOptions = {},
 ): string {
-  const repo = options.githubRepo ?? defaultGithubRepo();
+  const repo = checkedGithubRepo(options.githubRepo ?? defaultGithubRepo());
   const base = options.releasesBaseUrl ?? RELEASES_BASE_URL;
+  checkedSegment(version, "release tag");
+  checkedSegment(asset, "release asset");
   return `${base}/${repo}/releases/download/${version}/${asset}`;
 }
 
@@ -291,7 +315,7 @@ export async function signedManifestDigest(
 
 /** Resolve the tag of the repository's latest published release. */
 export async function resolveLatestVersion(options: DownloadOptions = {}): Promise<string> {
-  const repo = options.githubRepo ?? defaultGithubRepo();
+  const repo = checkedGithubRepo(options.githubRepo ?? defaultGithubRepo());
   const url = `${options.apiBaseUrl ?? API_BASE_URL}/repos/${repo}/releases/latest`;
   let release: unknown;
   try {
