@@ -1,7 +1,5 @@
-// Reading the verbatim equations back: `.metadata` on the constrained element
-// answers one annotation object per annotation, in the order stated, and a
-// `body` binding evaluates to the string as written — including the `then`
-// conditional and `inStream`/`noEvent` names that have no SysML expression form.
+// Reading verbatim equations back through `.metadata#(i).body`, in the
+// order the annotations were stated.
 package test {
     private import ScalarValues::*;
 

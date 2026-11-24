@@ -1,7 +1,5 @@
-// A verbatim equation mapping: an annotation whose `body` String carries a
-// Modelica equation exactly as written. The engine does not interpret the body
-// as a SysML expression; it carries it unchanged through parse, evaluation and
-// the api-json / RDF element form.
+// A verbatim equation annotation in a constraint body; this fixture locks
+// the three equation Strings in the golden AST.
 package ModelicaMapping {
     private import ScalarValues::*;
 

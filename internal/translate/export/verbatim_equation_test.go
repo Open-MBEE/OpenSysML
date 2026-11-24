@@ -41,9 +41,8 @@ package Steam {
 }
 `
 
-// jsonStrings collects every string in a decoded API-JSON document, so a
-// comparison is of the value itself and not of an encoder's choice of escaping
-// for '<', '>' and '&' in a `body` that carries an equation.
+// jsonStrings collects decoded strings so comparisons use values, not an
+// encoder's escaping of '<', '>' and '&'.
 func jsonStrings(v any, into map[string]bool) {
 	switch x := v.(type) {
 	case string:
@@ -114,9 +113,8 @@ func TestVerbatimEquationCarriesThroughAPIJSONAndRDF(t *testing.T) {
 	assertCarriesEquations(t, verbatimEquationNotation)
 }
 
-// A verbatim equation is text, not a SysML expression: quotes, backslashes,
-// ampersands, angle brackets, newlines and non-ASCII all survive both writers
-// and the graph-to-notation reader unchanged.
+// Hostile characters survive both writers and the graph-to-notation
+// reader unchanged.
 func TestVerbatimEquationHostileStringsRoundtrip(t *testing.T) {
 	hostile := []string{
 		`a = "quoted" \ backslash & <tag> 'single' 100%` + "\n" + `second = °C µ → ≤ ≥`,
@@ -158,9 +156,8 @@ func TestVerbatimEquationHostileStringsRoundtrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// The written notation is a model again, not just text that happens to
-	// match: compare the values a second export carries, since a newline in a
-	// string is written as the two-character escape `\n` in notation.
+	// Compare values after re-parsing: notation writes a newline as the
+	// two-character escape `\n`.
 	file := source.New("roundtrip.sysml", back)
 	p := parser.New(file)
 	root := p.ParseFile()
@@ -188,9 +185,7 @@ func TestVerbatimEquationHostileStringsRoundtrip(t *testing.T) {
 	}
 }
 
-// A body naming functions and packages the model never declares is still a
-// clean model: the annotation is a verbatim carrier, and the engine does not
-// resolve or evaluate its text as an expression.
+// Undeclared names in a carried body are text, not references to resolve.
 func TestVerbatimEquationBodyIsNotAnExpression(t *testing.T) {
 	file := source.New("verbatim.sysml", []byte(verbatimEquationNotation))
 	p := parser.New(file)
@@ -200,15 +195,8 @@ func TestVerbatimEquationBodyIsNotAnExpression(t *testing.T) {
 	}
 }
 
-// TestVerbatimEquationExpressionRouteKnownLimitation records the language
-// surface the annotation route stands in for. Writing the Modelica forms as
-// constraint-body expressions — a medium state package call
-// `Medium.temperature(state_a)`, a stream value `inStream(port_a.h_outflow)`,
-// or a regularising `noEvent(if abs(m_flow) > 1.0 then m_flow else 1.0)` — has
-// no parse, evaluation or export form at this pin. The engine's conditional
-// expression spells the condition with `?`, not Modelica's `then`, and neither
-// `inStream` nor `noEvent` is a builtin. This test is skipped rather than
-// asserted green: unskipping it shows the exact gap the annotation carries.
+// The direct Modelica expression form has no parse/eval/export surface;
+// this skipped test records that gap.
 func TestVerbatimEquationExpressionRouteKnownLimitation(t *testing.T) {
 	t.Skip("the full Modelica expression form is not implemented; use the verbatim EquationMapping annotation")
 

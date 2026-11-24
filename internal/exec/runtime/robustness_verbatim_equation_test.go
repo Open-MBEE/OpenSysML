@@ -9,10 +9,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// TestRuntimeRobustnessVerbatimEquation covers the failure modes of a
-// constraint body that carries equations verbatim as annotation `body` Strings:
-// the text is data, never an expression the runtime tries to resolve, and its
-// absence as a condition is a typed verdict failure rather than a panic.
+// Verbatim-equation constraint bodies: carried text is not resolved, and
+// annotations alone state no condition.
 func TestRuntimeRobustnessVerbatimEquation(t *testing.T) {
 	t.Run("annotations_alone_state_no_condition", testVerbatimEquationAnnotationsAloneStateNoCondition)
 	t.Run("body_names_are_not_resolved", testVerbatimEquationBodyNamesAreNotResolved)
@@ -52,9 +50,8 @@ func testVerbatimEquationAnnotationsAloneStateNoCondition(t *testing.T) {
 }
 
 func testVerbatimEquationBodyNamesAreNotResolved(t *testing.T) {
-	// The body names `Medium`, `inStream` and `noEvent`, none of which the
-	// model declares. They are text in an annotation and must not become
-	// unresolved references; the body's own condition still decides.
+	// The body's undeclared names are text, never references; the body's
+	// own condition still decides.
 	src := `
 		package test {
 			private import ScalarValues::*;
@@ -90,10 +87,8 @@ func testVerbatimEquationBodyNamesAreNotResolved(t *testing.T) {
 }
 
 func testVerbatimEquationHostileBodyIsReadVerbatim(t *testing.T) {
-	// Quotes, a backslash, an ampersand, angle brackets and a `then` conditional
-	// are characters in the annotation's string, not notation the engine parses.
-	// The body is carried into the AST exactly as written, with no resolution of
-	// the names it mentions and no panic on its escape sequences.
+	// Hostile characters in a body are data: the AST carries them as written,
+	// with no name resolution and no panic on escapes.
 	const equation = `q = "a\b" & <x> noEvent(if n > 1 then n else 1)`
 	src := `
 		package test {

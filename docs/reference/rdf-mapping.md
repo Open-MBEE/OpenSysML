@@ -1705,9 +1705,9 @@ literal holding the equation verbatim; in the API element form the same literal
 is the `value` property of that element (`"value": "inStream(port_a.h_outflow)"`).
 Neither writer rewrites the equation: quotes, backslashes, ampersands, angle
 brackets, newlines and non-ASCII characters survive both formats and the
-graph-to-notation reader. A `<`, `>` or `&` is escaped as a JSON `\uXXXX` escape
-in the element form and as a Turtle escape in the graph, which decode back to
-the same characters; the string itself is unchanged.
+graph-to-notation reader. The API element form HTML-escapes `<`, `>` and `&` as
+`\u003c`, `\u003e` and `\u0026`; the Turtle writer emits those three characters
+as ordinary literal characters. Both decode to the same string.
 
 What this surface does **not** do is give those three Modelica forms a SysML
 expression spelling. The engine's conditional expression is

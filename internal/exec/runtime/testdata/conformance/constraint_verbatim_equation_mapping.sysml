@@ -1,8 +1,5 @@
-// A constraint body whose annotations carry Modelica equations verbatim. The
-// three `body` Strings name a medium state function, a stream value and an
-// event-regularising conditional that have no SysML expression form; they stay
-// text. The body's own condition is an ordinary SysML expression and decides
-// the constraint.
+// A constraint body carrying Modelica equations verbatim as String annotations.
+// Its own condition is the ordinary expression that decides the constraint.
 package test {
     private import ScalarValues::*;
 
