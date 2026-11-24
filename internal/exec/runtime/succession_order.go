@@ -594,6 +594,13 @@ func (ctx *Context) releaseDeferredBehavior(behavior *ObjectBehavior) error {
 	}
 	behavior.deferred = nil
 	if err != nil {
+		if errors.Is(err, ErrInterrupted) && behavior.typeBound {
+			// A start stopped midway is not taken again, so it is recorded
+			// failed rather than left neither started nor failed.
+			ctx.endFailedPerformance(behavior, err)
+			ctx.workChanged()
+			return err
+		}
 		if !recordsFailure(behavior, err) {
 			if started != nil {
 				started.leaveClock()

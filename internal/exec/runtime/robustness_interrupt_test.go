@@ -19,6 +19,7 @@ func TestRuntimeRobustnessInterrupt(t *testing.T) {
 	t.Run("EvaluationStopsAtItsNextStep", testInterruptStopsAnEvaluation)
 	t.Run("StateDoBehaviorStopsAtItsNextStep", testInterruptStopsAStateDoBehavior)
 	t.Run("InterruptionIsNotTheBehaviorsFailure", testInterruptIsNotRecordedOnABehavior)
+	t.Run("InterruptedDeferredStartIsRecordedFailed", testInterruptFailsADeferredStart)
 }
 
 const spinningAction = `
@@ -154,5 +155,50 @@ func testInterruptIsNotRecordedOnABehavior(t *testing.T) {
 	}
 	if !recordsFailure(bound, errors.New("the model failed")) {
 		t.Error("a behavior's own failure was not recorded on it")
+	}
+}
+
+// testInterruptFailsADeferredStart checks a held behavior whose start is stopped
+// from outside is recorded failed rather than left neither started nor failed,
+// which later runs would pass over in silence.
+func testInterruptFailsADeferredStart(t *testing.T) {
+	src := `package test {
+		attribute def Wake;
+		state def Earlier {
+			entry; then waiting;
+			state waiting;
+			transition first waiting accept Wake then done;
+		}
+		state def Later {
+			entry; then done;
+		}
+		part def Holder {
+			exhibit state earlier : Earlier;
+			exhibit state later : Later;
+			first earlier then later;
+		}
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	inst, err := ctx.Instantiate(oneSymbol(t, idx, "test::Holder"))
+	if err != nil {
+		t.Fatalf("instantiate Holder: %v", err)
+	}
+	later := behaviorNamed(t, inst, "later")
+	if later.deferred == nil {
+		t.Fatal("later exhibit was not held while earlier awaits Wake")
+	}
+	var stop atomic.Bool
+	ctx.SetInterrupt(&stop)
+	stop.Store(true)
+	err = ctx.releaseDeferredBehavior(later)
+	stop.Store(false)
+	if !errors.Is(err, ErrInterrupted) {
+		t.Fatalf("release of the held exhibit under a raised flag = %v, want ErrInterrupted", err)
+	}
+	if later.deferred != nil {
+		t.Error("the interrupted start is still held")
+	}
+	if !errors.Is(later.Err, ErrInterrupted) {
+		t.Errorf("the interrupted start recorded %v on the behavior, want ErrInterrupted", later.Err)
 	}
 }
