@@ -17,6 +17,7 @@ func TestRuntimeRobustnessActionLocalConnection(t *testing.T) {
 	t.Run("read_by_a_nested_action", testActionLocalConnectionNested)
 	t.Run("nested_action_declaring_the_same_name", testActionLocalConnectionShadowed)
 	t.Run("as_many_connectors_as_the_lower_bound", testActionLocalConnectionMultiplicity)
+	t.Run("read_by_qualified_name", testActionLocalConnectionQualified)
 	t.Run("end_selecting_nothing", testActionLocalConnectionEndSelectingNothing)
 }
 
@@ -80,6 +81,13 @@ const actionLocalConnectionFixture = `
 				in ref secondNode : Node;
 				connection link : Link [2] connect firstNode to secondNode;
 				assign links := link;
+				assign again := link;
+			}
+			action connectQualified {
+				in ref firstNode : Node;
+				in ref secondNode : Node;
+				connection link : Link connect firstNode to secondNode;
+				assign links := connectQualified::link;
 				assign again := link;
 			}
 			action connectIndexed {
@@ -225,6 +233,18 @@ func testActionLocalConnectionMultiplicity(t *testing.T) {
 		if !valueIdentical(link, again[i]) {
 			t.Errorf("again[%d] = %v, want %v", i, again[i], link)
 		}
+	}
+}
+
+// testActionLocalConnectionQualified: a qualified name read before any bare one names the
+// performance's connector, the one a later bare read names.
+func testActionLocalConnectionQualified(t *testing.T) {
+	ctx, inst, a, b := actionLocalConnectionNetwork(t)
+	if _, err := ctx.invokeOperation(inst, "connectQualified", map[string]Value{"firstNode": a, "secondNode": b}); err != nil {
+		t.Fatalf("connectQualified(a, b): %v", err)
+	}
+	if qualified, bare := wantLinkEnds(t, ctx, inst, "links", a, b), wantLinkEnds(t, ctx, inst, "again", a, b); qualified != bare {
+		t.Errorf("qualified and bare reads hold connectors #%d and #%d, want one", qualified, bare)
 	}
 }
 

@@ -328,6 +328,10 @@ func (ec *EvalContext) evalQualifiedName(qn *ast.QualifiedName, at *program.Expr
 	if val, ok, err := ec.ctx.MeasurementUnitValue(currentSym); ok {
 		return val, err
 	}
+	// A qualified connection of a behavior being performed (`connect::link`) is the performance's.
+	if val, ok, err := ec.performedConnector(currentSym); ok {
+		return val, err
+	}
 	// A qualified feature of the behavior performed (`SM::entryAction`) is the performance's.
 	if val, ok, err := ec.performanceFeatureOf(currentSym); ok {
 		return val, err
