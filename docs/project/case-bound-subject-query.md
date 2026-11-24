@@ -52,11 +52,12 @@ At the pinned baseline `4d67c7a98f` (a nightly of `v0.12.1`, which itself is
 
 ## What this change implements
 
-A memoized semantic derivation reads the case's subject member, takes the
-expression of a plain `=` binding (not a `default` and not an initial `:=`
+A memoized semantic derivation reads the case's subject member and, when that
+member states no value of its own, follows the subjects it redefines. It takes
+the expression of a plain `=` binding (not a `default` and not an initial `:=`
 value), resolves it in the scope where it is written, follows an alias to its
-target, and returns the target element. It deliberately never returns the
-subject parameter itself. The result is cached per element, so projecting the
+target, and returns the target element. It deliberately never returns a subject
+parameter from the chain. The result is cached per element, so projecting the
 property over every row of a query resolves each binding once.
 
 That derivation is exposed as the `boundSubject` query property on the SysML v2
@@ -79,12 +80,14 @@ and a `Project` reports the element.
   resolving it is a semantic fact, like `SatisfyEndsOf` and `VerifyEndsOf`. It
   lives in `internal/semantic/semantics`, not in the gRPC or query-execution
   layers, and the AST is untouched.
-- **Resolve the binding expression, not the redefinition.** In
-  `subject :>> s = Structure::boilerAsMaintained;`, the `:>> s` edge renames or
-  redefines the inherited subject parameter; the declaration is named by the
-  `= …` value. Reading the redefinition target would answer the parameter —
-  exactly the wrong element the absence rule forbids. A binding stated only as
-  a redefinition with no value is therefore reported as absent.
+- **Resolve the binding expression, not the redefinition target as a declaration.**
+  In `subject :>> s = Structure::boilerAsMaintained;`, the `:>> s` edge redefines
+  the inherited subject parameter; the declaration is named by the `= …` value.
+  Reading the redefinition target itself would answer the parameter — exactly
+  the wrong element the absence rule forbids. When the redefining subject states
+  no value of its own, the redefinition chain is followed to a general subject
+  that does bind a declaration, so the binding is inherited. A visited set
+  guards cycles, and no subject parameter in the chain can be the answer.
 - **A plain `=` is a binding; `default` is not.** A subject that declares a
   default (the standard library's `subject subj default Case::result;` is the
   common form) is a fallback for a run, not an element the case is verifying;
@@ -115,7 +118,7 @@ is no versioned format to bump.
 |---|---|
 | A query on a case whose subject is redefined/bound to a declaration answers that FQN | `internal/frontend/grpc/query_boundsubject_test.go:TestQueryBoundSubjectNamesTheBoundDeclaration` (pins `Structure::boilerAsMaintained` and `Structure::spareBoiler` from `tests/testdata/bound-subject/verification_subjects.sysml`) |
 | A case binding nothing answers an explicit absence, never another element | the same test (`Verification::unboundSizing` has no property; the `s` parameter never appears as a value) and `internal/semantic/semantics/bound_subject_test.go:TestBoundSubjectOfNamesTheBoundDeclaration` |
-| Both binding forms and a feature chain are read | `TestBoundSubjectOfNamesTheBoundDeclaration` (`:>> s = …` and `s = …`) and the reader in `internal/semantic/query/properties.go` (resolves chains through `ResolveTarget`) |
+| Both binding forms, a feature chain, a default, an initial value and an inherited binding are read | `TestBoundSubjectOfNamesTheBoundDeclaration` (`:>> s = …`, `s = …`, absence) and `TestBoundSubjectOfReadsChainsDefaultsInitialAndInheritedBindings` (chain FQN, absent default and initial value, redefining subject with no value inheriting the general's binding) |
 | The property constrains rows as well as projecting them | `query_boundsubject_test.go:TestQueryBoundSubjectSelectsCasesByTheirBinding` and `:TestQueryOSLCBoundSubject` |
 | An undeclared name near the new one is still refused | `query_boundsubject_test.go:TestQueryStillRefusesAPropertyNextToBoundSubject` |
 | No per-row re-resolution explosion | `internal/semantic/semantics/bound_subject_test.go:TestBoundSubjectOfResolvesEachBindingOnce` (the resolver memo does not grow on a second read) and `client/opensysml/bound_subject_internal_test.go:TestQueryBoundSubjectNeedsNoPerRowLookup` (one `Query` RPC, zero `GetSymbol` RPCs for a listing) |
@@ -123,8 +126,9 @@ is no versioned format to bump.
 
 ## Verification
 
-Gates run on this tree, with `GOMAXPROCS=2`, `-p 2` for builds and targeted
-tests, and the Go temp directory on the home filesystem:
+Gates run on this head, with `GOMAXPROCS=2`, `-p 2` for builds and targeted
+tests, `-p 1` for the hygiene suite, and the Go temp directory on the home
+filesystem:
 
 - `gofmt -l .` — no output.
 - `go build -p 2 ./...` — success.
@@ -133,8 +137,8 @@ tests, and the Go temp directory on the home filesystem:
 - `python3 scripts/check-doc-ids.py` — no work-item labels in reader-facing text.
 - The added-comment gate over `git diff --merge-base origin/develop -- '*.go'` —
   no output.
-- `go test -count=1 -p 1 ./tests/hygiene` — `ok` (136.482 s).
-- Targeted tests, all `ok`: `TestBoundSubjectOf*` in
+- `go test -count=1 -p 1 ./tests/hygiene` — `ok`.
+- Targeted tests, all `ok`: the `TestBoundSubjectOf*` tests in
   `internal/semantic/semantics`; `TestQueryBoundSubject*`,
   `TestQueryOSLCBoundSubject` and
   `TestQueryStillRefusesAPropertyNextToBoundSubject` in `internal/frontend/grpc`;
@@ -142,32 +146,19 @@ tests, and the Go temp directory on the home filesystem:
   packages `internal/semantic/query`, `internal/doc/querytranslate` and
   `internal/doc/queryexec`.
 
-A whole-tree `go test ./...` was attempted but did **not** complete on this host:
-the first attempt hit the tool's 600 s wrapper while the gRPC package was still
-building the standard library, and a later constrained attempt was cancelled by
-a host restart. Before those attempts, the full `internal/frontend/grpc` package
-ran to completion in 727.286 s with a single failure,
-`TestParseSourcesAnalyzesManyDocumentsPromptly` (10.01 s against a 10 s
-deadline) — a wall-clock performance assertion on a slow host, unrelated to
-this change, which the same suite passes when the machine is not contended.
-The full `internal/semantic/semantics`, `client/opensysml`,
-`internal/semantic/query` and `internal/doc/queryexec` packages each passed in
-those earlier runs. The whole-tree suite therefore remains unverified here and
-should be run in CI.
-
-Optional gates were not run: the OMG training, pilot and specification-example
-corpora, the pilot library XMI, the normative JSON schema, the PSSM suite, the
-reference FMUs and the document-converter toolchains are not present in this
-clone, and their `require` environment variables were not set. Those tests skip
-by design in this state; no claim about them is made here.
+The whole-tree `go test ./...` is left to CI; it was not completed here. The
+optional corpus and toolchain gates — the OMG training, pilot and
+specification-example corpora, the pilot library XMI, the normative JSON schema,
+the PSSM suite, the reference FMUs and the document-converter toolchains — were
+not run because the inputs are absent and their `require` variables are unset;
+those tests skip by design in that state.
 
 ## Known limitations and follow-ups
 
-- A subject bound only by redefinition (`:>> Declaration;` with no `=` value)
-  is reported as absent. The declaration a redefinition denotes is a
-  generalization edge, not a binding, and answering it would confuse the
-  subject parameter with the element the case checks. A model that wants the
-  declaration on the row should state the `=` binding.
+- A redefinition edge alone is not a declaration. A redefining subject with no
+  value of its own inherits a general's binding when one exists; when no subject
+  in the redefinition chain states a plain `=` binding, the property is absent.
+  The redefinition target itself is never answered as the declaration.
 - The property reports one declaration. A multiplicity of subjects bound to
   several declarations is outside this surface; the single-valued query row
   cannot represent all of them without changing the wire shape.

@@ -12,10 +12,16 @@ package P {
     private import ScalarValues::*;
     part def Boiler { attribute speed : Real default = 1.2; }
     part boilerAsMaintained : Boiler;
+    part config { part target : Boiler; }
     verification def Check { subject s : Boiler; }
     verification v1 : Check { subject :>> s = P::boilerAsMaintained; }
     verification v2 : Check { subject s = P::boilerAsMaintained; }
     verification v3 : Check;
+    verification chained : Check { subject s = P::config.target; }
+    verification defaulted : Check { subject s : Boiler default P::boilerAsMaintained; }
+    verification initial : Check { subject s : Boiler := P::boilerAsMaintained; }
+    verification def BoundDef { subject s : Boiler = P::boilerAsMaintained; }
+    verification redefNoValue : BoundDef { subject :>> s; }
 }
 `
 
@@ -62,6 +68,37 @@ func TestBoundSubjectOfNamesTheBoundDeclaration(t *testing.T) {
 	if subject, ok := boundSubjectSym(t, root, "P", "v1").Scope.LookupLocal("s"); ok {
 		if target, ok := m.BoundSubjectOf(subject); ok || target != nil {
 			t.Errorf("subject parameter answered %v, %v; want absence", target, ok)
+		}
+	}
+}
+
+// TestBoundSubjectOfReadsChainsDefaultsInitialAndInheritedBindings pins a
+// chain, absent defaults/initial values, and an inherited binding.
+func TestBoundSubjectOfReadsChainsDefaultsInitialAndInheritedBindings(t *testing.T) {
+	m, root := buildModel(t, boundSubjectModel)
+	for _, tc := range []struct {
+		name string
+		want string
+	}{
+		{"chained", "P::config::target"},
+		{"defaulted", ""},
+		{"initial", ""},
+		{"redefNoValue", "P::boilerAsMaintained"},
+		{"BoundDef", "P::boilerAsMaintained"},
+	} {
+		target, ok := m.BoundSubjectOf(boundSubjectSym(t, root, "P", tc.name))
+		if tc.want == "" {
+			if ok || target != nil {
+				t.Errorf("%s: BoundSubjectOf = %v, %v; want absence", tc.name, target, ok)
+			}
+			continue
+		}
+		if !ok || target == nil {
+			t.Errorf("%s: BoundSubjectOf answered no target", tc.name)
+			continue
+		}
+		if got := symbols.FQNOf(target); got != tc.want {
+			t.Errorf("%s: BoundSubjectOf = %s, want %s", tc.name, got, tc.want)
 		}
 	}
 }

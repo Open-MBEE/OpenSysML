@@ -42,21 +42,41 @@ func (m *Model) boundSubjectOf(sym *symbols.Symbol) boundSubjectResult {
 	if subject == nil || m.resolver == nil {
 		return boundSubjectResult{}
 	}
-	binding, isDefault, isInitial, ok := ast.ValuePartOf(subject.Decl)
-	if !ok || isDefault || isInitial {
-		return boundSubjectResult{}
+	// The owned subject comes first, then the ones it redefines: a redefining
+	// subject with no value of its own inherits the general's binding.
+	visited := map[*symbols.Symbol]bool{}
+	parameters := map[*symbols.Symbol]bool{}
+	var chain []*symbols.Symbol
+	for current := subject; current != nil && !visited[current]; {
+		visited[current] = true
+		parameters[current] = true
+		chain = append(chain, current)
+		var next *symbols.Symbol
+		for _, general := range m.AllRedefinedFeatures(current) {
+			if general != nil && !visited[general] {
+				next = general
+				break
+			}
+		}
+		current = next
 	}
-	target, ok := m.resolver.ResolveTarget(subject.OwnerScope, binding)
-	if !ok || target == nil {
-		return boundSubjectResult{}
+	for _, declared := range chain {
+		binding, isDefault, isInitial, ok := ast.ValuePartOf(declared.Decl)
+		if !ok || isDefault || isInitial {
+			continue
+		}
+		target, ok := m.resolver.ResolveTarget(declared.OwnerScope, binding)
+		if !ok || target == nil {
+			continue
+		}
+		if alias, ok := m.resolver.ResolveAliasTarget(target); ok {
+			target = alias
+		}
+		// No subject parameter in the chain is the declaration the case checks.
+		if parameters[target] || symbols.SameElement(target, declared) {
+			continue
+		}
+		return boundSubjectResult{target: target, ok: true}
 	}
-	if alias, ok := m.resolver.ResolveAliasTarget(target); ok {
-		target = alias
-	}
-	// The subject parameter is not the declaration it binds. Never answer it in
-	// place of one: an unbound case must stay absent, not borrow another element.
-	if symbols.SameElement(target, subject) {
-		return boundSubjectResult{}
-	}
-	return boundSubjectResult{target: target, ok: true}
+	return boundSubjectResult{}
 }
