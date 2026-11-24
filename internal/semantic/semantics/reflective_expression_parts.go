@@ -64,7 +64,9 @@ func expressionElementMetaclassName(sym *symbols.Symbol) string {
 			return "Expression"
 		case symbols.ExpressionTriggerAction:
 			return "AcceptActionUsage"
-		case symbols.ExpressionPayload, symbols.ExpressionConnectorEnd, symbols.ExpressionTransitionLinkParameter, symbols.ExpressionTransitionLink:
+		case symbols.ExpressionLoopBody:
+			return "ActionUsage"
+		case symbols.ExpressionNodeParameter, symbols.ExpressionPayload, symbols.ExpressionConnectorEnd, symbols.ExpressionTransitionLinkParameter, symbols.ExpressionTransitionLink:
 			return "ReferenceUsage"
 		case symbols.ExpressionTransitionSuccession:
 			return "SuccessionAsUsage"
@@ -480,6 +482,13 @@ func (m *Model) expressionMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		m.memberships[sym] = out
 		return out
 	}
+	if isLoopBody(sym) {
+		// A loop's body owns what it declares and the statements it writes, in source order.
+		out := m.withBodyMemberships(sym, nil, 0, make(map[*symbols.Symbol]bool))
+		out = mergeMemberships(out, statementMembershipsOf(sym, m.statementNodes(sym)))
+		m.memberships[sym] = out
+		return out
+	}
 	out := m.ownedExpressionMemberships(sym)
 	m.memberships[sym] = out
 	return out
@@ -532,6 +541,10 @@ func (m *Model) ownedExpressionMemberships(sym *symbols.Symbol) []*symbols.Symbo
 		out = appendOwningMembership(out, sym, value)
 	} else if value := m.sendParameterValue(sym); value != nil {
 		out = appendOwningMembership(out, sym, value)
+	} else if sym.Expr.Role == symbols.ExpressionNodeParameter {
+		for _, part := range m.nodeParameterParts[sym] {
+			out = appendOwningMembership(out, sym, part)
+		}
 	}
 	return out
 }

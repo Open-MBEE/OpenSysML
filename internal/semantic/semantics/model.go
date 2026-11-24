@@ -219,12 +219,14 @@ type Model struct {
 	statementOwners         map[*symbols.Symbol]*symbols.Symbol
 	statementScopes         map[*symbols.Scope]*symbols.Symbol
 	statementOperandSymbols map[*symbols.Symbol][]*symbols.Symbol
-	expressionParts         map[*symbols.Symbol]*expressionParts
-	transitionParts         map[*symbols.Symbol]*transitionParts
-	sendParts               map[*symbols.Symbol]*sendParts
-	ownedAnnotations        map[*symbols.Symbol][]*symbols.Symbol
-	annotatingRels          map[*symbols.Symbol][]*symbols.Symbol
-	ownedImports            map[*symbols.Symbol][]*symbols.Symbol
+	// nodeParameterParts is what each parameter statementOperands synthesizes owns: its value or the feature it nests.
+	nodeParameterParts map[*symbols.Symbol][]*symbols.Symbol
+	expressionParts    map[*symbols.Symbol]*expressionParts
+	transitionParts    map[*symbols.Symbol]*transitionParts
+	sendParts          map[*symbols.Symbol]*sendParts
+	ownedAnnotations   map[*symbols.Symbol][]*symbols.Symbol
+	annotatingRels     map[*symbols.Symbol][]*symbols.Symbol
+	ownedImports       map[*symbols.Symbol][]*symbols.Symbol
 	// rootNamespaces memoizes each document's reflected RootNamespace (see reflective_root.go).
 	rootNamespaces map[string]*symbols.Symbol
 }

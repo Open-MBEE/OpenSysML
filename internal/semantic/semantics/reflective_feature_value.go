@@ -50,6 +50,9 @@ func (m *Model) ValueExpression(sym *symbols.Symbol) *symbols.Symbol {
 			}
 			return m.sendParameterValue(sym)
 		}
+		if sym.Expr.Role == symbols.ExpressionNodeParameter {
+			return m.nodeParameterValue(sym)
+		}
 		return m.expressionParameterValue(sym)
 	}
 	if cached, ok := m.valueExpressions[sym]; ok {

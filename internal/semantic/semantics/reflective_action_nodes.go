@@ -3,12 +3,14 @@ package semantics
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // statementNodes are the anonymous action nodes (SysML v2 §7.16.8) sym's body writes as statements,
 // synthesized here because the symbol table scopes their bodies but registers no symbol for them.
 func (m *Model) statementNodes(sym *symbols.Symbol) []*symbols.Symbol {
-	if m == nil || sym == nil || sym.Implicit != nil || sym.Expr != nil || sym.Recorded() {
+	if m == nil || sym == nil || sym.Implicit != nil || sym.Expr != nil && !isLoopBody(sym) || sym.Recorded() || IsLoopVariable(sym) {
+		// A `for` variable shares its loop's node but owns none of the loop's body.
 		return nil
 	}
 	if cached, ok := m.statementSymbols[sym]; ok {
@@ -22,7 +24,7 @@ func (m *Model) statementNodes(sym *symbols.Symbol) []*symbols.Symbol {
 	}
 	var out []*symbols.Symbol
 	body := statementBodyOf(sym.Decl)
-	if statement := nodeStatementOf(sym.Decl); statement != nil {
+	if statement := nodeStatementOf(sym.Decl); statement != nil && !isLoopBody(sym) {
 		// A node written as its statement (`action a if c … else …`, `action a
 		// while c { … }`) owns the statement's branches and body as its own.
 		body = statementBodyOf(statement)
@@ -37,6 +39,20 @@ func (m *Model) statementNodes(sym *symbols.Symbol) []*symbols.Symbol {
 				m.statementScopes[child] = sym
 			}
 		}
+	}
+	if loop := loopStatementOf(sym); loop != nil {
+		// A loop owns its `{ … }` body as one action, which owns what the body writes
+		// (SysML.xtext ActionBodyParameterMember).
+		out = append(out, &symbols.Symbol{
+			Kind:       symbols.SymbolActionUsage,
+			Decl:       loop,
+			DeclSpan:   loopBodySpan(loop),
+			DocName:    sym.DocName,
+			Visibility: sym.Visibility,
+			Scope:      lookup,
+			Expr:       &symbols.ExpressionElement{Owner: sym, Role: symbols.ExpressionLoopBody},
+		})
+		body = nil
 	}
 	for _, member := range body {
 		if wrapper, ok := member.(*ast.Membership); ok {
@@ -90,7 +106,63 @@ func (m *Model) statementOwner(sym *symbols.Symbol) *symbols.Symbol {
 	if owner, ok := m.statementOwners[sym]; ok {
 		return owner
 	}
-	return m.statementScopeOwner(sym.OwnerScope)
+	owner := m.statementScopeOwner(sym.OwnerScope)
+	if IsLoopVariable(sym) {
+		// The loop owns its variable itself; its body owns the scope's other members.
+		return owner
+	}
+	return m.loopBodyOr(owner)
+}
+
+// loopBodyOr is the body of the loop owner, which owns what the loop's scope declares, or owner
+// itself when it is no loop.
+func (m *Model) loopBodyOr(owner *symbols.Symbol) *symbols.Symbol {
+	if loopStatementOf(owner) == nil {
+		return owner
+	}
+	if nodes := m.statementNodes(owner); len(nodes) == 1 {
+		return nodes[0]
+	}
+	return owner
+}
+
+// loopStatementOf is the loop sym is: a bare loop statement's node or a node written as a loop
+// (`action a while c { … }`); nil for the loop's variable and body, and for any other symbol.
+func loopStatementOf(sym *symbols.Symbol) *ast.WhileLoopActionNode {
+	if sym == nil || sym.Expr != nil || sym.Implicit != nil || IsLoopVariable(sym) {
+		return nil
+	}
+	if loop, ok := sym.Decl.(*ast.WhileLoopActionNode); ok {
+		return loop
+	}
+	loop, _ := nodeStatementOf(sym.Decl).(*ast.WhileLoopActionNode)
+	return loop
+}
+
+// isLoopBody reports whether sym is the action a loop's body is (statementNodes).
+func isLoopBody(sym *symbols.Symbol) bool {
+	return sym != nil && sym.Expr != nil && sym.Expr.Role == symbols.ExpressionLoopBody
+}
+
+// loopBodySpan places a loop's body: after what its head writes, up to its `until` condition.
+func loopBodySpan(loop *ast.WhileLoopActionNode) source.Span {
+	span := loop.Span()
+	start, end := span.Offset, span.End()
+	head, until := loop.Condition, loop.Until
+	switch loop.Kind {
+	case ast.LoopFor:
+		head = loop.Collection
+	case ast.LoopUntil:
+		// `loop { … } until c;` states its one condition after the body.
+		head, until = nil, loop.Condition
+	}
+	if head != nil {
+		start = head.Span().End()
+	}
+	if until != nil {
+		end = until.Span().Offset
+	}
+	return source.Span{Offset: start, Len: max(end-start, 0)}
 }
 
 // statementScopeOwner is the synthesized statement node whose body scope is
@@ -112,6 +184,13 @@ func (m *Model) statementScopeOwner(scope *symbols.Scope) *symbols.Symbol {
 	}
 	if owner == nil {
 		return nil
+	}
+	if body := m.loopBodyOr(owner); body != owner {
+		if body.Scope == scope {
+			return owner
+		}
+		// What a loop's body writes is scoped under the loop and owned by its body.
+		owner = body
 	}
 	for _, node := range m.statementNodes(owner) {
 		if node.Scope == scope {
@@ -201,6 +280,23 @@ func (m *Model) statementOperands(sym *symbols.Symbol) []*symbols.Symbol {
 			Expr:       &symbols.ExpressionElement{Owner: sym, Role: symbols.ExpressionOperand, Slot: slot},
 		})
 	}
+	// parameter adds the ReferenceUsage the node owns at slot for a part of its statement, bound to
+	// value when the part states one (SysML.xtext NodeParameter), and returns it.
+	parameter := func(owner *symbols.Symbol, slot string, value ast.Node, at source.Span) *symbols.Symbol {
+		usage := &ast.Usage{Kind: ast.UsageAttribute, IsReference: true, Direction: ast.DirIn, Value: value}
+		usage.NodeSpan = at
+		param := transitionPart(sym, usage, at, symbols.SymbolReferenceUsage, owner, symbols.ExpressionNodeParameter)
+		param.Expr.Slot = slot
+		if value != nil {
+			m.ownNodeParameterPart(param, transitionPart(sym, value, value.Span(), symbols.SymbolExpression, param, symbols.ExpressionValue))
+		}
+		if owner == sym {
+			out = append(out, param)
+		} else {
+			m.ownNodeParameterPart(owner, param)
+		}
+		return param
+	}
 	decl := sym.Decl
 	if statement := nodeStatementOf(decl); statement != nil {
 		// `action a assign x := y;` is the assignment: its operands are the
@@ -213,18 +309,30 @@ func (m *Model) statementOperands(sym *symbols.Symbol) []*symbols.Symbol {
 	case *ast.WhileLoopActionNode:
 		switch d.Kind {
 		case ast.LoopFor:
-			add("collection", d.Collection)
+			if d.Collection != nil {
+				parameter(sym, "collectionParameter", d.Collection, d.Collection.Span())
+			}
 		case ast.LoopUntil:
-			// `loop { … } until c;` tests its condition after each iteration: it is the
-			// until condition, and the loop has no while condition (encodeLoop).
+			// `loop { … } until c;` tests its condition after each iteration: it is the until
+			// condition, and an empty parameter stands where a while condition would (encodeLoop).
+			parameter(sym, "emptyParameter", nil, source.Span{Offset: d.Span().Offset})
 			add("untilCondition", d.Condition)
 		default:
 			add("whileCondition", d.Condition)
 			add("untilCondition", d.Until)
 		}
 	case *ast.AssignmentActionNode:
+		if d.Target != nil {
+			// The target parameter nests the feature assigned and the one accessed
+			// (SysML.xtext TargetParameter, TargetFeature), ahead of the name written.
+			at := source.Span{Offset: d.Target.Span().Offset}
+			target := parameter(sym, "targetParameter", nil, at)
+			parameter(parameter(target, "targetFeature", nil, at), "accessedFeature", nil, at)
+		}
 		add("target", d.Target)
-		add("value", d.Value)
+		if d.Value != nil {
+			parameter(sym, "valueParameter", d.Value, d.Value.Span())
+		}
 	case *ast.TerminateStatement:
 		add("expression", d.Target)
 	case *ast.PerformActionNode:
@@ -285,4 +393,29 @@ func isBodySuccessionNode(node ast.Node) bool {
 		return node.Successor != nil
 	}
 	return false
+}
+
+// ownNodeParameterPart records part, a value or a nested feature, as owned by the node parameter param.
+func (m *Model) ownNodeParameterPart(param, part *symbols.Symbol) {
+	if m.nodeParameterParts == nil {
+		m.nodeParameterParts = make(map[*symbols.Symbol][]*symbols.Symbol)
+	}
+	if _, recorded := m.nodeParameterParts[param]; !recorded {
+		journal(m, m.nodeParameterParts, param, param.Expr.Owner.Decl)
+	}
+	m.nodeParameterParts[param] = append(m.nodeParameterParts[param], part)
+}
+
+// nodeParameterValue is the expression the node parameter param is bound to, nil for an empty one
+// or any other symbol.
+func (m *Model) nodeParameterValue(param *symbols.Symbol) *symbols.Symbol {
+	if param == nil || param.Expr == nil || param.Expr.Role != symbols.ExpressionNodeParameter {
+		return nil
+	}
+	for _, part := range m.nodeParameterParts[param] {
+		if part.Expr.Role == symbols.ExpressionValue {
+			return part
+		}
+	}
+	return nil
 }

@@ -118,7 +118,12 @@ func (m *Model) withBodyMemberships(sym *symbols.Symbol, out []*symbols.Symbol, 
 			scope = child
 		}
 	}
+	loop, body := loopStatementOf(sym) != nil, isLoopBody(sym)
 	scope.ForEachMember(func(member *symbols.Symbol) bool {
+		if (loop || body) && IsLoopVariable(member) == body {
+			// A loop owns its variable; its body owns what the body declares.
+			return true
+		}
 		if member == nil || seen[member] || member.Chain != nil || ownedThroughAnnotation(sym, member) || m.isTriggerPayload(sym, member) {
 			return true
 		}
@@ -827,7 +832,13 @@ func expressionMembershipMetaclassName(member *symbols.Symbol) string {
 			return "FeatureValue"
 		}
 		return "OwningMembership"
-	case symbols.ExpressionTransitionLinkParameter:
+	case symbols.ExpressionTransitionLinkParameter, symbols.ExpressionLoopBody:
+		return "ParameterMembership"
+	case symbols.ExpressionNodeParameter:
+		if owner := member.Expr.Owner; owner != nil && owner.Expr != nil && owner.Expr.Role == symbols.ExpressionNodeParameter {
+			// An assignment's target parameter nests its features (SysML.xtext TargetFeatureMember).
+			return "FeatureMembership"
+		}
 		return "ParameterMembership"
 	case symbols.ExpressionTransitionLink:
 		return "FeatureMembership"
