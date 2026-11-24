@@ -95,12 +95,20 @@ func doc() usage.Doc {
 			},
 		}, {
 			Title: "Running actions and state machines",
+			Examples: []usage.Example{
+				usage.Ex(`sysml -state "Mission rover1" -check-trace trace.jsonl m.sysml`, "Check an observed trace"),
+			},
 			Paragraphs: []string{
 				"-action runs an action to completion and -state a state machine, both " +
 					"on one shared clock that -advance runs for the given simulated time " +
 					"units; without -advance a state machine takes only its initial " +
 					"transition. Either names a definition or usage, or one followed by " +
 					"the object to perform it on, as -action \"Drive rover1\".",
+				"-check-trace compares an external JSON Lines trace to one untimed " +
+					"state machine: an initial observation and then signals with observations " +
+					"after each settles. Exit 0 if a model execution matches, 1 if none can " +
+					"match, 2 if the input is invalid or the search is inconclusive. " +
+					"-check-depth, -check-states and -check-timeout bound the search.",
 				"-schedule is the policy every run resolves its choice points under — " +
 					"concurrent tokens, overlapping guards, competing transitions: " +
 					"declared, reverse (the default), seed:<n> for a reproducible " +
@@ -612,7 +620,7 @@ func doc() usage.Doc {
 				usage.Entry("1", "The model answered false for a check."),
 				usage.Entry("2", "What was asked could not be carried out at all — an unreadable "+
 					"file, a model that did not analyse cleanly, an unresolved name, a "+
-					"failed conversion."),
+					"failed conversion, or an inconclusive -check-trace search."),
 				usage.Entry("3", "Part of what was asked was carried out: a -render-documents set "+
 					"in which some document could not be rendered. The others were "+
 					"written, a page stating the error stands in for each that was not, "+
@@ -702,6 +710,7 @@ func registerFlags(fs *flag.FlagSet) {
 
 	fs.Var(&modelChecks.actions, "action", "Run this action to completion, as -action \"Drive rover1\" to run it on an object (repeatable)")
 	fs.Var(&modelChecks.states, "state", "Run this state machine, as -state \"Mission rover1\" to run it on an object (repeatable)")
+	fs.StringVar(&modelChecks.checkTrace, checkTraceFlag, "", "Check a recorded JSON Lines trace against one untimed machine named with -state; compare observations after each signal settles")
 	fs.Var(&modelChecks.advance, "advance", "Simulated time units to run the -action and -state behaviors for, on one shared clock; without it a state machine takes only its initial transition under every schedule and engine")
 	fs.Var(&schedule, "schedule", "Policy every run resolves its choice points under: declared, reverse (default), seed:<n>, explore[:runs=N,depth=D] or replay:<file>")
 	fs.Var(&modelChecks.seed, "seed", "Seed the model's own draws — weighted decisions, random functions — and those of -samples and -runs; the same seed draws the same run or table")
@@ -725,10 +734,10 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&modelChecks.checker.assume, "check-assume", "Under smt, assume this constraint or requirement over the initial state of the action (repeatable)")
 	fs.StringVar(&modelChecks.checker.witness, "check-witness", "", "Write a witness file for each violation and each divergent value to this directory, for -schedule replay:<file> and %replay to follow")
 	modelChecks.checker.depth.flag, modelChecks.checker.states.flag, modelChecks.checker.unroll.flag = checkDepthFlag, checkStatesFlag, checkUnrollFlag
-	fs.Var(&modelChecks.checker.depth, checkDepthFlag, "The most moves one schedule may make before the search backtracks, or the moves smt unrolls the action to (default 10000 for check, 40 for smt)")
-	fs.Var(&modelChecks.checker.states, checkStatesFlag, "Under check, the most distinct states the search may visit (default 1000000)")
+	fs.Var(&modelChecks.checker.depth, checkDepthFlag, "The most moves one schedule may make before the search backtracks, or the moves smt unrolls the action to (default 10000 for check, 40 for smt, 512 for -check-trace)")
+	fs.Var(&modelChecks.checker.states, checkStatesFlag, "Under check, the most distinct states the search may visit (default 1000000); with -check-trace, the most state visits (default 10000)")
 	fs.Var(&modelChecks.checker.unroll, checkUnrollFlag, "Under smt, the most iterations of one loop the solver unrolls before it stops (default 4)")
-	fs.Var(&modelChecks.checker.timeout, "check-timeout", "The time the check's plan may run for, as 30s or 2m, and the time each smt solver query may take in place of OPENSYSML_SMT_TIMEOUT")
+	fs.Var(&modelChecks.checker.timeout, "check-timeout", "The time the check plan may run for, as 30s or 2m, and each smt query may take in place of OPENSYSML_SMT_TIMEOUT; -check-trace search defaults to 30s")
 
 	fs.StringVar(&bundleDir, "bundle", "", "Write this project directory as a project interchange archive (KerML 1.0 §10.3), to -o or to <name>-<version>.kpar; the archive is the same bytes on every run")
 	fs.StringVar(&unbundleFile, "unbundle", "", "Write this project interchange archive (.kpar) out as a project directory, to -o or to <name>-<version>, which must be new or empty")
@@ -818,6 +827,7 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("self-check-package", "<package>"),
 			usage.Opt("requirement", nameArg),
 			usage.Opt("satisfy", "[=<name>]"),
+			usage.Opt(checkTraceFlag, fileArg),
 			usage.Opt("calc", callArg),
 			usage.Opt("analysis", callArg),
 			usage.Opt("tool-dry-run", callArg),

@@ -5,7 +5,7 @@
 # TestExamplesSweep fails on a row not here, on a count above the one here, on a row
 # here the run no longer produces, and on a ? key; a count that fell is re-recorded
 # with -update-agreement-ratchet.
-Annotation::@id	2	export-35
+Annotation::@id	3	export-35
 Comment::@id	2	export-60
 DecisionNode::@id	6	export-49
 Documentation::@id	4	export-49

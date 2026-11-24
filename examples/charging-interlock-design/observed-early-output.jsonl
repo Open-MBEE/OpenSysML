@@ -1,0 +1,6 @@
+{"observe": {"energized": false}}
+{"observe": {"energized": false}, "signal": "ChargingInterlock::VehicleConnected"}
+{"observe": {"energized": true}, "signal": "ChargingInterlock::ChargeRequested"}
+{"observe": {"energized": false}, "signal": "ChargingInterlock::LockDetected"}
+{"observe": {"energized": true}, "signal": "ChargingInterlock::ChargeRequested"}
+{"observe": {"energized": false}, "signal": "ChargingInterlock::LockLost"}

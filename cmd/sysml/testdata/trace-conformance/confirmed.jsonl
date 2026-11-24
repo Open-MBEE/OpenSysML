@@ -1,0 +1,5 @@
+{"observe":{"screen":"blank","confirmedVisible":false}}
+{"signal":"TraceReview::Open","observe":{"screen":"form","confirmedVisible":false}}
+{"signal":"TraceReview::Submit","observe":{"screen":"pending","confirmedVisible":false}}
+{"signal":"TraceReview::Verify","observe":{"screen":"confirmed","confirmedVisible":true}}
+{"signal":"TraceReview::Reload","observe":{"screen":"confirmed","confirmedVisible":true}}

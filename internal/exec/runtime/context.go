@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -34,6 +35,8 @@ type Context struct {
 	// interrupt, when set, stops every run at its next step once raised: a
 	// shared flag, so a driver stops runs under way without holding them.
 	interrupt *atomic.Bool
+	// traceStop is scoped to one trace search branch; the driver flag stays independent.
+	traceStop context.Context
 	// flowShares caches, by graph, whether two moves of its flow may touch what another does.
 	flowShares map[*lower.ActionGraph]bool
 	created    []int64
@@ -1146,9 +1149,10 @@ func (ctx *Context) incrementStep() error {
 // with ErrInterrupted. The flag is shared, and the driver lowers it again.
 func (ctx *Context) SetInterrupt(flag *atomic.Bool) { ctx.interrupt = flag }
 
-// interrupted reports whether the interrupt flag is raised.
+// interrupted reports whether the driver stopped execution or the trace search ended.
 func (ctx *Context) interrupted() bool {
-	return ctx.interrupt != nil && ctx.interrupt.Load()
+	return (ctx.interrupt != nil && ctx.interrupt.Load()) ||
+		(ctx.traceStop != nil && ctx.traceStop.Err() != nil)
 }
 
 // stepLimitExceeded reports the step budget spent, naming the variable that raises

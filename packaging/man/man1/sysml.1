@@ -85,6 +85,10 @@ takes arguments and a subject as \-constraint does (repeatable)
 Evaluate every satisfaction assertion, or with \-satisfy=<name> those the
 named element states, and exit (repeatable)
 .TP
+.BR \-check\-trace " \fIfile\fP"
+Check a recorded JSON Lines trace against one untimed machine named with
+\-state; compare observations after each signal settles
+.TP
 .BR \-calc " \fIcall\fP"
 Invoke this calculation and report its result, as \-calc "Fall(3, 4)"
 (repeatable)
@@ -237,18 +241,20 @@ directory, for \-schedule replay:<file> and %replay to follow
 .TP
 .BR \-check\-depth " \fIn\fP"
 The most moves one schedule may make before the search backtracks, or the
-moves smt unrolls the action to (default 10000 for check, 40 for smt)
+moves smt unrolls the action to (default 10000 for check, 40 for smt, 512 for
+\-check\-trace)
 .TP
 .BR \-check\-states " \fIn\fP"
-Under check, the most distinct states the search may visit (default 1000000)
+Under check, the most distinct states the search may visit (default 1000000);
+with \-check\-trace, the most state visits (default 10000)
 .TP
 .BR \-check\-unroll " \fIn\fP"
 Under smt, the most iterations of one loop the solver unrolls before it stops
 (default 4)
 .TP
 .BR \-check\-timeout " \fIduration\fP"
-The time the check's plan may run for, as 30s or 2m, and the time each smt
-solver query may take in place of OPENSYSML_SMT_TIMEOUT
+The time the check plan may run for, as 30s or 2m, and each smt query may take
+in place of OPENSYSML_SMT_TIMEOUT; \-check\-trace search defaults to 30s
 .SS Converting and migrating
 .TP
 .BR \-convert " \fIformat\fP"
@@ -708,11 +714,24 @@ Pkg::part"; a verification case also reports the verdict its body produced.
 and a subject the same way, as \-requirement "Pkg::Under(limit = 5)
 Pkg::part".
 .SH RUNNING ACTIONS AND STATE MACHINES
+.RS 2
+.nf
+# Check an observed trace
+sysml \-state "Mission rover1" \-check\-trace trace.jsonl m.sysml
+.fi
+.RE
+.PP
 \-action runs an action to completion and \-state a state machine, both on one
 shared clock that \-advance runs for the given simulated time units; without
 \-advance a state machine takes only its initial transition. Either names a
 definition or usage, or one followed by the object to perform it on, as
 \-action "Drive rover1".
+.PP
+\-check\-trace compares an external JSON Lines trace to one untimed state
+machine: an initial observation and then signals with observations after each
+settles. Exit 0 if a model execution matches, 1 if none can match, 2 if the
+input is invalid or the search is inconclusive. \-check\-depth,
+\-check\-states and \-check\-timeout bound the search.
 .PP
 \-schedule is the policy every run resolves its choice points under \(em
 concurrent tokens, overlapping guards, competing transitions: declared,
@@ -1315,7 +1334,8 @@ The model answered false for a check.
 .TP
 .B 2
 What was asked could not be carried out at all \(em an unreadable file, a
-model that did not analyse cleanly, an unresolved name, a failed conversion.
+model that did not analyse cleanly, an unresolved name, a failed conversion,
+or an inconclusive \-check\-trace search.
 .TP
 .B 3
 Part of what was asked was carried out: a \-render\-documents set in which

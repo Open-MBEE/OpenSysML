@@ -11,6 +11,7 @@
 stable	action-executor-demo.sysml
 stable	analysis-demo/lander.sysml
 stable	analysis-results-demo/lander-results.sysml
+stable	charging-interlock-design/station.sysml
 stable	combined-behavioral-demo.sysml
 stable	data-import-demo/rover.sysml
 stable	disposal-robot-demo/robot.sysml
