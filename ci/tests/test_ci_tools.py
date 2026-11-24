@@ -170,7 +170,8 @@ class CommonTest(Stub):
         with mock.patch.object(throttle_common.subprocess, "run", wraps=subprocess.run) as run:
             self.assertEqual(g.json(["run", "list"]), [])
             self.assertEqual([c.kwargs["env"]["GH_TOKEN"] for c in run.call_args_list], ["old", "old"])
-        self.sleep.assert_called_with(5)
+        # subprocess.run polls a slow child through the same patched time.sleep, so this is not always the last call.
+        self.sleep.assert_any_call(5)
         self.assertEqual(self.calls(), ["run list", "run list"])
         self.rules([[r"^run cancel", "To get started with GitHub CLI, please run:  gh auth login", 1]])
         self.assertIsNone(g(["run", "cancel", "1"], ok_fail=True))
