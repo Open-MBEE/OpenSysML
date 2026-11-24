@@ -481,9 +481,9 @@ func resolveIRI(base, ref string) string {
 			query, hasQuery = baseQuery, true
 		}
 	case strings.HasPrefix(path, "//"):
-		authority, rooted, _ := strings.Cut(path[2:], "/")
+		authority, rooted, hasPath := strings.Cut(path[2:], "/")
 		out = stem[:scheme+1] + "//" + authority
-		if rooted != "" || strings.HasSuffix(path, "/") {
+		if hasPath {
 			out += removeDotSegments("/" + rooted)
 		}
 	case strings.HasPrefix(path, "/"):

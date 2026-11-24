@@ -25,6 +25,8 @@ func TestTurtleRelativeIRIResolvesAgainstBase(t *testing.T) {
 		{"http://example.org/a/b", "//other.example/x/../y", "http://other.example/y"},
 		{"http://example.org/a/b", "//other.example", "http://other.example"},
 		{"http://example.org/a/b", "//other.example/", "http://other.example/"},
+		{"http://example.org/a/b", "//", "http://"},
+		{"http://example.org/a/b", "///x", "http:///x"},
 		{"models?next:/guide", "c", "models?next:/guidec"},
 		{"a/b:/c", "d", "a/b:/cd"},
 		{"urn:x:", "c", "urn:x:c"},
