@@ -572,9 +572,10 @@ func (g *StateGraph) children(state *ast.StateNode) []*ast.StateNode {
 			children = append(children, candidate)
 		}
 	}
-	for _, candidate := range g.statesInOrder() {
-		if g.HiddenStates[candidate] && g.ParentState[candidate] == state {
-			children = append(children, candidate)
+	// A hidden child owns one of the state's regions: the region table orders them.
+	for _, region := range g.CompositeStates[state] {
+		if owner := g.RegionState[region]; g.HiddenStates[owner] && g.ParentState[owner] == state {
+			children = append(children, owner)
 		}
 	}
 	return children
