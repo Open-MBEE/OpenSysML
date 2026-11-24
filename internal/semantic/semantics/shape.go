@@ -74,6 +74,10 @@ func (m *Model) shapeFeatures(typ *symbols.Symbol, keep func(*symbols.Symbol) bo
 		if !IsShapeFeature(member) || !keep(member) || m.VariationPointOwning(member) != nil {
 			continue
 		}
+		// A parameter an action node's notation states unnamed is run from the node's lowered statement.
+		if m.NamedByNodeParameterRole(member) {
+			continue
+		}
 		// A parameter named by the one its position redefines holds that name (KerML 8.2.4).
 		name := member.Name
 		if effective := m.EffectiveNameOf(member); effective != "" {
@@ -210,7 +214,7 @@ func (m *Model) inheritedNamesake(typ *symbols.Symbol, f ShapeFeature, keep func
 		return f
 	}
 	surviving, ok := m.LookupMember(typ, f.Name)
-	if !ok || surviving == nil || surviving == f.Symbol || !IsShapeFeature(surviving) || !keep(surviving) {
+	if !ok || surviving == nil || surviving == f.Symbol || !IsShapeFeature(surviving) || !keep(surviving) || m.NamedByNodeParameterRole(surviving) {
 		return f
 	}
 	return ShapeFeature{Name: f.Name, Symbol: surviving, Declared: surviving}

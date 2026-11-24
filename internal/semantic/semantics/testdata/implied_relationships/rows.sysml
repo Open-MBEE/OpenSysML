@@ -22,6 +22,8 @@ package R {
 	action def L { in c : Boolean; action ll loop { } until c; }
 	action def I { in c : Boolean; action ifa if c { } else { } }
 	action def I2 { in c : Boolean; action ifb if c { } }
+	action def I3 { in c : Boolean; action ifc if c action t { } else action e { } }
+	action def W2 { in c : Boolean; action wm while c action step { } }
 	action def Snd { in s : Sig; part p : PQ; action sa send s via p to p; }
 	action def Acc { part p : PQ; action aa accept m : Sig via p; }
 	action def Ter { part p : PQ; action ta terminate p; action tb terminate; }

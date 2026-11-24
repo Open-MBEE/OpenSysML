@@ -284,11 +284,12 @@ OperatorExpression::ownedMembership	16	symbol-09
 OperatorExpression::ownedRelationship	16	symbol-03
 OperatorExpression::owner	11	export-57
 OperatorExpression::parameter	16	symbol-54
+OwningMembership::memberName	5	symbol-86
 OwningMembership::visibility	2	export-05
 Package::documentation	2	export-57
 Package::ownedElement	3	symbol-02
 Package::ownedMember	2	symbol-63
-ParameterMembership::memberName	2851	symbol-85
+ParameterMembership::memberName	2950	symbol-85
 ParameterMembership::visibility	12	export-05
 PartDefinition::feature	1	symbol-51
 PartDefinition::featureMembership	1	symbol-51

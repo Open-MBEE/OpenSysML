@@ -288,6 +288,9 @@ func (m *Model) accessRedefinitions(sym *symbols.Symbol) []*symbols.Symbol {
 // loopBody is the action usage a loop's body is (SysML.xtext ActionBodyParameter), a parameter
 // of the loop sym.
 func (m *Model) loopBody(sym *symbols.Symbol, loop *ast.WhileLoopActionNode) *symbols.Symbol {
+	if declared := m.declaredLoopBody(sym, loop); declared != nil {
+		return declared
+	}
 	decl := &ast.Usage{Kind: ast.UsageAction, Direction: ast.DirIn, IsBodyParameter: true, Members: loop.Body}
 	span := source.Span{Offset: loop.Span().End()}
 	if len(loop.Body) > 0 {
@@ -297,6 +300,29 @@ func (m *Model) loopBody(sym *symbols.Symbol, loop *ast.WhileLoopActionNode) *sy
 	body := transitionPart(sym, decl, span, symbols.SymbolActionUsage, sym, symbols.ExpressionPayload)
 	body.Expr.Index = 2
 	return body
+}
+
+// declaredLoopBody is the action usage the loop sym writes as its body (`while c action b { … }`).
+func (m *Model) declaredLoopBody(sym *symbols.Symbol, loop *ast.WhileLoopActionNode) *symbols.Symbol {
+	scope := m.statementScope(sym)
+	if scope == nil {
+		return nil
+	}
+	for _, member := range loop.Body {
+		if membership, ok := member.(*ast.Membership); ok {
+			member = membership.Member
+		}
+		if usage, ok := member.(*ast.Usage); ok && usage.IsBodyParameter {
+			return scope.MemberDeclaring(usage)
+		}
+	}
+	return nil
+}
+
+// isDeclaredBody reports an action usage written as the body of a loop (SysML.xtext ActionBodyParameter).
+func isDeclaredBody(sym *symbols.Symbol) bool {
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && usage.IsBodyParameter
 }
 
 // nodeParameterOwner is the send or control action whose notation implies the parameter sym; nil for
@@ -309,7 +335,7 @@ func (m *Model) nodeParameterOwner(sym *symbols.Symbol) *symbols.Symbol {
 	switch {
 	case sym.Expr != nil:
 		owner = sym.Expr.Owner
-	case isLoopVariable(sym), declaresAcceptPayload(sym):
+	case isLoopVariable(sym), declaresAcceptPayload(sym), isDeclaredBody(sym):
 		owner = m.ownerOf(sym)
 	default:
 		// A branch is registered with its conditional when synthesized; nothing is forced for any other symbol.

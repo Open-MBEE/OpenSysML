@@ -403,7 +403,7 @@ root examples/pilot-corpora: models 213, skipped 0, matched 62016, unmatched 83
   ViewUsage::viewDefinition: equal 6, different 2, symbol-missing 0, symbol-extra 1
   ViewpointUsage::viewpointDefinition: equal 1, different 1, symbol-missing 0, symbol-extra 0
 root examples/spec-examples: models 473, skipped 38, matched 12634, unmatched 41
-  ActionUsage::actionDefinition: equal 113, different 175, symbol-missing 0, symbol-extra 50
+  ActionUsage::actionDefinition: equal 115, different 173, symbol-missing 0, symbol-extra 50
   AllocationUsage::allocationDefinition: equal 2, different 1, symbol-missing 0, symbol-extra 1
   AnalysisCaseUsage::analysisCaseDefinition: equal 1, different 0, symbol-missing 0, symbol-extra 1
   AnnotatingElement::annotatedElement: equal 50, different 12, symbol-missing 0, symbol-extra 0
@@ -487,7 +487,7 @@ root examples/spec-examples: models 473, skipped 38, matched 12634, unmatched 41
   RequirementUsage::requirementDefinition: equal 27, different 6, symbol-missing 0, symbol-extra 10
   RequirementUsage::text: equal 39, different 0, symbol-missing 4, symbol-extra 0
   StateUsage::stateDefinition: equal 7, different 20, symbol-missing 0, symbol-extra 7
-  Step::behavior: equal 1004, different 200, symbol-missing 0, symbol-extra 72
+  Step::behavior: equal 1006, different 198, symbol-missing 0, symbol-extra 72
   Step::parameter: equal 1263, different 13, symbol-missing 0, symbol-extra 0
   TransitionUsage::source: equal 6, different 0, symbol-missing 0, symbol-extra 18
   TransitionUsage::target: equal 4, different 0, symbol-missing 0, symbol-extra 20

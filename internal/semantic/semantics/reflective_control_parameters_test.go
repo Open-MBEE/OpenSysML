@@ -210,3 +210,67 @@ func TestControlParametersAreValuedByTheWrittenExpressions(t *testing.T) {
 		}
 	}
 }
+
+// A loop whose body is written as an action usage holds that usage as its body parameter: the one
+// symbol the body's scope resolves and lowering runs, not a second element beside it.
+func TestLoopBodyParameterIsTheActionWrittenAsTheBody(t *testing.T) {
+	m, root := buildModelWithStdlib(t, `package P {
+	action a {
+		action w while true action step { action inner; }
+		action lp for i in (1, 2) action each { action inner; }
+	}
+}`)
+	for _, tc := range []struct{ loop, body, redefined string }{
+		{"w", "step", "Actions::WhileLoopAction::body"},
+		{"lp", "each", "Actions::ForLoopAction::body"},
+	} {
+		loop := nestedSym(t, root, "P::a::"+tc.loop)
+		declared, found := m.statementScope(loop).LookupLocal(tc.body)
+		if !found {
+			t.Fatalf("%s: body %s is not a member of the loop's scope", tc.loop, tc.body)
+		}
+		params := m.nodeParameters(loop)
+		if got := params[len(params)-1]; got != declared {
+			t.Errorf("%s: body parameter = %s, want the declared %s", tc.loop, m.QualifiedNameOf(got), tc.body)
+		}
+		var redefined []string
+		for _, target := range m.ImpliedRedefinitions(declared) {
+			redefined = append(redefined, m.QualifiedNameOf(target))
+		}
+		if !slices.Equal(redefined, []string{tc.redefined}) {
+			t.Errorf("%s: %s redefines %v, want %s", tc.loop, tc.body, redefined, tc.redefined)
+		}
+		if name, _ := m.EffectiveNamed(declared); name != tc.body {
+			t.Errorf("%s: body is named %q, want its declared name %q", tc.loop, name, tc.body)
+		}
+	}
+}
+
+// An object of an action node holds no slot for a parameter the node's notation states unnamed: the
+// library's binding of the kind's (`payload = acceptedTransfer.payload`) would otherwise bind a
+// feature the executor runs from the node's statement.
+func TestUnnamedNodeParametersAreNoShapeFeatures(t *testing.T) {
+	m, root := buildModelWithStdlib(t, `package P {
+	private import SI::*;
+	attribute def Sig;
+	part def T {
+		port p;
+		action a {
+			first start;
+			then action wait accept after 2 [s];
+			then action snd send new Sig() via p;
+		}
+	}
+}`)
+	for _, node := range []string{"wait", "snd"} {
+		action := nestedSym(t, root, "P::T::a::"+node)
+		if len(m.nodeParameters(action)) == 0 {
+			t.Fatalf("%s holds no parameter", node)
+		}
+		for _, feature := range m.ShapeFeatures(action) {
+			if m.NamedByNodeParameterRole(feature.Symbol) || m.NamedByNodeParameterRole(feature.Declared) {
+				t.Errorf("%s: the shape holds its parameter as %s", node, feature.Name)
+			}
+		}
+	}
+}

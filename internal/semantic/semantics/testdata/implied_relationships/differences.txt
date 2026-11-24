@@ -9,6 +9,9 @@ model	rows.kerml	Specialization	K::E::elit	Base::things	valuation-result
 model	rows.kerml	Specialization	K::E::enull	Base::things	valuation-result
 model	rows.kerml	Specialization	K::E::esel	Base::things	valuation-result
 model	rows.kerml	Specialization	K::Owner::os	Occurrences::Occurrence::suboccurrences	suboccurrence
+model	rows.sysml	Redefinition	R::I3::ifc::elseClause	Actions::IfThenElseAction::elseClause	branch-action
+model	rows.sysml	Redefinition	R::I3::ifc::thenClause	Actions::IfThenAction::thenClause	branch-action
+model	rows.sysml	Redefinition	R::I3::ifc::thenClause	Actions::IfThenElseAction::thenClause	branch-action
 model	rows.sysml	Redefinition	R::Loop::lp::seq/OperatorExpression[0]/Feature[3]	BaseFunctions::','::result	sequence-nesting
 model	rows.sysml	Redefinition	R::Loop::lp::seq/OperatorExpression[0]/Feature[3]	Performances::Evaluation::result	sequence-nesting
 model	rows.sysml	Specialization	R::Acc::p	Occurrences::Occurrence::suboccurrences	suboccurrence
@@ -42,6 +45,8 @@ model	rows.sysml	Specialization	R::Fl::dst/Multiplicity[0]	Base::naturals	defaul
 model	rows.sysml	Specialization	R::Fl::dst::i/Multiplicity[0]	Base::naturals	default-multiplicity
 model	rows.sysml	Specialization	R::Fl::src/Multiplicity[0]	Base::naturals	default-multiplicity
 model	rows.sysml	Specialization	R::Fl::src::o/Multiplicity[0]	Base::naturals	default-multiplicity
+model	rows.sysml	Specialization	R::I3::ifc::elseClause::e	Actions::actions	branch-action
+model	rows.sysml	Specialization	R::I3::ifc::thenClause::t	Actions::actions	branch-action
 model	rows.sysml	Specialization	R::Loop::lp::seq/OperatorExpression[0]/Feature[1]/LiteralInteger[0]	Performances::literalIntegerEvaluations	sequence-nesting
 model	rows.sysml	Specialization	R::Loop::lp::seq/OperatorExpression[0]/Feature[2]/LiteralInteger[0]	Performances::literalIntegerEvaluations	sequence-nesting
 model	rows.sysml	Specialization	R::Occ::t/Multiplicity[0]	Base::naturals	default-multiplicity
@@ -75,6 +80,10 @@ model	rows.sysml	TypeFeaturing	R::E::enest/InvocationExpression[0]	snapshots(R::
 model	rows.sysml	TypeFeaturing	R::E::enew/ConstructorExpression[0]	snapshots(R::E)	value-featuring
 model	rows.sysml	TypeFeaturing	R::E::eop/OperatorExpression[0]	snapshots(R::E)	value-featuring
 model	rows.sysml	TypeFeaturing	R::E::esel/SelectExpression[0]	snapshots(R::E)	value-featuring
+model	rows.sysml	TypeFeaturing	R::I3::ifc::elseClause	snapshots(R::I3::ifc)	branch-action
+model	rows.sysml	TypeFeaturing	R::I3::ifc::elseClause::e	R::I3::ifc::elseClause	branch-action
+model	rows.sysml	TypeFeaturing	R::I3::ifc::thenClause	snapshots(R::I3::ifc)	branch-action
+model	rows.sysml	TypeFeaturing	R::I3::ifc::thenClause::t	R::I3::ifc::thenClause	branch-action
 model	rows.sysml	TypeFeaturing	R::Loop::lp::seq/OperatorExpression[0]/Feature[1]/LiteralInteger[0]	R::Loop::lp::seq/OperatorExpression[0]	sequence-nesting
 model	rows.sysml	TypeFeaturing	R::Loop::lp::seq/OperatorExpression[0]/Feature[2]/LiteralInteger[0]	R::Loop::lp::seq/OperatorExpression[0]	sequence-nesting
 model	rows.sysml	TypeFeaturing	R::Loop::lp::seq/OperatorExpression[0]/Feature[3]	R::Loop::lp::seq/OperatorExpression[0]	sequence-nesting
@@ -114,6 +123,10 @@ pilot	rows.sysml	Redefinition	R::E::echain/FeatureChainExpression[0]/Feature[0]/
 pilot	rows.sysml	Redefinition	R::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/Feature[0]	Performances::Evaluation::result	lazy-operand
 pilot	rows.sysml	Redefinition	R::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/Feature[0]	Performances::Evaluation::result	lazy-operand
 pilot	rows.sysml	Redefinition	R::I2::ifb::ifTest::result	Performances::Evaluation::result	typed-feature-base
+pilot	rows.sysml	Redefinition	R::I3::ifc::e	Actions::IfThenElseAction::elseClause	branch-action
+pilot	rows.sysml	Redefinition	R::I3::ifc::ifTest::result	Performances::Evaluation::result	typed-feature-base
+pilot	rows.sysml	Redefinition	R::I3::ifc::t	Actions::IfThenAction::thenClause	branch-action
+pilot	rows.sysml	Redefinition	R::I3::ifc::t	Actions::IfThenElseAction::thenClause	branch-action
 pilot	rows.sysml	Redefinition	R::I::ifa::ifTest::result	Performances::Evaluation::result	typed-feature-base
 pilot	rows.sysml	Redefinition	R::L::ll::untilTest::result	Performances::Evaluation::result	typed-feature-base
 pilot	rows.sysml	Redefinition	R::Loop::lp::seq/OperatorExpression[0]/Feature[1]/OperatorExpression[0]/Feature[0]	BaseFunctions::','::seq1	sequence-nesting
@@ -122,6 +135,7 @@ pilot	rows.sysml	Redefinition	R::Loop::lp::seq/OperatorExpression[0]/Feature[1]/
 pilot	rows.sysml	Redefinition	R::Loop::lp::seq/OperatorExpression[0]/Feature[1]/OperatorExpression[0]/Feature[2]	Performances::Evaluation::result	sequence-nesting
 pilot	rows.sysml	Redefinition	R::Loop::lp::seq/OperatorExpression[0]/Feature[2]	BaseFunctions::','::result	sequence-nesting
 pilot	rows.sysml	Redefinition	R::Loop::lp::seq/OperatorExpression[0]/Feature[2]	Performances::Evaluation::result	sequence-nesting
+pilot	rows.sysml	Redefinition	R::W2::wm::whileTest::result	Performances::Evaluation::result	typed-feature-base
 pilot	rows.sysml	Redefinition	R::W::wl::untilTest::result	Performances::Evaluation::result	typed-feature-base
 pilot	rows.sysml	Redefinition	R::W::wl::whileTest::result	Performances::Evaluation::result	typed-feature-base
 pilot	rows.sysml	Specialization	R::Acc::p/Multiplicity[0]	Base::exactlyOne	default-multiplicity
@@ -163,6 +177,7 @@ pilot	rows.sysml	Specialization	R::Fl::dst::i/Multiplicity[0]	Base::exactlyOne	d
 pilot	rows.sysml	Specialization	R::Fl::src/Multiplicity[0]	Base::exactlyOne	default-multiplicity
 pilot	rows.sysml	Specialization	R::Fl::src::o/Multiplicity[0]	Base::exactlyOne	default-multiplicity
 pilot	rows.sysml	Specialization	R::I2::ifb::ifTest	Performances::evaluations	typed-feature-base
+pilot	rows.sysml	Specialization	R::I3::ifc::ifTest	Performances::evaluations	typed-feature-base
 pilot	rows.sysml	Specialization	R::I::ifa::ifTest	Performances::evaluations	typed-feature-base
 pilot	rows.sysml	Specialization	R::L::ll::untilTest	Performances::evaluations	typed-feature-base
 pilot	rows.sysml	Specialization	R::Loop::lp::i	R::Loop::lp::seq	loop-variable-subsetting
@@ -184,6 +199,7 @@ pilot	rows.sysml	Specialization	R::Veh::drv/Multiplicity[0]	Base::exactlyOne	def
 pilot	rows.sysml	Specialization	R::Veh::eng/Multiplicity[0]	Base::exactlyOne	default-multiplicity
 pilot	rows.sysml	Specialization	R::Veh::mass/Multiplicity[0]	Base::exactlyOne	default-multiplicity
 pilot	rows.sysml	Specialization	R::Veh::p/Multiplicity[0]	Base::exactlyOne	default-multiplicity
+pilot	rows.sysml	Specialization	R::W2::wm::whileTest	Performances::evaluations	typed-feature-base
 pilot	rows.sysml	Specialization	R::W::wl::untilTest	Performances::evaluations	typed-feature-base
 pilot	rows.sysml	Specialization	R::W::wl::whileTest	Performances::evaluations	typed-feature-base
 pilot	rows.sysml	TypeFeaturing	R::E::echain/FeatureChainExpression[0]/Feature[0]/Feature[0]	R::E::echain/FeatureChainExpression[0]/Feature[0]	chain-target-feature
@@ -191,6 +207,8 @@ pilot	rows.sysml	TypeFeaturing	R::E::econd/OperatorExpression[0]/Feature[1]/Feat
 pilot	rows.sysml	TypeFeaturing	R::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/Feature[0]	R::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]	lazy-operand
 pilot	rows.sysml	TypeFeaturing	R::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]	R::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]	lazy-operand
 pilot	rows.sysml	TypeFeaturing	R::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/Feature[0]	R::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]	lazy-operand
+pilot	rows.sysml	TypeFeaturing	R::I3::ifc::e	snapshots(R::I3::ifc)	branch-action
+pilot	rows.sysml	TypeFeaturing	R::I3::ifc::t	snapshots(R::I3::ifc)	branch-action
 pilot	rows.sysml	TypeFeaturing	R::Loop::lp::seq/OperatorExpression[0]/Feature[1]/OperatorExpression[0]	R::Loop::lp::seq/OperatorExpression[0]	sequence-nesting
 pilot	rows.sysml	TypeFeaturing	R::Loop::lp::seq/OperatorExpression[0]/Feature[1]/OperatorExpression[0]/Feature[0]	R::Loop::lp::seq/OperatorExpression[0]/Feature[1]/OperatorExpression[0]	sequence-nesting
 pilot	rows.sysml	TypeFeaturing	R::Loop::lp::seq/OperatorExpression[0]/Feature[1]/OperatorExpression[0]/Feature[0]/LiteralInteger[0]	R::Loop::lp::seq/OperatorExpression[0]/Feature[1]/OperatorExpression[0]	sequence-nesting
