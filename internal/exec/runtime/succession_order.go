@@ -596,8 +596,10 @@ func (ctx *Context) releaseDeferredBehavior(behavior *ObjectBehavior) error {
 	if err != nil {
 		if errors.Is(err, ErrInterrupted) && behavior.typeBound {
 			// A start stopped midway is not taken again, so it is recorded
-			// failed rather than left neither started nor failed.
-			ctx.endFailedPerformance(behavior, err)
+			// failed rather than left neither started nor failed. The record
+			// is not the interruption itself, which a later call asking for
+			// the behavior would answer as its own.
+			ctx.endFailedPerformance(behavior, ErrStartInterrupted)
 			ctx.workChanged()
 			return err
 		}

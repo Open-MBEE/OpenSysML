@@ -198,7 +198,10 @@ func testInterruptFailsADeferredStart(t *testing.T) {
 	if later.deferred != nil {
 		t.Error("the interrupted start is still held")
 	}
-	if !errors.Is(later.Err, ErrInterrupted) {
-		t.Errorf("the interrupted start recorded %v on the behavior, want ErrInterrupted", later.Err)
+	if !errors.Is(later.Err, ErrStartInterrupted) {
+		t.Errorf("the interrupted start recorded %v on the behavior, want ErrStartInterrupted", later.Err)
+	}
+	if errors.Is(later.Err, ErrInterrupted) {
+		t.Error("the recorded failure reads as an interruption of the run that next asks for the behavior")
 	}
 }
