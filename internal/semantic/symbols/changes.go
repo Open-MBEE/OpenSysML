@@ -16,7 +16,7 @@ type Changes struct {
 
 // Empty reports whether nothing changed.
 func (c Changes) Empty() bool {
-	return len(c.Names) == 0 && len(c.Namespaces) == 0 && len(c.Docs) == 0
+	return len(c.Names) == 0 && len(c.Namespaces) == 0 && len(c.Docs) == 0 && !c.Spellings
 }
 
 // Registered reports whether the index's own tables changed: every write to

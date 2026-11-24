@@ -181,7 +181,7 @@ func (e *ActionExecutor) stopAt(within []NodeRef, node NodeRef) (breakpointStop,
 // Inputs are applied after attribute defaults, so they override defaults with
 // the same name. Must be called before initialize().
 func (e *ActionExecutor) SetInputs(inputs map[string]Value) {
-	e.inputs = inputs
+	e.inputs = maps.Clone(inputs)
 }
 
 // newActionExecutor creates an action executor. self is the object performing
