@@ -18,6 +18,7 @@ func TestRuntimeRobustnessActionLocalConnection(t *testing.T) {
 	t.Run("nested_action_declaring_the_same_name", testActionLocalConnectionShadowed)
 	t.Run("as_many_connectors_as_the_lower_bound", testActionLocalConnectionMultiplicity)
 	t.Run("read_by_qualified_name", testActionLocalConnectionQualified)
+	t.Run("read_from_the_enclosing_action", testActionLocalConnectionReadFromParent)
 	t.Run("end_selecting_nothing", testActionLocalConnectionEndSelectingNothing)
 }
 
@@ -89,6 +90,18 @@ const actionLocalConnectionFixture = `
 				connection link : Link connect firstNode to secondNode;
 				assign links := connectQualified::link;
 				assign again := link;
+			}
+			action connectChild {
+				in ref firstNode : Node;
+				in ref secondNode : Node;
+				action child {
+					in ref x : Node = firstNode;
+					in ref y : Node = secondNode;
+					connection link : Link connect x to y;
+					assign links := link;
+				}
+				action read { assign again := child.link; }
+				first child then read;
 			}
 			action connectIndexed {
 				in ref firstNode : Node;
@@ -245,6 +258,18 @@ func testActionLocalConnectionQualified(t *testing.T) {
 	}
 	if qualified, bare := wantLinkEnds(t, ctx, inst, "links", a, b), wantLinkEnds(t, ctx, inst, "again", a, b); qualified != bare {
 		t.Errorf("qualified and bare reads hold connectors #%d and #%d, want one", qualified, bare)
+	}
+}
+
+// testActionLocalConnectionReadFromParent: the enclosing action reads a step's connection as
+// the connector that step's performance attached.
+func testActionLocalConnectionReadFromParent(t *testing.T) {
+	ctx, inst, a, b := actionLocalConnectionNetwork(t)
+	if _, err := ctx.invokeOperation(inst, "connectChild", map[string]Value{"firstNode": a, "secondNode": b}); err != nil {
+		t.Fatalf("connectChild(a, b): %v", err)
+	}
+	if child, parent := wantLinkEnds(t, ctx, inst, "links", a, b), wantLinkEnds(t, ctx, inst, "again", a, b); child != parent {
+		t.Errorf("the step and its enclosing action hold connectors #%d and #%d, want one", child, parent)
 	}
 }
 

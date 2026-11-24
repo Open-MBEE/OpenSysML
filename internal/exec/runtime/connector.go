@@ -921,8 +921,9 @@ func (ec *EvalContext) performedConnector(sym *symbols.Symbol) (Value, bool, err
 	if perf == nil {
 		return Value{}, false, nil
 	}
-	if val, ok := perf.connectors[sym]; ok {
-		return val, true, nil
+	// Held in the performance's own data, a parent's read of the step and a held image carry it.
+	if val, ok, err := ctx.readBodyValue(perf.cells, perf.data, sym.Name); ok || err != nil {
+		return val, true, err
 	}
 	mult := ctx.featureMultiplicity(sym, ctx.findOwnerType(sym))
 	scope := sym.OwnerScope
@@ -969,11 +970,7 @@ func (ec *EvalContext) performedConnector(sym *symbols.Symbol) (Value, bool, err
 	if one, _ := mult.HasBounds(1, 1); one {
 		val = elements[0]
 	}
-	if perf.connectors == nil {
-		perf.connectors = make(map[*symbols.Symbol]Value)
-	}
-	ctx.noteProbeUndo(func() { delete(perf.connectors, sym) })
-	perf.connectors[sym] = val
+	ctx.writeBodyValue(perf.cells, perf.data, sym.Name, val)
 	return val, true, nil
 }
 
