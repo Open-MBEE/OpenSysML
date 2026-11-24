@@ -134,13 +134,16 @@ func (m *Model) sendParameterValue(param *symbols.Symbol) *symbols.Symbol {
 	return nil
 }
 
-// nodeParameters are the parameters an accept or send action owns beyond its
-// declared members, in argument order; nil for any other symbol.
+// nodeParameters are the parameters an accept, send or control action owns beyond its
+// declared members, in parameter order; nil for any other symbol.
 func (m *Model) nodeParameters(sym *symbols.Symbol) []*symbols.Symbol {
 	if params := m.acceptParameters(sym); params != nil {
 		return params
 	}
-	return m.sendParameters(sym)
+	if params := m.sendParameters(sym); params != nil {
+		return params
+	}
+	return m.controlParameters(sym)
 }
 
 // sendElements is ReflectiveElements for the arguments of a send action

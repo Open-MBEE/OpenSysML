@@ -2341,6 +2341,7 @@ func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 	}
 	members = append(members, m.expressionOwnedElements(sym)...)
 	members = append(members, m.constructorResultFeatures(sym)...)
+	members = append(members, m.accessFeatures(sym)...)
 	members = append(members, m.nodeParameters(sym)...)
 	members = leadWithPrefixMetadata(sym, append(members, m.withSynthesizedMembers(sym, m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, ownedMembersOf(sym)))))...))
 	seen := make(map[*symbols.Symbol]bool, len(members))

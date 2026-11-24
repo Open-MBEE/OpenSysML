@@ -666,6 +666,9 @@ func usageRoleBaseFQN(d *ast.Usage) (string, bool) {
 		case isSendNode(d):
 			return sendActionsFQN, true
 		}
+		if fqn := controlBaseFQNs[controlFormOf(d)]; fqn != "" {
+			return fqn, true
+		}
 	case ast.UsageConstraint:
 		if d.PrefixKeyword == "assert" {
 			if d.IsNegated {

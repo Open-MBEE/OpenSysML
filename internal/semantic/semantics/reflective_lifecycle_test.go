@@ -18,7 +18,7 @@ func TestReflectiveMemosFollowTheDeclaringDocument(t *testing.T) {
 		import Q::*[true];
 		filter true;
 		calc c { 1 + 2 }
-		action a { action a1; first start then a1; then assign x := 1; then if true { action b1; } then done; attribute x; }
+		action a { action a1; first start then a1; then assign x := 1; then if true { action b1; } then for i in (1, 2) { action c1; } then done; attribute x; }
 	}`
 	read := func(scope *symbols.Scope) {
 		p := sym(t, scope, "P")

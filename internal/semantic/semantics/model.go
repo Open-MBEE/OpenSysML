@@ -222,6 +222,7 @@ type Model struct {
 	expressionParts         map[*symbols.Symbol]*expressionParts
 	transitionParts         map[*symbols.Symbol]*transitionParts
 	sendParts               map[*symbols.Symbol]*sendParts
+	controlParts            map[*symbols.Symbol]*controlParts
 	ownedAnnotations        map[*symbols.Symbol][]*symbols.Symbol
 	annotatingRels          map[*symbols.Symbol][]*symbols.Symbol
 	ownedImports            map[*symbols.Symbol][]*symbols.Symbol
@@ -611,6 +612,15 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 		}
 		seen[redefined] = true
 		out = append(out, redefined)
+	}
+
+	// A parameter a control action's notation implies redefines the parameter of its role in
+	// each general of the action (see reflective_control_parameters.go).
+	for _, redefined := range m.controlParameterRedefinitions(sym) {
+		if redefined != sym && !seen[redefined] {
+			seen[redefined] = true
+			out = append(out, redefined)
+		}
 	}
 
 	// A declaration in a metadata body redefines the metadata type's feature of

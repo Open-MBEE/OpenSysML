@@ -139,6 +139,7 @@ func nestedUsageOf(d *ast.Usage) NestedUsage {
 		Accept:                hasAcceptPayload(d),
 		Send:                  isSendNode(d),
 		Terminate:             d.IsTerminate,
+		Control:               controlFormOf(d),
 		Verified:              d.IsVerifiedRequirement(),
 	}
 }
@@ -184,6 +185,8 @@ type NestedUsage struct {
 	// Event, Accept, Send, Terminate and Verified are the `event occurrence`,
 	// accept, send and terminate action and objective `verify` roles.
 	Event, Accept, Send, Terminate, Verified bool
+	// Control is the assignment, conditional or loop a control action node is written as.
+	Control ControlForm
 	// EntryExitAction is a state's `entry` or `exit` action: a subperformance of
 	// the state but no subaction, since `StateAction::subactions :> middle`.
 	EntryExitAction bool
@@ -424,6 +427,9 @@ func actionKindNestedFQN(u NestedUsage, owner NestedOwner) string {
 		return "Actions::Action::sendSubactions"
 	case u.Terminate:
 		return "Actions::Action::terminateSubactions"
+	}
+	if fqn := controlSubactionFQNs[u.Control]; fqn != "" {
+		return fqn
 	}
 	return ""
 }
@@ -827,6 +833,14 @@ func expressionNestedFQN(sym *symbols.Symbol) string {
 	switch sym.Expr.Role {
 	case symbols.ExpressionBody, symbols.ExpressionBodyResult, symbols.ExpressionChangeCondition:
 		return "Performances::Performance::enclosedPerformances"
+	case symbols.ExpressionOperand:
+		// The test of a conditional or a loop is a parameter its action owns.
+		if sym.Expr.Owner != nil && controlStatementOf(sym.Expr.Owner.Decl) != nil {
+			switch sym.Expr.Slot {
+			case "condition", "whileCondition", "untilCondition":
+				return "Performances::Performance::enclosedPerformances"
+			}
+		}
 	}
 	return ""
 }

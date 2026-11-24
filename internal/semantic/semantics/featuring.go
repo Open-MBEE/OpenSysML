@@ -100,6 +100,11 @@ func (m *Model) impliedTypeFeaturings(feature *symbols.Symbol, deriving map[*sym
 			}
 		}
 		return out
+	case m.nodeParameterOwner(feature) != nil || feature.Expr != nil && feature.Expr.Role == symbols.ExpressionAccess:
+		// KerML checkFeatureFeatureMembershipTypeFeaturing: a control action owns the parameters its
+		// notation implies, and an assignment's target the features naming what it assigns; each
+		// may time vary, its owner being an occurrence (SysML v2 §8.3.6.4 Usage::mayTimeVary).
+		return []FeaturingType{m.impliedFeaturingType(owner, feature.Kind != symbols.SymbolExpression && !m.isKerMLDoc(feature))}
 	case isExpressionParameterSymbol(feature):
 		// KerML checkFeatureFeatureMembershipTypeFeaturing: an expression owns its parameters.
 		return []FeaturingType{m.plainFeaturingType(owner)}

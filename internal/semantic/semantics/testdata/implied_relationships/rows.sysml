@@ -17,6 +17,16 @@ package R {
 	part def Fl { part src : PD { out item o : Msg; } part dst : PD { in item i : Msg; } flow fl of Msg from src.o to dst.i; }
 	occurrence def Occ { attribute t : AD; }
 	action def Loop { action lp for i in (1,2,3) { } }
+	item def Sig; part def PQ { attribute q : AD; }
+	action def W { in c : Boolean; action wl while c { } until c; }
+	action def L { in c : Boolean; action ll loop { } until c; }
+	action def I { in c : Boolean; action ifa if c { } else { } }
+	action def I2 { in c : Boolean; action ifb if c { } }
+	action def Snd { in s : Sig; part p : PQ; action sa send s via p to p; }
+	action def Acc { part p : PQ; action aa accept m : Sig via p; }
+	action def Ter { part p : PQ; action ta terminate p; action tb terminate; }
+	action def AsgC { part p : PQ; in v : AD; action ac assign p.q := v; }
+	action def LoopT { in xs : AD[*]; action lt for j : AD in xs { } }
 	calc def G2 { in a : AD; in b : AD; return r : AD; }
 	part def P2 { attribute px : AD; attribute py : AD; }
 	part def E {
