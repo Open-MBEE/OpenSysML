@@ -175,13 +175,18 @@ func (r *Resolver) plainRegion(scope *symbols.Scope) bool {
 	if r.inCondition != 0 || !plainNamespace(scope) {
 		return false
 	}
-	region := &plainRegionReader{
-		r:      r,
-		scope:  scope,
-		named:  map[string]*symbols.Symbol{},
-		seen:   map[*symbols.Scope]bool{scope: true},
-		region: []*symbols.Scope{scope},
+	// Every read asks, so the tables are kept between calls; a call made within this one takes its own.
+	region := r.plainWork
+	r.plainWork = nil
+	if region == nil {
+		region = &plainRegionReader{r: r, named: map[string]*symbols.Symbol{}, seen: map[*symbols.Scope]bool{}}
 	}
+	defer func() {
+		region.reset()
+		r.plainWork = region
+	}()
+	region.scope = scope
+	region.add(scope)
 	if !region.reach() || len(region.seen) == 1 {
 		return false
 	}
@@ -221,6 +226,22 @@ type plainRegionReader struct {
 	stating map[*symbols.Scope]bool
 }
 
+// reset empties the tables, keeping their storage and no reference into a model.
+func (p *plainRegionReader) reset() {
+	clear(p.region)
+	clear(p.imports)
+	clear(p.outside)
+	clear(p.outer)
+	clear(p.filtered)
+	p.region, p.imports, p.outside = p.region[:0], p.imports[:0], p.outside[:0]
+	p.outer, p.filtered = p.outer[:0], p.filtered[:0]
+	p.scope, p.read = nil, 0
+	clear(p.seen)
+	clear(p.named)
+	clear(p.routes)
+	clear(p.stating)
+}
+
 // unique reports whether no member of ns has the name of another read before it.
 func (p *plainRegionReader) unique(ns *symbols.Scope) bool {
 	distinct := true
@@ -252,13 +273,14 @@ func (p *plainRegionReader) reach() bool {
 }
 
 func (p *plainRegionReader) readNamespace(ns *symbols.Scope) bool {
-	if len(ns.Imports()) != 0 && len(p.r.namespaceFilters(ns)) != 0 {
+	stated := ns.Imports()
+	if len(stated) != 0 && len(p.r.namespaceFilters(ns)) != 0 {
 		p.filtered = append(p.filtered, ns)
 	}
 	if ns != p.scope && !(plainNamespace(ns) && p.unique(ns)) {
 		return false
 	}
-	for _, imp := range ns.Imports() {
+	for _, imp := range stated {
 		if !p.readImport(ns, imp) {
 			return false
 		}
@@ -286,8 +308,10 @@ func (p *plainRegionReader) readImport(ns *symbols.Scope, imp *ast.Import) bool 
 // filtersHold reads the imports other documents state for the region's namespaces and
 // reports whether each filter restricts what its namespace reaches on every route from scope.
 func (p *plainRegionReader) filtersHold() bool {
-	p.routes = map[*symbols.Scope][]*symbols.Scope{}
-	p.stating = map[*symbols.Scope]bool{}
+	if p.routes == nil {
+		p.routes = map[*symbols.Scope][]*symbols.Scope{}
+		p.stating = map[*symbols.Scope]bool{}
+	}
 	root := rootOf(p.scope)
 	// A namespace another document declares too has the imports stated there, each read as its own are.
 	for at := 0; at < len(p.region); at++ {
