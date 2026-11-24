@@ -240,6 +240,10 @@ func (ec *EvalContext) scopeReferenceValue(name string, qn *ast.QualifiedName, a
 	if val, ok, err := ec.ctx.MeasurementUnitValue(sym); ok {
 		return val, true, err
 	}
+	// A connection a behavior being performed declares is that performance's own connector.
+	if val, ok, err := ec.performedConnector(sym); ok {
+		return val, true, err
+	}
 	// A part, item or structured value names an object, so the name evaluates to
 	// that object rather than to a value the declaration would have to hold.
 	if val, ok, err := ec.occurrenceReference(sym); ok {
@@ -322,6 +326,10 @@ func (ec *EvalContext) evalQualifiedName(qn *ast.QualifiedName, at *program.Expr
 	}
 	// A measurement unit declaration (`SI::m`) is the measurement reference it names.
 	if val, ok, err := ec.ctx.MeasurementUnitValue(currentSym); ok {
+		return val, err
+	}
+	// A qualified connection of a behavior being performed (`connect::link`) is the performance's.
+	if val, ok, err := ec.performedConnector(currentSym); ok {
 		return val, err
 	}
 	// A qualified feature of the behavior performed (`SM::entryAction`) is the performance's.
