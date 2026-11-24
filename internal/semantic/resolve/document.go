@@ -396,6 +396,7 @@ func (r *Resolver) resolveBehaviorDecl(scope *symbols.Scope, decl ast.Node) bool
 		if child := r.childScope(scope, d); child != nil {
 			body = child
 		}
+		r.resolveRelationships(body, d, d.VariableRelationships)
 		r.resolveExpr(scope, d.Collection)
 		r.resolveExpr(body, d.Condition)
 		r.resolveExpr(body, d.Until)

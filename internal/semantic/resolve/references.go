@@ -507,6 +507,7 @@ func (c *refCollector) behaviorDecl(scope *symbols.Scope, decl ast.Node) bool {
 		if child := c.childScope(scope, d); child != nil {
 			body = child
 		}
+		c.relationships(body, d, d.VariableRelationships)
 		c.expr(scope, d.Collection)
 		c.expr(body, d.Condition)
 		c.expr(body, d.Until)
