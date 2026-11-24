@@ -642,19 +642,33 @@ Needs `sysml-diagram-mmdc-program' and a frame that can display SVG."
             (special-mode)))
         (pop-to-buffer buffer)))))
 
+(defconst sysml-diagram--mmdc-config
+  "{\"htmlLabels\": false, \"flowchart\": {\"wrappingWidth\": 400}}"
+  "Mermaid configuration for an SVG librsvg can draw.
+Labels are SVG text rather than HTML in `foreignObject', which librsvg
+does not draw, and wrap only where a label's line exceeds 400 pixels.")
+
 (defun sysml-diagram--mermaid-to-svg (mmdc mermaid)
   "Return the SVG text MMDC draws for the Mermaid source MERMAID."
   (let* ((input (make-temp-file "sysml-view" nil ".mmd" mermaid))
+         (config (make-temp-file "sysml-view" nil ".json" sysml-diagram--mmdc-config))
          (output (concat (file-name-sans-extension input) ".svg"))
          (log (generate-new-buffer " *sysml-mmdc*")))
     (unwind-protect
-        (let ((status (call-process mmdc nil log nil "--quiet" "-i" input "-o" output)))
+        (let ((status (call-process mmdc nil log nil
+                                    "--quiet" "-c" config "-i" input "-o" output)))
           (unless (and (eql status 0) (file-exists-p output))
             (error "%s failed: %s" mmdc (with-current-buffer log (string-trim (buffer-string)))))
           (with-temp-buffer
             (insert-file-contents output)
+            ;; Mermaid starts each word after the first in a <tspan> of its
+            ;; own with a leading space, which librsvg drops unless preserved.
+            (goto-char (point-min))
+            (when (search-forward "<svg " nil t)
+              (insert "xml:space=\"preserve\" "))
             (buffer-string)))
       (delete-file input)
+      (delete-file config)
       (when (file-exists-p output) (delete-file output))
       (kill-buffer log))))
 

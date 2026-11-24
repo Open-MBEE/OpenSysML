@@ -126,6 +126,24 @@
               (should (string-match-p "matrix" (cadr err))))))
       (kill-buffer source))))
 
+(ert-deftest sysml-diagram-asks-mermaid-for-an-svg-librsvg-draws ()
+  (let* ((args (make-temp-file "sysml-mmdc-args"))
+         (mmdc (make-temp-file "sysml-mmdc" nil nil
+                               (concat "#!/bin/sh\n"
+                                       "echo \"$@\" > " (shell-quote-argument args) "\n"
+                                       "while [ \"$1\" != -o ]; do shift; done\n"
+                                       "echo '<svg id=\"v\"><text>a</text></svg>' > \"$2\"\n"))))
+    (unwind-protect
+        (progn
+          (set-file-modes mmdc #o755)
+          (should (string-prefix-p "<svg xml:space=\"preserve\" "
+                                   (sysml-diagram--mermaid-to-svg mmdc "flowchart TD")))
+          (should (string-match-p "-c [^ ]+\\.json" (with-temp-buffer
+                                                     (insert-file-contents args)
+                                                     (buffer-string)))))
+      (delete-file args)
+      (delete-file mmdc))))
+
 (defconst sysml-diagram-test--library-uri
   "sysml-stdlib:/Kernel%20Libraries/Kernel%20Data%20Type%20Library/ScalarValues.kerml"
   "Where the bundled library declares ScalarValues.")
