@@ -110,16 +110,17 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 // withBodyMemberships appends the membership of each member sym's body declares that is not yet in
 // seen, numbered from ordinal.
 func (m *Model) withBodyMemberships(sym *symbols.Symbol, out []*symbols.Symbol, ordinal int, seen map[*symbols.Symbol]bool) []*symbols.Symbol {
-	scope := sym.Scope
+	scope, written := sym.Scope, sym.Decl
 	if statement := nodeStatementOf(sym.Decl); statement != nil {
 		// A node written as its statement (`action a while c { … }`) owns the
 		// members its statement's body declares.
+		written = statement
 		if child := scope.ChildFor(statement); child != nil {
 			scope = child
 		}
 	}
 	scope.ForEachMember(func(member *symbols.Symbol) bool {
-		if member.Decl == sym.Decl && IsStatementNode(sym.Decl) {
+		if member.Decl == written && IsStatementNode(written) {
 			// A `for` variable is a body-local name, not an element the
 			// conversion writes (sysx:loopVariable is a string).
 			return true
@@ -573,6 +574,10 @@ func relationshipBodyOwner(sym *symbols.Symbol) bool {
 func (m *Model) OwningMembership(sym *symbols.Symbol) *symbols.Symbol {
 	if m == nil || sym == nil || sym.Implicit != nil || sym.Chain != nil || sym.Kind == symbols.SymbolAlias {
 		return nil
+	}
+	if sym.Expr != nil && IsFilterMembership(sym.Expr.Owner) && sym.Expr.Owner.Implicit.Member == sym {
+		// A filter package's condition is held by the package's filter membership.
+		return sym.Expr.Owner
 	}
 	owner := m.ownerOf(sym)
 	if owner == nil {
@@ -1126,6 +1131,11 @@ func (m *Model) membershipValue(sym *symbols.Symbol, feature string) (symbols.Fi
 		if rel.Member == nil {
 			// `entry;` owns no member: its visibility is the membership's own.
 			return m.visibilityValue(sym.Visibility), true
+		}
+		if expr := rel.Member.Expr; expr != nil && expr.Role == symbols.ExpressionFilterCondition {
+			// An ElementFilterMembership's visibility is the one its MemberPrefix states (KerML 8.2.3.4.1).
+			_, written := filterMemberStating(expr.Owner, rel.Member.Decl)
+			return m.visibilityValue(written), true
 		}
 		return m.visibilityValue(rel.Member.Visibility), true
 	case "isDefault", "isInitial":
