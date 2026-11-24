@@ -1,6 +1,7 @@
 package opensysml
 
 import (
+	"context"
 	"sync"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
@@ -14,6 +15,12 @@ import (
 // process only — see OpenSession — and are not part of the Client interface.
 // A Session is safe for concurrent use; every call is answered before it
 // returns, bounded by the same step budget as ExecuteAction.
+//
+// The calls that run the model each have a Context form (PerformContext,
+// AdvanceContext, …) bound to a context as well: when it ends, a run under way
+// stops at its next step and a call still waiting behind another gives up, and
+// the call answers CodeCanceled or CodeDeadlineExceeded. The session keeps what
+// the stopped run had done and answers later calls.
 type Session struct {
 	mu     sync.Mutex
 	engine *sysmlgrpc.Session
@@ -74,11 +81,17 @@ func (s *Session) live() error {
 // answer runs one engine call behind the public boundary: a closed session, a
 // status or a panic becomes a StatusError, the model's own failure a FailureError.
 func (s *Session) answer(op string, call func() error) (err error) {
+	return s.answerContext(context.Background(), op, call)
+}
+
+// answerContext is answer bound to ctx: the call waits its turn for no longer
+// than ctx lasts, and a run under way when ctx ends is stopped.
+func (s *Session) answerContext(ctx context.Context, op string, call func() error) (err error) {
 	if err := s.live(); err != nil {
 		return err
 	}
 	defer recoverToError(&err)
-	return sessionError(op, call())
+	return sessionError(op, s.engine.Under(ctx, call))
 }
 
 // sessionError maps what the engine answered to the documented error types.
@@ -115,7 +128,12 @@ func (s *Session) Now() (now float64, err error) {
 // machines it exhibits, and answers the handle later calls take. The object
 // lives until the session closes.
 func (s *Session) Instantiate(symbolID string) (id InstanceID, err error) {
-	err = s.answer("Instantiate", func() error {
+	return s.InstantiateContext(context.Background(), symbolID)
+}
+
+// InstantiateContext is Instantiate bound to ctx, which stops the call when it ends.
+func (s *Session) InstantiateContext(ctx context.Context, symbolID string) (id InstanceID, err error) {
+	err = s.answerContext(ctx, "Instantiate", func() error {
 		raw, err := s.engine.Instantiate(symbolID)
 		id = InstanceID(raw)
 		return err
@@ -126,7 +144,12 @@ func (s *Session) Instantiate(symbolID string) (id InstanceID, err error) {
 // Feature reads what an object holds for one feature of its type, by name, as
 // the session's runs have left it.
 func (s *Session) Feature(object InstanceID, name string) (value *FeatureValue, err error) {
-	err = s.answer("Feature", func() error {
+	return s.FeatureContext(context.Background(), object, name)
+}
+
+// FeatureContext is Feature bound to ctx, which stops the call when it ends.
+func (s *Session) FeatureContext(ctx context.Context, object InstanceID, name string) (value *FeatureValue, err error) {
+	err = s.answerContext(ctx, "Feature", func() error {
 		fv, err := s.engine.FeatureValue(int64(object), name)
 		if err != nil {
 			return err
@@ -142,7 +165,12 @@ func (s *Session) Feature(object InstanceID, name string) (value *FeatureValue, 
 
 // SetFeature writes one feature of an object, as an assignment in the model would.
 func (s *Session) SetFeature(object InstanceID, name string, value Value) error {
-	return s.answer("SetFeature", func() error {
+	return s.SetFeatureContext(context.Background(), object, name, value)
+}
+
+// SetFeatureContext is SetFeature bound to ctx, which stops the call when it ends.
+func (s *Session) SetFeatureContext(ctx context.Context, object InstanceID, name string, value Value) error {
+	return s.answerContext(ctx, "SetFeature", func() error {
 		sent, err := valueToProto(value)
 		if err != nil {
 			return err
@@ -157,6 +185,11 @@ func (s *Session) SetFeature(object InstanceID, name string, value Value) error 
 // object's current value. WithSubject is not taken: the session's objects are
 // the subjects.
 func (s *Session) Evaluate(expression string, opts ...EvaluateOption) (value Value, err error) {
+	return s.EvaluateContext(context.Background(), expression, opts...)
+}
+
+// EvaluateContext is Evaluate bound to ctx, which stops the call when it ends.
+func (s *Session) EvaluateContext(ctx context.Context, expression string, opts ...EvaluateOption) (value Value, err error) {
 	var options evaluateOptions
 	for _, opt := range opts {
 		opt(&options)
@@ -164,7 +197,7 @@ func (s *Session) Evaluate(expression string, opts ...EvaluateOption) (value Val
 	if options.subjectSymbolID != "" {
 		return nil, &StatusError{Code: CodeInvalidArgument, Message: "Session.Evaluate takes no subject: instantiate one and read its features instead"}
 	}
-	err = s.answer("Evaluate", func() error {
+	err = s.answerContext(ctx, "Evaluate", func() error {
 		raw, err := s.engine.Evaluate(expression, options.contextSymbolID)
 		if err != nil {
 			return err
@@ -318,7 +351,12 @@ func acceptanceFromFact(a *sysmlgrpc.SessionAcceptance) *Acceptance {
 // of theirs, an enclosing state's included, is triggered by it and whether a
 // guard holds. The signal definition is named by ID; args bind its attributes.
 func (s *Session) Accepts(object InstanceID, signalID string, args map[string]Value) (acceptance *Acceptance, err error) {
-	err = s.answer("Accepts", func() error {
+	return s.AcceptsContext(context.Background(), object, signalID, args)
+}
+
+// AcceptsContext is Accepts bound to ctx, which stops the call when it ends.
+func (s *Session) AcceptsContext(ctx context.Context, object InstanceID, signalID string, args map[string]Value) (acceptance *Acceptance, err error) {
+	err = s.answerContext(ctx, "Accepts", func() error {
 		sent, err := valuesToProto(args)
 		if err != nil {
 			return err
@@ -339,7 +377,12 @@ func (s *Session) Accepts(object InstanceID, signalID string, args map[string]Va
 // its guards are false, is refused with CodeFailedPrecondition and nothing is
 // posted.
 func (s *Session) Send(object InstanceID, signalID string, args map[string]Value) (acceptance *Acceptance, err error) {
-	err = s.answer("Send", func() error {
+	return s.SendContext(context.Background(), object, signalID, args)
+}
+
+// SendContext is Send bound to ctx, which stops the call when it ends.
+func (s *Session) SendContext(ctx context.Context, object InstanceID, signalID string, args map[string]Value) (acceptance *Acceptance, err error) {
+	err = s.answerContext(ctx, "Send", func() error {
 		sent, err := valuesToProto(args)
 		if err != nil {
 			return err
@@ -397,7 +440,12 @@ type Advancement struct {
 // now — running the transitions, effects and completion transitions that
 // follow until the machines settle.
 func (s *Session) Advance(seconds float64) (advanced *Advancement, err error) {
-	err = s.answer("Advance", func() error {
+	return s.AdvanceContext(context.Background(), seconds)
+}
+
+// AdvanceContext is Advance bound to ctx, which stops the call when it ends.
+func (s *Session) AdvanceContext(ctx context.Context, seconds float64) (advanced *Advancement, err error) {
+	err = s.answerContext(ctx, "Advance", func() error {
 		fact, err := s.engine.Advance(seconds)
 		if err != nil {
 			return err
@@ -461,7 +509,12 @@ func (p *Performance) TurnedAway() bool {
 // features read and written by the action are those the session holds. A run
 // the model fails is a FailureError carrying the run's diagnostics.
 func (s *Session) Perform(object InstanceID, actionID string, inputs map[string]Value) (performed *Performance, err error) {
-	err = s.answer("Perform", func() error {
+	return s.PerformContext(context.Background(), object, actionID, inputs)
+}
+
+// PerformContext is Perform bound to ctx, which stops the call when it ends.
+func (s *Session) PerformContext(ctx context.Context, object InstanceID, actionID string, inputs map[string]Value) (performed *Performance, err error) {
+	err = s.answerContext(ctx, "Perform", func() error {
 		sent, err := valuesToProto(inputs)
 		if err != nil {
 			return err
