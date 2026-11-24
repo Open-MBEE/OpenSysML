@@ -2,6 +2,7 @@ package rdf
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 	"unicode"
 )
@@ -281,7 +282,7 @@ func (p *parser) readIRIRef() (string, error) {
 	}
 	iri := b.String()
 	if p.base != "" && !strings.Contains(iri, ":") {
-		iri = p.base + iri
+		iri = resolveIRI(p.base, iri)
 	}
 	return iri, nil
 }
@@ -452,4 +453,18 @@ func (p *parser) readWhile(keep func(rune) bool) string {
 		p.next()
 	}
 	return p.src[start:p.pos]
+}
+
+// resolveIRI resolves a relative reference against base as RFC 3986 section 5 does;
+// one that does not parse, or a base with no hierarchy, has it appended as written.
+func resolveIRI(base, ref string) string {
+	b, err := url.Parse(base)
+	if err != nil || !b.IsAbs() || b.Opaque != "" {
+		return base + ref
+	}
+	r, err := url.Parse(ref)
+	if err != nil {
+		return base + ref
+	}
+	return b.ResolveReference(r).String()
 }
