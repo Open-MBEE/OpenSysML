@@ -296,12 +296,12 @@ Feature::featuringType	1	symbol-17
 Feature::inheritedFeature	347	symbol-72
 Feature::inheritedMembership	347	symbol-72
 Feature::input	1	symbol-72
-Feature::name	6648	symbol-72
+Feature::name	6753	symbol-72
 Feature::output	1	symbol-72
 Feature::ownedRedefinition	347	symbol-72
 Feature::ownedSpecialization	347	symbol-72
 Feature::ownedSubsetting	347	symbol-72
-Feature::type	6522	symbol-19
+Feature::type	6627	symbol-19
 FeatureChainExpression::instantiatedType	311	symbol-29
 FeatureChainExpression::operand	503	symbol-30
 FeatureChaining::relatedElement	297	symbol-10
@@ -524,7 +524,7 @@ RequirementUsage::type	62	symbol-19
 RequirementVerificationMembership::verifiedRequirement	26	symbol-45
 ResultExpressionMembership::ownedMemberFeature	2	symbol-16
 ReturnParameterMembership::ownedMemberFeature	1	symbol-16
-ReturnParameterMembership::ownedMemberName	3783	symbol-85
+ReturnParameterMembership::ownedMemberName	3888	symbol-85
 SatisfyRequirementUsage::behavior	2	symbol-26
 SatisfyRequirementUsage::constraintDefinition	2	symbol-32
 SatisfyRequirementUsage::definition	2	symbol-37
