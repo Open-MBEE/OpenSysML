@@ -921,6 +921,12 @@ func (ec *EvalContext) performedConnector(sym *symbols.Symbol) (Value, bool, err
 	if perf == nil {
 		return Value{}, false, nil
 	}
+	// A performance run as an occurrence already holding the connection reads the occurrence's.
+	if perf.parent == nil {
+		if val, ok, err := ec.performanceFeatureOf(sym); ok || err != nil {
+			return val, true, err
+		}
+	}
 	// Held in the performance's own data, a parent's read of the step and a held image carry it.
 	if val, ok, err := ctx.readBodyValue(perf.cells, perf.data, sym.Name); ok || err != nil {
 		return val, true, err

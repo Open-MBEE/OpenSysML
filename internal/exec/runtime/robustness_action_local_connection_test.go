@@ -19,6 +19,7 @@ func TestRuntimeRobustnessActionLocalConnection(t *testing.T) {
 	t.Run("as_many_connectors_as_the_lower_bound", testActionLocalConnectionMultiplicity)
 	t.Run("read_by_qualified_name", testActionLocalConnectionQualified)
 	t.Run("read_from_the_enclosing_action", testActionLocalConnectionReadFromParent)
+	t.Run("held_by_the_performance_occurrence", testActionLocalConnectionOccurrence)
 	t.Run("end_selecting_nothing", testActionLocalConnectionEndSelectingNothing)
 }
 
@@ -30,6 +31,15 @@ const actionLocalConnectionFixture = `
 			in ref firstNode : Node;
 			in ref secondNode : Node;
 			connection link : Link connect firstNode to secondNode;
+		}
+		action def Recorded {
+			in ref firstNode : Node;
+			in ref secondNode : Node;
+			ref made : Link [0..*];
+			ref again : Link [0..*];
+			connection link : Link connect firstNode to secondNode;
+			assign made := Recorded::link;
+			then assign again := link;
 		}
 		part def Network {
 			part a : Node;
@@ -102,6 +112,10 @@ const actionLocalConnectionFixture = `
 				}
 				action read { assign again := child.link; }
 				first child then read;
+			}
+			perform action connectPerformed : Recorded {
+				in ref firstNode = a;
+				in ref secondNode = b;
 			}
 			action connectIndexed {
 				in ref firstNode : Node;
@@ -270,6 +284,26 @@ func testActionLocalConnectionReadFromParent(t *testing.T) {
 	}
 	if child, parent := wantLinkEnds(t, ctx, inst, "links", a, b), wantLinkEnds(t, ctx, inst, "again", a, b); child != parent {
 		t.Errorf("the step and its enclosing action hold connectors #%d and #%d, want one", child, parent)
+	}
+}
+
+// testActionLocalConnectionOccurrence: a performance run as an occurrence reads the connector
+// the occurrence holds, by either spelling, and attaches no other.
+func testActionLocalConnectionOccurrence(t *testing.T) {
+	ctx, inst, a, b := actionLocalConnectionNetwork(t)
+	if _, err := ctx.invokeOperation(inst, "connectPerformed", nil); err != nil {
+		t.Fatalf("connectPerformed: %v", err)
+	}
+	behavior, ok := inst.behavior("connectPerformed")
+	if !ok || behavior.Action == nil || behavior.Action.occurrence == nil {
+		t.Fatal("the network performs no connectPerformed occurrence")
+	}
+	occ := behavior.Action.occurrence
+	held := wantLinkEnds(t, ctx, occ, "link", a, b)
+	for _, feature := range []string{"made", "again"} {
+		if got := wantLinkEnds(t, ctx, occ, feature, a, b); got != held {
+			t.Errorf("%s holds connector #%d, want the occurrence's #%d", feature, got, held)
+		}
 	}
 }
 
