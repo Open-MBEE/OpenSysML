@@ -33,6 +33,7 @@ func Output(timeout time.Duration, limit int, name string, args ...string) (stdo
 	ctx, cancel := Timeout(context.Background(), timeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, name, args...) // #nosec G204 -- every caller names an operator-chosen or resolved program
+	Group(cmd)
 	cmd.WaitDelay = WaitDelay
 	out, errs := Stream(limit, cancel), Stream(limit, cancel)
 	cmd.Stdout, cmd.Stderr = out, errs

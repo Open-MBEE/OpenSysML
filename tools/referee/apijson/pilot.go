@@ -124,6 +124,7 @@ func launchPilot(launcher, dir, out string, libraries, files []string, timeout t
 	defer cancel()
 	// #nosec G204 -- launcher is an explicit CLI override or repo-local artifact.
 	command := exec.CommandContext(ctx, launcher, args...)
+	subprocess.Group(command)
 	command.WaitDelay = subprocess.WaitDelay
 	stderr := subprocess.Stream(maxPilotStderr, cancel)
 	command.Stdout, command.Stderr = os.Stdout, stderr

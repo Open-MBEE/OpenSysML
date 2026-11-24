@@ -67,3 +67,16 @@ func TestTimeoutOfZeroIsNoLimit(t *testing.T) {
 		t.Fatal("a positive timeout gave no deadline")
 	}
 }
+
+// TestOutputStopsTheChildrenOfAScriptPastItsTimeout: a launcher script's child holds the
+// script's pipe, so Output returning well inside WaitDelay shows the child was ended too.
+func TestOutputStopsTheChildrenOfAScriptPastItsTimeout(t *testing.T) {
+	start := time.Now()
+	_, _, err := Output(200*time.Millisecond, 1<<10, sh(t), "-c", "sleep 600 | cat")
+	if !errors.Is(err, ErrTimeout) {
+		t.Fatalf("got %v, want ErrTimeout", err)
+	}
+	if elapsed := time.Since(start); elapsed > WaitDelay/2 {
+		t.Fatalf("returned after %s, so a child outlived the script", elapsed)
+	}
+}

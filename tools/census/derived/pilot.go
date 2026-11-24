@@ -75,6 +75,7 @@ func runExporter(launcher, dir, libraries string, files []string, timeout time.D
 	defer cancel()
 	// #nosec G204 -- launcher is an explicit CLI override or repo-local artifact.
 	command := exec.CommandContext(ctx, launcher, args...)
+	subprocess.Group(command)
 	command.WaitDelay = subprocess.WaitDelay
 	stderr := subprocess.Stream(maxPilotStderr, cancel)
 	command.Stdout, command.Stderr = os.Stdout, stderr
