@@ -6,6 +6,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
@@ -78,9 +79,8 @@ func (m Model) addMetadataSplice(i int, op Operation) (splice, error) {
 	return splice{span: ins.span, text: ins.text, opIndex: i, target: op.Owner}, nil
 }
 
-// setAnnotationValueSplice rewrites the value bound by an annotation usage to
-// one of its metadata features. It targets the binding in the usage's body,
-// never the metadata definition's own default for that feature.
+// setAnnotationValueSplice rewrites a binding in the annotation's body,
+// never the metadata definition's default.
 func (m Model) setAnnotationValueSplice(i int, op Operation) (splice, error) {
 	fail := func(reason string) (splice, error) {
 		return splice{}, &Error{Failure: FailureUnknownTarget, OperationIndex: i, Message: reason}
@@ -125,6 +125,7 @@ func (m Model) setAnnotationValueSplice(i int, op Operation) (splice, error) {
 				continue
 			}
 		}
+		bound := false
 		for _, binding := range metadata.Bindings {
 			if binding.Feature != op.AnnotationFeature {
 				continue
@@ -134,6 +135,18 @@ func (m Model) setAnnotationValueSplice(i int, op Operation) (splice, error) {
 				return splice{}, err
 			}
 			found = append(found, sp)
+			bound = true
+		}
+		if !bound {
+			if usage := annotationBodyFeature(metadata.Node, op.AnnotationFeature); usage != nil && usage.Value == nil {
+				sp, err := m.bindingValueSplice(i, op, semantics.MetadataBinding{
+					Feature: op.AnnotationFeature, Node: usage,
+				})
+				if err != nil {
+					return splice{}, err
+				}
+				found = append(found, sp)
+			}
 		}
 	}
 	switch len(found) {
@@ -163,6 +176,42 @@ func sameMetadataType(metadata *symbols.Symbol, name string, named []*symbols.Sy
 		}
 	}
 	return false
+}
+
+// annotationBodyFeature finds feature in an annotation body, including a
+// declaration that binds no value yet.
+func annotationBodyFeature(node ast.Node, feature string) *ast.Usage {
+	_, body, ok := ast.DeclaredMetadata(node)
+	if !ok {
+		return nil
+	}
+	for _, member := range body {
+		if wrapped, isMembership := member.(*ast.Membership); isMembership {
+			member = wrapped.Member
+		}
+		usage, isUsage := member.(*ast.Usage)
+		if !isUsage || annotationFeatureName(usage) != feature {
+			continue
+		}
+		return usage
+	}
+	return nil
+}
+
+// annotationFeatureName is a body member's own name or the feature it redefines.
+func annotationFeatureName(u *ast.Usage) string {
+	if u.Ident.Name != "" {
+		return u.Ident.Name
+	}
+	for _, rel := range u.Relationships {
+		if rel == nil || rel.Kind != ast.RelRedefines {
+			continue
+		}
+		if qn, ok := rel.Target.(*ast.QualifiedName); ok && len(qn.Parts) > 0 {
+			return qn.Parts[len(qn.Parts)-1].Text
+		}
+	}
+	return ""
 }
 
 // bindingValueSplice is the byte range a metadata binding's value occupies, or

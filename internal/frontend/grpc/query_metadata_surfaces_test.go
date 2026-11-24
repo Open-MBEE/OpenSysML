@@ -31,9 +31,8 @@ const metadataSurfacesModel = `package Demo {
 	}
 }`
 
-// The two new derived properties are selectable through the Query RPC without
-// a schema change: one annotated element answers its binding, an unannotated
-// one omits the property, and a state usage answers its Boolean activity.
+// Both properties are selectable through the Query RPC with no schema change:
+// an annotated row answers its binding, a state its Boolean activity.
 func TestQuerySelectsAnnotationAndActivityProperties(t *testing.T) {
 	_, _, resp := runQueryOnSource(t, metadataSurfacesModel, &pb.Query{
 		Scope:  []string{"Demo"},

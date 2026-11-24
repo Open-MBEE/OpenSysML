@@ -28,9 +28,8 @@ const (
 	relationshipRefinement     = "refinement"
 )
 
-// SupportedRelationships lists every relationship kind a row-set traversal
-// accepts, in stable order. Both the `allocation` and the notation's `allocate`
-// spelling name allocation edges.
+// SupportedRelationships lists row-set relationship kinds in stable order;
+// `allocation` and `allocate` name the same edges.
 func SupportedRelationships() []string {
 	out := append([]string(nil), relationshipSpecialization, relationshipSubsetting,
 		relationshipRedefinition, relationshipTyping, relationshipConnection,

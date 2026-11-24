@@ -148,9 +148,8 @@ func TestExecuteRelatedConnectionsAllocationsAndAssertions(t *testing.T) {
 		[]string{"massVerification"})
 }
 
-// Dependency declarations and both spellings of an allocation are row-set edges:
-// one Related operation answers the client and supplier (or allocater and
-// allocatee) from either end, and the kinds stay distinct from one another.
+// Dependency and both allocation spellings are distinct row-set edges whose
+// ends a Related operation answers from either side.
 func TestExecuteRelatedDependencyAndAllocate(t *testing.T) {
 	fixture := loadExecutionFixtureFile(t, "testdata/tmt_relationships.sysml")
 

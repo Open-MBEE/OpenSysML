@@ -80,8 +80,10 @@ What was still missing at that baseline:
 2. **Annotation-value writes.** A new edit operation targets the annotation
    usage's body binding by the annotated element, the metadata type and the
    feature. It rewrites only the value expression's bytes. When the body does
-   not bind a value yet, it inserts one before the binding's terminator. The
-   metadata definition's default is never touched.
+   not bind a value yet, it inserts one before the declaration's terminator:
+   a feature written as `label;` contributes no semantic binding, so the edit
+   also looks for the member in the annotation body itself. The metadata
+   definition's default is never touched.
 3. **Boolean activity on state usages.** `isActive` is a query property whose
    value comes from the state machines of the query's runtime session. It reads
    the same executor configuration the expression evaluator uses, exposed as
@@ -157,6 +159,7 @@ this change.
 | A kind outside the set is refused with a message naming every accepted kind | `internal/doc/queryexec/related_test.go:TestExecuteRelatedRefusalNamesTheSupportedKinds`, with the exact message also pinned by `internal/doc/queryexec/related_column_test.go:TestExecuteRelatedColumnReportsItsColumnInErrors` |
 | `ApplyEdits` changes an annotation usage's binding from `old` to `new`, leaves the definition default intact, parses cleanly and pins the changed span | `internal/check/edit/annotation_value_test.go:TestSetAnnotationValueRewritesTheUsageBinding` |
 | The inline body form is reachable and an unbound feature is refused with a typed error | `internal/check/edit/annotation_value_test.go:TestSetAnnotationValueRewritesAnInlineBinding`, `:TestSetAnnotationValueRefusesAnUnboundFeature` |
+| A feature written without a value (`label;`) gains one on the usage while the definition's default stays intact | `internal/check/edit/annotation_value_test.go:TestSetAnnotationValueAddsValueToUnboundFeature` |
 | A started state answers `isActive = true` and a never-entered one `false` in one query | `internal/doc/queryexec/is_active_query_test.go:TestQueryAnswersStateActivity` |
 | `isActive` stays a Boolean property without a session and is absent on non-state elements | `internal/doc/queryexec/is_active_query_test.go:TestQueryStateActivityIsFalseWithoutASession` |
 | One query over N annotated elements answers their annotation values and the same property filters a row set | `internal/doc/queryexec/annotations_query_test.go:TestQueryReadsAnnotationsForARowSet`, `:TestQueryFiltersByAnnotationValue` |

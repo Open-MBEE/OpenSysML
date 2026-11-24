@@ -235,10 +235,8 @@ func (ctx *Context) denotedInstance(sym *symbols.Symbol) *Instance {
 	return ctx.instances[val.Instance]
 }
 
-// ActivityOf reports whether sym names a state of this machine and, when it
-// does, whether that state is active as StateActivity::isActive reads it. The
-// second result is false only when the machine declares no such state, so a
-// never-entered state answers (false, true).
+// ActivityOf reports whether sym names a state here and whether it is active;
+// the second result is false only when no such state is declared.
 func (e *StateExecutor) ActivityOf(sym *symbols.Symbol) (bool, bool) {
 	if e == nil || sym == nil || e.graph == nil {
 		return false, false

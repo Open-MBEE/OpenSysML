@@ -14,9 +14,8 @@ const annotationValueFixture = `package P {
 	@M about thing { label = "old"; }
 }`
 
-// A set-annotation-value operation rewrites the binding in the metadata usage's
-// body, not the metadata definition's default, and reports the exact bytes it
-// changed.
+// A set-annotation-value operation rewrites a usage binding, not the
+// definition's default, and reports the exact bytes it changed.
 func TestSetAnnotationValueRewritesTheUsageBinding(t *testing.T) {
 	m := loadContent(t, "annotation.sysml", annotationValueFixture)
 	result, err := Apply(m, []Operation{
@@ -54,7 +53,32 @@ func TestSetAnnotationValueRewritesTheUsageBinding(t *testing.T) {
 	}
 }
 
-// An inline annotation is reachable the same way as an `about` one.
+func TestSetAnnotationValueAddsValueToUnboundFeature(t *testing.T) {
+	m := loadContent(t, "annotation.sysml", `package P {
+	metadata def Tag { attribute label : String = "default"; }
+	part p { @Tag { label; } }
+}`)
+	result, err := Apply(m, []Operation{
+		SetAnnotationValue("P::p", "P::Tag", "label", `"new"`),
+	})
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	text := string(result.Content)
+	if !strings.Contains(text, `label = "new";`) {
+		t.Fatalf("edited model =\n%s\nwant label = \"new\";", text)
+	}
+	if !strings.Contains(text, `attribute label : String = "default"`) {
+		t.Fatal("the metadata definition's default was rewritten")
+	}
+	sf := source.New("edited.sysml", result.Content)
+	p := parser.New(sf)
+	p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("edited model does not parse clean: %v", p.Diagnostics)
+	}
+}
+
 func TestSetAnnotationValueRewritesAnInlineBinding(t *testing.T) {
 	m := loadContent(t, "annotation.sysml", `package Q {
 	metadata def Tag { attribute note : String; }

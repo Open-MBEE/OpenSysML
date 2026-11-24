@@ -134,9 +134,8 @@ type Operation struct {
 	About          []string
 	MetadataValues []MetadataValue
 	Shorthand      bool
-	// AnnotationFeature names the metadata feature whose binding an
-	// OpSetAnnotationValue rewrites. MetadataName, when set, distinguishes the
-	// annotation usage among several of the same type on the same element.
+	// AnnotationFeature names the metadata feature an annotation edit rewrites.
+	// MetadataName disambiguates several usages of one type on one element.
 	AnnotationFeature string
 	// SequenceKeyword ("first" or "then"), SequenceRef (the node a bare
 	// `then`/`first` names) and After (the member an OpAddSequence follows)

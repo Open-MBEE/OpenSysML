@@ -115,10 +115,8 @@ func (e *executor) evaluateInState(expression queryplan.Expression) (sequence, e
 	return result, nil
 }
 
-// stateActivityValues answers isActive on a state-usage row: whether any state
-// machine the session runs holds the state active. A started state answers true
-// and a never-entered one, or any state with no session, answers false. The
-// property is absent on rows that are not state usages.
+// stateActivityValues answers isActive for a state usage from the session's
+// machines; it is absent on rows that are not state usages.
 func (e *executor) stateActivityValues(sym *symbols.Symbol) ([]Value, bool, error) {
 	if sym == nil || sym.Kind != symbols.SymbolStateUsage {
 		return nil, false, nil

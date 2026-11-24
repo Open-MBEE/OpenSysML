@@ -53,10 +53,8 @@ func (e *executor) annotationFeatureValues(sym *symbols.Symbol, declaring, featu
 	return result, present, nil
 }
 
-// annotationValues reads every annotation bound value of a row in one pass
-// over the model's annotation facts: one `<metadata>::<feature>=<value>` string
-// per binding, so a row set needs no per-element symbol lookup to read its
-// metadata.
+// annotationValues reports a row's bound values as
+// `<metadata>::<feature>=<value>` strings.
 func (e *executor) annotationValues(sym *symbols.Symbol) ([]Value, bool, error) {
 	if sym == nil {
 		return nil, false, nil
