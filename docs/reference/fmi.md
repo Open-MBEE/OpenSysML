@@ -148,8 +148,10 @@ output, nothing else on stdout:
   the declaration binds them.
 - `start` maps every remaining `in` variable name to the value bound for it; `outputs` lists
   the `out` variable names in declaration order; `series`, when present, asks for a
-  trajectory of `samples` points at evenly spaced instants from `startTime` to `stopTime`
-  and names the variables to sample. A call with no series output omits the member entirely.
+  trajectory of `samples` points and names the variables to sample. With no `times`, the
+  runner spaces them evenly from `startTime` to `stopTime`; with `times`, those exact
+  instants are requested and the runner must honour them. A call with no series output
+  omits the member entirely.
 
 The reply is either the result or the error:
 
@@ -179,7 +181,7 @@ The names below carry the experiment or a trajectory rather than a model variabl
 | `fmi:stepSize` | input | the step size — only when `DefaultExperiment` declares one |
 | `fmi:tolerance` | input | the solver tolerance — only when declared |
 | `fmi:samples` | input | the number of points in a trajectory — an integer from 2 to 10000, default 11 |
-| `fmi:sampleInterval` | input | an alternative to `fmi:samples`: the spacing in seconds, converted from a measured value |
+| `fmi:sampleInterval` | input | an alternative to `fmi:samples`: the spacing in seconds, converted from a measured value and sent as explicit request instants |
 | `fmi:time` | output | the reply's `time` — bound when the FMU declares no output |
 | `fmi:seriesTime` | output | the trajectory's sample times, bound as a sequence measured in seconds |
 | `fmi:series:<name>` | output | the sampled trajectory of the FMU variable `<name>`, bound as a sequence |
@@ -214,11 +216,14 @@ package BoilerDrive {
 ```
 
 The run answers five samples and binds them as a `Real[1..*]` value; the requirement
-check decides `max(T) <= limit` from that one trajectory. The scalar answer at
-`stopTime` is never substituted for a series: if the runner omits `series`, answers
-the wrong number of samples, or a caller binds the trajectory to a single-valued
-parameter, the performance fails with a malformed-output error. A series variable
-must name a scalar output of the FMU; arrays cannot be sampled into a trajectory.
+check decides `max(T) <= limit` from that one trajectory. With `fmi:sampleInterval`
+instead of `fmi:samples`, the request carries the exact instants: a 2 s interval over a
+0–3 s run samples 0 s and 2 s, not 0 s and 3 s, and a reply at other times is refused.
+The scalar answer at `stopTime` is never substituted for a series: if the runner omits
+`series`, answers the wrong number of samples or wrong instants, or a caller binds the
+trajectory to a single-valued parameter, the performance fails with a malformed-output
+error. A series variable must name a scalar output of the FMU; arrays cannot be sampled
+into a trajectory.
 
 ## Reference runner
 

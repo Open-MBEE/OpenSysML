@@ -23,12 +23,12 @@ type runnerRequest struct {
 	Series     *runnerSeriesRequest `json:"series,omitempty"`
 }
 
-// runnerSeriesRequest asks for a sampled trajectory beside the scalar outputs.
-// The runner answers one sample per requested variable at each of Samples
-// evenly spaced instants from startTime to stopTime.
+// runnerSeriesRequest asks for a trajectory beside the scalar outputs.
+// Times, when present, names the exact instants instead of even spacing.
 type runnerSeriesRequest struct {
-	Samples int      `json:"samples"`
-	Outputs []string `json:"outputs"`
+	Samples int       `json:"samples"`
+	Times   []float64 `json:"times,omitempty"`
+	Outputs []string  `json:"outputs"`
 }
 
 // runnerExperiment is the request's experiment member: startTime and stopTime
@@ -41,9 +41,8 @@ type runnerExperiment struct {
 	Tolerance *float64 `json:"tolerance,omitempty"`
 }
 
-// runnerReply is the JSON object the runner writes: the simulation time and
-// the outputs, or its own error. A trajectory answers one series member with
-// the sample instants and one list of samples per requested variable.
+// runnerReply is the runner's time and outputs, or its error.
+// A trajectory answers one series member with times and samples.
 type runnerReply struct {
 	Protocol int                        `json:"protocol"`
 	Time     *float64                   `json:"time"`
@@ -59,12 +58,8 @@ type runnerSeriesReply struct {
 	Outputs map[string][]json.RawMessage `json:"outputs"`
 }
 
-// requestOf composes the request one call makes of the FMU at path: the
-// interface the FMU provides (coSimulation first), the experiment from the
-// call's reserved inputs over the DefaultExperiment, the start values typed by
-// each variable's kind, the outputs to read at stopTime and, when an output
-// names one, a sampled trajectory. The plan returned beside the bytes is what
-// replyOf validates the runner's series against.
+// requestOf composes the request for one call: interface, experiment, start
+// values, stopTime outputs and any sampled trajectory. Its plan validates the reply.
 func requestOf(call *runtime.ToolCall, d *Description, fmu string) ([]byte, seriesPlan, error) {
 	var iface string
 	switch {
@@ -146,7 +141,7 @@ func requestOf(call *runtime.ToolCall, d *Description, fmu string) ([]byte, seri
 		if outputs == nil {
 			outputs = []string{}
 		}
-		request.Series = &runnerSeriesRequest{Samples: plan.samples, Outputs: outputs}
+		request.Series = &runnerSeriesRequest{Samples: plan.samples, Times: plan.instants, Outputs: outputs}
 	}
 	for _, out := range call.Outputs {
 		if isSeriesOutput(out.Variable) || reservedOutputs[out.Variable] {
@@ -275,10 +270,8 @@ func displayValue(v runtime.ToolValue) string {
 	return semantics.FormatConst(v.Value)
 }
 
-// replyOf reads the runner's standard output as the reply, the outputs mapped
-// to the call's variables as runtime.ToolValues the call binds. A series output
-// is always bound from the reply's series member, never from the scalar answer
-// at stopTime: a trajectory is not silently collapsed to one value.
+// replyOf binds the runner's outputs to the call's variables.
+// A series is never collapsed to the scalar answer at stopTime.
 func replyOf(call *runtime.ToolCall, d *Description, plan seriesPlan, stdout, stderr []byte) (map[string]runtime.ToolValue, error) {
 	malformed := func(detail string) error {
 		return &runtime.ToolError{Tool: call.ToolName, Kind: runtime.ToolMalformed, Detail: detail}
@@ -313,6 +306,12 @@ func replyOf(call *runtime.ToolCall, d *Description, plan seriesPlan, stdout, st
 			}
 			if i > 0 && t < reply.Series.Times[i-1] {
 				return nil, malformed(fmt.Sprintf("sample times are not ordered at index %d", i))
+			}
+		}
+		for i, want := range plan.instants {
+			got := reply.Series.Times[i]
+			if math.Abs(got-want) > 1e-9*math.Max(1, math.Abs(want)) {
+				return nil, malformed(fmt.Sprintf("sample time %d is %v, expected %v from %s", i, got, want, seriesIntervalInput))
 			}
 		}
 		series = reply.Series
@@ -353,10 +352,8 @@ func replyOf(call *runtime.ToolCall, d *Description, plan seriesPlan, stdout, st
 	return outputs, nil
 }
 
-// seriesOutput is the sampled trajectory of one FMU variable as a ToolValue:
-// one item per sample, typed by the variable's kind and measured in its coherent
-// unit when it resolves one. A missing series, a wrong number of samples or a
-// sample of the wrong type is a protocol break.
+// seriesOutput is one variable's trajectory as a ToolValue: one item per sample,
+// typed and measured in the variable's unit. Bad shapes are protocol breaks.
 func seriesOutput(d *Description, name string, samples int, raws []json.RawMessage) (runtime.ToolValue, error) {
 	if raws == nil {
 		return runtime.ToolValue{}, fmt.Errorf("the runner answered no series for %q", name)

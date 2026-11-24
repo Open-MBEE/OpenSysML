@@ -144,9 +144,8 @@ var reservedInputs = map[string]bool{
 	seriesIntervalInput: true,
 }
 
-// reservedOutputs are the variables a call may name beside the FMU's own outputs.
-// A trajectory also names `fmi:series:<variable>` outputs; they are checked in
-// checkSeriesVariables because the suffix has to resolve to an FMU variable.
+// reservedOutputs are the scalar names a call may bind beside FMU outputs.
+// Trajectory names are checked in checkSeriesVariables.
 var reservedOutputs = map[string]bool{
 	"fmi:time":       true,
 	seriesTimeOutput: true,

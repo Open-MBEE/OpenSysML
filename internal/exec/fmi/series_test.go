@@ -74,10 +74,8 @@ func seriesCalc(t *testing.T, p *probe, name string) (runtime.Value, error) {
 	return invokeCalcNamed(t, p, name, engineFor(t))
 }
 
-// TestSeriesReturnsTheTrajectory is the whole ask end to end: one run asks for
-// a sampled trajectory, binds it to a sequence parameter even though the scalar
-// answer for the same variable is present, and a max-over-trajectory constraint
-// decides both a failing and a passing requirement from that one series.
+// TestSeriesReturnsTheTrajectory binds one sampled run and decides a
+// max-over-trajectory requirement from it.
 func TestSeriesReturnsTheTrajectory(t *testing.T) {
 	p, fmu := seriesFixture(t)
 	series, err := seriesInvoke(t, p, registryWith(t, engineFor(t)))
@@ -127,9 +125,8 @@ func realValue(n float64) runtime.Value {
 	return runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: n}}
 }
 
-// TestSeriesRequirementDecidesInOneRun is the acceptance end to end: a
-// requirement whose `require constraint` invokes the tool calc, takes the
-// maximum over the returned trajectory and decides the check in that one run.
+// TestSeriesRequirementDecidesInOneRun decides a requirement in one run:
+// the condition invokes the tool calc and takes the trajectory's maximum.
 func TestSeriesRequirementDecidesInOneRun(t *testing.T) {
 	p, _ := seriesFixture(t)
 	ctx := p.context(registryWith(t, engineFor(t)))
@@ -177,9 +174,8 @@ func TestSeriesDefaultSampleCount(t *testing.T) {
 	}
 }
 
-// TestSeriesCarriesUnitsAndTimes proves a sampled trajectory keeps the FMU
-// variable's unit, that sample times bind as their own sequence, and that a
-// measured interval reaches the runner in seconds.
+// TestSeriesCarriesUnitsAndTimes checks units, sample times and a measured
+// interval reaching the runner in seconds.
 func TestSeriesCarriesUnitsAndTimes(t *testing.T) {
 	fmu := writeFMU(t, "units.fmu", unitsFMU, "x86_64-linux")
 	scratch(t, "mode.txt", "answer")
@@ -234,14 +230,71 @@ func TestSeriesCarriesUnitsAndTimes(t *testing.T) {
 	if got := runtime.FormatValue(times); !strings.Contains(got, "[SI::s]") || !strings.Contains(got, "120.0") {
 		t.Fatalf("sample times = %s, want seconds", got)
 	}
-	if !strings.Contains(seriesRequest(t), `"series":{"samples":3,"outputs":[]}`) {
-		t.Fatalf("the interval did not resolve to three samples:\n%s", seriesRequest(t))
+	if !strings.Contains(seriesRequest(t), `"series":{"samples":3,"times":[0,60,120],"outputs":[]}`) {
+		t.Fatalf("the interval did not resolve to three instants:\n%s", seriesRequest(t))
 	}
 }
 
-// TestSeriesIsNeverACollapsedStopTimeValue is the negative control: when the
-// runner answers a scalar at stopTime but no series, the engine refuses rather
-// than silently binding the scalar into the multi-valued parameter.
+// TestSeriesIntervalSpacingIsHonoured is the non-dividing-interval regression:
+// instants at 0 s and 2 s are requested and answered, never respaced at stopTime.
+func TestSeriesIntervalSpacingIsHonoured(t *testing.T) {
+	fmu := writeFMU(t, "series.fmu", seriesFMU, "x86_64-linux")
+	scratch(t, "mode.txt", "answer")
+	scratch(t, "reply.json", `{"protocol": 1, "time": 3.0, "outputs": {},
+		"series": {"times": [0.0, 2.0], "outputs": {"T": [1.0, 2.0]}}}`)
+	const model = `package Drive {
+	private import AnalysisTooling::*;
+	private import ScalarValues::*;
+	private import ISQ::*;
+	private import SI::*;
+
+	calc def Times {
+		metadata ToolExecution { toolName = "fmi"; uri = "%s"; }
+		in interval : DurationValue = 2 [s] { @ToolVariable { name = "fmi:sampleInterval"; } }
+		in stopTime : Real = 3.0 { @ToolVariable { name = "fmi:stopTime"; } }
+		return times : DurationValue[1..*] { @ToolVariable { name = "fmi:seriesTime"; } }
+	}
+
+	calc def Temps {
+		metadata ToolExecution { toolName = "fmi"; uri = "%s"; }
+		in interval : DurationValue = 2 [s] { @ToolVariable { name = "fmi:sampleInterval"; } }
+		in stopTime : Real = 3.0 { @ToolVariable { name = "fmi:stopTime"; } }
+		return temps : Real[1..*] { @ToolVariable { name = "fmi:series:T"; } }
+	}
+}`
+	p := parseProbe(t, fmt.Sprintf(model, fileURI(fmu), fileURI(fmu)))
+	times, err := seriesCalc(t, p, "Times")
+	if err != nil {
+		t.Fatalf("InvokeCalc (times): %v", err)
+	}
+	if got := runtime.FormatValue(times); !strings.Contains(got, "2.0 [SI::s]") || strings.Contains(got, "3.0 [SI::s]") {
+		t.Fatalf("sample times = %s, want 0 s and 2 s", got)
+	}
+	if !strings.Contains(seriesRequest(t), `"series":{"samples":2,"times":[0,2],"outputs":[]}`) {
+		t.Fatalf("request did not carry the requested instants:\n%s", seriesRequest(t))
+	}
+	temps, err := seriesCalc(t, p, "Temps")
+	if err != nil {
+		t.Fatalf("InvokeCalc (temps): %v", err)
+	}
+	if got := runtime.FormatValue(temps); got != "[1.0, 2.0]" {
+		t.Fatalf("temps = %s, want the two requested samples", got)
+	}
+
+	scratch(t, "reply.json", `{"protocol": 1, "time": 3.0, "outputs": {},
+		"series": {"times": [0.0, 3.0], "outputs": {"T": [1.0, 2.0]}}}`)
+	_, err = seriesCalc(t, p, "Times")
+	var fault *runtime.ToolError
+	if !errors.As(err, &fault) || fault.Kind != runtime.ToolMalformed {
+		t.Fatalf("InvokeCalc = %v, want a malformed reply", err)
+	}
+	if !strings.Contains(fault.Detail, "expected 2") {
+		t.Fatalf("refusal = %q, want it to name the requested instant", fault.Detail)
+	}
+}
+
+// TestSeriesIsNeverACollapsedStopTimeValue is the negative control: a scalar
+// answer is refused where a trajectory was requested.
 func TestSeriesIsNeverACollapsedStopTimeValue(t *testing.T) {
 	p, _ := seriesFixture(t)
 	scratch(t, "reply.json", `{"protocol": 1, "time": 3.0, "outputs": {"T": 99.0}}`)
@@ -255,9 +308,8 @@ func TestSeriesIsNeverACollapsedStopTimeValue(t *testing.T) {
 	}
 }
 
-// TestSeriesRejectsAWrongSampleCount and its siblings guard the shape of a
-// trajectory: every sample list and the time list must have the requested
-// length, and the instants must be ordered and finite.
+// TestSeriesRejectsAWrongSampleCount guards sample count, time ordering,
+// finiteness and per-variable lengths.
 func TestSeriesRejectsAWrongSampleCount(t *testing.T) {
 	p, _ := seriesFixture(t)
 	for name, reply := range map[string]string{

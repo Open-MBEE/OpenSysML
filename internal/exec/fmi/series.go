@@ -8,10 +8,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 )
 
-// Reserved ToolVariable names for a trajectory. A series output binds a sampled
-// trajectory to a multi-valued parameter; `fmi:samples` fixes the number of
-// samples and `fmi:sampleInterval` fixes their spacing in seconds. When neither
-// is given the engine asks for defaultSeriesSamples evenly spaced samples.
+// Reserved ToolVariable names for a trajectory: sample count or spacing,
+// sample times and the `fmi:series:<name>` output prefix.
 const (
 	seriesSamplesInput  = "fmi:samples"
 	seriesIntervalInput = "fmi:sampleInterval"
@@ -37,17 +35,17 @@ func isSeriesOutput(variable string) bool {
 // seriesPlan is what one call asks the runner for beside its scalar outputs:
 // the number of samples and the FMU variables to sample, in call order.
 type seriesPlan struct {
-	samples int
-	vars    []string
-	times   bool
+	samples  int
+	vars     []string
+	times    bool
+	instants []float64
 }
 
 // requested reports whether any output of the call wants a series.
 func (p seriesPlan) requested() bool { return p.times || len(p.vars) > 0 }
 
-// planSeries collects the series outputs of a call and resolves their sample
-// count from `fmi:samples` or `fmi:sampleInterval` over the experiment's span.
-// A call with no series output needs no plan and never sends a series request.
+// planSeries collects the call's series outputs and resolves their sample
+// count and requested instants before the runner starts.
 func planSeries(call *runtime.ToolCall, startTime, stopTime float64, samples, interval *float64) (seriesPlan, error) {
 	var plan seriesPlan
 	seen := make(map[string]bool)
@@ -71,15 +69,17 @@ func planSeries(call *runtime.ToolCall, startTime, stopTime float64, samples, in
 		return seriesPlan{}, err
 	}
 	plan.samples = count
+	if interval != nil {
+		plan.instants = make([]float64, count)
+		for i := range plan.instants {
+			plan.instants[i] = startTime + float64(i)*(*interval)
+		}
+	}
 	return plan, nil
 }
 
-// sampleCount resolves the number of samples a trajectory carries. A sample
-// count must be an integer of at least two; an interval must be positive and
-// narrower than the experiment, so the trajectory holds more than one point.
-// Naming both is a contradiction, refused rather than resolved by a silent
-// precedence rule. Everything from the call is bounded before it reaches the
-// runner.
+// sampleCount resolves the sample count from a count or interval over the
+// experiment. Both names together are refused; the count is bounded.
 func sampleCount(startTime, stopTime float64, samples, interval *float64) (int, error) {
 	fault := func(detail string) error {
 		return &runtime.ToolError{Tool: "fmi", Kind: runtime.ToolUnsentInput, Detail: detail}
@@ -117,9 +117,8 @@ func sampleCount(startTime, stopTime float64, samples, interval *float64) (int, 
 	return n, nil
 }
 
-// checkSeriesVariables refuses a `fmi:series:<name>` output naming no variable
-// of the FMU, one that cannot be read as an output, or an array: a trajectory
-// samples a scalar at successive times and never collapses a series of rows.
+// checkSeriesVariables refuses a trajectory naming an unknown, input or
+// array variable of the FMU.
 func checkSeriesVariables(call *runtime.ToolCall, d *Description) error {
 	for _, out := range call.Outputs {
 		name, ok := seriesVariable(out.Variable)

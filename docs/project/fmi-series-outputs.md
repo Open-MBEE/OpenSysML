@@ -39,10 +39,13 @@ multiplicity admits more than one value. The engine:
 1. Reads `fmi:samples` (an integer from 2 to 10000) or `fmi:sampleInterval` (seconds,
    converted from a measured value when the declaration carries a unit) to fix the number
    of samples; with neither, it asks for 11 evenly spaced samples.
-2. Sends an optional `series` member in the runner request, with the sample count and the
-   FMU variables to sample; scalar `outputs` stay exactly as they were.
+2. Sends an optional `series` member in the runner request, with the sample count, any
+   explicitly requested instants and the FMU variables to sample; scalar `outputs` stay
+   exactly as they were.
 3. Validates the reply's series: one ordered, finite instant and one correctly typed value
-   per sample for every requested variable. The `fmi:seriesTime` output binds the instants
+   per sample for every requested variable. When `fmi:sampleInterval` named the instants,
+   the reply's times must match them within a small tolerance, so a non-dividing interval
+   is never respaced across the whole experiment. The `fmi:seriesTime` output binds the instants
    as a sequence measured in seconds, and each `fmi:series:<name>` output binds its values
    as a sequence in the variable's coherent unit.
 4. Binds the result through the existing `runtime.ToolCall.Bind` path, so a sequence-valued
@@ -65,6 +68,10 @@ substituted for a trajectory.
   by `fmi:samples` or derived from `fmi:sampleInterval` and the experiment span; both
   together are refused instead of resolved by a silent precedence rule. This keeps the
   runner's work bounded before a process starts.
+- **Explicit instants for an interval.** Sending only a count would let a runner respace
+  the points evenly: a 2 s interval over a 0–3 s run would become 0 s and 3 s. The request
+  carries the requested instants, the reference runner interpolates between recorded steps
+  at them, and the engine refuses a reply whose times differ from the request.
 - **Times and values as parallel lists, not rows of objects.** A `series` member with
   `times` plus one list per variable maps directly onto the runtime's sequence values and
   onto the collection functions a requirement uses. Repeated output rows would have
@@ -84,11 +91,13 @@ substituted for a trajectory.
   default 11), `fmi:sampleInterval` (input, seconds), `fmi:seriesTime` (output, sequence of
   seconds), `fmi:series:<FMU variable>` (output, sequence).
 - **Runner protocol:** the `fmi/1` JSON exchange gains two optional members. Request:
-  `series: {samples: <int>, outputs: [<variable>, …]}`. Reply:
+  `series: {samples: <int>, times?: [<seconds>, …], outputs: [<variable>, …]}` — `times`
+  is sent when `fmi:sampleInterval` named the instants and omitted otherwise. Reply:
   `series: {times: [<seconds>, …], outputs: {<variable>: [<value>, …]}}`. The `protocol`
-  value stays `1`; the members are omitted for scalar-only calls.
+  value stays `1`; both members are omitted for scalar-only calls.
 - **Reference runner:** `client/python/opensysml/fmi_runner.py` serves the optional members;
-  its `run(request) -> reply` signature and all existing reply keys are unchanged.
+  it honours requested instants by interpolating between recorded steps. Its
+  `run(request) -> reply` signature and all existing reply keys are unchanged.
 - **RPC, protobuf, capability flags, environment variables and CLI flags:** unchanged. No
   client wire update is required. `Describe()` still reports `Compute` at observed
   authority with the same process and bounds.
@@ -105,46 +114,51 @@ substituted for a trajectory.
 | A series is never silently collapsed to the `stopTime` scalar | `TestSeriesIsNeverACollapsedStopTimeValue`, `TestSeriesRefusesAScalarParameter`, `TestSeriesRejectsAWrongSampleCount` |
 | Scalar outputs stay byte-identical | `TestScalarOutputsRemainUnchanged` and the pre-existing `TestEngineRunDrivesTheRunner` |
 | Sample configuration, units and sample times | `TestSampleCountValidatesTheRequest`, `TestSeriesCarriesUnitsAndTimes` |
+| A non-dividing interval is sampled at the requested instants, and a respaced reply is refused | `TestSeriesIntervalSpacingIsHonoured` |
 | Invalid series variables are refused | `TestSeriesVariableErrors` |
-| The reference runner samples a trajectory | `test_series_answers_evenly_spaced_samples`, `test_series_only_variables_are_requested_from_fmpy`, `test_bad_series_requests_are_error_replies` (`client/python/tests/test_fmi_runner.py`) |
+| The reference runner samples a trajectory and honours requested instants | `test_series_answers_evenly_spaced_samples`, `test_series_only_variables_are_requested_from_fmpy`, `test_requested_sample_instants_are_honoured`, `test_requested_instants_interpolate_between_steps`, `test_bad_series_requests_are_error_replies` (`client/python/tests/test_fmi_runner.py`) |
 
 ## Verification
 
-Run in the isolated worktree with an isolated Go build cache:
+Run in the isolated worktree:
 
 - `gofmt -l .` — no output.
 - `go build -p 1 ./...` — exit 0, no output.
 - `go vet -p 1 ./...` — exit 0, no output.
-- `go test -count=1 ./internal/exec/fmi/...` — `ok github.com/Open-MBEE/OpenSysML/internal/exec/fmi 7.196s`.
-- `go test -count=1 ./tests/hygiene -run 'TestComplianceTablesNameLiveGoIdentifiers|TestDocumentedFigures'`
-  — `ok github.com/Open-MBEE/OpenSysML/tests/hygiene 23.636s`.
+- `go test -count=1 ./internal/exec/fmi/...` — `ok github.com/Open-MBEE/OpenSysML/internal/exec/fmi 9.032s`.
+- `go test -count=1 ./tests/hygiene` — `ok github.com/Open-MBEE/OpenSysML/tests/hygiene 176.901s`.
+- Comment gates — `git diff --merge-base origin/develop -U2 -- '*.go' | awk '/^-/{next} /^[+ ][[:space:]]*\/\//{n++; a=a||/^\+/; if(n>2&&a) print; next} {n=0;a=0}'`
+  prints nothing, and the same gate over all changed files and the `#` gate over Python
+  files print nothing.
 - `python3 scripts/check-doc-ids.py` — "No internal work-item labels in reader-facing documentation".
 - `python3 scripts/changelog.py check` — exit 0, no output.
-- `python3 -m py_compile client/python/opensysml/fmi_runner.py client/python/tests/test_fmi_runner.py`
-  — exit 0. A direct `fmi_runner.run()` probe answered
-  `{'protocol': 1, 'time': 4.0, 'outputs': {'h': 16.0}, 'series': {'times': [0.0, 2.0, 4.0], 'outputs': {'h': [0.0, 4.0, 16.0]}}}`.
+- Python runner tests: `pytest` 9.2.0 is present. Without `pytest-mock` the module reported
+  `2 passed, 2 skipped, 13 errors`; after installing `pytest-mock` into a temporary directory
+  on `PYTHONPATH`, `15 passed, 2 skipped`. The two skips are the Reference-FMU tests whose
+  FMU corpus and `fmpy` are absent in this environment.
 
-The Python test module needs `pytest` and `pytest-mock`, which are not installed here, so
-those tests were not executed; the runner was exercised directly instead. Optional corpora
-(training, pilot, specification examples, PSSM, OMG JSON schema and the Modelica
-Reference-FMUs) are absent in this environment and their gates skip.
-
-The full `go test ./...` gate could not complete cleanly under the machine's concurrent
-build load: the first attempt lost standard-library export artifacts from the shared build
-cache while other worktrees compiled, and an isolated-cache run hit the harness's ten-minute
-timeout in `cmd/sysml` and a twenty-second silence kill in `cmd/sysml-lsp`
-(`TestInitializeReportsTheVersionOfTheBinary`). Both are resource failures in packages this
-change does not touch; the FMI package and the documentation/hygiene gates were re-run
-directly and passed.
+A full-suite re-run reproduced a pre-existing nested-divergence timeout in `cmd/sysml` (a test
+this change does not touch) and found no failure attributable to the diff; the FMI package,
+the hygiene suite and both documentation checks pass directly. Earlier attempts under heavy
+concurrent build load also lost shared-cache artifacts and killed `cmd/sysml-lsp` after a
+twenty-second silence; those were environment failures in untouched packages.
 
 ## Known limitations and follow-ups
 
 - A series samples scalar FMU variables only; arrays cannot be sampled into a trajectory.
-- The reference runner selects the recorded simulation steps nearest to each evenly spaced
-  instant; it does not interpolate between them. A runner with a different simulator may
-  sample more precisely, as long as it answers the requested count in time order.
+- When only a sample count is requested, the reference runner selects recorded simulation
+  steps nearest to each evenly spaced instant; when `times` is present it interpolates the
+  model's variables between steps at the requested instants. A runner with a different
+  simulator may sample more precisely, as long as it answers the requested count in order
+  and at the requested instants when they were given.
 - Producing a series still requires a runner that understands the optional request member;
   an older runner answers no `series` and the evaluation fails as a protocol error rather
   than falling back to one value. Updating the reference runner is the shipped path.
 - A min/max-over-trajectory condition is decided by the ordinary requirement evaluator
   over the bound sequence; this change adds no new aggregation function to the language.
+- **Skills follow-up, not done here.** The `analysis engines` skill in the separate
+  `OpenSysML-MDK-Skills` repository documents the tool surface and must be updated in its
+  own pull request: add the `fmi:samples`, `fmi:sampleInterval`, `fmi:seriesTime` and
+  `fmi:series:<var>` names, describe the optional `series` request/reply members (including
+  requested `times`), and stamp the skill with the `sysml -version` it was verified against.
+  That repository is not present in this worktree, so no claim of an update is made.

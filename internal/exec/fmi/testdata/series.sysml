@@ -1,6 +1,5 @@
-// A tool:fmi run sampled into a trajectory, and two ways of deciding a
-// max-over-trajectory requirement from it. The uri placeholder is filled with
-// the FMU's file URI by the Go fixture.
+// A tool:fmi run sampled into a trajectory, with two peak-temperature checks.
+// The uri placeholder is filled with the FMU file URI by the Go fixture.
 package Drive {
 	private import AnalysisTooling::*;
 	private import ScalarValues::*;
