@@ -28,6 +28,7 @@ import {
   createWasmTransport,
   instantiateInline,
   loadGoConstructor,
+  MAX_PENDING_WASM_CALLS,
   serveWasmPort,
   WorkerWasmHost,
   type GoConstructor,
@@ -484,6 +485,102 @@ test("worker calls remove aborted pending entries and ignore late answers", asyn
   assert.equal(pending.size, 0);
 
   await host.close();
+});
+
+test("a worker host refuses a call past its bound on unanswered calls", async () => {
+  const posted: WasmWorkerRequest[] = [];
+  let onMessage: ((message: WasmWorkerResponse) => void) | undefined;
+  const host = new WorkerWasmHost({
+    post(message) {
+      posted.push(message);
+      if (message.type === "init") {
+        onMessage?.({ type: "ready", version: "fake-worker" });
+      }
+    },
+    onMessage(listener) {
+      onMessage = listener;
+    },
+    onFailure() {},
+    terminate() {},
+  });
+  await host.start({ type: "init", wasm: emptyWasm }, []);
+
+  const held = Array.from({ length: MAX_PENDING_WASM_CALLS }, () => host.call("NeverAnswers", "{}"));
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  await assert.rejects(host.call("OneTooMany", "{}"), { code: Code.ResourceExhausted });
+  const calls = posted.filter((message) => message.type === "call");
+  assert.equal(calls.length, MAX_PENDING_WASM_CALLS);
+
+  // An answer frees a place for the next call.
+  onMessage?.({ type: "answer", id: calls[0].id, envelope: "{}" });
+  assert.equal(await held[0], "{}");
+  void host.call("Fits", "{}").catch(() => undefined);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.equal(posted.filter((message) => message.type === "call").length, MAX_PENDING_WASM_CALLS + 1);
+  for (const call of held.slice(1)) {
+    call.catch(() => undefined);
+  }
+  await host.close();
+});
+
+test("a worker port refuses a call past its bound on waiting calls", () => {
+  const answers: WasmWorkerResponse[] = [];
+  let deliver: ((event: MessageEvent<WasmWorkerRequest>) => void) | undefined;
+  serveWasmPort({
+    postMessage(message) {
+      answers.push(message);
+    },
+    addEventListener(_type, listener) {
+      deliver = listener;
+    },
+  });
+  // Delivered in one turn, so none of the queue has run when the last arrives.
+  for (let id = 1; id <= MAX_PENDING_WASM_CALLS + 1; id++) {
+    deliver?.({ data: { type: "call", id, method: "Echo", params: "{}" } } as MessageEvent<WasmWorkerRequest>);
+  }
+  assert.equal(answers.length, 1);
+  const refused = answers[0];
+  assert.ok(refused.type === "answer" && refused.id === MAX_PENDING_WASM_CALLS + 1);
+  assert.match(refused.envelope, /waiting calls/);
+});
+
+test("an inline start that never finishes fails at its deadline and frees the next start", async (t) => {
+  let ran = 0;
+  class CountingGo extends FakeGo {
+    override run(): Promise<void> {
+      ran += 1;
+      return super.run();
+    }
+  }
+  const instantiate = WebAssembly.instantiate.bind(WebAssembly);
+  let release: (() => void) | undefined;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  // Only the first instantiation is held back; the start after it goes straight through.
+  let first = true;
+  t.mock.method(WebAssembly, "instantiate", (async (...args: [BufferSource, WebAssembly.Imports]) => {
+    if (first) {
+      first = false;
+      await held;
+    }
+    return await instantiate(...args);
+  }) as typeof WebAssembly.instantiate);
+
+  const stuck = instantiateInline(emptyWasm, CountingGo, 50);
+  const next = instantiateInline(emptyWasm, FakeGo);
+  await assert.rejects(stuck, (error: unknown) => {
+    assert.ok(error instanceof OpenSysMLError);
+    assert.match(error.message, /did not start within 50 ms/);
+    return true;
+  });
+  assert.equal((await next).version, "fake-wasm");
+
+  // The start given up never runs its Go program, which would take the host global.
+  release?.();
+  await new Promise<void>((resolve) => setTimeout(resolve, 10));
+  assert.equal(ran, 0);
+  assert.equal("sysmlWasm" in globalThis, false);
 });
 
 test("a worker port never starts a call cancelled while it waited", async () => {

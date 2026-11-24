@@ -88,6 +88,12 @@ interface GlobalWasmSurface {
 
 let inlineStartup = Promise.resolve();
 
+/** How long one inline Go runtime may take to start before the start is given up. */
+export const INLINE_START_TIMEOUT_MS = 60_000;
+
+/** How many calls one worker holds unanswered before it refuses another. */
+export const MAX_PENDING_WASM_CALLS = 1024;
+
 /**
  * Adapts the Go host global to the asynchronous host interface.
  */
@@ -127,8 +133,13 @@ export function wasmHostFromGlobal(surface?: GlobalWasmSurface): WasmHost {
 export async function instantiateInline(
   module: BufferSource | WebAssembly.Module,
   Go: GoConstructor,
+  timeoutMs: number = INLINE_START_TIMEOUT_MS,
 ): Promise<WasmHost> {
-  const starting = inlineStartup.then(() => instantiateInlineNow(module, Go));
+  // Starts take turns at the one host global; a start past its deadline gives up its turn.
+  const deadline = { passed: false };
+  const starting = inlineStartup.then(() =>
+    withDeadline(instantiateInlineNow(module, Go, deadline), timeoutMs, deadline),
+  );
   inlineStartup = starting.then(
     () => undefined,
     () => undefined,
@@ -136,9 +147,33 @@ export async function instantiateInline(
   return await starting;
 }
 
+function withDeadline<T>(
+  work: Promise<T>,
+  timeoutMs: number,
+  deadline: { passed: boolean },
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      deadline.passed = true;
+      reject(new OpenSysMLError(`the Go runtime did not start within ${timeoutMs} ms`));
+    }, timeoutMs);
+    work.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      },
+    );
+  });
+}
+
 async function instantiateInlineNow(
   module: BufferSource | WebAssembly.Module,
   Go: GoConstructor,
+  deadline: { readonly passed: boolean },
 ): Promise<WasmHost> {
   const runtime = globalThis as typeof globalThis & { sysmlWasm?: GlobalWasmSurface };
   delete runtime.sysmlWasm;
@@ -148,6 +183,10 @@ async function instantiateInlineNow(
     module instanceof WebAssembly.Module
       ? await WebAssembly.instantiate(module, go.importObject)
       : (await WebAssembly.instantiate(module, go.importObject)).instance;
+  if (deadline.passed) {
+    // A later start may own the host global by now, so this one must not run.
+    throw new OpenSysMLError("the Go runtime start was given up at its deadline");
+  }
   let startError: unknown;
   void go.run(instance).catch((error: unknown) => {
     startError = error;
@@ -320,6 +359,12 @@ export class WorkerWasmHost implements WasmHost {
     }
     this.throwIfFailed();
     this.throwIfClosed();
+    if (this.pending.size >= MAX_PENDING_WASM_CALLS) {
+      throw new ConnectError(
+        `the sysml-wasm worker already holds ${MAX_PENDING_WASM_CALLS} unanswered calls`,
+        Code.ResourceExhausted,
+      );
+    }
     const id = this.nextId++;
     return new Promise<string>((resolve, reject) => {
       if (signal === undefined) {
@@ -457,6 +502,19 @@ export function serveWasmPort(port: WasmPortLike, loaders: WasmPortLoaders = {})
     }
     if (request.type === "cancel") {
       queued.delete(request.id);
+      return;
+    }
+    if (queued.size >= MAX_PENDING_WASM_CALLS) {
+      port.postMessage({
+        type: "answer",
+        id: request.id,
+        envelope: errorEnvelope(
+          new ConnectError(
+            `the WASM worker already holds ${MAX_PENDING_WASM_CALLS} waiting calls`,
+            Code.ResourceExhausted,
+          ),
+        ),
+      });
       return;
     }
     queued.add(request.id);

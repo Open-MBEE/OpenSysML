@@ -269,6 +269,11 @@ later worker calls queue behind work that outlived its deadline. Inline calls
 run synchronously and cannot be interrupted while they block the JavaScript
 thread.
 
+A worker holds at most 1024 unanswered calls: one more is refused with
+`ResourceExhausted` until an answer or a cancellation frees a place. An inline
+start that has not finished within 60 seconds fails with an `OpenSysMLError`
+and lets the next start take its turn.
+
 In a browser, omit `worker` to run inline, or provide a module worker serving the
 package's `browser/wasm-worker` entry point:
 
