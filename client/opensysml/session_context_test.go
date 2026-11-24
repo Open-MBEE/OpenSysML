@@ -123,3 +123,51 @@ func waitFor(t *testing.T, met func() bool) {
 	}
 	t.Fatal("the condition was never met")
 }
+
+// TestSessionCloseDoesNotHoldCallsBehindARun checks a call made while Close
+// waits for a run under way is refused at once rather than held until the run ends.
+func TestSessionCloseDoesNotHoldCallsBehindARun(t *testing.T) {
+	session, top := openSpinning(t)
+
+	running, stop := context.WithCancel(context.Background())
+	defer stop()
+	performed := make(chan error, 1)
+	go func() {
+		_, err := session.PerformContext(running, top, "Spin::Top::spin", nil)
+		performed <- err
+	}()
+	waitFor(t, func() bool {
+		short, release := context.WithTimeout(context.Background(), time.Millisecond)
+		defer release()
+		_, err := session.FeatureContext(short, top, "turns")
+		return statusCode(err) == opensysml.CodeDeadlineExceeded
+	})
+
+	closed := make(chan struct{})
+	go func() {
+		defer close(closed)
+		_ = session.Close()
+	}()
+	refused := make(chan struct{})
+	go func() {
+		defer close(refused)
+		for {
+			short, release := context.WithTimeout(context.Background(), time.Millisecond)
+			_, err := session.FeatureContext(short, top, "turns")
+			release()
+			if statusCode(err) == opensysml.CodeUnavailable {
+				return
+			}
+		}
+	}()
+	select {
+	case <-refused:
+	case <-time.After(30 * time.Second):
+		t.Fatal("a call made while Close waited for a run was held behind it")
+	}
+	stop()
+	<-closed
+	if err := <-performed; statusCode(err) != opensysml.CodeCanceled {
+		t.Fatalf("PerformContext cancelled = %v, want CodeCanceled", err)
+	}
+}

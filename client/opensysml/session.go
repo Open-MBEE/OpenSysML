@@ -59,12 +59,14 @@ func OpenSession(c Client, model *Model) (*Session, error) {
 // CodeUnavailable; closing twice is harmless.
 func (s *Session) Close() error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.closed {
-		return nil
-	}
+	closed := s.closed
 	s.closed = true
-	s.engine.Close()
+	s.mu.Unlock()
+	// The engine waits for a call under way, so it is closed outside the lock:
+	// a call arriving meanwhile is refused rather than held behind it.
+	if !closed {
+		s.engine.Close()
+	}
 	return nil
 }
 
