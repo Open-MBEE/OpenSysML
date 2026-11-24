@@ -166,10 +166,11 @@ func (c *client) runRuns(ctx context.Context, model *Model, actionID, caseID str
 	for _, opt := range opts {
 		opt(&options)
 	}
-	hash, err := c.call(model)
+	hash, done, err := c.call(model)
 	if err != nil {
 		return nil, err
 	}
+	defer done()
 	if err := c.requireCapabilities(ctx, CapabilityRuns); err != nil {
 		return nil, err
 	}
@@ -339,10 +340,11 @@ func (s *SelfCheck) Holds() bool { return s.Status == "holds" }
 // packages named, reflectively to every element of the model. Requires the
 // self_check capability.
 func (c *client) SelfCheck(ctx context.Context, model *Model, rulePackages ...string) (*SelfCheck, error) {
-	hash, err := c.call(model)
+	hash, done, err := c.call(model)
 	if err != nil {
 		return nil, err
 	}
+	defer done()
 	if err := c.requireCapabilities(ctx, CapabilitySelfCheck); err != nil {
 		return nil, err
 	}
@@ -476,10 +478,11 @@ func (c *client) RecordRun(ctx context.Context, model *Model, caseID string, opt
 	if options.err != nil {
 		return nil, options.err
 	}
-	hash, err := c.call(model)
+	hash, done, err := c.call(model)
 	if err != nil {
 		return nil, err
 	}
+	defer done()
 	if err := c.requireCapabilities(ctx, CapabilityRecordRun); err != nil {
 		return nil, err
 	}
