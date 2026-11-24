@@ -82,6 +82,9 @@ func TestNegative(t *testing.T) {
 		{"connect_end_invocation", "part def A { part s; part k; connect [1] s.y->first to [1] k.u; }"},
 		{"unterminated_string", `part p { doc /* comment `},
 		{"unterminated_string_literal", "package P {\n    attribute s = \"open\n    attribute t = 1;\n}"},
+		// A verbatim equation is a String binding inside an annotation; an
+		// unterminated one is a diagnostic and never a carried equation.
+		{"unterminated_verbatim_equation", "package P { metadata def M { attribute body : String; } part def S { @M { body = \"inStream(p); } } }"},
 		{"unterminated_unrestricted_name", "package P {\n    part def 'A;\n    part def B;\n}"},
 		{"double_colon_only", "attribute ::x;"},
 		// A declaration opening with a specialization states no name

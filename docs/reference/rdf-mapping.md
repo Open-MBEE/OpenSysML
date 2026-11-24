@@ -1651,6 +1651,75 @@ members it sequences, as `sysx:sourceMember` and `sysx:targetMember`
 today; the per-file verdicts are in
 [rdf-corpus-roundtrip.md](../project/rdf-corpus-roundtrip.md).
 
+## Verbatim equation mapping annotations
+
+A model can carry an equation that the engine has no expression form for — a
+Modelica medium-state call, a stream value, or an event-regularising conditional
+— as the String value of a metadata annotation on the element that states it.
+The annotation is an ordinary user-defined metadata definition; the engine adds
+no reserved vocabulary. A minimal definition and a constraint body that uses it
+are:
+
+```sysml
+package ModelicaMapping {
+    private import ScalarValues::*;
+    metadata def EquationMapping {
+        attribute body : String;
+    }
+}
+
+package Steam {
+    private import ScalarValues::*;
+    private import ModelicaMapping::*;
+    part def SteamGenerator {
+        attribute state_a;
+        attribute m_flow : Real = 2.0;
+        port port_a;
+        port port_b;
+        constraint steamEquations {
+            @EquationMapping { body = "Medium.temperature(state_a)"; }
+            @EquationMapping { body = "inStream(port_a.h_outflow)"; }
+            @EquationMapping { body = "noEvent(if abs(m_flow) > 1.0 then m_flow else 1.0)"; }
+            m_flow > 0.0
+        }
+    }
+}
+```
+
+The `body` binding is text. Its `Medium`, `inStream`, `noEvent` and `then` are
+not resolved, typed or evaluated as SysML expressions, so the model analyses
+cleanly even though none of those names is declared. They are the payload a
+downstream generator consumes. The constraint's own condition (`m_flow > 0.0`)
+is an ordinary expression and decides the constraint, exactly as a constraint
+body with no annotations does.
+
+Reading the equations back uses the ordinary metadata access expression:
+`SteamGenerator::steamEquations.metadata#(1).body` evaluates to the String
+`"Medium.temperature(state_a)"`, and the annotations are answered in the order
+they were stated. An annotation that states no `body`, or a constraint body
+whose only members are annotations, is not a condition: evaluating it fails with
+the typed no-value error, never a vacuous verdict.
+
+In the graph each binding is a `sysml:ReferenceUsage` whose `sysml:value` is a
+literal holding the equation verbatim; in the API element form the same literal
+is the `value` property of that element (`"value": "inStream(port_a.h_outflow)"`).
+Neither writer rewrites the equation: quotes, backslashes, ampersands, angle
+brackets, newlines and non-ASCII characters survive both formats and the
+graph-to-notation reader. A `<`, `>` or `&` is escaped as a JSON `\uXXXX` escape
+in the element form and as a Turtle escape in the graph, which decode back to
+the same characters; the string itself is unchanged.
+
+What this surface does **not** do is give those three Modelica forms a SysML
+expression spelling. The engine's conditional expression is
+`if c ? a else b`, not Modelica's `if c then a else b`; there is no `inStream`
+or `noEvent` builtin and no thermodynamic-state package call form. That route
+would need new grammar, evaluation and export and is a known limitation,
+recorded by a skipped test in `internal/translate/export/verbatim_equation_test.go`.
+Generating a class body from these annotations, and the `omc` differential
+against a hand-written golden, belong to the consuming generator, not to the
+engine. The rationale and the acceptance mapping are recorded in
+[constraint-body metadata equations](../project/constraint-body-metadata-equations.md).
+
 ## Limitations
 
 These are the constructs the mapping does not fully represent. Each is a
