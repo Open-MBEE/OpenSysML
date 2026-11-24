@@ -95,7 +95,7 @@ const (
 	xAssignedValue       = "assignedValue"
 	xCollectionParameter = "collectionParameter"
 	xEmptyParameter      = "emptyParameter"
-	xLoopBody            = "isLoopBody"
+	xIsLoopBody          = "isLoopBody"
 )
 
 // libraryDone is the library feature a `done;` member names.
@@ -486,7 +486,7 @@ func (e *encoder) loopBody(n *ast.WhileLoopActionNode, subject rdf.Term, fqn str
 	body := e.ids.minted(rdf.IRI(subject.Value+loopBodySuffix), subject, loopBodySuffix)
 	e.typed(body, usageMetaclass[ast.UsageAction])
 	e.graph.Add(body, e.sysml(pElementID), rdf.String(rdf.LocalName(body.Value)))
-	e.graph.Add(body, e.sysx(xLoopBody), rdf.Bool(true))
+	e.graph.Add(body, e.sysx(xIsLoopBody), rdf.Bool(true))
 	membership := e.bodyMembership(subject, body, mParameterMembership)
 	e.graph.Add(membership, e.sysml(pOwnedMemberParameter), body)
 	return e.encode(n.Body, fqn, body)
@@ -1437,7 +1437,7 @@ func (d *decoder) behaviorHead(el *element) (string, bool, error) {
 			value, hasValue = d.stringOf(el, rdf.SysML+pValue)
 		}
 		if !hasTarget || !hasValue {
-			return "", true, d.missing(el, "sysx:"+xTarget+" and sysml:"+pValue, "an assignment states what it assigns to what")
+			return "", true, d.missing(el, "sysx:"+xTarget+" and sysx:"+xAssignedValue, "an assignment states what it assigns to what")
 		}
 		words := nodeDeclaration(d, el)
 		if keyword, ok := d.stringOf(el, rdf.OpenSysML+xDeclaredKeyword); ok {
@@ -2233,7 +2233,7 @@ func (d *decoder) loopText(el *element, depth int) (string, error) {
 	for _, child := range el.children {
 		// The body is the action the loop owns as a parameter; a graph written
 		// before it was has the loop own the body's members itself.
-		if d.boolOf(child, rdf.OpenSysML+xLoopBody) {
+		if d.boolOf(child, rdf.OpenSysML+xIsLoopBody) {
 			block = child
 			break
 		}

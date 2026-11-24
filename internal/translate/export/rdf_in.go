@@ -1508,7 +1508,7 @@ func (d *decoder) referencedElement(iri string) (*element, error) {
 		if mappingExpressionBodyMemberSubject(d.graph, rdf.IRI(target.iri)) {
 			return target, nil
 		}
-		if d.boolOf(target, rdf.OpenSysML+xLoopBody) {
+		if d.boolOf(target, rdf.OpenSysML+xIsLoopBody) {
 			// A loop's body names nothing: what it owns is addressed under the loop.
 			return target, nil
 		}
