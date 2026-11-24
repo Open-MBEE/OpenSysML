@@ -8532,7 +8532,12 @@ func (e *Evaluator) structureInvocationArguments(element Element) (Value, bool, 
 				if target.Kind != ElementValue {
 					return Value{}, true, false
 				}
-				explicit[index] = append(explicit[index], target.Element)
+				// A library formal is compared through its symbol, as the formal inputs spell it.
+				formal := target.Element
+				if symbol := e.structureElementSymbol(formal); symbol != nil {
+					formal = ElementOf(symbol)
+				}
+				explicit[index] = append(explicit[index], formal)
 			}
 		}
 		if len(explicit[index]) != 0 {
