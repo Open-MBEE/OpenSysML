@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard/flags"
@@ -75,10 +76,17 @@ func registerFlags(fs *flag.FlagSet) *options {
 		"Comma-separated names of the OPENSYSML_ENGINES manifest engines this service runs "+
 			"for its clients, or all; without it they are listed by ListEngines but a request "+
 			"naming one is refused, since it would run a program on the server")
-	fs.StringVar(&o.fileRoot, "file-root", "",
+	fs.Func("file-root",
 		"Directory the files a request names by path (file_path, layout_path) must lie "+
 			"under, relative paths taken from it; without it the service reads any path "+
-			"its own privileges reach")
+			"its own privileges reach",
+		func(dir string) error {
+			if dir == "" {
+				return errors.New("needs a directory")
+			}
+			o.fileRoot = dir
+			return nil
+		})
 	return &o
 }
 
