@@ -57,13 +57,9 @@ func (r *fileRoot) path(name string) string {
 // names, as elements; ok is false for a path that does not start in the root. The
 // name the root was configured by counts only while it still leads to the root.
 func (r *fileRoot) within(path string) (rest []string, ok bool) {
-	if filepath.VolumeName(path) != filepath.VolumeName(r.dir) {
-		return nil, false
-	}
-	elements := namedElements(path)
 	for _, root := range []string{r.dir, r.given} {
-		prefix := pathElements(root)
-		if len(elements) < len(prefix) || !slices.Equal(elements[:len(prefix)], prefix) {
+		rest, ok := elementsBelow(root, path)
+		if !ok {
 			continue
 		}
 		if root != r.dir {
@@ -71,9 +67,22 @@ func (r *fileRoot) within(path string) (rest []string, ok bool) {
 				continue
 			}
 		}
-		return elements[len(prefix):], true
+		return rest, true
 	}
 	return nil, false
+}
+
+// elementsBelow is the elements of an absolute path after those of root; ok is false
+// for a path on another volume or one that does not start with root.
+func elementsBelow(root, path string) (rest []string, ok bool) {
+	if filepath.VolumeName(path) != filepath.VolumeName(root) {
+		return nil, false
+	}
+	elements, prefix := namedElements(path), pathElements(root)
+	if len(elements) < len(prefix) || !slices.Equal(elements[:len(prefix)], prefix) {
+		return nil, false
+	}
+	return elements[len(prefix):], true
 }
 
 // resolve walks name one element at a time and returns the file it names, relative to
