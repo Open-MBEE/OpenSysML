@@ -113,6 +113,9 @@ type executor struct {
 	// reflection memoizes what the metamodel declares, shared by every
 	// executor of one execution.
 	reflection *reflectionMemo
+	// stateActivity memoizes each state usage's activity across the rows of
+	// one execution, so a projection reads each session machine once per state.
+	stateActivity map[symbols.ElementKey]bool
 	// elementIDErr is why the model has no elementIds, once a read asked for
 	// one: the conversion that writes them refused the model.
 	elementIDErr error

@@ -115,6 +115,46 @@ func (e *executor) evaluateInState(expression queryplan.Expression) (sequence, e
 	return result, nil
 }
 
+// stateActivityValues answers isActive on a state-usage row: whether any state
+// machine the session runs holds the state active. A started state answers true
+// and a never-entered one, or any state with no session, answers false. The
+// property is absent on rows that are not state usages.
+func (e *executor) stateActivityValues(sym *symbols.Symbol) ([]Value, bool, error) {
+	if sym == nil || sym.Kind != symbols.SymbolStateUsage {
+		return nil, false, nil
+	}
+	key := symbols.KeyOf(sym)
+	if active, seen := e.stateActivity[key]; seen {
+		return []Value{BooleanValue(active)}, true, nil
+	}
+	active := false
+	if e.context.Runtime != nil {
+		err := e.eachSessionObject(queryplan.Expression{}, func(row Value) {
+			if active {
+				return
+			}
+			inst, _, _ := row.Object()
+			if _, gone := e.context.Runtime.Destroyed(inst); gone {
+				return
+			}
+			for _, machine := range stateMachinesOf(inst) {
+				if value, ok := machine.State.ActivityOf(sym); ok && value {
+					active = true
+					return
+				}
+			}
+		})
+		if err != nil {
+			return nil, false, err
+		}
+	}
+	if e.stateActivity == nil {
+		e.stateActivity = make(map[symbols.ElementKey]bool)
+	}
+	e.stateActivity[key] = active
+	return []Value{BooleanValue(active)}, true, nil
+}
+
 // objectArgument evaluates an argument whose rows must denote session objects:
 // object rows as they are, an element by the session objects it declares.
 func (e *executor) objectArgument(expression queryplan.Expression, name string) (sequence, error) {
@@ -264,20 +304,7 @@ func stateSymbol(graph *lower.StateGraph, id program.StateID) *symbols.Symbol {
 	if state == nil {
 		return nil
 	}
-	decl := graph.DeclOf(state)
-	scope := graph.StateScopes[state]
-	if scope == nil {
-		return nil
-	}
-	if owner := scope.Owner(); owner != nil && owner.Decl == decl {
-		return owner
-	}
-	for s := scope; s != nil; s = s.Parent() {
-		if sym := s.MemberDeclaring(decl); sym != nil {
-			return sym
-		}
-	}
-	return nil
+	return graph.StateSymbol(state)
 }
 
 // stateNamed reports whether name denotes leaf or a state enclosing it, by
