@@ -8,7 +8,7 @@ import (
 // statementNodes are the anonymous action nodes (SysML v2 §7.16.8) sym's body writes as statements,
 // synthesized here because the symbol table scopes their bodies but registers no symbol for them.
 func (m *Model) statementNodes(sym *symbols.Symbol) []*symbols.Symbol {
-	if m == nil || sym == nil || sym.Implicit != nil || sym.Expr != nil || sym.Recorded() {
+	if m == nil || sym == nil || sym.Implicit != nil || sym.Expr != nil || sym.Recorded() || IsLoopVariable(sym) {
 		return nil
 	}
 	if cached, ok := m.statementSymbols[sym]; ok {
