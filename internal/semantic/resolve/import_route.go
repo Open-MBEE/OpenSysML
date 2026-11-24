@@ -203,13 +203,13 @@ func (r *Resolver) plainRegion(scope *symbols.Scope) bool {
 	reach := func() bool {
 		for ; read < len(region); read++ {
 			ns := region[read]
-			if len(ns.Imports()) != 0 && len(r.namespaceFilters(ns)) != 0 {
+			if len(r.scopeImports(ns)) != 0 && len(r.namespaceFilters(ns)) != 0 {
 				filtered = append(filtered, ns)
 			}
 			if ns != scope && !(plainNamespace(ns) && unique(ns)) {
 				return false
 			}
-			for _, imp := range ns.Imports() {
+			for _, imp := range r.scopeImports(ns) {
 				if !plainImportOf(imp) {
 					return false
 				}
@@ -248,7 +248,7 @@ func (r *Resolver) plainRegion(scope *symbols.Scope) bool {
 		for at := 0; at < len(region); at++ {
 			ns := region[at]
 			stated := r.importsStatedOutside(ns)
-			if len(stated) != 0 && len(ns.Imports()) == 0 && len(r.namespaceFilters(ns)) != 0 {
+			if len(stated) != 0 && len(r.scopeImports(ns)) == 0 && len(r.namespaceFilters(ns)) != 0 {
 				filtered = append(filtered, ns)
 			}
 			for _, stated := range stated {
@@ -291,7 +291,7 @@ func (r *Resolver) plainRegion(scope *symbols.Scope) bool {
 	}
 	// A namespace around an import may bring names of its own only as one of these.
 	for _, ns := range outer {
-		if !seen[ns] && len(ns.Imports()) != 0 {
+		if !seen[ns] && len(r.scopeImports(ns)) != 0 {
 			return false
 		}
 	}
