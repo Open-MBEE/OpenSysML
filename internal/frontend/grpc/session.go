@@ -123,10 +123,10 @@ func sessionFailuref(format string, args ...any) *SessionFailure {
 }
 
 // runFailure classifies a runtime error: one at the session's object bound is
-// the RESOURCE_EXHAUSTED status and a run Under stopped is its to answer; any
+// the RESOURCE_EXHAUSTED status and a run or tool Under stopped is its to answer; any
 // other is the model's failure, so described.
 func (ss *Session) runFailure(err error, format string, args ...any) error {
-	if errors.Is(err, runtime.ErrInterrupted) {
+	if errors.Is(err, runtime.ErrInterrupted) || ss.endedTool(err) {
 		return errSessionInterrupted
 	}
 	if errors.Is(err, runtime.ErrInstanceLimitExceeded) {
@@ -135,6 +135,17 @@ func (ss *Session) runFailure(err error, format string, args ...any) error {
 			ss.rt.InstanceCount(), ss.rt.MaxInstances(), HeldObjectsEnvVar)
 	}
 	return sessionFailuref(format, append(args, err)...)
+}
+
+// endedTool reports whether err is the end of the context of the call under
+// way, which a tool the call started fails with once that context ends.
+func (ss *Session) endedTool(err error) bool {
+	ctx := ss.call.Load()
+	if ctx == nil {
+		return false
+	}
+	ended := (*ctx).Err()
+	return ended != nil && errors.Is(err, ended)
 }
 
 // SessionTransition is one transition of a state machine as a session reports
