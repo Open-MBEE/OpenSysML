@@ -657,3 +657,54 @@ func TestSequenceRenderingDropsNotesOnEventsOfBehaviorNotShown(t *testing.T) {
 		t.Errorf("roots %v edges %v, want neither: the message has no receiver shown", lifelineNames(rendering), rendering.Edges)
 	}
 }
+
+// A chain of successions declared out of order beside a branch is drawn first step
+// first: each succession follows the ones that lead to its source.
+func TestSequenceRenderingDrawsSuccessionChainInCausalOrder(t *testing.T) {
+	for _, tc := range []struct {
+		name, body string
+		want       []string
+	}{
+		{"the chain's second step declared before a branch and its first step",
+			`succession first b then d; succession first a then c; succession first a then b;`,
+			[]string{"sent then a", "a then c", "a then b", "b then d"}},
+		{"a three-step chain declared last step first",
+			`succession first c then d; succession first b then c; succession first a then b;`,
+			[]string{"sent then a", "a then b", "b then c", "c then d"}},
+		{"a chain declared in order beside a branch",
+			`succession first a then b; succession first a then c; succession first b then d;`,
+			[]string{"sent then a", "a then b", "a then c", "b then d"}},
+		{"a cycle is placed as declared",
+			`succession first b then d; succession first d then b; succession first a then b;`,
+			[]string{"sent then a", "a then b", "b then d", "d then b"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rendering := renderSource(t, "Chained::shown", `package Chained {
+	private import StandardViewDefinitions::*;
+	item def Ping;
+	part def Run {
+		part client { event occurrence sent; }
+		part server {
+			event occurrence a; event occurrence b; event occurrence c; event occurrence d;
+			`+tc.body+`
+		}
+		message ping of Ping from client.sent to server.a;
+	}
+	view shown : SequenceView { expose Run; }
+}`)
+			names := map[string]string{}
+			for _, lifeline := range rendering.Roots {
+				for _, proxy := range lifeline.Children {
+					names[proxy.ID] = proxy.Name
+				}
+			}
+			var rows []string
+			for _, edge := range rendering.Edges {
+				rows = append(rows, names[edge.From]+" then "+names[edge.To])
+			}
+			if !slices.Equal(rows, tc.want) {
+				t.Errorf("rows = %v, want %v", rows, tc.want)
+			}
+		})
+	}
+}

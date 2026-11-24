@@ -850,7 +850,7 @@ func reaches(later [][]int, at map[lifelineEnd]int) func(a, b lifelineEnd) bool 
 // sequenceRows are the rows of the sequence in order: the messages as sorted, then
 // each succession's arrow after the last row holding its source or an event ordered
 // before it, else before the first row holding its target or an event ordered after
-// it, else after the messages. A placed succession's row holds its two events, so a
+// it, else after the messages. The successions are placed in causal order, so a
 // chain declared out of order still settles by its events; successions nothing orders
 // keep declaration order. before is the events' order, identity when cyclic.
 func sequenceRows(messages []message, successions []succession, orders []timing, before func(a, b lifelineEnd) bool) []Edge {
@@ -863,7 +863,7 @@ func sequenceRows(messages []message, successions []succession, orders []timing,
 	for _, msg := range messages {
 		rows = append(rows, row{edge: msg.edge, events: msg.events()})
 	}
-	for _, s := range successions {
+	for _, s := range causalSuccessions(successions, orders, before) {
 		o := orders[s.order]
 		after, ahead := -1, len(rows)
 		for i, r := range rows {
@@ -891,6 +891,31 @@ func sequenceRows(messages []message, successions []succession, orders []timing,
 		edges = append(edges, r.edge)
 	}
 	return edges
+}
+
+// causalSuccessions are the successions with each one after those whose target is
+// its source or an event ordered before it, declaration order standing otherwise
+// and throughout when the successions form a cycle.
+func causalSuccessions(successions []succession, orders []timing, before func(a, b lifelineEnd) bool) []succession {
+	later := make([][]int, len(successions))
+	indegree := make([]int, len(successions))
+	for i, first := range successions {
+		for j, then := range successions {
+			if i != j && before(orders[first.order].to, orders[then.order].from) {
+				later[i] = append(later[i], j)
+				indegree[j]++
+			}
+		}
+	}
+	placed, ok := stableTopological(later, indegree)
+	if !ok {
+		return successions
+	}
+	sorted := make([]succession, len(placed))
+	for i, at := range placed {
+		sorted[i] = successions[at]
+	}
+	return sorted
 }
 
 // sortMessageRows sorts the messages by the orders between their rows, or
