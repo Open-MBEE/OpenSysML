@@ -166,6 +166,8 @@ type Resolver struct {
 	importPath []*symbols.Scope
 	// plainRead is set while the read in progress is over a plain region (plainRegion).
 	plainRead bool
+	// plainWork is the storage plainRegion works in, nil while a call holds it.
+	plainWork *plainRegionWork
 	// importNames names the leading scopes of importPath as the index does.
 	importNames []string
 	importHits  []*symbols.Scope

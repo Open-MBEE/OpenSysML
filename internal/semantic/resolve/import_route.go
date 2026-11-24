@@ -175,17 +175,58 @@ func (r *Resolver) plainRegion(scope *symbols.Scope) bool {
 	if r.inCondition != 0 || !plainNamespace(scope) {
 		return false
 	}
-	type plainImport struct {
-		imp    *ast.Import
-		from   *symbols.Scope
-		named  *symbols.Symbol
-		target *symbols.Symbol
+	// Every read asks, so the tables are kept between calls; a call made within this one takes its own.
+	work := r.plainWork
+	r.plainWork = nil
+	if work == nil {
+		work = &plainRegionWork{named: map[string]*symbols.Symbol{}, seen: map[*symbols.Scope]bool{}}
 	}
-	var imports []plainImport
-	var outer, filtered []*symbols.Scope
-	named := map[string]*symbols.Symbol{}
-	seen := map[*symbols.Scope]bool{scope: true}
-	region := []*symbols.Scope{scope}
+	defer func() {
+		work.reset()
+		r.plainWork = work
+	}()
+	return r.plainRegionIn(scope, work)
+}
+
+// plainImport is an import a plain region reads: the namespace stating it, the member its first
+// segment names and the package it names.
+type plainImport struct {
+	imp    *ast.Import
+	from   *symbols.Scope
+	named  *symbols.Symbol
+	target *symbols.Symbol
+}
+
+// plainRegionWork holds the tables of one plainRegion call.
+type plainRegionWork struct {
+	imports                 []plainImport
+	outer, filtered, region []*symbols.Scope
+	named                   map[string]*symbols.Symbol
+	seen                    map[*symbols.Scope]bool
+}
+
+// reset empties the tables, keeping their storage and no reference into a model.
+func (w *plainRegionWork) reset() {
+	clear(w.imports)
+	clear(w.outer)
+	clear(w.filtered)
+	clear(w.region)
+	w.imports, w.outer, w.filtered = w.imports[:0], w.outer[:0], w.filtered[:0]
+	w.region = w.region[:0]
+	clear(w.named)
+	clear(w.seen)
+}
+
+// plainRegionIn is plainRegion over the emptied tables of work.
+func (r *Resolver) plainRegionIn(scope *symbols.Scope, work *plainRegionWork) bool {
+	imports, outer, filtered := work.imports, work.outer, work.filtered
+	named, seen := work.named, work.seen
+	seen[scope] = true
+	region := append(work.region, scope)
+	// The tables grown here are the ones the next call starts from.
+	defer func() {
+		work.imports, work.outer, work.filtered, work.region = imports, outer, filtered, region
+	}()
 	// unique reports whether no member of ns has the name of another read before it.
 	unique := func(ns *symbols.Scope) bool {
 		distinct := true
@@ -203,13 +244,14 @@ func (r *Resolver) plainRegion(scope *symbols.Scope) bool {
 	reach := func() bool {
 		for ; read < len(region); read++ {
 			ns := region[read]
-			if len(ns.Imports()) != 0 && len(r.namespaceFilters(ns)) != 0 {
+			stated := ns.Imports()
+			if len(stated) != 0 && len(r.namespaceFilters(ns)) != 0 {
 				filtered = append(filtered, ns)
 			}
 			if ns != scope && !(plainNamespace(ns) && unique(ns)) {
 				return false
 			}
-			for _, imp := range ns.Imports() {
+			for _, imp := range stated {
 				if !plainImportOf(imp) {
 					return false
 				}
