@@ -418,6 +418,29 @@ everywhere — five `Unioning` targets (`kerml/7.3.2.7/2`–`4`: `unions Adult, 
 links (`kerml/7.4.5.2/4`: `crosses ownedAsset.owningEntities`) are ours-missing with the
 `relatedElement`, `chainingFeature`, `featureTarget` and `type` derived from them.
 
+**A declaration's Disjoining, FeatureInverting and TypeFeaturing** (re-recorded when the writer
+began stating one `Disjoining`, `FeatureInverting` or `TypeFeaturing` per target of a declaration's
+`disjoint from`, `inverse of` and `featured by` clause, with the chain `Feature` and
+`FeatureChaining`s of a chain target — KerML.xtext `OwnedDisjoining`, `OwnedFeatureInverting`,
+`OwnedTypeFeaturing`, each an `ownedRelationship` of the type or feature — where the collapsed
+`disjointFrom`, `inverseOf` and `featuringType` alone stood): 23 fragments moved. 96 more elements
+match, every one a pilot-only element before (matched 114698 → 114794, pilot-only 26925 → 26829;
+ours-only and type mismatches unchanged): 79 `TypeFeaturing`, 10 `Disjoining` and 7
+`FeatureInverting`. Present-equal grows 2333281 → 2334432, present-different falls 168600 → 168515
+and ours-missing falls 186353 → 186247: `ownedTypeFeaturing`, `ownedDisjoining` and
+`ownedFeatureInverting` go from ours-missing to equal on every owner (78, 9 and 7 values),
+`ownedRelationship` gains 89 equal values on the owners, and `featuringType` goes from ours-missing
+to equal on 6 `Feature`s and 26 `MultiplicityRange`s. No row loses an equal value. What the new
+elements add to the other buckets is what their classes already carry: `owner` on each of the 96
+relationships is pilot-missing, as on every relationship element (the pilot states none), and two
+of them join the unkeyable elements. The targets a specification snippet never declares are written
+as no reference, as everywhere — four `Disjoining` targets (`kerml/7.3.2.2/1`, `kerml/7.3.2.5/3`),
+two `TypeFeaturing` targets and one `FeatureInverting` target (`kerml/7.3.4.2/7`) are ours-missing
+with the `relatedElement` and `target` derived from them. One `TypeFeaturing` of
+`sysml/8.4.13.3/2` (`featured by AC` on a member the snippet completes with undeclared names)
+states a `featuringType` that differs from the pilot's; which of the three there it is was not
+determined.
+
 **Every connector end's `[1..1]`** (re-recorded when the writer began stating the implicit `[1..1]`
 of a positional end — `connect a to b`, `bind a = b`, `first s1 then s2`, `allocate a to b` — as it
 already did a named end's, SysML v2 §7.13.2 "If a multiplicity is not explicitly declared for an end

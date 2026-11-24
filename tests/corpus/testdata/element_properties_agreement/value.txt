@@ -67,7 +67,7 @@ AttributeUsage::isConjugated	1	export-56
 AttributeUsage::member	218	symbol-51
 AttributeUsage::membership	218	symbol-51
 AttributeUsage::ownedMember	747	symbol-08
-AttributeUsage::ownedRelationship	82	symbol-03
+AttributeUsage::ownedRelationship	78	symbol-03
 AttributeUsage::ownedSpecialization	3	export-07
 AttributeUsage::ownedSubsetting	3	export-57
 AttributeUsage::owningFeatureMembership	1	export-57
@@ -79,7 +79,6 @@ BindingConnectorAsUsage::inheritedFeature	16	symbol-51
 BindingConnectorAsUsage::inheritedMembership	16	symbol-51
 BindingConnectorAsUsage::member	16	symbol-51
 BindingConnectorAsUsage::membership	16	symbol-51
-BindingConnectorAsUsage::ownedRelationship	2	symbol-03
 BindingConnectorAsUsage::relatedElement	1	export-57
 BindingConnectorAsUsage::relatedFeature	1	symbol-52
 BindingConnectorAsUsage::target	1	export-57
@@ -480,7 +479,7 @@ SuccessionAsUsage::inheritedFeature	12	symbol-51
 SuccessionAsUsage::inheritedMembership	12	symbol-51
 SuccessionAsUsage::member	12	symbol-51
 SuccessionAsUsage::membership	12	symbol-51
-SuccessionAsUsage::ownedRelationship	5	symbol-03
+SuccessionAsUsage::ownedRelationship	4	symbol-03
 SuccessionAsUsage::relatedElement	46	export-57
 SuccessionAsUsage::relatedFeature	46	symbol-52
 SuccessionAsUsage::source	54	export-57
@@ -500,7 +499,7 @@ Type::inheritedFeature	1	symbol-51
 Type::isConjugated	3	export-56
 Type::ownedFeature	1	symbol-53
 Type::ownedFeatureMembership	1	symbol-53
-Type::ownedRelationship	4	export-56
+Type::ownedRelationship	1	export-56
 Type::ownedSpecialization	3	export-07
 UseCaseDefinition::feature	1	symbol-51
 UseCaseDefinition::featureMembership	1	symbol-51

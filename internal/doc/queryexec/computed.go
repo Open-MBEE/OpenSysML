@@ -458,7 +458,7 @@ func (e *executor) reflectiveFeatureValues(
 	sym *symbols.Symbol,
 ) ([]Value, error) {
 	if property != "documentation" {
-		if elements, ok := e.context.Model.ReflectiveElements(sym, property); ok {
+		if elements, ok := e.context.Model.StatedReflectiveElements(sym, property); ok {
 			return reflectiveElementValues(sym, elements), nil
 		}
 	}
