@@ -8,8 +8,6 @@ import (
 )
 
 // registerFMI adds tool:fmi, which a build made without FMI leaves out.
-func registerFMI(r *analysis.Registry) {
-	if err := r.Register(fmi.New(nil)); err != nil {
-		panic(err)
-	}
+func registerFMI(r *analysis.Registry) error {
+	return r.Register(fmi.New(nil))
 }

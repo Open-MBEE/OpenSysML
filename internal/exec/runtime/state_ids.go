@@ -14,7 +14,7 @@ import (
 // machineID is the id the executor gives the machine state, which lowering keeps
 // out of the state table: one past the last numbered state.
 func (e *StateExecutor) machineID() program.StateID {
-	return program.StateID(len(e.graph.Origins)) // #nosec G115 -- a graph has far fewer than 2^32 states
+	return e.graph.MachineID()
 }
 
 // stateID is the graph-local id of state, 0 for nil.

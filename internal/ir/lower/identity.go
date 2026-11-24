@@ -296,6 +296,7 @@ func (g *StateGraph) assignStateIDs(paths originPaths) {
 		}
 		g.Origins = append(g.Origins, g.vertexOrigin(state, scope, sym, state.Name, paths))
 	}
+	g.machineID = program.StateID(tableIndex(len(g.Provenance.states)))
 }
 
 // regionsInOrder lists the graph's regions once each: the machine's own, then
