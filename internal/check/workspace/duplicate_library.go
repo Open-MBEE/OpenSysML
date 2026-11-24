@@ -143,8 +143,12 @@ func group(idx *symbols.Index, dups []duplicate) []Finding {
 			}
 		}
 	}
-	sort.Slice(order, func(i, j int) bool {
-		return groups[order[i]].shadowed.DocName < groups[order[j]].shadowed.DocName
+	sort.SliceStable(order, func(i, j int) bool {
+		a, b := groups[order[i]], groups[order[j]]
+		if a.shadowed.DocName != b.shadowed.DocName {
+			return a.shadowed.DocName < b.shadowed.DocName
+		}
+		return a.used < b.used
 	})
 	out := make([]Finding, 0, len(order))
 	for _, pair := range order {

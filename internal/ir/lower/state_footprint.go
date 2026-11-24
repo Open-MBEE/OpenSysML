@@ -572,8 +572,8 @@ func (g *StateGraph) children(state *ast.StateNode) []*ast.StateNode {
 			children = append(children, candidate)
 		}
 	}
-	for candidate, parent := range g.ParentState {
-		if parent == state && g.HiddenStates[candidate] {
+	for _, candidate := range g.statesInOrder() {
+		if g.HiddenStates[candidate] && g.ParentState[candidate] == state {
 			children = append(children, candidate)
 		}
 	}
