@@ -10373,9 +10373,8 @@ export type RenderNode = Message<"sysml.RenderNode"> & {
   parallel: boolean;
 
   /**
-   * The declared element's durable id, the EffectiveID a written form's {id}
-   * link anchor carries. Empty when the node stands for no identified element.
-   * This is not `id`, which identifies the node within this rendering only.
+   * The element's EffectiveID, the id a written form's {id} anchor carries.
+   * Empty when no element declares it; `id` is local to this rendering.
    *
    * @generated from field: string element_id = 18;
    */
@@ -10423,8 +10422,8 @@ export type RenderPort = Message<"sysml.RenderPort"> & {
   inherited: boolean;
 
   /**
-   * The declared feature's durable id, the EffectiveID a written form's {id}
-   * link anchor carries. Empty when the port stands for no identified element.
+   * The feature's EffectiveID, as in a written form's {id} anchor.
+   * Empty when no element declares the port.
    *
    * @generated from field: string element_id = 6;
    */
@@ -10495,8 +10494,8 @@ export type RenderEdge = Message<"sysml.RenderEdge"> & {
   style?: RenderStyle | undefined;
 
   /**
-   * The connection's durable id, the EffectiveID a written form's {id} link
-   * anchor carries. Empty when the edge stands for no identified element.
+   * The connection's EffectiveID, as in a written form's {id} anchor.
+   * Empty when no element declares the edge.
    *
    * @generated from field: string element_id = 11;
    */

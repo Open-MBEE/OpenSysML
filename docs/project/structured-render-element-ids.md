@@ -86,6 +86,8 @@ has the model and resolver, and stores it on the view model:
 | Node client | `RenderNode.elementId`, `RenderPort.elementId`, `RenderEdge.elementId` | decoded protojson |
 | Python client | `RenderNode.element_id`, `RenderPort.element_id`, `RenderEdge.element_id` | decoded protobuf |
 | Rust client | `RenderNode.element_id`, `RenderPort.element_id`, `RenderEdge.element_id` | decoded protobuf |
+| Java client | `RenderedView.Node.elementId()`, `RenderedView.Port.elementId()`, `RenderedView.Edge.elementId()` | decoded `getElementId()`; the conformance mock mirrors it |
+| MATLAB client | `nodes.elementId`, `ports.elementId`, `edges.elementId` | decoded engine JSON `elementId` |
 | Julia client | `RenderNode.element_id`, `RenderPort.element_id`, `RenderEdge.element_id` | decoded engine JSON |
 | VS Code protocol | `RenderNode.elementId?`, `RenderPort.elementId?`, `RenderEdge.elementId?` | LSP `elementId` |
 
@@ -116,10 +118,13 @@ filesystem:
 - `gofmt -l .` — empty output, exit 0.
 - `go build -p 2 ./...` — exit 0.
 - `go vet -p 2 ./...` — exit 0.
-- `go test -p 1 -count=1 ./internal/ir/view -run 'TestRenderedElementsCarryTheLinkIdentity|TestRenderedElementIDsAreStableAcrossRenderings|TestResolveElementIDsToleratesNilAndUnlocatedOrigins|TestGoldenRenderings|TestLinkedDiagramGoldens|TestWriteWithNoSitesIsByteIdentical'` — ok, exit 0.
-- `go test -p 1 -count=1 ./internal/frontend/grpc -run 'TestRenderViewCarriesDurableElementIDs|TestRenderViewRendersInterconnectionAndPorts|TestRenderViewCarriesFoldOnlyLayoutUnplaced'` — ok, exit 0.
-- `go test -p 1 -count=1 ./internal/frontend/lsp -run 'TestRenderCarriesDurableElementIDs|TestRenderTakesAPortDisplay|TestRenderMixedCarriesConnectorPortData'` — ok, exit 0.
-- `go test -count=1 ./client/opensysml -run TestRenderedViewFromProtoPreservesFieldsAndPresence` — ok, exit 0.
+- `go test -p 2 -count=1 ./internal/ir/view -run 'TestRenderedElementsCarryTheLinkIdentity|TestRenderedElementIDsAreStableAcrossRenderings|TestResolveElementIDsToleratesNilAndUnlocatedOrigins|TestGoldenRenderings|TestLinkedDiagramGoldens|TestWriteWithNoSitesIsByteIdentical'` — ok, exit 0.
+- `go test -p 2 -count=1 ./internal/frontend/grpc -run 'TestRenderViewCarriesDurableElementIDs|TestRenderViewRendersInterconnectionAndPorts|TestRenderViewCarriesFoldOnlyLayoutUnplaced'` — ok, exit 0.
+- `go test -p 2 -count=1 ./internal/frontend/lsp -run 'TestRenderCarriesDurableElementIDs|TestRenderTakesAPortDisplay|TestRenderMixedCarriesConnectorPortData'` — ok, exit 0.
+- `go test -p 2 -count=1 ./client/opensysml -run TestRenderedViewFromProtoPreservesFieldsAndPresence` — ok, exit 0.
+- `go test -p 2 -count=1 ./tests/hygiene` — ok, exit 0.
+- Java: `mvn -o -pl opensysml-client -am -Dtest=RenderedViewTest -Dsurefire.failIfNoSpecifiedTests=false test` with JDK 17 — exit 0; `mvn -o -pl opensysml-conformance -am -DskipTests compile` — exit 0.
+- The two comment gates over `git diff 9a71c245cd -U2 -- '*.go'` and `-- '*.proto'`, counting added comment lines past the second, both print nothing.
 - `cd client/node && npm run build:tools && node --test build/test/document.test.js` — 13 tests, 13 passed, 0 failed. The TypeScript build reports a pre-existing unresolved `@openmbee/opensysml` import in `test/golden/vehicle_types.ts` until `dist` exists; the compiled test binary runs and passes.
 - `cd client/python && PYTHONPATH=. python -m pytest tests/test_document.py::test_render_view_decodes_all_fields_and_optional_messages -q` — 1 passed. Two tests in that file that need a locally installed `sysml-grpc` with the `render_view_form` capability fail against the stale binary in `~/.opensysml/bin`; they are unrelated to this change.
 - `make proto-lint` and `make proto-breaking` — both passed.
@@ -131,20 +136,26 @@ test result is claimed here; the focused suites above are green.
 
 ## Known limitations and follow-ups
 
-- An artifact drawn from no identified declaration (a `start`/`done` node, an
-  item box on a flow, a migration stand-in, or a lowered graph node with no
-  declaring symbol) has an empty `elementId`. There is no identity to report;
-  the render-local `id` still addresses it within the rendering.
+- An artifact with no resolvable declaration has an empty `elementId`; the
+  render-local `id` still addresses it within the rendering. Item boxes take
+  the identity of the flow whose line they sit on, and an anonymous flow's item
+  box takes its owner's identity, so they are not id-less. A declared `start`
+  state likewise carries its own id; an unresolved node such as a `done` the
+  model does not declare is the case that comes back empty.
 - The field is captured when the rendering is built. Later edits to the model
   do not change an already returned response.
 - Clients that talk to an older server see an empty string. No capability
   flag distinguishes "old server" from "element with no identity"; the
   renderer's `origin` remains available where that distinction matters.
-- Rust and Julia toolchains are not installed in the verification environment.
-  Their decoder changes and test fixtures were updated alongside the generated
-  stubs but those suites were not executed here; their CI jobs run them.
-- The engine's in-tree agent skills live in a separate repository and were not
-  changed by this work; their rendering guidance should be re-verified when
-  the change lands on `develop`.
+- Rust, Julia and MATLAB toolchains are not installed here. Their decoder
+  changes and test fixtures were updated alongside the generated stubs, but
+  those suites were not executed; their CI jobs run them. Java was run with a
+  JDK 17 toolchain outside the default `PATH`; the default JRE has no `javac`
+  and cannot run the Maven test.
+- No in-tree agent skill describes the structured render node, port or edge
+  fields. The service and client skills in the separate `OpenSysML-MDK-Skills`
+  repository must be re-verified against these fields and updated in a
+  companion pull request; that work is not part of this change and is not
+  claimed as done.
 - Notation shape on the structured node is a different surface and is not
   implemented here.

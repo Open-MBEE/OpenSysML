@@ -353,9 +353,8 @@ func (k EdgeKind) String() string {
 type Node struct {
 	// ID identifies the node within its rendering, and is what an edge names.
 	ID string
-	// ElementID is the declared element's durable identity, the EffectiveID a
-	// written form's {id} link anchor carries. Empty when the node stands for
-	// no identified element. Unlike ID it is stable across renderings.
+	// ElementID is the declared element's EffectiveID, stable across renderings.
+	// Unlike ID it is not local to this rendering; empty when none is declared.
 	ElementID string
 	// Kind is what the notation calls the element — "part def", "state",
 	// "fork" — never a Go type name.
@@ -444,8 +443,8 @@ type Node struct {
 type Port struct {
 	// ID identifies the port within its rendering, and is what an edge names.
 	ID string
-	// ElementID is the declared feature's durable identity, the EffectiveID a
-	// written form's {id} link anchor carries. Empty when no element declares it.
+	// ElementID is the declared feature's EffectiveID; empty when none declares it.
+	// It is distinct from the port's render-local ID.
 	ElementID string
 	// Name is the pin's name, as the notation writes it.
 	Name string
@@ -522,8 +521,8 @@ func (p Port) label() string {
 
 // Edge joins two nodes of a rendering.
 type Edge struct {
-	// ElementID is the declared connection's durable identity, the EffectiveID
-	// a written form's {id} link anchor carries. Empty when no element declares it.
+	// ElementID is the declared connection's EffectiveID; empty when none declares it.
+	// It names the declaration, not the edge within this rendering.
 	ElementID string
 	// From and To are node IDs.
 	From string

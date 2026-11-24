@@ -3628,9 +3628,8 @@ message RenderNode {
   string arrow = 16;
   // The state's substates run in parallel; a label writes «parallel» under the name.
   bool parallel = 17;
-  // The declared element's durable id, the EffectiveID a written form's {id}
-  // link anchor carries. Empty when the node stands for no identified element.
-  // This is not `id`, which identifies the node within this rendering only.
+  // The element's EffectiveID, the id a written form's {id} anchor carries.
+  // Empty when no element declares it; `id` is local to this rendering.
   string element_id = 18;
 }
 
@@ -3642,8 +3641,8 @@ message RenderPort {
   string direction = 4;
   // The node's owner has the port from its type rather than declares it; drawn with a `^` before `name`.
   bool inherited = 5;
-  // The declared feature's durable id, the EffectiveID a written form's {id}
-  // link anchor carries. Empty when the port stands for no identified element.
+  // The feature's EffectiveID, as in a written form's {id} anchor.
+  // Empty when no element declares the port.
   string element_id = 6;
 }
 
@@ -3659,8 +3658,8 @@ message RenderEdge {
   Span origin = 8;
   repeated RenderPoint route = 9;
   RenderStyle style = 10;
-  // The connection's durable id, the EffectiveID a written form's {id} link
-  // anchor carries. Empty when the edge stands for no identified element.
+  // The connection's EffectiveID, as in a written form's {id} anchor.
+  // Empty when no element declares the edge.
   string element_id = 11;
 }
 

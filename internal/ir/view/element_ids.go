@@ -6,10 +6,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
-// identityOf reads the qualified name and EffectiveID of the element declared
-// at origin. It is the identity a written form's {id} link template fills, and
-// the one the structured form reports as ElementID. Either is empty when no
-// declaration of an identified element sits at the origin.
+// identityOf reads the declared element's EffectiveID, the id a written form's {id} fills.
+// Both are empty when no identified declaration sits at the origin.
 func (r *Renderer) identityOf(origin Origin) (name, id string) {
 	if r == nil || !origin.Located() || r.model == nil || r.resolver == nil {
 		return "", ""
@@ -35,9 +33,8 @@ func (r *Renderer) identityOf(origin Origin) (name, id string) {
 	return name, id
 }
 
-// resolveElementIDs fills the durable identity of every node, port and edge a
-// renderer drew, from the same origin the written forms link by. The rendering
-// keeps the ids as data: nothing in it points back into the model.
+// resolveElementIDs fills nodes, ports and edges with the identity their origins link by.
+// The ids stay as data; nothing in the rendering points back into the model.
 func (r *Renderer) resolveElementIDs(out *Rendering) {
 	if r == nil || out == nil {
 		return

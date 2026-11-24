@@ -17873,9 +17873,8 @@ type RenderNode struct {
 	Arrow string `protobuf:"bytes,16,opt,name=arrow,proto3" json:"arrow,omitempty"`
 	// The state's substates run in parallel; a label writes «parallel» under the name.
 	Parallel bool `protobuf:"varint,17,opt,name=parallel,proto3" json:"parallel,omitempty"`
-	// The declared element's durable id, the EffectiveID a written form's {id}
-	// link anchor carries. Empty when the node stands for no identified element.
-	// This is not `id`, which identifies the node within this rendering only.
+	// The element's EffectiveID, the id a written form's {id} anchor carries.
+	// Empty when no element declares it; `id` is local to this rendering.
 	ElementId     string `protobuf:"bytes,18,opt,name=element_id,json=elementId,proto3" json:"element_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -18046,8 +18045,8 @@ type RenderPort struct {
 	Direction string                 `protobuf:"bytes,4,opt,name=direction,proto3" json:"direction,omitempty"`
 	// The node's owner has the port from its type rather than declares it; drawn with a `^` before `name`.
 	Inherited bool `protobuf:"varint,5,opt,name=inherited,proto3" json:"inherited,omitempty"`
-	// The declared feature's durable id, the EffectiveID a written form's {id}
-	// link anchor carries. Empty when the port stands for no identified element.
+	// The feature's EffectiveID, as in a written form's {id} anchor.
+	// Empty when no element declares the port.
 	ElementId     string `protobuf:"bytes,6,opt,name=element_id,json=elementId,proto3" json:"element_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -18138,8 +18137,8 @@ type RenderEdge struct {
 	Origin   *Span                  `protobuf:"bytes,8,opt,name=origin,proto3" json:"origin,omitempty"`
 	Route    []*RenderPoint         `protobuf:"bytes,9,rep,name=route,proto3" json:"route,omitempty"`
 	Style    *RenderStyle           `protobuf:"bytes,10,opt,name=style,proto3" json:"style,omitempty"`
-	// The connection's durable id, the EffectiveID a written form's {id} link
-	// anchor carries. Empty when the edge stands for no identified element.
+	// The connection's EffectiveID, as in a written form's {id} anchor.
+	// Empty when no element declares the edge.
 	ElementId     string `protobuf:"bytes,11,opt,name=element_id,json=elementId,proto3" json:"element_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
