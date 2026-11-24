@@ -2876,7 +2876,7 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		// A qualified usage's redefinition follows the reference as `:>>`
 		// (SysML.xtext PerformActionUsageDeclaration & co.); `event` spells it.
 		if usageQualifier[el.metaclass] != "" {
-			redefined, err := d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelRedefines])
+			redefined, err := d.clauseNames(el, ast.RelRedefines)
 			if err != nil {
 				return "", err
 			}
@@ -2972,7 +2972,7 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		skip = append(skip, ast.RelTyping)
 	}
 	if isResult && el.metaclass == mReferenceUsage {
-		subsets, err := d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelSubsets])
+		subsets, err := d.clauseNames(el, ast.RelSubsets)
 		if err != nil {
 			return "", err
 		}
@@ -4601,6 +4601,29 @@ func (d *decoder) headClauseOf(owned rdf.Term, free, repeated []headClause) (hea
 		}
 	}
 	return headClause{}, false
+}
+
+// clauseNames are the names el's head states for kind as its relationship elements order
+// them, a repeated one (`:> a, a`) as often as they state it.
+func (d *decoder) clauseNames(el *element, kind ast.RelationshipKind) ([]string, error) {
+	names, err := d.referenceList(el, rdf.SysML+relationshipProperty[kind])
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	written := make([]bool, len(names))
+	for _, clause := range d.spelledHead(el) {
+		if !clause.multiplicity && clause.kind == kind && clause.index < len(names) {
+			out = append(out, names[clause.index])
+			written[clause.index] = true
+		}
+	}
+	for index, name := range names {
+		if !written[index] {
+			out = append(out, name)
+		}
+	}
+	return out, nil
 }
 
 func (d *decoder) multiplicityText(el *element) string {

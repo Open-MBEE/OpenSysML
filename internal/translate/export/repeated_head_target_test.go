@@ -105,3 +105,29 @@ func TestRepeatedHeadTargetsReadBackFromTheGraphAlone(t *testing.T) {
 		t.Errorf("the notation read back states another graph:\n got %s\nwant %s", got, want)
 	}
 }
+
+// The heads written without relationshipWords' clauses name a repeated target as often too.
+func TestRepeatedShorthandTargetsReadBackFromTheGraphAlone(t *testing.T) {
+	alone := withoutSourceLayout(graphOfNotation(t, `package P {
+    part def A;
+    action b;
+    part value : A;
+    calc def G { return :> value, value; }
+    action def H { perform a :>> b, b; }
+    calc def F { in xs : A[*]; xs->collect { in a : A, A; a } }
+}
+`))
+	notation, err := ToSysML(alone)
+	if err != nil {
+		t.Fatalf("ToSysML: %v", err)
+	}
+	for _, head := range []string{"return :> value, value;", "perform a :>> b, b;", "in a : A, A;"} {
+		if !strings.Contains(string(notation), head) {
+			t.Errorf("%q does not come back:\n%s", head, notation)
+		}
+	}
+	again := withoutSourceLayout(graphOfNotation(t, string(notation)))
+	if got, want := fmt.Sprint(again.Triples()), fmt.Sprint(alone.Triples()); got != want {
+		t.Errorf("the notation read back states another graph:\n got %s\nwant %s", got, want)
+	}
+}
