@@ -1207,7 +1207,7 @@ func (e *StateExecutor) nextEvent() (Event, error) {
 		fps[i] = e.eventFootprint(tied[i])
 	}
 	choice.alike = e.ctx.heldAlike
-	classifyChoice(&choice, fps, nil)
+	classifyChoice(e.ctx.choiceSerials, &choice, fps, nil)
 	scheduling := e.ctx.scheduling()
 	choice.Taken = scheduling.choose(choice, nil)
 	if err := scheduling.refusal(); err != nil {
@@ -1802,7 +1802,7 @@ func (e *StateExecutor) regionOrderChoice(where string, states []*ast.StateNode,
 		fps[i] = footprint(state)
 	}
 	choice.alike = e.ctx.heldAlike
-	classifyChoice(&choice, fps, nil)
+	classifyChoice(e.ctx.choiceSerials, &choice, fps, nil)
 	choice.Taken = e.ctx.scheduling().choose(choice, nil)
 	choice.Span = states[choice.Taken].Span()
 	return choice
@@ -2254,7 +2254,7 @@ func (e *StateExecutor) transitionChoice(transitions []*lower.Transition, enable
 		alts[i] = transitionName(transitions, pos)
 	}
 	choice := ChoicePoint{Kind: ChoiceTransition, Alternatives: alts}
-	classifyExclusive(&choice, e.transitionFootprints(transitions, enabled))
+	classifyExclusive(e.ctx.choiceSerials, &choice, e.transitionFootprints(transitions, enabled))
 	return choice, true
 }
 
@@ -4422,7 +4422,7 @@ func (e *StateExecutor) stepOrderChoice(due []*doAction, dispatch string) Choice
 		steps = unionFootprints(steps, doStepFootprint(e, e.stateDecl(act.state)))
 	}
 	choice.alike = e.ctx.heldAlike
-	classifyChoice(&choice, []lower.Footprint{steps, dispatchFootprint(e)}, nil)
+	classifyChoice(e.ctx.choiceSerials, &choice, []lower.Footprint{steps, dispatchFootprint(e)}, nil)
 	return choice
 }
 
