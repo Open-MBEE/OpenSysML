@@ -27,3 +27,31 @@ func TestForLoopVariableAndItsHeadHaveElementIDs(t *testing.T) {
 		}
 	}
 }
+
+func TestTypingsByAPortDefinitionAndItsConjugateHaveSeparateElementIDs(t *testing.T) {
+	fixture := loadExecutionSource(t, `package Observatory {
+    package P {
+        port def Plug;
+        part def Host { port socket : Plug, ~Plug; }
+        action def A {
+            in plugs : Plug[*];
+            action sweep for p : Plug, ~Plug in plugs { }
+        }
+    }
+}`)
+	ids := ownedElementIDs(t, fixture, "P")
+	const (
+		port     = "/Package/OwningMembership/PartDefinition/FeatureMembership/PortUsage"
+		variable = "/Package/OwningMembership/ActionDefinition/FeatureMembership/ForLoopActionUsage/FeatureMembership/ReferenceUsage"
+	)
+	for id, want := range map[string]string{
+		"Observatory__P__Host__socket_ft0":           port + "/FeatureTyping",
+		"Observatory__P__Host__socket_ft1":           port + "/ConjugatedPortTyping",
+		"Observatory__P__A__sweep_ploopVariable_ft0": variable + "/FeatureTyping",
+		"Observatory__P__A__sweep_ploopVariable_ft1": variable + "/ConjugatedPortTyping",
+	} {
+		if ids[id] != want {
+			t.Errorf("elementId %q is that of %q, want %q", id, ids[id], want)
+		}
+	}
+}

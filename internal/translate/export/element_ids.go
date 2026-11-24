@@ -951,7 +951,12 @@ func (e *encoder) clauseObject(subject rdf.Term, rel *ast.Relationship, chains m
 		return rdf.ExpressionIRI(subject, fmt.Sprintf("chain%d", k)).Value
 	}
 	if name, ok := rel.Target.(*ast.QualifiedName); ok && !qualifiedNameHasChain(name) {
-		return e.reference(name).Value
+		object := e.reference(name)
+		if rel.Kind == ast.RelTyping && rel.Conjugated {
+			// `: ~P` names P's conjugate, an object of its own beside `: P` (relationships).
+			object = e.conjugateReference(object)
+		}
+		return object.Value
 	}
 	return "expr:" + e.text(rel.Target)
 }
