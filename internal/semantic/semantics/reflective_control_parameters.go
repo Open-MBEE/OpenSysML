@@ -15,9 +15,8 @@ const (
 	assignmentAccessedFeatureFQN = assignmentStartingAtFQN + "::accessedFeature"
 )
 
-// controlParts are the parameters the notation of an assignment, loop, conditional or terminate
-// action implies (SysML.xtext AssignmentNode, ForLoopNode, WhileLoopNode, IfNode, TerminateNode),
-// in parameter order, with the values the ones bound to an expression own.
+// controlParts are the parameters the notation of an assignment, loop, conditional or terminate action
+// implies (SysML.xtext AssignmentNode to TerminateNode), in order, with the values the bound ones own.
 type controlParts struct {
 	params []*symbols.Symbol
 	values map[*symbols.Symbol]*symbols.Symbol
@@ -370,10 +369,8 @@ func (m *Model) nodeParameterName(owner, sym *symbols.Symbol) string {
 	return ""
 }
 
-// controlParameterRedefinitions are the features a send or control action's parameter redefines: the
-// feature of its role in each general of the action (KerML checkFeatureParameterRedefinition;
-// SysML v2 §8.4.12.4 to §8.4.12.11), and for the features of an assignment's target those of
-// SysML v2 Table 33.
+// controlParameterRedefinitions are the features a node parameter redefines: its role's in each general of the
+// action (KerML checkFeatureParameterRedefinition), and SysML Table 33's for an assignment target's features.
 func (m *Model) controlParameterRedefinitions(sym *symbols.Symbol) []*symbols.Symbol {
 	if access := m.accessRedefinitions(sym); access != nil {
 		return access

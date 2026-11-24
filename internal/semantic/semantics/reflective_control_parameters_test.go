@@ -1,6 +1,7 @@
 package semantics
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"slices"
 	"testing"
 
@@ -246,9 +247,8 @@ func TestLoopBodyParameterIsTheActionWrittenAsTheBody(t *testing.T) {
 	}
 }
 
-// An object of an action node holds no slot for a parameter the node's notation states unnamed: the
-// library's binding of the kind's (`payload = acceptedTransfer.payload`) would otherwise bind a
-// feature the executor runs from the node's statement.
+// An object of an action node holds no slot for a parameter its notation states unnamed: the library's
+// `payload = acceptedTransfer.payload` would otherwise bind a feature the executor runs from the statement.
 func TestUnnamedNodeParametersAreNoShapeFeatures(t *testing.T) {
 	m, root := buildModelWithStdlib(t, `package P {
 	private import SI::*;
@@ -272,5 +272,29 @@ func TestUnnamedNodeParametersAreNoShapeFeatures(t *testing.T) {
 				t.Errorf("%s: the shape holds its parameter as %s", node, feature.Name)
 			}
 		}
+	}
+}
+
+// The value of a control action's parameter is the node its statement states, the one lowering
+// hands the executor (lower.Assign.Value, lower.Loop's collection): no second expression stands beside it.
+func TestControlParameterValuesAreTheStatementsOwnNodes(t *testing.T) {
+	m, root := buildModelWithStdlib(t, controlParameterSource)
+	value := func(action *symbols.Symbol, name string) ast.Node {
+		for _, parameter := range m.nodeParameters(action) {
+			if m.nodeParameterName(action, parameter) == name {
+				if expr := m.ValueExpression(parameter); expr != nil {
+					return expr.Decl
+				}
+			}
+		}
+		return nil
+	}
+	asg := nestedSym(t, root, "P::T::a::asg")
+	if stmt := controlStatementOf(asg.Decl).(*ast.AssignmentActionNode); value(asg, "replacementValues") != stmt.Value {
+		t.Errorf("asg::replacementValues is not valued by the statement's value")
+	}
+	lp := nestedSym(t, root, "P::T::a::lp")
+	if stmt := controlStatementOf(lp.Decl).(*ast.WhileLoopActionNode); value(lp, "seq") != stmt.Collection {
+		t.Errorf("lp::seq is not valued by the statement's collection")
 	}
 }
