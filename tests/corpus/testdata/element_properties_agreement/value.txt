@@ -189,6 +189,7 @@ FlowUsage::sourceFeature	1	export-09
 FlowUsage::target	1	symbol-80
 FlowUsage::targetFeature	1	export-10
 FlowUsage::type	2	export-01
+ForLoopActionUsage::ownedMember	2	symbol-08
 IfActionUsage::ownedFeature	7	symbol-53
 IfActionUsage::ownedMember	7	symbol-08
 IncludeUseCaseUsage::declaredName	4	symbol-01
@@ -529,3 +530,4 @@ ViewUsage::membership	18	symbol-51
 ViewUsage::ownedMember	1	symbol-08
 ViewUsage::usage	27	symbol-51
 WhileLoopActionUsage::ownedFeature	7	symbol-53
+WhileLoopActionUsage::ownedMember	3	symbol-08
