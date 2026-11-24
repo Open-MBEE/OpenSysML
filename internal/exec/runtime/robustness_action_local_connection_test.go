@@ -24,6 +24,8 @@ func TestRuntimeRobustnessActionLocalConnection(t *testing.T) {
 	t.Run("end_read_by_feature_chain", testActionLocalConnectionEndChain)
 	t.Run("written_through_a_feature_chain", testActionLocalConnectionChainWrite)
 	t.Run("end_read_from_the_enclosing_action", testActionLocalConnectionEndFromParent)
+	t.Run("end_read_from_the_enclosing_action_first", testActionLocalConnectionUnreadByStep)
+	t.Run("written_from_the_enclosing_action", testActionLocalConnectionWriteFromParent)
 	t.Run("read_by_the_definition_qualified_name", testActionLocalConnectionDefinitionQualified)
 	t.Run("end_selecting_nothing", testActionLocalConnectionEndSelectingNothing)
 }
@@ -134,6 +136,29 @@ const actionLocalConnectionFixture = `
 				}
 				action read { assign seen := child.link.right; }
 				first child then read;
+			}
+			action connectChildUnread {
+				in ref firstNode : Node;
+				in ref secondNode : Node;
+				action child {
+					in ref x : Node = firstNode;
+					in ref y : Node = secondNode;
+					connection link : Link connect x to y;
+				}
+				action read { assign seen := child.link.right; }
+				first child then read;
+			}
+			action connectChildWrite {
+				in ref firstNode : Node;
+				in ref secondNode : Node;
+				action child {
+					in ref x : Node = firstNode;
+					in ref y : Node = secondNode;
+					connection link : Link connect x to y;
+					assign links := link;
+				}
+				action write { assign child.link.weight := 5; }
+				first child then write;
 			}
 			perform action connectPerformed : Recorded {
 				in ref firstNode = a;
@@ -492,5 +517,42 @@ func testActionLocalConnectionEndFromParent(t *testing.T) {
 	wantLinkEnds(t, ctx, inst, "links", a, b)
 	if got := networkObject(t, ctx, inst, "seen"); !valueIdentical(got, b) {
 		t.Errorf("child.link.right = %v, want %v", got, b)
+	}
+}
+
+// testActionLocalConnectionUnreadByStep: `child.link.right` attaches the step's connector
+// in the step's performance when the step's own body never read `link`.
+func testActionLocalConnectionUnreadByStep(t *testing.T) {
+	ctx, inst, a, b := actionLocalConnectionNetwork(t)
+	before := len(ctx.instances)
+	if _, err := ctx.invokeOperation(inst, "connectChildUnread", map[string]Value{"firstNode": a, "secondNode": b}); err != nil {
+		t.Fatalf("connectChildUnread(a, b): %v", err)
+	}
+	if got := networkObject(t, ctx, inst, "seen"); !valueIdentical(got, b) {
+		t.Errorf("child.link.right = %v, want %v", got, b)
+	}
+	if made := len(ctx.instances) - before; made != 1 {
+		t.Errorf("the performance made %d objects, want its one connector", made)
+	}
+}
+
+// testActionLocalConnectionWriteFromParent: `assign child.link.weight := 5` writes on the
+// connector the step's performance attached.
+func testActionLocalConnectionWriteFromParent(t *testing.T) {
+	ctx, inst, a, b := actionLocalConnectionNetwork(t)
+	before := len(ctx.instances)
+	if _, err := ctx.invokeOperation(inst, "connectChildWrite", map[string]Value{"firstNode": a, "secondNode": b}); err != nil {
+		t.Fatalf("connectChildWrite(a, b): %v", err)
+	}
+	conn := ctx.instances[wantLinkEnds(t, ctx, inst, "links", a, b)]
+	fv, err := conn.GetFeatureValue(ctx, "weight")
+	if err != nil {
+		t.Fatalf("weight: %v", err)
+	}
+	if got := fv.HeldValue(); !valueIdentical(got, constInt(5)) {
+		t.Errorf("child.link.weight = %v, want 5", got)
+	}
+	if made := len(ctx.instances) - before; made != 1 {
+		t.Errorf("the performance made %d objects, want its one connector", made)
 	}
 }

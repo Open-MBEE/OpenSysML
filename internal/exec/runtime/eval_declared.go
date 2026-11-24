@@ -48,6 +48,9 @@ func (ec *EvalContext) evalSubactionPath(perf *actionFrame, parts []ast.NameSegm
 			perf = inner
 			continue
 		}
+		if err := ec.attachStepConnector(perf, part.Text); err != nil {
+			return Value{}, err
+		}
 		if i != len(parts)-1 && !perf.holds(part.Text) {
 			return Value{}, fmt.Errorf("%w: %s declares no node or pin %s to read %s through",
 				errNodePin, perf.describe(), part.Text, parts[len(parts)-1].Text)
@@ -68,6 +71,22 @@ func (ec *EvalContext) evalSubactionPath(perf *actionFrame, parts []ast.NameSegm
 		return perf.repeatedPin(perf.result)
 	}
 	return perf.resultValue()
+}
+
+// attachStepConnector attaches the connection named name that perf's behavior declares and
+// its body never read, so the enclosing action reads the connector the performance holds.
+func (ec *EvalContext) attachStepConnector(perf *actionFrame, name string) error {
+	if perf.scope == nil || perf.holds(name) {
+		return nil
+	}
+	sym, ok := ec.ctx.lookupName(perf.scope, name)
+	if !ok || sym == nil || sym.OwnerScope == nil || !ec.ctx.performanceDeclares(perf, sym) {
+		return nil
+	}
+	within := *ec
+	within.scope, within.frames = perf.scope, perf.lexicalFrames()
+	_, _, err := within.performedConnector(sym)
+	return err
 }
 
 // declaredElements types a read yielding no element by the quantity dimension it declares
