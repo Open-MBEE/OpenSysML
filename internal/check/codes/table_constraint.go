@@ -185,6 +185,13 @@ var constraintCodes = []Entry{
 		Spec: "KerML 1.0 §8.3.3.3.6 Redefinition",
 	},
 	{
+		Code: "redefinition-resolves-to-nothing", Tier: TierConstraint, Severity: "error",
+		Summary: "a strict-conformance `:>>` naming no member of the declaring type",
+		Meaning: "A redefinition replaces a feature the type declaring it owns or inherits. The name resolves elsewhere — an import or the enclosing namespace — but that type has no such member, so the redefinition has no target. " +
+			"Redefine a member the type declares or inherits, or drop the redefinition. Reported only under strict conformance.",
+		Spec: "KerML 1.0 §8.3.3.3.6 Redefinition",
+	},
+	{
 		Code: "redefinition-no-derived-name", Tier: TierConstraint, Severity: "warning",
 		Summary: "an unnamed redefinition given a value in a context that names it differently",
 		Meaning: "A member written `:>> x = v` takes the name of what it redefines; here the redefined feature's name differs from what the owner's other members expect, so the value lands on a member the model names otherwise. " +

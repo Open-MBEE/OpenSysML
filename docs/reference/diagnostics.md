@@ -1030,6 +1030,7 @@ Specification: SysML v2 validatePortUsageIsReference
 | [`redefinition-no-inherited`](#redefinition-no-inherited) | error | `:>>` naming a feature the owner does not inherit |
 | [`redefinition-not-end`](#redefinition-not-end) | error | a non-end feature of an association or connector redefining an end feature |
 | [`redefinition-package-level`](#redefinition-package-level) | error | a redefinition of a package-level feature |
+| [`redefinition-resolves-to-nothing`](#redefinition-resolves-to-nothing) | error | a strict-conformance `:>>` naming no member of the declaring type |
 | [`redefinition-same-featuring`](#redefinition-same-featuring) | error | a redefinition between features of one featuring type |
 | [`redefinition-through-reference`](#redefinition-through-reference) | error | a chain redefinition stepping through a feature that owns no object |
 | [`reference-subsetting-at-most-one`](#reference-subsetting-at-most-one) | error | a feature with more than one reference subsetting |
@@ -1709,6 +1710,14 @@ Specification: KerML 1.1 Beta 2 §8.3.3.3.8 validateRedefinitionEndConformance
 A feature owned directly by a package has no featuring type, so nothing can redefine it: redefinition replaces a feature in the context of a specializing type. Subset the feature instead, or move it into a type.
 
 Specification: KerML 1.0 validateRedefinitionFeaturingTypes
+
+#### `redefinition-resolves-to-nothing`
+
+**error** · Constraints · a strict-conformance `:>>` naming no member of the declaring type
+
+A redefinition replaces a feature the type declaring it owns or inherits. The name resolves elsewhere — an import or the enclosing namespace — but that type has no such member, so the redefinition has no target. Redefine a member the type declares or inherits, or drop the redefinition. Reported only under strict conformance.
+
+Specification: KerML 1.0 §8.3.3.3.6 Redefinition
 
 #### `redefinition-same-featuring`
 
