@@ -26,6 +26,7 @@ type Scope struct {
 	docName          string                              // document this scope tree belongs to (stamped by SetDocName)
 	recorded         bool                                // rebuilt from an interface record: no node, imports and filters held here
 	imports          []*ast.Import                       // a recorded scope's import declarations
+	nodeImports      atomic.Pointer[[]*ast.Import]       // lazily collected import declarations of node
 	filters          []ElementFilter                     // a recorded scope's `filter` conditions
 }
 
@@ -83,14 +84,17 @@ func (s *Scope) Node() ast.Node { return s.node }
 // so has no node: its imports and filters are read from the record.
 func (s *Scope) Recorded() bool { return s.recorded }
 
-// Imports returns the import declarations the namespace owning this scope
-// states, in declaration order, whether read from its node or its record.
+// Imports returns the import declarations the namespace owning this scope states, in
+// declaration order, from its node or its record; the slice is shared, so never modified.
 func (s *Scope) Imports() []*ast.Import {
 	if s == nil {
 		return nil
 	}
 	if s.recorded {
 		return s.imports
+	}
+	if held := s.nodeImports.Load(); held != nil {
+		return *held
 	}
 	var out []*ast.Import
 	for _, m := range namespaceMembers(s.node) {
@@ -101,6 +105,7 @@ func (s *Scope) Imports() []*ast.Import {
 			out = append(out, imp)
 		}
 	}
+	s.nodeImports.Store(&out)
 	return out
 }
 

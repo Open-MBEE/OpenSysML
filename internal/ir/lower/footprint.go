@@ -1131,6 +1131,9 @@ func (b *footprintBuilder) statement(stmt Statement) {
 		b.reads(s.Scope, s.Collection)
 		if s.Bound {
 			b.write(Place{Name: s.Variable})
+			if s.Alias != "" {
+				b.write(Place{Name: s.Alias})
+			}
 		}
 		b.block(s.Body)
 	case If:
