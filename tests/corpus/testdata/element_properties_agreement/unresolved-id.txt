@@ -1,0 +1,24 @@
+# unresolved-id disagreements between the api-json export and GetElementProperties over the
+# committed examples, counted per metamodel property (Metaclass::property, the
+# export's metaclass). Tab-separated: class, count, key of the clause in clauses.txt
+# (the side that is correct and the KerML/SysML clause it rests on).
+# TestExamplesSweep fails on a row not here, on a count above the one here, on a row
+# here the run no longer produces, and on a ? key; a count that fell is re-recorded
+# with -update-agreement-ratchet.
+Annotation::@id	9	export-35
+Comment::@id	2	export-60
+DecisionNode::@id	6	export-49
+Documentation::@id	4	export-49
+Feature::@id	4	export-54
+FeatureMembership::@id	10	export-50
+FeatureReferenceExpression::@id	2	export-63
+FeatureTyping::@id	4	export-55
+FeatureValue::@id	2	export-63
+ForkNode::@id	2	export-49
+Membership::@id	16	export-53
+Multiplicity::@id	4	symbol-55
+OwningMembership::@id	6	export-50
+ReferenceSubsetting::@id	4	export-44
+ReferenceUsage::@id	2	export-52
+ReturnParameterMembership::@id	4	export-50
+Subsetting::@id	3	export-48

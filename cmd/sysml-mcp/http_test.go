@@ -151,7 +151,7 @@ func connectHTTP(ctx context.Context, t *testing.T, s *httpServer, client *http.
 
 // callHTTP calls a tool and decodes its structured content into out, failing
 // on a transport error or a tool error.
-func callHTTP(ctx context.Context, t *testing.T, cs *sdk.ClientSession, name string, args any, out any) {
+func callHTTP(ctx context.Context, t *testing.T, cs *sdk.ClientSession, name string, args, out any) {
 	t.Helper()
 	res, err := cs.CallTool(ctx, &sdk.CallToolParams{Name: name, Arguments: args})
 	if err != nil {

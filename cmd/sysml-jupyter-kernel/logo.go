@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 )
 
-// logos are the kernelspec's icons: the OpenSysML mark at the two sizes
+// logos are the kernelspec's icons: the OpenMBEE icon at the two sizes
 // Jupyter front ends read from a kernelspec directory.
 //
 //go:embed logo-32x32.png logo-64x64.png

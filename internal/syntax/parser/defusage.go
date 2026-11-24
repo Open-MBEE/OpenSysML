@@ -250,6 +250,7 @@ type featureMods struct {
 	terminated    *ast.TerminateStatement // the occurrence a terminate action usage names, nil for its own container
 	cross         *ast.CrossFeatureMember // the cross feature declared right after `end`
 	defPrefix     lexer.Token             // first abstract/variation/individual definition prefix
+	basicPrefix   lexer.Token             // the `abstract` or `variation` token read
 	usageOnly     lexer.Token             // first prefix keyword only a usage prefix admits (`ref`, a direction, …)
 }
 
@@ -323,6 +324,58 @@ func (p *Parser) checkDefinitionPrefix(mods featureMods) {
 	}
 	p.error(mods.usageOnly.Span, fmt.Sprintf("'%s' is a usage prefix: a definition prefix admits only %s",
 		p.src.Text(mods.usageOnly.Span), admitted))
+}
+
+// checkDefinitionKindPrefix rejects the prefixes a SysML definition's production omits:
+// MetadataDefinition admits 'abstract' alone, DefinitionPrefix has no 'individual'.
+func (p *Parser) checkDefinitionKindPrefix(kind ast.DefinitionKind, mods featureMods) {
+	if p.src.Kind() != source.KindSysML {
+		return
+	}
+	switch kind {
+	case ast.DefMetadata:
+		const admits = "a metadata definition: a metadata def admits only 'abstract'"
+		if mods.isVariation {
+			p.prefixNotAdmitted(mods.basicPrefix, admits)
+		}
+		if mods.isIndividual {
+			p.prefixNotAdmitted(mods.individual, admits)
+		}
+	case ast.DefAttribute, ast.DefPort:
+		if mods.isIndividual {
+			p.prefixNotAdmitted(mods.individual, fmt.Sprintf("%s %s definition: only an occurrence definition admits 'individual'",
+				indefiniteArticle(kind.String()), kind))
+		}
+	}
+}
+
+// checkMetadataUsagePrefix rejects 'abstract', 'variation' and 'individual' before a
+// SysML metadata usage, whose production reads extension keywords alone (SysML.xtext:140).
+func (p *Parser) checkMetadataUsagePrefix(kind ast.UsageKind, mods featureMods) {
+	if kind != ast.UsageMetadata || p.src.Kind() != source.KindSysML {
+		return
+	}
+	const admits = "a metadata usage: a metadata usage admits no 'abstract', 'variation' or 'individual'"
+	if mods.isAbstract || mods.isVariation {
+		p.prefixNotAdmitted(mods.basicPrefix, admits)
+	}
+	if mods.isIndividual {
+		p.prefixNotAdmitted(mods.individual, admits)
+	}
+}
+
+func (p *Parser) prefixNotAdmitted(t lexer.Token, what string) {
+	if t.Span.Len == 0 {
+		return
+	}
+	p.error(t.Span, fmt.Sprintf("'%s' cannot prefix %s", p.src.Text(t.Span), what))
+}
+
+func indefiniteArticle(word string) string {
+	if strings.ContainsRune("aeiou", rune(word[0])) {
+		return "an"
+	}
+	return "a"
 }
 
 // abstractOrVariation names the prefix keyword of the pair already read.
@@ -1184,6 +1237,7 @@ func (p *Parser) parseMoreFeatureModifiers(m *featureMods) {
 				p.prefixConflict(t, m.abstractOrVariation(), abstractOrVariationPair)
 			}
 			m.noteDefinitionPrefix(t)
+			m.basicPrefix = t
 			m.isAbstract = true
 		case "variation":
 			p.checkVariationNotation(t)
@@ -1191,6 +1245,7 @@ func (p *Parser) parseMoreFeatureModifiers(m *featureMods) {
 				p.prefixConflict(t, m.abstractOrVariation(), abstractOrVariationPair)
 			}
 			m.noteDefinitionPrefix(t)
+			m.basicPrefix = t
 			m.isVariation = true
 		case "ref":
 			if m.isReference {
@@ -1919,11 +1974,14 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 // from the token stream, kept so a synonym spelling can be told from the
 // canonical one. defKeywordConsumed distinguishes SysML <kind> def from
 // KerML classifier declarations, which share DefinitionKind values.
-func (p *Parser) parseDefinition(start int, kind ast.DefinitionKind, keyword string, mods featureMods, isAll bool, defKeywordConsumed bool) *ast.Definition {
+func (p *Parser) parseDefinition(start int, kind ast.DefinitionKind, keyword string, mods featureMods, isAll, defKeywordConsumed bool) *ast.Definition {
 	p.checkDefinitionPrefix(mods)
 	if kind == ast.DefEnumeration && defKeywordConsumed && mods.defPrefix.Span.Len > 0 {
 		p.error(mods.defPrefix.Span, fmt.Sprintf("'%s' cannot prefix an enumeration definition: an enum def admits no definition prefix and is always a variation",
 			p.src.Text(mods.defPrefix.Span)))
+	}
+	if defKeywordConsumed {
+		p.checkDefinitionKindPrefix(kind, mods)
 	}
 	def := &ast.Definition{
 		Kind:          kind,
@@ -2335,6 +2393,7 @@ func (p *Parser) atGuardedSuccession() bool {
 // parseUsage parses a usage. keyword is the kind keyword as consumed from the
 // token stream, kept for the same reason as in parseDefinition.
 func (p *Parser) parseUsage(start int, kind ast.UsageKind, keyword string, mods featureMods, isAll bool) *ast.Usage {
+	p.checkMetadataUsagePrefix(kind, mods)
 	u := &ast.Usage{
 		Kind:              kind,
 		Keyword:           keyword,

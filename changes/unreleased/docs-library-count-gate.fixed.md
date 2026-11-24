@@ -1,0 +1,1 @@
+- `README.md` and the architecture page state the 112 bundled library files — the 94 OMG files and 18 OpenSysML extensions, `QVTS` among them — and `tests/hygiene` now holds every documented library count, extension list and minimum Go version to the tree and `go.mod`, so vendoring a library or raising the Go floor fails until the documentation follows.

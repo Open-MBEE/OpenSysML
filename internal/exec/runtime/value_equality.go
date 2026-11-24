@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"hash/fnv"
+	"strconv"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -15,8 +16,8 @@ type valueKey struct {
 	realVal float64
 	imagVal float64
 	boolVal bool
-	isBool  bool // a Boolean, so false keys apart from 0
-	infVal  bool
+	isBool  bool  // a Boolean, so false keys apart from 0
+	infVal  uint8 // 1 for `*`, 2 for `-*`, 0 for every other value
 	strVal  string
 	instID  int64
 	colHash uint64
@@ -57,7 +58,10 @@ func (ctx *Context) valueKey(v Value) valueKey {
 		case semantics.ValBool:
 			key.boolVal, key.isBool = v.Const.Bool, true
 		case semantics.ValInfinity:
-			key.infVal = true
+			key.infVal = 1
+			if v.Const.IsNegativeInfinity() {
+				key.infVal = 2
+			}
 		}
 	case ValComplex:
 		// A complex number on the real axis is the number it equals and has its key.
@@ -77,9 +81,15 @@ func (ctx *Context) valueKey(v Value) valueKey {
 		key.literal = v.Literal()
 	case ValQuantity:
 		if v.Quantity() != nil {
-			q := ctx.canonicalQuantity(*v.Quantity())
-			key.realVal = q.BaseMagnitude()
-			key.strVal = q.Unit.Term.DimensionKey()
+			if m, cyclic := ctx.cyclicMember(v.Quantity()); cyclic {
+				// A cyclic value is keyed by its cycle and class, apart from every magnitude in a unit.
+				key.strVal = m.unit.Term.DimensionKey() + "|cycle:" + strconv.FormatFloat(m.cycle, 'g', -1, 64)
+				key.realVal = m.class
+			} else {
+				q := ctx.canonicalQuantity(*v.Quantity())
+				key.strVal = q.Unit.Term.DimensionKey()
+				key.realVal = q.BaseMagnitude()
+			}
 		}
 	case ValArray, ValVector, ValVectorQuantity, ValTensorQuantity:
 		key.colHash = ctx.structuredKey(v)

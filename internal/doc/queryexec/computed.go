@@ -458,7 +458,7 @@ func (e *executor) reflectiveFeatureValues(
 	sym *symbols.Symbol,
 ) ([]Value, error) {
 	if property != "documentation" {
-		if elements, ok := e.context.Model.ReflectiveElements(sym, property); ok {
+		if elements, ok := e.context.Model.StatedReflectiveElements(sym, property); ok {
 			return reflectiveElementValues(sym, elements), nil
 		}
 	}
@@ -797,8 +797,7 @@ func (e *executor) columnError(
 	column string,
 	row Value,
 	origin symbols.Origin,
-	operator string,
-	actual string,
+	operator, actual string,
 ) *Error {
 	return &Error{
 		Kind:      kind,

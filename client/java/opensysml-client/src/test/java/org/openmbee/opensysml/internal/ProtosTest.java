@@ -928,13 +928,12 @@ class ProtosTest {
     org.openmbee.opensysml.Capabilities all =
         new org.openmbee.opensysml.Capabilities(
             "test", java.util.Set.of(org.openmbee.opensysml.Capabilities.RATIONAL_VALUES));
-    assertThrows(IllegalArgumentException.class, () -> Protos.protos(List.of(read), all));
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> Protos.protos(java.util.Map.of("x", new Value.Sequence(List.of(read))), all));
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> Protos.proto(org.openmbee.opensysml.SweepRange.of("x", read, read)));
+    List<Value> positional = List.of(read);
+    assertThrows(IllegalArgumentException.class, () -> Protos.protos(positional, all));
+    java.util.Map<String, Value> named = java.util.Map.of("x", new Value.Sequence(positional));
+    assertThrows(IllegalArgumentException.class, () -> Protos.protos(named, all));
+    org.openmbee.opensysml.SweepRange range = org.openmbee.opensysml.SweepRange.of("x", read, read);
+    assertThrows(IllegalArgumentException.class, () -> Protos.proto(range));
   }
 
   private static org.openmbee.opensysml.CoordinateFrame readFrame(
@@ -1273,8 +1272,15 @@ class ProtosTest {
                 org.openmbee.opensysml.proto.ElementProperty.newBuilder()
                     .setName("connectorEnd")
                     .setUnsupported("PartDefinition declares no property connectorEnd"))
+            .addExcludedDocuments(
+                org.openmbee.opensysml.proto.ExcludedDocument.newBuilder()
+                    .setDocument("c.sysml")
+                    .setError("c.sysml: 1 syntax error(s)"))
             .build();
     ElementProperties read = Protos.elementProperties(response);
+    assertEquals(
+        List.of(new ElementProperties.ExcludedDocument("c.sysml", "c.sysml: 1 syntax error(s)")),
+        read.excludedDocuments());
     assertEquals(new ElementRef("e1", "Demo::Pair", "PartDefinition"), read.element());
     assertEquals("Demo::Pair", read.element().toString());
     ElementProperties.Property inherited = read.get("inheritedFeature").orElseThrow();

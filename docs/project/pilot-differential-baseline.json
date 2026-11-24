@@ -61,15 +61,15 @@
         "name": "testdata",
         "dir": "tests/testdata",
         "origin": "ours",
-        "files": 40,
-        "digest": "sha256:951761d51e902bbcb3392d4a77da58c7f580c61b2fb97ac6c4ad705e08e0c446"
+        "files": 42,
+        "digest": "sha256:65bf445bc3afa269f61316d16e301a7b5d5f8f143628693b6fa4d71190faa724"
       },
       {
         "name": "examples",
         "dir": "examples",
         "origin": "ours",
-        "files": 57,
-        "digest": "sha256:b695731eb2b35bd533c2fbac440caee243030b8a73357d0d1e59dd448f86d38a"
+        "files": 70,
+        "digest": "sha256:5a1d325441037c8fca42d942d1c0f9e46d691e791c885bd418f43e8d84e16819"
       },
       {
         "name": "probes",
@@ -82,21 +82,21 @@
         "name": "opensysml-libraries",
         "dir": "internal/workspace/libs/stdlib/OpenSysML Libraries",
         "origin": "ours",
-        "files": 17,
-        "digest": "sha256:b90165d947c4a27f6affb7637e2f9cf3a87bd92f591108288829002a90159fd9"
+        "files": 19,
+        "digest": "sha256:013942c63d7ba7f6f29ae5b2a102110c69eb415289ebed84bd1b7709eea8040a"
       }
     ],
-    "recorded": "2026-11-19"
+    "recorded": "2026-11-24"
   },
   "totals": {
-    "files": 925,
-    "filesFullyAgreeing": 528,
-    "agreement": 1107,
+    "files": 940,
+    "filesFullyAgreeing": 542,
+    "agreement": 1119,
     "severityMismatch": 8,
-    "openSysMLOnly": 126,
-    "pilotOnly": 2451,
-    "openSysMLDiagnostics": 1241,
-    "pilotDiagnostics": 3566
+    "openSysMLOnly": 134,
+    "pilotOnly": 2465,
+    "openSysMLDiagnostics": 1261,
+    "pilotDiagnostics": 3592
   },
   "roots": [
     {
@@ -16917,14 +16917,14 @@
       "name": "testdata",
       "dir": "tests/testdata",
       "totals": {
-        "files": 40,
-        "filesFullyAgreeing": 26,
-        "agreement": 61,
+        "files": 42,
+        "filesFullyAgreeing": 28,
+        "agreement": 73,
         "severityMismatch": 4,
         "openSysMLOnly": 11,
         "pilotOnly": 36,
-        "openSysMLDiagnostics": 76,
-        "pilotDiagnostics": 101
+        "openSysMLDiagnostics": 88,
+        "pilotDiagnostics": 113
       },
       "files": [
         {
@@ -17493,6 +17493,86 @@
           ]
         },
         {
+          "path": "passes/inherited_name_case_roles.sysml",
+          "agreement": [
+            {
+              "line": 13,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 14,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 18,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 19,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 25,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 37,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 41,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 44,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 47,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 49,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 51,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 53,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            }
+          ],
+          "severityMismatch": [],
+          "openSysMLOnly": [],
+          "pilotOnly": []
+        },
+        {
           "path": "passes/inherited_name_library_base.sysml",
           "agreement": [
             {
@@ -17673,14 +17753,14 @@
       "name": "examples",
       "dir": "examples",
       "totals": {
-        "files": 57,
-        "filesFullyAgreeing": 49,
+        "files": 70,
+        "filesFullyAgreeing": 61,
         "agreement": 4,
         "severityMismatch": 0,
-        "openSysMLOnly": 14,
-        "pilotOnly": 66,
-        "openSysMLDiagnostics": 18,
-        "pilotDiagnostics": 70
+        "openSysMLOnly": 22,
+        "pilotOnly": 80,
+        "openSysMLDiagnostics": 26,
+        "pilotDiagnostics": 84
       },
       "files": [
         {
@@ -17714,6 +17794,81 @@
               "severity": "warning",
               "category": "unmapped",
               "count": 6
+            }
+          ]
+        },
+        {
+          "path": "hdbk1009-demo/hdbk1009-demo.sysml",
+          "agreement": [],
+          "severityMismatch": [],
+          "openSysMLOnly": [
+            {
+              "line": 53,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 3
+            },
+            {
+              "line": 78,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 109,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 2
+            },
+            {
+              "line": 172,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 2
+            }
+          ],
+          "pilotOnly": [
+            {
+              "line": 232,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 239,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 251,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 258,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 270,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 277,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 289,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
             }
           ]
         },
@@ -17905,193 +18060,235 @@
           "openSysMLOnly": [],
           "pilotOnly": [
             {
-              "line": 197,
+              "line": 255,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 203,
+              "line": 261,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 225,
+              "line": 283,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 245,
+              "line": 303,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 251,
+              "line": 309,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 268,
+              "line": 326,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 275,
+              "line": 333,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 296,
+              "line": 354,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 302,
+              "line": 360,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 307,
+              "line": 365,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 325,
+              "line": 383,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 331,
+              "line": 389,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 352,
+              "line": 410,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 358,
+              "line": 416,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 374,
+              "line": 432,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 390,
+              "line": 448,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 408,
+              "line": 466,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 414,
+              "line": 472,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 420,
+              "line": 478,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 455,
+              "line": 513,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 461,
+              "line": 519,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 486,
+              "line": 544,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 508,
+              "line": 566,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 514,
+              "line": 572,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 520,
+              "line": 578,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 527,
+              "line": 585,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 569,
+              "line": 627,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 575,
+              "line": 633,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 589,
+              "line": 647,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 603,
+              "line": 661,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 603,
+              "line": 661,
               "severity": "warning",
               "category": "unmapped",
               "count": 18
             },
             {
-              "line": 609,
+              "line": 667,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 704,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 709,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 715,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 727,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 739,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 746,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 747,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -18246,6 +18443,21 @@
     },
     {
       "side": "opensysml",
+      "message": "Duplicate of inherited member name 'extra' from U",
+      "count": 2
+    },
+    {
+      "side": "opensysml",
+      "message": "Duplicate of inherited member name 'helper' from R",
+      "count": 2
+    },
+    {
+      "side": "opensysml",
+      "message": "Duplicate of inherited member name 'limit' from R",
+      "count": 2
+    },
+    {
+      "side": "opensysml",
       "message": "operator '+' is not defined for String and Natural",
       "count": 2
     },
@@ -18257,6 +18469,21 @@
     {
       "side": "pilot",
       "message": "Duplicate of inherited member name 'X' from B1, B2",
+      "count": 2
+    },
+    {
+      "side": "pilot",
+      "message": "Duplicate of inherited member name 'extra' from U",
+      "count": 2
+    },
+    {
+      "side": "pilot",
+      "message": "Duplicate of inherited member name 'helper' from R",
+      "count": 2
+    },
+    {
+      "side": "pilot",
+      "message": "Duplicate of inherited member name 'limit' from R",
       "count": 2
     },
     {
@@ -18336,6 +18563,26 @@
     },
     {
       "side": "opensysml",
+      "message": "Duplicate of inherited member name 'driver' from R",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "Duplicate of inherited member name 'owner' from R",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "Duplicate of inherited member name 'q' from A",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "Duplicate of inherited member name 'q' from V",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
       "message": "Duplicate of inherited member name 'self' from DataValue, Part",
       "count": 1
     },
@@ -18346,7 +18593,17 @@
     },
     {
       "side": "opensysml",
+      "message": "Duplicate of inherited member name 'subj' from RequirementCheck",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
       "message": "Duplicate of inherited member name 'values' from Stats",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "Duplicate of inherited member name 'x' from C",
       "count": 1
     },
     {
@@ -18381,6 +18638,16 @@
     },
     {
       "side": "opensysml",
+      "message": "This component requirement derives from no system requirement: the model declares system requirements, so Figure 7-1 of NASA-HDBK-1009A expects a #derivation connection naming it at a #derive end and a system requirement at an #original end.",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "This component requirement is verified by nothing: the model declares verification requirements, so Figure 7-2 of NASA-HDBK-1009A expects a V\u0026V case whose objective states `verify` of it.",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
       "message": "This element is marked @Proprietary with no rationale: MOSA expects the justification for each proprietary element to be recorded, so give the annotation a `rationale`.",
       "count": 1
     },
@@ -18396,12 +18663,42 @@
     },
     {
       "side": "opensysml",
+      "message": "This measure of performance derives from no measure of effectiveness: the model declares measures of effectiveness, so Figure 7-1 of NASA-HDBK-1009A expects a #derivation connection naming it at a #derive end and a measure of effectiveness at an #original end.",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
       "message": "This modular system interface names no interface control authority: the model names one for other interfaces, so MOSA expects an @InterfaceControl annotation on it or its definition.",
       "count": 1
     },
     {
       "side": "opensysml",
       "message": "This modular system interface satisfies no requirement: the model declares interface requirements, so MOSA expects a `satisfy` naming it (or its definition) after `by`.",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "This objective derives from no goal: the model declares goals, so Figure 7-1 of NASA-HDBK-1009A expects a #derivation connection naming it at a #derive end and a goal at an #original end.",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "This objective is satisfied by no validation requirement: the model declares validation requirements, so Figure 7-2 of NASA-HDBK-1009A expects a `satisfy` of it by one.",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "This objective is traced to no stakeholder expectation statement: the model declares stakeholder expectation statements, so Figure 7-1 of NASA-HDBK-1009A expects a dependency from it to one.",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "This verification requirement is refined by no V\u0026V case: the model declares V\u0026V cases, so Figure 7-2 of NASA-HDBK-1009A expects a #refinement dependency from one to it.",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "This verification requirement states no verifyMethod: the matrices of NASA-HDBK-1009A sections 8.17 and 8.22 show the method of each.",
       "count": 1
     },
     {
@@ -18476,6 +18773,11 @@
     },
     {
       "side": "pilot",
+      "message": "Duplicate of inherited member name 'driver' from R",
+      "count": 1
+    },
+    {
+      "side": "pilot",
       "message": "Duplicate of inherited member name 'evaluator' from Runtime, evaluatorIsReference",
       "count": 1
     },
@@ -18511,7 +18813,22 @@
     },
     {
       "side": "pilot",
+      "message": "Duplicate of inherited member name 'owner' from R",
+      "count": 1
+    },
+    {
+      "side": "pilot",
       "message": "Duplicate of inherited member name 'performanceRequirement' from RelationshipMatrixExample, obj",
+      "count": 1
+    },
+    {
+      "side": "pilot",
+      "message": "Duplicate of inherited member name 'q' from A",
+      "count": 1
+    },
+    {
+      "side": "pilot",
+      "message": "Duplicate of inherited member name 'q' from V",
       "count": 1
     },
     {
@@ -18591,6 +18908,11 @@
     },
     {
       "side": "pilot",
+      "message": "Duplicate of inherited member name 'subj' from RequirementCheck",
+      "count": 1
+    },
+    {
+      "side": "pilot",
       "message": "Duplicate of inherited member name 'target' from , controllerAllocation, plantAllocation, powerLink",
       "count": 1
     },
@@ -18627,6 +18949,11 @@
     {
       "side": "pilot",
       "message": "Duplicate of inherited member name 'values' from Stats",
+      "count": 1
+    },
+    {
+      "side": "pilot",
+      "message": "Duplicate of inherited member name 'x' from C",
       "count": 1
     },
     {
@@ -25017,14 +25344,14 @@
       }
     ],
     "totals": {
-      "files": 925,
-      "filesFullyAgreeing": 529,
-      "agreement": 1107,
+      "files": 940,
+      "filesFullyAgreeing": 543,
+      "agreement": 1119,
       "severityMismatch": 8,
-      "openSysMLOnly": 125,
-      "pilotOnly": 2451,
-      "openSysMLDiagnostics": 1240,
-      "pilotDiagnostics": 3566
+      "openSysMLOnly": 133,
+      "pilotOnly": 2465,
+      "openSysMLDiagnostics": 1260,
+      "pilotDiagnostics": 3592
     },
     "findings": [
       {

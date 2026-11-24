@@ -165,7 +165,7 @@ a regression — re-fetch before re-recording anything.
 |---|---|
 | OMG training corpus | **100/100 clean** — asserted, not ratcheted: no file reports a semantic error |
 | OMG pilot corpora (ratchet) | 213 files; 16 report a diagnostic — 3 of 58 KerML examples, 11 of 99 SysML examples, 2 of 56 validation files — each adjudicated in [pilot-corpora.md](pilot-corpora.md) and [omg-issues.md](omg-issues.md) |
-| Stdlib parser conformance | 110/110 clean — 94 vendored OMG files and 16 non-normative OpenSysML extensions |
+| Stdlib parser conformance | 113/113 clean — 94 vendored OMG files and 19 non-normative OpenSysML extensions |
 | Execution conformance cases | 1790, all run and pass, none skipped [1569] |
 | Known execution-conformance failures | **0** — `known_failures.txt` holds no case |
 | Cases admitting several outcomes | 164 `.expected.json` files list `outcomes`, each citing its derivation in the behavior semantic oracle; the harness explores every one of them under `explore` [146] |
@@ -222,7 +222,7 @@ request, draft or ready; *full* for a merge-queue commit, a pull request labelle
 touching a package where `-race` has found bugs (`scripts/ci-changed-areas.sh`) — and which of the
 client, editor and documentation jobs the diff touches; the Go suite runs sharded (twenty-one race
 shards in the full tier — `runtime`, `runtime-corpus`, `runtime-exploration`, `model`, `smt`, `corpus`,
-`corpus-sweep`, `export`, `export-library`, `export-examples`, `export-corpus`, `graph`, `graph-corpora`, `codegen`,
+`corpus-sweep-committed`, `corpus-sweep-corpora`, `export`, `export-library`, `export-examples`, `export-corpus`, `graph`, `graph-corpora`, `codegen`,
 `translate`, `translate-structure`, `grpc`, `internal`, `rest`, `migrate` and `cli`, in twenty jobs, #1440 — and nine race-free groups of them in the quick tier) with every corpus
 required — `OPENSYSML_REQUIRE_TRAINING_CORPUS`, `_PILOT_CORPORA`, `_SPEC_EXAMPLES`, `_PSSM_SUITE`,
 `_SYSML_V1TOV2`, `_FUML_SUITE`, `_PILOT_LIBRARY_XMI`, `_SMT`, `_WASM` and `_REFERENCE_FMUS` set to
@@ -848,8 +848,9 @@ also the profile's work list, sorted into five causes: properties the metamodel 
 relationship or membership element that we collapse into the element (`value` → `FeatureValue`,
 the multiplicity bounds → `MultiplicityRange`, `isNegated` → `Invariant`, a transition's ends →
 `Connector`) — the same collapse D3.3 undid for ownership and D1/D2 will undo for expressions and
-ends; names as literals (D7); metaclass names the metamodel does not have (`ClassUsage`; the
-`IndividualDefinition`/`IndividualUsage` of earlier releases are now `OccurrenceDefinition`/
+ends; names as literals (D7); metaclass names the metamodel does not have (none now: a KerML
+`class`, `struct`, … is the `Class`, `Structure`, … it declares, where it was a `ClassUsage`, and the
+`IndividualDefinition`/`IndividualUsage` of earlier releases are `OccurrenceDefinition`/
 `OccurrenceUsage` with `isIndividual`); the metaclasses of our own
 `sysx:` namespace; and the properties we write into the SysML namespace that no metaclass
 declares, each either a relationship the metamodel reifies as an element (`specializes`,
@@ -2922,7 +2923,7 @@ SYSML21-681 (`CHANGELOG.md` **0.11.0**) is the newest entry. Each entry is filed
 
 ## T3 — the extension libraries (landed, #881)
 
-The sixteen non-normative libraries under `OpenSysML Libraries/` — `OOSEM` (#103), `MOSA`
+The nineteen non-normative libraries under `OpenSysML Libraries/` — `OOSEM` (#103), `MOSA`
 (#200, `v0.8.0`), `DiagramLayout`, `IdentityMetadata`, `MigrationMetadata`, `SysMLValidation`
 and the rest — are maintained upstream at Open-MBEE/OpenSysML-Extensions-Library and pinned
 here: [extension-libraries.md](extension-libraries.md) states the pin, the sync and the engine

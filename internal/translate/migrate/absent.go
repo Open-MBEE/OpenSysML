@@ -115,7 +115,7 @@ func (a *activity) admitAbsentParams(n, callee *sysmlv1.Element, args []*sysmlv1
 			continue
 		}
 		if requiresValue(p) {
-			why := ""
+			var why string
 			switch {
 			case i >= len(args):
 				why = "the call " + describe(n) + " in " + qualifiedName(a.act) + " passes no argument for it"

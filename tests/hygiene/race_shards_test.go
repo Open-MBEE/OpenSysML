@@ -36,15 +36,20 @@ var (
 	circleExamples     = regexp.MustCompile(`(?m)^\s*exportexamples='([^']+)'$`)
 	makefileSweep      = regexp.MustCompile(`(?m)^RACE_CORPUS_SWEEP := (.+)$`)
 	circleSweep        = regexp.MustCompile(`(?m)^\s*corpussweep='([^']+)'$`)
+	makefileCommitted  = regexp.MustCompile(`(?m)^RACE_CORPUS_SWEEP_COMMITTED := (.+)$`)
+	circleCommitted    = regexp.MustCompile(`(?m)^\s*sweepcommitted='([^']+)'$`)
+	makefileCorpora    = regexp.MustCompile(`(?m)^RACE_CORPUS_SWEEP_CORPORA := (.+)$`)
+	circleCorpora      = regexp.MustCompile(`(?m)^\s*sweepcorpora='([^']+)'$`)
+	sweepPartTests     = regexp.MustCompile(`^TestExamplesSweep`)
 	makefileGraph      = regexp.MustCompile(`(?m)^RACE_GRAPH_CORPORA := (.+)$`)
 	circleGraph        = regexp.MustCompile(`(?m)^\s*graphcorpora='([^']+)'$`)
 	makefileStructure  = regexp.MustCompile(`(?m)^RACE_TRANSLATE_STRUCTURE := (.+)$`)
 	circleStructure    = regexp.MustCompile(`(?m)^\s*translatestructure='([^']+)'$`)
 	makefileCoverage   = regexp.MustCompile(`(?m)^COVERAGE_SHARDS := (.+)$`)
 	circleShardArrays  = regexp.MustCompile(`(?m)^\s*shards=\(([^)]+)\)$`)
-	circleSweepJob     = regexp.MustCompile(`(?m)^\s*sweep_shard=(\S+)$`)
+	circleSweepJob     = regexp.MustCompile(`(?m)^\s*sweep_shards=\(([^)]+)\)$`)
 	shardArrayEntry    = regexp.MustCompile(`"([^"]*)"|(\S+)`)
-	circleParallelism  = regexp.MustCompile(`(?m)^  (go-race-test|go-coverage):\n(?:    .*\n)*?    parallelism: (\d+)$`)
+	circleParallelism  = regexp.MustCompile(`(?m)^  (go-race-test|go-race-sweep|go-coverage):\n(?:    .*\n)*?    parallelism: (\d+)$`)
 	circleCorpus       = regexp.MustCompile(`(?m)^\s*corpus='([^']+)'$`)
 	makefileExplore    = regexp.MustCompile(`(?m)^RACE_RUNTIME_EXPLORATION := (.+)$`)
 	circleExplore      = regexp.MustCompile(`(?m)^\s*exploration='([^']+)'$`)
@@ -84,8 +89,9 @@ func TestCircleCIShardArraysMatchTheRaceShards(t *testing.T) {
 	coverage := strings.Fields(arrays[1][1])
 
 	// A race node runs one shard, or the shards of one quoted entry in turn; with the sweep
-	// job's shard they run every shard once, in whatever order.
-	race := []string{firstSubmatch(t, circleSweepJob, config, ".circleci/config.yml go-race-sweep")}
+	// job's shards they run every shard once, in whatever order.
+	sweepNodes := strings.Fields(firstSubmatch(t, circleSweepJob, config, ".circleci/config.yml go-race-sweep"))
+	race := slices.Clone(sweepNodes)
 	for _, node := range raceNodes {
 		race = append(race, strings.Fields(node)...)
 	}
@@ -125,6 +131,9 @@ func TestCircleCIShardArraysMatchTheRaceShards(t *testing.T) {
 	if got, want := parallelism["go-race-test"], len(raceNodes); got != itoa(want) {
 		t.Errorf("go-race-test parallelism %q, its shard array has %d entries", got, want)
 	}
+	if got, want := parallelism["go-race-sweep"], len(sweepNodes); got != itoa(want) {
+		t.Errorf("go-race-sweep parallelism %q, its shard array has %d entries", got, want)
+	}
 	if got, want := parallelism["go-coverage"], len(coverage); got != itoa(want) {
 		t.Errorf("go-coverage parallelism %q, its shard array has %d entries", got, want)
 	}
@@ -150,7 +159,7 @@ func shardArrayEntries(body string) []string {
 // test-quick runs a group's shards in turn, with their selections, without -race).
 
 // isCorpusShard says whether a shard is a by-test-name part of another shard's package
-// (runtime-corpus, export-corpus, corpus-sweep, ...): the hyphenated names.
+// (runtime-corpus, export-corpus, corpus-sweep-corpora, ...): the hyphenated names.
 func isCorpusShard(shard string) bool { return strings.Contains(shard, "-") }
 func TestPRWorkflowMatricesCoverTheRaceShards(t *testing.T) {
 	shards := raceShards(t)
@@ -230,10 +239,51 @@ func TestExportCorpusPatternsPartitionTheExportTests(t *testing.T) {
 	}
 }
 
-// TestCorpusPatternsPartitionTheCorpusTests: the corpus and corpus-sweep shards are
-// tests/corpus split the same way by RACE_CORPUS_SWEEP.
+// TestCorpusPatternsPartitionTheCorpusTests: RACE_CORPUS_SWEEP splits tests/corpus into the corpus shard and the sweep
+// tests, which the two part patterns divide one each; TestSweepPartsPartitionTheExamples there holds the models.
 func TestCorpusPatternsPartitionTheCorpusTests(t *testing.T) {
-	corpusPatternPartitions(t, "RACE_CORPUS_SWEEP", makefileSweep, circleSweep, "corpussweep=", raceCorpusDir, 10)
+	sweep, tests := corpusPatternPartitions(t, "RACE_CORPUS_SWEEP", makefileSweep, circleSweep, "corpussweep=", raceCorpusDir, 10)
+	committed, _ := corpusPatternPartitions(t, "RACE_CORPUS_SWEEP_COMMITTED", makefileCommitted, circleCommitted, "sweepcommitted=", raceCorpusDir, 10)
+	corpora, _ := corpusPatternPartitions(t, "RACE_CORPUS_SWEEP_CORPORA", makefileCorpora, circleCorpora, "sweepcorpora=", raceCorpusDir, 10)
+	swept := 0
+	for _, name := range tests {
+		parts := 0
+		for _, pattern := range []*regexp.Regexp{committed, corpora} {
+			if pattern.MatchString(name) {
+				parts++
+			}
+		}
+		// A sweep test no part runs would run nowhere (the corpus shard skips it); one both run, twice.
+		if want := btoi(sweep.MatchString(name)); parts != want {
+			t.Errorf("%s falls to %d corpus-sweep shards, want %d", name, parts, want)
+		}
+		// A sweep part declared in tests/corpus and missing from RACE_CORPUS_SWEEP would run under -race in the corpus shard.
+		if sweepPartTests.MatchString(name) != sweep.MatchString(name) {
+			t.Errorf("%s: a sweep part and RACE_CORPUS_SWEEP must be the same tests", name)
+		}
+		swept += parts
+	}
+	if swept != 2 {
+		t.Errorf("the corpus-sweep shards run %d tests, want one each", swept)
+	}
+	if !slices.Contains(tests, "TestSweepPartsPartitionTheExamples") {
+		t.Errorf("%s has no TestSweepPartsPartitionTheExamples, which holds the parts to one sweep of every model", raceCorpusDir)
+	}
+	makefile := readRepoFile(t, "Makefile")
+	for shard, variable := range map[string]string{"corpus-sweep-committed": "RACE_CORPUS_SWEEP_COMMITTED", "corpus-sweep-corpora": "RACE_CORPUS_SWEEP_CORPORA"} {
+		for _, selection := range []string{"SHARD_SELECT_", "COVERAGE_SELECT_"} {
+			if want := "\n" + selection + shard + " = -run '$(" + variable + ")'"; !strings.Contains(makefile, want) {
+				t.Errorf("Makefile: %s%s does not run $(%s)", selection, shard, variable)
+			}
+		}
+	}
+}
+
+func btoi(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }
 
 // TestGraphPatternPartitionsTheModelTests: the graph and graph-corpora shards are

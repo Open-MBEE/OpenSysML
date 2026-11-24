@@ -43,16 +43,23 @@ func (m *Model) UsageMayTimeVary(sym *symbols.Symbol) bool {
 		// An expression body's parameter: its owning type is the Expression, a
 		// Performance and so an Occurrence (KerML Performances::Performance).
 		bodyParameter = true
+	case *ast.TimeEvent, *ast.ChangeEvent, *ast.AcceptEvent:
+		// A trigger's payload parameter: its owning type is the accept action
+		// the trigger synthesizes, an action and so an Occurrence.
+		bodyParameter = true
 	default:
 		return false
 	}
-	if sym.OwnerScope == nil || m.isPayloadFeature(sym) || IsVariant(sym) {
+	owner := synthesizedPartOwner(sym)
+	if owner == nil && sym.OwnerScope != nil {
+		owner = sym.OwnerScope.Owner()
+	}
+	if (owner == nil && sym.OwnerScope == nil) || m.isPayloadFeature(sym) || IsVariant(sym) {
 		// A variant's VariantMembership is an OwningMembership, no
 		// FeatureMembership, so the variant has no owningType.
 		return false
 	}
-	owner := sym.OwnerScope.Owner()
-	if !bodyParameter && (owner == nil || !m.conformsByName(owner, occurrenceFQN)) || portion ||
+	if !bodyParameter && (owner == nil || !m.owningTypeIsOccurrence(owner)) || portion ||
 		m.conformsByName(sym, "Links::SelfLink") ||
 		m.conformsByName(sym, "Occurrences::HappensLink") {
 		return false
@@ -74,6 +81,10 @@ func (m *Model) synthesizedUsageMayTimeVary(sym *symbols.Symbol) (varies, ok boo
 	}
 	switch sym.Expr.Role {
 	case symbols.ExpressionTransitionLinkParameter:
+		if _, ok := transitionBranchDecl(sym.Expr.Owner); ok {
+			// A decision's branch is a TransitionUsage, an action.
+			return m.UsageMayTimeVaryUnderKind(ast.UsageAction), true
+		}
 		return m.UsageMayTimeVaryUnder(sym.Expr.Owner), true
 	case symbols.ExpressionPayload:
 		// A trigger's parameters are owned by the AcceptActionUsage the trigger implies, an action.
@@ -115,13 +126,14 @@ func (m *Model) isPayloadFeature(sym *symbols.Symbol) bool {
 // UsageMayTimeVaryForOwningType derives Usage::mayTimeVary for the owning type
 // stated by Structure, or nil when the usage has no owning FeatureMembership.
 func (m *Model) UsageMayTimeVaryForOwningType(sym, owner *symbols.Symbol) bool {
-	if sym == nil {
+	if sym == nil || m.isKerMLDoc(sym) {
+		// A KerML feature has no Usage::mayTimeVary (as UsageMayTimeVary).
 		return false
 	}
 	if varies, ok := m.synthesizedUsageMayTimeVary(sym); ok {
 		return varies
 	}
-	isPortion := false
+	isPortion, underAction := false, false
 	if sym.Recorded() {
 		if sym.OwnerScope != nil && sym.OwnerScope.Owner() == owner {
 			// The recorded fact is this derivation over the symbol's own owner.
@@ -133,6 +145,9 @@ func (m *Model) UsageMayTimeVaryForOwningType(sym, owner *symbols.Symbol) bool {
 		case *ast.Usage:
 			isPortion = d.IsPortion || d.Portion != ast.PortionNone
 		case *ast.RequireMember, *ast.AssumeMember, *ast.SubjectMember, *ast.BodyExpr, *ast.ConnectorEnd:
+		case *ast.TimeEvent, *ast.ChangeEvent, *ast.AcceptEvent:
+			// A trigger's payload parameter, owned by the accept action.
+			underAction = true
 		case *ast.Relationship:
 			// A satisfy's `by` subject parameter.
 			if d.Kind != ast.RelSubject {
@@ -142,7 +157,7 @@ func (m *Model) UsageMayTimeVaryForOwningType(sym, owner *symbols.Symbol) bool {
 			return false
 		}
 	}
-	if owner == nil || m.isPayloadFeature(sym) || IsVariant(sym) || !m.conformsByName(owner, occurrenceFQN) ||
+	if owner == nil || m.isPayloadFeature(sym) || IsVariant(sym) || (!underAction && !m.owningTypeIsOccurrence(owner)) ||
 		isPortion ||
 		m.conformsByName(sym, "Links::SelfLink") ||
 		m.conformsByName(sym, "Occurrences::HappensLink") {
@@ -161,6 +176,10 @@ func (m *Model) FeatureIsVariable(sym *symbols.Symbol) bool {
 	if varies, ok := m.synthesizedUsageMayTimeVary(sym); ok {
 		return varies
 	}
+	// A connector's implied end declares no `var` and is written non-variable (connectorEnd).
+	if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionConnectorEnd {
+		return false
+	}
 	if sym.Recorded() {
 		mods := sym.Facts.Modifiers
 		if m.isKerMLDoc(sym) {
@@ -176,7 +195,8 @@ func (m *Model) FeatureIsVariable(sym *symbols.Symbol) bool {
 		return m.UsageMayTimeVary(sym)
 	case *ast.CrossFeatureMember:
 		return m.isKerMLDoc(sym) && (d.IsVariable || d.IsConstant)
-	case *ast.RequireMember, *ast.AssumeMember, *ast.SubjectMember, *ast.BodyExpr, *ast.ConnectorEnd:
+	case *ast.RequireMember, *ast.AssumeMember, *ast.SubjectMember, *ast.BodyExpr, *ast.ConnectorEnd,
+		*ast.TimeEvent, *ast.ChangeEvent, *ast.AcceptEvent:
 		return !m.isKerMLDoc(sym) && m.UsageMayTimeVary(sym)
 	case *ast.Relationship:
 		// A satisfy's `by` subject parameter.
@@ -196,7 +216,7 @@ func usageIsReferential(usage *ast.Usage) bool {
 	if usage == nil {
 		return false
 	}
-	if usage.Kind == ast.UsageAttribute {
+	if usage.Kind == ast.UsageAttribute && !usage.IsExtendedUsage() {
 		return true
 	}
 	return !usageIsComposite(usage)
@@ -269,7 +289,7 @@ func (m *Model) UsageIsComposite(sym *symbols.Symbol) bool {
 		if m.metaclassConforms(sym, sysmlMetaclassPrefix+"ControlNode") {
 			return true
 		}
-		if sym.Kind.IsAttributeLike() || sym.Kind == symbols.SymbolReferenceUsage ||
+		if (sym.Kind.IsAttributeLike() || sym.Kind == symbols.SymbolReferenceUsage) && !sym.Facts.Modifiers.Has(symbols.ModExtendedUsage) ||
 			sym.Facts.Modifiers.Has(symbols.ModEnd|symbols.ModEvent) ||
 			sym.Facts.Direction != ast.DirNone {
 			return false
@@ -326,7 +346,14 @@ func (m *Model) usageIsAlwaysReferential(sym *symbols.Symbol) bool {
 	if sym == nil {
 		return false
 	}
+	if isBodySuccessionNode(sym.Decl) {
+		// A `then` succession is a SuccessionAsUsage, referential as `succession` is.
+		return true
+	}
 	if sym.Recorded() {
+		if sym.Facts.Modifiers.Has(symbols.ModExtendedUsage) {
+			return false // prefix metadata alone declares a plain Usage (SysML.xtext ExtendedUsage)
+		}
 		if sym.Kind == symbols.SymbolBindingUsage || sym.Kind == symbols.SymbolSuccessionUsage ||
 			sym.Kind.IsAttributeLike() || sym.Kind == symbols.SymbolReferenceUsage ||
 			sym.Facts.UsageKind == ast.UsageBinding || sym.Facts.UsageKind == ast.UsageSuccession ||
@@ -335,6 +362,9 @@ func (m *Model) usageIsAlwaysReferential(sym *symbols.Symbol) bool {
 		}
 	}
 	if usage, ok := sym.Decl.(*ast.Usage); ok {
+		if usage.IsExtendedUsage() {
+			return false
+		}
 		if usage.Kind == ast.UsageAttribute || usage.Kind == ast.UsageBinding ||
 			usage.Kind == ast.UsageSuccession ||
 			usage.IsEvent || usage.IsPerformedAction() ||
@@ -447,15 +477,22 @@ func UsageDeclIsComposite(usage *ast.Usage) bool {
 }
 
 func usageIsComposite(usage *ast.Usage) bool {
-	if usage == nil || usage.IsReference || usage.Direction != ast.DirNone || usage.IsBodyParameter ||
+	if usage == nil || usage.IsReference || usage.Direction != ast.DirNone ||
 		usage.IsEnd || usage.IsEvent || usage.Kind == ast.UsageEnumeration || usage.IsVariantReference() {
+		return false
+	}
+	// A binding or succession written as a usage is referential (SysML 7.6.3;
+	// the pilot's usage post-processing), as usageIsAlwaysReferential states.
+	if usage.Kind == ast.UsageBinding || usage.Kind == ast.UsageSuccession {
 		return false
 	}
 	if usage.Kind.ReferenceSubsettingSpecializes() {
 		return true
 	}
+	// A usage referring to what it names (`perform a`, `exhibit s`, `include u`, `render r`) is a
+	// reference; an asserted constraint (`assert c`) subsets c by reference and stays composite.
 	for _, rel := range usage.Relationships {
-		if rel != nil && rel.Kind == ast.RelReferences {
+		if rel != nil && rel.Kind == ast.RelReferences && usage.Keyword != "assert" {
 			return false
 		}
 	}
@@ -563,4 +600,39 @@ func isControlNode(sym *symbols.Symbol) bool {
 // without writing one: a subject, actor or stakeholder parameter.
 func DefaultsToInputDirection(sym *symbols.Symbol) bool {
 	return hasDefaultInputParameterDirection(sym)
+}
+
+// synthesizedPartOwner is the owning type of a synthesized part (a transition's succession and ends,
+// a trigger's accept and payload); nil for a symbol declared in a scope of its own.
+func synthesizedPartOwner(sym *symbols.Symbol) *symbols.Symbol {
+	if sym == nil || sym.Expr == nil {
+		return nil
+	}
+	switch sym.Kind {
+	case symbols.SymbolConnectorEnd, symbols.SymbolSuccessionUsage, symbols.SymbolReferenceUsage, symbols.SymbolActionUsage:
+		return sym.Expr.Owner
+	}
+	return nil
+}
+
+// owningTypeIsOccurrence reports whether owner is an Occurrence (deriveUsageMayTimeVary); a synthesized
+// succession or binding shares its node with what wrote it, so it is read by its kind (a succession is a link).
+func (m *Model) owningTypeIsOccurrence(owner *symbols.Symbol) bool {
+	switch owner.Kind {
+	case symbols.SymbolMetadataUsage:
+		// A metadata usage's type is a Metaobject, an Object (KerML Metaobjects).
+		return m.UsageMayTimeVaryUnderKind(ast.UsageMetadata)
+	case symbols.SymbolExpression:
+		// An expression body is a Performance, an Occurrence (KerML Performances).
+		return true
+	}
+	if owner.Expr != nil {
+		switch owner.Kind {
+		case symbols.SymbolSuccessionUsage:
+			return m.UsageMayTimeVaryUnderKind(ast.UsageSuccession)
+		case symbols.SymbolBindingUsage:
+			return m.UsageMayTimeVaryUnderKind(ast.UsageBinding)
+		}
+	}
+	return m.conformsByName(owner, occurrenceFQN)
 }

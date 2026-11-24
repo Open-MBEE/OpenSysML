@@ -400,8 +400,7 @@ func TestAPIJSONWritersNeverEmitNameReferences(t *testing.T) {
 
 func assertAPIJSONUnresolvedValuesOmitted(
 	t *testing.T,
-	path string,
-	format string,
+	path, format string,
 	document []byte,
 	omissions []export.APIJSONOmission,
 ) {
@@ -912,6 +911,13 @@ func TestReadAPIJSONRejectsNonElements(t *testing.T) {
 		"empty scope qualifier":            `{"@type": "Package", "@id": ":X"}`,
 		"equivalent ids":                   `[{"@type": "Package", "@id": "X"}, {"@type": "Package", "@id": ":X"}]`,
 		"trailing JSON":                    `[{"@type": "Package", "@id": "X"}] 42`,
+		"@id closing an IRI":               `{"@type": "PartUsage", "@id": "x> <urn:evil:p"}`,
+		"@id with a control":               "{\"@type\": \"PartUsage\", \"@id\": \"x\\ny\"}",
+		"@type with a space":               `{"@type": "Part Usage", "@id": "X"}`,
+		"sysx: @type closing an IRI":       `{"@type": "sysx:A> <urn:evil:p", "@id": "X"}`,
+		"key closing an IRI":               `{"@type": "Package", "@id": "X", "a> <urn:evil:p": true}`,
+		"reference id closing an IRI":      `{"@type": "Package", "@id": "X", "ownedMember": {"@id": "y> <urn:evil:p> <urn:evil:o"}}`,
+		"reference IRI with a space":       `{"@type": "Package", "@id": "X", "ownedMember": {"@id": "https://opensysml.org/element#a b"}}`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			if _, err := export.ReadAPIJSON([]byte(data)); err == nil {

@@ -71,9 +71,6 @@ func anythingToString(name string, _ *Context, args []Value) (Value, error) {
 	case ValString:
 		return x, nil
 	case ValConst:
-		if x.Const.Kind == semantics.ValInfinity {
-			return NewStringValue("*"), nil
-		}
 		return NewStringValue(semantics.FormatConst(x.Const)), nil
 	case ValQuantity, ValEnumLiteral, ValMeasurementRef, ValCoordinateFrame, ValCoordinateTransformation:
 		return NewStringValue(FormatValue(x)), nil
@@ -99,8 +96,8 @@ func booleanToString(name string, _ *Context, args []Value) (Value, error) {
 
 // integerToString is IntegerFunctions::ToString, the decimal digits of x.
 func integerToString(name string, _ *Context, args []Value) (Value, error) {
-	if isUnbounded(soleElement(args[0])) {
-		return NewStringValue("*"), nil
+	if x := soleElement(args[0]); isInfinity(x) {
+		return NewStringValue(semantics.FormatConst(x.Const)), nil
 	}
 	x, err := integerArg(name, "x", args[0])
 	if err != nil {
@@ -113,6 +110,10 @@ func integerToString(name string, _ *Context, args []Value) (Value, error) {
 func naturalToString(name string, _ *Context, args []Value) (Value, error) {
 	if isUnbounded(soleElement(args[0])) {
 		return NewStringValue("*"), nil
+	}
+	if x := soleElement(args[0]); isInfinity(x) {
+		return Value{}, fmt.Errorf("%w: function %s parameter %q requires a Natural value, got %s",
+			ErrTypeMismatch, name, "x", semantics.FormatConst(x.Const))
 	}
 	x, err := naturalArg(name, "x", args[0])
 	if err != nil {
@@ -127,8 +128,8 @@ func naturalToString(name string, _ *Context, args []Value) (Value, error) {
 // for a Rational, a non-terminating one written `numer/denom`. An Integer
 // argument keeps its digits.
 func numberToString(name string, _ *Context, args []Value) (Value, error) {
-	if isUnbounded(soleElement(args[0])) {
-		return NewStringValue("*"), nil
+	if x := soleElement(args[0]); isInfinity(x) {
+		return NewStringValue(semantics.FormatConst(x.Const)), nil
 	}
 	x, err := numericArg(name, "x", args[0])
 	if err != nil {
@@ -212,6 +213,9 @@ func stringToRational(name string, ctx *Context, args []Value) (Value, error) {
 // integerToNatural is IntegerFunctions::ToNatural; a negative Integer is no
 // Natural and is a domain error rather than a wrapped or clamped value.
 func integerToNatural(name string, _ *Context, args []Value) (Value, error) {
+	if x := soleElement(args[0]); isInfinity(x) {
+		return naturalValue(name, x.Const)
+	}
 	x, err := integerArg(name, "x", args[0])
 	if err != nil {
 		return Value{}, err
@@ -223,6 +227,10 @@ func integerToNatural(name string, _ *Context, args []Value) (Value, error) {
 // The library declares floor and round separately and gives ToInteger no body,
 // so it converts the way a numeric narrowing does: toward zero.
 func numberToInteger(name string, _ *Context, args []Value) (Value, error) {
+	// An infinity is an Integer and a Rational already (KerML 9.3.2.2.3, 9.3.2.2.8).
+	if x := soleElement(args[0]); isInfinity(x) {
+		return x, nil
+	}
 	x, err := numericArg(name, "x", args[0])
 	if err != nil {
 		return Value{}, err
@@ -240,6 +248,9 @@ func numberToInteger(name string, _ *Context, args []Value) (Value, error) {
 // realItself answers the Real x is bound as, an exact argument widened: it is
 // RealFunctions::re (a Real is its own real part).
 func realItself(name string, _ *Context, args []Value) (Value, error) {
+	if x := soleElement(args[0]); isInfinity(x) {
+		return x, nil
+	}
 	x, err := numericArg(name, "x", args[0])
 	if err != nil {
 		return Value{}, err
@@ -250,6 +261,9 @@ func realItself(name string, _ *Context, args []Value) (Value, error) {
 // realToRational is RealFunctions::ToRational: the Rational a finite binary64
 // Real exactly is, an exact argument itself.
 func realToRational(name string, _ *Context, args []Value) (Value, error) {
+	if x := soleElement(args[0]); isInfinity(x) {
+		return x, nil
+	}
 	x, err := numericArg(name, "x", args[0])
 	if err != nil {
 		return Value{}, err
@@ -267,6 +281,9 @@ func realToRational(name string, _ *Context, args []Value) (Value, error) {
 // realZero answers 0.0 for every Real: RealFunctions::im and RealFunctions::arg,
 // whose vendored bodies are both `0.0`.
 func realZero(name string, _ *Context, args []Value) (Value, error) {
+	if isInfinity(soleElement(args[0])) {
+		return checkedReal(0)
+	}
 	if _, err := numericArg(name, "x", args[0]); err != nil {
 		return Value{}, err
 	}
@@ -387,8 +404,8 @@ func invalidNotation(name, s, typeName string) error {
 
 // naturalValue wraps a non-negative Integer as a Natural.
 func naturalValue(name string, x semantics.Value) (Value, error) {
-	if x.IntSign() < 0 {
-		return Value{}, fmt.Errorf("%w: function %s: no Natural equals %s", semantics.ErrArithmeticDomain, name, x.FormatInt())
+	if x.Sign() < 0 {
+		return Value{}, fmt.Errorf("%w: function %s: no Natural equals %s", semantics.ErrArithmeticDomain, name, semantics.FormatConst(x))
 	}
 	return Value{Kind: ValConst, Const: x}, nil
 }

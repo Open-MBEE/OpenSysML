@@ -26,7 +26,7 @@ type qarg struct {
 }
 
 func qlit(s string) qx { return qx{lit: s} }
-func qstr(s string) qx { return qlit(source.StringText(s)) }
+func qstr(s string) qx { return qlit(source.StandardStringText(s)) }
 func qint(n int) qx    { return qlit(strconv.Itoa(n)) }
 func qcall(op string, args ...qarg) qx {
 	return qx{op: op, args: args}
@@ -246,7 +246,7 @@ func hoistShared(body qx, prefix string) (qx, []queryParameter) {
 }
 
 // writeQueryDef writes a query definition returning the expression.
-func (m *migration) writeQueryDef(name string, prefix string, host *sysmlv1.Element, body qx) {
+func (m *migration) writeQueryDef(name, prefix string, host *sysmlv1.Element, body qx) {
 	body, parameters := hoistShared(body, prefix)
 	m.w.block("calc def "+writeName(name)+" :> "+prefix+"Query", func() {
 		for _, parameter := range parameters {

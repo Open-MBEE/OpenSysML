@@ -1149,7 +1149,7 @@ with no `@id`, reported as written (`a.p`); `sourceFeature.featureTarget` and
 | `qualifiedName` | The element's qualified name; absent for an element with a positional `@id` | |
 | `@type` | The element's metamodel type (table below) | |
 | `name` | The element's own name, the last segment of its qualified name | |
-| `declaredName` | `name`, absent when the name is an effective name borrowed from a referenced feature | |
+| `declaredName` | `name`, absent when the name is an effective name: one borrowed from a referenced feature, or the `~P` of the `ConjugatedPortDefinition` a `port def P` implies | |
 | `shortName` | The element's effective short name (`<'HLR-R001'>` declares `HLR-R001`); absent when it has none | |
 | `declaredShortName` | `shortName`, absent when the short name is borrowed from a redefined or subsetted feature | |
 | `documentation` | The body text of the element's `doc` comment, delimiters and indentation removed; absent when undocumented. This single-valued record reports the first body of an element declaring several — a document query's `Project` carries every body | |
@@ -1330,6 +1330,19 @@ for a query written in the request. Python:
 `model.run_document_query(...)` and `model.render_document(...)`
 (`client/python/opensysml/document.py`). The JSON shape of a binding and of the
 result table, captured, is on [the wire contract](wire-contract.md#rundocumentquery).
+
+`RunDocumentQueryRequest.as_view` and `QueryRequest.as_view` ask for the answer written as a
+`QVTS::QueryResult` view as well ([QVTS guide](../guide/qvts.md#write-the-answer-as-a-view)):
+the response's `result_view` is the SysML text declaring it, a string that is empty when the
+request did not ask, and a query that fails with a `QueryOutcome` detail carries a
+`QueryResultView` detail beside it, whose `text` is the view. `RenderViewResponse.header` holds such a view's
+four attributes as `RenderHeaderField`s, and `RenderViewRequest.form` writes it into
+`RenderViewResponse.text` as a document of that header and its rows in `markdown`, `html` or
+`asciidoc`, besides the forms every view takes: `markdown` on a `QVTS::QueryResult` view is the
+header-and-rows document, and `html` or `asciidoc` on a view of another definition is refused
+with `INVALID_ARGUMENT` as any form its kind is not written in. All of it is advertised as
+`query_result_view`, and the document forms need `render_view_form` as well; a service without
+the capability does not know the fields, so a client checks the capability before asking.
 
 Both name a loaded model by its hash and a definition by qualified name, and
 compose the engine packages the REPL and CLI compose — `queryplan` →

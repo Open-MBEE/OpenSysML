@@ -5,7 +5,9 @@ run: performed action collectionWrites of #1
 step 1: token 1@supply
 materialize: Box #3
 eval feature box -> instance#3
+materialize: supply #4
 step 2: token 1@write
+materialize: write #5
 enter action node: write
 step 3: token 1@assign object.values
 stmt assign object.values

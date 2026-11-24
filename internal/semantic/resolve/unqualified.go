@@ -367,7 +367,7 @@ func (r *Resolver) BindsName(sym *symbols.Symbol) bool {
 
 // referencesFeature reports whether the reference subsetting target owned by
 // decl names a feature: a definition or nothing at all names no feature.
-func (r *Resolver) referencesFeature(scope *symbols.Scope, decl ast.Node, target ast.Node) bool {
+func (r *Resolver) referencesFeature(scope *symbols.Scope, decl, target ast.Node) bool {
 	if target == nil {
 		return true
 	}
@@ -383,7 +383,7 @@ func (r *Resolver) referencesFeature(scope *symbols.Scope, decl ast.Node, target
 
 // namesVisibleFeature reports whether a redefinition target owned by decl names
 // a feature the redefinition can see, chain segments included (KerML 8.2.3.5).
-func (r *Resolver) namesVisibleFeature(scope *symbols.Scope, decl ast.Node, target ast.Node) bool {
+func (r *Resolver) namesVisibleFeature(scope *symbols.Scope, decl, target ast.Node) bool {
 	if _, chain := target.(*ast.FeatureChainExpr); !chain && ast.AsQualifiedName(target) == nil {
 		return true
 	}
@@ -550,14 +550,20 @@ func (r *Resolver) lookupImports(scope *symbols.Scope, name string) (*symbols.Sy
 	return nil, false
 }
 
+// uncutVisit is the record of an import search that found nothing and was cut
+// at no excluded namespace. It is shared, so it is never appended to in place.
+var uncutVisit = [][]*symbols.Scope{nil}
+
 // lookupImportedMember resolves a segment surfaced by the namespace being
 // traversed, including a public membership import.
 func (r *Resolver) lookupImportedMember(target *symbols.Symbol, targetScope, from *symbols.Scope, name string, all bool) (*symbols.Symbol, bool) {
 	visit := importVisit{target: targetScope, from: from, name: name, all: all}
-	if r.importVisits[visit] {
-		return nil, false
+	for _, cut := range r.importVisits[visit] {
+		if deps := (routeDeps{cut: cut}); r.routeHolds(deps, false) {
+			r.replayRoute(deps)
+			return nil, false
+		}
 	}
-	r.importVisits[visit] = true
 	r.importDepth++
 	defer func() {
 		r.importDepth--
@@ -565,29 +571,44 @@ func (r *Resolver) lookupImportedMember(target *symbols.Symbol, targetScope, fro
 			clear(r.importVisits)
 		}
 	}()
-	for _, imp := range r.scopeImports(targetScope) {
-		if r.importStack[imp] {
-			continue
-		}
-		if !r.importPrefixAvailable(targetScope, imp, name) {
-			continue
-		}
-		if !all && !r.importVisibleFrom(target, from, imp) {
-			continue
-		}
-		// An expose inherited by specialization is judged by the inheriting view too.
-		into := targetScope
-		if imp.IsExpose && from != nil && r.specializes(from.Owner(), target) {
-			into = from
-		}
-		r.importStack[imp] = true
-		if sym, ok := r.matchImportInto(into, targetScope, imp, name); ok {
+	mark := r.markRoute()
+	var found *symbols.Symbol
+	r.reading(targetScope, func() {
+		for _, imp := range r.scopeImports(targetScope) {
+			if r.importStack[imp] {
+				continue
+			}
+			if !r.importPrefixAvailable(targetScope, imp, name) {
+				continue
+			}
+			if !all && !r.importVisibleFrom(target, from, imp) {
+				continue
+			}
+			// An expose inherited by specialization is judged by the inheriting view too.
+			into := targetScope
+			if imp.IsExpose && from != nil && r.specializes(from.Owner(), target) {
+				into = from
+			}
+			r.importStack[imp] = true
+			sym, ok := r.matchImportInto(into, targetScope, imp, name)
 			delete(r.importStack, imp)
-			return sym, true
+			if ok {
+				found = sym
+				return
+			}
 		}
-		delete(r.importStack, imp)
+	})
+	cut := r.routeCutsSince(mark, nil)
+	if found == nil {
+		if len(cut) == 0 {
+			// A miss cut nowhere holds on every route, so it stands for the visit.
+			r.importVisits[visit] = uncutVisit
+		} else {
+			r.importVisits[visit] = append(r.importVisits[visit], cut)
+		}
+		return nil, false
 	}
-	return nil, false
+	return found, true
 }
 
 func (r *Resolver) importVisibleFrom(target *symbols.Symbol, from *symbols.Scope, imp *ast.Import) bool {
@@ -707,6 +728,11 @@ func (r *Resolver) importMatchesAllInto(into, scope *symbols.Scope, imp *ast.Imp
 // eachImportMatch calls yield with each element imp surfaces under name until
 // yield returns false.
 func (r *Resolver) eachImportMatch(into, scope *symbols.Scope, imp *ast.Import, name string, yield func(*symbols.Symbol) bool) {
+	r.reading(scope, func() { r.eachMatchOfImport(into, scope, imp, name, yield) })
+}
+
+// eachMatchOfImport is eachImportMatch with the importing namespace excluded.
+func (r *Resolver) eachMatchOfImport(into, scope *symbols.Scope, imp *ast.Import, name string, yield func(*symbols.Symbol) bool) {
 	if imp.Imported == nil || len(imp.Imported.Parts) == 0 {
 		return
 	}
@@ -724,78 +750,105 @@ func (r *Resolver) eachImportMatch(into, scope *symbols.Scope, imp *ast.Import, 
 		return admitted(sym) && !r.hiddenImport(scope, name, sym)
 	}
 	if imp.Kind == ast.ImportMembership {
-		// A membership import names a membership: `import P::Car` where Car is an
-		// alias imports that name, so the alias is what it surfaces.
-		if alias, isAlias := r.PartAlias(imp.Imported, len(imp.Imported.Parts)-1); isAlias {
-			target = alias
-		}
-		// The imported member itself (last segment) is visible by its own name.
-		// For FQN-indexed symbols (stdlib), target.Name may be the full FQN, so extract last segment.
-		targetName := target.Name
-		if idx := strings.LastIndex(targetName, "::"); idx >= 0 {
-			targetName = targetName[idx+2:]
-		}
-		if (targetName == name || r.shortNameOf(target) == name) && admit(target) {
-			if !yield(target) {
-				return
-			}
-		}
-		if imp.IsRecursive {
-			r.eachSubtreeMatch(target, name, imp, admit, yield)
-		}
+		r.eachMatchOfMembershipImport(target, imp, name, admit, yield)
 		return
 	}
-	// Namespace import: visible members of the target's scope are surfaced.
-	// Check scope first if available
-	if target.Scope != nil {
-		for _, sym := range symbols.PreferDeclared(target.Scope.LookupLocalAll(name)) {
-			if visibleThroughImport(imp, sym) && admit(sym) && !yield(sym) {
-				return
-			}
-		}
-		for _, sym := range r.shortNamedMembers(target.Scope, name, nil) {
-			if visibleThroughImport(imp, sym) && admit(sym) && !yield(sym) {
-				return
-			}
-		}
-		if sym, ok := r.lookupImportedMember(target, target.Scope, importReader(imp, scope), name, importAllowsPrivate(imp)); ok && admit(sym) {
-			if !yield(sym) {
-				return
-			}
-		}
+	// An import of an excluded namespace brings nothing (KerML 8.3.2.4.6).
+	if !r.entersNamespace(target.Scope) {
+		return
 	}
-	// Also check FQN index for re-exported symbols (wildcard imports populate index, not scope)
-	if r.idx != nil {
-		// A name only a private import surfaced under the target is a member of
-		// it but not a visible one, so a wildcard import does not re-export it
-		// (KerML 8.2.3.3) — unless this is an `import all`, which takes the
-		// target's private memberships too.
-		targetFQN := r.registeredFQN(target)
-		from := importOrigin(imp, targetFQN)
-		children := r.idx.LookupDirectChildrenNamedFrom(targetFQN, from, name)
-		// The import names one namespace, so a same-named other namespace's
-		// members registered under the same path are not what it surfaces.
-		children = notConflatedWith(target, children)
-		// An entry re-exported under the target through a namespace that hides
-		// it is no member of the target, so the import does not bring it on.
-		children = r.withoutHiddenReexports(target.Scope, targetFQN, name, children)
-		for _, sym := range children {
-			// The target may itself have surfaced the name through an import of
-			// its own, filtered by its `filter` members: what it re-exports
-			// onward is what those select.
-			if !r.admitsUnderName("", from, targetFQN+"::"+name, sym) {
-				continue
-			}
-			if r.importSurfaces(imp, targetFQN, sym) && admit(sym) {
-				if !yield(sym) {
-					return
-				}
-			}
-		}
+	if !r.eachScopeMatchOfImport(target, scope, imp, name, admit, yield) || !r.eachIndexedMatchOfImport(target, imp, name, admit, yield) {
+		return
 	}
 	if imp.IsRecursive {
 		r.eachSubtreeMatch(target, name, imp, admit, yield)
 	}
+}
+
+// eachMatchOfMembershipImport yields what a membership import of target surfaces under name. A
+// membership import names a membership: `import P::Car` where Car is an alias imports that name,
+// so the alias is what it surfaces.
+func (r *Resolver) eachMatchOfMembershipImport(target *symbols.Symbol, imp *ast.Import, name string, admit, yield func(*symbols.Symbol) bool) {
+	if alias, isAlias := r.PartAlias(imp.Imported, len(imp.Imported.Parts)-1); isAlias {
+		target = alias
+	}
+	// The imported member itself (last segment) is visible by its own name.
+	// For FQN-indexed symbols (stdlib), target.Name may be the full FQN, so extract last segment.
+	targetName := target.Name
+	if idx := strings.LastIndex(targetName, "::"); idx >= 0 {
+		targetName = targetName[idx+2:]
+	}
+	if (targetName == name || r.shortNameOf(target) == name) && admit(target) {
+		if !yield(target) {
+			return
+		}
+	}
+	// A recursive import of an excluded namespace is of the membership alone (KerML 8.3.2.4.6).
+	if imp.IsRecursive && r.entersNamespace(target.Scope) {
+		r.eachSubtreeMatch(target, name, imp, admit, yield)
+	}
+}
+
+// eachScopeMatchOfImport yields the members of the target's scope a namespace import surfaces under
+// name; it reports false once yield stops the iteration.
+func (r *Resolver) eachScopeMatchOfImport(
+	target *symbols.Symbol, scope *symbols.Scope, imp *ast.Import, name string, admit, yield func(*symbols.Symbol) bool,
+) bool {
+	if target.Scope == nil {
+		return true
+	}
+	for _, sym := range symbols.PreferDeclared(target.Scope.LookupLocalAll(name)) {
+		if visibleThroughImport(imp, sym) && admit(sym) && !yield(sym) {
+			return false
+		}
+	}
+	for _, sym := range r.shortNamedMembers(target.Scope, name, nil) {
+		if visibleThroughImport(imp, sym) && admit(sym) && !yield(sym) {
+			return false
+		}
+	}
+	if sym, ok := r.lookupImportedMember(target, target.Scope, importReader(imp, scope), name, importAllowsPrivate(imp)); ok && admit(sym) {
+		if !yield(sym) {
+			return false
+		}
+	}
+	return true
+}
+
+// eachIndexedMatchOfImport yields the symbols the index registers under the target that a namespace
+// import re-exports under name (wildcard imports populate the index, not the scope); it reports
+// false once yield stops the iteration.
+func (r *Resolver) eachIndexedMatchOfImport(target *symbols.Symbol, imp *ast.Import, name string, admit, yield func(*symbols.Symbol) bool) bool {
+	if r.idx == nil {
+		return true
+	}
+	// A name only a private import surfaced under the target is a member of
+	// it but not a visible one, so a wildcard import does not re-export it
+	// (KerML 8.2.3.3) — unless this is an `import all`, which takes the
+	// target's private memberships too.
+	targetFQN := r.registeredFQN(target)
+	from := importOrigin(imp, targetFQN)
+	children := r.idx.LookupDirectChildrenNamedFrom(targetFQN, from, name)
+	// The import names one namespace, so a same-named other namespace's
+	// members registered under the same path are not what it surfaces.
+	children = notConflatedWith(target, children)
+	// An entry re-exported under the target through a namespace that hides
+	// it is no member of the target, so the import does not bring it on.
+	children = r.withoutHiddenReexports(target.Scope, targetFQN, name, children)
+	for _, sym := range children {
+		// The target may itself have surfaced the name through an import of
+		// its own, filtered by its `filter` members: what it re-exports
+		// onward is what those select.
+		if !r.admitsUnderName("", from, targetFQN+"::"+name, sym) {
+			continue
+		}
+		if r.importSurfaces(imp, targetFQN, sym) && admit(sym) {
+			if !yield(sym) {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // importTargetOf resolves what imp, declared in scope, names. Resolved aside:
@@ -855,7 +908,7 @@ func (r *Resolver) importPrefixAvailable(scope *symbols.Scope, imp *ast.Import, 
 
 // eachSubtreeMatch yields each element named name in the target namespace and its visible
 // descendants, nested re-exports included, until yield returns false.
-func (r *Resolver) eachSubtreeMatch(target *symbols.Symbol, name string, imp *ast.Import, admit func(*symbols.Symbol) bool, yield func(*symbols.Symbol) bool) {
+func (r *Resolver) eachSubtreeMatch(target *symbols.Symbol, name string, imp *ast.Import, admit, yield func(*symbols.Symbol) bool) {
 	out := newElementList()
 	r.appendSubtree(out, target, imp, admit, map[symbols.ElementKey]bool{}, false)
 	for _, sym := range out.elems {

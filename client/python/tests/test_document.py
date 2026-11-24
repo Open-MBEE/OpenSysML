@@ -17,6 +17,7 @@ import pytest
 
 from opensysml.capabilities import (
     CAPABILITY_INLINE_DOCUMENT_QUERY,
+    CAPABILITY_QUERY_RESULT_VIEW,
     CAPABILITY_DOCUMENT_QUERY,
     CAPABILITY_RENDER_DOCUMENT,
     CAPABILITY_RENDER_DOCUMENT_ASCIIDOC,
@@ -44,6 +45,7 @@ from opensysml.document import (
 )
 from opensysml.errors import (
     InvalidRequestError,
+    OpenSysMLError,
     ModelNotFoundError,
     SymbolNotFoundError,
     UnsupportedValueError,
@@ -87,11 +89,17 @@ STATE_FIXTURE = os.path.join(
     "document_query_states.sysml",
 )
 VIEW_FIXTURE = os.path.join(REPO_ROOT, "conformance", "fixtures", "views.sysml")
+#: The service's result-view fixture: a probe, queries over it and two
+#: ``QVTS::QueryResult`` views.
+RESULT_VIEW_FIXTURE = os.path.join(
+    REPO_ROOT, "tests", "grpc", "testdata", "conformance", "query_result_view.sysml",
+)
 
 CAPABILITIES = (
     CAPABILITY_DOCUMENT_QUERY, CAPABILITY_INLINE_DOCUMENT_QUERY, CAPABILITY_RENDER_DOCUMENT, CAPABILITY_RENDER_DOCUMENT_HTML,
     CAPABILITY_RENDER_DOCUMENT_ASCIIDOC,
     CAPABILITY_RENDER_VIEW,
+    CAPABILITY_QUERY_RESULT_VIEW,
 )
 
 
@@ -154,6 +162,42 @@ def fake_service():
     yield start
     for server in servers:
         server.stop(None)
+
+
+def test_a_result_view_requires_its_own_capability(fake_service):
+    """A service that cannot write the view is not asked for one."""
+    port, service = fake_service(capabilities=(CAPABILITY_DOCUMENT_QUERY, CAPABILITY_RENDER_VIEW))
+    with Connection(port=port, auto_start=False) as conn:
+        model = conn.load_from_content("package Demo;")
+        with pytest.raises(MissingCapabilityError) as excinfo:
+            model.run_document_query("Demo::Q", as_view=True)
+        assert excinfo.value.capability == CAPABILITY_QUERY_RESULT_VIEW
+        with pytest.raises(MissingCapabilityError) as excinfo:
+            model.render_view("Demo::v", form="markdown")
+        assert excinfo.value.capability == CAPABILITY_RENDER_VIEW_FORM
+    assert service.requests == []
+
+
+def test_a_result_view_document_form_requires_both_capabilities(fake_service):
+    """Only a QVTS::QueryResult view is written in html or asciidoc, so those ask for its capability too."""
+    port, service = fake_service(capabilities=(CAPABILITY_RENDER_VIEW, CAPABILITY_RENDER_VIEW_FORM))
+    with Connection(port=port, auto_start=False) as conn:
+        model = conn.load_from_content("package Demo;")
+        for form in ("html", "asciidoc"):
+            with pytest.raises(MissingCapabilityError) as excinfo:
+                model.render_view("Demo::v", form=form)
+            assert excinfo.value.capability == CAPABILITY_QUERY_RESULT_VIEW
+    assert service.requests == []
+
+
+def test_a_result_view_is_asked_for_and_carried(fake_service):
+    port, service = fake_service(
+        response=sysml_pb2.RunDocumentQueryResponse(result_view="package QResult {}\n"))
+    with Connection(port=port, auto_start=False) as conn:
+        model = conn.load_from_content("package Demo;")
+        assert model.run_document_query("Demo::Q", as_view=True).result_view == "package QResult {}\n"
+        model.run_document_query("Demo::Q")
+    assert [r.as_view for r in service.requests] == [True, False]
 
 
 def test_bindings_translate_to_typed_values():
@@ -578,8 +622,10 @@ def test_render_view_writes_every_form_the_service_has(real_service):
         for form, (view, want) in forms.items():
             rendered = model.render_view(view, form=form)
             assert want in rendered.text, form
-            assert rendered.text.endswith("\n") and not rendered.text.endswith("\n\n"), form
-            assert rendered.view == view and (rendered.nodes or rendered.rows), form
+            assert rendered.text.endswith("\n"), form
+            assert not rendered.text.endswith("\n\n"), form
+            assert rendered.view == view, form
+            assert rendered.nodes or rendered.rows, form
         assert model.render_view("FormDemo::structure").text == ""
         styled = model.render_view(
             "FormDemo::structure", form="dot", palette="okabe-ito", lines="ortho", direction="LR",
@@ -1182,6 +1228,52 @@ class TestDocumentsAgainstRealService:
         ]
         assert [row[1] for row in result] == [(1.5,), (15.0,), (8.5,), (20.0,)]
         assert {row.element.type for row in result} == {"PartUsage"}
+
+    def test_queries_answer_as_result_views(self, real_service):
+        with open(RESULT_VIEW_FIXTURE, encoding="utf-8") as f:
+            source = f.read()
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(source)
+            named = model.run_document_query(
+                "Probe::Self", bindings={"root": ElementRef("Probe::probe::antenna")}, as_view=True)
+            assert "view self : QueryResult" in named.result_view
+            assert "expose Probe::probe::antenna;" in named.result_view
+            assert 'attribute :>> query = "Probe::Self root=Probe::probe::antenna";' in named.result_view
+            assert model.run_document_query("Probe::NoStates").result_view == ""
+
+            selected = model.query(oslc='sysml:name="camera"', as_view=True)
+            assert [e.id for e in selected] == ["Probe::probe::camera"]
+            assert "expose Probe::probe::camera;" in selected.result_view
+            assert model.query(oslc='sysml:name="camera"').result_view == ""
+
+            # A path or model error is an outcome: its view rides the error.
+            with pytest.raises(InvalidRequestError) as unknown:
+                model.query(oslc='sysml:nme="camera"', as_view=True)
+            assert "Outcome::pathError" in unknown.value.result_view
+            with pytest.raises(OpenSysMLError) as twin:
+                model.run_document_query("Probe::Twin", as_view=True)
+            assert "Outcome::modelError" in twin.value.result_view
+            with pytest.raises(OpenSysMLError) as unasked:
+                model.run_document_query("Probe::Twin")
+            assert not hasattr(unasked.value, "result_view")
+
+    def test_a_result_view_renders_as_a_document(self, real_service):
+        with open(RESULT_VIEW_FIXTURE, encoding="utf-8") as f:
+            source = f.read()
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(source)
+            rendered = model.render_view("Probe::heavy", form="markdown")
+            assert [(f.name, f.value) for f in rendered.header] == [
+                ("query", "Probe::Self root=Probe::probe::antenna"),
+                ("source", "probe.sysml"),
+                ("outcome", "established"),
+                ("provenance", "urn:prov:bundle:heavy"),
+            ]
+            assert rendered.rows[0].cells[0] == "Probe::probe::antenna"
+            assert "| Probe::probe::antenna | part | Payload | Probe::probe |" in rendered.text
+            assert model.render_view("Probe::heavy").text == ""
+            with pytest.raises(InvalidRequestError, match='unknown rendering form "html"'):
+                model.render_view("Probe::plain", form="html")
 
     def test_a_query_expression_runs_in_place_of_a_name(self, real_service, telescope):
         with Connection(port=real_service, auto_start=False) as conn:

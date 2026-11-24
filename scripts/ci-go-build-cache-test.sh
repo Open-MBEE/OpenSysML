@@ -22,7 +22,10 @@ printf 'package unused\n\nfunc Value() int { return 2 }\n' >unused/unused.go
 printf 'package main\n\nimport "cachetest/used"\n\nfunc main() { println(used.Value()) }\n' >cmd/main.go
 
 # builds <subcommand> <package>: how many compile and link commands the go command runs for it.
-builds() { go "$1" -x "$2" 2>&1 | grep -cE '/(compile|link) ' || true; }
+builds() {
+	local subcommand=$1 package=$2
+	go "$subcommand" -x "$package" 2>&1 | grep -cE '/(compile|link) ' || true
+}
 entries() { find "$GOCACHE" -mindepth 2 -maxdepth 2 \( -name '*-a' -o -name '*-d' \) "$@" | wc -l; }
 
 # A cold run: nothing to mark, and the pruning keeps all the run built.

@@ -26,6 +26,8 @@ type futureFootprints struct {
 	gated     bool
 	senders   []futureSend
 	anySender bool
+	// parts is the list machineParts filled last, kept to be filled again.
+	parts []lower.Footprint
 }
 
 // futureSend is a send an executor run for from may make at this instant.
@@ -259,25 +261,28 @@ func (f *futureFootprints) machineFuture(e *StateExecutor) lower.Footprint {
 	if e.activeConfig == nil || len(e.held) > 0 || e.pendingCall != nil {
 		return withDrop(e, f.wholeMachine(e))
 	}
-	timerDue := false
-	for _, wait := range e.armedWaits() {
-		if _, timer := wait.what.(transitionWait); timer && wait.Due <= f.ctx.clock.now {
-			timerDue = true
-		}
-	}
+	kept := f.parts
+	f.parts = nil
+	parts, stepped := f.machineParts(e, kept[:0])
 	var future lower.Footprint
-	active := make(map[*ast.StateNode]bool)
-	var work []*ast.StateNode
-	for _, leaf := range e.activeStates() {
-		for _, state := range e.getParentChain(leaf) {
-			if !active[state] {
-				active[state] = true
-				work = append(work, state)
-			}
-		}
+	if stepped {
+		future = sumFootprints(parts)
 	}
+	clear(parts)
+	f.parts = parts
+	if !stepped {
+		return withDrop(e, f.wholeMachine(e))
+	}
+	return withDrop(e, future)
+}
+
+// machineParts lists into parts, in order, the footprints a started machine's future
+// is the union of; false where a transition out of its configuration has no step.
+func (f *futureFootprints) machineParts(e *StateExecutor, parts []lower.Footprint) ([]lower.Footprint, bool) {
+	timerDue := f.timerDue(e)
+	active, work := activeChains(e)
 	for _, act := range e.doActions {
-		addFootprint(&future, f.doFuture(e, act))
+		parts = append(parts, f.doFuture(e, act))
 	}
 	steps := e.graph.TransitionSteps()
 	seen := make(map[*ast.StateNode]bool)
@@ -294,19 +299,45 @@ func (f *futureFootprints) machineFuture(e *StateExecutor) lower.Footprint {
 			}
 			step, ok := steps[trans]
 			if !ok {
-				return withDrop(e, f.wholeMachine(e))
+				return parts, false
 			}
-			addFootprint(&future, step.Footprint)
+			parts = append(parts, step.Footprint)
 			if channel, takes := triggerChannel(trans); takes {
-				future.Accepts = append(future.Accepts, channel)
+				parts = append(parts, lower.Footprint{Accepts: []lower.Channel{channel}})
 			}
 			for _, entered := range step.Enters {
-				addFootprint(&future, f.startedDo(e, entered))
+				parts = append(parts, f.startedDo(e, entered))
 				work = append(work, entered)
 			}
 		}
 	}
-	return withDrop(e, future)
+	return parts, true
+}
+
+// timerDue reports whether one of the machine's armed transition timers has come due.
+func (f *futureFootprints) timerDue(e *StateExecutor) bool {
+	due := false
+	for _, wait := range e.armedWaits() {
+		if _, timer := wait.what.(transitionWait); timer && wait.Due <= f.ctx.clock.now {
+			due = true
+		}
+	}
+	return due
+}
+
+// activeChains is every state on the parent chain of an active leaf, as a set and in the order met.
+func activeChains(e *StateExecutor) (map[*ast.StateNode]bool, []*ast.StateNode) {
+	active := make(map[*ast.StateNode]bool)
+	var work []*ast.StateNode
+	for _, leaf := range e.activeStates() {
+		for _, state := range e.getParentChain(leaf) {
+			if !active[state] {
+				active[state] = true
+				work = append(work, state)
+			}
+		}
+	}
+	return active, work
 }
 
 // doFuture is what a do behavior under way or pending may still do at this

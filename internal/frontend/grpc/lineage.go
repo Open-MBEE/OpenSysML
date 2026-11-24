@@ -133,46 +133,8 @@ func (s *Service) parseFromLineage(ctx context.Context, inputs []sourceInput, mo
 		return nil, false, err
 	}
 
-	switch {
-	case l.fresh:
-		for _, input := range inputs {
-			if content, stood := l.standIns[input.name]; stood && content != input.content {
-				// A library version changed: noted as if first seen, so the
-				// next parse builds a workspace and checks it again.
-				l.fresh, l.standIns, l.held = false, nil, map[string]string{}
-				for _, input := range inputs {
-					l.held[input.name] = input.content
-				}
-				break
-			}
-		}
+	if !s.bringLineageCurrent(l, inputs, mode) {
 		return nil, false, nil
-	case l.ws == nil && len(l.held) == 0:
-		// First seen: noted, answered fresh.
-		for _, input := range inputs {
-			l.held[input.name] = input.content
-		}
-		return nil, false, nil
-	case l.ws == nil:
-		// Seen again: the workspace is built over every document now.
-		idx, library := s.libIndexes.get()
-		l.ws = model.NewWorkspaceWithIndex(idx, model.WithConformanceMode(mode), model.WithLibrarySource(library))
-		l.library = library
-		batch := make([]model.Input, len(inputs))
-		for i, input := range inputs {
-			batch[i] = model.Input{Name: input.name, Content: []byte(input.content), Kind: input.kind}
-			l.held[input.name] = input.content
-		}
-		l.ws.OpenAll(batch)
-	default:
-		for _, input := range inputs {
-			if l.held[input.name] == input.content {
-				continue
-			}
-			l.versions++
-			l.ws.Update(input.name, []byte(input.content), l.versions)
-			l.held[input.name] = input.content
-		}
 	}
 
 	// A document that versions a bundled library file is indexed by the
@@ -237,6 +199,53 @@ func (s *Service) parseFromLineage(ctx context.Context, inputs []sourceInput, mo
 		Documents: documents, Index: detached.Index(), Library: l.library, Mode: mode, Findings: l.ws.WorkspaceFindings(),
 		analysis: &analysisSnapshot{workspace: l.ws, stamps: stamps, scoped: declaresIdentityScope(inputs)},
 	}, true, nil
+}
+
+// bringLineageCurrent notes inputs in l and reports whether l's workspace now holds them; a set first
+// seen, or answered fresh for its library stand-ins, has none. The caller holds l.mu.
+func (s *Service) bringLineageCurrent(l *lineage, inputs []sourceInput, mode diag.ConformanceMode) bool {
+	switch {
+	case l.fresh:
+		for _, input := range inputs {
+			if content, stood := l.standIns[input.name]; stood && content != input.content {
+				// A library version changed: noted as if first seen, so the
+				// next parse builds a workspace and checks it again.
+				l.fresh, l.standIns, l.held = false, nil, map[string]string{}
+				for _, input := range inputs {
+					l.held[input.name] = input.content
+				}
+				break
+			}
+		}
+		return false
+	case l.ws == nil && len(l.held) == 0:
+		// First seen: noted, answered fresh.
+		for _, input := range inputs {
+			l.held[input.name] = input.content
+		}
+		return false
+	case l.ws == nil:
+		// Seen again: the workspace is built over every document now.
+		idx, library := s.libIndexes.get()
+		l.ws = model.NewWorkspaceWithIndex(idx, model.WithConformanceMode(mode), model.WithLibrarySource(library))
+		l.library = library
+		batch := make([]model.Input, len(inputs))
+		for i, input := range inputs {
+			batch[i] = model.Input{Name: input.name, Content: []byte(input.content), Kind: input.kind}
+			l.held[input.name] = input.content
+		}
+		l.ws.OpenAll(batch)
+	default:
+		for _, input := range inputs {
+			if l.held[input.name] == input.content {
+				continue
+			}
+			l.versions++
+			l.ws.Update(input.name, []byte(input.content), l.versions)
+			l.held[input.name] = input.content
+		}
+	}
+	return true
 }
 
 // shareConvertedDiagnostics hands a document the converted diagnostics answered under

@@ -61,7 +61,7 @@ func (e *executor) ownedRelationshipRows(expression queryplan.Expression, row Va
 	for _, rel := range e.context.Model.OwnedRelationships(sym) {
 		out = append(out, ElementValue(rel))
 	}
-	if related, ok := e.context.Model.ReflectiveElements(sym, "ownedRelatedElement"); ok {
+	if related, ok := e.context.Model.StatedReflectiveElements(sym, "ownedRelatedElement"); ok {
 		for _, elem := range related {
 			out = append(out, ElementValue(elem))
 		}
@@ -424,7 +424,8 @@ func (e *executor) evaluateWhereName(expression queryplan.Expression) (sequence,
 	if err != nil {
 		return sequence{}, err
 	}
-	if compareErr := validateTextComparison(operator, expected); compareErr != nil {
+	comparison, compareErr := newTextComparison(operator, expected)
+	if compareErr != nil {
 		if compareErr != errComparison {
 			return sequence{}, e.invalidArgument(expression, "value", expected)
 		}
@@ -440,11 +441,8 @@ func (e *executor) evaluateWhereName(expression queryplan.Expression) (sequence,
 			continue
 		}
 		name, _ := names[0].String()
-		match, compareErr := compareText(name, operator, expected)
+		match, compareErr := comparison.text(name)
 		if compareErr != nil {
-			if compareErr != errComparison {
-				return sequence{}, e.invalidArgument(expression, "value", expected)
-			}
 			return sequence{}, e.operatorError(expression, operator)
 		}
 		if match {
@@ -471,7 +469,8 @@ func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequen
 	if err != nil {
 		return sequence{}, err
 	}
-	if compareErr := validateFeatureComparison(operator, expected); compareErr != nil {
+	comparison, compareErr := newFeatureComparison(operator, expected)
+	if compareErr != nil {
 		if compareErr != errComparison {
 			return sequence{}, e.invalidArgument(expression, "value", expected)
 		}
@@ -506,7 +505,7 @@ func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequen
 		}
 		known = known || present
 		for _, actual := range values {
-			match, compareErr := e.compareValue(actual, operator, expected)
+			match, compareErr := e.compareValue(actual, comparison)
 			if compareErr != nil {
 				if compareErr != errComparison {
 					return sequence{}, e.invalidArgument(expression, "value", expected)
@@ -1343,53 +1342,56 @@ const (
 	opEndsWith   = "ends-with"
 )
 
-func compareText(actual, operator, expected string) (bool, error) {
+// comparison is one written comparison, its `matches` pattern compiled once for every row.
+type comparison struct {
+	operator string
+	expected string
+	pattern  *regexp.Regexp
+}
+
+// newTextComparison reads a comparison of text; errComparison names an operator text does not take.
+func newTextComparison(operator, expected string) (comparison, error) {
+	c := comparison{operator: operator, expected: expected}
 	switch operator {
-	case "=", "==":
-		return actual == expected, nil
-	case "!=", "<>":
-		return actual != expected, nil
-	case "contains":
-		return strings.Contains(actual, expected), nil
-	case "startsWith", opStartsWith:
-		return strings.HasPrefix(actual, expected), nil
-	case "endsWith", opEndsWith:
-		return strings.HasSuffix(actual, expected), nil
+	case "=", "==", "!=", "<>", "contains", "startsWith", opStartsWith, "endsWith", opEndsWith:
+		return c, nil
 	case "matches":
-		expression, err := regexp.Compile(expected)
-		if err != nil {
-			return false, err
-		}
-		return expression.MatchString(actual), nil
+		pattern, err := regexp.Compile(expected)
+		c.pattern = pattern
+		return c, err
 	default:
-		return false, errComparison
+		return c, errComparison
 	}
 }
 
-func validateTextComparison(operator, expected string) error {
+// newFeatureComparison reads a comparison of a feature's values, which also takes the ordering operators.
+func newFeatureComparison(operator, expected string) (comparison, error) {
 	switch operator {
-	case "=", "==", "!=", "<>", "contains", "startsWith", opStartsWith, "endsWith", opEndsWith:
-		return nil
-	case "matches":
-		_, err := regexp.Compile(expected)
-		return err
-	default:
-		return errComparison
-	}
-}
-
-func validateFeatureComparison(operator, expected string) error {
-	switch operator {
-	case "=", "==", "!=", "<>", "contains", "startsWith", opStartsWith, "endsWith", opEndsWith:
-		return nil
-	case "matches":
-		_, err := regexp.Compile(expected)
-		return err
 	case "<", "<=", ">", ">=":
 		_, err := parseNumericValue(expected)
-		return err
+		return comparison{operator: operator, expected: expected}, err
 	default:
-		return errComparison
+		return newTextComparison(operator, expected)
+	}
+}
+
+// text reports whether actual satisfies the comparison; an ordering operator holds of no text.
+func (c comparison) text(actual string) (bool, error) {
+	switch c.operator {
+	case "=", "==":
+		return actual == c.expected, nil
+	case "!=", "<>":
+		return actual != c.expected, nil
+	case "contains":
+		return strings.Contains(actual, c.expected), nil
+	case "startsWith", opStartsWith:
+		return strings.HasPrefix(actual, c.expected), nil
+	case "endsWith", opEndsWith:
+		return strings.HasSuffix(actual, c.expected), nil
+	case "matches":
+		return c.pattern.MatchString(actual), nil
+	default:
+		return false, errComparison
 	}
 }
 
@@ -1401,25 +1403,25 @@ func (*comparisonError) Error() string { return "unsupported comparison" }
 
 // compareValue compares one value as WhereFeature does: an element by its cell name or,
 // when the written value is qualified, its qualified name; an expression by its written text.
-func (e *executor) compareValue(actual Value, operator, expected string) (bool, error) {
-	if sym, ok := actual.Element(); ok && (sym.Expr != nil || !strings.Contains(expected, "::")) {
-		return compareText(e.valueText(actual), operator, expected)
+func (e *executor) compareValue(actual Value, c comparison) (bool, error) {
+	if sym, ok := actual.Element(); ok && (sym.Expr != nil || !strings.Contains(c.expected, "::")) {
+		return c.text(e.valueText(actual))
 	}
-	return compareValue(actual, operator, expected)
+	return compareValue(actual, c)
 }
 
-func compareValue(actual Value, operator, expected string) (bool, error) {
+func compareValue(actual Value, c comparison) (bool, error) {
 	switch actual.Kind() {
 	case ValueString:
 		value, _ := actual.String()
-		return compareText(value, operator, expected)
+		return c.text(value)
 	case ValueBoolean:
 		value, _ := actual.Boolean()
-		want, err := strconv.ParseBool(expected)
+		want, err := strconv.ParseBool(c.expected)
 		if err != nil {
 			return false, err
 		}
-		switch operator {
+		switch c.operator {
 		case "=", "==":
 			return value == want, nil
 		case "!=", "<>":
@@ -1428,22 +1430,22 @@ func compareValue(actual Value, operator, expected string) (bool, error) {
 			return false, errComparison
 		}
 	case ValueInteger, ValueRational, ValueReal, ValueInfinity:
-		want, err := parseNumericValue(expected)
+		want, err := parseNumericValue(c.expected)
 		if err != nil {
 			return false, err
 		}
-		return compareOrdinal(compareNumeric(actual, want), operator)
+		return compareOrdinal(compareNumeric(actual, want), c.operator)
 	case ValueQuantity:
 		// A bare number compares against the magnitude in the quantity's own unit.
 		magnitude, _ := actual.Magnitude()
-		return compareValue(magnitude, operator, expected)
+		return compareValue(magnitude, c)
 	case ValueElement:
 		sym, _ := actual.Element()
-		return compareText(symbols.FQNOf(sym), operator, expected)
+		return c.text(symbols.FQNOf(sym))
 	case ValueObject:
 		// An object compares by the path it is held under.
 		_, label, _ := actual.Object()
-		return compareText(label, operator, expected)
+		return c.text(label)
 	default:
 		return false, errComparison
 	}
@@ -1709,7 +1711,7 @@ func (e *executor) missingFeature(expression queryplan.Expression, property stri
 		Outcome: &Outcome{Path: &PathError{Failures: []Failure{{
 			Step:     Step{Kind: StepFeature, Argument: segment},
 			Expected: "a feature named " + segment + " on the element",
-			Frontier: Frontier{At: symbols.FQNOf(reached), Features: features, Nearest: first(suggest.Nearest(segment, names))},
+			Frontier: Frontier{At: symbols.FQNOf(reached), element: reached, Features: features, Nearest: first(suggest.Nearest(segment, names))},
 		}}}},
 	}
 }

@@ -113,7 +113,7 @@ func (ec *EvalContext) metaobjectFeature(meta Value, name string) (Value, error)
 			ec.ctx.QualifiedName(metaclass), name)
 	}
 	for _, property := range ec.reflectivePropertyNames(metaclass, feature) {
-		if elements, ok := sem.ReflectiveElements(element, property); ok {
+		if elements, ok := sem.StatedReflectiveElements(element, property); ok {
 			values := make([]Value, 0, len(elements))
 			for _, elem := range elements {
 				val, err := ec.reflectiveMetaobject(elem)

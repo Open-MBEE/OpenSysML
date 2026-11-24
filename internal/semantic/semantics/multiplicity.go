@@ -51,7 +51,11 @@ func (m *Model) boundIn(scope *symbols.Scope, n ast.Node) Bound {
 		n, ok := v.Int64()
 		return Bound{Value: n, Known: ok}
 	case ValInfinity:
-		return Bound{Infinite: true, Known: true}
+		// `-*` is no Natural, so it bounds nothing.
+		if v.IsUnbounded() {
+			return Bound{Infinite: true, Known: true}
+		}
+		return Bound{}
 	default:
 		return Bound{}
 	}
@@ -226,6 +230,8 @@ func UsageMultiplicityOf(sym *symbols.Symbol) *ast.Multiplicity {
 		return decl.Multiplicity
 	case *ast.CrossFeatureMember:
 		return decl.Multiplicity
+	case *ast.ConnectorEnd:
+		return decl.Multiplicity
 	}
 	return successionEndMultiplicity(sym)
 }
@@ -272,7 +278,8 @@ func (m *Model) ImplicitMultiplicityApplies(sym *symbols.Symbol) bool {
 	if usage, ok := sym.Decl.(*ast.Usage); ok && usage.Kind == ast.UsageObjective {
 		return false
 	}
-	if _, ok := implicitMultiplicityMetaclasses[sysmlMetaclassName(sym)]; !ok {
+	if _, ok := implicitMultiplicityMetaclasses[sysmlMetaclassName(sym)]; !ok && !isNamedTriggerPayload(sym) {
+		// A trigger's named payload is a ReferenceUsage that takes the default all the same, as the tree writes it.
 		return false
 	}
 	if sym.Decl == nil {

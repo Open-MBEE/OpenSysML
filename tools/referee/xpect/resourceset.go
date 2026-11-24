@@ -99,9 +99,15 @@ func resourcePath(xtPath, from string) string {
 	return path.Join(path.Dir(xtPath), from)
 }
 
+// readResource reads a resource a downloaded .xt file declared, through an os.Root
+// at the suite: a `..` or a link that leaves the suite directory is refused.
 func readResource(suiteDir, rel string) ([]byte, error) {
-	// #nosec G304 -- the suite directory is named on the command line.
-	return os.ReadFile(filepath.Join(suiteDir, filepath.FromSlash(rel)))
+	root, err := os.OpenRoot(suiteDir)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = root.Close() }()
+	return root.ReadFile(filepath.FromSlash(rel))
 }
 
 // libraryCache memoizes the parse of a declared library file. Every fixture

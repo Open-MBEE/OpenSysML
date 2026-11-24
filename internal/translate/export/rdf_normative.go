@@ -28,6 +28,13 @@ const (
 	mSubsetting                        = "Subsetting"
 	mSpecialization                    = "Specialization"
 	mRedefinition                      = "Redefinition"
+	mCrossSubsetting                   = "CrossSubsetting"
+	mUnioning                          = "Unioning"
+	mIntersecting                      = "Intersecting"
+	mDifferencing                      = "Differencing"
+	mDisjoining                        = "Disjoining"
+	mFeatureInverting                  = "FeatureInverting"
+	mTypeFeaturing                     = "TypeFeaturing"
 	mFlow                              = "Flow"
 	mFlowUsage                         = "FlowUsage"
 	mSuccessionFlow                    = "SuccessionFlow"
@@ -50,6 +57,7 @@ const (
 	mRequirementVerificationMembership = "RequirementVerificationMembership"
 	mConstraintUsage                   = "ConstraintUsage"
 	mReferenceUsage                    = "ReferenceUsage"
+	mUsage                             = "Usage"
 	pMultiplicity                      = "multiplicity"
 	pCondition                         = "condition"
 	pConjugatedPortDefinition          = "conjugatedPortDefinition"
@@ -136,7 +144,9 @@ type headItem struct {
 // emits relationship elements for, in the order a head no notation spelled
 // states them.
 var materializedKinds = []ast.RelationshipKind{
-	ast.RelTyping, ast.RelSpecializes, ast.RelSubsets, ast.RelRedefines, ast.RelReferences, ast.RelAnnotates,
+	ast.RelTyping, ast.RelSpecializes, ast.RelSubsets, ast.RelRedefines, ast.RelReferences, ast.RelCrosses,
+	ast.RelUnions, ast.RelIntersects, ast.RelDifferences, ast.RelDisjoint, ast.RelInverseOf, ast.RelFeaturedBy,
+	ast.RelAnnotates,
 }
 
 // materializeRelationships emits one relationship element per target of each
@@ -215,6 +225,10 @@ func (e *encoder) pendingRelationships(subject rdf.Term) (targets []pendingRelat
 				aboutPosition[item] = len(targets)
 				targets = append(targets, pendingRelationship{kind, item.element, len(items), i})
 			}
+			continue
+		}
+		if kind == ast.RelFeaturedBy && ontology.IsAncestorOrSelf(e.metaclassOf(subject), mTypeFeaturing) {
+			// A TypeFeaturing's featuringType is its own end, not a `featured by` clause.
 			continue
 		}
 		objects := e.graph.Objects(subject, rdf.SysML+relationshipProperty[kind])
@@ -329,7 +343,7 @@ func (e *encoder) seatHead(subject rdf.Term, anchor int, block []rdf.Term) {
 // relationship class a target takes depends on what the element is.
 func (e *encoder) relationshipSpec(subject rdf.Term, kind ast.RelationshipKind, count, i int) (normativeRelationship, bool) {
 	metaclass := e.metaclassOf(subject)
-	classifier := ontology.IsAncestorOrSelf(metaclass, "Classifier")
+	classifier := isClassifier(metaclass)
 	suffix := relationshipSuffix(kind, classifier, count, i)
 	switch kind {
 	case ast.RelTyping:
@@ -369,6 +383,25 @@ func (e *encoder) relationshipSpec(subject rdf.Term, kind ast.RelationshipKind, 
 			[]string{"ownedRedefinition", pOwnedSubsetting, pOwnedSpecialization, pOwnedRelationship}}, true
 	case ast.RelReferences:
 		return referenceSubsettingSpec(suffix), true
+	case ast.RelCrosses:
+		// `crosses` names the feature an end's cross feature subsets through the
+		// CrossSubsetting the end owns (KerML 8.3.3.3.2, 8.2.4.3.1 Crosses).
+		return normativeRelationship{mCrossSubsetting, suffix,
+			[]string{"crossingFeature", pSubsettingFeature, pOwningFeature, pSpecific, pSource, pOwningRelatedElement},
+			[]string{"crossedFeature", pSubsettedFeature, pGeneral, pTarget},
+			[]string{"ownedCrossSubsetting", pOwnedSubsetting, pOwnedSpecialization, pOwnedRelationship}}, true
+	case ast.RelUnions:
+		return typeOperandSpec(mUnioning, suffix, "typeUnioned", "unioningType", "ownedUnioning"), true
+	case ast.RelIntersects:
+		return typeOperandSpec(mIntersecting, suffix, "typeIntersected", "intersectingType", "ownedIntersecting"), true
+	case ast.RelDifferences:
+		return typeOperandSpec(mDifferencing, suffix, "typeDifferenced", "differencingType", "ownedDifferencing"), true
+	case ast.RelDisjoint:
+		return ownedEndSpec(mDisjoining, suffix, "typeDisjoined", pOwningType, "disjoiningType", "ownedDisjoining"), true
+	case ast.RelInverseOf:
+		return ownedEndSpec(mFeatureInverting, suffix, "featureInverted", pOwningFeature, "invertingFeature", "ownedFeatureInverting"), true
+	case ast.RelFeaturedBy:
+		return ownedEndSpec(mTypeFeaturing, suffix, "featureOfType", "owningFeatureOfType", "featuringType", "ownedTypeFeaturing"), true
 	case ast.RelAnnotates:
 		// An `about` names an element the annotating element annotates through an
 		// Annotation it owns (KerML 8.3.2.3.2 AnnotatingElement::ownedAnnotatingRelationship).
@@ -378,6 +411,12 @@ func (e *encoder) relationshipSpec(subject rdf.Term, kind ast.RelationshipKind, 
 			[]string{pOwnedAnnotatingRelationship, pOwnedRelationship}}, true
 	}
 	return normativeRelationship{}, false
+}
+
+// isClassifier reports whether a metaclass is a Classifier, whose `specializes` is a
+// Subclassification: the one test the writer and the identity reader share.
+func isClassifier(metaclass string) bool {
+	return ontology.IsAncestorOrSelf(metaclass, mClassifier)
 }
 
 // relationshipSuffix names the relationship element materialized for the i-th of count
@@ -401,6 +440,20 @@ func relationshipSuffix(kind ast.RelationshipKind, classifier bool, count, i int
 		return "_rd" + index
 	case ast.RelReferences:
 		return referenceSubsettingSuffix(count, i)
+	case ast.RelCrosses:
+		return crossSubsettingSuffix(count, i)
+	case ast.RelUnions:
+		return "_un" + index
+	case ast.RelIntersects:
+		return "_is" + index
+	case ast.RelDifferences:
+		return "_df" + index
+	case ast.RelDisjoint:
+		return "_dj" + index
+	case ast.RelInverseOf:
+		return "_iv" + index
+	case ast.RelFeaturedBy:
+		return "_tf" + index
 	}
 	return ""
 }
@@ -412,6 +465,33 @@ func referenceSubsettingSuffix(count, i int) string {
 		return fmt.Sprintf("_rs%d", i)
 	}
 	return "_rs"
+}
+
+// crossSubsettingSuffix is `_cs` for the one CrossSubsetting a feature owns
+// (KerML 8.3.3.3.4 validateFeatureOwnedCrossSubsetting) and `_cs<i>` when a head states several.
+func crossSubsettingSuffix(count, i int) string {
+	if count > 1 {
+		return fmt.Sprintf("_cs%d", i)
+	}
+	return "_cs"
+}
+
+// typeOperandSpec is the materialization of one operand of a type's `unions`,
+// `intersects` or `differences`: the relationship the type owns per operand (KerML 8.2.4.1.1 UnioningPart).
+func typeOperandSpec(metaclass, suffix, source, target, owned string) normativeRelationship {
+	return normativeRelationship{metaclass, suffix,
+		[]string{source, pSource, pOwningRelatedElement},
+		[]string{target, pTarget},
+		[]string{owned, pOwnedRelationship}}
+}
+
+// ownedEndSpec is the materialization of one target of `disjoint from`, `inverse of` or
+// `featured by`: the relationship the declared element owns, naming it as source and as owner.
+func ownedEndSpec(metaclass, suffix, source, owner, target, owned string) normativeRelationship {
+	return normativeRelationship{metaclass, suffix,
+		[]string{source, owner, pSource, pOwningRelatedElement},
+		[]string{target, pTarget},
+		[]string{owned, pOwnedRelationship}}
 }
 
 // referenceSubsettingSpec is the materialization of a `references` target: a

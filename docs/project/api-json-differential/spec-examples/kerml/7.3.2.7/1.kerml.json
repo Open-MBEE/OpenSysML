@@ -8,14 +8,14 @@
       "oursOnly": 2,
       "pilotOnly": 0,
       "pilotOnlyImplied": 0,
-      "typeMismatch": 2
+      "typeMismatch": 0
     },
     "properties": {
       "presentEqual": 95,
       "presentDifferent": 0,
       "oursMissing": 12,
       "pilotMissing": 3,
-      "absentBoth": 98,
+      "absentBoth": 101,
       "indeterminate": 0,
       "pilotNondeterministic": 0
     },
@@ -107,6 +107,7 @@
     "OwningMembership.memberElement": [3,0,0,0,0,0,0],
     "OwningMembership.memberElementId": [3,0,0,0,0,0,0],
     "OwningMembership.memberName": [3,0,0,0,0,0,0],
+    "OwningMembership.memberShortName": [0,0,0,0,3,0,0],
     "OwningMembership.membershipOwningNamespace": [3,0,0,0,0,0,0],
     "OwningMembership.ownedAnnotation": [0,0,0,0,3,0,0],
     "OwningMembership.ownedElement": [0,0,0,0,3,0,0],

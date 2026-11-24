@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/exec/internal/progress"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -252,7 +253,103 @@ func (e *CheckStopped) Unwrap() error { return e.Cause }
 // The start draws choice points itself (region entry order), so it is begun once per way of
 // resolving them and the search runs from every state a start reaches.
 func Check(stop context.Context, fresh func() (*Context, error), start Starter, budget CheckBudget, opts CheckOptions, props []CheckProperty) (*CheckReport, error) {
+	return check(stop, fresh, start, budget, opts, props, nil)
+}
+
+// ProgressStatus distinguishes a clean finite search, a counterexample, lack of activation, and an incomplete search.
+type ProgressStatus string
+
+const (
+	ProgressHolds        ProgressStatus = "holds"
+	ProgressStalled      ProgressStatus = "stalled"
+	ProgressVacuous      ProgressStatus = "vacuous"
+	ProgressInconclusive ProgressStatus = "inconclusive"
+)
+
+// ErrProgressTimed means a started invocation declared a horizon or advanced its clock during search.
+var ErrProgressTimed = errors.New("progress checking requires untimed execution without a clock horizon")
+
+// ErrProgressMonitor means that no named pending-obligation predicate was provided.
+var ErrProgressMonitor = errors.New("progress checking requires a named pending predicate")
+
+// ProgressStep identifies a native explored edge by canonical stable-state digests and move identity.
+type ProgressStep = progress.Step
+
+// ProgressReport reports one request-to-response obligation. A stalled report
+// has a prefix to a pending terminal (empty Cycle) or a repeatable pending walk.
+type ProgressReport struct {
+	Status ProgressStatus
+	// Search summarizes the progress search, deduplicated without reporting-only visit history.
+	Search             *CheckReport
+	Activated, Cleared bool
+	// Root and StartupPicks identify the starting state of a stalled witness.
+	// Picks are zero-based, with unstated choices taking the first alternative.
+	Root          string
+	StartupPicks  []int
+	Prefix, Cycle []ProgressStep
+}
+
+// CheckProgress asks whether every schedule leaves the pending region without assuming fairness.
+// Pending becomes true on acceptance, false on response, and may read execution state but not visit history.
+func CheckProgress(stop context.Context, fresh func() (*Context, error), start Starter, budget CheckBudget, pending CheckProperty) (*ProgressReport, error) {
+	if pending.Name == "" || pending.Holds == nil {
+		return nil, ErrProgressMonitor
+	}
+	g := &progressWalk{pending: pending, graph: progress.New()}
+	search, err := check(stop, fresh, start, budget, CheckOptions{}, nil, g)
+	if err != nil {
+		return nil, err
+	}
+	result, err := g.graph.Analyze(stop)
+	if err != nil {
+		return nil, err
+	}
+	r := &ProgressReport{
+		Search: search, Activated: result.Activated, Cleared: result.Cleared,
+		Root: result.Root, StartupPicks: result.StartupPicks, Prefix: result.Prefix, Cycle: result.Cycle,
+	}
+	switch {
+	case result.Root != "":
+		r.Status = ProgressStalled
+	case len(search.BoundsHit)+len(search.Unenumerated)+len(search.Violations) != 0:
+		r.Status = ProgressInconclusive
+	case !r.Activated:
+		r.Status = ProgressVacuous
+	default:
+		r.Status = ProgressHolds
+	}
+	return r, nil
+}
+
+// progressWalk adapts the private checker state to a graph of pending obligations.
+type progressWalk struct {
+	pending      CheckProperty
+	graph        *progress.Graph
+	startClock   float64
+	startupPicks []int
+	incoming     progress.Step
+}
+
+func (g *progressWalk) observe(c *checker, key stateKey, visited bool) error {
+	edge := g.incoming
+	edge.To = string(key)
+	pending := false
+	if !visited {
+		var err error
+		pending, err = c.ctx.everyStatementOrder(func() (bool, error) {
+			return g.pending.Holds(c.ctx, c.inv)
+		})
+		if err != nil {
+			return fmt.Errorf("progress monitor %q: %w", g.pending.Name, err)
+		}
+	}
+	g.graph.Observe(edge, !visited, pending, g.startupPicks)
+	return nil
+}
+
+func check(stop context.Context, fresh func() (*Context, error), start Starter, budget CheckBudget, opts CheckOptions, props []CheckProperty, progress *progressWalk) (*CheckReport, error) {
 	c := &checker{
+		progress:         progress,
 		budget:           budget,
 		opts:             opts,
 		props:            props,
@@ -328,6 +425,13 @@ func (c *checker) searchFrom(stop context.Context, fresh func() (*Context, error
 		return nil, err
 	}
 	c.inv, c.run = run.inv, run
+	if c.progress != nil {
+		if run.inv.Horizon != (Horizon{}) {
+			return nil, ErrProgressTimed
+		}
+		c.progress.startClock = ctx.clock.now
+		c.progress.startupPicks = picks
+	}
 	if err := c.resolveDiverge(); err != nil {
 		return nil, err
 	}
@@ -340,12 +444,13 @@ func (c *checker) searchFrom(stop context.Context, fresh func() (*Context, error
 
 // checker is one search in progress.
 type checker struct {
-	ctx    *Context
-	inv    *Invocation
-	run    *invocationRun
-	budget CheckBudget
-	opts   CheckOptions
-	props  []CheckProperty
+	ctx      *Context
+	inv      *Invocation
+	run      *invocationRun
+	budget   CheckBudget
+	opts     CheckOptions
+	props    []CheckProperty
+	progress *progressWalk
 
 	visited map[stateKey]*visitedState
 	// onStack counts the frames on the stack at each state.
@@ -567,9 +672,9 @@ func (c *checker) failing(err error) Witness {
 // search runs the depth-first search from the started invocation's state,
 // stopping early once stop ends; mass is the probability of the start's picks.
 func (c *checker) search(stop context.Context, mass float64) error {
-	if err := c.run.stabilize(); err != nil {
+	if deadlocked, err := c.run.settle(); err != nil {
 		c.foldCoverage()
-		return c.failed(err, 0, mass)
+		return c.settleFailed(err, deadlocked, 0, mass, nil)
 	}
 	if c.run.terminal() {
 		c.foldCoverage()
@@ -684,8 +789,12 @@ func (c *checker) take(f *checkFrame, m searchMove) error {
 	if err != nil {
 		return c.failed(err, depth, mass)
 	}
-	if err := c.run.stabilize(); err != nil {
-		return c.failed(err, depth, mass)
+	if c.progress != nil {
+		c.progress.incoming = ProgressStep{From: string(f.key), Move: m.name}
+		defer func() { c.progress.incoming = ProgressStep{} }()
+	}
+	if deadlocked, err := c.run.settle(); err != nil {
+		return c.settleFailed(err, deadlocked, depth, mass, f.violated)
 	}
 	if c.run.terminal() {
 		return c.complete(depth, mass, f.violated)
@@ -711,6 +820,20 @@ func (c *checker) take(f *checkFrame, m searchMove) error {
 	return nil
 }
 
+// settleFailed retains a settled deadlock both as a progress terminal and as a search violation.
+func (c *checker) settleFailed(err error, deadlocked bool, depth int, mass float64, violated []string) error {
+	if deadlocked && c.progress != nil {
+		_, key, seen, _, visitErr := c.visit(depth, mass, violated)
+		if visitErr != nil {
+			return visitErr
+		}
+		if seen != nil {
+			c.progress.graph.MarkTerminal(string(key))
+		}
+	}
+	return c.failed(err, depth, mass)
+}
+
 // failed classifies the error a move raised: a budget is a bound the search
 // hit, a move the run made otherwise than selected fails the check, anything
 // else is a violation on the schedule that reached it.
@@ -733,12 +856,15 @@ func (c *checker) failed(err error, depth int, mass float64) error {
 // complete visits the terminal state the invocation reached: a state like any
 // other, its properties evaluated when new, whose outcome is a final.
 func (c *checker) complete(depth int, mass float64, violated []string) error {
-	_, _, seen, visited, err := c.visit(depth, mass, violated)
+	_, key, seen, visited, err := c.visit(depth, mass, violated)
 	if err != nil || seen == nil {
 		return err
 	}
 	if !visited {
 		seen.exact = true
+	}
+	if c.progress != nil {
+		c.progress.graph.MarkTerminal(string(key))
 	}
 	c.final()
 	return nil
@@ -747,8 +873,11 @@ func (c *checker) complete(depth int, mass float64, violated []string) error {
 // visit records the stable state the invocation stands in, evaluating the
 // properties at a new one; seen is nil when the states bound keeps the search out.
 func (c *checker) visit(depth int, mass float64, violated []string) (form canonicalForm, key stateKey, seen *visitedState, visited bool, err error) {
-	form = c.run.canonicalState()
+	form = c.run.canonicalStateFor(c.progress != nil)
 	key = form.key()
+	if c.progress != nil && c.ctx.clock.now != c.progress.startClock {
+		return form, key, nil, false, ErrProgressTimed
+	}
 	if seen, visited = c.visited[key]; !visited {
 		if c.budget.States > 0 && len(c.visited) >= c.budget.States {
 			c.hit("states")
@@ -777,6 +906,11 @@ func (c *checker) visit(depth int, mass float64, violated []string) (form canoni
 				seen.cut = false
 			}
 			seen.depth = depth
+		}
+	}
+	if c.progress != nil {
+		if err := c.progress.observe(c, key, visited); err != nil {
+			return form, key, seen, visited, err
 		}
 	}
 	return form, key, seen, visited, nil

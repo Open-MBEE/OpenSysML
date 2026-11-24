@@ -36,7 +36,7 @@ func (s *Server) InlayHint(ctx context.Context, params *protocol.InlayHintParams
 	for _, hint := range s.ws.FeatureHintsInDoc(name, syms) {
 		usage := hint.Symbol.Decl.(*ast.Usage)
 		if len(hint.Types) > 0 {
-			if at, ok := typeHintOffset(hint.Symbol, usage); ok {
+			if at, ok := typeHintOffset(usage); ok {
 				add(protocol.InlayHint{
 					Position:    pos.position(at),
 					Label:       protocol.String(": " + typeNames(hint.Types)),
@@ -119,7 +119,7 @@ func usagesIn(scope *symbols.Scope, want source.Span) []*symbols.Symbol {
 
 // typeHintOffset is where a type hint for the usage goes: after its declared
 // name, else after the redefinition or subsetting it takes its name from.
-func typeHintOffset(sym *symbols.Symbol, usage *ast.Usage) (int, bool) {
+func typeHintOffset(usage *ast.Usage) (int, bool) {
 	if usage.Ident.Name != "" && usage.Ident.NameSpan.Len > 0 {
 		return usage.Ident.NameSpan.End(), true
 	}
@@ -152,7 +152,7 @@ func constantText(v semantics.Value) (string, bool) {
 		}
 		return "false", true
 	case semantics.ValInfinity:
-		return "*", true
+		return semantics.FormatConst(v), true
 	}
 	return "", false
 }

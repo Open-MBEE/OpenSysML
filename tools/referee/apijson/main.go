@@ -128,7 +128,7 @@ func exportPilot(opts options, record oraclebaseline.Record, root, dir string, f
 	if err != nil {
 		return nil, err
 	}
-	return recordedPilot(opts.pilotRecord, opts.launcher, java, record, root, dir, libraries, files, opts.timeout, opts.log)
+	return recordedPilot(opts.pilotRecord, pilotLaunch{opts.launcher, java, opts.timeout, opts.log}, record, pilotRoot{root, dir, libraries, files})
 }
 
 func run(opts options) error {

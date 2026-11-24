@@ -117,11 +117,13 @@ const (
 // mavenWorkflow reads the steps of any workflow, whatever the shape of its other keys.
 type mavenWorkflow struct {
 	Jobs map[string]struct {
-		Steps []struct {
-			Name string         `yaml:"name"`
-			Uses string         `yaml:"uses"`
-			Run  string         `yaml:"run"`
-			With map[string]any `yaml:"with"`
+		TimeoutMinutes int `yaml:"timeout-minutes"`
+		Steps          []struct {
+			Name           string         `yaml:"name"`
+			Uses           string         `yaml:"uses"`
+			Run            string         `yaml:"run"`
+			With           map[string]any `yaml:"with"`
+			TimeoutMinutes int            `yaml:"timeout-minutes"`
 		} `yaml:"steps"`
 	} `yaml:"jobs"`
 }
@@ -133,6 +135,10 @@ func TestMavenCacheIsSavedOnDevelopAlone(t *testing.T) {
 		if !strings.Contains(raw, want) {
 			t.Errorf("maven-cache.yml does not trigger on %s", want)
 		}
+	}
+	// A cancelled resolve leaves a partial repository, which the entry must never hold.
+	if !regexp.MustCompile(`(?m)^concurrency:\n  group: maven-cache\n  cancel-in-progress: false$`).MatchString(raw) {
+		t.Error("maven-cache.yml must queue behind a running warm rather than cancel it part-way")
 	}
 	saves, checkedOut := false, false
 	resolved := map[string]bool{}
@@ -240,5 +246,71 @@ func TestMavenCacheIsSavedOnDevelopAlone(t *testing.T) {
 	}
 	if readers == 0 {
 		t.Fatal("no workflow job runs mvn")
+	}
+}
+
+// TestJavaAuditFallsBackToAMirror holds the SBOM plugin, which the Maven cache lacks, behind the
+// script that asks a mirror when Maven Central refuses it.
+func TestJavaAuditFallsBackToAMirror(t *testing.T) {
+	raw, err := os.ReadFile("../../Makefile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), `scripts/maven-sbom.sh "$$dir" $(CYCLONEDX_MAVEN_VERSION)`) {
+		t.Error("the Makefile's audit-java does not write the SBOM through scripts/maven-sbom.sh")
+	}
+	for i, line := range strings.Split(string(raw), "\n") {
+		if strings.Contains(line, "mvn ") && strings.Contains(line, "cyclonedx-maven-plugin") {
+			t.Errorf("Makefile:%d runs the CycloneDX plugin itself, so one refusal from Maven Central fails the audit", i+1)
+		}
+	}
+	script, err := os.ReadFile("../../scripts/maven-sbom.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"maven-central-mirror-settings.xml", "MAVEN_SBOM_ATTEMPTS", "MAVEN_SBOM_TIMEOUT_SECONDS", `-f "$tree/pom.xml"`, "-DincludeTestScope=false"} {
+		if !strings.Contains(string(script), want) {
+			t.Errorf("scripts/maven-sbom.sh lacks %q", want)
+		}
+	}
+	settings, err := os.ReadFile("../../scripts/maven-central-mirror-settings.xml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(settings), "<mirrorOf>central</mirrorOf>") {
+		t.Error("scripts/maven-central-mirror-settings.xml mirrors something other than central alone")
+	}
+}
+
+// TestJavaAuditKeepsToItsOwnBudget holds a pull request's audit of one Maven tree under a step bound
+// shorter than its job's, and after the tests it would otherwise starve of the job's time.
+func TestJavaAuditKeepsToItsOwnBudget(t *testing.T) {
+	raw, err := os.ReadFile("../../.github/workflows/pr.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var file mavenWorkflow
+	if err := yaml.Unmarshal(raw, &file); err != nil {
+		t.Fatal(err)
+	}
+	audits := 0
+	for id, job := range file.Jobs {
+		audited := false
+		for _, step := range job.Steps {
+			if strings.Contains(step.Run, "make audit-java") {
+				audits++
+				audited = true
+				if step.TimeoutMinutes <= 0 || step.TimeoutMinutes >= job.TimeoutMinutes {
+					t.Errorf("pr.yml job %s step %q has timeout-minutes %d; want one under the job's %d", id, step.Name, step.TimeoutMinutes, job.TimeoutMinutes)
+				}
+				continue
+			}
+			if audited && (strings.Contains(step.Run, "mvn ") || strings.Contains(step.Run, "conformance")) {
+				t.Errorf("pr.yml job %s runs %q after the audit, whose wait for Maven Central spends that step's time", id, step.Name)
+			}
+		}
+	}
+	if audits == 0 {
+		t.Fatal("no pr.yml job runs make audit-java")
 	}
 }

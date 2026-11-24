@@ -153,7 +153,7 @@ func writeHeader(b *strings.Builder, d *execfmi.Description, opts Options, pkg s
 	if i := firstInterface(d); i != nil {
 		identifier = ", model identifier " + i.ModelIdentifier
 	}
-	fmt.Fprintf(b, "// Imported from %s (FMI %s, %s%s)\n", modelFile(d, opts.URI), d.FMIVersion, iface, identifier)
+	fmt.Fprintf(b, "// %s\n", lineCommentText(fmt.Sprintf("Imported from %s (FMI %s, %s%s)", modelFile(d, opts.URI), d.FMIVersion, iface, identifier)))
 	fmt.Fprintf(b, "package %s {\n", pkg)
 	b.WriteString("\tprivate import ScalarValues::*;\n\tprivate import AnalysisTooling::*;\n")
 	if uses.quantities {
@@ -187,7 +187,9 @@ type member struct {
 // comment is one `// …` line documenting a variable that was not imported.
 type comment string
 
-func (c comment) write(b *strings.Builder) { fmt.Fprintf(b, "\t\t// %s\n", string(c)) }
+func (c comment) write(b *strings.Builder) {
+	fmt.Fprintf(b, "\t\t// %s\n", lineCommentText(string(c)))
+}
 
 // importable reports whether the variable is written, and the comment line a
 // skipped one leaves instead.
@@ -226,7 +228,7 @@ func (m member) write(b *strings.Builder) {
 	}
 	fmt.Fprintf(b, " { @ToolVariable { name = %s; } }", strconv.Quote(v.Name))
 	if note := memberNote(v, m.unit != ""); note != "" {
-		fmt.Fprintf(b, " // %s", note)
+		fmt.Fprintf(b, " // %s", lineCommentText(note))
 	}
 	b.WriteString("\n")
 }
@@ -397,6 +399,18 @@ func modelFile(d *execfmi.Description, uri string) string {
 		return d.ModelName + ".fmu"
 	}
 	return name
+}
+
+// lineCommentText is text on one line: a line terminator in a description's
+// name, unit or description would end a `//` comment and start a declaration.
+func lineCommentText(text string) string {
+	return strings.Map(func(r rune) rune {
+		switch r {
+		case '\n', '\r', '\v', '\f', '\u0085', '\u2028', '\u2029':
+			return ' '
+		}
+		return r
+	}, text)
 }
 
 // docText escapes a doc comment's terminator.

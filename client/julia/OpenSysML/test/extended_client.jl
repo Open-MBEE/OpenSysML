@@ -85,7 +85,7 @@ end
     @test occursin("ParseFile failed:", timeout.message)
 end
 
-@testset "live IEEE-754 values use protobuf JSON spellings" begin
+@testset "live IEEE-754 values use protobuf JSON spellings and +Inf answers as `*`" begin
     if !isfile(GRPC_BINARY)
         @test_skip false
     else
@@ -107,6 +107,11 @@ end
             """)
             for input in (NaN, Inf, -Inf, -0.0)
                 output = execute_action(model, "Wire::Echo"; inputs=Dict("data" => input))["result"]
+                # The service reads the real +Inf as `*`, which answers on the infinity arm.
+                if input == Inf
+                    @test output === Infinity()
+                    continue
+                end
                 @test output isa Float64
                 if isnan(input)
                     @test isnan(output)
@@ -1362,7 +1367,8 @@ end
             Dict("name" => "lowerBound", "values" => Any[Dict("intValue" => "3")]),
             Dict("name" => "mass", "values" => Any[Dict("realValue" => 1.5)]),
             Dict("name" => "huge", "values" => Any[Dict("number" => "18446744073709551616")]),
-            Dict("name" => "connectorEnd", "unsupported" => "PartDefinition declares no property connectorEnd")])
+            Dict("name" => "connectorEnd", "unsupported" => "PartDefinition declares no property connectorEnd")],
+        "excludedDocuments" => Any[Dict("document" => "c.sysml", "error" => "c.sysml: 1 syntax error(s)")])
     server, requests, address = recording_service(["element_properties"]; handler=(method, body) -> answer)
     conn = external(address)
     try
@@ -1374,6 +1380,7 @@ end
         @test requests[end].body["properties"] == ["inheritedFeature", "isAbstract"]
         @test read.element == ElementIdentity("Demo__Pair", "Demo::Pair", "PartDefinition")
         @test length(read) == 7 && haskey(read, "isAbstract") && !haskey(read, "owner")
+        @test [(d.document, d.error) for d in read.excluded_documents] == [("c.sysml", "c.sysml: 1 syntax error(s)")]
         inherited = read["inheritedFeature"]
         @test inherited.defining_class == "Type" && inherited.many && inherited.derived && is_answered(inherited)
         @test property_elements(inherited) == [ElementIdentity("Demo__Unit__p", "Demo::Unit::p", "PortUsage"),

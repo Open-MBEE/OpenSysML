@@ -42,12 +42,8 @@ const (
 	renderRunUsage = "usage: %render-run <timeline|sequence> [text|mermaid|plantuml|svg|svg-animated|dot] [link=<template>] [limit=<count>]"
 )
 
-// parseArgs splits a command line into arguments, handling quoted strings.
-// A double-quoted string is one argument with its quotes removed, which is how a
-// file path holding spaces is written; a SysML single-quoted name is one
-// argument with its quotes kept, since the quotes are part of the notation the
-// name is then parsed as ('My Pkg'::Car).
-// Example: `%load "path with spaces/file.sysml"` -> ["%load", "path with spaces/file.sysml"]
+// parseArgs splits a command line into arguments: "…" is one argument without its quotes, a
+// quoted name ('My Pkg'::Car) one with them; a backslash escapes only a following space or quote.
 func parseArgs(line string) []string {
 	var args []string
 	var current strings.Builder
@@ -62,12 +58,12 @@ func parseArgs(line string) []string {
 			// Previous char was backslash - add this char literally
 			current.WriteRune(r)
 			escaped = false
-		case r == '\\':
+		case r == '\\' && inName:
 			// Inside a name the backslash is the notation's own escape, so it stays
 			// with the character it escapes.
-			if inName {
-				current.WriteRune(r)
-			}
+			current.WriteRune(r)
+			escaped = true
+		case r == '\\' && escapesNext(runes[i+1:]):
 			escaped = true
 		case r == '"' && !inName:
 			// Toggle quote mode
@@ -96,6 +92,19 @@ func parseArgs(line string) []string {
 	}
 
 	return args
+}
+
+// escapesNext reports whether a backslash before rest escapes its first character: a
+// space or a quote. Any other backslash is text, as in a Windows path (`C:\models`, `\\host\share`).
+func escapesNext(rest []rune) bool {
+	if len(rest) == 0 {
+		return false
+	}
+	switch rest[0] {
+	case ' ', '\t', '"', '\'':
+		return true
+	}
+	return false
 }
 
 // SplitBehavior splits a behavior spec as `%action` and `-action` take it: the name,
@@ -260,6 +269,7 @@ var metaCommandTable = []metaCommand{
 	{name: "%eval", effect: Executes, group: groupRuntime, args: "[in <name>|<path>|#<id> :] <expr>", desc: "evaluate an expression, in the named element or object when one is named"},
 	{name: "%features", effect: Reads, group: groupRuntime, args: "<object> [all|depth <n>] [json]", desc: "show an object's feature values and what its behaviors are doing, bounded unless all or a depth is asked for; json writes the object graph as the API does; an object is named, #<id>, or a path such as car.fl or #1.wheels[2]",
 		part: graphLinked, partArgs: "<object> [all|depth <n>]", partDesc: "show an object's feature values and what its behaviors are doing, bounded unless all or a depth is asked for; an object is named, #<id>, or a path such as car.fl or #1.wheels[2]"},
+	{name: "%metadata", effect: Executes, group: groupRuntime, args: "<element-or-object>", desc: "list the metadata annotating a definition or usage, `about` annotations included, with the values each binds or defaults; for an object (named, #<id>, or a path such as car.fl), the annotations of its usage and of the types that usage specializes, each under the element it annotates"},
 	{name: "%instances", effect: Reads, group: groupRuntime, desc: "list all instantiated objects"},
 	{name: cmdInvoke, effect: Executes, group: groupRuntime, args: "<object> <op> [<expr>... | <p>=<expr>...]", desc: "invoke an operation of an object's type, performed by that object, with arguments by position or by name; an object is named, #<id>, or a path such as car.fl"},
 
@@ -763,6 +773,11 @@ func (s *Session) metaModelCommand(fields []string, line string) (metaResult, bo
 			return metaOut([]string{errPrefix + perr.Error(), featuresUsageLine()}, false, nil), true
 		}
 		return metaOut(s.doFeatures(fields[1], listing)), true
+	case "%metadata":
+		if len(fields) != 2 {
+			return metaOut([]string{metadataUsage}, false, nil), true
+		}
+		return metaOut(s.doMetadata(fields[1])), true
 	case "%instances":
 		return metaOut(s.doInstances()), true
 	case "%calc":
@@ -890,9 +905,19 @@ func (s *Session) metaDebugCommand(fields []string, line string) (metaResult, bo
 		return metaOut(s.doInvoke(object, operation, args)), true
 	case cmdQuery:
 		if len(fields) < 2 {
-			return metaOut([]string{"usage: %query <oslc-query>"}, false, nil), true
+			return metaOut([]string{queryUsage}, false, nil), true
 		}
-		lines, err := s.query(strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), cmdQuery)))
+		text, asView := cutAsView(strings.TrimPrefix(strings.TrimSpace(line), cmdQuery))
+		if text == "" {
+			return metaOut([]string{queryUsage}, false, nil), true
+		}
+		if asView {
+			defer s.writingResultViews()()
+		}
+		lines, written, err := s.query(text)
+		if asView && written != "" {
+			return metaOut(viewLines(written), false, nil), true
+		}
 		if err != nil {
 			return metaOut([]string{errPrefix + err.Error()}, false, nil), true
 		}
@@ -1720,17 +1745,25 @@ func (w *featureValueWalk) impliedCollectionLine(inst *runtime.Instance, of runt
 // object's reserved remaining features keep a line each; a nested expansion
 // spends only what is left beyond them.
 func (w *featureValueWalk) expandNested(lines []string, fv *runtime.FeatureValue, indent string, depth, reserved int) []string {
-	for _, nested := range nestedInstances(w.ctx, fv) {
+	for _, held := range heldInstances(w.ctx, fv) {
+		nested, memberIndent := held.inst, indent+"  "
 		if w.listing[nested.ID] {
 			continue
 		}
-		if w.budget <= reserved {
-			return w.truncate(lines, indent+"  ")
+		// A collection's members are listed one after another, so each is headed
+		// by the object it is; a single value's row already names its object.
+		heading := held.heading()
+		if w.budget <= reserved+held.headingLines() {
+			return w.truncate(lines, memberIndent)
 		}
 		w.budget -= reserved
+		if heading != "" {
+			lines = w.emit(lines, memberIndent+heading)
+			memberIndent += "  "
+		}
 		w.onPath[nested.Type] = true
 		w.listing[nested.ID] = true
-		lines = append(lines, w.lines(nested, indent+"  ", depth+1)...)
+		lines = append(lines, w.lines(nested, memberIndent, depth+1)...)
 		delete(w.listing, nested.ID)
 		delete(w.onPath, nested.Type)
 		w.budget += reserved
@@ -1779,12 +1812,17 @@ func (w *featureValueWalk) behaviorLines(inst *runtime.Instance, behaviors []run
 			lines = w.emit(lines, fmt.Sprintf("%s  <error: %v>", rowIndent, err))
 			continue
 		}
-		for _, occurrence := range nestedInstances(w.ctx, fv) {
-			if w.budget <= 0 {
-				return w.truncate(lines, rowIndent+"  ")
+		for _, held := range heldInstances(w.ctx, fv) {
+			occurrence, occurrenceIndent := held.inst, rowIndent+"  "
+			if w.budget <= held.headingLines() {
+				return w.truncate(lines, occurrenceIndent)
+			}
+			if heading := held.heading(); heading != "" {
+				lines = w.emit(lines, occurrenceIndent+heading)
+				occurrenceIndent += "  "
 			}
 			w.onPath[occurrence.Type] = true
-			lines = append(lines, w.rows(occurrence, rowIndent+"  ", depth+1, false)...)
+			lines = append(lines, w.rows(occurrence, occurrenceIndent, depth+1, false)...)
 			delete(w.onPath, occurrence.Type)
 		}
 	}
@@ -1959,27 +1997,56 @@ func (w *featureValueWalk) elisionReason(depth int) string {
 	return "contains its own kind"
 }
 
-// nestedInstances returns the instances a feature value holds, whether it carries one
-// value or a collection of them. An object that holds no value has nothing to
-// expand: it reads as unset, not as an object with no features.
-func nestedInstances(ctx *runtime.Context, fv *runtime.FeatureValue) []*runtime.Instance {
-	values := []runtime.Value{fv.Value}
+// heldInstance is an object a feature value holds. position is its 1-based place
+// in a collection, the index an object path reaches it by, and 0 for a single value.
+type heldInstance struct {
+	inst     *runtime.Instance
+	position int
+}
+
+// heading names a collection's member above its features: its place in the
+// collection and the object it is. A single value has none.
+func (h heldInstance) heading() string {
+	if h.position == 0 {
+		return ""
+	}
+	return fmt.Sprintf("[%d] %s", h.position, formatValue(nil, runtime.Value{Kind: runtime.ValInstance, Instance: h.inst.ID}))
+}
+
+// headingLines is the lines the heading takes: a member is not headed unless a
+// line of its own is left to list beneath the heading.
+func (h heldInstance) headingLines() int {
+	if h.position == 0 {
+		return 0
+	}
+	return 1
+}
+
+// heldInstances returns the instances a feature value holds, one or a collection.
+// An object that holds no value reads as unset and has nothing to expand.
+func heldInstances(ctx *runtime.Context, fv *runtime.FeatureValue) []heldInstance {
+	values, collection := []runtime.Value{fv.Value}, false
 	switch fv.Values.Kind {
 	case runtime.ValSequence, runtime.ValSet:
 		var err error
 		if values, err = objref.CollectionElements(ctx, fv.Values); err != nil {
 			return nil
 		}
+		collection = true
 	}
 
-	var out []*runtime.Instance
-	for _, val := range values {
+	var out []heldInstance
+	for i, val := range values {
 		id, ok := val.Object()
 		if !ok || ctx.HoldsNoValue(val) {
 			continue
 		}
 		if nested, ok := ctx.Instance(id); ok {
-			out = append(out, nested)
+			held := heldInstance{inst: nested}
+			if collection {
+				held.position = i + 1
+			}
+			out = append(out, held)
 		}
 	}
 	return out

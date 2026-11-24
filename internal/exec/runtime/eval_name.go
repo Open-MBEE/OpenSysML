@@ -55,184 +55,228 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName, unset *symbols.Sym
 		return Value{}, fmt.Errorf("empty feature reference")
 	}
 
-	// Simple case: single-part name lookup in frame stack or scope
 	if len(qn.Parts) == 1 {
-		name := qn.Parts[0].Text
-		// A declaration inside an expression body is local to that body and
-		// shadows features of the element carrying the expression.
-		if ec.scope != nil {
-			if sym, ok := symbols.LookupBodyLocal(ec.scope, name); ok {
-				// Body parameters and statement locals are supplied by the frame lookup below.
-				_, bodyMember := sym.OwnerScope.Node().(*ast.BodyExpr)
-				_, param := sym.Decl.(*ast.BodyExpr)
-				if bodyMember && !param {
-					if ec.resolving[name] {
-						return Value{}, fmt.Errorf("%w: %s", ErrCyclicFeatureValue, name)
-					}
-					if value := ec.ctx.extractDefaultValue(sym); value != nil {
-						if ec.resolving == nil {
-							ec.resolving = map[string]bool{}
-						}
-						ec.resolving[name] = true
-						val, err := ec.declaredValue(sym, value)
-						delete(ec.resolving, name)
-						return val, err
-					}
-					return Value{}, &NoValueError{Feature: name}
-				}
-			}
-		}
-		// Try frame stack first (local bindings from calc/lambda params)
-		if val, ok, err := ec.lookupNamed(name, unset); err != nil {
-			return Value{}, err
-		} else if ok {
-			return val, nil
-		}
-		// Then a node of an action performance in the frame stack, read as a value.
-		if perf, declared, err := ec.lookupSubaction(name); declared {
-			if err != nil {
-				return Value{}, err
-			}
-			return perf.resultValue()
-		}
-		// Then another output of the calc whose output is being computed: an `out` binding
-		// may read the calc's other outputs, evaluated from the same run of its body.
-		if value, ok, err := ec.calcRun.lookupOutput(ec.ctx, name); ok {
-			return value, err
-		}
-		// Then a valued feature of the element being evaluated, masking the carrying object's member
-		// and a redefined default; one whose own value is being evaluated is skipped (`in mass = mass`).
-		if val, ok, err := ec.valuedFeatureValue(name); ok {
-			return val, err
-		}
-		// Then a declared input the condition binds nothing to, which is open rather
-		// than the object's same-named feature.
-		if val, ok := ec.openConditionInput(name); ok {
-			return val, nil
-		}
-		// Then the performance being run: a feature of the behavior performed is read
-		// from the performance's occurrence, which masks the performer's of that name.
-		if val, ok, err := ec.performanceFeatureValue(name, unset); ok {
-			return val, err
-		}
-		// Then the bound instance: a feature value holds the value this object actually
-		// carries, which overrides the declared default the scope would yield.
-		if ec.self != nil && ec.selfFeatureInScope(name) {
-			// The name reads the feature it resolves to where the expression was
-			// written, which the object may hold under a redefiner's name.
-			if val, ok, err := ec.selfFeatureValue(ec.selfMemberSlot(name)); err != nil {
-				return Value{}, err
-			} else if ok {
-				return val, nil
-			}
-		}
-		// Then `that`, which every usage takes from the base usage: it names the
-		// instance featuring the value being evaluated, which is the bound one.
-		if name == thatName && ec.self != nil {
-			return Value{Kind: ValInstance, Instance: ec.self.ID}, nil
-		}
-		// Then `self`, the thing being evaluated, read as its value.
-		if ec.self != nil && ec.namesSelf(name) {
-			return ec.ctx.objectValue(ec.self)
-		}
-		// Then `this`, the context occurrence of what is being evaluated: the bound instance
-		// owning the performance, named so even where no library declares it, as `that` is.
-		if name == thisName && (ec.namesOccurrenceThis(name) || ec.self != nil && !ec.scopeNames(name)) {
-			return ec.thisValue()
-		}
-		// Then a Kernel Semantic Library member of the bound instance, which the
-		// shape leaves out: read bare in the body as `self.<name>` reads it.
-		if ec.self != nil && ec.selfFeatureInScope(name) {
-			if val, answered, err := ec.kernelMemberValue(ec.self, name, ""); answered && err == nil {
-				return val, nil
-			}
-		}
-		// Then the scope the expression was written in, as a written reference finds it; a
-		// declaration's own value is evaluated in its declaring scope, whose imports answer its names.
-		if ec.scope != nil && !ec.resolving[name] {
-			if sym, ok := ec.lookupRef(at); ok && sym != nil {
-				// An inherited expression reads the feature as the running behavior
-				// inherits it: through the redefinition, when it states one.
-				sym = ec.ctx.inheritedFeature(ec.runningBehavior(), sym)
-				ec.ctx.noteDeclarationRead(sym)
-				// An enumerated value is the value of its enumeration it stands
-				// for; any other variant names a choice, not the value it declares.
-				if semantics.EnumerationOwning(sym) != nil {
-					return ec.enumLiteralValue(sym)
-				}
-				if ec.ctx.model.semantics.VariationPointOwning(sym) != nil {
-					return variantReference(sym), nil
-				}
-				// A feature of an enclosing type, named from a nested usage, is read from the object
-				// enclosing the bound one: `e1` inside `e3` is the containing rectangle's e1.
-				if val, ok, err := ec.outerFeatureValue(sym); ok {
-					return val, err
-				}
-				// A transformation's target is the frame featuring it, which its
-				// value carries and no object states.
-				if val, ok, err := ec.featuringReferenceValue(sym); ok {
-					return val, err
-				}
-				// A library feature's value comes from the feature seam, not its
-				// declared body: a warm library cache restores symbols without AST.
-				if val, ok, err := ec.ctx.libraryFeatureValue(sym); ok {
-					return val, err
-				}
-				// A measurement unit declaration is the measurement reference it names.
-				if val, ok, err := ec.ctx.MeasurementUnitValue(sym); ok {
-					return val, err
-				}
-				// A part, item or structured value names an object, so the name evaluates to
-				// that object rather than to a value the declaration would have to hold.
-				if val, ok, err := ec.occurrenceReference(sym); ok {
-					return val, err
-				}
-				// A calc definition, or a calc usage awaiting arguments, is a function.
-				if val, ok, err := ec.calcAsValue(sym); ok {
-					return val, err
-				}
-				// A calc usage returning one unnamed result is read as that result.
-				if lower.IsCalcUsageSymbol(sym) && ec.ctx.returnsResult(sym) {
-					return ec.evalCalcUsageMembers(sym, resultSegments)
-				}
-				// A feature declared with no value, whose multiplicity admits none,
-				// states the empty sequence — what an object holding nothing reads.
-				if val, ok := ec.emptyDeclaredFeature(sym); ok {
-					return val, nil
-				}
-				if value := ec.ctx.extractDefaultValue(sym); value != nil {
-					if ec.resolving == nil {
-						ec.resolving = map[string]bool{}
-					}
-					ec.resolving[name] = true
-					val, err := ec.declaredValue(sym, value)
-					delete(ec.resolving, name)
-					return val, err
-				}
-				// A variation holds nothing until it is bound, whether it is read
-				// through an object or through its declaration.
-				if ec.ctx.model.semantics.IsVariationFeature(sym) {
-					return Value{}, fmt.Errorf("%w: %s", ErrVariationUnselected, name)
-				}
-				return ec.resolvedWithoutValue(sym, qn)
-			}
-		}
-		// Nothing outside the feature supplies its value, so its own value depends
-		// on itself.
-		if ec.resolving[name] {
-			return Value{}, fmt.Errorf("%w: %s", ErrCyclicFeatureValue, name)
-		}
-		// A feature the element declares but nothing gives a value to is
-		// uninitialized rather than unresolved.
-		if _, declared := ec.features[name]; declared {
-			return Value{}, &NoValueError{Feature: name}
-		}
-		if ec.ctx.model.resolver != nil && ec.scope != nil {
-			return Value{}, fmt.Errorf("%w: %s", ErrUnresolvedReference, ec.ctx.model.resolver.UnresolvedName(ec.scope, name, qn))
-		}
-		return Value{}, fmt.Errorf("%w: %s", ErrUnresolvedReference, name)
+		return ec.evalSimpleName(qn, unset, at)
 	}
+	return ec.evalQualifiedName(qn, at)
+}
 
+// settled marks a value and error as the answer of a source that settles the name.
+func settled(val Value, err error) (Value, bool, error) { return val, true, err }
+
+// evalSimpleName evaluates a single-part name: a lookup in the frame stack, the bound instance or the scope.
+func (ec *EvalContext) evalSimpleName(qn *ast.QualifiedName, unset *symbols.Symbol, at *program.Expr) (Value, error) {
+	name := qn.Parts[0].Text
+	// A declaration inside an expression body is local to that body and
+	// shadows features of the element carrying the expression.
+	if val, ok, err := ec.bodyLocalValue(name); ok {
+		return val, err
+	}
+	// Try frame stack first (local bindings from calc/lambda params)
+	if val, ok, err := ec.lookupNamed(name, unset); err != nil {
+		return Value{}, err
+	} else if ok {
+		return val, nil
+	}
+	// Then a node of an action performance in the frame stack, read as a value.
+	if perf, declared, err := ec.lookupSubaction(name); declared {
+		if err != nil {
+			return Value{}, err
+		}
+		return perf.resultValue()
+	}
+	// Then another output of the calc whose output is being computed: an `out` binding
+	// may read the calc's other outputs, evaluated from the same run of its body.
+	if value, ok, err := ec.calcRun.lookupOutput(ec.ctx, name); ok {
+		return value, err
+	}
+	// Then a valued feature of the element being evaluated, masking the carrying object's member
+	// and a redefined default; one whose own value is being evaluated is skipped (`in mass = mass`).
+	if val, ok, err := ec.valuedFeatureValue(name); ok {
+		return val, err
+	}
+	// Then a declared input the condition binds nothing to, which is open rather
+	// than the object's same-named feature.
+	if val, ok := ec.openConditionInput(name); ok {
+		return val, nil
+	}
+	// Then the performance being run: a feature of the behavior performed is read
+	// from the performance's occurrence, which masks the performer's of that name.
+	if val, ok, err := ec.performanceFeatureValue(name, unset); ok {
+		return val, err
+	}
+	// Then the bound instance and the names that stand for it: its feature, `that`, `self`, `this`.
+	if val, ok, err := ec.boundInstanceName(name); ok || err != nil {
+		return val, err
+	}
+	// Then the scope the expression was written in, as a written reference finds it; a
+	// declaration's own value is evaluated in its declaring scope, whose imports answer its names.
+	if val, ok, err := ec.scopeReferenceValue(name, qn, at); ok {
+		return val, err
+	}
+	// Nothing outside the feature supplies its value, so its own value depends
+	// on itself.
+	if ec.resolving[name] {
+		return Value{}, fmt.Errorf("%w: %s", ErrCyclicFeatureValue, name)
+	}
+	// A feature the element declares but nothing gives a value to is
+	// uninitialized rather than unresolved.
+	if _, declared := ec.features[name]; declared {
+		return Value{}, &NoValueError{Feature: name}
+	}
+	if ec.ctx.model.resolver != nil && ec.scope != nil {
+		return Value{}, fmt.Errorf("%w: %s", ErrUnresolvedReference, ec.ctx.model.resolver.UnresolvedName(ec.scope, name, qn))
+	}
+	return Value{}, fmt.Errorf("%w: %s", ErrUnresolvedReference, name)
+}
+
+// bodyLocalValue is the value of a declaration inside the expression body being evaluated, which is
+// local to that body. ok is false when name is no such declaration.
+func (ec *EvalContext) bodyLocalValue(name string) (val Value, ok bool, err error) {
+	if ec.scope == nil {
+		return Value{}, false, nil
+	}
+	sym, ok := symbols.LookupBodyLocal(ec.scope, name)
+	if !ok {
+		return Value{}, false, nil
+	}
+	// Body parameters and statement locals are supplied by the frame lookup below.
+	_, bodyMember := sym.OwnerScope.Node().(*ast.BodyExpr)
+	_, param := sym.Decl.(*ast.BodyExpr)
+	if !bodyMember || param {
+		return Value{}, false, nil
+	}
+	if ec.resolving[name] {
+		return Value{}, true, fmt.Errorf("%w: %s", ErrCyclicFeatureValue, name)
+	}
+	if value := ec.ctx.extractDefaultValue(sym); value != nil {
+		if ec.resolving == nil {
+			ec.resolving = map[string]bool{}
+		}
+		ec.resolving[name] = true
+		val, err := ec.declaredValue(sym, value)
+		delete(ec.resolving, name)
+		return val, true, err
+	}
+	return Value{}, true, &NoValueError{Feature: name}
+}
+
+// boundInstanceName reads name from the bound instance: a feature value it carries, `that`, `self`,
+// `this`, or a Kernel Semantic Library member. ok is false when the instance does not answer it.
+func (ec *EvalContext) boundInstanceName(name string) (Value, bool, error) {
+	// Then the bound instance: a feature value holds the value this object actually
+	// carries, which overrides the declared default the scope would yield.
+	if ec.self != nil && ec.selfFeatureInScope(name) {
+		// The name reads the feature it resolves to where the expression was
+		// written, which the object may hold under a redefiner's name.
+		if val, ok, err := ec.selfFeatureValue(ec.selfMemberSlot(name)); err != nil {
+			return Value{}, true, err
+		} else if ok {
+			return val, true, nil
+		}
+	}
+	// Then `that`, which every usage takes from the base usage: it names the
+	// instance featuring the value being evaluated, which is the bound one.
+	if name == thatName && ec.self != nil {
+		return Value{Kind: ValInstance, Instance: ec.self.ID}, true, nil
+	}
+	// Then `self`, the thing being evaluated, read as its value.
+	if ec.self != nil && ec.namesSelf(name) {
+		return settled(ec.ctx.objectValue(ec.self))
+	}
+	// Then `this`, the context occurrence of what is being evaluated: the bound instance
+	// owning the performance, named so even where no library declares it, as `that` is.
+	if name == thisName && (ec.namesOccurrenceThis(name) || ec.self != nil && !ec.scopeNames(name)) {
+		return settled(ec.thisValue())
+	}
+	// Then a Kernel Semantic Library member of the bound instance, which the
+	// shape leaves out: read bare in the body as `self.<name>` reads it.
+	if ec.self != nil && ec.selfFeatureInScope(name) {
+		if val, answered, err := ec.kernelMemberValue(ec.self, name, ""); answered && err == nil {
+			return val, true, nil
+		}
+	}
+	return Value{}, false, nil
+}
+
+// scopeReferenceValue evaluates the declaration name resolves to in the scope the expression was
+// written in. ok is false when the scope resolves nothing, or name's own value is being evaluated.
+func (ec *EvalContext) scopeReferenceValue(name string, qn *ast.QualifiedName, at *program.Expr) (Value, bool, error) {
+	if ec.scope == nil || ec.resolving[name] {
+		return Value{}, false, nil
+	}
+	sym, ok := ec.lookupRef(at)
+	if !ok || sym == nil {
+		return Value{}, false, nil
+	}
+	// An inherited expression reads the feature as the running behavior
+	// inherits it: through the redefinition, when it states one.
+	sym = ec.ctx.inheritedFeature(ec.runningBehavior(), sym)
+	ec.ctx.noteDeclarationRead(sym)
+	// An enumerated value is the value of its enumeration it stands
+	// for; any other variant names a choice, not the value it declares.
+	if semantics.EnumerationOwning(sym) != nil {
+		return settled(ec.enumLiteralValue(sym))
+	}
+	if ec.ctx.model.semantics.VariationPointOwning(sym) != nil {
+		return variantReference(sym), true, nil
+	}
+	// A feature of an enclosing type, named from a nested usage, is read from the object
+	// enclosing the bound one: `e1` inside `e3` is the containing rectangle's e1.
+	if val, ok, err := ec.outerFeatureValue(sym); ok {
+		return val, true, err
+	}
+	// A transformation's target is the frame featuring it, which its
+	// value carries and no object states.
+	if val, ok, err := ec.featuringReferenceValue(sym); ok {
+		return val, true, err
+	}
+	// A library feature's value comes from the feature seam, not its
+	// declared body: a warm library cache restores symbols without AST.
+	if val, ok, err := ec.ctx.libraryFeatureValue(sym); ok {
+		return val, true, err
+	}
+	// A measurement unit declaration is the measurement reference it names.
+	if val, ok, err := ec.ctx.MeasurementUnitValue(sym); ok {
+		return val, true, err
+	}
+	// A part, item or structured value names an object, so the name evaluates to
+	// that object rather than to a value the declaration would have to hold.
+	if val, ok, err := ec.occurrenceReference(sym); ok {
+		return val, true, err
+	}
+	// A calc definition, or a calc usage awaiting arguments, is a function.
+	if val, ok, err := ec.calcAsValue(sym); ok {
+		return val, true, err
+	}
+	// A calc usage returning one unnamed result is read as that result.
+	if lower.IsCalcUsageSymbol(sym) && ec.ctx.returnsResult(sym) {
+		return settled(ec.evalCalcUsageMembers(sym, resultSegments))
+	}
+	// A feature declared with no value, whose multiplicity admits none,
+	// states the empty sequence — what an object holding nothing reads.
+	if val, ok := ec.emptyDeclaredFeature(sym); ok {
+		return val, true, nil
+	}
+	if value := ec.ctx.extractDefaultValue(sym); value != nil {
+		if ec.resolving == nil {
+			ec.resolving = map[string]bool{}
+		}
+		ec.resolving[name] = true
+		val, err := ec.declaredValue(sym, value)
+		delete(ec.resolving, name)
+		return val, true, err
+	}
+	// A variation holds nothing until it is bound, whether it is read
+	// through an object or through its declaration.
+	if ec.ctx.model.semantics.IsVariationFeature(sym) {
+		return Value{}, true, fmt.Errorf("%w: %s", ErrVariationUnselected, name)
+	}
+	return settled(ec.resolvedWithoutValue(sym, qn))
+}
+
+// evalQualifiedName evaluates a multi-part name through the symbol the checker resolved it to.
+func (ec *EvalContext) evalQualifiedName(qn *ast.QualifiedName, at *program.Expr) (Value, error) {
 	// A multi-part name A::B::x resolves as the checker resolves it, so the two agree, and
 	// in this evaluation's scope, since one expression may be evaluated in several.
 	currentSym := at.Ref.Sym
@@ -249,14 +293,8 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName, unset *symbols.Sym
 
 	// A calc usage's output features are computed rather than declared values,
 	// so a name qualified by one reads the rest from an evaluation of the usage.
-	for i := 0; i < len(qn.Parts)-1; i++ {
-		part, resolved := partOf(at, i)
-		if !resolved {
-			break
-		}
-		if lower.IsCalcUsageSymbol(part) {
-			return ec.evalCalcUsageMembers(part, qn.Parts[i+1:])
-		}
+	if usage, rest, ok := calcUsageQualifier(qn, at); ok {
+		return ec.evalCalcUsageMembers(usage, rest)
 	}
 	if currentSym == nil {
 		// The resolver's own reading says why the name denotes nothing.
@@ -303,35 +341,8 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName, unset *symbols.Sym
 
 	// Evaluate the final symbol's declaration
 	if decl, ok := currentSym.Decl.(*ast.Usage); ok {
-		// An enumerated value is a value of its enumeration; any other variant names a choice
-		// its variation can be bound to, and compares equal to the variation that selected it.
-		if semantics.EnumerationOwning(currentSym) != nil {
-			return ec.enumLiteralValue(currentSym)
-		}
-		if ec.ctx.model.semantics.VariationPointOwning(currentSym) != nil {
-			return variantReference(currentSym), nil
-		}
-		if decl.Value != nil {
-			return ec.declaredValue(currentSym, decl.Value)
-		}
-		if ec.ctx.model.semantics.IsVariationFeature(currentSym) {
-			return Value{}, fmt.Errorf("%w: %s", ErrVariationUnselected, qualifiedNameToString(qn))
-		}
-		// A part, item or structured value names an object, read as that object.
-		if val, ok, err := ec.occurrenceReference(currentSym); ok {
+		if val, ok, err := ec.usageValue(currentSym, decl, qn); ok {
 			return val, err
-		}
-		// A calc usage returning one unnamed result is read as that result.
-		if lower.IsCalcUsageSymbol(currentSym) && ec.ctx.returnsResult(currentSym) {
-			return ec.evalCalcUsageMembers(currentSym, resultSegments)
-		}
-		// A calc usage or a KerML type is never the empty sequence, whatever it admits.
-		if lower.IsCalcUsageSymbol(currentSym) || declaresType(currentSym) {
-			return ec.resolvedWithoutValue(currentSym, qn)
-		}
-		// A valueless feature admitting nothing is the empty sequence, however spelled.
-		if val, ok := ec.emptyDeclaredFeature(currentSym); ok {
-			return val, nil
 		}
 	}
 	// A require/assume constraint reads the value it binds, as a constraint usage does.
@@ -350,14 +361,64 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName, unset *symbols.Sym
 	return ec.resolvedWithoutValue(currentSym, qn)
 }
 
+// calcUsageQualifier finds the first calc usage qualifying the name, with the parts that follow it.
+func calcUsageQualifier(qn *ast.QualifiedName, at *program.Expr) (*symbols.Symbol, []ast.NameSegment, bool) {
+	for i := 0; i < len(qn.Parts)-1; i++ {
+		part, resolved := partOf(at, i)
+		if !resolved {
+			break
+		}
+		if lower.IsCalcUsageSymbol(part) {
+			return part, qn.Parts[i+1:], true
+		}
+	}
+	return nil, nil, false
+}
+
+// usageValue is what a qualified name ending at a usage evaluates to. ok is false when the usage
+// states nothing itself, leaving the name to the declaration forms that follow.
+func (ec *EvalContext) usageValue(currentSym *symbols.Symbol, decl *ast.Usage, qn *ast.QualifiedName) (Value, bool, error) {
+	// An enumerated value is a value of its enumeration; any other variant names a choice
+	// its variation can be bound to, and compares equal to the variation that selected it.
+	if semantics.EnumerationOwning(currentSym) != nil {
+		return settled(ec.enumLiteralValue(currentSym))
+	}
+	if ec.ctx.model.semantics.VariationPointOwning(currentSym) != nil {
+		return variantReference(currentSym), true, nil
+	}
+	if decl.Value != nil {
+		return settled(ec.declaredValue(currentSym, decl.Value))
+	}
+	if ec.ctx.model.semantics.IsVariationFeature(currentSym) {
+		return Value{}, true, fmt.Errorf("%w: %s", ErrVariationUnselected, qualifiedNameToString(qn))
+	}
+	// A part, item or structured value names an object, read as that object.
+	if val, ok, err := ec.occurrenceReference(currentSym); ok {
+		return val, true, err
+	}
+	// A calc usage returning one unnamed result is read as that result.
+	if lower.IsCalcUsageSymbol(currentSym) && ec.ctx.returnsResult(currentSym) {
+		return settled(ec.evalCalcUsageMembers(currentSym, resultSegments))
+	}
+	// A calc usage or a KerML type is never the empty sequence, whatever it admits.
+	if lower.IsCalcUsageSymbol(currentSym) || declaresType(currentSym) {
+		return settled(ec.resolvedWithoutValue(currentSym, qn))
+	}
+	// A valueless feature admitting nothing is the empty sequence, however spelled.
+	if val, ok := ec.emptyDeclaredFeature(currentSym); ok {
+		return val, true, nil
+	}
+	return Value{}, false, nil
+}
+
 // resolvedWithoutValue reads a name that resolves to sym but no value: undetermined
 // at model level, uninitialized (not unresolved) when an object features it.
 func (ec *EvalContext) resolvedWithoutValue(sym *symbols.Symbol, qn *ast.QualifiedName) (Value, error) {
-	return ec.withoutValue(sym, qualifiedNameToString(qn), qn)
+	return ec.withoutValue(sym, qualifiedNameToString(qn))
 }
 
 // withoutValue reads sym, spelled as written, when it binds no value.
-func (ec *EvalContext) withoutValue(sym *symbols.Symbol, spelled string, qn *ast.QualifiedName) (Value, error) {
+func (ec *EvalContext) withoutValue(sym *symbols.Symbol, spelled string) (Value, error) {
 	// Definitions are types, not values.
 	if declaresType(sym) {
 		return Value{}, fmt.Errorf("cannot evaluate definition %s", spelled)

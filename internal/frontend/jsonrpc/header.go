@@ -8,6 +8,7 @@ package jsonrpc
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"math"
 )
@@ -18,6 +19,15 @@ import (
 // without linking the networking packages a WebAssembly build cannot use. The
 // logic is Go's own, trimmed of the size limits, the dot reader and the
 // common-header lookup, none of which changes an answer.
+
+// MaxHeaderBytes bounds the header lines of one frame in place of textproto's limits,
+// so an endless line is refused before it is buffered.
+const MaxHeaderBytes = 64 << 10
+
+// ReadHeader reads one frame's MIME header from r, refusing one over MaxHeaderBytes.
+func ReadHeader(r *bufio.Reader) (map[string][]string, error) {
+	return readMIMEHeader(r)
+}
 
 // mimeHeader is textproto.MIMEHeader: canonical keys to their values in order.
 type mimeHeader map[string][]string
@@ -42,13 +52,15 @@ func (p protocolError) Error() string { return string(p) }
 type headerReader struct {
 	r   *bufio.Reader
 	buf []byte
+	// left is what remains of MaxHeaderBytes for the header being read.
+	left int64
 }
 
 // readMIMEHeader is textproto's ReadMIMEHeader: headers each a continued line,
 // ended by a blank line, with the same acceptance of CRLF and bare LF, the same
 // folded continuations and the same rejections.
 func readMIMEHeader(r *bufio.Reader) (mimeHeader, error) {
-	hr := &headerReader{r: r}
+	hr := &headerReader{r: r, left: MaxHeaderBytes}
 	m := make(mimeHeader, hr.upcomingHeaderKeys())
 
 	// The first line cannot start with a leading space.
@@ -101,6 +113,9 @@ func (r *headerReader) readLineSlice(lim int64) ([]byte, error) {
 			return nil, err
 		}
 		if lim >= 0 && int64(len(line))+int64(len(l)) > lim {
+			return nil, errMessageTooLarge
+		}
+		if r.left -= int64(len(l)); r.left < 0 {
 			return nil, errMessageTooLarge
 		}
 		// Avoid the copy if the first call produced a full line.
@@ -163,6 +178,9 @@ func (r *headerReader) readContinuedLineSlice(lim int64, validateFirstLine func(
 			return nil, errMessageTooLarge
 		}
 		line, err := r.readLineSlice(lim - int64(len(r.buf)))
+		if errors.Is(err, errMessageTooLarge) {
+			return nil, err
+		}
 		if err != nil {
 			break
 		}

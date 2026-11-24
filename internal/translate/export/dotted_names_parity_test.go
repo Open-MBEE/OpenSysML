@@ -145,8 +145,8 @@ func TestDottedExpressionNamesOwnAChainFeatureOnlyForAReceiverCallee(t *testing.
 				}
 			}
 		}
-		for i, parameter := range model.ExpressionParameters(expr) {
-			if operand := model.ValueExpression(parameter); operand != nil {
+		for i, operand := range model.ExpressionArguments(expr) {
+			if operand != nil {
 				check(name+"/in"+string(rune('0'+i)), operand)
 			}
 		}

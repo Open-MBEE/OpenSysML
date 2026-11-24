@@ -58,8 +58,9 @@ func TestStructureBackedVariantPropertiesUseVariantMemberships(t *testing.T) {
 		t.Fatalf("VariantMembership namingFeature = %#v, %t; want referencedFeature %q", namingFeature, ok, ordinary.Name)
 	}
 	ownedUsages := valueElements(t, testProperty(t, evaluator, ElementOf(choice), "Definition", "ownedUsage"))
-	if len(ownedUsages) != 2 || !containsElementSymbol(ownedUsages, variant) || !containsElementSymbol(ownedUsages, ordinary) {
-		t.Fatalf("Definition::ownedUsage = %#v; want both owned Usage members", ownedUsages)
+	// deriveDefinitionOwnedUsage selects from ownedFeature, and a VariantMembership is no FeatureMembership.
+	if len(ownedUsages) != 1 || !containsElementSymbol(ownedUsages, ordinary) {
+		t.Fatalf("Definition::ownedUsage = %#v; want ordinary only", ownedUsages)
 	}
 }
 
@@ -70,6 +71,8 @@ func TestStructureBackedNestedFiltersUseActualMetaclass(t *testing.T) {
 	reference := Element{Aspect: "reference"}
 	itemMembership := MembershipElement(Membership{Aspect: "item-membership"})
 	referenceMembership := MembershipElement(Membership{Aspect: "reference-membership"})
+	metadata := Element{Aspect: "metadata"}
+	metadataMembership := MembershipElement(Membership{Aspect: "metadata-membership"})
 	structure := testStructure{
 		metaclasses: map[ElementKey]string{
 			owner.Key():               "Usage",
@@ -77,19 +80,31 @@ func TestStructureBackedNestedFiltersUseActualMetaclass(t *testing.T) {
 			reference.Key():           "ReferenceUsage",
 			itemMembership.Key():      "FeatureMembership",
 			referenceMembership.Key(): "FeatureMembership",
+			metadata.Key():            "MetadataUsage",
+			metadataMembership.Key():  "OwningMembership",
 		},
 		ownedRelationships: map[ElementKey][]Element{
-			owner.Key(): {itemMembership, referenceMembership},
+			owner.Key(): {metadataMembership, itemMembership, referenceMembership},
 		},
 		relatedElements: map[testRelatedKey][]Element{
 			{element: itemMembership.Key(), property: "memberElement"}:      {item},
 			{element: referenceMembership.Key(), property: "memberElement"}: {reference},
+			{element: metadataMembership.Key(), property: "memberElement"}:  {metadata},
 		},
 	}
 	evaluator.options.Structure = structure
 	got := valueElements(t, testProperty(t, evaluator, owner, "Usage", "nestedItem"))
 	if len(got) != 1 || got[0].Key() != item.Key() {
 		t.Fatalf("Usage::nestedItem = %v; want only the ItemUsage member", got)
+	}
+	// nestedMetadata selects from ownedMember, nestedUsage from ownedFeature (deriveUsageNestedMetadata).
+	got = valueElements(t, testProperty(t, evaluator, owner, "Usage", "nestedMetadata"))
+	if len(got) != 1 || got[0].Key() != metadata.Key() {
+		t.Fatalf("Usage::nestedMetadata = %v; want the MetadataUsage its OwningMembership owns", got)
+	}
+	got = valueElements(t, testProperty(t, evaluator, owner, "Usage", "nestedUsage"))
+	if len(got) != 2 || got[0].Key() != item.Key() || got[1].Key() != reference.Key() {
+		t.Fatalf("Usage::nestedUsage = %v; want the two features and not the MetadataUsage", got)
 	}
 }
 

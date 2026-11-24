@@ -361,9 +361,10 @@ It restores the ownerless library stubs written before 0.11.0, with `@id`, `@typ
 `declaredName`, `elementId`, `isLibraryElement: true` and `qualifiedName`.
 An OMG API reader treats these as roots, so prefer the separate table for new clients.
 
-An element of the array carries its owned structure. The six derived lists that repeat a
+An element of the array carries its owned structure. The seven derived lists that repeat a
 Namespace's or Type's inherited and imported members — `membership`, `member`,
-`inheritedMembership`, `featureMembership`, `feature` and `inheritedFeature` — are written
+`inheritedMembership`, `importedMembership`, `featureMembership`, `feature` and
+`inheritedFeature` — are written
 only with `-inherited-members` (or `ConvertRequest.inherited_members`, advertised as
 `convert_inherited_members`): they follow from `ownedMembership`, the specializations and the
 imports, and repeating them on every element is most of a large model's document. Element ids
@@ -568,7 +569,7 @@ triples come); a set of classes with no such member is refused, naming the subje
   `MembershipImport` `importedMembership`, which links the imported element's
   **owning membership** (the metamodel's range), a library member's by its
   normative membership id; an import written through an alias imports the
-  alias's owning membership. The same rule links a succession's `sourceFeature` (an implied `first
+  alias Membership itself, the model's or a library's (KerML 8.2.3.4.2). The same rule links a succession's `sourceFeature` (an implied `first
   start then a` names the `start` the owner inherits from `Actions::Action`),
   a feature chain's `targetFeature`, a feature reference's `referent` and an
   invocation's `function`. A dotted name reaches these from the notation in one
@@ -638,7 +639,8 @@ triples come); a set of classes with no such member is refused, naming the subje
   introduces its name; the notation is written back from the two ends, so
   swapping them in the graph swaps them in the notation. This is distinct from
   the clause of a declaration (`class C specializes A disjoint from B;`), which
-  stays a property of `C` (`sysml:specializes`, `sysml:disjointFrom`).
+  is a property of `C` (`sysml:specializes`, `sysml:disjointFrom`) beside the
+  relationship element `C` owns for it (`<C>_sc0`, `<C>_dj0`).
 - `sysml:lowerBound`, `sysml:upperBound` — multiplicity, as expression nodes
   ([Expressions](#expressions))
 - `sysml:value` — a feature's value, as an expression node, with
@@ -730,6 +732,22 @@ The `sysx:` properties:
 | `sysx:isKindImplicit` | The declaration wrote no kind keyword (`in x : Real;`), which takes its kind from its owner. Without it the canonical keyword would come back written out, declaring what the author did not. A kind named in a comment in the head (`in /* attribute */ x : Real;`) is trivia, not a keyword the declaration wrote. |
 | `sysx:headClause` | On a Subsetting or ReferenceSubsetting of a target the head also relates under the other clause kind that materializes as the same class (`feature f subsets x specializes x;` owns two Subsettings of `x`): the keyword this element stands for, `specializes`, `subsets` or `references`, so the reader keeps the clauses apart — and in their written order — where the collapsed properties alone cannot tell them apart. Absent elsewhere. |
 | the behavioral properties | `sysx:guard`, `sysx:expression`, `sysx:payload`, … — the parts of a behavioral node the vocabulary has no predicate for, listed under [Behavior](#behavior). |
+
+A KerML type declaration is typed by the metaclass its keyword builds (KerML.xtext
+`Type`, `Classifier`, `DataType`, `Class`, `Structure`, `Association`,
+`AssociationStructure`, `Behavior`, `Function`, `Predicate`, `Interaction`,
+`Metaclass`), and reads back by the keyword that metaclass states where the graph
+records no `sysx:declaredKeyword`: a `sysml:DataType` as `datatype`, a
+`sysml:Function` as `function`, a `sysml:Class` as `class`. `classifier`, `class`,
+`struct`, `assoc`, `behavior` and `predicate` share their metaclass with the `def`
+form the notation also accepts (`class def X`), so that form records its keyword with
+the `def` (`sysx:declaredKeyword "class def"`) and reads back with it, while the
+def-less declaration records no `def` and reads back without one. A graph typed `sysml:ClassUsage`,
+`sysml:StructureUsage`, `sysml:AssociationUsage`, `sysml:BehaviorUsage`,
+`sysml:PredicateUsage` or `sysml:InteractionUsage` — names earlier releases wrote,
+which the metamodel does not declare — still reads back as the declaration, and its
+API JSON `@type` is the metaclass: the `Type` or `AssociationStructure` its recorded
+keyword states for a `type` or an `assoc struct`, else the one the name meant.
 
 A `return` parameter written without a kind keyword is a `ReferenceUsage`
 owned through a `ReturnParameterMembership`. OpenSysML-authored graphs retain
@@ -871,6 +889,9 @@ sees the same relationships SysML.xtext produces.
 | `part v : Vehicle;` | the member, its `FeatureTyping` (`<S>_ft0`), its `OwningMembership` |
 | `:>> mass`, `redefines mass` | a `sysml:Redefinition` (`<S>_rd<i>`) with `redefiningFeature`/`redefinedFeature` |
 | `:> base`, `subsets base` | a `sysml:Subsetting`/`sysml:ReferenceSubsetting` (`<S>_ss<i>`/`<S>_rs<i>`) |
+| `crosses a.q`, `=> a.q` on an end | a `sysml:CrossSubsetting` (`<S>_cs`, or `<S>_cs<i>` where a head states several) with `crossingFeature`/`crossedFeature`, owning the chain `Feature` of a chain target |
+| `disjoint from A, B`, `inverse of f`, `featured by A, B` | one `sysml:Disjoining`/`sysml:FeatureInverting`/`sysml:TypeFeaturing` per target, in target order (`<S>_dj<i>`/`<S>_iv<i>`/`<S>_tf<i>`), with `typeDisjoined`/`disjoiningType`, `featureInverted`/`invertingFeature` and `featureOfType`/`featuringType`, owning the chain `Feature` of a chain target |
+| `unions A, B`, `intersects A, B`, `differences A, B` | one `sysml:Unioning`/`sysml:Intersecting`/`sysml:Differencing` per operand, in operand order (`<S>_un<i>`/`<S>_is<i>`/`<S>_df<i>`), with `typeUnioned`/`unioningType` and their counterparts |
 | `specializes Base`, `:>> Base` on a definition | a `sysml:Subclassification` (`<S>_sc<i>`) |
 | `part p : ~P;` | a `sysml:ConjugatedPortDefinition` (`<S>_conjugated`) typed by `P`, and a `sysml:PortConjugation` (`<S>_pc`) joining it to `P`; the conjugate states no `declaredName` or `declaredShortName` — `~P` is its derived `name` (SysML v2.1 §8.3.12.2 `effectiveName`), addressing it as `P::'~P'`, while the conjugate of an unnamed `P` is addressed positionally as `<owner>::@conjugated`, so `port p`'s `FeatureTyping` reads `type: ~P` |
 | `subject v : Vehicle;` in a requirement | a `sysml:SubjectMembership` owning `v`, with `sysml:subjectParameter` on the membership's owner |
@@ -1897,10 +1918,10 @@ expr:P__Car___402_pend0_prs
 ```
 
 The same chain feature carries a chain target a head relationship states
-(`redefines a.b`, `:>> a.b`, `references a.b`): the chain's `sysml:chainingFeature`
+(`redefines a.b`, `:>> a.b`, `references a.b`, `crosses a.b`, `unions a.b`, `disjoint from a.b`): the chain's `sysml:chainingFeature`
 property of the head names the chain element, and the materialized
-`Redefinition`, `Subsetting` or `ReferenceSubsetting` owns it the same way
-(KerML `OwnedRedefinition`/`OwnedSubsetting`/`OwnedReferenceSubsetting`). A chain
+`Redefinition`, `Subsetting`, `ReferenceSubsetting`, `CrossSubsetting`, `Unioning`, `Intersecting`, `Differencing`, `Disjoining`, `FeatureInverting` or `TypeFeaturing` owns it the same way
+(KerML `OwnedRedefinition`/`OwnedSubsetting`/`OwnedReferenceSubsetting`/`OwnedCrossSubsetting`/`Unioning`). A chain
 link that resolves to a graph element is written as its IRI, and one that does
 not as `{"@ref": "<name>"}` in the JSON element form — a `sysx:Expression` typed
 literal in Turtle — never a bare string; in a `FeatureChaining` the link is the
@@ -2350,7 +2371,9 @@ boolean at the implied value (`sysml:isAbstract false` written by hand) keeps
 it: the element lists such members in `"sysx:explicitDefaults": [...]`, and the
 reader takes them as the statements they are. Both keys are reserved for these
 markers — a `sysx:statedDefaults` or `sysx:explicitDefaults` predicate in the
-graph is never written as a fact.
+graph is never written as a fact. In the graph, `sysx:statedDefaults true` on any
+element is the same provenance marker: it says the graph is this mapping's (see
+the external element form, below).
 
 **Derived properties.** The graph states a derived property only where the
 notation's mapping has a reason to (`owner`, `owningNamespace`, a membership's
@@ -2392,14 +2415,18 @@ produced, or one this list was stripped from — is the statement it looks like.
 properties out with the other derived ones, and the list with them. The key is
 reserved like the two above: a `sysx:completedProperties` predicate in the
 graph is never written as a fact. A graph that is already an external writer's
-element form (one stating `isImpliedIncluded`, which this mapping never does)
+element form (one stating `isImpliedIncluded` and `sysx:statedDefaults` nowhere)
 is written as it is: nothing is completed and no marker is set, so the document
 reads back through the external path exactly as before. A document without the marker
 reads as before: every stated boolean is a triple, and a document that omits its
 false flags (an older export, a compact form) reads as it always did. The marker
 is also what tells this mapping's documents from an external writer's element form,
-which states `Element::isImpliedIncluded` on its elements — a property this
-mapping's graph never states (see the toolkit's own JSON, below).
+which states `Element::isImpliedIncluded` on its elements and carries no marker
+(see the toolkit's own JSON, below). The test does not rest on what this mapping
+leaves unstated: an element of a marked document that states `isImpliedIncluded`
+as a triple (`true`, or a listed explicit default) is read with
+`sysx:statedDefaults true` beside it, so the graph, and the Turtle written from
+it, stay this mapping's.
 
 How each part of the graph is spelled:
 
@@ -2546,9 +2573,10 @@ any graph this mapping holds:
   the `FeatureTyping` element, `isImpliedIncluded`, the membership ends), so
   the reader derives the collapsed spelling back. A document is read this
   way when its elements state `isImpliedIncluded` and it carries no
-  `sysx:statedDefaults` marker: this mapping's graph never states
-  `Element::isImpliedIncluded` (the reader drops it from its own, marked
-  documents), so a graph that does is an external writer's element form. Then: a `sysml:FeatureTyping`
+  `sysx:statedDefaults` marker, neither on a root element object of the
+  document nor as a triple of the graph: that is an external writer's element
+  form, and the marker, not the absence of the flag, is what this mapping's
+  own graph is known by. Then: a `sysml:FeatureTyping`
   stating nothing the collapsed `type` edge does not already say contributes
   its ends and is then elementless, an `isImpliedIncluded` element drops the
   stated defaults (`isEnd`, `isReference`, `mayTimeVary`, …) its owner's

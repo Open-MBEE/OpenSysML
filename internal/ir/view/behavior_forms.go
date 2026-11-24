@@ -351,7 +351,7 @@ func statementAt(statement lower.Statement) lower.Extent {
 
 // bodySection is the container a compound node's flow body is drawn in: a
 // section of the node's box headed by the body compartment's name.
-func (r *Renderer) bodySection(body compoundBody, doc string, ids *nodeIDs) *Node {
+func (r *Renderer) bodySection(body compoundBody, ids *nodeIDs) *Node {
 	return &Node{ID: ids.take(), Kind: body.kind}
 }
 

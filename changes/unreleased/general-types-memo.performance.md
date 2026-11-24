@@ -1,0 +1,1 @@
+- The API JSON writer derives `directedFeature`, `directedUsage`, `input` and `output` faster: the types an element specializes by clause, role, chaining and implication are computed once per element instead of once per inherited feature whose direction is read. The written JSON is unchanged.

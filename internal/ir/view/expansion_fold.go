@@ -49,71 +49,7 @@ func (r *Renderer) prepareExpansionFold(view *symbols.Symbol, exposed []*symbols
 		limit = defaultExpansionFoldThreshold
 	}
 	out.expansionPlans = map[*symbols.Symbol]*expansionFold{}
-	var measure func(*symbols.Symbol, []*symbols.Symbol, Kind, bool) int
-	measure = func(view *symbols.Symbol, roots []*symbols.Symbol, kind Kind, top bool) int {
-		if out.expansionPlans[view] != nil {
-			return 0
-		}
-		q := r.treeQuery(view, &Rendering{query: true}, roots)
-		f := &expansionFold{q: q, kind: kind, limit: limit,
-			sizes: map[expansionSizeKey]int{}, representatives: map[treeQueryKey]expansionRepresentative{}, pinned: map[*symbols.Symbol]bool{}}
-		out.expansionPlans[view] = f
-		var descendants map[symbols.ElementKey]bool
-		if kind == KindTree {
-			descendants = q.exposedDescendants(roots, top)
-		} else {
-			w := &featureWalk{r: r, view: view, pruned: map[*symbols.Symbol]bool{}}
-			f.walk = w
-			var features []*symbols.Symbol
-			for _, sym := range roots {
-				if w.drawsFeature(sym) && !r.drawsConnector(sym) {
-					features = append(features, sym)
-				}
-			}
-			descendants = r.exposedDescendants(view, features, w.nestedFeatures)
-			f.descendants = descendants
-			f.pruned = w.pruned
-		}
-		size := 0
-		var ports []*symbols.Symbol
-		for _, sym := range roots {
-			if descendants[symbols.KeyOf(sym)] || kind == KindInterconnection && (!f.walk.drawsFeature(sym) || r.drawsConnector(sym)) {
-				continue
-			}
-			if kind == KindInterconnection && sym.Kind == symbols.SymbolPortUsage {
-				ports = append(ports, sym)
-				continue
-			}
-			if kind == KindTree && top && annotatingSymbol(sym) {
-				if r.annotationNode(&nodeIDs{}, view, sym, &Rendering{}) != nil {
-					size = f.add(size, 1)
-				}
-				continue
-			}
-			size = f.add(size, f.size(sym, nil, expansion{}, 0, true))
-		}
-		for _, port := range ports {
-			if !f.pinned[port] {
-				size = f.add(size, f.size(port, nil, expansion{}, 0, true))
-			}
-		}
-		if kind == KindTree {
-			nested, _ := r.model.NestedViews(view)
-			for _, sub := range nested {
-				if out.expansionPlans[sub] != nil {
-					continue
-				}
-				elements, err := r.model.ExposedElements(sub)
-				if err != nil {
-					elements = nil
-				}
-				size = f.add(size, f.add(1, measure(sub, elements, KindTree, false)))
-			}
-		}
-		f.total = size
-		return size
-	}
-	if measure(view, exposed, kind, true) <= limit {
+	if (expansionMeasure{r: r, out: out, limit: limit}).measure(view, exposed, kind, true) <= limit {
 		return nil
 	}
 	out.expansionFolding = true
@@ -121,6 +57,91 @@ func (r *Renderer) prepareExpansionFold(view *symbols.Symbol, exposed []*symbols
 		f.protect()
 	}
 	return out.expansionPlans[view]
+}
+
+// expansionMeasure sizes the views of one rendering, planning the fold of each as it goes.
+type expansionMeasure struct {
+	r     *Renderer
+	out   *Rendering
+	limit int
+}
+
+// measure plans view's fold over roots and returns its size, the views nested in a tree view included.
+func (m expansionMeasure) measure(view *symbols.Symbol, roots []*symbols.Symbol, kind Kind, top bool) int {
+	r, out := m.r, m.out
+	if out.expansionPlans[view] != nil {
+		return 0
+	}
+	q := r.treeQuery(view, &Rendering{query: true}, roots)
+	f := &expansionFold{q: q, kind: kind, limit: m.limit,
+		sizes: map[expansionSizeKey]int{}, representatives: map[treeQueryKey]expansionRepresentative{}, pinned: map[*symbols.Symbol]bool{}}
+	out.expansionPlans[view] = f
+	size := m.rootsSize(f, view, roots, m.descendants(f, view, roots, top), top)
+	if kind == KindTree {
+		nested, _ := r.model.NestedViews(view)
+		for _, sub := range nested {
+			if out.expansionPlans[sub] != nil {
+				continue
+			}
+			elements, err := r.model.ExposedElements(sub)
+			if err != nil {
+				elements = nil
+			}
+			size = f.add(size, f.add(1, m.measure(sub, elements, KindTree, false)))
+		}
+	}
+	f.total = size
+	return size
+}
+
+// descendants is the roots another root of the view draws beneath itself; an interconnection
+// fold keeps them, with the walk that found them.
+func (m expansionMeasure) descendants(f *expansionFold, view *symbols.Symbol, roots []*symbols.Symbol, top bool) map[symbols.ElementKey]bool {
+	r := m.r
+	if f.kind == KindTree {
+		return f.q.exposedDescendants(roots, top)
+	}
+	w := &featureWalk{r: r, view: view, pruned: map[*symbols.Symbol]bool{}}
+	f.walk = w
+	var features []*symbols.Symbol
+	for _, sym := range roots {
+		if w.drawsFeature(sym) && !r.drawsConnector(sym) {
+			features = append(features, sym)
+		}
+	}
+	descendants := r.exposedDescendants(view, features, w.nestedFeatures)
+	f.descendants = descendants
+	f.pruned = w.pruned
+	return descendants
+}
+
+// rootsSize is the size of what the view draws for roots, each root under another left to that one.
+func (m expansionMeasure) rootsSize(f *expansionFold, view *symbols.Symbol, roots []*symbols.Symbol, descendants map[symbols.ElementKey]bool, top bool) int {
+	r, kind := m.r, f.kind
+	size := 0
+	var ports []*symbols.Symbol
+	for _, sym := range roots {
+		if descendants[symbols.KeyOf(sym)] || kind == KindInterconnection && (!f.walk.drawsFeature(sym) || r.drawsConnector(sym)) {
+			continue
+		}
+		if kind == KindInterconnection && sym.Kind == symbols.SymbolPortUsage {
+			ports = append(ports, sym)
+			continue
+		}
+		if kind == KindTree && top && annotatingSymbol(sym) {
+			if r.annotationNode(&nodeIDs{}, view, sym, &Rendering{}) != nil {
+				size = f.add(size, 1)
+			}
+			continue
+		}
+		size = f.add(size, f.size(sym, nil, expansion{}, 0, true))
+	}
+	for _, port := range ports {
+		if !f.pinned[port] {
+			size = f.add(size, f.size(port, nil, expansion{}, 0, true))
+		}
+	}
+	return size
 }
 
 func (f *expansionFold) add(a, b int) int {
@@ -144,11 +165,7 @@ func (f *expansionFold) size(sym, owner *symbols.Symbol, path expansion, depth i
 	defer delete(f.q.ancestors, sym)
 	r := f.q.r
 	if f.kind == KindInterconnection {
-		for _, port := range r.typedPorts(sym) {
-			if r.admits(r.walkFilters(f.q.view), port) {
-				f.pinned[port] = true
-			}
-		}
+		f.pinTypedPorts(sym)
 	}
 	recursive, added := r.enter(path, sym)
 	defer leave(path, added)
@@ -174,11 +191,7 @@ func (f *expansionFold) size(sym, owner *symbols.Symbol, path expansion, depth i
 		}
 	}
 	if f.kind == KindTree && recursive == nil && !cut && size <= f.limit {
-		for _, annotation := range r.annotatingMembers(sym) {
-			if r.admits(r.walkFilters(f.q.view), annotation) && r.annotationNode(&nodeIDs{}, f.q.view, annotation, &Rendering{}) != nil {
-				size = f.add(size, 1)
-			}
-		}
+		size = f.addAnnotations(size, sym)
 	}
 	if key.sym != nil {
 		f.sizes[key] = size
@@ -186,65 +199,36 @@ func (f *expansionFold) size(sym, owner *symbols.Symbol, path expansion, depth i
 	return size
 }
 
-// protect propagates positioned elements and relationship ends through the condensed graph.
-func (f *expansionFold) protect() {
-	q, r := f.q, f.q.r
-	targets := map[*symbols.Symbol]bool{}
-	for sym := range q.component {
-		if _, ok := r.model.LayoutOf(q.view, sym); ok {
-			targets[sym] = true
-		}
-		for _, member := range q.members(sym) {
-			if _, ok := r.model.MemberLayoutOf(q.view, sym, localName(member)); ok {
-				targets[member] = true
-			}
-		}
-		if f.kind == KindInterconnection && r.drawsConnector(sym) {
-			ends, _ := r.connectorEnds(sym)
-			for _, end := range ends {
-				if target, ok := r.resolver.ResolveTarget(sym.OwnerScope, end.attachment); ok {
-					targets[target] = true
-				}
-			}
-		}
-		if f.kind == KindInterconnection {
-			if value := featureValue(sym); value != nil {
-				if target, ok := r.resolver.ResolveTarget(sym.OwnerScope, value); ok {
-					targets[sym], targets[target] = true, true
-				}
-			}
+// pinTypedPorts marks the ports sym's type gives it that the view admits: they are drawn pinned on it.
+func (f *expansionFold) pinTypedPorts(sym *symbols.Symbol) {
+	r := f.q.r
+	for _, port := range r.typedPorts(sym) {
+		if r.admits(r.walkFilters(f.q.view), port) {
+			f.pinned[port] = true
 		}
 	}
-	if f.kind == KindTree {
-		out, err := r.render(q.view, newDrawn(), true)
-		if err == nil {
-			origins := map[Origin]*symbols.Symbol{}
-			for sym := range q.component {
-				origins[symbolOrigin(sym)] = sym
-			}
-			nodes := map[string]*symbols.Symbol{}
-			seen := map[*Node]bool{}
-			var index func([]*Node)
-			index = func(list []*Node) {
-				for _, node := range list {
-					if seen[node] {
-						continue
-					}
-					seen[node] = true
-					nodes[node.ID] = origins[node.Origin]
-					index(node.Children)
-				}
-			}
-			index(out.Roots)
-			for _, edge := range out.Edges {
-				if sym := nodes[edge.From]; sym != nil {
-					targets[sym] = true
-				}
-				if sym := nodes[edge.To]; sym != nil {
-					targets[sym] = true
-				}
-			}
+}
+
+// addAnnotations is size with one more for each annotation of sym the view draws.
+func (f *expansionFold) addAnnotations(size int, sym *symbols.Symbol) int {
+	r := f.q.r
+	for _, annotation := range r.annotatingMembers(sym) {
+		if r.admits(r.walkFilters(f.q.view), annotation) && r.annotationNode(&nodeIDs{}, f.q.view, annotation, &Rendering{}) != nil {
+			size = f.add(size, 1)
 		}
+	}
+	return size
+}
+
+// protect propagates positioned elements and relationship ends through the condensed graph.
+func (f *expansionFold) protect() {
+	q := f.q
+	targets := map[*symbols.Symbol]bool{}
+	for sym := range q.component {
+		f.layoutTargets(targets, sym)
+	}
+	if f.kind == KindTree {
+		f.edgeTargets(targets)
 	}
 	f.protected = make([]bool, len(q.children))
 	for sym := range targets {
@@ -255,6 +239,71 @@ func (f *expansionFold) protect() {
 	for component, children := range q.children {
 		for _, child := range children {
 			f.protected[component] = f.protected[component] || f.protected[child]
+		}
+	}
+}
+
+// layoutTargets adds to targets what sym's drawing fixes in place: sym and its members where the
+// view lays them out, and in an interconnection the ends of a connector and of a bound value.
+func (f *expansionFold) layoutTargets(targets map[*symbols.Symbol]bool, sym *symbols.Symbol) {
+	q, r := f.q, f.q.r
+	if _, ok := r.model.LayoutOf(q.view, sym); ok {
+		targets[sym] = true
+	}
+	for _, member := range q.members(sym) {
+		if _, ok := r.model.MemberLayoutOf(q.view, sym, localName(member)); ok {
+			targets[member] = true
+		}
+	}
+	if f.kind != KindInterconnection {
+		return
+	}
+	if r.drawsConnector(sym) {
+		ends, _ := r.connectorEnds(sym)
+		for _, end := range ends {
+			if target, ok := r.resolver.ResolveTarget(sym.OwnerScope, end.attachment); ok {
+				targets[target] = true
+			}
+		}
+	}
+	if value := featureValue(sym); value != nil {
+		if target, ok := r.resolver.ResolveTarget(sym.OwnerScope, value); ok {
+			targets[sym], targets[target] = true, true
+		}
+	}
+}
+
+// edgeTargets adds to targets the elements an edge of the tree view's unfolded drawing ends at.
+func (f *expansionFold) edgeTargets(targets map[*symbols.Symbol]bool) {
+	q, r := f.q, f.q.r
+	out, err := r.render(q.view, newDrawn(), true)
+	if err != nil {
+		return
+	}
+	origins := map[Origin]*symbols.Symbol{}
+	for sym := range q.component {
+		origins[symbolOrigin(sym)] = sym
+	}
+	nodes := map[string]*symbols.Symbol{}
+	seen := map[*Node]bool{}
+	var index func([]*Node)
+	index = func(list []*Node) {
+		for _, node := range list {
+			if seen[node] {
+				continue
+			}
+			seen[node] = true
+			nodes[node.ID] = origins[node.Origin]
+			index(node.Children)
+		}
+	}
+	index(out.Roots)
+	for _, edge := range out.Edges {
+		if sym := nodes[edge.From]; sym != nil {
+			targets[sym] = true
+		}
+		if sym := nodes[edge.To]; sym != nil {
+			targets[sym] = true
 		}
 	}
 }

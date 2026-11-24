@@ -45,8 +45,8 @@ func expressionOperand(op ast.OperatorKind, i int) bool {
 	return false
 }
 
-// judgeParameterBinding judges an argument of call against the parameter p it fills.
-func (ec *exprChecker) judgeParameterBinding(scope *symbols.Scope, call invocation, value ast.Node, p parameter, at source.Span) {
+// judgeParameterBinding judges an argument against the parameter p it fills.
+func (ec *exprChecker) judgeParameterBinding(scope *symbols.Scope, value ast.Node, p parameter, at source.Span) {
 	ec.judgeArgumentBinding(scope, value, ec.parameterTypes(p), at)
 }
 

@@ -80,14 +80,16 @@ class SysmlApiClientTest {
     assertEquals("Mission", client("s3cret").project("p1").name());
     assertEquals("Bearer s3cret", api.authorizations.get(0));
 
-    ApiException refused = assertThrows(ApiException.class, () -> client("wrong").project("p1"));
+    SysmlApiClient wrong = client("wrong");
+    ApiException refused = assertThrows(ApiException.class, () -> wrong.project("p1"));
     assertEquals(401, refused.status());
     assertFalse(refused.getMessage().contains("wrong"), refused.getMessage());
   }
 
   @Test
   void reportsAMissingProjectAs404() {
-    ApiException missing = assertThrows(ApiException.class, () -> client("").project("nope"));
+    SysmlApiClient anonymous = client("");
+    ApiException missing = assertThrows(ApiException.class, () -> anonymous.project("nope"));
     assertEquals(404, missing.status());
   }
 
@@ -201,7 +203,7 @@ class SysmlApiClientTest {
   }
 
   @Test
-  void reportsAnUnreachableServer() throws Exception {
+  void reportsAnUnreachableServer() {
     String url = api.url();
     api.close();
     SysmlApiClient client = new SysmlApiClient(new ApiConfig(url, "", Duration.ofSeconds(5), false));
@@ -224,7 +226,8 @@ class SysmlApiClientTest {
       new ApiConfig(local, "t", Duration.ZERO, false).checkedBase();
     }
     for (String bad : List.of("ftp://mms.example.org", "mms.example.org", "http://", "http://bad host")) {
-      assertThrows(ApiException.class, () -> new ApiConfig(bad, "", Duration.ZERO, false).checkedBase(), bad);
+      ApiConfig config = new ApiConfig(bad, "", Duration.ZERO, false);
+      assertThrows(ApiException.class, config::checkedBase, bad);
     }
   }
 

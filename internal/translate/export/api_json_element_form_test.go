@@ -22,6 +22,7 @@ const elementFormModel = `package M {
         connect u1.p to u2.p;
         attribute x : ScalarValues::Real = 2.0 + 1.0;
     }
+    part def Lone { attribute broken : Missing; }
 }
 `
 
@@ -180,27 +181,21 @@ func TestElementFormValueKeepsLargeIntegersExact(t *testing.T) {
 // reason, so a reader can tell it from a property that is legitimately empty.
 func TestElementFormRecordsPerElementOmissions(t *testing.T) {
 	form := parseElementForm(t, elementFormModel)
-	var literal APIJSONElement
-	for _, element := range form.Elements() {
-		if element.Metaclass == "LiteralRational" {
-			literal = element
-			break
+	a, ok := form.ByQualifiedName("M::Lone::broken")
+	if !ok {
+		t.Fatal("M::Lone::broken is not in the form")
+	}
+	reason, omitted := form.Omission(a.ID, "inheritedFeature")
+	if !omitted || reason.Category != metamodel.ReasonUnresolvedReference {
+		t.Fatalf("M::Lone::broken.inheritedFeature omission = %v, %v; want an unresolved-reference reason", reason, omitted)
+	}
+	for _, property := range a.Properties {
+		if property.Name == "inheritedFeature" {
+			t.Fatalf("M::Lone::broken carries inheritedFeature %v and records its omission", property.Value)
 		}
 	}
-	if literal.ID == "" {
-		t.Fatal("the form has no LiteralRational")
-	}
-	reason, omitted := form.Omission(literal.ID, "result")
-	if !omitted || reason.Category != metamodel.ReasonIncompleteStructure {
-		t.Fatalf("the literal's result omission = %v, %v; want an incomplete-structure reason", reason, omitted)
-	}
-	for _, property := range literal.Properties {
-		if property.Name == "result" {
-			t.Fatalf("the literal carries result %v and records its omission", property.Value)
-		}
-	}
-	a, _ := form.ByQualifiedName("M::P::a")
-	if _, omitted := form.Omission(a.ID, "inheritedFeature"); omitted {
+	typed, _ := form.ByQualifiedName("M::P::a")
+	if _, omitted := form.Omission(typed.ID, "inheritedFeature"); omitted {
 		t.Error("M::P::a.inheritedFeature is carried through its library type, yet an omission is recorded")
 	}
 	pair, _ := form.ByQualifiedName("M::Pair")
@@ -456,5 +451,26 @@ func TestElementFormFlowEndFeatureIsNamedByItsRedefinedFeatureAndVaries(t *testi
 	}
 	if got := strings.Join(names, " "); got != "x y" {
 		t.Fatalf("flow end features = %q, want \"x y\"", got)
+	}
+}
+
+// A flow end naming a feature that does not resolve leaves its ReferenceUsage nameless: the implied
+// redefinition of the transfer's feature comes after the written one and names nothing.
+func TestElementFormFlowEndFeatureOfAnUnresolvedEndHasNoName(t *testing.T) {
+	form := parseElementForm(t, "package M { flow f from src.out_ to tgt.in_; }")
+	count := 0
+	for _, element := range form.Elements() {
+		if element.Metaclass != "ReferenceUsage" {
+			continue
+		}
+		count++
+		for _, property := range element.Properties {
+			if property.Name == "name" && property.Value != nil {
+				t.Errorf("%s is named %v", element.ID, property.Value)
+			}
+		}
+	}
+	if count != 2 {
+		t.Fatalf("%d ReferenceUsages, want the two the ends own", count)
 	}
 }

@@ -295,6 +295,12 @@ disagreement, which `-check` then shows as that row moving out of the column.
 The scorecard headline, rendered from the baseline when the site builds.
 <!-- doc-counts:end apijson-scorecard -->
 
+Re-recorded on the KerML classifier metaclass change (a KerML `class`, `struct`, `assoc`, `assoc struct`, `behavior`, `predicate`, `interaction` or `type` declaration is written as the `Class`, `Structure`, `Association`, `AssociationStructure`, `Behavior`, `Predicate`, `Interaction` or `Type` it declares, KerML 1.0 §8.2.4 and §8.2.5, where it was a `ClassUsage`, `StructureUsage`, … the metamodel does not have; `classifier` is a `Classifier` where it was a `Class`; and the `specializes` of each is a `Subclassification` with the `_sc<n>` id, §8.3.3.2.3, where it was a `Specialization` with `_sp<n>`): 160 fragments move, 93 under `spec-examples`, 54 under `kerml-examples`, 7 under `examples` and 6 under `testdata`, every one a file that declares one of those kinds. 489 type mismatches close (`typeMismatch` 1806 → 1317) and the 136 subclassifications of those declarations match the pilot's where each side had an element the other lacked (matched 114137 → 114273, ours-only 17592 → 17454, pilot-only 27061 → 26925). The element form completes the derived properties of a metaclass the metamodel declares, so 3171 properties those declarations did not state are stated (`oursMissing` 189518 → 186347): 4063 more are equal (`presentEqual` 2319509 → 2323572), 1740 of them on the newly matched `Subclassification`s and the rest on `Class`, `Association`, `Behavior`, `Structure`, `Type`, `AssociationStructure`, `Predicate` and `Interaction` (`isConjugated`, `ownedSubclassification`, `ownedElement`, `directedFeature`, `input`, `output`, …). 785 are stated and differ (`presentDifferent` 167417 → 168202), all in the membership families every definition already has in the gap tables (`feature`, `featureMembership`, `member`, `membership`, `inheritedFeature`, `inheritedMembership`, `ownedElement`: the inherited and library members the two sides enumerate differently), now counted on these metaclasses where they were not compared at all. `pilotMissing` grows 88251 → 88412: the `owner` of each of the 136 newly matched `Subclassification`s, which the pilot states on no relationship, and 28 feature collections on `Class` and `Type` (`feature`, `featureMembership`, `directedFeature`, `input`, `ownedSubclassification`) that move from `absentBoth`, less the 3 `Feature.definition` values we no longer state for a feature typed by such a declaration. `indeterminate` grows 69110 → 69201 on the same membership rows. No other row moves, and no cell moves from equal to different.
+
+Re-recorded on the typed-reference specialization change (a SysML reference usage typed by a data type, a structure or a class subsets `Base::dataValues`, `Objects::objects` or `Occurrences::occurrences` for each such type, KerML 1.1 §8.4.2 Table 9 checkFeatureDataValueSpecialization, checkFeatureObjectSpecialization and checkFeatureOccurrenceSpecialization, where it subset `Base::things` before): five fragments move, `examples/gridview-relationship-matrix`, `examples/mosa-demo/mosa-demo`, `examples/npr7123-demo/npr7123-demo`, `examples/self-model/document` and `manual-examples/observatory`, and only in three `ReferenceUsage` rows, on the usages that redefine `DocumentQueries::Diagram::source` or another reference a library types by a structure and so inherit that base's features as the pilot's do. `featureMembership` moves from `presentDifferent` to `presentEqual` (34 values, 2319509 → 2319543), `feature` and `inheritedFeature` from `presentDifferent` to `indeterminate` (34 each, 69110 → 69178; `presentDifferent` 167417 → 167315): the lists now agree in length and differ only at library features neither key table addresses. No element matching changes, no row moves away from agreement and no other row moves.
+
+Re-recorded on the self-model's query-path update (`examples/self-model/queries.sysml` is a new file — the `DocumentQueries` library, the plan compiler, the executor, the step outcomes and the query surfaces as parts, attributes, enumerations and a state definition — and `document.sysml`, `surfaces.sysml` and `views.sysml` carry its section's tables, prose, pipeline parts and views): 948 files (947 before), 1981 more elements match (110420 → 112401; ours-only 19237 → 19328, pilot-only 28510 → 28797), every one under the `examples` root (36432 → 38413, 5693 → 5784, 10802 → 11089; its pilot library elements 30920 → 30925) and no other root moving; present-equal 2234290 → 2276244, present-different 162796 → 165367, ours-missing 187345 → 190133, pilot-missing 85769 → 87266, absent-both 2353402 → 2397905, indeterminate 67074 → 68511 and pilot-nondeterministic 548 → 551 are the new elements' properties joining the buckets their metaclasses already hold. Nine fragments move, all under `examples/self-model/`: the four files above carry the section, and `asciidoc/markup`, `execution`, `identity`, `pipeline` and `quality` move only in the pilot's duplicate (+72) and unkeyable (+16) element counts, which the pilot's export of the self-model folder as one model repeats on every sibling file once `queries.sysml` is in it.
+
 Re-recorded on the connection-definition sufficiency change (the RDF writer and the element form state `isSufficient = true` on a connection, interface and allocation definition, as SysML v2.1 §8.3.13.3 redefines the attribute — `isSufficient : Boolean = true {redefines isSufficient}`, "A ConnectionDefinition always has isSufficient = true", `validateConnectionDefinitionIsSufficient` — and as the reflective read already answered, where they stated nothing and the element form completed the default `false`): no element match moved and no row appeared or disappeared; 82 cells in 51 fragments moved present-equal → present-different, every one an `isSufficient` row (`ConnectionDefinition` 43, `InterfaceDefinition` 31, `AllocationDefinition` 8), 2173330 → 2173248 present-equal and 147737 → 147819 present-different overall. The pilot exports `false` there, the `Type::isSufficient` default of its metamodel, which the clause above rules out; the difference is the pilot's, and it is left standing rather than matched.
 
 Re-recorded on the feature-type change (#2198: the element form's `type` is the derived `Feature::type` — a feature's own typings with the types of the features it subsets or redefines, less the ones another already specializes, KerML 1.1 §8.3.3.3.4 `deriveFeatureType` — where it was the written typings alone whenever the feature had one, which stay as the `type` entry of `sysx:mappingValues`; and the evaluator decides whether one type specializes another from the graph's own specializations where it could answer only for two source symbols): no element match moved and no row appeared or disappeared; 183 fragment rows moved in 44 files, every one a `type` or a property derived from it (`definition` and the typed definitions — `partDefinition`, `itemDefinition`, `occurrenceDefinition`, `portDefinition`, `attributeDefinition`, `actionDefinition`, `calculationDefinition`, `constraintDefinition`, `requirementDefinition` — `behavior` and `function`). Present-equal 2093866 → 2094489, ours-missing 301463 → 300846, present-different 147594 → 147588, pilot-missing 84343 → 84419. `type` itself gains 85 present-equal (`Feature` 47, `PartUsage` 17, `RequirementUsage` 12, `ConstraintUsage` 6, `ItemUsage` 2, `OccurrenceUsage` 1), 9 of them from present-different (a typed feature that also subsets or redefines a typed one: `Feature` 7, `PartUsage` 1, `ItemUsage` 1) and 76 from ours-missing (a feature whose candidate types the evaluator could not rank); the derived rows follow, ours-missing → present-equal. Two movements are not towards the pilot, and both carry a cause already recorded: `Feature.definition` grows 76 pilot-missing over 16 KerML files — the KerML features this writer types as usages, whose `definition` now derives with their `type` and which the pilot's `Feature` has no such property for (the rows were pilot-missing already, 615 → 691); and `ItemUsage.definition`/`itemDefinition`/`occurrenceDefinition` move 1 ours-missing → present-different in `Simple Tests/IndividualTest.sysml` (`individual item :>> i : II2` redefining `part i : I`): the pilot lists the implied `Parts::Part` of the redefined part beside `II2`, this writer `II2` alone, as its `ItemUsage.type` row already differs there (`type` is derived from written typings, not from an implied base). Merged with the occurrence-prefix classification change below, the two together move one more row than either alone: the two `in individual :>> testVehicle : TestVehicleN` parameters of `training/34. Verification/Verification Case Usage Example.sysml`, `OccurrenceUsage`s by that change, take their `occurrenceDefinition` from the derived `type` (`OccurrenceUsage.occurrenceDefinition` 2 ours-missing → present-equal, as their `definition` already was); no other row moved.
@@ -358,6 +364,12 @@ Re-recorded on the flow end feature naming change (the `ReferenceUsage` a flow's
 
 Re-recorded on the conjugate declared-name change (a port definition's implied `ConjugatedPortDefinition` states no `declaredName`: the notation writes none for it, and `~P` is the `name` its `effectiveName()` derives from the original's, SysML v2.1 §8.3.12.2 — KerML 1.1 §8.3.2.1.2 `declaredName` being the declared one and `name = effectiveName()` — as the pilot exports it): one row moves, `ConjugatedPortDefinition.declaredName`, from `pilotMissing` to `absentBoth` in the 45 fragments whose port definitions are named, 127 values in all (`pilotMissing` 86655 → 86528, `absentBoth` 2335399 → 2335526). No element matching changes and no other row moves; `ConjugatedPortDefinition.name` and `OwningMembership.memberName` stay equal.
 
+Re-recorded on the usage-collection derivation change (`nestedMetadata` and `ownedMetadata` select from `ownedMember`, every other `nested*`/`owned*` usage collection from `ownedFeature`, SysML v2.1 deriveUsageNestedMetadata, deriveUsageNestedUsage and the `Definition` pair, so a collection lists no usage its owner holds through a membership that is no `FeatureMembership` — a metadata usage, a variant, a transition's succession; before, every one of them selected from `ownedMember`): 100 fragments move, and only in the `nested*` and `owned*` usage rows. `pilotMissing` 86655 → 85240, the collections we stated for an owner whose only usages are such members and the pilot leaves empty, now `absentBoth` (2335399 → 2336699); `presentDifferent` 147737 → 147375, the collections that listed such a member beside the features, of which 351 are now `presentEqual` (2173330 → 2173681) and 11 `indeterminate` (49290 → 49301: the lists now agree in length and differ only at a target neither key table addresses). The 115 comparisons that leave are the `Feature.nested*` rows of the KerML fragments, stated for a KerML feature's members owned through an `OwningMembership` and no longer written; no row moves away from agreement, no element matching changes and no other row moves.
+
+Re-recorded on the redefined member-name change (an owning membership states `memberName` and `memberShortName` beside `ownedMemberName` and `ownedMemberShortName`, with their values, null where the member has no such name: KerML 1.0 § 10.4.5 serializes a redefined property whose redefining property has a different name, and § 8.3.2.4.8 has the owned pair redefine them): 912 fragments move, only in `memberName` and `memberShortName` rows. 175 `memberName` rows move from ours-missing to present-equal (`FeatureMembership` 95, `StateSubactionMembership` 80), the memberships whose name the element form completed as `ownedMemberName` alone; 18941 `memberName` and 48097 `memberShortName` rows are new both-absent ones, the null the pilot writes too. No row moved to present-different or pilot-missing.
+
+Re-recorded on the HDBK1009 library (`HDBK1009.sysml` joins the supplied `OpenSysML Libraries`, 18 → 19 files, `examples/hdbk1009-demo/hdbk1009-demo.sysml` joins the `examples` root, 69 → 70 files and 950 → 951 overall, and `examples/self-model/pipeline.sysml` gains the `hdbk1009` constraint check): no existing row changes bucket. The demo is a new fragment — 898 elements matched, none ours-only, 2 pilot-only, converted alone like `npr7123-demo.sysml` (`oursColliding` 53 → 54), with 5680 of the pilot's elements left out as library elements, which is `pilotLibraryElements` 53632 → 59312, and one `FeatureChainExpression::featuringType` row in the pilot-nondeterministic bucket the record already declares (565 → 566) — and the pipeline's one new part is 10 more matched elements (3269 → 3279) with their properties in the buckets its sibling checks already hold; together 114794 → 115702 matched, pilot-only 26829 → 26831, present-equal 2334432 → 2352567, present-different 168515 → 169671, ours-missing 186247 → 187442, pilot-missing 88787 → 89504, absent-both 2511469 → 2533187 and indeterminate 69583 → 71154, every one under the `examples` root. The other self-model fragments that moved do so only in the pilot's duplicate-element count, each by the same 10 elements of the pipeline the pilot exports again with every file that imports it.
+
 <!-- doc-counts:begin apijson-roots -->
 The per-root table, rendered from the baseline when the site builds.
 <!-- doc-counts:end apijson-roots -->
@@ -383,6 +395,53 @@ as everywhere — and their owners' derived `annotation` is ours-missing for the
 documentation, which the referee keys `Comments::A::a` on ours and `Comments::A/Documentation[0]` on
 the pilot's; and one comment's annotation is pilot-missing (`Simple Tests/CommentTest.sysml`), the
 pilot listing none for it.
+
+**A `crosses` clause's CrossSubsetting and a type's operand relationships** (re-recorded when the
+writer began stating the `CrossSubsetting` an end owns for `crosses x` or `=> x`, with the chain
+`Feature` and `FeatureChaining`s of a chain target, and one `Unioning`, `Intersecting` or
+`Differencing` per operand of `unions`, `intersects` and `differences` — KerML.xtext
+`OwnedCrossSubsetting`, `UnioningPart`, `IntersectingPart`, `DifferencingPart`, each an
+`ownedRelationship` of the feature or type — where the collapsed `crosses`, `unions`, `intersects`
+and `differences` alone stood): 25 fragments moved. 201 more elements match, every one a pilot-only
+element before (matched 109597 → 109798, pilot-only 28700 → 28499; ours-only and type mismatches
+unchanged): 26 `CrossSubsetting`, 59 `Unioning`, 10 `Intersecting`, 13 `Differencing`, 31 chain
+`Feature`s and their 62 `FeatureChaining`s. Present-equal grows 2173330 → 2175849 and ours-missing
+falls 264043 → 263988: `ownedCrossSubsetting`, `ownedUnioning`, `ownedIntersecting` and
+`ownedDifferencing` go from ours-missing to equal on every owner (26, 25, 5 and 6 values), and
+`ownedRelationship`, `ownedElement`, `ownedSpecialization` and `ownedSubsetting` lose 34, 19, 26 and
+8 present-different values on the owners. No row loses an equal value. What the new elements add
+to the other buckets is what their classes already carry: `owner` on each of the 170 relationships
+is pilot-missing, as on every relationship element (the pilot states none); the 31 chain Features
+join the rows every plain `Feature` disagrees on (`member`, `membership`, `feature`,
+`featureMembership`, `inheritedFeature`, `inheritedMembership`: 28 present-different, 3
+ours-missing; `featuringType` 8 ours-missing and 6 indeterminate, as on the other chain Features);
+and the operands and links a specification snippet never declares are written as no reference, as
+everywhere — five `Unioning` targets (`kerml/7.3.2.7/2`–`4`: `unions Adult, Child`) and two chain
+links (`kerml/7.4.5.2/4`: `crosses ownedAsset.owningEntities`) are ours-missing with the
+`relatedElement`, `chainingFeature`, `featureTarget` and `type` derived from them.
+
+**A declaration's Disjoining, FeatureInverting and TypeFeaturing** (re-recorded when the writer
+began stating one `Disjoining`, `FeatureInverting` or `TypeFeaturing` per target of a declaration's
+`disjoint from`, `inverse of` and `featured by` clause, with the chain `Feature` and
+`FeatureChaining`s of a chain target — KerML.xtext `OwnedDisjoining`, `OwnedFeatureInverting`,
+`OwnedTypeFeaturing`, each an `ownedRelationship` of the type or feature — where the collapsed
+`disjointFrom`, `inverseOf` and `featuringType` alone stood): 23 fragments moved. 96 more elements
+match, every one a pilot-only element before (matched 114698 → 114794, pilot-only 26925 → 26829;
+ours-only and type mismatches unchanged): 79 `TypeFeaturing`, 10 `Disjoining` and 7
+`FeatureInverting`. Present-equal grows 2333281 → 2334432, present-different falls 168600 → 168515
+and ours-missing falls 186353 → 186247: `ownedTypeFeaturing`, `ownedDisjoining` and
+`ownedFeatureInverting` go from ours-missing to equal on every owner (78, 9 and 7 values),
+`ownedRelationship` gains 89 equal values on the owners, and `featuringType` goes from ours-missing
+to equal on 6 `Feature`s and 26 `MultiplicityRange`s. No row loses an equal value. What the new
+elements add to the other buckets is what their classes already carry: `owner` on each of the 96
+relationships is pilot-missing, as on every relationship element (the pilot states none), and two
+of them join the unkeyable elements. The targets a specification snippet never declares are written
+as no reference, as everywhere — four `Disjoining` targets (`kerml/7.3.2.2/1`, `kerml/7.3.2.5/3`),
+two `TypeFeaturing` targets and one `FeatureInverting` target (`kerml/7.3.4.2/7`) are ours-missing
+with the `relatedElement` and `target` derived from them. One `TypeFeaturing` of
+`sysml/8.4.13.3/2` (`featured by AC` on a member the snippet completes with undeclared names)
+states a `featuringType` that differs from the pilot's; which of the three there it is was not
+determined.
 
 **Every connector end's `[1..1]`** (re-recorded when the writer began stating the implicit `[1..1]`
 of a positional end — `connect a to b`, `bind a = b`, `first s1 then s2`, `allocate a to b` — as it
@@ -609,6 +668,19 @@ parameters of the invoked function that no argument binds (`DocumentQueries::Des
 this record), where this repository lists only the argument features the invocation owns. A fix of its own
 follows; until it lands, a library parameter gaining a default moves the rows of every caller that omits it.
 
+**The OpenSysML Libraries pin gains `QVTS`, and `examples/qvts` its result views** (re-recorded when the
+vendored libraries took the `QVTS` library — 17 → 18 files — and eleven files joined the `examples` root: nine
+recorded `QVTS::QueryResult` views under `examples/qvts/expected/views/` and the QVTS repository's
+`observatory.sysml` and `result.sysml`): only the `examples` root moves, 57 → 68 files, and by the new files'
+own elements — 622 more matched (109597 → 110219), 6 ours-only, 11 pilot-only, 413 more
+`pilotLibraryElements` (library elements in the pilot's exports of the new files, left out as every library element is),
+and three more colliding keys of ours (50 → 53). No file is newly refused or failed on either side (38 and
+0 as before), no scorecard row is added or removed (11785), and the other roots read as recorded. The new
+files' properties fall in the buckets their metaclasses already had — the view usages, `expose` imports and
+attribute redefinitions of the result views, and the parts, actions and attributes of `observatory.sysml` —
+so the counts of existing rows grow by what the new files add; no existing example imports `QVTS`. The
+self-model's `bundledFileCount` literal moves 111 → 112 with the library, changing the digest and no count.
+
 **An invocation lists the parameters no argument binds** (re-recorded when the writer began listing
 under `InvocationExpression.parameter` the invoked behavior's parameters that no argument binds and no
 owned feature redefines — `Time::DurationOf::clock` for `DurationOf(o)`, a defaulted parameter the call
@@ -827,6 +899,49 @@ ours-missing):
    references rise by 774, the pilot keying a nesting feature's `OwningMembership`s positionally while the
    compact form spells a membership stub without a `libraryPath`.
 
+   Re-recorded with the expression implied bases derived (KerML 1.1 §8.4.4.7, §8.4.4.8: an `Expression`
+   specializes `Performances::evaluations`, a `LiteralInteger` `literalIntegerEvaluations`, a `NullExpression`
+   `nullEvaluations`, a `ConstructorExpression` `constructorEvaluations`, …; the pilot reads `*` as an integer
+   literal). One side table in `semantics/implicit.go` (`impliedExpressionBases`) names the evaluations
+   feature per expression metaclass, read for a symbol and for a graph element known by metaclass alone, and a
+   feature declaring no typing takes its types from what it implicitly specializes (`metamodel/structure_implied_types.go`):
+   the function an operator, chain, select, collect or trigger invokes or a stated callee resolves to,
+   else the implied base's type. Movement against the record this branch stacks on (develop's with the NPR7123 library and its example):
+   present-equal +37158 (2138604 → 2175762), present-different +36238 (149181 → 185419),
+   ours-missing −75607 (307485 → 231878), indeterminate +2211 (39130 → 41341), elements unchanged, 128 rows
+   moved, no row grew in ours-missing, no new row. `type`, `function` and `behavior` ours-missing → equal for
+   `FeatureReferenceExpression` (2453; the one present-different is a `while` condition the pilot types by
+   `Performances::BooleanEvaluation`, `StructuredControlTest`), `LiteralInteger` (2051), `LiteralString` (1426),
+   `FeatureChainExpression` (547), `LiteralBoolean` (431), `LiteralRational` (342), `LiteralInfinity` (320),
+   `OperatorExpression` (1429, 1419 on `type` — the 10 present-different, 20 on `type`, are boolean positions where the pilot
+   types the expression by `Performances::BooleanEvaluation` beside the operator's function; 6 indeterminate),
+   `ConstructorExpression` (64), `IndexExpression` (47: the `#` form invokes `BaseFunctions::'#'` as the bracket
+   form does `'['`, on the symbol-backed and the graph-backed reader alike), `Expression` (35; one KerML body
+   the pilot types by `BooleanEvaluation`, 5 left ours-missing), `NullExpression` (15), `MetadataAccessExpression`,
+   `TriggerInvocationExpression` (6 each), `SelectExpression` (3), `CollectExpression` (1); `InvocationExpression`
+   261 equal (257 on `type`), 5 different (9 on `type`), 291 indeterminate — the callee is a Function of the model the
+   referee keys differently on the two sides — and none left ours-missing. Two `Feature.type`
+   rows move ours-missing → equal (10419 → 10417). The inherited families (`inheritedMembership`,
+   `inheritedFeature`, and for a literal `member`, `membership`, `feature`, `featureMembership`) move
+   ours-missing → present-different for every expression metaclass (`FeatureReferenceExpression` 2454,
+   `LiteralInteger` 2051, `OperatorExpression` 1445, `LiteralString` 1426, `InvocationExpression` 557,
+   `FeatureChainExpression` 547, `LiteralBoolean` 431, `LiteralRational` 342, `LiteralInfinity` 320,
+   `ConstructorExpression` 64, `IndexExpression` 47, `NullExpression` 15, the rest under 10; where the invoked
+   function is one the referee keys differently on the two sides, part of the `inheritedFeature`,
+   `featureMembership` and `feature` rows is indeterminate instead — `FeatureChainExpression` 533/533/437,
+   `OperatorExpression` 26/25/54, `InvocationExpression` 1 each — which with the 291 `InvocationExpression`
+   `type`/`behavior` and the 6 `OperatorExpression` boolean positions is the indeterminate +2211): the pilot's lists
+   also carry the documentation memberships and the `self` feature of the typing function, and ours carry
+   the typing behavior's own `result` (`Performances::LiteralIntegerEvaluation::result`, `BooleanEvaluation::result`, …),
+   which redefines `Evaluation::result` (§8.4.4.7.1) and masks it now that the implied-generalization audit lets a direct
+   implied base feature's behavior stand in for it (KerML 1.1 §8.4.4.6); `Evaluation::result` itself appears only where
+   no behavior of its own redefines it. For an expression owning a result parameter `output` and `directedFeature` do not move (develop's record
+   already carries the inherited `result` beside the own one in both lists); for a literal, which owns no result
+   parameter, the two rows move ours-missing → equal (`LiteralInteger` 2051, `LiteralString` 1426, `LiteralBoolean`
+   431, `LiteralRational` 342, `LiteralInfinity` 320, `NullExpression` 15, `MetadataAccessExpression` 6), the
+   inherited `result` alone on both sides. The unkeyed references rise by 29751, the library membership stubs
+   these families name; the Turtle changes additively (the stubs; two conversion goldens cross 200 KiB into
+   digest form).
 
 6. A general type the model states that lives in the library (`attribute a : ScalarValues::Integer`,
    `part g : Parts::Part`) contributes its members to the same family as an implied base does: the evaluator
@@ -925,9 +1040,65 @@ ours-missing):
      `stakeholderParameter` 1, each ours-missing → present-equal). The per-property figures above are the earlier
      measurement and were not re-derived row by row on this tree.
 
-Not completed, and why: a namespace's `importedMembership`, and with it the `membership` and `member` of a
-namespace that imports, which the evaluator derives from the notation's import declarations and not yet
-from the graph; the family of a type one of whose generals the single-file graph does not resolve; and the
+7. `Namespace::importedMembership`, and with it the `membership` and `member` of a namespace that imports
+   (KerML §8.3.2.4.5, §8.3.2.4.2 `Import::importedMemberships`, §8.3.2.4.4 `Package::includeAsMember`,
+   §8.3.3.1.10 for the public and protected imports a type inherits), derived over the graph alone and
+   written with the inherited members. Measured against step 6 over the 357 rows of each property that
+   moved: `importedMembership` 601 ours-missing rows are stated (436 present-equal, 153 present-different,
+   12 indeterminate), 2 rows the pilot leaves absent are stated (pilot-missing); `membership` and `member`
+   each state 605 ours-missing rows (14 present-equal, 591 present-different, the lists that already
+   differed in their inherited part under step 5). The 153 `importedMembership` lists that differ:
+     - 75: `import ISQ::*` (directly or through a public re-export). `ISQ` publicly imports its
+       subpackages, several of which declare the same name (`volumeFlowRate` an alias in `ISQAcoustics` and
+       a feature of `ISQMechanics`; the `MagneticDipoleMoment…` definitions of `ISQAtomicNuclear` and
+       `ISQElectromagnetism`): 22 memberships (23 on one row) the pilot keeps and this record hides, both of
+       each pair, as §7.2.5.4 and `Namespace::importedMemberships` require of memberships that are not
+       distinguishable. Seven of these rows also name an element neither key table addresses.
+     - 63: the pilot's list is a superset for the same reason in the model's own namespaces (an imported
+       name the importer also owns or inherits, or two imports bringing one name, as the `ProjectDiscovery`
+       that `OpenSysMLPipeline` and `OpenSysMLSurfaces` of `examples/self-model` both declare, 6 rows), or
+       because the import or expose is filtered and the pilot's `importedMembership` is the unfiltered
+       list (§8.3.2.4.4,
+       SysML §8.3.26). Thirteen also name an unaddressed element.
+     - 4: this record's list is the superset. A namespace import of a type (`import RiskLevelEnum::*`)
+       brings the type's inherited memberships, `Type::visibleMemberships` (§8.3.3.1.10) including them
+       (3 rows); a membership import of a feature named through an imported type
+       (`import Occurrence::spaceTimeCoincidentOccurrences`) is stated here and absent in the pilot (1 row).
+     - 11: recursive imports and exposes over large models, decided by `Namespace::visibleMemberships`
+       ("If isRecursive = true, also recursively include all visible Memberships of any public owned
+       Namespaces", §8.3.2.4.5) and `Type::visibleMemberships` ("The visible Memberships of a Type include
+       inheritedMemberships", §8.3.3.1.10). Both sides walk that recursion, into features and expressions
+       alike; no entry this record alone names comes from the import derivation. Each is a Membership of a
+       nested namespace whose own lists already differ: in the six packages and one view of
+       `SimpleVehicleModel` that import or expose `VehicleConfiguration_b` recursively, the memberships
+       under the unnamed parameters of a `send`/`accept` action (keyed by position here and by the
+       effective name `payload`, `sender`, `receiver` in the pilot, whose `via a.b` operand is a
+       `FeatureChainExpression`), under a connector end's `[1]` (the pilot owns the range through the
+       `OwnedCrossMultiplicity` feature of the pinned grammar, this implementation directly) and under a
+       sequence expression `(a, b, c)` (nested binary `,` operators in the pilot and the pinned grammar,
+       one n-ary operator here); in three `OOSEM Views` views the documentation membership a redefining
+       part inherits from the library feature it redefines (the inherited part, step 5); in
+       `relationshipMatrix` the model's package, the third owned membership of a root namespace whose two
+       imports are written as owned members (see below). In the three owned-structure cases the pilot's
+       tree is the one the pinned grammar gives; they are differences of `ownedRelationship`, not of
+       imports, and are not changed here. The pilot's own surplus on these rows is the collision and
+       filter superset of the 57.
+   An import of an alias no longer differs (6 rows, and the `MembershipImport` rows with them; 4 more were
+   indeterminate): "The importedMembership of a MembershipImport is the single case in which the Element
+   required from the resolution [QualifiedName] is the actual Membership identified by the QualifedName,
+   not the memberElement of that Membership" (§8.2.3.4.2), and "the imported membership may be for an
+   alias of the imported member" (§7.2.5.4). The pilot's alias Membership is right; this record stated
+   the owning membership of the alias's target for a library alias (`ISQBase`'s `TemperatureValue`
+   through `ISQThermodynamics`, `ISQSpaceTime`, `ShapeItems`) and now states the alias Membership.
+   The 22 rows still ours-missing: 7 root namespaces (a root-level import is written as an owned member of
+   the wrapper Namespace, not as its `ownedImport`, so nothing is derived for it), 6 namespaces importing
+   from a file the single-file graph does not carry, 6 one of whose imports names nothing the model
+   declares in the specification's fragments, 2 where every imported membership is hidden by a collision (so the list
+   is empty, which the form spells by omission) and 1 KerML class whose whole family is withheld.
+
+Not completed, and why: the `importedMembership` of a root namespace, of a namespace one of whose imports
+reaches outside the graph or applies a filter condition the evaluator does not read over the graph;
+the family of a type one of whose generals the single-file graph does not resolve; and the
 causes itemised under step 5. `Behavior::step` (0 equal / 257 different),
 `Step::parameter` and `Behavior::parameter` (21 / 530), `InstantiationExpression::instantiatedType`
 (143 / 464), `Usage::nestedTransition`, `Definition::ownedTransition`, `objectiveRequirement`,
@@ -1131,12 +1302,13 @@ The (metaclass, property) rows ranked by the corpus elements on which the pilot 
 | `AttributeUsage` | `inheritedFeature` | this record's step 5 (completed from the semantic inheritance table; the rows still ours-missing are the expression, result-feature and multiplicity elements whose implied bases structure mode does not reach, and the lists still different are itemised there) | `Type::inheritedFeature = inheritedMembership.memberElement->selectByKind(Feature)` (KerML 8.3.3.1.10, deriveTypeInheritedFeature) |
 | `AttributeUsage` | `featureMembership` | this record's step 5 (completed from the semantic inheritance table; the rows still ours-missing are the expression, result-feature and multiplicity elements whose implied bases structure mode does not reach, and the lists still different are itemised there) | `Type::featureMembership = ownedFeatureMembership->union(inheritedMembership->selectByKind(FeatureMembership))` (KerML 8.3.3.1.10, deriveTypeFeatureMembership) |
 | `AttributeUsage` | `feature` | this record's step 5 (completed from the semantic inheritance table; the rows still ours-missing are the expression, result-feature and multiplicity elements whose implied bases structure mode does not reach, and the lists still different are itemised there) | `Type::feature = featureMembership.ownedMemberFeature` (KerML 8.3.3.1.10, deriveTypeFeature) |
-| `FeatureReferenceExpression` | `type` | not completed — the result-feature family of this record's step 5 | `Feature::type`: the general of every FeatureTyping of the expression, including the implied typing by `Performances::Evaluation` (KerML 8.3.4.8.4; the implied base is `Performances::evaluations`) |
+| `FeatureReferenceExpression` | `type` | completed — the expression's implied base and its function type it (this record's step 5, the expression paragraph) | `Feature::type`: the general of every FeatureTyping of the expression, including the implied typing by `Performances::Evaluation` (KerML 8.3.4.8.4; the implied base is `Performances::evaluations`) |
 | `FeatureReferenceExpression` | `isModelLevelEvaluable` | not completed — no evaluator rule (`docs/project/constraint-manifest.json`) | `Expression::isModelLevelEvaluable = modelLevelEvaluable(Set{})` (KerML 8.3.4.7.3, deriveExpressionIsModelLevelEvaluable) |
-| `FeatureReferenceExpression` | `inheritedMembership` | not completed — the result-feature family of this record's step 5 | `Type::inheritedMembership = inheritedMemberships(Set{}, Set{}, false)` (KerML 8.3.3.1.10, deriveTypeInheritedMembership) |
-| `FeatureReferenceExpression` | `inheritedFeature` | not completed — the result-feature family of this record's step 5 | `Type::inheritedFeature = inheritedMembership.memberElement->selectByKind(Feature)` (KerML 8.3.3.1.10, deriveTypeInheritedFeature) |
-| `FeatureReferenceExpression` | `behavior` | not completed — the result-feature family of this record's step 5 | `Step::behavior = type->selectByKind(Behavior)` (KerML 8.3.4.6.3, deriveStepBehavior); for an expression the implied `Performances::Evaluation` typing |
-| `FeatureReferenceExpression` | `function` | not completed — the result-feature family of this record's step 5 (as `behavior`) | `Expression::function = behavior->selectByKind(Function)` (KerML 8.3.4.7.3, deriveExpressionFunction); for a feature reference the implied `Performances::Evaluation` typing |
+| `FeatureReferenceExpression` | `inheritedMembership` | completed from `Performances::evaluations` (this record's step 5, the expression paragraph); present-different for the causes that paragraph states | `Type::inheritedMembership = inheritedMemberships(Set{}, Set{}, false)` (KerML 8.3.3.1.10, deriveTypeInheritedMembership) |
+| `FeatureReferenceExpression` | `inheritedFeature` | completed from `Performances::evaluations` (this record's step 5, the expression paragraph); present-different for the causes that paragraph states | `Type::inheritedFeature = inheritedMembership.memberElement->selectByKind(Feature)` (KerML 8.3.3.1.10, deriveTypeInheritedFeature) |
+| `FeatureReferenceExpression` | `behavior` | completed — the expression's implied base and its function type it (this record's step 5, the expression paragraph) | `Step::behavior = type->selectByKind(Behavior)` (KerML 8.3.4.6.3, deriveStepBehavior); for an expression the implied `Performances::Evaluation` typing |
+| `FeatureReferenceExpression` | `featuringType` | not completed — this record's step 5 types the expression from its implied base but states no featuring type for it; the pilot's answer is the adapter's implicit featuring type, filled while the owner is transformed (the `FeatureChainExpression.featuringType` paragraph above) | `Feature::featuringType = typeFeaturing.featuringType`, plus the owning type of an owned feature (KerML 8.3.3.3.4, deriveFeatureFeaturingType); an expression owned through a `FeatureValue` has neither, so the stable answer is the valued feature's featuring types (`FeatureUtil.insertImplicitTypeFeaturings`) |
+| `FeatureReferenceExpression` | `function` | completed — the expression's implied base and its function type it (this record's step 5, the expression paragraph) | `Expression::function = behavior->selectByKind(Function)` (KerML 8.3.4.7.3, deriveExpressionFunction); for an expression the implied `Performances::Evaluation` typing |
 | `FeatureMembership` | `memberName` | closed for a named member — the conversion states `memberName` as the member's effective name; the 357 left are implied parameters the pilot names by the library feature they implicitly redefine | `Membership::memberName = memberElement.name` (KerML 8.3.2.4.3, deriveMembershipMemberName) |
 | `FeatureMembership` | `ownedMemberName` | PR #1232 (`feature/api-json-derived-properties-layered`) | `OwningMembership::ownedMemberName = ownedMemberElement.name` (KerML 8.3.2.3.6) |
 | `Feature` | `featuringType` | PR #1232 (`feature/api-json-derived-properties-layered`) | `Feature::featuringType = typeFeaturing.featuringType`, plus the owning type of an owned feature (KerML 8.3.3.3, deriveFeatureFeaturingType; KERML11-3/4 multiplicity featuring) |
@@ -1179,12 +1351,21 @@ The (metaclass, property) rows ranked by the corpus elements on which the pilot 
 | `Multiplicity` | `inheritedMembership` | present-different as the rest of the inherited family (the base `Base::naturals` is stated; causes 1–2 of the inherited-member entry: library member ids the key does not reach, implied bases ordered first) | `Multiplicity`/`MultiplicityRange` must specialize `Base::naturals` (KerML 8.3.3.3.4 checkMultiplicitySpecialization, 8.3.3.3.5); the semantic side tables compute no implied base for a multiplicity (`ImpliedBaseFQNs` has no multiplicity case, and `Base::naturals` is named nowhere in `internal/semantic/semantics`), so structure mode inherits nothing for the implied-default `Multiplicity` elements develop writes since #1930 — a side-table gap, recorded rather than approximated |
 | `Multiplicity` | `member` | present-different as the rest of the inherited family (the base `Base::naturals` is stated; causes 1–2 of the inherited-member entry: library member ids the key does not reach, implied bases ordered first) | `Multiplicity`/`MultiplicityRange` must specialize `Base::naturals` (KerML 8.3.3.3.4 checkMultiplicitySpecialization, 8.3.3.3.5); the semantic side tables compute no implied base for a multiplicity (`ImpliedBaseFQNs` has no multiplicity case, and `Base::naturals` is named nowhere in `internal/semantic/semantics`), so structure mode inherits nothing for the implied-default `Multiplicity` elements develop writes since #1930 — a side-table gap, recorded rather than approximated |
 | `Multiplicity` | `membership` | present-different as the rest of the inherited family (the base `Base::naturals` is stated; causes 1–2 of the inherited-member entry: library member ids the key does not reach, implied bases ordered first) | `Multiplicity`/`MultiplicityRange` must specialize `Base::naturals` (KerML 8.3.3.3.4 checkMultiplicitySpecialization, 8.3.3.3.5); the semantic side tables compute no implied base for a multiplicity (`ImpliedBaseFQNs` has no multiplicity case, and `Base::naturals` is named nowhere in `internal/semantic/semantics`), so structure mode inherits nothing for the implied-default `Multiplicity` elements develop writes since #1930 — a side-table gap, recorded rather than approximated |
-| `FeatureReferenceExpression` | `function` | not completed — an expression element has no implied base in the graph (the result-feature family of this record's step 5; PR #2002 `feat/api-json-expression-implied-bases`) | `Expression::function = type->selectByKind(Function)` (KerML 8.3.4.7.3, deriveExpressionFunction); the implied typing by `Performances::Evaluation` |
-| `LiteralInteger` | `function` | not completed — an expression element has no implied base in the graph (the result-feature family of this record's step 5; PR #2002 `feat/api-json-expression-implied-bases`) | `Expression::function = type->selectByKind(Function)` (KerML 8.3.4.7.3, deriveExpressionFunction); the implied typing by `Performances::LiteralEvaluation` |
-| `LiteralInteger` | `behavior` | not completed — an expression element has no implied base in the graph (the result-feature family of this record's step 5; PR #2002 `feat/api-json-expression-implied-bases`) | `Step::behavior = type->selectByKind(Behavior)` (KerML 8.3.4.6.3, deriveStepBehavior); the implied typing by `Performances::LiteralEvaluation` |
-| `LiteralInteger` | `featureMembership` | not completed — an expression element has no implied base in the graph (the result-feature family of this record's step 5; PR #2002 `feat/api-json-expression-implied-bases`) | `Type::featureMembership = ownedFeatureMembership->union(inheritedMembership->selectByKind(FeatureMembership))` (KerML 8.3.3.1.10, deriveTypeFeatureMembership) |
-| `LiteralInteger` | `feature` | not completed — an expression element has no implied base in the graph (the result-feature family of this record's step 5; PR #2002 `feat/api-json-expression-implied-bases`) | `Type::feature = featureMembership.ownedMemberFeature` (KerML 8.3.3.1.10, deriveTypeFeature) |
-| `LiteralInteger` | `directedFeature` | not completed — an expression element has no implied base in the graph (the result-feature family of this record's step 5; PR #2002 `feat/api-json-expression-implied-bases`) | `Type::directedFeature`, the `feature`s whose `directionOf` is not null (KerML 8.3.3.1.10, deriveTypeDirectedFeature) |
+| `LiteralInteger` | `isModelLevelEvaluable` | not completed — no evaluator rule (`docs/project/constraint-manifest.json`) | `Expression::isModelLevelEvaluable = modelLevelEvaluable(Set{})` (KerML 8.3.4.7.3, deriveExpressionIsModelLevelEvaluable) |
+| `LiteralInteger` | `parameter` | not completed — a literal owns no result parameter, so the pilot's `parameter` is the `Evaluation::result` it inherits through the implied base (this record's step 6), which this repository states as `directedFeature` and `output` but derives `Step::parameter` from the owned feature memberships alone | `Step::parameter` redefines `Type::directedFeature` (KerML 8.3.5.1.4) |
+| `LiteralInteger` | `result` | not completed — as `parameter`: the inherited `Evaluation::result` is the pilot's result parameter, and the rule reads the owned `ReturnParameterMembership` alone | `Expression::result = featureMemberships->selectByKind(ReturnParameterMembership).ownedMemberParameter->first()` (KerML 8.3.4.7.3, deriveExpressionResult) |
+| `LiteralInteger` | `function` | completed — the expression's implied base and its function type it (this record's step 5, the expression paragraph) | `Expression::function = behavior->selectByKind(Function)` (KerML 8.3.4.7.3, deriveExpressionFunction); for an expression the implied `Performances::Evaluation` typing |
+| `LiteralInteger` | `behavior` | completed — the expression's implied base and its function type it (this record's step 5, the expression paragraph) | `Step::behavior = type->selectByKind(Behavior)` (KerML 8.3.4.6.3, deriveStepBehavior); for an expression the implied `Performances::Evaluation` typing |
+| `LiteralInteger` | `featureMembership` | completed from `Performances::evaluations` (this record's step 5, the expression paragraph); present-different for the causes that paragraph states | `Type::featureMembership = ownedFeatureMembership->union(inheritedMembership->selectByKind(FeatureMembership))` (KerML 8.3.3.1.10, deriveTypeFeatureMembership) |
+| `LiteralInteger` | `feature` | completed from `Performances::evaluations` (this record's step 5, the expression paragraph); present-different for the causes that paragraph states | `Type::feature = featureMembership.ownedMemberFeature` (KerML 8.3.3.1.10, deriveTypeFeature) |
+| `LiteralInteger` | `directedFeature` | completed from `Performances::evaluations` (this record's step 5, the expression paragraph): a literal owns no result parameter, so the inherited `result` alone is directed on both sides | `Type::directedFeature = feature->select(f &#124; directionOf(f) <> null)` (KerML 8.3.3.1.10, deriveTypeDirectedFeature) |
+| `LiteralInteger` | `featuringType` | not completed — this record's step 5 types the expression from its implied base but states no featuring type for it; the pilot's answer is the adapter's implicit featuring type, filled while the owner is transformed (the `FeatureChainExpression.featuringType` paragraph above) | `Feature::featuringType = typeFeaturing.featuringType`, plus the owning type of an owned feature (KerML 8.3.3.3.4, deriveFeatureFeaturingType); an expression owned through a `FeatureValue` has neither, so the stable answer is the valued feature's featuring types (`FeatureUtil.insertImplicitTypeFeaturings`) |
+| `ReferenceUsage` | `definition` | not completed — a usage declared without a type (`out image;` in `action focus : Focus`) takes its type through the feature it redefines; the pilot states that redefined feature's classifier as `definition`, this repository derives `Usage::definition` from the usage's own typing | `Usage::definition` redefines `Feature::type` (SysML 8.3.3.1 Usage, `/definition : Classifier [0..*]`) |
+| `OperatorExpression` | `instantiatedType` | not completed — the pilot states the operator's function (`DataFunctions::&`) as the `instantiatedType` of an operator invocation; this repository answers `instantiatedType` for an instantiation whose target resolves to a Type and leaves an operator invocation unsupported (`internal/semantic/metamodel/evaluator.go`) | `InstantiationExpression::instantiatedType` (KerML 8.3.4.8.4, deriveInstantiationExpressionInstantiatedType) |
+| `OperatorExpression` | `isModelLevelEvaluable` | not completed — no evaluator rule (`docs/project/constraint-manifest.json`) | `Expression::isModelLevelEvaluable = modelLevelEvaluable(Set{})` (KerML 8.3.4.7.3, deriveExpressionIsModelLevelEvaluable) |
+| `LiteralString` | `isModelLevelEvaluable` | not completed — no evaluator rule (`docs/project/constraint-manifest.json`) | `Expression::isModelLevelEvaluable = modelLevelEvaluable(Set{})` (KerML 8.3.4.7.3, deriveExpressionIsModelLevelEvaluable) |
+| `LiteralString` | `parameter` | not completed — a literal owns no result parameter, so the pilot's `parameter` is the `Evaluation::result` it inherits through the implied base (this record's step 6), which this repository states as `directedFeature` and `output` but derives `Step::parameter` from the owned feature memberships alone | `Step::parameter` redefines `Type::directedFeature` (KerML 8.3.5.1.4) |
+| `ReferenceUsage` | `type` | open: as `ReferenceUsage.definition` — the writer states `type` for a written typing only, and a usage declared without one (`out image;` in `action focus : Focus`, a positional or implied parameter) takes its type through the feature it redefines or its implied library base | `Feature::type = typing.type` with the types inherited through chaining and redefinition (KerML 8.3.3.3, deriveFeatureType) |
 <!-- doc-counts:end apijson-launch-ready-gaps -->
 
 Rows an evaluator rule in PR #1232 (`internal/semantic/metamodel/rules.go`) already names are marked; that PR adds a lazy metamodel evaluator and layers its derived values into the API-JSON writer, so its merge is expected to move those rows from ours-missing to present-equal or present-different, and this referee is how that movement is measured.

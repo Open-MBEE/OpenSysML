@@ -68,7 +68,7 @@ func (a anchors) enclosing(doc string, span source.Span) (source.Span, bool) {
 
 // childKey is the key of a child of parent drawn as kind at place, numbered
 // among the parent's children of the same kind and place so far.
-func childKey(parent locatorKey, kind string, place string, seen map[string]int) locatorKey {
+func childKey(parent locatorKey, kind, place string, seen map[string]int) locatorKey {
 	base := parent + "/" + kind + "@" + place
 	n := seen[base]
 	seen[base]++
@@ -422,7 +422,7 @@ func (l *StateLocator) EntryTransition(decl, owner, target ast.Node) (int, bool)
 
 // firstEdge is the first edge written at place joining from and to; an edge with
 // no declaration of its own is matched by its endpoints alone.
-func firstEdge(edges map[edgeKey][]int, at string, from, to string) (int, bool) {
+func firstEdge(edges map[edgeKey][]int, at, from, to string) (int, bool) {
 	if found := edges[edgeKey{at, from, to}]; len(found) > 0 {
 		return found[0], true
 	}

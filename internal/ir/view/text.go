@@ -52,6 +52,7 @@ func (r *Rendering) textWith(options Options) string {
 		writeNotices(&b, r.notices())
 		return b.String()
 	}
+	writeHeaderText(&b, r.Header)
 	if r.Empty() {
 		b.WriteString("\n" + r.EmptyReason() + "\n")
 		writeNotices(&b, slices.Concat(r.notices(), pictureNotices))
@@ -79,7 +80,7 @@ func (r *Rendering) textWith(options Options) string {
 	if len(edges) > 0 {
 		fmt.Fprintf(&b, "\n%s:\n", edgeSectionName(r.Kind))
 		for _, edge := range edges {
-			b.WriteString(edgeText(r.Kind, edge, labels, ports) + "\n")
+			b.WriteString(edgeText(edge, labels, ports) + "\n")
 		}
 	}
 	if len(r.Notes) > 0 {
@@ -99,8 +100,8 @@ func (r *Rendering) textWith(options Options) string {
 }
 
 // edgeText is an edge as one line: its ends, its label, and its route when it has one.
-func edgeText(kind Kind, edge Edge, labels map[string]string, ports portView) string {
-	line := fmt.Sprintf("  %s %s %s", endLabel(labels, edge.From, edge.FromPort), edgeArrow(kind, edge.Kind), endLabel(labels, edge.To, edge.ToPort))
+func edgeText(edge Edge, labels map[string]string, ports portView) string {
+	line := fmt.Sprintf("  %s %s %s", endLabel(labels, edge.From, edge.FromPort), edgeArrow(edge.Kind), endLabel(labels, edge.To, edge.ToPort))
 	if label := textEdgeLabel(edge, ports); label != "" {
 		line += ": " + label
 	}
@@ -547,7 +548,7 @@ func edgeSectionName(kind Kind) string {
 }
 
 // edgeArrow is how an edge of each kind is drawn in text.
-func edgeArrow(kind Kind, edge EdgeKind) string {
+func edgeArrow(edge EdgeKind) string {
 	switch edge {
 	case EdgeConnection:
 		return "--"

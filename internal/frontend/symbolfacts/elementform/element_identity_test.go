@@ -27,7 +27,13 @@ package D {
   }
   connection def C;
   constraint def K { attribute x : Integer; x > 0 }
+  calc def Q { attribute x : Integer; x + 1 }
   part holder { part a { part b; } part c; connection : C connect a.b to c; }
+  part def W { attribute a; }
+  part w1 : W;
+  part w2 : W;
+  flow fl from w1.a to w2.a;
+  package F { metadata def K; filter @K; }
 }
 package D__outer___400 { part spelledLikeAFormID; }
 `
@@ -95,13 +101,16 @@ func TestElementIdentityIsTheTreesIDAndRoundTrips(t *testing.T) {
 		{"D::M::sm::t", []string{"triggerAction", "payloadArgument"}, "D__M__sm__t___40trigger___400_pvalue"},
 		{"D::M::sm::t", []string{"guardExpression"}, "D__M__sm__t_pguard"},
 		{"D::M::sm::t", []string{"guardExpression", "argument"}, "D__M__sm__t_pguard_pa0"},
-		{"D::M::sm::u", []string{"triggerAction", "payloadParameter"}, "D__M__sm__u___40trigger__sig"},
+		{"D::M::sm::u", []string{"triggerAction", "payloadParameter"}, "D::M::sm::u::sig"},
 		{"D::M::sm::u", []string{"triggerAction", "receiverArgument"}, "D__M__sm__u___40trigger___401_pvalue"},
 		{"D::M::z", []string{"valuation", "value"}, "D__M__z_pvalue"},
 		{"D::M::z", []string{"valuation", "value", "parameter"}, "D__M__z_pvalue_pin0"},
 		{"D::M::z", []string{"valuation", "value", "result"}, "D__M__z_pvalue_pout"},
 		{"D::holder::@2", []string{"connectorEnd"}, "D__holder___402_pend0"},
 		{"D::holder::@2", []string{"connectorEnd", "ownedElement"}, "D__holder___402_pend0_pchain"},
+		{"D::fl", []string{"ownedEndFeature"}, "D__fl_pend0"},
+		{"D::holder::@2", []string{"connectorEnd", "ownedReferenceSubsetting"}, "D__holder___402_pend0_prs"},
+		{"D::fl", []string{"ownedEndFeature", "ownedReferenceSubsetting"}, "D__fl_pend0_prs"},
 		{"D::M::sm::t", []string{"ownedElement"}, "D__M__sm__t_linkparam"},
 		{"D::M::sm::t", []string{"succession"}, "D__M__sm__t_succession"},
 	}
@@ -117,11 +126,39 @@ func TestElementIdentityIsTheTreesIDAndRoundTrips(t *testing.T) {
 			t.Errorf("ResolveElement(%s) = %v, want the one symbol it was read from", got, back)
 		}
 	}
-	// The trigger's link parameter is the transition's second owned element.
+	// A named payload is the declared symbol, which the `@id` the tree writes for it names too.
+	payload := reflect(t, sc, "D::M::sm::u", "triggerAction", "payloadParameter")
+	if back := sc.ResolveElement("D__M__sm__u___40trigger__sig", sc.Semantics); payload != reflect(t, sc, "D::M::sm::u::sig") ||
+		len(back) != 1 || back[0] != payload || sc.FormID(payload) != "D__M__sm__u___40trigger__sig" {
+		t.Errorf("ResolveElement(D__M__sm__u___40trigger__sig) = %v, want the declared payload", back)
+	}
 	owned, _ := sc.Semantics.ReflectiveElements(reflect(t, sc, "D::M::sm::t"), "ownedElement")
 	if back := sc.ResolveElement("D__M__sm__t_triggerparam", sc.Semantics); len(owned) < 2 ||
 		len(back) != 1 || back[0] != owned[1] || sc.ElementIdentity(owned[1]) != "D__M__sm__t_triggerparam" {
 		t.Errorf("ResolveElement(D__M__sm__t_triggerparam) = %v, want the transition's second owned element", back)
+	}
+}
+
+// A `filter` condition is minted under its ElementFilterMembership, which no symbol
+// stands for: its id is read from the conversion by node and still resolves back.
+func TestElementIdentityReadsAFilterConditionByNode(t *testing.T) {
+	sc := identityContext(t)
+	members, _ := sc.Semantics.ReflectiveElements(reflect(t, sc, "D::F"), "ownedMember")
+	var condition *symbols.Symbol
+	for _, member := range members {
+		if member.Expr != nil && member.Expr.Role == symbols.ExpressionFilterCondition {
+			condition = member
+		}
+	}
+	if condition == nil {
+		t.Fatalf("D::F owns no filter condition among %d members", len(members))
+	}
+	got := sc.ElementIdentity(condition)
+	if got != "D__F___401_pfilter" {
+		t.Fatalf("ElementIdentity(filter condition) = %q, want D__F___401_pfilter", got)
+	}
+	if back := sc.ResolveElement(got, sc.Semantics); len(back) != 1 || back[0] != condition {
+		t.Errorf("ResolveElement(%s) = %v, want the condition", got, back)
 	}
 }
 
@@ -141,6 +178,33 @@ func TestConstraintResultIdentityIsTheMembersID(t *testing.T) {
 		{result, "D__K___401"},
 		{reflectFrom(t, sc, result, "parameter"), "D__K___401_pin0"},
 		{reflectFrom(t, sc, result, "result"), "D__K___401_pout"},
+	} {
+		if got := sc.ElementIdentity(tc.sym); got != tc.want {
+			t.Errorf("ElementIdentity = %q, want %q", got, tc.want)
+			continue
+		}
+		if back := sc.ResolveElement(tc.want, sc.Semantics); len(back) != 1 || back[0] != tc.sym {
+			t.Errorf("ResolveElement(%s) = %v, want the one symbol it was read from", tc.want, back)
+		}
+	}
+}
+
+// A calc body's closing expression is written as the member stating it too, with its parts under that id.
+func TestCalcResultIdentityIsTheMembersID(t *testing.T) {
+	sc := identityContext(t)
+	owned, _ := sc.Semantics.ReflectiveElements(reflect(t, sc, "D::Q"), "ownedMember")
+	if len(owned) != 2 {
+		t.Fatalf("D::Q ownedMember = %v, want the attribute and the result expression", owned)
+	}
+	result := owned[1]
+	for _, tc := range []struct {
+		sym  *symbols.Symbol
+		want string
+	}{
+		{result, "D__Q___401"},
+		{reflectFrom(t, sc, result, "parameter"), "D__Q___401_pin0"},
+		{reflectFrom(t, sc, result, "result"), "D__Q___401_pout"},
+		{reflectFrom(t, sc, result, "argument"), "D__Q___401_pa0"},
 	} {
 		if got := sc.ElementIdentity(tc.sym); got != tc.want {
 			t.Errorf("ElementIdentity = %q, want %q", got, tc.want)

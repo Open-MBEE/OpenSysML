@@ -412,7 +412,7 @@ func (g *treeGraph) edgesOf(node *Node, site treeSite) {
 // nested under node: a dashed line from the annotation to the node of each
 // drawn element it annotates (§8.2.3.4 annotation-link), its owner's node
 // when it names none.
-func (g *treeGraph) annotationLinks(node, child *Node, member *symbols.Symbol, view *symbols.Symbol) {
+func (g *treeGraph) annotationLinks(node, child *Node, member, view *symbols.Symbol) {
 	for _, target := range g.r.annotatedElements(member) {
 		to := g.node(target)
 		if target == member.Owner() && to == nil {
@@ -562,15 +562,17 @@ func (r *Renderer) usageLabel(sym *symbols.Symbol) string {
 // usageMultiplicity is a usage's multiplicity as written, `[4]`, the label at
 // the usage's end of its membership edge; "" for a usage declaring none.
 func (r *Renderer) usageMultiplicity(sym *symbols.Symbol) string {
-	usage, ok := sym.Decl.(*ast.Usage)
-	if !ok {
-		return ""
-	}
-	mult := usage.Multiplicity
-	if mult == nil && usage.CrossFeature != nil {
-		// An end's cross multiplicity, `end [0..1] ref trailer`, is how many
-		// of it one of the other end's type is linked to.
-		mult = usage.CrossFeature.Multiplicity
+	var mult *ast.Multiplicity
+	switch decl := sym.Decl.(type) {
+	case *ast.Usage:
+		mult = decl.Multiplicity
+		if mult == nil && decl.CrossFeature != nil {
+			// An end's cross multiplicity, `end [0..1] ref trailer`, is how many
+			// of it one of the other end's type is linked to.
+			mult = decl.CrossFeature.Multiplicity
+		}
+	case *ast.SubjectMember:
+		mult = decl.Multiplicity
 	}
 	if mult == nil {
 		return ""

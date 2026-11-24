@@ -1,0 +1,10 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::plant",
+  "slots": {
+    "run.total": {"type": "Integer", "value": 3},
+    "performed": {"type": "Integer", "value": 2},
+    "values": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}, {"type": "Integer", "value": 2}]}
+  }
+}

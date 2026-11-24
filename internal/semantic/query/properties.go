@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -128,7 +129,7 @@ func (r *PropertyReader) identityValues(sym *symbols.Symbol, property string) ([
 			return nil, false
 		}
 		if r.identity != nil {
-			if identity := r.identity(sym); identity != "" && identity != fqn {
+			if identity := r.identity(sym); identity != "" && identity != fqn && naming.Recorded(identity) != fqn {
 				return nil, false
 			}
 		}
@@ -158,8 +159,9 @@ func (r *PropertyReader) nameValues(sym *symbols.Symbol, property string) ([]str
 		}
 		return valueIfPresent(sym.Name, sym.Named())
 	case PropertyDeclaredName:
-		// A metadata body's `mission = …` declares no name: the Redefinition it implies names it.
-		if sym.EffectiveName() || declaresMemberNames(sym) ||
+		// A metadata body's `mission = …` declares no name: the Redefinition it implies names it. Nor does
+		// an implied conjugate: `~P` is the name its effectiveName() derives (SysML v2.1 8.3.12.2).
+		if sym.EffectiveName() || declaresMemberNames(sym) || sym.IsConjugatedPortDefinition() ||
 			(r.semantics != nil && r.semantics.RestatesMetadataBodyFeature(sym)) {
 			return nil, false
 		}
