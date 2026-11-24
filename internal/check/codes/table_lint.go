@@ -117,7 +117,7 @@ var methodCodes = []Entry{
 	{
 		Code: "hdbk1009-requirement-not-derived", Tier: TierMethod, Severity: "warning",
 		Summary: "a goal, objective, technical requirement or measure of performance deriving from nothing at the level above it",
-		Meaning: "Figure 7-1 of NASA-HDBK-1009A derives goals from needs, objectives from goals, system requirements from objectives, subsystem and component requirements from system or subsystem requirements, and measures of performance from measures of effectiveness. The rule fires once the model declares the level above. " +
+		Meaning: "Figure 7-1 of NASA-HDBK-1009A derives goals from needs, objectives from goals, system requirements from objectives, subsystem and component requirements from system or subsystem requirements, and measures of performance from measures of effectiveness. The rule fires once the model declares the level above. Subsystem requirements with no system requirement above them answer to each other: among several, one that neither derives from another nor is another's origin is reported. " +
 			"Add a `#derivation connection` with the element at a `#derive` end and its origin at an `#original` end.",
 		Spec: specHDBK,
 	},

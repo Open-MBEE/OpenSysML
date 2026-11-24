@@ -13,6 +13,7 @@ type hdbkRelation int
 
 const (
 	hdbkDerivedFrom hdbkRelation = iota
+	hdbkOriginOf
 	hdbkTracedTo
 	hdbkRefines
 	hdbkRefinedBy
@@ -32,11 +33,12 @@ type hdbkLink struct {
 // it declares and the relationships it states.
 type hdbkFacts struct {
 	present map[hdbkKind]bool
+	several map[hdbkKind]bool // kinds the document declares more than once
 	links   map[hdbkLink]bool
 }
 
 func newHDBKFacts() *hdbkFacts {
-	return &hdbkFacts{present: map[hdbkKind]bool{}, links: map[hdbkLink]bool{}}
+	return &hdbkFacts{present: map[hdbkKind]bool{}, several: map[hdbkKind]bool{}, links: map[hdbkLink]bool{}}
 }
 
 // hdbkUnion is the HDBK-1009A facts of every workspace document, counted per
@@ -44,6 +46,7 @@ func newHDBKFacts() *hdbkFacts {
 type hdbkUnion struct {
 	perDoc  map[string]*hdbkFacts
 	present kit.CountSet[hdbkKind]
+	several kit.CountSet[hdbkKind]
 	links   kit.CountSet[hdbkLink]
 }
 
@@ -51,6 +54,7 @@ func newHDBKUnion() *hdbkUnion {
 	return &hdbkUnion{
 		perDoc:  map[string]*hdbkFacts{},
 		present: kit.CountSet[hdbkKind]{},
+		several: kit.CountSet[hdbkKind]{},
 		links:   kit.CountSet[hdbkLink]{},
 	}
 }
@@ -58,6 +62,7 @@ func newHDBKUnion() *hdbkUnion {
 const hdbkUnionPrefix = "\x00hdbk1009/"
 
 func hdbkPresentName(k hdbkKind) string { return hdbkUnionPrefix + "present/" + strconv.Itoa(int(k)) }
+func hdbkPeersName(k hdbkKind) string   { return hdbkUnionPrefix + "peers/" + strconv.Itoa(int(k)) }
 func hdbkLinkName(l hdbkLink) string {
 	return hdbkUnionPrefix + "link/" + strconv.Itoa(int(l.relation)) + "/" + strconv.Itoa(int(l.kind)) + "/" + l.element.String()
 }
@@ -77,7 +82,19 @@ func (u *hdbkUnion) Regather(ctx *Context, g *Gathers, doc string, changed map[s
 		g.Gather(ctx, doc, a.gather)
 		a.facts = nil
 	}
+	peers := map[hdbkKind]bool{}
+	for _, set := range []map[hdbkKind]bool{old.presentSet(), cur.presentSet()} {
+		for k := range set {
+			peers[k] = u.hasPeers(k)
+		}
+	}
 	kit.Move(u.present, old.presentSet(), cur.presentSet(), hdbkPresentName, changed)
+	kit.Move(u.several, old.severalSet(), cur.severalSet(), hdbkPeersName, nil)
+	for k, was := range peers {
+		if changed != nil && u.hasPeers(k) != was {
+			changed[hdbkPeersName(k)] = true
+		}
+	}
 	kit.Move(u.links, old.linkSet(), cur.linkSet(), hdbkLinkName, changed)
 	if cur == nil {
 		delete(u.perDoc, doc)
@@ -107,6 +124,16 @@ func (f *hdbkFacts) presentSet() map[hdbkKind]bool {
 	return f.present
 }
 
+func (f *hdbkFacts) severalSet() map[hdbkKind]bool {
+	if f == nil {
+		return nil
+	}
+	return f.several
+}
+
+// hasPeers reports a kind the workspace declares more than once, in one document or across two.
+func (u *hdbkUnion) hasPeers(k hdbkKind) bool { return u.several.Has(k) || u.present[k] > 1 }
+
 func (f *hdbkFacts) linkSet() map[hdbkLink]bool {
 	if f == nil {
 		return nil
@@ -120,6 +147,12 @@ func (f *hdbkFacts) linkSet() map[hdbkLink]bool {
 func (a *hdbkAudit) hasKind(k hdbkKind) bool {
 	a.ctx.Resolver().ReadName(hdbkPresentName(k))
 	return a.union.present.Has(k) || a.local.presentSet()[k]
+}
+
+// hasPeers reports whether an element of kind k has another of its kind beside it.
+func (a *hdbkAudit) hasPeers(k hdbkKind) bool {
+	a.ctx.Resolver().ReadName(hdbkPeersName(k))
+	return a.union.hasPeers(k) || a.local.severalSet()[k] || a.local.presentSet()[k] && a.union.present.Has(k)
 }
 
 func (a *hdbkAudit) linked(relation hdbkRelation, element symbols.ElementKey, kinds ...hdbkKind) bool {

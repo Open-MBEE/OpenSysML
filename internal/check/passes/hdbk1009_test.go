@@ -63,6 +63,47 @@ func TestHDBK1009LoneSubsystemRequirementIsNotItsOwnOrigin(t *testing.T) {
 		#subsystemRequirement requirement sub;`), CodeHDBK1009RequirementNotDerived, 4)
 }
 
+// Several subsystem requirements with no system requirement above them are
+// each other's possible origins: one that neither derives nor is derived from warns.
+func TestHDBK1009SubsystemRequirementsWithoutASystemRequirement(t *testing.T) {
+	w8dWantLines(t, hdbkModel(`
+		#subsystemRequirement requirement a;
+		#subsystemRequirement requirement b;`), CodeHDBK1009RequirementNotDerived, 3, 4)
+	w8dWantLines(t, hdbkModel(`
+		#subsystemRequirement requirement top;
+		#subsystemRequirement requirement derived;
+		#subsystemRequirement requirement loose;
+		#derivation connection { end #original ::> top; end #derive ::> derived; }`),
+		CodeHDBK1009RequirementNotDerived, 5)
+}
+
+// The peer that makes a lone subsystem requirement warn may sit in another document.
+func TestHDBK1009SubsystemRequirementPeersAcrossDocuments(t *testing.T) {
+	w := newSharedWorkspace()
+	w.put("a.sysml", `package A {
+		private import HDBK1009::*;
+		#subsystemRequirement requirement a;
+	}`)
+	w.analyzeAll()
+	if got := only(w.analyze("a.sysml"), CodeHDBK1009RequirementNotDerived); len(got) != 0 {
+		t.Errorf("a.sysml: a lone subsystem requirement warned:\n%v", got)
+	}
+	w.put("b.sysml", `package B {
+		private import HDBK1009::*;
+		#subsystemRequirement requirement b;
+	}`)
+	w.analyzeAll()
+	for _, name := range w.names() {
+		got := w.analyze(name)
+		if n := len(only(got, CodeHDBK1009RequirementNotDerived)); n != 1 {
+			t.Errorf("%s: %d warnings with a peer in the other document, want 1", name, n)
+		}
+		if want := w.fresh(name); !reflect.DeepEqual(got, want) {
+			t.Errorf("%s: shared analysis\n%v\nfresh analysis\n%v", name, got, want)
+		}
+	}
+}
+
 // Expectation statements trace to stakeholders; needs, goals and objectives to
 // expectation statements. A refinement is a dependency and so a trace.
 func TestHDBK1009ExpectationNotTraced(t *testing.T) {

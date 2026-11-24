@@ -99,7 +99,7 @@ is early, not wrong.
 
 | Code | Rule | NASA-HDBK-1009A |
 | --- | --- | --- |
-| `hdbk1009-requirement-not-derived` | a goal derives from a need, an objective from a goal, a system requirement from an objective, a subsystem or component requirement from a system or subsystem requirement, a MOP from a MOE | Figure 7-1 |
+| `hdbk1009-requirement-not-derived` | a goal derives from a need, an objective from a goal, a system requirement from an objective, a subsystem or component requirement from a system or subsystem requirement, a MOP from a MOE; with no system requirement declared, a subsystem requirement among several that neither derives from another nor is another's origin | Figure 7-1 |
 | `hdbk1009-expectation-not-traced` | an expectation statement is traced to a stakeholder; a need, goal or objective to an expectation statement | Figure 7-1 |
 | `hdbk1009-measure-not-refining` | a MOE refines an objective; a MOP refines a technical requirement | Figure 7-1 |
 | `hdbk1009-requirement-not-verified` | a technical requirement is verified by a verification case, once the model declares verification requirements | Figure 7-2, §8.16 |

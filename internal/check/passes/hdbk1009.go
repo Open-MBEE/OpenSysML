@@ -239,6 +239,9 @@ func declaresRequirement(sym *symbols.Symbol) bool {
 func (a *hdbkAudit) gather(root *symbols.Scope) {
 	kit.WalkSymbols(a.ctx, root, func(sym *symbols.Symbol) {
 		if kind := a.declaredKind(sym); kind != hdbkNone {
+			if a.facts.present[kind] {
+				a.facts.several[kind] = true
+			}
 			a.facts.present[kind] = true
 		}
 		switch decl := sym.Decl.(type) {
@@ -253,7 +256,7 @@ func (a *hdbkAudit) gather(root *symbols.Scope) {
 			switch {
 			case decl.Kind == ast.UsageConnection:
 				for _, e := range a.model.RelationshipEdgesOf(sym, semantics.RelationshipDerivation) {
-					a.note(hdbkDerivedFrom, e.Target, e.Source)
+					a.noteBoth(hdbkDerivedFrom, hdbkOriginOf, e.Target, e.Source)
 				}
 			case decl.Kind == ast.UsageSatisfy && decl.Keyword == "verify":
 				for _, e := range a.model.RelationshipEdgesOf(sym, semantics.RelationshipVerification) {
@@ -280,7 +283,7 @@ func (a *hdbkAudit) gather(root *symbols.Scope) {
 			}
 		}
 	}
-	each(rec.RequirementDerivations, func(s, t *symbols.Symbol) { a.note(hdbkDerivedFrom, t, s) })
+	each(rec.RequirementDerivations, func(s, t *symbols.Symbol) { a.noteBoth(hdbkDerivedFrom, hdbkOriginOf, t, s) })
 	each(rec.Dependencies, func(s, t *symbols.Symbol) { a.note(hdbkTracedTo, s, t) })
 	each(rec.Refinements, func(s, t *symbols.Symbol) { a.noteBoth(hdbkRefines, hdbkRefinedBy, s, t) })
 	each(rec.Verifications, func(s, t *symbols.Symbol) { a.note(hdbkVerifiedBy, t, s) })
@@ -331,17 +334,24 @@ func (a *hdbkAudit) check(root *symbols.Scope) {
 	})
 }
 
-// checkDerivation expects a requirement to derive from the level above it once
-// that level exists; a level deriving from itself too does not stand for it.
+// checkDerivation expects a requirement to derive from the level above it once that
+// exists, and otherwise from its own level unless it is where that level starts.
 func (a *hdbkAudit) checkDerivation(sym *symbols.Symbol, key symbols.ElementKey, kind hdbkKind) {
 	from, derives := hdbkDerivesFrom[kind]
-	above := slices.DeleteFunc(slices.Clone(from), func(k hdbkKind) bool { return k == kind })
-	if !derives || !a.hasAnyKind(above) || a.linked(hdbkDerivedFrom, key, from...) {
+	if !derives || a.linked(hdbkDerivedFrom, key, from...) {
 		return
+	}
+	above := slices.DeleteFunc(slices.Clone(from), func(k hdbkKind) bool { return k == kind })
+	origin := from[0]
+	if !a.hasAnyKind(above) {
+		if len(above) == len(from) || !a.hasPeers(kind) || a.linked(hdbkOriginOf, key, kind) {
+			return
+		}
+		origin = kind
 	}
 	a.report(sym, CodeHDBK1009RequirementNotDerived, fmt.Sprintf(
 		"This %s derives from no %s: the model declares %s, so Figure 7-1 of NASA-HDBK-1009A expects a #derivation connection naming it at a #derive end and a %s at an #original end.",
-		hdbkKindName(kind), hdbkKindName(from[0]), hdbkKindPlural(from[0]), hdbkKindName(from[0])))
+		hdbkKindName(kind), hdbkKindName(origin), hdbkKindPlural(origin), hdbkKindName(origin)))
 }
 
 // checkTrace expects an expectation statement to trace to a stakeholder, and a
