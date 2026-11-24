@@ -47,6 +47,8 @@ class "<size:10>//«requirement def»//</size>\n**LevelReq**" as n0 <<requiremen
 class "<size:10>//«requirement»//</size>\n**levelReq**" as n1 <<requirement>> <<usage>>
 class "<size:10>//«requirement»//</size>\n**capacity**" as n2 <<requirement>> <<usage>>
 class "<size:10>//«concern»//</size>\n**safety**\n“Nothing overflows.”" as n3 <<concern>> <<usage>>
+class "<size:10>//«part def»//</size>\n**Plant**" as n4 <<part def>>
+n0 o-- "plant" n4 : «subject»
 n0 --> n3 : frame
 n1 --:|> n0
 n2 --> n1 : require
