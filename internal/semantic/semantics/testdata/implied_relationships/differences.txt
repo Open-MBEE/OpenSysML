@@ -49,6 +49,7 @@ model	rows.sysml	Specialization	R::I3::ifc::elseClause::e	Actions::actions	branc
 model	rows.sysml	Specialization	R::I3::ifc::thenClause::t	Actions::actions	branch-action
 model	rows.sysml	Specialization	R::Loop::lp::seq/OperatorExpression[0]/Feature[1]/LiteralInteger[0]	Performances::literalIntegerEvaluations	sequence-nesting
 model	rows.sysml	Specialization	R::Loop::lp::seq/OperatorExpression[0]/Feature[2]/LiteralInteger[0]	Performances::literalIntegerEvaluations	sequence-nesting
+model	rows.sysml	Specialization	R::LoopT::lt::j	Base::dataValues	loop-variable-data-value
 model	rows.sysml	Specialization	R::Occ::t/Multiplicity[0]	Base::naturals	default-multiplicity
 model	rows.sysml	Specialization	R::P2::px/Multiplicity[0]	Base::naturals	default-multiplicity
 model	rows.sysml	Specialization	R::P2::py/Multiplicity[0]	Base::naturals	default-multiplicity

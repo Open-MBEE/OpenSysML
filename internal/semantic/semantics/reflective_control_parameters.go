@@ -195,18 +195,12 @@ func (m *Model) loopVariable(sym *symbols.Symbol, loop *ast.WhileLoopActionNode)
 	}
 	var variable *symbols.Symbol
 	scope.ForEachMember(func(member *symbols.Symbol) bool {
-		if member.Decl == ast.Node(loop) && isLoopVariable(member) {
+		if member.Decl == ast.Node(loop) && IsLoopVariable(member) {
 			variable = member
 		}
 		return variable == nil
 	})
 	return variable
-}
-
-// isLoopVariable reports the iteration variable a `for` loop declares.
-func isLoopVariable(sym *symbols.Symbol) bool {
-	loop, ok := sym.Decl.(*ast.WhileLoopActionNode)
-	return ok && loop.Kind == ast.LoopFor && sym.Kind == symbols.SymbolReferenceUsage
 }
 
 // declaresAcceptPayload reports the payload parameter an accept declares (SysML.xtext PayloadParameter).
@@ -334,7 +328,7 @@ func (m *Model) nodeParameterOwner(sym *symbols.Symbol) *symbols.Symbol {
 	switch {
 	case sym.Expr != nil:
 		owner = sym.Expr.Owner
-	case isLoopVariable(sym), declaresAcceptPayload(sym), isDeclaredBody(sym):
+	case IsLoopVariable(sym), declaresAcceptPayload(sym), isDeclaredBody(sym):
 		owner = m.ownerOf(sym)
 	default:
 		// A branch is registered with its conditional when synthesized; nothing is forced for any other symbol.

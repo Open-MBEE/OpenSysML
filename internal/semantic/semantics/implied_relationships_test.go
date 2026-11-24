@@ -141,6 +141,8 @@ var impliedDifferenceReasons = map[string]string{
 		"the model holds one ',' expression over all the items, so the rows under the nested ones differ",
 	"loop-variable-subsetting": "the pilot has the variable of a for loop subset the loop's own seq parameter; no constraint states it: " +
 		"checkForLoopActionUsageVarRedefinition names Actions::ForLoopAction::var alone, which the library has subset ForLoopAction::seq",
+	"loop-variable-data-value": "checkFeatureDataValueSpecialization holds of a feature typed by a data type, the typed variable of a for loop included; " +
+		"the pilot states none of a loop variable",
 	"branch-action": "SysML.xtext ActionBodyParameter: an action written as the branch of a conditional is its thenClause or elseClause parameter; " +
 		"the model holds the branch as an action of its own owning the written one, as its default export writes it",
 	"typed-feature-base": "the test of a conditional or a loop redefines the library's ifTest, whileTest or untilTest, a feature typed by " +

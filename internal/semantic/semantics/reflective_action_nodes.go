@@ -8,7 +8,7 @@ import (
 // statementNodes are the anonymous action nodes (SysML v2 §7.16.8) sym's body writes as statements,
 // synthesized here because the symbol table scopes their bodies but registers no symbol for them.
 func (m *Model) statementNodes(sym *symbols.Symbol) []*symbols.Symbol {
-	if m == nil || sym == nil || sym.Implicit != nil || sym.Expr != nil || sym.Recorded() {
+	if m == nil || sym == nil || sym.Implicit != nil || sym.Expr != nil || sym.Recorded() || IsLoopVariable(sym) {
 		return nil
 	}
 	if cached, ok := m.statementSymbols[sym]; ok {
@@ -151,6 +151,16 @@ func IsStatementNode(node ast.Node) bool {
 	return false
 }
 
+// IsLoopVariable reports whether sym is a `for` loop's variable, which declares
+// no node of its own: its symbol is keyed by the loop.
+func IsLoopVariable(sym *symbols.Symbol) bool {
+	if sym == nil || sym.Kind != symbols.SymbolReferenceUsage {
+		return false
+	}
+	_, loop := sym.Decl.(*ast.WhileLoopActionNode)
+	return loop
+}
+
 // statementBodyOf lists the members a declaration's body writes, where its
 // statements stand.
 func statementBodyOf(decl ast.Node) []ast.Node {
@@ -176,7 +186,7 @@ func statementBodyOf(decl ast.Node) []ast.Node {
 // statementOperands are the expressions an action node statement writes at its
 // own slots, named as the conversion mints them (condition, target, value, ...).
 func (m *Model) statementOperands(sym *symbols.Symbol) []*symbols.Symbol {
-	if m == nil || sym == nil || sym.Implicit != nil || sym.Expr != nil || sym.Recorded() {
+	if m == nil || sym == nil || sym.Implicit != nil || sym.Expr != nil || sym.Recorded() || IsLoopVariable(sym) {
 		return nil
 	}
 	if cached, ok := m.statementOperandSymbols[sym]; ok {

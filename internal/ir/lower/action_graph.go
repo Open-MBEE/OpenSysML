@@ -509,6 +509,7 @@ type Loop struct {
 	// UntilID is Until in the table of the flow or body the statement was lowered for.
 	UntilID    program.ExprID
 	Variable   string   // `for` only: the name each element is bound to
+	Alias      string   // `for` only: the variable's short name, where it declares a name as well
 	Bound      bool     // `for` only: a variable is declared, the empty name included
 	Collection ast.Node // `for` only: the collection iterated over
 	// CollectionID is Collection in the table of the flow or body the statement was lowered for.
@@ -2366,13 +2367,14 @@ func statementOf(member ast.Node, scope *symbols.Scope, resolver *resolve.Resolv
 	case *ast.AssignmentActionNode:
 		return lowerAssignment(m, scope)
 	case *ast.WhileLoopActionNode:
-		variable, _ := m.Variable.DeclaredName()
+		variable, alias := loopVariableNames(m)
 		bodyScope := childScope(scope, m)
 		return Loop{
 			Kind:       m.Kind,
 			Condition:  m.Condition,
 			Until:      m.Until,
 			Variable:   variable,
+			Alias:      alias,
 			Bound:      m.Variable.Declared(),
 			Collection: m.Collection,
 			Body:       lowerBlock(m, m.Body, bodyScope, resolver, exprs, ancestors),
@@ -3144,4 +3146,14 @@ func statementKeyword(node ast.Node) string {
 	default:
 		return "a member the body declares"
 	}
+}
+
+// loopVariableNames are the names a `for` loop's body reads its variable by: the declared
+// name, and the short name where the variable declares both.
+func loopVariableNames(loop *ast.WhileLoopActionNode) (name, alias string) {
+	name, _ = loop.Variable.DeclaredName()
+	if loop.Variable.HasShortName() && loop.Variable.ShortName != name {
+		alias = loop.Variable.ShortName
+	}
+	return name, alias
 }

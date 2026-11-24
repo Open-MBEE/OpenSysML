@@ -1250,6 +1250,10 @@ func (d *decoder) resolveExpression(triple rdf.Triple, parents map[string][]rdf.
 	if d.derivedConnectorFeature(triple) {
 		return nil
 	}
+	if triple.Predicate.Value == rdf.SysML+pLoopVariable {
+		// A `for` loop's variable is the feature its head declares, not an expression.
+		return nil
+	}
 	if !d.isExpressionNode(triple.Object) {
 		return nil
 	}
@@ -1356,6 +1360,11 @@ func (d *decoder) noteSegment(node rdf.Term, parents map[string][]rdf.Term) erro
 			operand = ""
 			continue
 		}
+		if local, ok := d.bodyLocalName(segment); ok {
+			// A feature a body or loop head declares is written by its name alone.
+			operand = local
+			continue
+		}
 		target, name, err := d.namedMember(segment)
 		if err != nil {
 			return err
@@ -1385,6 +1394,11 @@ func (d *decoder) noteFlowEnd(end rdf.Term) error {
 	for _, segment := range segments {
 		if segment.IsLiteral() {
 			operand = ""
+			continue
+		}
+		if local, ok := d.bodyLocalName(segment); ok {
+			// A feature a body or loop head declares is written by its name alone.
+			operand = local
 			continue
 		}
 		target, name, err := d.namedMember(segment)
@@ -1492,6 +1506,9 @@ func (d *decoder) operandElement(chain rdf.Term) string {
 	}
 	if !object.IsIRI() {
 		return ""
+	}
+	if local, ok := d.bodyLocalName(object); ok {
+		return local
 	}
 	el, err := d.referencedElement(object.Value)
 	if err != nil {
