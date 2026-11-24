@@ -108,7 +108,9 @@ func (s *Server) authorize(next sdk.MethodHandler) sdk.MethodHandler {
 		case served && !toolkit.HasScope(p, entry.Scope):
 			err = toolkit.InsufficientScope(tool, entry.Scope)
 		default:
-			res, err = next(ctx, method, req)
+			called, release := s.requests.bound(ctx, req)
+			res, err = next(called, method, req)
+			release()
 		}
 		scope := entry.Scope
 		if refused, ok := toolkit.RefusedScope(err); ok {
