@@ -700,6 +700,9 @@ func TestSequenceRenderingDrawsSuccessionChainInCausalOrder(t *testing.T) {
 		{"a step into a cycle is drawn above all of it",
 			`succession first e then b; succession first b then e; succession first a then b;`, "",
 			[]string{"a then b", "e then b", "b then e"}},
+		{"a cycle through a send is placed as declared around its message",
+			`succession first e then d; succession first d then e;`, sending,
+			[]string{"e then d", "d then got", "d then e"}},
 		{"a chain ending at a send that a cycle follows",
 			`succession first d then c; succession first c then e; succession first e then c;
 			succession first b then d; succession first a then b;`, sending,

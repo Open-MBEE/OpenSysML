@@ -905,21 +905,19 @@ func rowsFollowed(messages []message, successions []succession, orders []timing,
 	follows := make([][]int, len(messages)+len(successions))
 	for i, s := range successions {
 		o, row := orders[s.order], len(messages)+i
+		// An event leads back where the succession starts at it or returns to it through a cycle.
 		for m, msg := range messages {
-			events := msg.events()
-			heldBefore := slices.ContainsFunc(events, func(held lifelineEnd) bool { return before(held, o.from) })
-			heldAfter := slices.ContainsFunc(events, func(held lifelineEnd) bool { return before(o.to, held) })
-			// A succession from a message's own event follows it, also where a cycle leads back.
-			if heldBefore && (!heldAfter || slices.Contains(events, o.from)) {
+			if slices.ContainsFunc(msg.events(), func(held lifelineEnd) bool {
+				return before(held, o.from) && (held == o.from || !before(o.to, held))
+			}) {
 				follows[row] = append(follows[row], m)
 			}
 		}
 		// A succession following a message is placed by that, whichever message it leads to.
 		for m, msg := range messages {
-			events := msg.events()
-			if len(follows[row]) == 0 &&
-				slices.ContainsFunc(events, func(held lifelineEnd) bool { return before(o.to, held) }) &&
-				!slices.ContainsFunc(events, func(held lifelineEnd) bool { return before(held, o.from) }) {
+			if len(follows[row]) == 0 && slices.ContainsFunc(msg.events(), func(held lifelineEnd) bool {
+				return before(o.to, held) && (held == o.to || !before(held, o.from))
+			}) {
 				follows[m] = append(follows[m], row)
 			}
 		}
