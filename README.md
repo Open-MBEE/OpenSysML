@@ -1,8 +1,10 @@
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/opensysml-logo-white.png">
-    <img src="docs/assets/opensysml-logo.png" alt="OpenSysML" width="160">
-  </picture>
+  <a href="https://opensysml.org">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/assets/opensysml-badge-dark.svg">
+      <img src="docs/assets/opensysml-badge-light.svg" alt="OpenSysML" width="160">
+    </picture>
+  </a>
 </p>
 
 # OpenSysML MDK — Runtime Environment and Development Kit

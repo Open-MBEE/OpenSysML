@@ -750,83 +750,105 @@ func (r *Resolver) eachMatchOfImport(into, scope *symbols.Scope, imp *ast.Import
 		return admitted(sym) && !r.hiddenImport(scope, name, sym)
 	}
 	if imp.Kind == ast.ImportMembership {
-		// A membership import names a membership: `import P::Car` where Car is an
-		// alias imports that name, so the alias is what it surfaces.
-		if alias, isAlias := r.PartAlias(imp.Imported, len(imp.Imported.Parts)-1); isAlias {
-			target = alias
-		}
-		// The imported member itself (last segment) is visible by its own name.
-		// For FQN-indexed symbols (stdlib), target.Name may be the full FQN, so extract last segment.
-		targetName := target.Name
-		if idx := strings.LastIndex(targetName, "::"); idx >= 0 {
-			targetName = targetName[idx+2:]
-		}
-		if (targetName == name || r.shortNameOf(target) == name) && admit(target) {
-			if !yield(target) {
-				return
-			}
-		}
-		// A recursive import of an excluded namespace is of the membership alone (KerML 8.3.2.4.6).
-		if imp.IsRecursive && r.entersNamespace(target.Scope) {
-			r.eachSubtreeMatch(target, name, imp, admit, yield)
-		}
+		r.eachMatchOfMembershipImport(target, imp, name, admit, yield)
 		return
 	}
 	// An import of an excluded namespace brings nothing (KerML 8.3.2.4.6).
 	if !r.entersNamespace(target.Scope) {
 		return
 	}
-	// Namespace import: visible members of the target's scope are surfaced.
-	// Check scope first if available
-	if target.Scope != nil {
-		for _, sym := range symbols.PreferDeclared(target.Scope.LookupLocalAll(name)) {
-			if visibleThroughImport(imp, sym) && admit(sym) && !yield(sym) {
-				return
-			}
-		}
-		for _, sym := range r.shortNamedMembers(target.Scope, name, nil) {
-			if visibleThroughImport(imp, sym) && admit(sym) && !yield(sym) {
-				return
-			}
-		}
-		if sym, ok := r.lookupImportedMember(target, target.Scope, importReader(imp, scope), name, importAllowsPrivate(imp)); ok && admit(sym) {
-			if !yield(sym) {
-				return
-			}
-		}
-	}
-	// Also check FQN index for re-exported symbols (wildcard imports populate index, not scope)
-	if r.idx != nil {
-		// A name only a private import surfaced under the target is a member of
-		// it but not a visible one, so a wildcard import does not re-export it
-		// (KerML 8.2.3.3) — unless this is an `import all`, which takes the
-		// target's private memberships too.
-		targetFQN := r.registeredFQN(target)
-		from := importOrigin(imp, targetFQN)
-		children := r.idx.LookupDirectChildrenNamedFrom(targetFQN, from, name)
-		// The import names one namespace, so a same-named other namespace's
-		// members registered under the same path are not what it surfaces.
-		children = notConflatedWith(target, children)
-		// An entry re-exported under the target through a namespace that hides
-		// it is no member of the target, so the import does not bring it on.
-		children = r.withoutHiddenReexports(target.Scope, targetFQN, name, children)
-		for _, sym := range children {
-			// The target may itself have surfaced the name through an import of
-			// its own, filtered by its `filter` members: what it re-exports
-			// onward is what those select.
-			if !r.admitsUnderName("", from, targetFQN+"::"+name, sym) {
-				continue
-			}
-			if r.importSurfaces(imp, targetFQN, sym) && admit(sym) {
-				if !yield(sym) {
-					return
-				}
-			}
-		}
+	if !r.eachScopeMatchOfImport(target, scope, imp, name, admit, yield) || !r.eachIndexedMatchOfImport(target, imp, name, admit, yield) {
+		return
 	}
 	if imp.IsRecursive {
 		r.eachSubtreeMatch(target, name, imp, admit, yield)
 	}
+}
+
+// eachMatchOfMembershipImport yields what a membership import of target surfaces under name. A
+// membership import names a membership: `import P::Car` where Car is an alias imports that name,
+// so the alias is what it surfaces.
+func (r *Resolver) eachMatchOfMembershipImport(target *symbols.Symbol, imp *ast.Import, name string, admit, yield func(*symbols.Symbol) bool) {
+	if alias, isAlias := r.PartAlias(imp.Imported, len(imp.Imported.Parts)-1); isAlias {
+		target = alias
+	}
+	// The imported member itself (last segment) is visible by its own name.
+	// For FQN-indexed symbols (stdlib), target.Name may be the full FQN, so extract last segment.
+	targetName := target.Name
+	if idx := strings.LastIndex(targetName, "::"); idx >= 0 {
+		targetName = targetName[idx+2:]
+	}
+	if (targetName == name || r.shortNameOf(target) == name) && admit(target) {
+		if !yield(target) {
+			return
+		}
+	}
+	// A recursive import of an excluded namespace is of the membership alone (KerML 8.3.2.4.6).
+	if imp.IsRecursive && r.entersNamespace(target.Scope) {
+		r.eachSubtreeMatch(target, name, imp, admit, yield)
+	}
+}
+
+// eachScopeMatchOfImport yields the members of the target's scope a namespace import surfaces under
+// name; it reports false once yield stops the iteration.
+func (r *Resolver) eachScopeMatchOfImport(
+	target *symbols.Symbol, scope *symbols.Scope, imp *ast.Import, name string, admit, yield func(*symbols.Symbol) bool,
+) bool {
+	if target.Scope == nil {
+		return true
+	}
+	for _, sym := range symbols.PreferDeclared(target.Scope.LookupLocalAll(name)) {
+		if visibleThroughImport(imp, sym) && admit(sym) && !yield(sym) {
+			return false
+		}
+	}
+	for _, sym := range r.shortNamedMembers(target.Scope, name, nil) {
+		if visibleThroughImport(imp, sym) && admit(sym) && !yield(sym) {
+			return false
+		}
+	}
+	if sym, ok := r.lookupImportedMember(target, target.Scope, importReader(imp, scope), name, importAllowsPrivate(imp)); ok && admit(sym) {
+		if !yield(sym) {
+			return false
+		}
+	}
+	return true
+}
+
+// eachIndexedMatchOfImport yields the symbols the index registers under the target that a namespace
+// import re-exports under name (wildcard imports populate the index, not the scope); it reports
+// false once yield stops the iteration.
+func (r *Resolver) eachIndexedMatchOfImport(target *symbols.Symbol, imp *ast.Import, name string, admit, yield func(*symbols.Symbol) bool) bool {
+	if r.idx == nil {
+		return true
+	}
+	// A name only a private import surfaced under the target is a member of
+	// it but not a visible one, so a wildcard import does not re-export it
+	// (KerML 8.2.3.3) — unless this is an `import all`, which takes the
+	// target's private memberships too.
+	targetFQN := r.registeredFQN(target)
+	from := importOrigin(imp, targetFQN)
+	children := r.idx.LookupDirectChildrenNamedFrom(targetFQN, from, name)
+	// The import names one namespace, so a same-named other namespace's
+	// members registered under the same path are not what it surfaces.
+	children = notConflatedWith(target, children)
+	// An entry re-exported under the target through a namespace that hides
+	// it is no member of the target, so the import does not bring it on.
+	children = r.withoutHiddenReexports(target.Scope, targetFQN, name, children)
+	for _, sym := range children {
+		// The target may itself have surfaced the name through an import of
+		// its own, filtered by its `filter` members: what it re-exports
+		// onward is what those select.
+		if !r.admitsUnderName("", from, targetFQN+"::"+name, sym) {
+			continue
+		}
+		if r.importSurfaces(imp, targetFQN, sym) && admit(sym) {
+			if !yield(sym) {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // importTargetOf resolves what imp, declared in scope, names. Resolved aside:

@@ -98,22 +98,9 @@ func (e *Evaluator) structureHideImportCollisions(
 	if len(entries) == 0 {
 		return entries, true
 	}
-	owned, handled, ok := e.structureOwnedFilter(namespace, "Membership", true)
-	if !handled || !ok {
+	hiders, ok := e.structureMembershipHiders(namespace, inherited)
+	if !ok {
 		return nil, false
-	}
-	hiders := make(map[string][]Element)
-	for _, value := range append(slicesClone(owned.Values), inherited...) {
-		if value.Kind != MembershipValue {
-			return nil, false
-		}
-		named, ok := e.namedMembership(value.Membership)
-		if !ok {
-			return nil, false
-		}
-		for _, name := range named.names {
-			hiders[name] = append(hiders[name], named.member)
-		}
 	}
 	hidden := make([]bool, len(entries))
 	members := make([]Element, len(entries))
@@ -140,20 +127,8 @@ func (e *Evaluator) structureHideImportCollisions(
 		}
 	}
 	for _, name := range order {
-		sharing := byName[name]
-		for x, i := range sharing {
-			for _, j := range sharing[x+1:] {
-				if i == j {
-					continue
-				}
-				distinguishable, ok := e.importedDistinguishableByMetaclass(members[i], members[j])
-				if !ok {
-					return nil, false
-				}
-				if !distinguishable {
-					hidden[i], hidden[j] = true, true
-				}
-			}
+		if !e.hideIndistinguishable(byName[name], members, hidden) {
+			return nil, false
 		}
 	}
 	kept := entries[:0:0]
@@ -163,6 +138,47 @@ func (e *Evaluator) structureHideImportCollisions(
 		}
 	}
 	return kept, true
+}
+
+// structureMembershipHiders is the members namespace owns or inherits, by each name they go by.
+func (e *Evaluator) structureMembershipHiders(namespace Element, inherited []Value) (map[string][]Element, bool) {
+	owned, handled, ok := e.structureOwnedFilter(namespace, "Membership", true)
+	if !handled || !ok {
+		return nil, false
+	}
+	hiders := make(map[string][]Element)
+	for _, value := range append(slicesClone(owned.Values), inherited...) {
+		if value.Kind != MembershipValue {
+			return nil, false
+		}
+		named, ok := e.namedMembership(value.Membership)
+		if !ok {
+			return nil, false
+		}
+		for _, name := range named.names {
+			hiders[name] = append(hiders[name], named.member)
+		}
+	}
+	return hiders, true
+}
+
+// hideIndistinguishable marks hidden each pair of the entries sharing a name that their metaclasses do not tell apart.
+func (e *Evaluator) hideIndistinguishable(sharing []int, members []Element, hidden []bool) bool {
+	for x, i := range sharing {
+		for _, j := range sharing[x+1:] {
+			if i == j {
+				continue
+			}
+			distinguishable, ok := e.importedDistinguishableByMetaclass(members[i], members[j])
+			if !ok {
+				return false
+			}
+			if !distinguishable {
+				hidden[i], hidden[j] = true, true
+			}
+		}
+	}
+	return true
 }
 
 // structureFilterImported is Package::importedMemberships (KerML 8.3.4.13.4): the imported

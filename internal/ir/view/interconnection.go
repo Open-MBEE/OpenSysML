@@ -306,13 +306,19 @@ func (w *featureWalk) featureNode(sym, owner *symbols.Symbol, path expansion, de
 		w.out.depthCut += cut
 	}
 	if w.fold != nil {
-		if skipped {
-			w.fold.note(w.out, sym, node, representative)
-		} else if !previousInside && w.out.foldedOccurrences == foldsBefore {
-			w.fold.remember(foldKey, depth, w.occurrence)
-		}
+		w.recordFold(sym, node, representative, foldKey, depth, skipped, !previousInside && w.out.foldedOccurrences == foldsBefore)
 	}
 	return node
+}
+
+// recordFold notes the fold of sym's node when a member was skipped, else remembers the occurrence,
+// drawn whole, as the representative of its key.
+func (w *featureWalk) recordFold(sym *symbols.Symbol, node *Node, representative expansionRepresentative, key treeQueryKey, depth int, skipped, whole bool) {
+	if skipped {
+		w.fold.note(w.out, sym, node, representative)
+	} else if whole {
+		w.fold.remember(key, depth, w.occurrence)
+	}
 }
 
 // pinPorts draws on node's border the ports sym has from its type, each named

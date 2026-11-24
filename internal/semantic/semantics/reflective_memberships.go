@@ -49,8 +49,131 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		return nil
 	}
 	journal(m, m.memberships, sym, sym.Decl)
-	var out []*symbols.Symbol
 	seen := make(map[*symbols.Symbol]bool)
+	out, ordinal := m.withHeadMemberships(sym, bounds, ends, value, seen)
+	if !flowDeclaresPayload(sym) {
+		// A flow owns its two FlowEnds ahead of its body (SysML.xtext FlowDeclaration); one declaring
+		// a payload owns them after it, below.
+		out, ordinal = m.withFlowEndMemberships(sym, out, ordinal)
+	}
+	if sym.Scope == nil && len(statements) == 0 && len(parts) == 0 {
+		out = withSynthesizedMemberships(sym, out, synthesized)
+		out = m.withDefaultMultiplicity(sym, out, len(out))
+		m.memberships[sym] = out
+		return out
+	}
+	// A statement's membership stands where the statement is written among the
+	// body's declared members (mergeMemberships), as the conversion orders them.
+	statementMemberships := statementMembershipsOf(sym, statements)
+	if sym.Scope == nil {
+		out = mergeMemberships(out, statementMemberships)
+		if len(parts) > 0 {
+			out = m.withTransitionMemberships(sym, out, parts)
+		}
+		out = withSynthesizedMemberships(sym, out, synthesized)
+		out = m.withDefaultMultiplicity(sym, out, len(out))
+		m.memberships[sym] = out
+		return out
+	}
+	if !relationshipBodyOwner(sym) {
+		out, ordinal = m.withBodyPrefixMemberships(sym, out, ordinal, seen)
+	}
+	out = m.withBodyMemberships(sym, out, ordinal, seen)
+	out = mergeMemberships(out, statementMemberships)
+	if result := m.ConstraintResultMember(sym); result != nil {
+		// A constraint body's closing bare condition is its result, owned last through a
+		// ResultExpressionMembership (SysML.xtext ConstraintBody), as the conversion writes it.
+		out = append(out, &symbols.Symbol{
+			Kind:       symbols.SymbolRelationship,
+			DocName:    sym.DocName,
+			DeclSpan:   result.DeclSpan,
+			Visibility: sym.Visibility,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: sym, Ordinal: len(out), Form: symbols.ImplicitMembership, Member: result,
+			},
+		})
+	}
+	if len(parts) > 0 {
+		out = m.withTransitionMemberships(sym, out, parts)
+	}
+	if accept := m.acceptActionParts(sym); accept != nil {
+		// An accept action owns its `via` receiver parameter after its body's members (acceptReceiver).
+		accept.receiver.Expr.Index = len(out)
+		out = appendOwningMembership(out, sym, accept.receiver)
+	}
+	out = withSynthesizedMemberships(sym, out, synthesized)
+	out = m.withDefaultMultiplicity(sym, out, len(out))
+	m.memberships[sym] = out
+	return out
+}
+
+// withBodyMemberships appends the membership of each member sym's body declares that is not yet in
+// seen, numbered from ordinal.
+func (m *Model) withBodyMemberships(sym *symbols.Symbol, out []*symbols.Symbol, ordinal int, seen map[*symbols.Symbol]bool) []*symbols.Symbol {
+	scope, written := sym.Scope, sym.Decl
+	if statement := nodeStatementOf(sym.Decl); statement != nil {
+		// A node written as its statement (`action a while c { … }`) owns the
+		// members its statement's body declares.
+		written = statement
+		if child := scope.ChildFor(statement); child != nil {
+			scope = child
+		}
+	}
+	scope.ForEachMember(func(member *symbols.Symbol) bool {
+		if member.Decl == written && IsStatementNode(written) {
+			// A `for` variable is a body-local name, not an element the
+			// conversion writes (sysx:loopVariable is a string).
+			return true
+		}
+		if member == nil || seen[member] || member.Chain != nil || ownedThroughAnnotation(sym, member) || m.isTriggerPayload(sym, member) {
+			return true
+		}
+		seen[member] = true
+		if member.Kind == symbols.SymbolAlias {
+			out = append(out, member)
+			return true
+		}
+		if symbols.IsFirstMarker(member) {
+			// `first x;` is a Membership of the member the body starts at (SysML.xtext InitialNodeMember),
+			// as the pilot exports it and the conversion writes it; a name no member bears leaves it underived.
+			out = append(out, &symbols.Symbol{
+				Kind:       symbols.SymbolRelationship,
+				DocName:    sym.DocName,
+				DeclSpan:   member.DeclSpan,
+				Visibility: member.Visibility,
+				Implicit: &symbols.ImplicitRelationship{
+					Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitReferenceMembership, Member: m.firstMarkerStart(sym, member), Decl: member.Decl,
+				},
+			})
+			ordinal++
+			return true
+		}
+		out = append(out, &symbols.Symbol{
+			Kind:       symbols.SymbolRelationship,
+			DocName:    sym.DocName,
+			DeclSpan:   member.DeclSpan,
+			Visibility: member.Visibility,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitMembership, Member: member,
+			},
+		})
+		ordinal++
+		if m.IsFlowPayload(member) {
+			// A flow declaring its payload owns its two FlowEnds right after it, as the pilot orders them.
+			out, ordinal = m.withFlowEndMemberships(sym, out, ordinal)
+		}
+		return true
+	})
+	return out
+}
+
+// withHeadMemberships is the memberships sym's declaration states ahead of its body, in the order
+// the conversion writes them — its `#M` prefixes, multiplicity bounds, transition source, succession
+// ends, value and send parameters — with the ordinal the next takes. It records the prefixes in seen.
+func (m *Model) withHeadMemberships(
+	sym *symbols.Symbol, bounds, ends []*symbols.Symbol, value *symbols.Symbol, seen map[*symbols.Symbol]bool,
+) ([]*symbols.Symbol, int) {
+	var out []*symbols.Symbol
 	ordinal := 0
 	for _, prefix := range m.prefixMetadataSymbols(sym) {
 		// A `#M` prefix precedes everything else the declaration states
@@ -123,19 +246,11 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		})
 		ordinal++
 	}
-	if !flowDeclaresPayload(sym) {
-		// A flow owns its two FlowEnds ahead of its body (SysML.xtext FlowDeclaration); one declaring
-		// a payload owns them after it, below.
-		out, ordinal = m.withFlowEndMemberships(sym, out, ordinal)
-	}
-	if sym.Scope == nil && len(statements) == 0 && len(parts) == 0 {
-		out = withSynthesizedMemberships(sym, out, synthesized)
-		out = m.withDefaultMultiplicity(sym, out, len(out))
-		m.memberships[sym] = out
-		return out
-	}
-	// A statement's membership stands where the statement is written among the
-	// body's declared members (mergeMemberships), as the conversion orders them.
+	return out, ordinal
+}
+
+// statementMembershipsOf is the membership through which sym owns each of statements.
+func statementMembershipsOf(sym *symbols.Symbol, statements []*symbols.Symbol) []*symbols.Symbol {
 	var statementMemberships []*symbols.Symbol
 	for _, statement := range statements {
 		statementMemberships = append(statementMemberships, &symbols.Symbol{
@@ -148,115 +263,29 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 			},
 		})
 	}
-	if sym.Scope == nil {
-		out = mergeMemberships(out, statementMemberships)
-		if len(parts) > 0 {
-			out = m.withTransitionMemberships(sym, out, parts)
+	return statementMemberships
+}
+
+// withBodyPrefixMemberships appends the OwningMemberships of the `#M` prefixes of a namespace not
+// yet in seen, written before its body's (SysML.xtext PrefixMetadataMember).
+func (m *Model) withBodyPrefixMemberships(sym *symbols.Symbol, out []*symbols.Symbol, ordinal int, seen map[*symbols.Symbol]bool) ([]*symbols.Symbol, int) {
+	for _, prefix := range m.prefixMetadataSymbols(sym) {
+		if seen[prefix] {
+			continue
 		}
-		out = withSynthesizedMemberships(sym, out, synthesized)
-		out = m.withDefaultMultiplicity(sym, out, len(out))
-		m.memberships[sym] = out
-		return out
-	}
-	if !relationshipBodyOwner(sym) {
-		// A namespace owns its `#M` prefixes through OwningMemberships written
-		// before its body's (SysML.xtext PrefixMetadataMember).
-		for _, prefix := range m.prefixMetadataSymbols(sym) {
-			if seen[prefix] {
-				continue
-			}
-			seen[prefix] = true
-			out = append(out, &symbols.Symbol{
-				Kind:       symbols.SymbolRelationship,
-				DocName:    sym.DocName,
-				DeclSpan:   prefix.DeclSpan,
-				Visibility: prefix.Visibility,
-				Implicit: &symbols.ImplicitRelationship{
-					Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitMembership, Member: prefix,
-				},
-			})
-			ordinal++
-		}
-	}
-	scope := sym.Scope
-	if statement := nodeStatementOf(sym.Decl); statement != nil {
-		// A node written as its statement (`action a while c { … }`) owns the
-		// members its statement's body declares.
-		if child := scope.ChildFor(statement); child != nil {
-			scope = child
-		}
-	}
-	scope.ForEachMember(func(member *symbols.Symbol) bool {
-		if member.Decl == sym.Decl && IsStatementNode(sym.Decl) {
-			// A `for` variable is a body-local name, not an element the
-			// conversion writes (sysx:loopVariable is a string).
-			return true
-		}
-		if member == nil || seen[member] || member.Chain != nil || ownedThroughAnnotation(sym, member) || m.isTriggerPayload(sym, member) {
-			return true
-		}
-		seen[member] = true
-		if member.Kind == symbols.SymbolAlias {
-			out = append(out, member)
-			return true
-		}
-		if symbols.IsFirstMarker(member) {
-			// `first x;` is a Membership of the member the body starts at (SysML.xtext InitialNodeMember),
-			// as the pilot exports it and the conversion writes it; a name no member bears leaves it underived.
-			out = append(out, &symbols.Symbol{
-				Kind:       symbols.SymbolRelationship,
-				DocName:    sym.DocName,
-				DeclSpan:   member.DeclSpan,
-				Visibility: member.Visibility,
-				Implicit: &symbols.ImplicitRelationship{
-					Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitReferenceMembership, Member: m.firstMarkerStart(sym, member), Decl: member.Decl,
-				},
-			})
-			ordinal++
-			return true
-		}
+		seen[prefix] = true
 		out = append(out, &symbols.Symbol{
 			Kind:       symbols.SymbolRelationship,
 			DocName:    sym.DocName,
-			DeclSpan:   member.DeclSpan,
-			Visibility: member.Visibility,
+			DeclSpan:   prefix.DeclSpan,
+			Visibility: prefix.Visibility,
 			Implicit: &symbols.ImplicitRelationship{
-				Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitMembership, Member: member,
+				Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitMembership, Member: prefix,
 			},
 		})
 		ordinal++
-		if m.IsFlowPayload(member) {
-			// A flow declaring its payload owns its two FlowEnds right after it, as the pilot orders them.
-			out, ordinal = m.withFlowEndMemberships(sym, out, ordinal)
-		}
-		return true
-	})
-	out = mergeMemberships(out, statementMemberships)
-	if result := m.ConstraintResultMember(sym); result != nil {
-		// A constraint body's closing bare condition is its result, owned last through a
-		// ResultExpressionMembership (SysML.xtext ConstraintBody), as the conversion writes it.
-		out = append(out, &symbols.Symbol{
-			Kind:       symbols.SymbolRelationship,
-			DocName:    sym.DocName,
-			DeclSpan:   result.DeclSpan,
-			Visibility: sym.Visibility,
-			Implicit: &symbols.ImplicitRelationship{
-				Owner: sym, Ordinal: len(out), Form: symbols.ImplicitMembership, Member: result,
-			},
-		})
 	}
-	if len(parts) > 0 {
-		out = m.withTransitionMemberships(sym, out, parts)
-	}
-	if accept := m.acceptActionParts(sym); accept != nil {
-		// An accept action owns its `via` receiver parameter after its body's members (acceptReceiver).
-		accept.receiver.Expr.Index = len(out)
-		out = appendOwningMembership(out, sym, accept.receiver)
-	}
-	out = withSynthesizedMemberships(sym, out, synthesized)
-	out = m.withDefaultMultiplicity(sym, out, len(out))
-	m.memberships[sym] = out
-	return out
+	return out, ordinal
 }
 
 // withFlowEndMemberships adds the EndFeatureMembership of each FlowEnd sym owns (FlowEndMembers).
@@ -698,43 +727,8 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 		return "OwningMembership"
 	}
 	if member != nil && member.Expr != nil {
-		switch member.Expr.Role {
-		case symbols.ExpressionParameter:
-			if owner := member.Expr.Owner; owner != nil && owner.Expr != nil && owner.Expr.Role == symbols.ExpressionResult {
-				// A constructor's result owns its argument features (KerML.xtext ConstructorResultMember).
-				return "FeatureMembership"
-			}
-			return "ParameterMembership"
-		case symbols.ExpressionResult:
-			return "ReturnParameterMembership"
-		case symbols.ExpressionChangeCondition, symbols.ExpressionBody:
-			return "FeatureMembership"
-		case symbols.ExpressionBodyResult:
-			return "ResultExpressionMembership"
-		case symbols.ExpressionFilterCondition:
-			return "ElementFilterMembership"
-		case symbols.ExpressionChainFeature:
-			return "OwningMembership"
-		case symbols.ExpressionGuard, symbols.ExpressionTriggerAction:
-			return "TransitionFeatureMembership"
-		case symbols.ExpressionPayload:
-			return "ParameterMembership"
-		case symbols.ExpressionTransitionSuccession:
-			return "OwningMembership"
-		case symbols.ExpressionConnectorEnd:
-			return "EndFeatureMembership"
-		case symbols.ExpressionOperand:
-			switch member.Expr.Slot {
-			case "condition":
-				return "ParameterMembership"
-			case "value":
-				return "FeatureValue"
-			}
-			return "OwningMembership"
-		case symbols.ExpressionTransitionLinkParameter:
-			return "ParameterMembership"
-		case symbols.ExpressionTransitionLink:
-			return "FeatureMembership"
+		if name := expressionMembershipMetaclassName(member); name != "" {
+			return name
 		}
 	}
 	if _, _, ok := subactionOf(owner.Decl, member.Decl); ok {
@@ -797,6 +791,49 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 		}
 	}
 	return "FeatureMembership"
+}
+
+// expressionMembershipMetaclassName is the membership metaclass an expression element's role fixes, empty when it fixes none.
+func expressionMembershipMetaclassName(member *symbols.Symbol) string {
+	switch member.Expr.Role {
+	case symbols.ExpressionParameter:
+		if owner := member.Expr.Owner; owner != nil && owner.Expr != nil && owner.Expr.Role == symbols.ExpressionResult {
+			// A constructor's result owns its argument features (KerML.xtext ConstructorResultMember).
+			return "FeatureMembership"
+		}
+		return "ParameterMembership"
+	case symbols.ExpressionResult:
+		return "ReturnParameterMembership"
+	case symbols.ExpressionChangeCondition, symbols.ExpressionBody:
+		return "FeatureMembership"
+	case symbols.ExpressionBodyResult:
+		return "ResultExpressionMembership"
+	case symbols.ExpressionFilterCondition:
+		return "ElementFilterMembership"
+	case symbols.ExpressionChainFeature:
+		return "OwningMembership"
+	case symbols.ExpressionGuard, symbols.ExpressionTriggerAction:
+		return "TransitionFeatureMembership"
+	case symbols.ExpressionPayload:
+		return "ParameterMembership"
+	case symbols.ExpressionTransitionSuccession:
+		return "OwningMembership"
+	case symbols.ExpressionConnectorEnd:
+		return "EndFeatureMembership"
+	case symbols.ExpressionOperand:
+		switch member.Expr.Slot {
+		case "condition":
+			return "ParameterMembership"
+		case "value":
+			return "FeatureValue"
+		}
+		return "OwningMembership"
+	case symbols.ExpressionTransitionLinkParameter:
+		return "ParameterMembership"
+	case symbols.ExpressionTransitionLink:
+		return "FeatureMembership"
+	}
+	return ""
 }
 
 // isAcceptPayload reports whether member is the accept payload an action usage owner declares —
@@ -1090,6 +1127,11 @@ func (m *Model) membershipValue(sym *symbols.Symbol, feature string) (symbols.Fi
 		if rel.Member == nil {
 			// `entry;` owns no member: its visibility is the membership's own.
 			return m.visibilityValue(sym.Visibility), true
+		}
+		if expr := rel.Member.Expr; expr != nil && expr.Role == symbols.ExpressionFilterCondition {
+			// An ElementFilterMembership's visibility is the one its MemberPrefix states (KerML 8.2.3.4.1).
+			_, written := filterMemberStating(expr.Owner, rel.Member.Decl)
+			return m.visibilityValue(written), true
 		}
 		return m.visibilityValue(rel.Member.Visibility), true
 	case "isDefault", "isInitial":

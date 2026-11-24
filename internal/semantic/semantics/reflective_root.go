@@ -53,3 +53,33 @@ func (m *Model) rootNamespaceOwner(sym *symbols.Symbol) *symbols.Symbol {
 	}
 	return m.RootNamespace(sym.DocName)
 }
+
+// StatedReflectiveElements is ReflectiveElements without a document's RootNamespace, an element no
+// model states: a root-level element reads no owning namespace, membership or relationship.
+func (m *Model) StatedReflectiveElements(sym *symbols.Symbol, feature string) ([]*symbols.Symbol, bool) {
+	elements, ok := m.ReflectiveElements(sym, feature)
+	if !ok {
+		return nil, false
+	}
+	owning := feature == "owningRelationship" || feature == "owningMembership"
+	stated := func(element *symbols.Symbol) bool {
+		if m.IsRootNamespace(element) {
+			return false
+		}
+		return !owning || element.Implicit == nil || !m.IsRootNamespace(element.Implicit.Owner)
+	}
+	for at, element := range elements {
+		if stated(element) {
+			continue
+		}
+		// The model's answer is cached, so the kept elements are copied rather than moved.
+		kept := append(make([]*symbols.Symbol, 0, len(elements)-1), elements[:at]...)
+		for _, rest := range elements[at+1:] {
+			if stated(rest) {
+				kept = append(kept, rest)
+			}
+		}
+		return kept, true
+	}
+	return elements, true
+}

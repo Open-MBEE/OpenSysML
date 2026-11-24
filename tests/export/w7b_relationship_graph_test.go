@@ -1,6 +1,7 @@
 package export_test
 
 import (
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -254,9 +255,9 @@ func TestDisjoiningOrientationIsLoadBearing(t *testing.T) {
 	}
 }
 
-// The declaration clause `disjoint from C` is a property of the declared type,
-// not a Disjoining element, and stays so.
-func TestDisjoiningClauseStaysOnItsDeclaration(t *testing.T) {
+// The declaration clause `disjoint from B` is one Disjoining the declared type owns, beside
+// its `disjointFrom`, and is written back as the clause, not as a `disjoining` member.
+func TestDisjoiningClauseIsOwnedByItsDeclaration(t *testing.T) {
 	const src = `package P {
     classifier A;
     classifier B;
@@ -271,10 +272,14 @@ func TestDisjoiningClauseStaysOnItsDeclaration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse turtle: %v\n%s", err, first)
 	}
+	var disjoinings []string
 	for _, s := range g.Subjects() {
 		if rdf.LocalName(g.Type(s)) == "Disjoining" {
-			t.Errorf("the clause form declared a Disjoining element <%s>", s)
+			disjoinings = append(disjoinings, s.String())
 		}
+	}
+	if want := []string{"<urn:sysmlv2:element:P__C_dj0>"}; !slices.Equal(disjoinings, want) {
+		t.Errorf("the clause declared the Disjoining elements %v, want %v", disjoinings, want)
 	}
 	objects := g.Objects(rdf.IRI("urn:sysmlv2:element:P__C"), rdf.SysML+"disjointFrom")
 	if len(objects) != 1 || elementName(t, g, objects[0]) != "P::B" {
@@ -283,5 +288,8 @@ func TestDisjoiningClauseStaysOnItsDeclaration(t *testing.T) {
 	back := string(structuralRoundTrip(t, "clause.kerml", first))
 	if !strings.Contains(back, " C specializes A disjoint from B;") {
 		t.Errorf("the graph alone lost the declaration clause:\n%s", back)
+	}
+	if strings.Contains(back, "disjoining") {
+		t.Errorf("the graph alone wrote the clause's Disjoining as a member:\n%s", back)
 	}
 }
