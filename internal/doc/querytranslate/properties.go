@@ -15,7 +15,7 @@ import (
 var derivedProperties = []string{
 	query.PropertyID, query.PropertyType, query.PropertyMultiplicityLower, query.PropertyMultiplicityUpper,
 	query.PropertySymbolKind,
-	query.PropertyVerifyingCase,
+	query.PropertyVerifyingCase, query.PropertyBoundSubject,
 }
 
 // objectProjection is what a query over held objects reports when it selects
@@ -73,6 +73,7 @@ func NewTable(index *symbols.Index, model *semantics.Model) *Table {
 	t.derived[query.PropertyMultiplicityLower] = kindNumber
 	t.derived[query.PropertyMultiplicityUpper] = kindNumber
 	t.derived[query.PropertyVerifyingCase] = kindElement
+	t.derived[query.PropertyBoundSubject] = kindElement
 	t.metamodel[query.PropertyIsAbstract] = kindBoolean
 	t.metamodel[query.PropertyIsIndividual] = kindBoolean
 	for _, name := range []string{query.PropertyOwner, query.PropertyElementType, query.PropertyGeneral,
