@@ -585,3 +585,30 @@ func TestSequenceRenderingOfAnExposedSuccessionIgnoresExposeOrder(t *testing.T) 
 		t.Errorf("edges = %v, want the exposed succession drawn in either order", counts)
 	}
 }
+
+// A behavior left out takes the notes on its events with it: an event a message
+// that could not be drawn had put on its lifeline is gone as the lifeline is.
+func TestSequenceRenderingDropsNotesOnEventsOfBehaviorNotShown(t *testing.T) {
+	const text = `package Demo {
+	private import DiagramLayout::*;
+	private import Views::*;
+	private import StandardViewDefinitions::*;
+	item def Ping;
+	action def Run {
+		event occurrence sent;
+	}
+	part hidden {
+		event occurrence got;
+	}
+	message ping of Ping from Run.sent to hidden.got;
+	metadata Note about Run::sent { text = "sends once"; x = 40; y = 120; }
+	view calls : SequenceView { expose Run; expose ping; }
+}`
+	rendering := renderSource(t, "Demo::calls", text)
+	if len(rendering.Notes) != 0 {
+		t.Errorf("notes = %+v, want none: the event they are about is not shown", rendering.Notes)
+	}
+	if len(rendering.Roots) != 0 || len(rendering.Edges) != 0 {
+		t.Errorf("roots %v edges %v, want neither: the message has no receiver shown", lifelineNames(rendering), rendering.Edges)
+	}
+}
