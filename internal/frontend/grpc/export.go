@@ -297,7 +297,7 @@ func (s *Service) convertSource(req *pb.ConvertRequest) (string, []byte, error) 
 		if err != nil {
 			return "", nil, err
 		}
-		return src.FilePath, data, nil
+		return s.namedFilePath(src.FilePath), data, nil
 	default:
 		return "", nil, statusError(connect.CodeInvalidArgument, "source must be model_hash, file_path or content")
 	}
