@@ -3,6 +3,7 @@ package view
 import (
 	"fmt"
 	"math"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view/layout"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view/route"
@@ -126,8 +127,8 @@ func (a *arranger) layoutNode(node *Node) layout.Node {
 // cluster's anchor from the nodes and pins drawn in the cluster.
 const dotAnchorClearance = 4
 
-// anchorPoint is where a cluster's anchor is pinned: its box's centre, or under the orthogonal
-// routing the nearest point clear of its nodes, the pins and the notes, since Graphviz routes none once two nodes touch.
+// anchorPoint is where a cluster's anchor is pinned: its box's centre, or under the orthogonal routing the nearest point clear
+// of its nodes, the pins and the notes (the clearest where they leave less room), since Graphviz routes none once two nodes touch.
 func (w *dotWriter) anchorPoint(node *Node, box nodeBox) Point {
 	centre := box.centre()
 	if w.lines != LinesOrtho {
@@ -183,7 +184,47 @@ func (w *dotWriter) anchorPoint(node *Node, box nodeBox) Point {
 			}
 		}
 	}
+	if found {
+		return best
+	}
+	return clearestPoint(box, obstacles, centre)
+}
+
+// clearestPoint is the point in the box farthest from the obstacles when none is a clearance off them all:
+// the middle of a cell their sides cut the box into, so one touching nothing is found wherever there is one.
+func clearestPoint(box nodeBox, obstacles []nodeBox, centre Point) Point {
+	xs, ys := []float64{box.low.X, box.high.X}, []float64{box.low.Y, box.high.Y}
+	for _, o := range obstacles {
+		xs = append(xs, o.low.X, o.high.X)
+		ys = append(ys, o.low.Y, o.high.Y)
+	}
+	xs, ys = middlesWithin(xs, box.low.X, box.high.X), middlesWithin(ys, box.low.Y, box.high.Y)
+	best, room := centre, 0.0
+	for _, x := range xs {
+		for _, y := range ys {
+			p, clear := Point{X: x, Y: y}, math.Inf(1)
+			for _, o := range obstacles {
+				clear = math.Min(clear, max(o.low.X-x, x-o.high.X, o.low.Y-y, y-o.high.Y))
+			}
+			if clear > room || clear == room && room > 0 && nearer(p, best, centre) {
+				best, room = p, clear
+			}
+		}
+	}
 	return best
+}
+
+// middlesWithin is the midpoint of every two neighbouring values that lie from low to high.
+func middlesWithin(values []float64, low, high float64) []float64 {
+	slices.Sort(values)
+	values = slices.Compact(values)
+	var middles []float64
+	for i := 1; i < len(values); i++ {
+		if values[i-1] >= low && values[i] <= high {
+			middles = append(middles, (values[i-1]+values[i])/2)
+		}
+	}
+	return middles
 }
 
 // nearer reports whether p lies closer to the target than q, the upper and
