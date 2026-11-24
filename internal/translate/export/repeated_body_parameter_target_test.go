@@ -11,14 +11,14 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
-// A body parameter naming a target again (`in a : A :> g, g, h`) owns one relationship per name,
+// A body parameter naming a target again (`in a : A, A :> g, g, h`) owns one relationship per name,
 // and the symbol table spells each by the id the conversion writes, in the order it seats them.
 func TestRepeatedBodyParameterTargetSymbolIDsMatchTheConversion(t *testing.T) {
 	sf := source.New("body.sysml", []byte(`package P {
 	part def A;
 	part g : A;
 	part h : A;
-	calc def F { in xs : A[*]; xs->collect { in a : A :> g, g, h; a } }
+	calc def F { in xs : A[*]; xs->collect { in a : A, A :> g, g, h; a } }
 }
 `))
 	root := parser.New(sf).ParseFile()
@@ -37,7 +37,7 @@ func TestRepeatedBodyParameterTargetSymbolIDsMatchTheConversion(t *testing.T) {
 			written = append(written, id)
 		}
 	}
-	want := []string{parameter + "_ft0", parameter + "_ss0", parameter + "_ss2", parameter + "_ss1"}
+	want := []string{parameter + "_ft0", parameter + "_ft1", parameter + "_ss0", parameter + "_ss2", parameter + "_ss1"}
 	if !slices.Equal(written, want) {
 		t.Fatalf("the conversion writes %v, want %v", written, want)
 	}

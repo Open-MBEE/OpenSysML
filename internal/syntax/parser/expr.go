@@ -731,10 +731,15 @@ func (p *Parser) parseBodyExpr(start int) ast.Node {
 					paramMult = p.parseMultiplicity()
 				}
 			}
+			// The typing clause lists its further types (`in p : A, B`) as a head's does.
+			var paramRels []*ast.Relationship
+			for paramType != nil && p.accept2(lexer.Comma) {
+				paramRels = append(paramRels, p.parseRelationshipClauseTarget(ast.RelTyping))
+			}
 			// A parameter may specialize a feature instead of naming a type
 			// (`in p :> ISQ::mass`), which is how a filter names the feature its
 			// elements redefine.
-			paramRels := p.parseRelationships(declFeature)
+			paramRels = append(paramRels, p.parseRelationships(declFeature)...)
 			if _, ok := p.accept(lexer.Eq); ok {
 				paramValue = p.ParseExpression()
 			}
