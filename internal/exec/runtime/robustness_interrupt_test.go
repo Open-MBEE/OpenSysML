@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"fmt"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -17,6 +18,7 @@ func TestRuntimeRobustnessInterrupt(t *testing.T) {
 	t.Run("ActionRunStopsFromAnotherGoroutine", testInterruptFromAnotherGoroutine)
 	t.Run("EvaluationStopsAtItsNextStep", testInterruptStopsAnEvaluation)
 	t.Run("StateDoBehaviorStopsAtItsNextStep", testInterruptStopsAStateDoBehavior)
+	t.Run("InterruptionIsNotTheBehaviorsFailure", testInterruptIsNotRecordedOnABehavior)
 }
 
 const spinningAction = `
@@ -139,5 +141,18 @@ func testInterruptStopsAStateDoBehavior(t *testing.T) {
 	flag.Store(true)
 	if err := exec.RunToQuiescence(); !errors.Is(err, ErrInterrupted) {
 		t.Fatalf("RunToQuiescence() = %v, want ErrInterrupted", err)
+	}
+}
+
+// testInterruptIsNotRecordedOnABehavior checks a run of a type-bound behavior
+// stopped from outside is not recorded as that behavior's failure, which would
+// end it for every later run, while a failure of its own still is.
+func testInterruptIsNotRecordedOnABehavior(t *testing.T) {
+	bound := &ObjectBehavior{typeBound: true}
+	if recordsFailure(bound, fmt.Errorf("machine: %w", ErrInterrupted)) {
+		t.Error("an interrupted run was recorded as the behavior's failure")
+	}
+	if !recordsFailure(bound, errors.New("the model failed")) {
+		t.Error("a behavior's own failure was not recorded on it")
 	}
 }
