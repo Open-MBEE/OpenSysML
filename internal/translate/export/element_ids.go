@@ -847,25 +847,29 @@ func (e *encoder) writtenHeadClauses(node, parent ast.Node, parents map[ast.Node
 	return clauses
 }
 
-// clauseObjects are the distinct objects the head's clauses of kind state, in clause order, and
-// each clause's position among them: clauses repeating a target (`: T, T`) share one relationship,
-// while each `about` name is its own Annotation (`about x, x` states two).
+// clauseObjects are the objects the head's clauses of kind state and each clause's position among
+// them, as pendingRelationships orders them: the distinct ones, then each repeat (`: T, T`).
 func (e *encoder) clauseObjects(subject rdf.Term, clauses []*ast.Relationship, kind ast.RelationshipKind, chains map[*ast.Relationship]int) ([]string, map[*ast.Relationship]int) {
-	var objects []string
+	var objects, repeated []string
+	var repeats []*ast.Relationship
 	at := map[*ast.Relationship]int{}
 	for _, rel := range clauses {
 		if rel == nil || rel.Target == nil || rel.Kind != kind {
 			continue
 		}
 		object := e.clauseObject(subject, rel, chains)
-		i := slices.Index(objects, object)
-		if i < 0 || kind == ast.RelAnnotates {
-			i = len(objects)
-			objects = append(objects, object)
+		if kind != ast.RelAnnotates && slices.Contains(objects, object) {
+			repeated = append(repeated, object)
+			repeats = append(repeats, rel)
+			continue
 		}
-		at[rel] = i
+		at[rel] = len(objects)
+		objects = append(objects, object)
 	}
-	return objects, at
+	for i, rel := range repeats {
+		at[rel] = len(objects) + i
+	}
+	return append(objects, repeated...), at
 }
 
 // writtenBoundEndReferences records the ReferenceSubsetting of each end feature a head

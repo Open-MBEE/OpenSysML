@@ -384,6 +384,14 @@ occurrence expanded at least as deeply; later occurrences retain their own and r
 
 - Reflection owns a behavior body's `in`/`out` feature (`action def Act { in p; out q; }`, and a usage's) through a `FeatureMembership` carrying the direction, as the pilot exports it and the RDF/API-JSON writers already stated; only `return r` is a `ReturnParameterMembership`. `ownedMemberParameter` is answered on the return membership alone.
 
+- A body parameter's typing clause now lists its types (`{ in a : A, B; a }`) as any other
+  declaration's does; the parser read one type after the colon and reported the comma, so the
+  list could only be written `defined by A, B`, and a graph stating two typings for a body
+  parameter was refused when read back as notation.
+  The list's bound is read after its last type (`in a : A, B[1]`), and a body parameter typed by
+  a conjugate (`in a : ~P`) parses after the colon and is exported as a `ConjugatedPortTyping`,
+  as a usage typed so is; it was written as an ordinary typing by `P`.
+
 - The `QueryOutcome` status detail a failed `Query` or `RunDocumentQuery` carries is bounded: it holds the first eight failures, findings and path failures of a fan-out (the new `failuresTotal`, `findingsTotal` and `pathFailuresTotal` count them all), and each frontier lists at most eight members, features or kinds — the spellings nearest the step's argument first — with the whole count in the new `membersTotal`, `featuresTotal` and `kindsTotal` fields; the missing-feature message names the first eight elements a fan-out failed on and counts the rest. An unknown property's frontier used to name every metamodel property, which pushed the status trailer past gRPC's 8 KiB metadata limit and made grpc-core clients fail with `RESOURCE_EXHAUSTED` instead of `INVALID_ARGUMENT`. The CLI's `-json` record and the REPL still carry the whole list.
 
 - The whole module now builds with `-tags sysml_re` and `-tags sysml_nov1`: `go build ./...` failed in the service package, which called the SysML v1 migration those builds leave out. Such a build of the service no longer reports the `migrate` capability and refuses `Migrate` as unimplemented, naming the capability.
@@ -862,6 +870,15 @@ occurrence expanded at least as deeply; later occurrences retain their own and r
 - The gRPC `RenderNode` carries `parallel` (field 17), as the LSP's `RenderNode` JSON does, so a gRPC client can write «parallel» under a parallel state's name; the Python, Node, Rust and MATLAB clients expose it. A loop or conditional nested as a statement in a textual `loop body`, `then body` or `else body` compartment (SysML v2.1 §8.2.3.17 action-body-textual) now lists its own body's statements indented under its head, with its `else` and `until` rows, where it showed its head alone.
 
 - A mixed rendering whose exposes overlap — a structure and, through `::**`, a member it draws — no longer draws that member twice, once nested in its owner and once at the top level under the same id: `RenderView` lists each node once, nested in its owner, and its node ids are unique within a rendering. A structure exposed beneath a collapsed exposed owner is now drawn as a root of its own in a mixed rendering, as in the tree and interconnection forms, instead of being folded away.
+
+- The RDF conversion now writes one relationship element per name of a head clause that names a
+  target again (`: A, A`, `specializes A, A`, `subsets g, g`, `redefines g, g`, `references g, g`,
+  `crosses g, g`, `unions A, A`, `intersects A, A`, `differences A, A`, `disjoint from A, A`,
+  `featured by A, A`), each with its own `elementId`, as `about x, x` already did. It wrote one
+  element for both names before, so a query read the same `elementId` for two relationships, and
+  the repeated name was lost when the notation was read back from the graph alone.
+  A repeated name also comes back in the heads written in shorthand (`return :> v, v`,
+  `perform a :>> b, b`), and under the keyword it was written with (`subsets g, g specializes g`).
 
 - REPL: a backslash in a meta-command argument is kept as written, so a Windows path (`%load C:\models\ro.sysml`, `\\host\share\ro.sysml`) reaches the command intact, quoted or not; a backslash still escapes a following space or quote.
 
