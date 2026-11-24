@@ -302,6 +302,9 @@ func (a *hdbkAudit) note(relation hdbkRelation, element, other *symbols.Symbol) 
 		return
 	}
 	key := symbols.KeyOf(element)
+	if key == symbols.KeyOf(other) {
+		return // an element related to itself is related to nothing
+	}
 	a.facts.links[hdbkLink{relation, key, hdbkNone}] = true
 	if kind := a.kindOf(other); kind != hdbkNone {
 		a.facts.links[hdbkLink{relation, key, kind}] = true

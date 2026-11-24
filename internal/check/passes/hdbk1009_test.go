@@ -75,6 +75,11 @@ func TestHDBK1009SubsystemRequirementsWithoutASystemRequirement(t *testing.T) {
 		#subsystemRequirement requirement loose;
 		#derivation connection { end #original ::> top; end #derive ::> derived; }`),
 		CodeHDBK1009RequirementNotDerived, 5)
+	w8dWantLines(t, hdbkModel(`
+		#subsystemRequirement requirement a;
+		#subsystemRequirement requirement b;
+		#derivation connection { end #original ::> a; end #derive ::> a; }`),
+		CodeHDBK1009RequirementNotDerived, 3, 4)
 }
 
 // The peer that makes a lone subsystem requirement warn may sit in another document.
