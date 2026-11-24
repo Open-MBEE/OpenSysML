@@ -29,3 +29,15 @@ func transparentToImplicitSource(member Node) bool {
 	}
 	return false
 }
+
+// LeavableByTransition reports whether member is a state usage, the only member a sourceless
+// transition leaves (SysML v2 §7.18.3): not an action of the body, a pseudostate or a marker.
+func LeavableByTransition(member Node) bool {
+	switch n := member.(type) {
+	case *StateNode, *SubstateMember:
+		return true
+	case *Usage:
+		return n.Kind == UsageState
+	}
+	return false
+}

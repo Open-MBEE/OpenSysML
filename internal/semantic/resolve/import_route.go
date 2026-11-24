@@ -176,20 +176,28 @@ func (r *Resolver) plainRegion(scope *symbols.Scope) bool {
 		return false
 	}
 	// Every read asks, so the tables are kept between calls; a call made within this one takes its own.
-	work := r.plainWork
+	region := r.plainWork
 	r.plainWork = nil
-	if work == nil {
-		work = &plainRegionWork{named: map[string]*symbols.Symbol{}, seen: map[*symbols.Scope]bool{}}
+	if region == nil {
+		region = &plainRegionReader{r: r, named: map[string]*symbols.Symbol{}, seen: map[*symbols.Scope]bool{}}
 	}
 	defer func() {
-		work.reset()
-		r.plainWork = work
+		region.reset()
+		r.plainWork = region
 	}()
-	return r.plainRegionIn(scope, work)
+	region.scope = scope
+	region.add(scope)
+	if !region.reach() || len(region.seen) == 1 {
+		return false
+	}
+	if len(region.filtered) != 0 && !region.filtersHold() {
+		return false
+	}
+	return region.namesUnshadowed()
 }
 
-// plainImport is an import a plain region reads: the namespace stating it, the member its first
-// segment names and the package it names.
+// plainImport is an import of the region read, with the namespace stating it, the member its
+// first segment names and the package it names.
 type plainImport struct {
 	imp    *ast.Import
 	from   *symbols.Scope
@@ -197,158 +205,181 @@ type plainImport struct {
 	target *symbols.Symbol
 }
 
-// plainRegionWork holds the tables of one plainRegion call.
-type plainRegionWork struct {
-	imports                 []plainImport
-	outer, filtered, region []*symbols.Scope
-	named                   map[string]*symbols.Symbol
-	seen                    map[*symbols.Scope]bool
+// plainRegionReader reads the namespaces the imports of scope reach, for plainRegion.
+type plainRegionReader struct {
+	r     *Resolver
+	scope *symbols.Scope
+	// region holds the namespaces reached in the order found; those before read have been read.
+	region []*symbols.Scope
+	read   int
+	seen   map[*symbols.Scope]bool
+	// named holds the members of the namespaces read, by name.
+	named   map[string]*symbols.Symbol
+	imports []plainImport
+	outside []symbols.OutsideImport
+	// outer holds the namespaces around an import searched for its first segment; filtered,
+	// the namespaces that import and declare a filter.
+	outer, filtered []*symbols.Scope
+	// routes holds the namespaces each namespace's imports lead to; stating, the namespaces
+	// of other documents whose members were read beside an import they state.
+	routes  map[*symbols.Scope][]*symbols.Scope
+	stating map[*symbols.Scope]bool
 }
 
 // reset empties the tables, keeping their storage and no reference into a model.
-func (w *plainRegionWork) reset() {
-	clear(w.imports)
-	clear(w.outer)
-	clear(w.filtered)
-	clear(w.region)
-	w.imports, w.outer, w.filtered = w.imports[:0], w.outer[:0], w.filtered[:0]
-	w.region = w.region[:0]
-	clear(w.named)
-	clear(w.seen)
+func (p *plainRegionReader) reset() {
+	clear(p.region)
+	clear(p.imports)
+	clear(p.outside)
+	clear(p.outer)
+	clear(p.filtered)
+	p.region, p.imports, p.outside = p.region[:0], p.imports[:0], p.outside[:0]
+	p.outer, p.filtered = p.outer[:0], p.filtered[:0]
+	p.scope, p.read = nil, 0
+	clear(p.seen)
+	clear(p.named)
+	clear(p.routes)
+	clear(p.stating)
 }
 
-// plainRegionIn is plainRegion over the emptied tables of work.
-func (r *Resolver) plainRegionIn(scope *symbols.Scope, work *plainRegionWork) bool {
-	imports, outer, filtered := work.imports, work.outer, work.filtered
-	named, seen := work.named, work.seen
-	seen[scope] = true
-	region := append(work.region, scope)
-	// The tables grown here are the ones the next call starts from.
-	defer func() {
-		work.imports, work.outer, work.filtered, work.region = imports, outer, filtered, region
-	}()
-	// unique reports whether no member of ns has the name of another read before it.
-	unique := func(ns *symbols.Scope) bool {
-		distinct := true
-		ns.ForEachNamedMember(func(name string, sym *symbols.Symbol) bool {
-			if held, dup := named[name]; dup && held != sym {
-				distinct = false
-			}
-			named[name] = sym
-			return distinct
-		})
+// unique reports whether no member of ns has the name of another read before it.
+func (p *plainRegionReader) unique(ns *symbols.Scope) bool {
+	distinct := true
+	ns.ForEachNamedMember(func(name string, sym *symbols.Symbol) bool {
+		if held, dup := p.named[name]; dup && held != sym {
+			distinct = false
+		}
+		p.named[name] = sym
 		return distinct
+	})
+	return distinct
+}
+
+func (p *plainRegionReader) add(ns *symbols.Scope) {
+	if !p.seen[ns] {
+		p.seen[ns] = true
+		p.region = append(p.region, ns)
 	}
-	// reach reads the namespaces of the region not read yet, and those their own imports reach.
-	read := 0
-	reach := func() bool {
-		for ; read < len(region); read++ {
-			ns := region[read]
-			stated := ns.Imports()
-			if len(stated) != 0 && len(r.namespaceFilters(ns)) != 0 {
-				filtered = append(filtered, ns)
-			}
-			if ns != scope && !(plainNamespace(ns) && unique(ns)) {
-				return false
-			}
-			for _, imp := range stated {
-				if !plainImportOf(imp) {
-					return false
-				}
-				// A lookup passes over an import whose target is being resolved; an enumeration reads it.
-				if r.resolvingImports[imp] {
-					if r.enumDepth > 0 {
-						return false
-					}
-					continue
-				}
-				first, target, ok := ownedTarget(ns, imp, &outer)
-				if !ok {
-					return false
-				}
-				imports = append(imports, plainImport{imp: imp, from: ns, named: first, target: target})
-				if !seen[target.Scope] {
-					seen[target.Scope] = true
-					region = append(region, target.Scope)
-				}
-			}
+}
+
+// reach reads the namespaces of the region not read yet, and those their own imports reach.
+func (p *plainRegionReader) reach() bool {
+	for ; p.read < len(p.region); p.read++ {
+		if !p.readNamespace(p.region[p.read]) {
+			return false
 		}
-		return true
 	}
-	if !reach() {
+	return true
+}
+
+func (p *plainRegionReader) readNamespace(ns *symbols.Scope) bool {
+	stated := ns.Imports()
+	if len(stated) != 0 && len(p.r.namespaceFilters(ns)) != 0 {
+		p.filtered = append(p.filtered, ns)
+	}
+	if ns != p.scope && !(plainNamespace(ns) && p.unique(ns)) {
 		return false
 	}
-	if len(seen) == 1 {
+	for _, imp := range stated {
+		if !p.readImport(ns, imp) {
+			return false
+		}
+	}
+	return true
+}
+
+func (p *plainRegionReader) readImport(ns *symbols.Scope, imp *ast.Import) bool {
+	if !plainImportOf(imp) {
 		return false
 	}
-	var outside []symbols.OutsideImport
-	if len(filtered) != 0 {
-		routes := map[*symbols.Scope][]*symbols.Scope{}
-		root := rootOf(scope)
-		stating := map[*symbols.Scope]bool{}
-		// A namespace another document declares too has the imports stated there, each read as its own are.
-		for at := 0; at < len(region); at++ {
-			ns := region[at]
-			stated := r.importsStatedOutside(ns)
-			if len(stated) != 0 && len(ns.Imports()) == 0 && len(r.namespaceFilters(ns)) != 0 {
-				filtered = append(filtered, ns)
-			}
-			for _, stated := range stated {
-				target := r.namespaceNamed(root, stated.Target)
-				if target == nil || !plainImportOf(stated.Import) {
-					return false
-				}
-				// The members stated beside the import are the namespace's too, unless it is the reader.
-				if ns != scope && !stating[stated.From] {
-					stating[stated.From] = true
-					if !unique(stated.From) {
-						return false
-					}
-				}
-				outside = append(outside, stated)
-				if !seen[target] {
-					seen[target] = true
-					region = append(region, target)
-				}
-				if ns == scope || stated.Import.Visibility != ast.VisibilityPrivate {
-					routes[ns] = append(routes[ns], target)
-				}
-			}
-			if !reach() {
-				return false
-			}
-		}
-		// Past scope a route takes public imports alone (KerML 8.3.2.4.5 visibleMemberships).
-		for _, read := range imports {
-			if read.from == scope || read.imp.Visibility != ast.VisibilityPrivate {
-				routes[read.from] = append(routes[read.from], read.target.Scope)
-			}
-		}
-		routed := reachedFrom(routes, scope, nil)
-		for _, ns := range filtered {
-			if routed[ns] && !filtersEveryRoute(routes, scope, ns) {
-				return false
-			}
+	// A lookup passes over an import whose target is being resolved; an enumeration reads it.
+	if p.r.resolvingImports[imp] {
+		return p.r.enumDepth <= 0
+	}
+	first, target, ok := ownedTarget(ns, imp, &p.outer)
+	if !ok {
+		return false
+	}
+	p.imports = append(p.imports, plainImport{imp: imp, from: ns, named: first, target: target})
+	p.add(target.Scope)
+	return true
+}
+
+// filtersHold reads the imports other documents state for the region's namespaces and
+// reports whether each filter restricts what its namespace reaches on every route from scope.
+func (p *plainRegionReader) filtersHold() bool {
+	if p.routes == nil {
+		p.routes = map[*symbols.Scope][]*symbols.Scope{}
+		p.stating = map[*symbols.Scope]bool{}
+	}
+	root := rootOf(p.scope)
+	// A namespace another document declares too has the imports stated there, each read as its own are.
+	for at := 0; at < len(p.region); at++ {
+		if !p.readStatedOutside(p.region[at], root) || !p.reach() {
+			return false
 		}
 	}
+	// Past scope a route takes public imports alone (KerML 8.3.2.4.5 visibleMemberships).
+	for _, read := range p.imports {
+		if read.from == p.scope || read.imp.Visibility != ast.VisibilityPrivate {
+			p.routes[read.from] = append(p.routes[read.from], read.target.Scope)
+		}
+	}
+	routed := reachedFrom(p.routes, p.scope, nil)
+	for _, ns := range p.filtered {
+		if routed[ns] && !filtersEveryRoute(p.routes, p.scope, ns) {
+			return false
+		}
+	}
+	return true
+}
+
+func (p *plainRegionReader) readStatedOutside(ns, root *symbols.Scope) bool {
+	stated := p.r.importsStatedOutside(ns)
+	if len(stated) != 0 && len(ns.Imports()) == 0 && len(p.r.namespaceFilters(ns)) != 0 {
+		p.filtered = append(p.filtered, ns)
+	}
+	for _, stated := range stated {
+		target := p.r.namespaceNamed(root, stated.Target)
+		if target == nil || !plainImportOf(stated.Import) {
+			return false
+		}
+		// The members stated beside the import are the namespace's too, unless it is the reader.
+		if ns != p.scope && !p.stating[stated.From] {
+			p.stating[stated.From] = true
+			if !p.unique(stated.From) {
+				return false
+			}
+		}
+		p.outside = append(p.outside, stated)
+		p.add(target)
+		if ns == p.scope || stated.Import.Visibility != ast.VisibilityPrivate {
+			p.routes[ns] = append(p.routes[ns], target)
+		}
+	}
+	return true
+}
+
+// namesUnshadowed reports whether every import read names its target the way one visit does.
+func (p *plainRegionReader) namesUnshadowed() bool {
 	// A namespace around an import may bring names of its own only as one of these.
-	for _, ns := range outer {
-		if !seen[ns] && len(ns.Imports()) != 0 {
+	for _, ns := range p.outer {
+		if !p.seen[ns] && len(ns.Imports()) != 0 {
 			return false
 		}
 	}
-	for _, stated := range outside {
+	for _, stated := range p.outside {
 		// The index names its target from the root: no member read may answer to that name first.
-		if _, had := named[stated.Import.Imported.Parts[0].Text]; had {
+		if _, had := p.named[stated.Import.Imported.Parts[0].Text]; had {
 			return false
 		}
 	}
-	for _, read := range imports {
+	for _, read := range p.imports {
 		// The name an import starts at is no member's that an import could bring instead.
-		if held, had := named[read.imp.Imported.Parts[0].Text]; had && held != read.named {
+		if held, had := p.named[read.imp.Imported.Parts[0].Text]; had && held != read.named {
 			return false
 		}
-		if target, ok := r.importTargetOf(read.from, read.imp); !ok || target != read.target {
+		if target, ok := p.r.importTargetOf(read.from, read.imp); !ok || target != read.target {
 			return false
 		}
 	}

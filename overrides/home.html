@@ -28,21 +28,14 @@
   }
   </script>
   <style>
-    .osml-hero {
-      --osml-hero-bg: var(--opensysml-dark-blue);
-      /* The hero is dark in both schemes, so it takes the accent for dark backgrounds. */
-      --md-accent-fg-color: var(--opensysml-light-blue);
-    }
-    /* The node card sits on the page's own background; the figure and its table are always white. */
-    .osml-nodecard {
-      --md-accent-fg-color: var(--osml-accent);
-    }
     .osml-table,
     .osml-diagram {
       --md-accent-fg-color: var(--opensysml-accent);
     }
-
     .osml-hero {
+      --osml-hero-bg: var(--opensysml-dark-blue);
+      /* The hero is dark in both schemes, so it takes the accent for dark backgrounds. */
+      --md-accent-fg-color: var(--opensysml-light-blue);
       /* Graph paper: a faint 20px grid with a stronger line every fifth square. */
       background:
         linear-gradient(rgba(255, 255, 255, .09) 1px, transparent 1px) 0 0 / 100px 100px,
@@ -338,6 +331,8 @@
       stroke-width: 2;
     }
     .osml-nodecard {
+      /* The node card sits on the page's own background; the figure and its table are always white. */
+      --md-accent-fg-color: var(--osml-accent);
       position: absolute;
       z-index: 2;
       width: 19rem;
@@ -474,7 +469,8 @@
     }
     .osml-schematic__variants { display: contents; }
     .osml-schematic__run button.osml-btn[aria-pressed="true"] {
-      background-color: rgba(255, 255, 255, .18);
+      /* White at 18% over the hero's dark blue, opaque so the label's contrast does not depend on what is behind. */
+      background-color: #3b3254;
       color: #fff;
     }
     .osml-schematic__status {
@@ -529,7 +525,8 @@
       color: var(--osml-hero-bg);
     }
     .osml-debug button:disabled { opacity: .45; cursor: default; }
-    .osml-debug button[aria-pressed="true"] { background: rgba(255, 213, 79, .25); color: #fff; }
+    /* Amber at 25% over the debugger's panel, opaque for the same reason. */
+    .osml-debug button[aria-pressed="true"] { background: #49382e; color: #fff; }
     .osml-debug select option { color: #181818; }
     .osml-debug input { width: 5.5em; }
     .osml-debug label { display: inline-flex; gap: .3rem; align-items: center; }

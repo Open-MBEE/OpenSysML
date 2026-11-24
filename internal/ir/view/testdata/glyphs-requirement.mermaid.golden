@@ -33,6 +33,9 @@ flowchart TD
   n3("`*«concern»*
 **safety**
 “Nothing overflows.”`")
+  n4["`*«part def»*
+**Plant**`"]
+  n0 ---|"◇ «subject» plant"| n4
   n0 -->|"frame"| n3
   n1 -->|"typing"| n0
   n2 -->|"require"| n1
