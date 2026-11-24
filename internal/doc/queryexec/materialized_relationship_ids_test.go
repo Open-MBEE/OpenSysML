@@ -113,3 +113,36 @@ func TestTypeOperandRelationshipsHaveElementIDs(t *testing.T) {
 		}
 	}
 }
+
+// TestDisjoiningInvertingAndFeaturingClausesHaveElementIDs: each target of `disjoint from`,
+// `inverse of` and `featured by` reads the id the conversion mints for its relationship.
+func TestDisjoiningInvertingAndFeaturingClausesHaveElementIDs(t *testing.T) {
+	fixture := loadExecutionSource(t, `package Observatory {
+	package P {
+		classifier A { feature q : B; }
+		classifier B;
+		classifier X disjoint from A, B;
+		feature f : A;
+		feature g : B inverse of f;
+		feature h featured by A, B;
+		feature k disjoint from f.q;
+		feature m featured by A;
+	}
+}`)
+	ids := ownedElementIDs(t, fixture, "P")
+	for id, want := range map[string]string{
+		"Observatory__P__X_dj0": "/Disjoining", "Observatory__P__X_dj1": "/Disjoining",
+		"Observatory__P__g_iv0":          "/FeatureInverting",
+		"Observatory__P__h_tf0":          "/TypeFeaturing",
+		"Observatory__P__h_tf1":          "/TypeFeaturing",
+		"Observatory__P__m_tf0":          "/TypeFeaturing",
+		"Observatory__P__k_dj0":          "/Disjoining",
+		"Observatory__P__k_pchain0":      "/Disjoining/Feature",
+		"Observatory__P__k_pchain0_pfc0": "/Disjoining/Feature/FeatureChaining",
+		"Observatory__P__k_pchain0_pfc1": "/Disjoining/Feature/FeatureChaining",
+	} {
+		if got := ids[id]; !strings.HasSuffix(got, want) {
+			t.Errorf("elementId %q identifies %q, want a path ending in %s", id, got, want)
+		}
+	}
+}

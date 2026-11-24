@@ -151,7 +151,7 @@ func (e *executor) navigateValue(expression queryplan.Expression, value Value, f
 // reads it), else the elements; ok is false where the model derives neither.
 func (e *executor) reflectiveValues(expression queryplan.Expression, sym *symbols.Symbol, feature string) ([]Value, bool, error) {
 	if feature != "documentation" {
-		if elements, ok := e.context.Model.ReflectiveElements(sym, feature); ok {
+		if elements, ok := e.context.Model.StatedReflectiveElements(sym, feature); ok {
 			return reflectiveElementValues(sym, elements), true, nil
 		}
 	}

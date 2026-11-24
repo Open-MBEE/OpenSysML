@@ -3337,6 +3337,7 @@ func chainTargets(rels []*ast.Relationship) map[*ast.Relationship]int {
 		ast.RelSpecializes: true, ast.RelSubsets: true,
 		ast.RelRedefines: true, ast.RelReferences: true,
 		ast.RelCrosses: true, ast.RelUnions: true, ast.RelIntersects: true, ast.RelDifferences: true,
+		ast.RelDisjoint: true, ast.RelInverseOf: true, ast.RelFeaturedBy: true,
 	}
 	chains := map[*ast.Relationship]int{}
 	for _, rel := range rels {

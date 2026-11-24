@@ -623,6 +623,17 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 		out = append(out, redefined)
 	}
 
+	// A type argument's parameter is typed by the type written. An expression is typed by its function,
+	// its parameters redefine that function's, and its result specializes what it evaluates to.
+	for _, general := range slices.Concat([]*symbols.Symbol{m.typeArgumentType(sym)}, m.expressionElementGenerals(sym),
+		m.namedArgumentRedefinitions(sym), m.expressionParameterRedefinitions(sym)) {
+		if general == nil || general == sym || seen[general] {
+			continue
+		}
+		seen[general] = true
+		out = append(out, general)
+	}
+
 	// What the declaration's kind implies comes last: the one derivation that resolution,
 	// inheritance and ImpliedSpecializations read (KerML §8.4.2).
 	implied := m.deriveImpliedGenerals(sym, out, fromMetadata)
