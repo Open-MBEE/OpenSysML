@@ -286,13 +286,19 @@ func (ids *ElementIDs) recordStatementOperands(e *encoder, node ast.Node, subjec
 }
 
 // recordLoopVariable records the ReferenceUsage a `for` loop writes for its variable
-// (loopVariable) and the membership owning it: the variable declares no node of its own.
+// (loopVariable), the membership owning it and the relationships its head states.
 func (ids *ElementIDs) recordLoopVariable(e *encoder, loop *ast.WhileLoopActionNode, subject rdf.Term) {
 	variable := e.ids.mintedNode(rdf.ExpressionIRI(subject, xLoopVariable), subject, xLoopVariable)
 	membership := e.ids.minted(rdf.OwningMembershipIRIOf(variable), variable, rdf.OwningMembershipSuffix)
 	recorded := partIDs{element: rdf.LocalName(variable.Value), membership: rdf.LocalName(membership.Value)}
 	ids.partByNode[partKey{loop, xLoopVariable}] = recorded
 	ids.partBySpan[spanPartKey{spanKey{e.file.Name(), loop.Span()}, xLoopVariable}] = recorded
+	head := map[ast.Node]string{}
+	e.clauseRelationshipIDs(variable, false, loop.VariableRelationships, head)
+	for key, id := range head {
+		ids.relationshipByNode[key] = id
+		ids.relationshipBySpan[spanKey{e.file.Name(), key.Span()}] = id
+	}
 }
 
 // recordGuard records the guard a transition owns through its TransitionFeatureMembership
@@ -825,8 +831,12 @@ func (e *encoder) writtenDependencyAnnotation(node, parent ast.Node, subject rdf
 // writtenClauseRelationships records the relationship written for each distinct target of the
 // head's clauses (materializeRelationships), by the clause or by the target of an implicit one.
 func (e *encoder) writtenClauseRelationships(node, parent ast.Node, subject rdf.Term, parents map[ast.Node]ast.Node, out map[ast.Node]string) {
-	classifier := isClassifier(declaredMetaclass(node))
-	clauses := e.writtenHeadClauses(node, parent, parents)
+	e.clauseRelationshipIDs(subject, isClassifier(declaredMetaclass(node)), e.writtenHeadClauses(node, parent, parents), out)
+}
+
+// clauseRelationshipIDs records, into out, the relationship materialized under subject for
+// each of clauses, by the clause or by the target of an implicit one.
+func (e *encoder) clauseRelationshipIDs(subject rdf.Term, classifier bool, clauses []*ast.Relationship, out map[ast.Node]string) {
 	chains := chainTargets(clauses)
 	for _, kind := range materializedKinds {
 		objects, at := e.clauseObjects(subject, clauses, kind, chains)
