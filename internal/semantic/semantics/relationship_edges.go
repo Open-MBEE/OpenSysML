@@ -219,7 +219,7 @@ type derivationReferent struct {
 }
 
 // derivationPath is the features node inherits its requirement through, read from what each
-// segment resolves to: a namespace, or a feature declaring the next segment, is no step.
+// segment resolves to: a feature is a step when a type it conforms to declares the next segment.
 func (m *Model) derivationPath(scope *symbols.Scope, node ast.Node) []*symbols.Symbol {
 	steps := m.resolvedSteps(scope, node)
 	if len(steps) == 0 {
@@ -230,7 +230,8 @@ func (m *Model) derivationPath(scope *symbols.Scope, node ast.Node) []*symbols.S
 	}
 	var path []*symbols.Symbol
 	for i, step := range steps[:len(steps)-1] {
-		if step.DeclaresUsage() && !symbols.SameElement(steps[i+1].Owner(), step) {
+		declarer := steps[i+1].Owner()
+		if step.DeclaresUsage() && declarer != nil && !symbols.SameElement(declarer, step) && m.Conforms(step, declarer) {
 			path = append(path, step)
 		}
 	}

@@ -11,14 +11,17 @@ import (
 )
 
 // Parts held as an interface record declare no AST node, yet a derivation between the
-// requirement two of them inherit still runs between two requirements.
+// requirement two of them inherit still runs between two requirements; an alias inherits nothing.
 func TestDerivationEdgesTellRecordedPartsApart(t *testing.T) {
 	const partsName, linksName = "parts.sysml", "links.sysml"
-	const partsText = `package Parts { part def D { requirement r; } part a : D; part b : D; }`
+	const partsText = `package Parts { part def D { requirement r; } part a : D; part b : D;
+		requirement top; part h { alias t for top; } part def E { alias t for top; } part e : E; }`
 	const linksText = `package Links {
 		private import RequirementDerivation::*;
 		private import Parts::*;
 		#derivation connection two { end #original ::> a.r; end #derive ::> b.r; }
+		#derivation connection aliased { end #original ::> top; end #derive ::> h.t; }
+		#derivation connection inheritedAlias { end #original ::> top; end #derive ::> e.t; }
 		#derivation connection one { end #original ::> a.r; end #derive ::> Parts::a.r; }
 	}`
 	idx := NewModelIndex()
@@ -48,7 +51,7 @@ func TestDerivationEdgesTellRecordedPartsApart(t *testing.T) {
 	if a := lookupPath(t, ridx.DocumentRoot(partsName), "Parts", "a"); !a.Recorded() {
 		t.Fatal("Parts::a is not a recorded symbol")
 	}
-	for name, same := range map[string]bool{"two": false, "one": true} {
+	for name, same := range map[string]bool{"two": false, "one": true, "aliased": true, "inheritedAlias": true} {
 		edges := rmodel.RelationshipEdgesOf(lookupPath(t, ridx.DocumentRoot(linksName), "Links", name), semantics.RelationshipDerivation)
 		if len(edges) != 1 {
 			t.Errorf("%s: %d derivation edges, want 1", name, len(edges))
