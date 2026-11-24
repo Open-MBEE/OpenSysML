@@ -136,6 +136,7 @@ from the clients and a gap is a stated gap rather than a silent one.
 | `convert_library_stubs` | bound | bound | bound | bound | bound | bound | bound |
 | `convert_inherited_members` | bound | bound | bound | bound | bound | bound | bound |
 | `convert_check_diagnostics` | bound | bound | bound | bound | bound | bound | bound |
+| `convert_projection` | bound | bound | bound | bound | bound | bound | bound |
 | `parse_sources_affected` | bound | bound | bound | bound | bound | bound | bound |
 | `render_document_file_name` | bound | not bound | bound | bound | bound | bound | not bound |
 | `order_dependence` | bound | not bound | bound | not bound | not bound | not bound | not bound |

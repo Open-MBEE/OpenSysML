@@ -19,7 +19,7 @@ what survives.
 
 import os
 from dataclasses import dataclass, field
-from typing import Dict, List
+from typing import Dict, List, Sequence
 
 #: SysML v2 / KerML textual notation. ``kerml`` and ``text`` name it too.
 FORMAT_SYSML = "sysml"
@@ -156,6 +156,29 @@ class LibraryReference:
     qualified_name: str
     type: str
     library_path: str = ""
+
+
+@dataclass(frozen=True)
+class Projection:
+    """The api-json declarations and annotations a caller reads.
+
+    The three selectors are unioned. An empty one contributes nothing; all three
+    empty write the whole model. Every element written keeps the shape an
+    unprojected conversion gives it.
+
+    Attributes:
+        qualified_names: Elements whose written qualifiedName is one of these.
+        metaclasses: Elements whose written ``@type`` is one of these.
+        annotation_types: Annotations whose annotating element's metaclass or
+            metadata-definition name is one of these, with what they annotate.
+    """
+
+    qualified_names: Sequence[str] = ()
+    metaclasses: Sequence[str] = ()
+    annotation_types: Sequence[str] = ()
+
+    def is_empty(self):
+        return not (self.qualified_names or self.metaclasses or self.annotation_types)
 
 
 @dataclass(frozen=True)

@@ -1255,8 +1255,18 @@ class ExecuteStateResponse(_message.Message):
     order_dependent: _containers.ScalarMap[str, int]
     def __init__(self, states_visited: _Optional[_Iterable[str]] = ..., final_context: _Optional[_Mapping[str, Value]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., outcomes: _Optional[_Iterable[_Union[Outcome, _Mapping]]] = ..., exploration: _Optional[_Union[ExplorationStatus, _Mapping]] = ..., final_time: _Optional[float] = ..., trace: _Optional[_Iterable[_Union[DocumentEvent, _Mapping]]] = ..., trace_dropped: _Optional[int] = ..., order_dependent: _Optional[_Mapping[str, int]] = ...) -> None: ...
 
+class ConvertProjection(_message.Message):
+    __slots__ = ("qualified_names", "metaclasses", "annotation_types")
+    QUALIFIED_NAMES_FIELD_NUMBER: _ClassVar[int]
+    METACLASSES_FIELD_NUMBER: _ClassVar[int]
+    ANNOTATION_TYPES_FIELD_NUMBER: _ClassVar[int]
+    qualified_names: _containers.RepeatedScalarFieldContainer[str]
+    metaclasses: _containers.RepeatedScalarFieldContainer[str]
+    annotation_types: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, qualified_names: _Optional[_Iterable[str]] = ..., metaclasses: _Optional[_Iterable[str]] = ..., annotation_types: _Optional[_Iterable[str]] = ...) -> None: ...
+
 class ConvertRequest(_message.Message):
-    __slots__ = ("file_path", "content", "model_hash", "from_format", "to_format", "tolerate_syntax_errors", "id_form", "documents", "compact", "omit_derived", "keep_derived", "include_check_diagnostics", "include_library_stubs", "inherited_members")
+    __slots__ = ("file_path", "content", "model_hash", "from_format", "to_format", "tolerate_syntax_errors", "id_form", "documents", "compact", "omit_derived", "keep_derived", "include_check_diagnostics", "include_library_stubs", "inherited_members", "projection")
     FILE_PATH_FIELD_NUMBER: _ClassVar[int]
     CONTENT_FIELD_NUMBER: _ClassVar[int]
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
@@ -1271,6 +1281,7 @@ class ConvertRequest(_message.Message):
     INCLUDE_CHECK_DIAGNOSTICS_FIELD_NUMBER: _ClassVar[int]
     INCLUDE_LIBRARY_STUBS_FIELD_NUMBER: _ClassVar[int]
     INHERITED_MEMBERS_FIELD_NUMBER: _ClassVar[int]
+    PROJECTION_FIELD_NUMBER: _ClassVar[int]
     file_path: str
     content: str
     model_hash: str
@@ -1285,7 +1296,8 @@ class ConvertRequest(_message.Message):
     include_check_diagnostics: bool
     include_library_stubs: bool
     inherited_members: bool
-    def __init__(self, file_path: _Optional[str] = ..., content: _Optional[str] = ..., model_hash: _Optional[str] = ..., from_format: _Optional[str] = ..., to_format: _Optional[str] = ..., tolerate_syntax_errors: _Optional[bool] = ..., id_form: _Optional[str] = ..., documents: _Optional[_Iterable[str]] = ..., compact: _Optional[bool] = ..., omit_derived: _Optional[bool] = ..., keep_derived: _Optional[_Iterable[str]] = ..., include_check_diagnostics: _Optional[bool] = ..., include_library_stubs: _Optional[bool] = ..., inherited_members: _Optional[bool] = ...) -> None: ...
+    projection: ConvertProjection
+    def __init__(self, file_path: _Optional[str] = ..., content: _Optional[str] = ..., model_hash: _Optional[str] = ..., from_format: _Optional[str] = ..., to_format: _Optional[str] = ..., tolerate_syntax_errors: _Optional[bool] = ..., id_form: _Optional[str] = ..., documents: _Optional[_Iterable[str]] = ..., compact: _Optional[bool] = ..., omit_derived: _Optional[bool] = ..., keep_derived: _Optional[_Iterable[str]] = ..., include_check_diagnostics: _Optional[bool] = ..., include_library_stubs: _Optional[bool] = ..., inherited_members: _Optional[bool] = ..., projection: _Optional[_Union[ConvertProjection, _Mapping]] = ...) -> None: ...
 
 class ConvertResponse(_message.Message):
     __slots__ = ("content", "from_format", "to_format", "error", "diagnostics", "experimental", "experimental_notice", "library_references")

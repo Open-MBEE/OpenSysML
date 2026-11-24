@@ -7,6 +7,7 @@ import org.openmbee.opensysml.internal.ConnectTransport;
 import org.openmbee.opensysml.internal.PrivateService;
 import org.openmbee.opensysml.internal.Protos;
 import org.openmbee.opensysml.internal.ServiceRegistry;
+import org.openmbee.opensysml.proto.ConvertProjection;
 import org.openmbee.opensysml.proto.ConvertRequest;
 import org.openmbee.opensysml.proto.ConvertResponse;
 import org.openmbee.opensysml.proto.ListEnginesRequest;
@@ -651,6 +652,16 @@ public final class Connection implements AutoCloseable {
     if (options.includeCheckDiagnostics()) {
       capabilities.require(Capabilities.CONVERT_CHECK_DIAGNOSTICS);
       request.setIncludeCheckDiagnostics(true);
+    }
+    if (options.projection().filter(p -> !p.isEmpty()).isPresent()) {
+      capabilities.require(Capabilities.CONVERT_PROJECTION);
+      Projection p = options.projection().get();
+      request.setProjection(
+          ConvertProjection.newBuilder()
+              .addAllQualifiedNames(p.qualifiedNames())
+              .addAllMetaclasses(p.metaclasses())
+              .addAllAnnotationTypes(p.annotationTypes())
+              .build());
     }
     ConvertResponse response =
         call("Convert", request.build(), ConvertResponse.getDefaultInstance());

@@ -73,6 +73,19 @@ type convertOptions struct {
 	omitDerived  bool
 	keepDerived  []string
 	checked      bool
+	projection   *Projection
+}
+
+// Projection names the api-json elements a caller reads.
+// Its selectors are unioned; all empty writes the whole model.
+type Projection struct {
+	// QualifiedNames selects elements by their written qualifiedName.
+	QualifiedNames []string
+	// Metaclasses selects elements by their written @type.
+	Metaclasses []string
+	// AnnotationTypes selects annotations whose annotating element's metaclass
+	// or metadata-definition name is named, and the elements they annotate.
+	AnnotationTypes []string
 }
 
 // IDForm is how a graph notation (Turtle, API JSON) spells the ids of elements
@@ -120,6 +133,12 @@ func WithCompact() ConvertOption {
 // names as the element form does ("owner", "qualifiedName"). Refused without WithCompact; requires convert_compact.
 func WithOmitDerived(keep ...string) ConvertOption {
 	return func(o *convertOptions) { o.omitDerived, o.keepDerived = true, slices.Clone(keep) }
+}
+
+// WithProjection writes only the named api-json elements, byte-identical
+// to a whole-corpus conversion. Requires convert_projection.
+func WithProjection(p Projection) ConvertOption {
+	return func(o *convertOptions) { o.projection = &p }
 }
 
 // WithCheckDiagnostics adds the semantic check's diagnostics to Conversion.Diagnostics, each with its severity
@@ -242,8 +261,22 @@ func convertRequest(to Format, opts []ConvertOption) *pb.ConvertRequest {
 		Compact:              options.compact,
 		OmitDerived:          options.omitDerived,
 		KeepDerived:          options.keepDerived,
+		Projection:           projectionOf(options.projection),
 
 		IncludeCheckDiagnostics: options.checked,
+	}
+}
+
+// projectionOf copies the option into the wire message, so a caller reusing or
+// changing its Projection after building the request cannot alter the request.
+func projectionOf(p *Projection) *pb.ConvertProjection {
+	if p == nil {
+		return nil
+	}
+	return &pb.ConvertProjection{
+		QualifiedNames:  slices.Clone(p.QualifiedNames),
+		Metaclasses:     slices.Clone(p.Metaclasses),
+		AnnotationTypes: slices.Clone(p.AnnotationTypes),
 	}
 }
 
@@ -264,6 +297,10 @@ func convertCapabilities(req *pb.ConvertRequest) []string {
 	}
 	if req.IncludeCheckDiagnostics {
 		needed = append(needed, CapabilityConvertCheckDiagnostics)
+	}
+	if req.GetProjection() != nil && (len(req.GetProjection().GetQualifiedNames()) > 0 ||
+		len(req.GetProjection().GetMetaclasses()) > 0 || len(req.GetProjection().GetAnnotationTypes()) > 0) {
+		needed = append(needed, CapabilityConvertProjection)
 	}
 	return append(needed, CapabilityConvert)
 }

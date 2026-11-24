@@ -363,6 +363,10 @@ CAPABILITY_CONVERT_LIBRARY_STUBS = "convert_library_stubs"
 #: Namespace's and Type's inherited and imported members; a service without it always writes them.
 CAPABILITY_CONVERT_INHERITED_MEMBERS = "convert_inherited_members"
 
+#: ``ConvertRequest.projection``: api-json written for only the elements named by
+#: qualified name, metaclass or annotation type.
+CAPABILITY_CONVERT_PROJECTION = "convert_projection"
+
 #: ``ParseSourcesRequest.base_model_hash`` and ``ParseSourcesResponse.affected``: the documents
 #: whose results may differ from the base model's, so a client re-reads only those after an edit.
 CAPABILITY_PARSE_SOURCES_AFFECTED = "parse_sources_affected"

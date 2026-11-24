@@ -11,22 +11,30 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/toolkit"
 )
 
+// ConvertProjectionInput names the api-json elements an MCP caller reads.
+type ConvertProjectionInput struct {
+	QualifiedNames  []string `json:"qualifiedNames,omitempty" jsonschema:"elements whose written qualifiedName is one of these, for example Structure::boiler"`
+	Metaclasses     []string `json:"metaclasses,omitempty" jsonschema:"elements whose written @type is one of these, for example PartUsage"`
+	AnnotationTypes []string `json:"annotationTypes,omitempty" jsonschema:"annotations whose annotating element's metaclass or metadata-definition name is one of these, with the element each annotates"`
+}
+
 // ConvertInput asks for a model in another representation.
 type ConvertInput struct {
 	ModelInput
-	FilePath                string   `json:"filePath,omitempty" jsonschema:"a file to convert, read afresh in the format its extension names (or fromFormat), absolute or relative to the workspace root; instead of modelHash, paths or sources"`
-	Content                 *string  `json:"content,omitempty" jsonschema:"the document to convert, inline (an empty string is an empty document); fromFormat must then say what it is"`
-	FromFormat              string   `json:"fromFormat,omitempty" jsonschema:"sysml, kerml, text, ttl, turtle, rdf, api-json or json; empty infers from filePath's extension and is notation for a parsed model"`
-	ToFormat                string   `json:"toFormat" jsonschema:"format to write: sysml, kerml, text, ttl, turtle, rdf, api-json or json"`
-	TolerateSyntaxErrors    bool     `json:"tolerateSyntaxErrors,omitempty" jsonschema:"notation to notation only: write the notation back out even when the parser could not read all of it, reporting syntax errors as diagnostics"`
-	IDForm                  string   `json:"idForm,omitempty" jsonschema:"how derived element ids are spelled when notation is written as a graph (ttl or api-json): qualified (the default) or uuid"`
-	Documents               []string `json:"documents,omitempty" jsonschema:"for a parsed model, the documents whose elements are written, named as the parse named them; empty writes every document"`
-	Compact                 bool     `json:"compact,omitempty" jsonschema:"for api-json from notation: write the compact document (api-json-compact/1) instead of the element array"`
-	OmitDerived             bool     `json:"omitDerived,omitempty" jsonschema:"with compact: leave out every derived property of the metamodel except keepDerived"`
-	KeepDerived             []string `json:"keepDerived,omitempty" jsonschema:"with omitDerived: the derived properties still written, as owner or qualifiedName"`
-	IncludeLibraryStubs     bool     `json:"includeLibraryStubs,omitempty" jsonschema:"for api-json: include ownerless standard-library stubs for legacy readers; off by default"`
-	InheritedMembers        bool     `json:"inheritedMembers,omitempty" jsonschema:"for api-json: also write the derived lists that repeat each Namespace's and Type's inherited and imported members (membership, member, inheritedMembership, importedMembership, featureMembership, feature, inheritedFeature); off by default, when an element carries its owned structure"`
-	IncludeCheckDiagnostics bool     `json:"includeCheckDiagnostics,omitempty" jsonschema:"notation sources: report the semantic check's diagnostics alongside the output, each with its severity and code as parse reports them; off, only syntax errors are reported"`
+	FilePath                string                  `json:"filePath,omitempty" jsonschema:"a file to convert, read afresh in the format its extension names (or fromFormat), absolute or relative to the workspace root; instead of modelHash, paths or sources"`
+	Content                 *string                 `json:"content,omitempty" jsonschema:"the document to convert, inline (an empty string is an empty document); fromFormat must then say what it is"`
+	FromFormat              string                  `json:"fromFormat,omitempty" jsonschema:"sysml, kerml, text, ttl, turtle, rdf, api-json or json; empty infers from filePath's extension and is notation for a parsed model"`
+	ToFormat                string                  `json:"toFormat" jsonschema:"format to write: sysml, kerml, text, ttl, turtle, rdf, api-json or json"`
+	TolerateSyntaxErrors    bool                    `json:"tolerateSyntaxErrors,omitempty" jsonschema:"notation to notation only: write the notation back out even when the parser could not read all of it, reporting syntax errors as diagnostics"`
+	IDForm                  string                  `json:"idForm,omitempty" jsonschema:"how derived element ids are spelled when notation is written as a graph (ttl or api-json): qualified (the default) or uuid"`
+	Documents               []string                `json:"documents,omitempty" jsonschema:"for a parsed model, the documents whose elements are written, named as the parse named them; empty writes every document"`
+	Compact                 bool                    `json:"compact,omitempty" jsonschema:"for api-json from notation: write the compact document (api-json-compact/1) instead of the element array"`
+	OmitDerived             bool                    `json:"omitDerived,omitempty" jsonschema:"with compact: leave out every derived property of the metamodel except keepDerived"`
+	KeepDerived             []string                `json:"keepDerived,omitempty" jsonschema:"with omitDerived: the derived properties still written, as owner or qualifiedName"`
+	IncludeLibraryStubs     bool                    `json:"includeLibraryStubs,omitempty" jsonschema:"for api-json: include ownerless standard-library stubs for legacy readers; off by default"`
+	InheritedMembers        bool                    `json:"inheritedMembers,omitempty" jsonschema:"for api-json: also write the derived lists that repeat each Namespace's and Type's inherited and imported members (membership, member, inheritedMembership, importedMembership, featureMembership, feature, inheritedFeature); off by default, when an element carries its owned structure"`
+	IncludeCheckDiagnostics bool                    `json:"includeCheckDiagnostics,omitempty" jsonschema:"notation sources: report the semantic check's diagnostics alongside the output, each with its severity and code as parse reports them; off, only syntax errors are reported"`
+	Projection              *ConvertProjectionInput `json:"projection,omitempty" jsonschema:"for api-json: write only the elements named by qualified name, metaclass or annotation type; what is written is byte-identical to the whole corpus; needs convert_projection"`
 }
 
 // MigrateInput asks for a SysML v1 model migrated to v2.

@@ -95,6 +95,7 @@ const (
 	CapabilityConvertLibraryReferences       = sysmlgrpc.CapabilityConvertLibraryReferences
 	CapabilityConvertLibraryStubs            = sysmlgrpc.CapabilityConvertLibraryStubs
 	CapabilityConvertInheritedMembers        = sysmlgrpc.CapabilityConvertInheritedMembers
+	CapabilityConvertProjection              = sysmlgrpc.CapabilityConvertProjection
 	CapabilityParseSourcesAffected           = sysmlgrpc.CapabilityParseSourcesAffected
 	CapabilityRenderDocumentFileName         = sysmlgrpc.CapabilityRenderDocumentFileName
 	CapabilityRenderDocumentHTML             = sysmlgrpc.CapabilityRenderDocumentHTML

@@ -22,6 +22,7 @@ from opensysml.capabilities import (
     CAPABILITY_CONVERT_CHECK_DIAGNOSTICS,
     CAPABILITY_CONVERT_COMPACT,
     CAPABILITY_CONVERT_INHERITED_MEMBERS,
+    CAPABILITY_CONVERT_PROJECTION,
     CAPABILITY_CONVERT_LIBRARY_STUBS,
     CAPABILITY_OSLC_QUERY,
     CAPABILITY_APPLY_EDITS,
@@ -101,6 +102,7 @@ from opensysml.conversion import (
     ExperimentalFeatureWarning,
     MIGRATED_NOT_CONVERTED,
     Migration,
+    Projection,
     is_experimental,
     is_v1,
     migration_report_of,
@@ -1585,7 +1587,7 @@ class Connection:
                 from_format='', tolerate_syntax_errors=False, id_form='',
                 include_library_stubs=False, compact=False, omit_derived=False,
                 keep_derived=(), include_check_diagnostics=False,
-                inherited_members=False):
+                inherited_members=False, projection=None):
         """Write a model out in another of the formats OpenSysML writes.
 
         The source is a loaded model, named by its hash, or one named the way
@@ -1639,6 +1641,10 @@ class Connection:
                 model with errors is told apart from one of a clean model.
                 Notation sources only. Needs the ``convert_check_diagnostics``
                 capability.
+            projection (Projection, optional): For api-json, write only the
+                elements named by qualified name, metaclass or annotation
+                type; what is written is byte-identical to the whole corpus.
+                Needs the ``convert_projection`` capability.
 
         A SysML v1 model — ``from_format`` of 'xmi', 'uml' or 'mdzip', or a
         file_path with that extension — is refused: it is migrated, not
@@ -1720,6 +1726,12 @@ class Connection:
                 CAPABILITY_CONVERT_CHECK_DIAGNOSTICS,
                 upgrade_remedy(CAPABILITY_CONVERT_CHECK_DIAGNOSTICS),
             )
+        if projection is not None and not projection.is_empty():
+            require(
+                self.server_info(),
+                CAPABILITY_CONVERT_PROJECTION,
+                upgrade_remedy(CAPABILITY_CONVERT_PROJECTION),
+            )
 
         request = sysml_pb2.ConvertRequest(
             to_format=to_format,
@@ -1733,6 +1745,10 @@ class Connection:
             keep_derived=keep_derived,
             include_check_diagnostics=include_check_diagnostics,
         )
+        if projection is not None:
+            request.projection.qualified_names.extend(projection.qualified_names)
+            request.projection.metaclasses.extend(projection.metaclasses)
+            request.projection.annotation_types.extend(projection.annotation_types)
         if file_path is not None:
             request.file_path = file_path
         elif content is not None:

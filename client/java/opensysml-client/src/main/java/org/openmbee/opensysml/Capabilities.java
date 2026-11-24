@@ -93,6 +93,9 @@ public final class Capabilities {
   /** Convert reports the semantic check's diagnostics, with their severities, alongside the output. */
   public static final String CONVERT_CHECK_DIAGNOSTICS = "convert_check_diagnostics";
 
+  /** api-json writes only the elements named by qualified name, metaclass or annotation type. */
+  public static final String CONVERT_PROJECTION = "convert_projection";
+
   /** A parse names the documents whose results may differ from those of {@code base_model_hash}. */
   public static final String PARSE_SOURCES_AFFECTED = "parse_sources_affected";
 

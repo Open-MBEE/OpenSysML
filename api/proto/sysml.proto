@@ -1454,6 +1454,18 @@ message ExecuteStateResponse {
   map<string, int32> order_dependent = 10;
 }
 
+// ConvertProjection names the api-json elements a conversion writes.
+// Selectors are unioned; all empty writes the model whole.
+message ConvertProjection {
+  // Elements whose qualifiedName is one of these, for example "Structure::boiler".
+  repeated string qualified_names = 1;
+  // Elements whose written @type is one of these, for example "PartUsage".
+  repeated string metaclasses = 2;
+  // Annotations named by their annotating element's metaclass or metadata type,
+  // with the annotation, its annotating element and the element annotated.
+  repeated string annotation_types = 3;
+}
+
 // ConvertRequest asks for a model in another representation. A model_hash
 // converts the source that parse read, so a file edited since then does not
 // change the answer; a file_path is read afresh and content is carried inline.
@@ -1525,6 +1537,9 @@ message ConvertRequest {
   // For api-json, also write each Namespace's and Type's derived lists of inherited and imported members;
   // default false writes owned structure. Capability "convert_inherited_members"; a service without it always writes them.
   bool inherited_members = 14;
+  // For api-json, write only the elements named by projection, byte-identical
+  // to an unprojected conversion. Reported as "convert_projection".
+  ConvertProjection projection = 15;
 }
 
 // ConvertResponse contains the converted model.
