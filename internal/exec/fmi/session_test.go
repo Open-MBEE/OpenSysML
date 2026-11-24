@@ -53,9 +53,8 @@ const decayDriver = `package Drive {
 	calc decay : Decay { }
 }`
 
-// steppedDriver adds the reserved step input and one calc usage per time. The
-// usages are the in-model analysis leg: each asks for a mid-experiment value of
-// the same FMU, and all of them share one caller's session.
+// steppedDriver adds the step input and one calc usage per time: the in-model
+// analysis leg sharing one caller's session.
 func steppedDriver(uri string, times []float64) string {
 	var b strings.Builder
 	b.WriteString("package Drive {\n\tprivate import AnalysisTooling::*;\n\tprivate import ScalarValues::*;\n\n")
@@ -95,9 +94,8 @@ func numberOf(v runtime.Value) float64 {
 	return v.Const.Real
 }
 
-// decayCall builds the tool call a session initializes from. A later call can
-// change stopTime for the one-shot comparison without changing the session's
-// identity: the step time is never part of the init request.
+// decayCall builds the init call; a later one can change stopTime for the
+// whole-run comparison without changing the session key.
 func decayCall(t *testing.T, p *probe, uri string, stop float64) *runtime.ToolCall {
 	sym, ok := p.pkg.LookupLocal("Decay")
 	if !ok {
@@ -122,11 +120,8 @@ func testManager(t *testing.T, config SessionConfig) *SessionManager {
 	return m
 }
 
-// scratchPath and writeScratch use a directory private to one test, passed to
-// the runner through its environment. The engine tests use the process-wide
-// directory; keeping the session's files separate means two test binaries can
-// drive their own stand-in runners without reading each other's mode and
-// counting files.
+// The session tests give their runner a private scratch directory so parallel
+// test binaries cannot share mode, reply or counting files.
 func scratchPath(name string) string {
 	dir := strings.TrimSpace(os.Getenv("FMIRUNNER_SCRATCH"))
 	if dir == "" {
@@ -167,9 +162,8 @@ func resetModes(t *testing.T, mode string) {
 	writeScratch(t, "init-count.txt", "0")
 }
 
-// TestSessionStepsMatchWholeRuns is the acceptance: one initialize plus N
-// steps answers the same values as N whole runs, but the runner starts once
-// instead of N times.
+// One initialize plus N steps answer the same values as N whole runs, but the
+// runner starts once instead of N times.
 func TestSessionStepsMatchWholeRuns(t *testing.T) {
 	fmu := decayFMU(t)
 	uri := fileURI(fmu)
@@ -225,9 +219,8 @@ func TestSessionStepsMatchWholeRuns(t *testing.T) {
 	}
 }
 
-// TestSessionProtocolCommands pins the additive fmi/2 wire shape: one init
-// with the experiment and start values, then step and read commands. The fmi/1
-// request the whole path writes is untouched by this protocol.
+// The additive fmi/2 wire shape: init, step, read. The fmi/1 request bytes are
+// untouched.
 func TestSessionProtocolCommands(t *testing.T) {
 	fmu := decayFMU(t)
 	uri := fileURI(fmu)
@@ -417,9 +410,8 @@ func TestSessionRefusesAnUnknownOutput(t *testing.T) {
 	}
 }
 
-// TestSessionRunnerFaults walks the session's process and protocol failures:
-// the runner's own error, a process exit and a malformed answer. Each is typed
-// and names the session, and none is mistaken for a value.
+// The runner's own error, a process exit and a malformed answer are typed and
+// named, never mistaken for a value.
 func TestSessionRunnerFaults(t *testing.T) {
 	fmu := decayFMU(t)
 	uri := fileURI(fmu)
@@ -490,9 +482,8 @@ func sessionContext(p *probe, runner runtime.ToolRunner) *runtime.Context {
 	return ctx
 }
 
-// TestSessionToolRunnerInModel is the in-model analysis leg: several calc
-// usages read mid-experiment values of one FMU through the session-backed tool
-// runner, and the counting runner is invoked once for the whole set.
+// Several calc usages read mid-experiment values through one session-backed
+// runner, with the counting runner invoked once.
 func TestSessionToolRunnerInModel(t *testing.T) {
 	fmu := decayFMU(t)
 	uri := fileURI(fmu)
@@ -569,9 +560,8 @@ func TestSessionToolRunnerDelegatesOneShot(t *testing.T) {
 	}
 }
 
-// TestOneShotRefusesASteppedCall is the no-silent-narrowing contract: a call
-// asking for a step time that reaches the one-shot engine is refused, never
-// answered with the value at stopTime.
+// A stepped call reaching the one-shot engine is refused, never answered with
+// the value at stopTime.
 func TestOneShotRefusesASteppedCall(t *testing.T) {
 	fmu := decayFMU(t)
 	uri := fileURI(fmu)
@@ -591,9 +581,7 @@ func TestOneShotRefusesASteppedCall(t *testing.T) {
 	}
 }
 
-// TestSessionManagerZeroValue is the exported type's zero-value contract: an
-// unconfigured manager and session refuse with typed errors rather than
-// panicking.
+// An unconfigured manager and session refuse with typed errors, not panics.
 func TestSessionManagerZeroValue(t *testing.T) {
 	var m SessionManager
 	if err := m.Close(); err != nil {
@@ -615,5 +603,155 @@ func TestSessionManagerZeroValue(t *testing.T) {
 	}
 	if _, err := zero.Read(context.Background(), []string{"y"}); !errors.Is(err, ErrSession) {
 		t.Fatalf("a zero session read: %v", err)
+	}
+}
+
+// TestSessionReadsTheLastAllowedStep pins the step budget: the last allowed
+// step's value is readable, and only the next step is refused.
+func TestSessionReadsTheLastAllowedStep(t *testing.T) {
+	fmu := decayFMU(t)
+	uri := fileURI(fmu)
+	p := parseProbe(t, fmt.Sprintf(decayDriver, uri))
+	resetModes(t, "session")
+	m := testManager(t, SessionConfig{MaxSteps: 1})
+	ctx := context.Background()
+	s, err := m.Open(ctx, "alice", decayCall(t, p, uri, 3))
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	if err := s.Step(ctx, 0.5); err != nil {
+		t.Fatalf("the last allowed Step: %v", err)
+	}
+	values, err := s.Read(ctx, []string{"y"})
+	if err != nil {
+		t.Fatalf("Read after the last allowed Step: %v", err)
+	}
+	if got, want := values["y"].Value.Real, math.Exp(-0.5); math.Abs(got-want) > 1e-9 {
+		t.Fatalf("y = %v, want %v", got, want)
+	}
+	if err := s.Step(ctx, 1); !errors.Is(err, ErrSessionExpired) {
+		t.Fatalf("a step past the budget: %v, want a session expiry error", err)
+	}
+}
+
+// TestSessionBudgetReadsEveryStep reads after each of several allowed steps,
+// including the last, so the budget cannot hide the final value.
+func TestSessionBudgetReadsEveryStep(t *testing.T) {
+	fmu := decayFMU(t)
+	uri := fileURI(fmu)
+	p := parseProbe(t, fmt.Sprintf(decayDriver, uri))
+	resetModes(t, "session")
+	m := testManager(t, SessionConfig{MaxSteps: len(stepTimes)})
+	ctx := context.Background()
+	s, err := m.Open(ctx, "alice", decayCall(t, p, uri, 3))
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	for i, at := range stepTimes {
+		if err := s.Step(ctx, at); err != nil {
+			t.Fatalf("Step %d: %v", i, err)
+		}
+		values, err := s.Read(ctx, []string{"y"})
+		if err != nil {
+			t.Fatalf("Read %d: %v", i, err)
+		}
+		if got, want := values["y"].Value.Real, math.Exp(-at); math.Abs(got-want) > 1e-9 {
+			t.Errorf("y at step %d = %v, want %v", i, got, want)
+		}
+	}
+}
+
+// An idle reclaim races Step's reads of the session's close state and process
+// handle. A race detector flags the old unlocked calls here.
+func TestSessionJanitorReclaimWhileStepping(t *testing.T) {
+	fmu := decayFMU(t)
+	uri := fileURI(fmu)
+	p := parseProbe(t, fmt.Sprintf(decayDriver, uri))
+	resetModes(t, "session")
+	m := testManager(t, SessionConfig{Idle: 40 * time.Millisecond})
+	ctx := context.Background()
+	s, err := m.Open(ctx, "alice", decayCall(t, p, uri, 3))
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	if err := s.Step(ctx, 0.2); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(45 * time.Millisecond)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for i := 0; i < 25; i++ {
+			m.evict(time.Now())
+			time.Sleep(time.Millisecond)
+		}
+	}()
+	at := 0.2
+	for i := 0; i < 25; i++ {
+		at += 0.01
+		err := s.Step(ctx, at)
+		if errors.Is(err, ErrSessionExpired) {
+			break
+		}
+		if err != nil {
+			t.Fatalf("Step while the janitor reclaimed: %v", err)
+		}
+		time.Sleep(time.Millisecond)
+	}
+	<-done
+}
+
+// With init outstanding, the janitor and a second caller both proceed: the
+// manager's lock is not held while the runner answers.
+func TestHungInitDoesNotBlockManager(t *testing.T) {
+	fmu := decayFMU(t)
+	uri := fileURI(fmu)
+	p := parseProbe(t, fmt.Sprintf(decayDriver, uri))
+	resetModes(t, "session-hang")
+	m := newSessionManager(func() (string, error) { return runner(t), nil },
+		func() time.Duration { return 300 * time.Millisecond }, func() int { return 1 << 20 }, SessionConfig{})
+	t.Cleanup(func() { _ = m.Close() })
+	ctx := context.Background()
+	call := decayCall(t, p, uri, 3)
+
+	first := make(chan error, 1)
+	go func() { _, err := m.Open(ctx, "alice", call); first <- err }()
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		m.mu.Lock()
+		open := len(m.opening)
+		m.mu.Unlock()
+		if open > 0 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the open never registered as in flight")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	second := make(chan error, 1)
+	go func() { _, err := m.Open(ctx, "alice", call); second <- err }()
+	evicted := make(chan struct{})
+	go func() { m.evict(time.Now()); close(evicted) }()
+	select {
+	case <-evicted:
+	case <-time.After(time.Second):
+		t.Fatal("the janitor was blocked by an unanswered init")
+	}
+	for name, result := range map[string]<-chan error{"first": first, "second": second} {
+		select {
+		case err := <-result:
+			if err == nil {
+				t.Fatalf("the %s open answered a hung init", name)
+			}
+		case <-time.After(3 * time.Second):
+			t.Fatalf("the %s open did not return", name)
+		}
+	}
+	m.mu.Lock()
+	stored := len(m.sessions)
+	m.mu.Unlock()
+	if stored != 0 {
+		t.Fatalf("a hung init stored %d sessions, want none", stored)
 	}
 }

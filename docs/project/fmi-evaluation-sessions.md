@@ -93,6 +93,12 @@ same `fmi/1` request and reads the same reply as before.
 - **Bounded manager and lazy janitor, not an unbounded cache.** A long-lived
   host can create sessions for many FMUs. Count, idle, lifetime and step bounds
   plus a janitor keep that map and its runner processes from growing forever.
+- **A per-key in-flight placeholder, not a global lock during init.** Waiting for
+  an unanswered runner under the manager's lock would block every other open,
+  close and reclaim. Concurrent opens for one key now wait on that key's
+  placeholder; the manager's lock is held only for map updates. The step budget
+  is checked only when another step is asked for, so the last allowed step's
+  value can still be read.
 
 ## Public surface added
 
@@ -121,9 +127,10 @@ CLI flag or environment variable changed.
 | Go test over the engine seam | `TestSessionStepsMatchWholeRuns`, `TestSessionProtocolCommands`, `TestSessionRunnerFaults`, `TestSessionStepFaultIsTyped` |
 | In-model analysis leg | `TestSessionToolRunnerInModel` drives four `calc` usages through a session-backed `runtime.ToolRunner` |
 | Byte-compatible one-shot behavior | `TestSessionToolRunnerDelegatesOneShot`, the unchanged `engine_test.go` request assertions, and `TestSessionProtocolCommands` pinning the additive command bytes |
-| Bounded sessions | `TestSessionBounds` (count, steps, idle lifetime) and `TestSessionManagerZeroValue` |
+| Bounded sessions | `TestSessionBounds` (count, steps, idle lifetime), `TestSessionReadsTheLastAllowedStep`, `TestSessionBudgetReadsEveryStep` (the last allowed step's value stays readable), and `TestSessionManagerZeroValue` |
 | Isolated per caller | `TestSessionIsolatesCallers` (two principals at different times, plus re-open returning the same session) |
 | Typed failure modes | `TestSessionRefusesABackwardStep`, `TestSessionRefusesAnUnknownOutput`, `TestOneShotRefusesASteppedCall`, `TestSessionRunnerFaults`, `TestSessionStepFaultIsTyped` |
+| Safe concurrent reclamation and startup | `TestSessionJanitorReclaimWhileStepping` races an idle reclaim against Step's reads of the session's close state and process handle; `TestHungInitDoesNotBlockManager` keeps the janitor and a second caller responsive while init is unanswered |
 
 ## Verification
 
@@ -137,7 +144,13 @@ Gates run on this branch:
   session, in-model and negative tests; `go test ./internal/exec/engines
   ./tests/fmi -count=1` — passing.
 - `python3 scripts/changelog.py check` and `python3 scripts/check-doc-ids.py` —
-  passing.
+  passing. The added-comment gate over `git diff <baseline> -U2 -- '*.go'`
+  prints nothing: no added comment run exceeds two lines.
+- `go test ./tests/hygiene -count=1` — passing.
+- A deterministic race-exercising test is present for the janitor/`Step`
+  interaction, but this host's Go 1.27.4 toolchain has no race runtime
+  (`__tsan_free` link errors), so `-race` was not run here and no race-test
+  result is claimed.
 
 `go test ./...` was attempted on the full tree. The runs did not finish: the
 environment ran 19 or more test binaries concurrently from separate worktrees,

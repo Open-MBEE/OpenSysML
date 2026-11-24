@@ -53,9 +53,8 @@ func requestOf(call *runtime.ToolCall, d *Description, fmu string) ([]byte, erro
 	return json.Marshal(request)
 }
 
-// requestFields is the request one call composes before it is encoded. A
-// session reuses it for its init command, clearing the outputs a whole run reads
-// at stopTime: a session reads whatever a later step asks for.
+// requestFields composes a call's request before encoding. A session reuses it
+// for init, clearing the outputs a whole run reads at stopTime.
 func requestFields(call *runtime.ToolCall, d *Description, fmu string) (runnerRequest, error) {
 	var iface string
 	switch {

@@ -20,11 +20,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
-// The session protocol is additive to the fmi/1 one-shot exchange. A
-// session-capable runner reads newline-delimited commands on standard input and
-// writes one newline-delimited answer per command on standard output. The first
-// command initializes the FMU; later commands advance its time and read values
-// from that same state. A call without StepVariable never speaks this protocol.
+// fmi/2 is an additive, newline-delimited command protocol on one runner
+// process: init, then step and read from the state reached.
 const (
 	sessionProtocol = 2
 	actionInit      = "init"
@@ -32,9 +29,8 @@ const (
 	actionRead      = "read"
 )
 
-// sessionCommand is one command written to a session's runner. Exactly one of
-// its fields is set beyond protocol and action, depending on the action: init
-// carries the experiment and start values, step carries time, read outputs.
+// sessionCommand is one init, step or read command. Only its per-action fields
+// are set beyond protocol and action.
 type sessionCommand struct {
 	Protocol   int               `json:"protocol"`
 	Action     string            `json:"action"`
@@ -46,9 +42,7 @@ type sessionCommand struct {
 	Outputs    []string          `json:"outputs,omitempty"`
 }
 
-// sessionReply is the answer to one session command. init and step answer the
-// time they reached; read answers the values it read. Any command may answer an
-// error instead.
+// sessionReply is one answer line: the time reached, outputs, or an error.
 type sessionReply struct {
 	Protocol int                        `json:"protocol"`
 	Action   string                     `json:"action"`
@@ -57,9 +51,8 @@ type sessionReply struct {
 	Error    *string                    `json:"error,omitempty"`
 }
 
-// SessionConfig bounds every session a manager holds. The zero value uses the
-// defaults: a session is bounded by an idle timeout, an absolute lifetime, a
-// step count and a cap on how many may be open at once.
+// SessionConfig bounds a manager's sessions. Zero fields take the defaults
+// declared below: idle, lifetime, open count and steps.
 type SessionConfig struct {
 	// Idle is how long an untouched session stays open. DefaultSessionIdle when zero.
 	Idle time.Duration
@@ -184,12 +177,8 @@ func (e *StepError) Error() string {
 // Is matches ErrStep and ErrSession.
 func (e *StepError) Is(target error) bool { return target == ErrStep || target == ErrSession }
 
-// SessionManager holds the open evaluation sessions of one process. Sessions
-// are keyed by caller as well as by FMU and experiment, so one caller's
-// simulation state is never handed to another. It bounds how many may be open,
-// how long each may live and how far each may step, and closes them all with
-// Close. A manager must be closed by its owner; until then a background
-// janitor reclaims sessions that outlive their bounds.
+// SessionManager holds sessions keyed by caller and init request, so one
+// caller's simulation state is never handed to another.
 type SessionManager struct {
 	look    func() (string, error)
 	timeout func() time.Duration
@@ -198,10 +187,19 @@ type SessionManager struct {
 
 	mu       sync.Mutex
 	sessions map[string]*Session
+	opening  map[string]*sessionOpening
 	closed   bool
 
 	stop chan struct{}
 	done chan struct{}
+}
+
+// sessionOpening is one in-flight init. A second caller waits on done rather
+// than starting a second runner or holding the manager's lock.
+type sessionOpening struct {
+	done    chan struct{}
+	session *Session
+	err     error
 }
 
 // NewSessionManager returns a manager with the production bounds, finding the
@@ -218,7 +216,8 @@ func NewSessionManagerWith(look func() (string, error), config SessionConfig) *S
 	}
 	m := &SessionManager{look: look, timeout: analysis.ToolTimeoutFromEnv,
 		limit: analysis.OutputLimitFromEnv, config: config.withDefaults(),
-		sessions: make(map[string]*Session), stop: make(chan struct{}), done: make(chan struct{})}
+		sessions: make(map[string]*Session), opening: make(map[string]*sessionOpening),
+		stop: make(chan struct{}), done: make(chan struct{})}
 	go m.janitor()
 	return m
 }
@@ -229,7 +228,8 @@ func newSessionManager(look func() (string, error), timeout func() time.Duration
 		look = lookRunner
 	}
 	m := &SessionManager{look: look, timeout: timeout, limit: limit, config: config.withDefaults(),
-		sessions: make(map[string]*Session), stop: make(chan struct{}), done: make(chan struct{})}
+		sessions: make(map[string]*Session), opening: make(map[string]*sessionOpening),
+		stop: make(chan struct{}), done: make(chan struct{})}
 	go m.janitor()
 	return m
 }
@@ -259,9 +259,8 @@ func (m *SessionManager) janitor() {
 	}
 }
 
-// evict closes every session past a bound and drops it from the manager. It
-// never holds the manager's lock while taking a session's: Close takes them in
-// the other order, and the two must not wait on each other.
+// evict drops and closes sessions past a bound. It never holds both locks at
+// once: Close can take them in the other order.
 func (m *SessionManager) evict(now time.Time) {
 	m.mu.Lock()
 	candidates := make([]*Session, 0, len(m.sessions))
@@ -279,7 +278,9 @@ func (m *SessionManager) evict(now time.Time) {
 			delete(m.sessions, s.key)
 		}
 		m.mu.Unlock()
+		s.mu.Lock()
 		_ = s.expireLocked(reason)
+		s.mu.Unlock()
 	}
 }
 
@@ -312,11 +313,9 @@ func (m *SessionManager) Close() error {
 	return first
 }
 
-// Open returns the session for caller's FMU and experiment, starting it once.
-// A later Open with the same caller and request returns that same live session;
-// an expired one is closed and replaced. The call may name StepVariable, which
-// is not part of the session's identity: it is the step a later Read asks for.
-func (m *SessionManager) Open(ctx context.Context, caller string, call *runtime.ToolCall) (*Session, error) {
+// Open returns the live session for caller's request, initializing it once.
+// StepVariable is not part of the identity; it selects a later step.
+func (m *SessionManager) Open(ctx context.Context, caller string, call *runtime.ToolCall) (s *Session, err error) {
 	if m == nil || m.look == nil {
 		return nil, &SessionError{Caller: caller, Detail: "the session manager is nil or unconfigured"}
 	}
@@ -355,35 +354,71 @@ func (m *SessionManager) Open(ctx context.Context, caller string, call *runtime.
 	sum := sha256.Sum256(raw)
 	key := fmt.Sprintf("%s|%x", caller, sum)
 
-	// The whole open is serialized: starting a process under the lock is slower
-	// than a lookup, but it is the only way two callers cannot both initialize
-	// the same session.
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	if m.closed {
+		m.mu.Unlock()
 		return nil, &SessionError{Caller: caller, FMU: fmu, Detail: "the session manager is closed"}
 	}
 	now := time.Now()
-	if s, ok := m.sessions[key]; ok {
-		if reason := s.expired(now); reason == "" {
-			s.touch(now)
-			return s, nil
-		} else {
-			delete(m.sessions, key)
-			_ = s.expireLocked(reason)
+	if existing, ok := m.sessions[key]; ok {
+		reason := existing.expired(now)
+		if reason == "" {
+			existing.touch(now)
+			m.mu.Unlock()
+			return existing, nil
 		}
+		delete(m.sessions, key)
+		existing.mu.Lock()
+		_ = existing.expireLocked(reason)
+		existing.mu.Unlock()
 	}
-	if len(m.sessions) >= m.config.MaxSessions {
+	if len(m.sessions)+len(m.opening) >= m.config.MaxSessions {
+		m.mu.Unlock()
 		return nil, &SessionLimitError{Caller: caller, Limit: m.config.MaxSessions}
 	}
+	if inFlight := m.opening[key]; inFlight != nil {
+		m.mu.Unlock()
+		select {
+		case <-inFlight.done:
+			if inFlight.session != nil {
+				inFlight.session.touch(time.Now())
+			}
+			return inFlight.session, inFlight.err
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+	inFlight := &sessionOpening{done: make(chan struct{})}
+	m.opening[key] = inFlight
+	m.mu.Unlock()
+
+	defer func() {
+		m.mu.Lock()
+		if s != nil {
+			if m.closed {
+				_ = s.closeProcess()
+				s = nil
+				err = &SessionError{Caller: caller, FMU: fmu, Detail: "the session manager is closed"}
+			} else {
+				m.sessions[key] = s
+			}
+		}
+		inFlight.session, inFlight.err = s, err
+		delete(m.opening, key)
+		m.mu.Unlock()
+		close(inFlight.done)
+	}()
+
 	proc, err := startSessionProcess(ctx, path, m.limitOf(), m.timeoutOf())
 	if err != nil {
 		return nil, m.sessionError(caller, fmu, "the runner did not start", err)
 	}
-	s := &Session{manager: m, key: key, caller: caller, fmu: fmu, d: d, proc: proc,
+	candidate := &Session{manager: m, key: key, caller: caller, fmu: fmu, d: d, proc: proc,
 		startTime: fields.Experiment.StartTime, stopTime: fields.Experiment.StopTime,
 		now: fields.Experiment.StartTime, created: now, used: now}
-	reply, err := proc.command(ctx, init, m.limitOf())
+	commandCtx, cancelCommand := m.commandContext(ctx)
+	reply, err := proc.command(commandCtx, init, m.limitOf())
+	cancelCommand()
 	if err != nil {
 		_ = proc.close()
 		return nil, m.sessionError(caller, fmu, "the runner did not initialize", err)
@@ -393,12 +428,11 @@ func (m *SessionManager) Open(ctx context.Context, caller string, call *runtime.
 		_ = proc.close()
 		return nil, m.sessionError(caller, fmu, "the runner answered init badly", err)
 	}
-	if !sameTime(reached, s.startTime) {
+	if !sameTime(reached, candidate.startTime) {
 		_ = proc.close()
-		return nil, m.sessionError(caller, fmu, fmt.Sprintf("init answered time %v, want %v", reached, s.startTime), nil)
+		return nil, m.sessionError(caller, fmu, fmt.Sprintf("init answered time %v, want %v", reached, candidate.startTime), nil)
 	}
-	m.sessions[key] = s
-	return s, nil
+	return candidate, nil
 }
 
 func (m *SessionManager) sessionError(caller, fmu, detail string, err error) error {
@@ -421,9 +455,14 @@ func (m *SessionManager) limitOf() int {
 	return m.limit()
 }
 
-// Session is one initialized FMU held for a caller. It starts at the call's
-// startTime; Step advances it towards stopTime and Read takes values from the
-// state reached. One session speaks to one runner process, initialized once.
+// commandContext bounds one command by the manager's timeout even when a
+// caller passes a context with no deadline.
+func (m *SessionManager) commandContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(ctx, m.timeoutOf())
+}
+
+// Session is one initialized FMU for a caller. Step advances time; Read takes
+// values from the state reached.
 type Session struct {
 	manager *SessionManager
 	key     string
@@ -441,9 +480,7 @@ type Session struct {
 	expiredReason string
 }
 
-// expired reports why s is past a bound, "" while it is usable. Called with
-// either s.mu or the manager's mu held; the fields it reads are written under
-// s.mu only, so the manager's janitor takes s.mu here instead.
+// expired reports why s is past a bound, "" while usable. Takes s.mu.
 func (s *Session) expired(now time.Time) string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -456,13 +493,23 @@ func (s *Session) expired(now time.Time) string {
 		}
 		return "the session was closed"
 	}
+	if reason := s.timeExpired(now); reason != "" {
+		return reason
+	}
+	if s.manager.config.MaxSteps > 0 && s.steps >= s.manager.config.MaxSteps {
+		return fmt.Sprintf("took %d steps", s.steps)
+	}
+	return ""
+}
+
+// timeExpired checks the clock bounds only. The step budget is checked when a
+// further step is asked for, so a Read after the last allowed step still works.
+func (s *Session) timeExpired(now time.Time) string {
 	switch {
 	case s.manager.config.Idle > 0 && now.Sub(s.used) >= s.manager.config.Idle:
 		return fmt.Sprintf("idle for %s", now.Sub(s.used))
 	case s.manager.config.Lifetime > 0 && now.Sub(s.created) >= s.manager.config.Lifetime:
 		return fmt.Sprintf("open for %s", now.Sub(s.created))
-	case s.manager.config.MaxSteps > 0 && s.steps >= s.manager.config.MaxSteps:
-		return fmt.Sprintf("took %d steps", s.steps)
 	}
 	return ""
 }
@@ -487,9 +534,8 @@ func (s *Session) Time() float64 {
 	return s.now
 }
 
-// Step advances the FMU to time t. A step backwards, or one past the
-// experiment's stop time, is a typed *StepError; the runner's own failure is a
-// *SessionError. The state reached is kept for every later Read.
+// Step advances the FMU to t. A backwards or past-stop step is a *StepError;
+// runner and protocol failures are typed errors.
 func (s *Session) Step(ctx context.Context, t float64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -510,7 +556,9 @@ func (s *Session) Step(ctx context.Context, t float64) error {
 		return s.expireLocked(fmt.Sprintf("took %d steps", s.steps))
 	}
 	at := t
-	reply, err := s.proc.command(ctx, sessionCommand{Protocol: sessionProtocol, Action: actionStep, Time: &at}, s.manager.limitOf())
+	commandCtx, cancelCommand := s.manager.commandContext(ctx)
+	reply, err := s.proc.command(commandCtx, sessionCommand{Protocol: sessionProtocol, Action: actionStep, Time: &at}, s.manager.limitOf())
+	cancelCommand()
 	if err != nil {
 		return &SessionError{Caller: s.caller, FMU: s.fmu, Detail: "the runner did not step", Err: err}
 	}
@@ -528,9 +576,7 @@ func (s *Session) Step(ctx context.Context, t float64) error {
 }
 
 // Read answers the named tool variables from the state the last Step reached.
-// Names are the call's ToolVariable names; fmi:time answers that state's time.
-// The values are already typed and converted by the same reader the one-shot
-// engine uses, so the two paths bind identically.
+// Values are typed by the same reader the one-shot reply uses.
 func (s *Session) Read(ctx context.Context, names []string) (map[string]runtime.ToolValue, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -552,7 +598,9 @@ func (s *Session) Read(ctx context.Context, names []string) (map[string]runtime.
 		}
 		modelNames = append(modelNames, v.Name)
 	}
-	reply, err := s.proc.command(ctx, sessionCommand{Protocol: sessionProtocol, Action: actionRead, Outputs: modelNames}, s.manager.limitOf())
+	commandCtx, cancelCommand := s.manager.commandContext(ctx)
+	reply, err := s.proc.command(commandCtx, sessionCommand{Protocol: sessionProtocol, Action: actionRead, Outputs: modelNames}, s.manager.limitOf())
+	cancelCommand()
 	if err != nil {
 		return nil, &SessionError{Caller: s.caller, FMU: s.fmu, Detail: "the runner did not read", Err: err}
 	}
@@ -598,23 +646,10 @@ func (s *Session) check(ctx context.Context) error {
 		return &SessionError{Caller: s.caller, FMU: s.fmu, Detail: "the session is unconfigured"}
 	}
 	now := time.Now()
-	if reason := s.expiredAt(now); reason != "" {
+	if reason := s.timeExpired(now); reason != "" {
 		return s.expireLocked(reason)
 	}
 	return nil
-}
-
-// expiredAt is expired without taking s.mu, for check which holds it.
-func (s *Session) expiredAt(now time.Time) string {
-	switch {
-	case s.manager.config.Idle > 0 && now.Sub(s.used) >= s.manager.config.Idle:
-		return fmt.Sprintf("idle for %s", now.Sub(s.used))
-	case s.manager.config.Lifetime > 0 && now.Sub(s.created) >= s.manager.config.Lifetime:
-		return fmt.Sprintf("open for %s", now.Sub(s.created))
-	case s.manager.config.MaxSteps > 0 && s.steps >= s.manager.config.MaxSteps:
-		return fmt.Sprintf("took %d steps", s.steps)
-	}
-	return ""
 }
 
 // expireLocked closes the process and answers the typed expiry. Called with
@@ -743,11 +778,8 @@ func outputDirection(v Variable) bool {
 	return false
 }
 
-// ToolRunner wraps delegate so a tool call naming StepVariable is answered
-// from caller's session instead of a new whole run. Every other call, and every
-// call naming another tool, goes to delegate unchanged — the one-shot path is
-// byte-identical. The session is keyed by caller, so two principals driving
-// the same model at different times never share simulation state.
+// ToolRunner routes calls binding StepVariable through caller's session.
+// Every other call goes to delegate unchanged, keeping fmi/1 byte-identical.
 func (m *SessionManager) ToolRunner(caller string, delegate runtime.ToolRunner) runtime.ToolRunner {
 	return &sessionToolRunner{manager: m, caller: caller, delegate: delegate}
 }
@@ -758,9 +790,8 @@ type sessionToolRunner struct {
 	delegate runtime.ToolRunner
 }
 
-// RunTool steps the caller's session to the time the call names and binds the
-// values read there to its outputs. A call without StepVariable keeps the
-// delegate's one-shot behavior.
+// RunTool steps the caller's session to the call's time and binds the values
+// read there. Calls without StepVariable keep the delegate's behavior.
 func (r *sessionToolRunner) RunTool(call *runtime.ToolCall) (runtime.ToolAnswer, error) {
 	t, stepped, err := stepTimeOf(call)
 	if err != nil {
@@ -796,9 +827,8 @@ func (r *sessionToolRunner) RunTool(call *runtime.ToolCall) (runtime.ToolAnswer,
 	return runtime.ToolAnswer{Outputs: bound}, nil
 }
 
-// SessionRequiredError is the one-shot engine's refusal of a call that names
-// fmi:stepTime: without a session tool runner the only value it could answer is
-// the one at stopTime, which is not what the call asked for.
+// SessionRequiredError refuses a stepped call reaching the one-shot engine,
+// which could only answer at stopTime.
 type SessionRequiredError struct{ Tool string }
 
 // Error names the reserved input and the missing surface.
@@ -856,8 +886,8 @@ type sessionProcess struct {
 // startSessionProcess spawns a runner that will speak the session protocol. Its
 // standard error is bounded and an overrun ends it, as with the one-shot tool.
 func startSessionProcess(ctx context.Context, runner string, limit int, timeout time.Duration) (*sessionProcess, error) {
-	// The process outlives the call that opened it: the caller's deadline bounds
-	// one command, not the session. Only Close and a protocol fault end it.
+	// The process outlives the opening call, but a command deadline, a read
+	// error, a protocol fault or Close ends it.
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -897,9 +927,8 @@ func startSessionProcess(ctx context.Context, runner string, limit int, timeout 
 	return p, nil
 }
 
-// command writes one command and reads its one answer, under a deadline that
-// ends the process when it passes. An answer over the output bound is a
-// protocol break, and so is a runner error carried in the reply.
+// command writes one line and reads its one answer. A deadline, output
+// overrun or runner exit ends the process with a typed fault.
 func (p *sessionProcess) command(ctx context.Context, cmd sessionCommand, limit int) ([]byte, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()

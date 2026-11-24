@@ -31,14 +31,12 @@ const RunnerEnv = "OPENSYSML_FMI_RUNNER"
 // an engine listing reports it.
 const Exchange = "fmi/1"
 
-// SessionExchange names the long-lived protocol a session-capable runner speaks:
-// newline-delimited init, step and read commands on one process's pipes. It is
-// additive; Exchange still names what the one-shot engine speaks.
+// SessionExchange names the fmi/2 session protocol: newline-delimited commands
+// on one process's pipes, additive to the one-shot Exchange.
 const SessionExchange = "fmi/2"
 
-// StepVariable is the reserved input a tool call names to ask a session to
-// advance to a time before reading its outputs. A call without it stays a
-// one-shot fmi/1 evaluation.
+// StepVariable is the reserved input naming a session's next time. Without it
+// a call stays a one-shot fmi/1 evaluation.
 const StepVariable = "fmi:stepTime"
 
 // runnerDescription names the process the engine needs, as Describe reports it.

@@ -1,18 +1,5 @@
-// Command fmirunner stands in for the OPENSYSML_FMI_RUNNER executable in the
-// engine and session tests: it records the request it read on standard input to
-// $TMPDIR/fmirunner-request.json, then acts as $TMPDIR/fmirunner-mode says —
-// absent or "answer" writes $TMPDIR/fmirunner-reply.json to standard output,
-// "ode" answers a whole fmi/1 run of the known decay ODE, "session" speaks the
-// long-lived fmi/2 command protocol, "error:<msg>" writes a reply carrying an
-// error member, "exit:<msg>" writes msg to standard error and exits nonzero,
-// "hang" sleeps past any timeout.
-//
-// In session mode it initializes y' = -k*y once and then advances that one
-// state; it records each init in $TMPDIR/fmirunner-init-count.txt and every
-// process start in $TMPDIR/fmirunner-start-count.txt so a test can prove that N
-// steps cost one runner invocation. Init and read start values y0 and k drive
-// the ODE: y(t) = y0 * exp(-k*t). Every command is appended to
-// $TMPDIR/fmirunner-commands.jsonl for byte-level protocol assertions.
+// Command fmirunner stands in for OPENSYSML_FMI_RUNNER in the engine and
+// session tests; it records requests and speaks the fmi/1 or fmi/2 exchange.
 package main
 
 import (
@@ -30,9 +17,8 @@ import (
 
 const protocol = 2
 
-// scratchDir is where this runner keeps its mode, reply and counting files.
-// A caller can isolate a test binary's files by naming a directory; otherwise
-// the process-wide temporary directory is used.
+// scratchDir is this runner's file directory, isolated when FMIRUNNER_SCRATCH
+// names one.
 func scratchDir() string {
 	if dir := strings.TrimSpace(os.Getenv("FMIRUNNER_SCRATCH")); dir != "" {
 		_ = os.MkdirAll(dir, 0o700)
@@ -197,8 +183,14 @@ func session() {
 	}
 }
 
-// ode answers one whole fmi/1 run at the request's stop time, from the same
-// state a session would have reached there.
+// sessionHang reads one command and never answers it.
+func sessionHang() {
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Scan()
+	time.Sleep(time.Hour)
+}
+
+// ode answers one whole fmi/1 run at the request's stop time.
 func ode(request []byte) string {
 	var cmd command
 	if err := json.Unmarshal(request, &cmd); err != nil {
@@ -227,6 +219,10 @@ func main() {
 	text := strings.TrimSpace(string(mode))
 	if text == "session" {
 		session()
+		return
+	}
+	if text == "session-hang" {
+		sessionHang()
 		return
 	}
 	request, err := io.ReadAll(os.Stdin)
