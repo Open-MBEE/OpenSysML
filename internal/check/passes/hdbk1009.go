@@ -256,7 +256,9 @@ func (a *hdbkAudit) gather(root *symbols.Scope) {
 			switch {
 			case decl.Kind == ast.UsageConnection:
 				for _, e := range a.model.RelationshipEdgesOf(sym, semantics.RelationshipDerivation) {
-					a.noteBoth(hdbkDerivedFrom, hdbkOriginOf, e.Target, e.Source)
+					if !e.SameEnds() {
+						a.noteDerivation(e.Target, e.Source)
+					}
 				}
 			case decl.Kind == ast.UsageSatisfy && decl.Keyword == "verify":
 				for _, e := range a.model.RelationshipEdgesOf(sym, semantics.RelationshipVerification) {
@@ -283,7 +285,7 @@ func (a *hdbkAudit) gather(root *symbols.Scope) {
 			}
 		}
 	}
-	each(rec.RequirementDerivations, func(s, t *symbols.Symbol) { a.noteBoth(hdbkDerivedFrom, hdbkOriginOf, t, s) })
+	each(rec.RequirementDerivations, func(s, t *symbols.Symbol) { a.noteDerivation(t, s) })
 	each(rec.Dependencies, func(s, t *symbols.Symbol) { a.note(hdbkTracedTo, s, t) })
 	each(rec.Refinements, func(s, t *symbols.Symbol) { a.noteBoth(hdbkRefines, hdbkRefinedBy, s, t) })
 	each(rec.Verifications, func(s, t *symbols.Symbol) { a.note(hdbkVerifiedBy, t, s) })
@@ -301,14 +303,29 @@ func (a *hdbkAudit) note(relation hdbkRelation, element, other *symbols.Symbol) 
 	if element == nil || other == nil {
 		return
 	}
-	key := symbols.KeyOf(element)
-	if key == symbols.KeyOf(other) {
+	if symbols.KeyOf(element) == symbols.KeyOf(other) {
 		return // an element related to itself is related to nothing
 	}
+	a.link(relation, element, other)
+}
+
+func (a *hdbkAudit) link(relation hdbkRelation, element, other *symbols.Symbol) {
+	key := symbols.KeyOf(element)
 	a.facts.links[hdbkLink{relation, key, hdbkNone}] = true
 	if kind := a.kindOf(other); kind != hdbkNone {
 		a.facts.links[hdbkLink{relation, key, kind}] = true
 	}
+}
+
+// noteDerivation records derived as derived from original. The two may be one
+// declaration reached by two paths (`a.r` from `b.r`), which the gathered
+// edges and records have already told from a derivation of one from itself.
+func (a *hdbkAudit) noteDerivation(derived, original *symbols.Symbol) {
+	if derived == nil || original == nil {
+		return
+	}
+	a.link(hdbkDerivedFrom, derived, original)
+	a.link(hdbkOriginOf, original, derived)
 }
 
 func (a *hdbkAudit) noteBoth(forward, backward hdbkRelation, source, target *symbols.Symbol) {

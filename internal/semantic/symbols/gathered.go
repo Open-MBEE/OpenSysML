@@ -26,6 +26,8 @@ type GatheredRelationships struct {
 	Verifications []GatheredEnds
 	// RequirementDerivations: Sources are the original requirement of a
 	// derivation however it is written, Targets a requirement derived from it.
+	// The two are one declaration where two paths reach it (`a.r` and `b.r`);
+	// a derivation of a requirement from itself is not recorded.
 	RequirementDerivations []GatheredEnds
 	// SentSignals are the signal names the body's `send` actions send, sorted.
 	SentSignals []string

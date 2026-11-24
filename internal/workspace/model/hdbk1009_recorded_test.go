@@ -108,3 +108,48 @@ func TestWorkspaceHDBK1009ReadsRecordedKindsAndTypedDerivations(t *testing.T) {
 		t.Errorf("beside a recorded typed derivation: %d underived requirements, want 0", got)
 	}
 }
+
+// A record tells a derivation between two paths to one inherited requirement
+// from a derivation of a requirement from itself, which gives it no origin.
+func TestWorkspaceHDBK1009RecordedDerivationsBetweenPathsToOneRequirement(t *testing.T) {
+	reqs := []byte(`package Reqs {
+		private import HDBK1009::*;
+		part def D { #subsystemRequirement requirement r; }
+		part a : D;
+		part b : D;
+		#subsystemRequirement requirement loose;
+	}`)
+	for _, tc := range []struct {
+		name, derived string
+		underived     int
+	}{
+		{"two paths", "b.r", 1},
+		{"one path", "a.r", 2},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			links := []byte(`package Links {
+				private import HDBK1009::*;
+				private import Reqs::*;
+				#derivation connection { end #original ::> a.r; end #derive ::> ` + tc.derived + `; }
+			}`)
+			loaded := NewWorkspace()
+			loaded.OpenAll([]Input{{Name: "reqs.sysml", Content: reqs, Version: 1}, {Name: "links.sysml", Content: links, Version: 1}})
+			loaded.DiagnosticsAll([]string{"reqs.sysml", "links.sysml"})
+			rec, err := loaded.InterfaceRecord("links.sysml")
+			if err != nil {
+				t.Fatal(err)
+			}
+			ws := NewWorkspace()
+			ws.Open("reqs.sysml", reqs, 1)
+			if err := ws.OpenRecorded(rec, links); err != nil {
+				t.Fatal(err)
+			}
+			if got := codesOf(ws.Diagnostics("reqs.sysml"))["hdbk1009-requirement-not-derived"]; got != tc.underived {
+				t.Errorf("beside the recorded derivation: %d underived requirements, want %d", got, tc.underived)
+			}
+			if !ws.Recorded("links.sysml") {
+				t.Fatal("links.sysml was hydrated: the fixture does not exercise a recorded document")
+			}
+		})
+	}
+}

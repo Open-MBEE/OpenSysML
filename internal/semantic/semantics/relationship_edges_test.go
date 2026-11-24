@@ -196,3 +196,47 @@ func TestRelationshipEdgesOfDerivationRefinementAndDependency(t *testing.T) {
 		})
 	}
 }
+
+// A derivation edge keeps the path each end is written as, so two paths to one
+// inherited requirement are told from one path named at both ends.
+func TestRelationshipEdgesOfDerivationKeepEndPaths(t *testing.T) {
+	m, root := buildRelationshipModelWithStdlib(t, "t.sysml", source.KindSysML, `package P {
+		private import RequirementDerivation::*;
+		part def D { requirement r; }
+		part a : D;
+		part b : D;
+		#derivation connection across { end #original ::> a.r; end #derive ::> b.r; }
+		#derivation connection within { end #original ::> a.r; end #derive ::> a.r; }
+	}`)
+	index := m.resolver.Index()
+	fqns := func(path []*symbols.Symbol) []string {
+		var out []string
+		for _, sym := range path {
+			out = append(out, index.GetFQN(sym))
+		}
+		return out
+	}
+	for _, tc := range []struct {
+		symbol   string
+		target   []string
+		sameEnds bool
+	}{
+		{"P::across", []string{"P::b", "P::D::r"}, false},
+		{"P::within", []string{"P::a", "P::D::r"}, true},
+	} {
+		edges := m.RelationshipEdgesOf(nestedSym(t, root, tc.symbol), RelationshipDerivation)
+		if len(edges) != 1 {
+			t.Fatalf("RelationshipEdgesOf(%s) = %v, want one edge", tc.symbol, edges)
+		}
+		edge := edges[0]
+		if got, want := fqns(edge.SourcePath), []string{"P::a", "P::D::r"}; !reflect.DeepEqual(got, want) {
+			t.Errorf("%s: source path %v, want %v", tc.symbol, got, want)
+		}
+		if got := fqns(edge.TargetPath); !reflect.DeepEqual(got, tc.target) {
+			t.Errorf("%s: target path %v, want %v", tc.symbol, got, tc.target)
+		}
+		if edge.SameEnds() != tc.sameEnds {
+			t.Errorf("%s: SameEnds() = %v, want %v", tc.symbol, edge.SameEnds(), tc.sameEnds)
+		}
+	}
+}

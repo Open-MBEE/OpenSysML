@@ -1,6 +1,8 @@
 package semantics
 
 import (
+	"slices"
+
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -22,6 +24,15 @@ const (
 type RelationshipEdge struct {
 	Source *symbols.Symbol
 	Target *symbols.Symbol
+	// SourcePath and TargetPath are the features a derivation's end is written
+	// as, outermost first (`a.r` is [a r]); nil for an end no reference names.
+	SourcePath, TargetPath []*symbols.Symbol
+}
+
+// SameEnds reports an edge from an element to itself reached the same way:
+// `a.r` and `b.r` are two requirements though both name one inherited r.
+func (e RelationshipEdge) SameEnds() bool {
+	return symbols.SameElement(e.Source, e.Target) && slices.EqualFunc(e.SourcePath, e.TargetPath, symbols.SameElement)
 }
 
 // RelationshipEdgesOf returns the resolved edges sym's declaration states, in declaration order.
@@ -164,7 +175,7 @@ func (m *Model) derivationEdges(sym *symbols.Symbol) []RelationshipEdge {
 	var out []RelationshipEdge
 	for _, original := range originals {
 		for _, target := range derived {
-			out = append(out, RelationshipEdge{Source: original, Target: target})
+			out = append(out, RelationshipEdge{Source: original.element, Target: target.element, SourcePath: original.path, TargetPath: target.path})
 		}
 	}
 	return out
@@ -196,7 +207,13 @@ const (
 
 type derivationEnd struct {
 	role      derivationRole
-	referents []*symbols.Symbol
+	referents []derivationReferent
+}
+
+// derivationReferent is a requirement an end refers to and the path naming it.
+type derivationReferent struct {
+	element *symbols.Symbol
+	path    []*symbols.Symbol
 }
 
 func (m *Model) derivationUsageEnds(sym *symbols.Symbol) []derivationEnd {
@@ -209,7 +226,7 @@ func (m *Model) derivationUsageEnds(sym *symbols.Symbol) []derivationEnd {
 		end := derivationEnd{role: m.derivationRoleOf(attachment.EndFeature)}
 		if attachment.Attachment != nil {
 			if target, ok := m.resolver.ResolveTarget(sym.OwnerScope, attachment.Attachment); ok && target != nil {
-				end.referents = append(end.referents, target)
+				end.referents = append(end.referents, derivationReferent{target, m.attachmentPath(sym.OwnerScope, attachment.Attachment)})
 			}
 		}
 		ends = append(ends, end)
@@ -224,7 +241,7 @@ func (m *Model) derivationUsageEnds(sym *symbols.Symbol) []derivationEnd {
 			if !ok || target == nil || m.isDerivationRoleFeature(target) {
 				continue
 			}
-			end.referents = append(end.referents, target)
+			end.referents = append(end.referents, derivationReferent{target, m.attachmentPath(feature.OwnerScope, rel.Target)})
 		}
 		ends = append(ends, end)
 	}
@@ -236,7 +253,10 @@ func (m *Model) derivationUsageEnds(sym *symbols.Symbol) []derivationEnd {
 func (m *Model) derivationDefinitionEnds(sym *symbols.Symbol) []derivationEnd {
 	var ends []derivationEnd
 	for _, feature := range m.EndFeatures(sym) {
-		end := derivationEnd{role: m.derivationRoleOf(feature), referents: m.requirementTypes(feature)}
+		end := derivationEnd{role: m.derivationRoleOf(feature)}
+		for _, typ := range m.requirementTypes(feature) {
+			end.referents = append(end.referents, derivationReferent{element: typ})
+		}
 		for _, rel := range relationshipsOfEnd(feature) {
 			if rel.Kind != ast.RelReferences && rel.Kind != ast.RelSubsets {
 				continue
@@ -245,7 +265,7 @@ func (m *Model) derivationDefinitionEnds(sym *symbols.Symbol) []derivationEnd {
 			if !ok || target == nil || m.isDerivationRoleFeature(target) || !m.conformsToLibrary(target, "Requirements::RequirementCheck") {
 				continue
 			}
-			end.referents = append(end.referents, target)
+			end.referents = append(end.referents, derivationReferent{target, m.attachmentPath(feature.OwnerScope, rel.Target)})
 		}
 		ends = append(ends, end)
 	}
@@ -285,7 +305,7 @@ func (m *Model) isDerivationRoleFeature(target *symbols.Symbol) bool {
 			m.conformsToLibrary(target, "DerivationConnections::derivedRequirements"))
 }
 
-func splitDerivationEnds(ends []derivationEnd) (originals, derived []*symbols.Symbol) {
+func splitDerivationEnds(ends []derivationEnd) (originals, derived []derivationReferent) {
 	hasOriginal := false
 	for _, end := range ends {
 		if end.role == roleOriginal {

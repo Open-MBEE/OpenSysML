@@ -93,6 +93,9 @@ func (g *relationshipRecorder) gather(sym *symbols.Symbol, usage *ast.Usage) {
 func (g *relationshipRecorder) edges(ctx *Context, sym *symbols.Symbol, kind semantics.RelationshipKind) []symbols.GatheredEnds {
 	var out []symbols.GatheredEnds
 	for _, edge := range ctx.Model().RelationshipEdgesOf(sym, kind) {
+		if kind == semantics.RelationshipDerivation && edge.SameEnds() {
+			continue // a requirement derived from itself has no origin to record
+		}
 		out = append(out, g.ends(sym, []*symbols.Symbol{edge.Source}, []*symbols.Symbol{edge.Target}))
 	}
 	return out

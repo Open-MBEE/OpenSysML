@@ -82,6 +82,24 @@ func TestHDBK1009SubsystemRequirementsWithoutASystemRequirement(t *testing.T) {
 		CodeHDBK1009RequirementNotDerived, 3, 4)
 }
 
+// Two parts typed by one definition each hold its requirement: deriving one
+// part's from the other's relates two requirements, not one to itself.
+func TestHDBK1009DerivationBetweenTwoPathsToOneInheritedRequirement(t *testing.T) {
+	w8dWantLines(t, hdbkModel(`
+		part def D { #subsystemRequirement requirement r; }
+		part a : D;
+		part b : D;
+		#subsystemRequirement requirement loose;
+		#derivation connection { end #original ::> a.r; end #derive ::> b.r; }`),
+		CodeHDBK1009RequirementNotDerived, 6)
+	w8dWantLines(t, hdbkModel(`
+		part def D { #subsystemRequirement requirement r; }
+		part a : D;
+		#subsystemRequirement requirement loose;
+		#derivation connection { end #original ::> a.r; end #derive ::> a.r; }`),
+		CodeHDBK1009RequirementNotDerived, 3, 5)
+}
+
 // The peer that makes a lone subsystem requirement warn may sit in another document.
 func TestHDBK1009SubsystemRequirementPeersAcrossDocuments(t *testing.T) {
 	w := newSharedWorkspace()
