@@ -391,3 +391,26 @@ func TestDOTOrthoPlacedAnchorClearOfNotes(t *testing.T) {
 	checkAnchorsClear(t, view, got)
 	drawWithGraphviz(t, installedDot(t), "ortho-note", "-n", got)
 }
+
+// Notes closer to a cluster's one node than twice the clearance leave no point
+// that far from all of them: the anchor is pinned in the gap, not on the node.
+func TestDOTOrthoPlacedAnchorInNarrowGap(t *testing.T) {
+	const view = "V"
+	place := func(x, y float64) *Geometry { return &Geometry{X: x, Y: y, Width: 80, Height: 40, HasSize: true} }
+	note := func(x, y, width, height float64) Note {
+		return Note{Text: "n", X: x, Y: y, Width: width, Height: height, HasSize: true}
+	}
+	rendering := &Rendering{View: view, Kind: KindInterconnection,
+		Roots: []*Node{
+			{ID: "c", Name: "c", Children: []*Node{{ID: "b", Name: "b", Geometry: place(200, 100)}}},
+			{ID: "e", Name: "e", Geometry: place(500, 100)},
+		},
+		Edges: []Edge{{From: "b", To: "e"}},
+		Notes: []Note{note(134, 90, 60, 60), note(286, 90, 60, 60), note(200, 64, 80, 30), note(200, 146, 80, 30)}}
+	got, err := rendering.DOTWith(orthoOptions)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkAnchorsClear(t, view, got)
+	drawWithGraphviz(t, installedDot(t), "ortho-gap", "-n", got)
+}

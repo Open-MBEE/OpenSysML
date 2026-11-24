@@ -369,19 +369,9 @@ func buildLoopNode(scope *Scope, d *ast.WhileLoopActionNode) {
 	if d.Kind == ast.LoopFor && d.Variable.Declared() {
 		// The variable's own span, not the whole loop's: the editor renames
 		// through NameSpan and jumps to DeclSpan.
-		name, span := d.Variable.DeclaredName()
-		sym := &Symbol{
-			Name:       name,
-			Kind:       SymbolReferenceUsage,
-			Decl:       d,
-			DeclSpan:   span,
-			NameSpan:   span,
-			OwnerScope: child,
-		}
-		if name == "" {
-			sym.EmptyNames = EmptyName
-		}
-		child.define(name, sym)
+		sym := newSymbol(d.Variable, SymbolReferenceUsage, d, ast.VisibilityDefault, nil, child, nil)
+		sym.DeclSpan = sym.NameSpan
+		defineIdent(child, d.Variable, sym)
 	}
 	buildMembers(child, d.Body)
 }

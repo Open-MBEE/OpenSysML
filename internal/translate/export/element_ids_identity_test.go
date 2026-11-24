@@ -158,7 +158,7 @@ func compareWrittenRelationships(t *testing.T, name string, graph *rdf.Graph, en
 // definition's and a usage's specializations, two typings, subsets, redefines, a satisfy's
 // requirement (reference form), bound ends, a dependency's prefix metadata, a metadata body's
 // implicit redefinition, variant references, a multiplicity's subsets, three clauses naming
-// one type (one typing), two clauses spelling one feature chain (two subsettings), an import.
+// one type (three typings), two clauses spelling one feature chain (two subsettings), an import.
 const writtenRelationshipsModel = "package R {\n\tprivate import ScalarValues::*;\n\tpart def Base;\n\tpart def Derived :> Base;\n\tport def P;\n\tmetadata def M;\n\trequirement def Req;\n\tpart def Sys {\n\t\tattribute m : Real;\n\t\tpart a : Base, Derived;\n\t\tpart twice : Base, Base, R::Base;\n\t\tmultiplicity mm subsets many;\n\t\tpart b :> a;\n\t\tpart d specializes a;\n\t\tpart c subsets a redefines b;\n\t\tport p : P;\n\t\tport q : ~P;\n\t\tconnect a to b;\n\t\tsatisfy Req by a;\n\t\t#M dependency from a to b;\n\t\t@H { flown = true; }\n\t\tpart v : Base { variant b; variant a; }\n\t\tpart box : Box;\n\t\tpart w subsets box.inner, a, box.inner;\n\t}\n\tpart def Box { part inner; }\n\tmetadata def H { attribute flown : Boolean; }\n\tmultiplicity many [0..*];\n}\n"
 
 // TestElementIDReaderMintsEveryWrittenRelationship: each form of implied relationship
@@ -195,22 +195,19 @@ func TestElementIDReaderMintsEveryWrittenRelationship(t *testing.T) {
 			t.Errorf("no relationship read under %s; read %v", suffix, suffixes)
 		}
 	}
-	// `part twice : Base, Base, R::Base` states one typing three times: one relationship.
-	twice, _ := graph.Lexical(rdf.ElementIRIForID("R__Sys__twice_ft0"), rdf.SysML+pElementID)
-	if twice != "R__Sys__twice_ft0" {
-		t.Errorf("twice_ft0 written %q", twice)
-	}
-	if _, more := graph.Lexical(rdf.ElementIRIForID("R__Sys__twice_ft1"), rdf.SysML+pElementID); more {
-		t.Errorf("the writer materialized a second typing for `: Base, Base, R::Base`")
-	}
+	// `part twice : Base, Base, R::Base` names one type in three clauses: three typings, in clause order.
 	for _, e := range encoders {
 		for node, fqn := range e.names.FQN {
 			if fqn != "R::Sys::twice" {
 				continue
 			}
-			for _, rel := range node.(*ast.Usage).Relationships {
-				if got, _ := reader.ReadRelationship("r.sysml", rel); got != "R__Sys__twice_ft0" {
-					t.Errorf("typing clause at %v read %q, want R__Sys__twice_ft0", rel.Span(), got)
+			for i, rel := range node.(*ast.Usage).Relationships {
+				want := fmt.Sprintf("R__Sys__twice_ft%d", i)
+				if written, _ := graph.Lexical(rdf.ElementIRIForID(want), rdf.SysML+pElementID); written != want {
+					t.Errorf("typing %d of twice written %q, want %q", i, written, want)
+				}
+				if got, _ := reader.ReadRelationship("r.sysml", rel); got != want {
+					t.Errorf("typing clause at %v read %q, want %s", rel.Span(), got, want)
 				}
 			}
 		}

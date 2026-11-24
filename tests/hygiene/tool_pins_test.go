@@ -51,20 +51,38 @@ func sourceOfTruth(t *testing.T, path string, declared *regexp.Regexp) string {
 	return match[1]
 }
 
-// CI downloads a static buf by literal URL while `make` runs BUF_VERSION, and the
-// regenerate-and-diff gates compare the two generators' output.
+// CI installs a static buf through scripts/ci-install-buf.sh while `make` runs BUF_VERSION,
+// and the regenerate-and-diff gates compare the two generators' output.
 func TestCIInstallsTheMakefilesBuf(t *testing.T) {
 	want := sourceOfTruth(t, "../../Makefile", regexp.MustCompile(`(?m)^BUF_VERSION\s*:=\s*(\S+)\s*$`))
-	found := pinnedIn(t, regexp.MustCompile(`github\.com/bufbuild/buf/releases/download/([^/\s]+)/`))
-	if len(found) == 0 {
-		t.Fatal("no CI file downloads buf, so the check would pass over nothing")
+	got := sourceOfTruth(t, "../../scripts/ci-install-buf.sh", regexp.MustCompile(`(?m)^BUF_VERSION=(\S+)\s*$`))
+	if got != want {
+		t.Errorf("scripts/ci-install-buf.sh installs buf %s; the Makefile's BUF_VERSION is %s", got, want)
 	}
-	for path, versions := range found {
-		for _, got := range versions {
-			if got != want {
-				t.Errorf("%s downloads buf %s; the Makefile's BUF_VERSION is %s", path, got, want)
+	for path, versions := range pinnedIn(t, regexp.MustCompile(`github\.com/bufbuild/buf/releases/download/([^/\s]+)/`)) {
+		t.Errorf("%s downloads buf %v itself; scripts/ci-install-buf.sh holds the one pin", path, versions)
+	}
+}
+
+// The Makefile's default BUF is `go run buf@version`, which resolves buf's module graph
+// against the Go checksum database on every run; CI names the installed binary instead.
+func TestCIRunsTheInstalledBuf(t *testing.T) {
+	bufTarget := regexp.MustCompile(`\b(proto|proto-buf|python-proto|proto-ts|proto-rust|proto-lint|proto-breaking)\b`)
+	runs := pinnedIn(t, regexp.MustCompile(`(?m)^\s*(?:-\s+)?(?:run:\s+|command:\s+)?(make\s.*)$`))
+	checked := 0
+	for path, commands := range runs {
+		for _, command := range commands {
+			if !bufTarget.MatchString(command) {
+				continue
+			}
+			checked++
+			if !regexp.MustCompile(`\sBUF=\S+`).MatchString(command) {
+				t.Errorf("%s runs %q without BUF=, so buf is built by `go run`", path, command)
 			}
 		}
+	}
+	if checked == 0 {
+		t.Fatal("no CI file runs a buf target, so the check would pass over nothing")
 	}
 }
 

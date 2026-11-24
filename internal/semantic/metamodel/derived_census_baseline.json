@@ -47,7 +47,7 @@
         "dir": "examples/spec-examples",
         "origin": "pinned",
         "files": 511,
-        "digest": "sha256:7d7124196b4255d6eb2ca94f8901f18546af38e2ada9b2cd758aa187be5c87ab"
+        "digest": "sha256:59f89a89c067c8231e86c8fab37798943ab5a5f12d9db1d48b30ef533e14fa26"
       },
       {
         "name": "testdata",
@@ -101,8 +101,8 @@
       "dir": "examples/sysml-v2-training",
       "files": 100,
       "rejected": 0,
-      "elements": 11261,
-      "implied": 6529,
+      "elements": 11263,
+      "implied": 6530,
       "pilotElements": 11906,
       "pilotImplied": 0,
       "pilotDuplicates": 5797,
@@ -113,8 +113,8 @@
       "dir": "examples/pilot-corpora/sysml-examples",
       "files": 99,
       "rejected": 0,
-      "elements": 39466,
-      "implied": 23060,
+      "elements": 39469,
+      "implied": 23062,
       "pilotElements": 40861,
       "pilotImplied": 0,
       "pilotDuplicates": 10940,
@@ -125,8 +125,8 @@
       "dir": "examples/pilot-corpora/sysml-validation",
       "files": 56,
       "rejected": 0,
-      "elements": 13805,
-      "implied": 8042,
+      "elements": 13807,
+      "implied": 8043,
       "pilotElements": 14222,
       "pilotImplied": 0,
       "pilotDuplicates": 3066,
@@ -149,8 +149,8 @@
       "dir": "examples/spec-examples",
       "files": 511,
       "rejected": 38,
-      "elements": 11755,
-      "implied": 6697,
+      "elements": 11768,
+      "implied": 6706,
       "pilotElements": 15900,
       "pilotImplied": 0,
       "pilotDuplicates": 40,
@@ -161,8 +161,8 @@
       "dir": "tests/testdata",
       "files": 42,
       "rejected": 0,
-      "elements": 2524,
-      "implied": 1411,
+      "elements": 2528,
+      "implied": 1413,
       "pilotElements": 2863,
       "pilotImplied": 0,
       "pilotDuplicates": 169,
@@ -205,5 +205,5 @@
       "pilotFailed": 0
     }
   ],
-  "pilotRecords": "sha256:507a523a19c32fadd6f4e926ad071f8a6107d802f06f53dccd28be063fbe8ceb"
+  "pilotRecords": "sha256:acd34dec55ded7ce782da6e354e0f09762f620ad59efba9a6d8d046f2c382871"
 }
