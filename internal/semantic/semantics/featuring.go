@@ -1,6 +1,8 @@
 package semantics
 
 import (
+	"slices"
+
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -29,7 +31,13 @@ func (m *Model) DerivedFeaturingTypes(feature *symbols.Symbol) []FeaturingType {
 	if cached, ok := m.derivedFeaturing[feature]; ok {
 		return cached
 	}
-	m.resolver.Enter()
+	// A connector's default reads its related features' featuring types, which may lead back here.
+	if depth := m.computingDerivedFeaturing[feature]; depth != 0 {
+		m.resolver.CutShort(depth)
+		return nil
+	}
+	m.computingDerivedFeaturing[feature] = m.resolver.Enter()
+	defer delete(m.computingDerivedFeaturing, feature)
 	out := m.derivedFeaturingTypes(feature, map[*symbols.Symbol]bool{})
 	// A derivation a resolution guard cut short is recomputed, not memoized.
 	if !m.resolver.Leave() {
@@ -41,7 +49,7 @@ func (m *Model) DerivedFeaturingTypes(feature *symbols.Symbol) []FeaturingType {
 }
 
 func (m *Model) derivedFeaturingTypes(feature *symbols.Symbol, deriving map[*symbols.Symbol]bool) []FeaturingType {
-	if feature == nil || !feature.IsFeature() || deriving[feature] {
+	if feature == nil || !(feature.IsFeature() || feature.Expr != nil) || deriving[feature] {
 		return nil
 	}
 	deriving[feature] = true
@@ -58,15 +66,8 @@ func (m *Model) derivedFeaturingTypes(feature *symbols.Symbol, deriving map[*sym
 	for _, declared := range m.FeaturingTypes(feature) {
 		add(m.plainFeaturingType(declared))
 	}
-	if owner := m.ownerOf(feature); owner != nil {
-		switch {
-		case IsVariant(feature) && IsVariation(owner):
-			for _, shared := range m.variantFeaturingTypes(feature, owner) {
-				add(m.plainFeaturingType(shared))
-			}
-		case m.ownedByFeatureMembership(owner, feature):
-			add(m.impliedFeaturingType(owner, m.FeatureIsVariable(feature)))
-		}
+	for _, implied := range m.impliedTypeFeaturings(feature, deriving) {
+		add(implied)
 	}
 	if chaining := m.ChainingFeatures(feature); len(chaining) > 0 {
 		for _, t := range m.derivedFeaturingTypes(chaining[0], deriving) {
@@ -74,6 +75,73 @@ func (m *Model) derivedFeaturingTypes(feature *symbols.Symbol, deriving map[*sym
 		}
 	}
 	return out
+}
+
+// impliedTypeFeaturings derives ImpliedTypeFeaturings beside the features being derived.
+func (m *Model) impliedTypeFeaturings(feature *symbols.Symbol, deriving map[*symbols.Symbol]bool) []FeaturingType {
+	owner := m.ownerOf(feature)
+	if feature.Expr != nil {
+		owner = feature.Expr.Owner
+	}
+	if owner == nil {
+		// The root namespace owns no feature through a FeatureMembership; a connector there has its default.
+		return m.impliedConnectorFeaturing(feature)
+	}
+	switch {
+	case m.owningEndOf(feature) != nil:
+		// KerML checkFeatureOwnedCrossFeatureTypeFeaturing: the types of the one other end; the
+		// Cartesian product of several other ends' types is not a type the model holds.
+		var out []FeaturingType
+		if others := m.otherEnds(owner); len(others) == 1 {
+			for _, t := range m.FeatureTypes(others[0]) {
+				if featuring := m.plainFeaturingType(t); featuring.Type != nil {
+					out = append(out, featuring)
+				}
+			}
+		}
+		return out
+	case isExpressionParameterSymbol(feature):
+		// KerML checkFeatureFeatureMembershipTypeFeaturing: an expression owns its parameters.
+		return []FeaturingType{m.plainFeaturingType(owner)}
+	case feature.Kind == symbols.SymbolMultiplicity:
+		// KerML checkMultiplicityTypeFeaturing: a feature's multiplicity shares its featuring types.
+		return m.derivedFeaturingTypes(owner, deriving)
+	case feature.Expr != nil && feature.Expr.Role == symbols.ExpressionBound:
+		// KerML checkMultiplicityRangeExpressionTypeFeaturing: a bound shares its range's, and
+		// the bound of an owned cross feature's range its owning end's.
+		bounded := feature.Expr.Owner
+		if end := m.owningEndOf(m.ownerOf(bounded)); end != nil {
+			return m.derivedFeaturingTypes(end, deriving)
+		}
+		return m.impliedTypeFeaturings(bounded, deriving)
+	case feature.Expr != nil && (feature.Expr.Role == symbols.ExpressionValue || feature.Expr.Role == symbols.ExpressionArgument):
+		// KerML checkExpressionTypeFeaturing: a value shares its featureWithValue's, an operand its parameter's.
+		return m.derivedFeaturingTypes(owner, deriving)
+	case IsVariant(feature) && IsVariation(owner):
+		// SysML checkUsageVariationUsageTypeFeaturing: a variant shares its variation usage's.
+		if !m.reflectiveMetaclassConforms(owner, "Usage") {
+			return nil
+		}
+		return m.derivedFeaturingTypes(owner, deriving)
+	case m.OwningType(feature) == nil && m.reflectiveMetaclassConforms(feature, "Connector"):
+		return m.impliedConnectorFeaturing(feature)
+	case m.ownedByFeatureMembership(owner, feature):
+		// KerML checkFeatureFeatureMembershipTypeFeaturing.
+		return []FeaturingType{m.impliedFeaturingType(owner, m.FeatureIsVariable(feature))}
+	}
+	return nil
+}
+
+// impliedConnectorFeaturing returns the default featuring type of a connector no type owns and
+// no clause features (KerML checkConnectorTypeFeaturing).
+func (m *Model) impliedConnectorFeaturing(feature *symbols.Symbol) []FeaturingType {
+	if m.OwningType(feature) != nil || len(m.FeaturingTypes(feature)) != 0 || !m.reflectiveMetaclassConforms(feature, "Connector") {
+		return nil
+	}
+	if featuring := m.connectorDefaultFeaturingType(feature); featuring.Type != nil {
+		return []FeaturingType{featuring}
+	}
+	return nil
 }
 
 // OwningType derives Feature::owningType: the type owning feature through a FeatureMembership.
@@ -377,4 +445,44 @@ func withAnything(types []FeaturingType) []FeaturingType {
 		}
 	}
 	return append(types[:len(types):len(types)], FeaturingType{})
+}
+
+// otherEnds returns the ends of end's owning type, inherited ones included, other than end itself.
+func (m *Model) otherEnds(end *symbols.Symbol) []*symbols.Symbol {
+	return slices.DeleteFunc(slices.Clone(m.endsOf(m.ownerOf(end))), func(other *symbols.Symbol) bool {
+		return other == end
+	})
+}
+
+// connectorDefaultFeaturingType derives Connector::defaultFeaturingType (KerML 1.1 §8.3.4.5.3
+// deriveConnectorDefaultFeaturingType): the innermost featuring type every related feature is featured within.
+func (m *Model) connectorDefaultFeaturingType(connector *symbols.Symbol) FeaturingType {
+	var related []FeaturingType
+	for _, feature := range m.ConnectorRelatedFeaturesByEnd(connector) {
+		if feature != nil {
+			related = append(related, FeaturingType{Type: feature})
+		}
+	}
+	access := m.featureAccess()
+	var common []FeaturingType
+	for _, feature := range related {
+		for _, t := range access.allFeaturingTypes(feature) {
+			if t.Type == nil || slices.ContainsFunc(common, func(have FeaturingType) bool { return sameFeaturingType(have, t) }) {
+				continue
+			}
+			if !slices.ContainsFunc(related, func(f FeaturingType) bool { return !access.featuredWithin(f, t) }) {
+				common = append(common, t)
+			}
+		}
+	}
+	for _, t := range common {
+		inner := slices.ContainsFunc(common, func(other FeaturingType) bool {
+			return !sameFeaturingType(other, t) && isFeatureType(other) &&
+				slices.ContainsFunc(access.allFeaturingTypes(other), func(outer FeaturingType) bool { return sameFeaturingType(outer, t) })
+		})
+		if !inner {
+			return t
+		}
+	}
+	return FeaturingType{}
 }

@@ -114,6 +114,9 @@ func Markdown(document *docir.Document, opts MarkdownOptions) (string, error) {
 	if err := drawAutomatic(document, &diagrams, opts.Drawer, &opts.DiagramSVG); err != nil {
 		return "", err
 	}
+	if err := checkInert(nil, opts.DiagramSVG); err != nil {
+		return "", err
+	}
 	w := &markdownWriter{
 		opts: diagrams, files: opts.Files, svg: opts.DiagramSVG, outputDir: opts.OutputDir,
 		numbers: captionNumbering{on: opts.NumberFigures}, tableColumns: opts.TableColumns, tableMeasure: opts.TableMeasure,
@@ -306,8 +309,7 @@ func (w *markdownWriter) diagramFigure(name, caption string, rendering *view.Ren
 		return nil, &Error{Kind: ErrorUnrenderableDiagram, Content: name, Actual: string(rendering.Kind)}
 	}
 	form, fallback := w.opts.formFor(rendering)
-	source, err := diagramSource(name, rendering, options, form)
-	if err != nil {
+	if err := renderableForm(name, rendering, form); err != nil {
 		return nil, err
 	}
 	if fallback != "" {
@@ -316,6 +318,10 @@ func (w *markdownWriter) diagramFigure(name, caption string, rendering *view.Ren
 	if w.diagrams < len(w.svg) && w.svg[w.diagrams] != "" {
 		blocks = append(blocks, "<figure class=\"sysml-diagram\">\n"+svgBlock(w.svg[w.diagrams])+"\n</figure>")
 	} else {
+		source, err := diagramSource(name, rendering, options, form)
+		if err != nil {
+			return nil, err
+		}
 		blocks = append(blocks, "```"+string(form)+"\n"+source+"\n```")
 	}
 	w.diagrams++
@@ -338,13 +344,21 @@ func svgBlock(svg string) string {
 	return strings.Join(lines, "\n")
 }
 
+// renderableForm refuses a diagram form the rendering's kind cannot be written in.
+func renderableForm(name string, rendering *view.Rendering, form view.Form) error {
+	if !rendering.Kind.SupportsForm(form) {
+		return &Error{Kind: ErrorUnrenderableForm, Content: name, Actual: string(rendering.Kind), DiagramForm: form}
+	}
+	return nil
+}
+
 // diagramSource writes a graph-shaped rendering in the resolved diagram form
 // with the diagram's direction, palette and placement of unplaced nodes,
 // without its trailing newline. A Mermaid chart past the size a chart is drawn
 // under is refused, not written.
 func diagramSource(name string, rendering *view.Rendering, options view.Options, form view.Form) (string, error) {
-	if !rendering.Kind.SupportsForm(form) {
-		return "", &Error{Kind: ErrorUnrenderableForm, Content: name, Actual: string(rendering.Kind), DiagramForm: form}
+	if err := renderableForm(name, rendering, form); err != nil {
+		return "", err
 	}
 	switch form {
 	case view.FormMermaid:
@@ -593,7 +607,7 @@ func (w *markdownWriter) runText(run docir.TextRun) string {
 		if run.TargetElement() != "" {
 			return inline(run.Text())
 		}
-		return "[" + inline(refText(run, w.labels)) + "](" + w.refDestination(run) + ")"
+		return "[" + inline(refText(run, w.labels)) + "](" + linkDestination(w.refDestination(run)) + ")"
 	default:
 		return inline(run.Text())
 	}
@@ -703,6 +717,21 @@ var destinationEscaper = strings.NewReplacer(
 // percent-encode since a backslash cannot escape them.
 func destination(target string) string {
 	return strings.ReplaceAll(destinationEscaper.Replace(newlineNormalizer.Replace(target)), "\n", "%0A")
+}
+
+// linkDestination writes a destination built from a file name: bare, or in the
+// pointy-bracket form when a space, parenthesis or backslash would reshape a bare one.
+func linkDestination(target string) string {
+	bare := target != "" && !strings.HasPrefix(target, "<")
+	for _, r := range target {
+		if r <= ' ' || r == 0x7f || r == '(' || r == ')' || r == '\\' {
+			bare = false
+		}
+	}
+	if bare {
+		return target
+	}
+	return "<" + destination(target) + ">"
 }
 
 // namer is the name an element value is displayed by; a document's ElementName.

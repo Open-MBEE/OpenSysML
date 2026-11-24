@@ -4,6 +4,7 @@ enter calc test::Capped
   stmt declare x
     eval literal 0 -> 0
   stmt while
+materialize: Capped #1
     iteration 1
         eval feature x -> 0
         eval literal 10 -> 10

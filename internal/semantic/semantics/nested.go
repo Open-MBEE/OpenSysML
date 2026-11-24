@@ -44,12 +44,15 @@ func (m *Model) computeImplicitSubsettings(sym *symbols.Symbol) []*symbols.Symbo
 // nestedSubsettingFQN is the qualified name of the library feature the rules say sym implicitly
 // subsets, "" when they name none; read from the declarations alone, library loaded or not.
 func (m *Model) nestedSubsettingFQN(sym *symbols.Symbol) string {
+	if sym != nil && sym.Expr != nil {
+		return expressionNestedFQN(sym)
+	}
 	if sym == nil || sym.OwnerScope == nil {
 		return ""
 	}
 	owner := sym.OwnerScope.Owner()
 	if owner == nil {
-		return ""
+		return m.loopBodyNestedFQN(sym)
 	}
 	switch owner.Decl.(type) {
 	case *ast.Definition, *ast.Usage, *ast.SubstateMember, *ast.TransitionMember,
@@ -69,22 +72,11 @@ func (m *Model) nestedSubsettingFQN(sym *symbols.Symbol) string {
 			return ""
 		}
 		usage = d
-		u.Portion = d.Portion
+		u = nestedUsageOf(d)
 		// A SysML usage is composite by its kind; a KerML feature only when declared so.
-		u.Composite = usageIsComposite(d)
 		if !m.isSysMLUsage(sym) {
 			u.Composite = d.IsComposite
 		}
-		u.Performed = d.IsPerformedAction()
-		u.Exhibited = d.IsExhibitedState()
-		u.Included = d.IsIncludedUseCase()
-		u.RequirementConstraint = d.IsRequirementConstraint()
-		u.Assumed = d.IsAssumedConstraint()
-		u.Event = d.IsEvent
-		u.Accept = hasAcceptPayload(d)
-		u.Send = isSendNode(d)
-		u.Terminate = d.IsTerminate
-		u.Verified = d.IsVerifiedRequirement()
 	case *ast.SubstateMember, *ast.TransitionMember:
 		// The `state s;` and `transition …` of a body are composite usages the
 		// parser records as members.
@@ -105,6 +97,50 @@ func (m *Model) nestedSubsettingFQN(sym *symbols.Symbol) string {
 		return ""
 	}
 	return m.implicitSubsettingFQN(sym, usage, owner, u)
+}
+
+// loopBodyNestedFQN is the feature a usage declared in an unnamed loop body implicitly subsets:
+// the body is an action usage no symbol stands for (SysML.xtext ActionBodyParameter).
+func (m *Model) loopBodyNestedFQN(sym *symbols.Symbol) string {
+	if _, loop := sym.OwnerScope.Node().(*ast.WhileLoopActionNode); !loop {
+		return ""
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	if !ok || usage.IsVariant || usage.IsBodyParameter || !m.isSysMLUsage(sym) {
+		return ""
+	}
+	kind, ok := ownerUsageKind(sym)
+	if !ok {
+		return ""
+	}
+	u := nestedUsageOf(usage)
+	u.Kind = kind
+	fqn, step := nestedRuleFQN(u, NestedOwner{Usage: ast.UsageAction})
+	if !step {
+		return fqn
+	}
+	if u.Composite {
+		return stepFallbackFQNs[0]
+	}
+	return stepFallbackFQNs[2]
+}
+
+// nestedUsageOf is what the declaration of a SysML usage says of it, its kind aside.
+func nestedUsageOf(d *ast.Usage) NestedUsage {
+	return NestedUsage{
+		Portion:               d.Portion,
+		Composite:             usageIsComposite(d),
+		Performed:             d.IsPerformedAction(),
+		Exhibited:             d.IsExhibitedState(),
+		Included:              d.IsIncludedUseCase(),
+		RequirementConstraint: d.IsRequirementConstraint(),
+		Assumed:               d.IsAssumedConstraint(),
+		Event:                 d.IsEvent,
+		Accept:                hasAcceptPayload(d),
+		Send:                  isSendNode(d),
+		Terminate:             d.IsTerminate,
+		Verified:              d.IsVerifiedRequirement(),
+	}
 }
 
 // implicitSubsettingFQN selects the qualified name of the owner feature usage
@@ -780,4 +816,17 @@ func nestedOwnerOfMetaclass(metaclass string) (NestedOwner, bool) {
 		return NestedOwner{Def: d, IsDef: true}, true
 	}
 	return NestedOwner{}, false
+}
+
+// expressionNestedFQN is the feature an expression a behavior or step owns as a feature subsets: a
+// body, a result expression, a change condition (KerML checkStepEnclosedPerformanceSpecialization).
+func expressionNestedFQN(sym *symbols.Symbol) string {
+	if sym.Kind != symbols.SymbolExpression {
+		return ""
+	}
+	switch sym.Expr.Role {
+	case symbols.ExpressionBody, symbols.ExpressionBodyResult, symbols.ExpressionChangeCondition:
+		return "Performances::Performance::enclosedPerformances"
+	}
+	return ""
 }

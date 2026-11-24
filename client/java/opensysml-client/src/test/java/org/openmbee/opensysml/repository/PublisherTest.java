@@ -207,18 +207,21 @@ class PublisherTest {
 
   @Test
   void refusesAModelItCannotPublishWhole() {
+    Publisher.Target main = target("p1", "main");
     ApiException unheld = assertThrows(ApiException.class, () -> publisher.publish(
-        "[{\"@type\": \"sysx:Thing\", \"@id\": \"T\"}]", target("p1", "main")));
+        "[{\"@type\": \"sysx:Thing\", \"@id\": \"T\"}]", main));
     assertTrue(unheld.getMessage().contains("T (sysx:Thing)"), unheld.getMessage());
 
-    assertThrows(ApiException.class, () -> publisher.publish("[]", target("p1", "main")));
-    assertThrows(ApiException.class, () -> publisher.publish("{}", target("p1", "main")));
-    assertThrows(ApiException.class, () -> publisher.publish("not json", target("p1", "main")));
-    assertThrows(ApiException.class, () -> publisher.publish("[{\"@id\": \"X\"}]", target("p1", "main")));
+    assertThrows(ApiException.class, () -> publisher.publish("[]", main));
+    assertThrows(ApiException.class, () -> publisher.publish("{}", main));
+    assertThrows(ApiException.class, () -> publisher.publish("not json", main));
+    assertThrows(ApiException.class, () -> publisher.publish("[{\"@id\": \"X\"}]", main));
     assertThrows(ApiException.class, () -> publisher.publish(
-        "[{\"@type\":\"Package\",\"@id\":\"X\"},{\"@type\":\"Package\",\"@id\":\"X\"}]", target("p1", "main")));
-    assertEquals(404, assertThrows(ApiException.class, () -> publisher.publish(MODEL, target("nope", ""))).status());
-    assertEquals(404, assertThrows(ApiException.class, () -> publisher.publish(MODEL, target("p1", "nope"))).status());
+        "[{\"@type\":\"Package\",\"@id\":\"X\"},{\"@type\":\"Package\",\"@id\":\"X\"}]", main));
+    Publisher.Target noProject = target("nope", "");
+    assertEquals(404, assertThrows(ApiException.class, () -> publisher.publish(MODEL, noProject)).status());
+    Publisher.Target noBranch = target("p1", "nope");
+    assertEquals(404, assertThrows(ApiException.class, () -> publisher.publish(MODEL, noBranch)).status());
     assertEquals(0, api.posted.size());
   }
 

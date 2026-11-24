@@ -65,6 +65,7 @@ export const PublishWithOpenSysMLDialog = ({ editingContextId, onClose }: Publis
     input.project === project.trim() &&
     input.branch === branch.trim() &&
     input.deleteMissing === deleteMissing;
+  const failureSeverity = result?.branchMoved ? 'warning' : 'error';
   const errors = result?.diagnostics.filter((diagnostic) => diagnostic.severity === 'error') ?? [];
 
   return (
@@ -121,7 +122,7 @@ export const PublishWithOpenSysMLDialog = ({ editingContextId, onClose }: Publis
         {result && (
           <Alert
             data-testid="publish-result"
-            severity={result.ok ? 'success' : result.branchMoved ? 'warning' : 'error'}
+            severity={result.ok ? 'success' : failureSeverity}
             sx={{ whiteSpace: 'pre-line' }}>
             {result.summary}
             {'\n'}

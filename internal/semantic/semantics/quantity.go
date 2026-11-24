@@ -122,6 +122,9 @@ func FormatConst(c Value) string {
 	case ValBool:
 		return strconv.FormatBool(c.Bool)
 	case ValInfinity:
+		if c.IsNegativeInfinity() {
+			return "-*"
+		}
 		return "*"
 	default:
 		return "<unknown const>"

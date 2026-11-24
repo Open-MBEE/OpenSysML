@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"flag"
 	"strings"
 	"testing"
 
@@ -28,7 +29,14 @@ func TestPrintUsageStatesTheExperimentalNotice(t *testing.T) {
 // Every flag is listed under exactly one heading, so a flag added without a
 // place in the help is caught here rather than by a reader who cannot find it.
 func TestEveryFlagIsInOneOptionGroup(t *testing.T) {
-	if err := doc().CheckOptions(docFlags()); err != nil {
+	// A left-out feature's flags are hidden stand-ins, which no group documents.
+	declared := flag.NewFlagSet("sysml", flag.ContinueOnError)
+	docFlags().VisitAll(func(f *flag.Flag) {
+		if _, standIn := f.Value.(*omittedFlag); !standIn {
+			declared.Var(f.Value, f.Name, f.Usage)
+		}
+	})
+	if err := doc().CheckOptions(declared); err != nil {
 		t.Error(err)
 	}
 }

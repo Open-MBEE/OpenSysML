@@ -29,6 +29,7 @@ import java.util.Set;
 public final class SysmlApiClient {
   static final int COLLECTION_PAGE_SIZE = 200;
   static final int ELEMENTS_PAGE_SIZE = 500;
+  private static final String HTTPS = "https";
   private static final int MAX_PAGES = 1000;
   private static final int MAX_REDIRECTS = 10;
 
@@ -225,7 +226,7 @@ public final class SysmlApiClient {
     } catch (ApiException refused) {
       throw new ApiException(what + " from " + from + " refused: " + refused.getMessage());
     }
-    if ("https".equalsIgnoreCase(from.getScheme()) && !"https".equalsIgnoreCase(to.getScheme())) {
+    if (HTTPS.equalsIgnoreCase(from.getScheme()) && !HTTPS.equalsIgnoreCase(to.getScheme())) {
       throw new ApiException(what + " from " + from + " refused: the token stays on https");
     }
     if (!to.getHost().equalsIgnoreCase(base.getHost()) || port(to) != port(base)) {
@@ -235,22 +236,18 @@ public final class SysmlApiClient {
 
   private static int port(URI uri) {
     if (uri.getPort() != -1) return uri.getPort();
-    return "https".equalsIgnoreCase(uri.getScheme()) ? 443 : 80;
+    return HTTPS.equalsIgnoreCase(uri.getScheme()) ? 443 : 80;
   }
 
   /** The rel="next" target of a Link header, resolved against the request and held to the token's rule. */
   private Optional<String> nextLink(HttpResponse<String> response, URI requested) {
     for (String field : response.headers().allValues("Link")) {
       for (String link : field.split(",")) {
-        int semicolon = link.indexOf(';');
-        if (semicolon < 0) continue;
-        String parameters = link.substring(semicolon + 1);
-        if (!parameters.contains("rel=\"next\"") && !parameters.contains("rel=next")) continue;
-        String target = link.substring(0, semicolon).strip();
-        if (target.startsWith("<") && target.endsWith(">")) target = target.substring(1, target.length() - 1);
+        Optional<String> target = nextTarget(link);
+        if (target.isEmpty()) continue;
         URI to;
         try {
-          to = resolve(requested, target);
+          to = resolve(requested, target.get());
         } catch (IllegalArgumentException malformed) {
           return Optional.empty();
         }
@@ -259,6 +256,17 @@ public final class SysmlApiClient {
       }
     }
     return Optional.empty();
+  }
+
+  /** The target of one link of a Link header when its relation is next; empty for any other link. */
+  private static Optional<String> nextTarget(String link) {
+    int semicolon = link.indexOf(';');
+    if (semicolon < 0) return Optional.empty();
+    String parameters = link.substring(semicolon + 1);
+    if (!parameters.contains("rel=\"next\"") && !parameters.contains("rel=next")) return Optional.empty();
+    String target = link.substring(0, semicolon).strip();
+    if (target.startsWith("<") && target.endsWith(">")) target = target.substring(1, target.length() - 1);
+    return Optional.of(target);
   }
 
   /** RFC 3986 resolution; a query-only reference keeps the whole path, which {@link URI#resolve} does not. */

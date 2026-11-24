@@ -8,14 +8,14 @@
       "oursOnly": 4,
       "pilotOnly": 0,
       "pilotOnlyImplied": 0,
-      "typeMismatch": 3
+      "typeMismatch": 2
     },
     "properties": {
       "presentEqual": 371,
       "presentDifferent": 25,
       "oursMissing": 9,
       "pilotMissing": 24,
-      "absentBoth": 328,
+      "absentBoth": 340,
       "indeterminate": 4,
       "pilotNondeterministic": 0
     },
@@ -163,6 +163,7 @@
     "FeatureMembership.memberElement": [1,0,0,0,0,0,0],
     "FeatureMembership.memberElementId": [1,0,0,0,0,0,0],
     "FeatureMembership.memberName": [1,0,0,0,0,0,0],
+    "FeatureMembership.memberShortName": [0,0,0,0,1,0,0],
     "FeatureMembership.membershipOwningNamespace": [1,0,0,0,0,0,0],
     "FeatureMembership.ownedAnnotation": [0,0,0,0,1,0,0],
     "FeatureMembership.ownedElement": [0,0,0,0,1,0,0],
@@ -452,7 +453,8 @@
     "OwningMembership.isLibraryElement": [7,0,0,0,0,0,0],
     "OwningMembership.memberElement": [7,0,0,0,0,0,0],
     "OwningMembership.memberElementId": [7,0,0,0,0,0,0],
-    "OwningMembership.memberName": [3,0,0,0,0,0,0],
+    "OwningMembership.memberName": [3,0,0,0,4,0,0],
+    "OwningMembership.memberShortName": [0,0,0,0,7,0,0],
     "OwningMembership.membershipOwningNamespace": [7,0,0,0,0,0,0],
     "OwningMembership.ownedAnnotation": [0,0,0,0,7,0,0],
     "OwningMembership.ownedElement": [0,0,0,0,7,0,0],

@@ -573,7 +573,7 @@ func refuse(c checks, message string) int {
 // and runs the behavior named on the command line, reporting each outcome as it
 // is decided. The result is the exit status: every verdict held, one of them
 // failed, or a check could not be made at all.
-func runChecks(files []string, exprs []string, c checks) int {
+func runChecks(files, exprs []string, c checks) int {
 	format, misuse := reportFormat(c.format, c.jsonOut)
 	if misuse != "" {
 		return refuse(c, misuse)

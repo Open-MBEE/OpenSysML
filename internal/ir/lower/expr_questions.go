@@ -205,7 +205,7 @@ func Declared(sym *symbols.Symbol) *ExprEntry {
 		return nil
 	}
 	entry := &ExprEntry{Tree: sym.Decl, Scope: sym.OwnerScope}
-	entry.Origin = program.Origin{Doc: sym.DocName, Span: sym.Decl.Span()}
+	entry.Origin = program.Site{Doc: sym.DocName, Span: sym.Decl.Span()}
 	return entry
 }
 
@@ -220,7 +220,7 @@ func Valued(sym *symbols.Symbol) *ExprEntry {
 		return nil
 	}
 	entry := &ExprEntry{Tree: usage.Value, Scope: sym.OwnerScope}
-	entry.Origin = program.Origin{Doc: sym.DocName, Span: usage.Value.Span()}
+	entry.Origin = program.Site{Doc: sym.DocName, Span: usage.Value.Span()}
 	return entry
 }
 

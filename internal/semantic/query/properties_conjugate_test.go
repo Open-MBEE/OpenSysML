@@ -73,3 +73,36 @@ func TestTypeOfAConjugatedTypingIsTheConjugate(t *testing.T) {
 		}
 	}
 }
+
+// The implied conjugate declares no name with or without a semantic model behind the reader:
+// `~P` is the name its effectiveName() derives (SysML v2.1 8.3.12.2), so only `name` reads it.
+func TestImpliedConjugatedPortDefinitionDeclaresNoName(t *testing.T) {
+	file := source.New("ports.sysml", []byte(`package C { port def P; }`))
+	p := parser.New(file)
+	root := p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("parse diagnostics = %v", p.Diagnostics)
+	}
+	index := symbols.NewIndex()
+	index.AddDocument(file.Name(), root)
+	conjugates := index.LookupQualified("C::P::~P")
+	if len(conjugates) != 1 || !conjugates[0].IsConjugatedPortDefinition() {
+		t.Fatalf("index has no C::P::~P conjugate: %v", conjugates)
+	}
+	resolver := resolve.New(index)
+	model := semantics.NewModel(resolver)
+	resolver.SetModel(model)
+	for label, reader := range map[string]*PropertyReader{
+		"index only":     NewPropertyReader(index, nil, nil),
+		"with semantics": NewPropertyReader(index, resolver, model),
+	} {
+		for _, property := range []string{PropertyDeclaredName, PropertyDeclaredShortName} {
+			if values, ok := reader.Values(conjugates[0], property); ok || len(values) != 0 {
+				t.Errorf("%s: ~P %s = %v, %t; want no value", label, property, values, ok)
+			}
+		}
+		if values, ok := reader.Values(conjugates[0], PropertyName); !ok || len(values) != 1 || values[0] != "~P" {
+			t.Errorf("%s: ~P name = %v, %t; want [~P]", label, values, ok)
+		}
+	}
+}

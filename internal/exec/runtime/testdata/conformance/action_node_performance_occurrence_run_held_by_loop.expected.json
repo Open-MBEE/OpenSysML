@@ -1,0 +1,9 @@
+{
+  "type": "action",
+  "libraries": true,
+  "evaluate": "test::Pipeline",
+  "outputs": {
+    "before": {"type": "Integer", "value": 1},
+    "count": {"type": "Integer", "value": 3}
+  }
+}

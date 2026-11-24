@@ -639,7 +639,8 @@ triples come); a set of classes with no such member is refused, naming the subje
   introduces its name; the notation is written back from the two ends, so
   swapping them in the graph swaps them in the notation. This is distinct from
   the clause of a declaration (`class C specializes A disjoint from B;`), which
-  stays a property of `C` (`sysml:specializes`, `sysml:disjointFrom`).
+  is a property of `C` (`sysml:specializes`, `sysml:disjointFrom`) beside the
+  relationship element `C` owns for it (`<C>_sc0`, `<C>_dj0`).
 - `sysml:lowerBound`, `sysml:upperBound` — multiplicity, as expression nodes
   ([Expressions](#expressions))
 - `sysml:value` — a feature's value, as an expression node, with
@@ -731,6 +732,22 @@ The `sysx:` properties:
 | `sysx:isKindImplicit` | The declaration wrote no kind keyword (`in x : Real;`), which takes its kind from its owner. Without it the canonical keyword would come back written out, declaring what the author did not. A kind named in a comment in the head (`in /* attribute */ x : Real;`) is trivia, not a keyword the declaration wrote. |
 | `sysx:headClause` | On a Subsetting or ReferenceSubsetting of a target the head also relates under the other clause kind that materializes as the same class (`feature f subsets x specializes x;` owns two Subsettings of `x`): the keyword this element stands for, `specializes`, `subsets` or `references`, so the reader keeps the clauses apart — and in their written order — where the collapsed properties alone cannot tell them apart. Absent elsewhere. |
 | the behavioral properties | `sysx:guard`, `sysx:expression`, `sysx:payload`, … — the parts of a behavioral node the vocabulary has no predicate for, listed under [Behavior](#behavior). |
+
+A KerML type declaration is typed by the metaclass its keyword builds (KerML.xtext
+`Type`, `Classifier`, `DataType`, `Class`, `Structure`, `Association`,
+`AssociationStructure`, `Behavior`, `Function`, `Predicate`, `Interaction`,
+`Metaclass`), and reads back by the keyword that metaclass states where the graph
+records no `sysx:declaredKeyword`: a `sysml:DataType` as `datatype`, a
+`sysml:Function` as `function`, a `sysml:Class` as `class`. `classifier`, `class`,
+`struct`, `assoc`, `behavior` and `predicate` share their metaclass with the `def`
+form the notation also accepts (`class def X`), so that form records its keyword with
+the `def` (`sysx:declaredKeyword "class def"`) and reads back with it, while the
+def-less declaration records no `def` and reads back without one. A graph typed `sysml:ClassUsage`,
+`sysml:StructureUsage`, `sysml:AssociationUsage`, `sysml:BehaviorUsage`,
+`sysml:PredicateUsage` or `sysml:InteractionUsage` — names earlier releases wrote,
+which the metamodel does not declare — still reads back as the declaration, and its
+API JSON `@type` is the metaclass: the `Type` or `AssociationStructure` its recorded
+keyword states for a `type` or an `assoc struct`, else the one the name meant.
 
 A `return` parameter written without a kind keyword is a `ReferenceUsage`
 owned through a `ReturnParameterMembership`. OpenSysML-authored graphs retain
@@ -873,6 +890,7 @@ sees the same relationships SysML.xtext produces.
 | `:>> mass`, `redefines mass` | a `sysml:Redefinition` (`<S>_rd<i>`) with `redefiningFeature`/`redefinedFeature` |
 | `:> base`, `subsets base` | a `sysml:Subsetting`/`sysml:ReferenceSubsetting` (`<S>_ss<i>`/`<S>_rs<i>`) |
 | `crosses a.q`, `=> a.q` on an end | a `sysml:CrossSubsetting` (`<S>_cs`, or `<S>_cs<i>` where a head states several) with `crossingFeature`/`crossedFeature`, owning the chain `Feature` of a chain target |
+| `disjoint from A, B`, `inverse of f`, `featured by A, B` | one `sysml:Disjoining`/`sysml:FeatureInverting`/`sysml:TypeFeaturing` per target, in target order (`<S>_dj<i>`/`<S>_iv<i>`/`<S>_tf<i>`), with `typeDisjoined`/`disjoiningType`, `featureInverted`/`invertingFeature` and `featureOfType`/`featuringType`, owning the chain `Feature` of a chain target |
 | `unions A, B`, `intersects A, B`, `differences A, B` | one `sysml:Unioning`/`sysml:Intersecting`/`sysml:Differencing` per operand, in operand order (`<S>_un<i>`/`<S>_is<i>`/`<S>_df<i>`), with `typeUnioned`/`unioningType` and their counterparts |
 | `specializes Base`, `:>> Base` on a definition | a `sysml:Subclassification` (`<S>_sc<i>`) |
 | `part p : ~P;` | a `sysml:ConjugatedPortDefinition` (`<S>_conjugated`) typed by `P`, and a `sysml:PortConjugation` (`<S>_pc`) joining it to `P`; the conjugate states no `declaredName` or `declaredShortName` — `~P` is its derived `name` (SysML v2.1 §8.3.12.2 `effectiveName`), addressing it as `P::'~P'`, while the conjugate of an unnamed `P` is addressed positionally as `<owner>::@conjugated`, so `port p`'s `FeatureTyping` reads `type: ~P` |
@@ -1900,9 +1918,9 @@ expr:P__Car___402_pend0_prs
 ```
 
 The same chain feature carries a chain target a head relationship states
-(`redefines a.b`, `:>> a.b`, `references a.b`, `crosses a.b`, `unions a.b`): the chain's `sysml:chainingFeature`
+(`redefines a.b`, `:>> a.b`, `references a.b`, `crosses a.b`, `unions a.b`, `disjoint from a.b`): the chain's `sysml:chainingFeature`
 property of the head names the chain element, and the materialized
-`Redefinition`, `Subsetting`, `ReferenceSubsetting`, `CrossSubsetting`, `Unioning`, `Intersecting` or `Differencing` owns it the same way
+`Redefinition`, `Subsetting`, `ReferenceSubsetting`, `CrossSubsetting`, `Unioning`, `Intersecting`, `Differencing`, `Disjoining`, `FeatureInverting` or `TypeFeaturing` owns it the same way
 (KerML `OwnedRedefinition`/`OwnedSubsetting`/`OwnedReferenceSubsetting`/`OwnedCrossSubsetting`/`Unioning`). A chain
 link that resolves to a graph element is written as its IRI, and one that does
 not as `{"@ref": "<name>"}` in the JSON element form — a `sysx:Expression` typed

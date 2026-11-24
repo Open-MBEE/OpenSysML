@@ -69,7 +69,6 @@ func doc() usage.Doc {
 				usage.Ex(`sysml -run-inline-query 'Project(Descendants(Named("Lander")), ("name"))' m.sysml`, "...or a query expression written in place"),
 				usage.Ex("sysml -action Drive model.sysml", "Run an action to completion"),
 				usage.Ex("sysml -state Mission -advance 10 model.sysml", "Run a state machine for 10 time units"),
-				usage.Ex(`sysml -state "Mission rover1" -check-trace observed.jsonl model.sysml`, "Check recorded observations against a state machine on an object"),
 				usage.Ex("sysml -action Ping -state Sm -advance 5 m.sysml", "...an action and a machine on one clock"),
 				usage.Ex("sysml -schedule explore -action Drive m.sysml", "Run every linearization; table the outcomes"),
 				usage.Ex("sysml -satisfy -json model.sysml", "Report the verdicts as JSON"),
@@ -96,6 +95,9 @@ func doc() usage.Doc {
 			},
 		}, {
 			Title: "Running actions and state machines",
+			Examples: []usage.Example{
+				usage.Ex(`sysml -state "Mission rover1" -check-trace trace.jsonl m.sysml`, "Check an observed trace"),
+			},
 			Paragraphs: []string{
 				"-action runs an action to completion and -state a state machine, both " +
 					"on one shared clock that -advance runs for the given simulated time " +

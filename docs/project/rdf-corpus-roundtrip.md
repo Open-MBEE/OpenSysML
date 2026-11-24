@@ -20,9 +20,9 @@ pin in `scripts/pilot-pin.sh`, and the textual examples of the two specification
 | `spec-examples/sysml` | 341 |
 | **total** | **876** |
 
-**Gate:** `TestExamplesSweep` in `tests/corpus/examples_sweep_test.go` loads each file once (the
-verdicts and expectation files are `tests/corpus/roundtrip_test.go`'s) and converts it
-notation → Turtle (hop 1) → notation → Turtle (hop 2) and records one verdict per file in
+**Gate:** `TestExamplesSweepCommitted` and `TestExamplesSweepCorpora` in `tests/corpus/examples_sweep_test.go` between them load each file once (the
+verdicts and expectation files are `tests/corpus/roundtrip_test.go`'s) and convert it
+notation → Turtle (hop 1) → notation → Turtle (hop 2) and record one verdict per file in
 `tests/corpus/testdata/corpus_roundtrip_expected.txt`, so a file whose verdict moves in
 either direction, or that appears or disappears, fails the test
 **Regenerate:** `go test ./tests/corpus -run TestExamplesSweep -update-corpus-roundtrip`
@@ -32,7 +32,8 @@ downloaded root fails instead of skipping. Both configurations also run the gate
 its summary line is legible in the log and a skip cannot pass.
 **Subset:** under `OPENSYSML_CORPUS_SUBSET=construct-cover` both gates visit only the files of
 `tests/corpus/testdata/construct_cover.txt` and check their verdicts against the expectation,
-leaving the unvisited lines unchecked; the recorders refuse to run under it. See
+leaving the unvisited lines unchecked and printing `RATCHET INCOMPLETE: … left N of M recorded
+files unchecked` to say so; the recorders refuse to run under it. See
 [construct-cover-subset.md](construct-cover-subset.md).
 
 ## Why

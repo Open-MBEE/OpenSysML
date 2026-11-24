@@ -124,7 +124,10 @@ func (r *Resolver) importedCollisions(scope *symbols.Scope) *importCollisions {
 	r.collisionCut = false
 	var c *importCollisions
 	var complete bool
-	reads := r.capturing(func() { c, complete = r.collectImported(scope, imports) })
+	// The collisions are the namespace's own, whatever route asks for them.
+	reads := r.capturing(func() {
+		r.freshImportRoute(func() { c, complete = r.collectImported(scope, imports) })
+	})
 	delete(r.colliding, scope)
 	// A cut met while this computation was the outermost is a cycle back to
 	// scope, which excluding it settles; a cut within another's is not.
@@ -561,7 +564,7 @@ func (r *Resolver) hiddenImportsOf(scope *symbols.Scope, name string) []imported
 // may be the one hiding the inherited name (as checkInheritedAmbiguity holds).
 func (r *Resolver) inheritedAgainstImports(scope *symbols.Scope) map[string][]*symbols.Symbol {
 	owner := scope.Owner()
-	if r.model == nil || owner == nil || ParameterizedByName(owner) {
+	if r.model == nil || owner == nil {
 		return nil
 	}
 	model, ok := r.model.(supertypeProvider)
@@ -646,7 +649,7 @@ func (r *Resolver) checkOwnedNames(scope *symbols.Scope) {
 // inherited any more, which is how the name is legitimately reused.
 func (r *Resolver) checkInheritedNames(scope *symbols.Scope) {
 	owner := scope.Owner()
-	if r.model == nil || owner == nil || ParameterizedByName(owner) {
+	if r.model == nil || owner == nil {
 		return
 	}
 	// Nothing is inherited without a supertype, and collecting the inherited
@@ -1227,19 +1230,19 @@ func hasTypingRelationship(decl *ast.Usage) bool {
 }
 
 // ImplicitlyRedefined reports whether a member takes an inherited feature's name
-// by implicitly redefining it: a behavior parameter matched by position, and the
-// subject, actors, stakeholders and objective of a requirement or case
-// (KerML 7.3.4.5, SysML 7.18.4).
+// by a redefinition the resolver does not enumerate: a behavior parameter matched
+// by position (KerML 8.4.4.6). A case role is not one: see IsCaseRole.
 func ImplicitlyRedefined(sym *symbols.Symbol) bool {
 	if sym.Recorded() {
 		return sym.Facts.Modifiers.Has(symbols.ModImplicitlyRedefined)
+	}
+	if IsCaseRole(sym) {
+		return false
 	}
 	if isParameter(sym) || inMetadataUsageBody(sym) {
 		return true
 	}
 	switch decl := sym.Decl.(type) {
-	case *ast.SubjectMember:
-		return true
 	case *ast.ConnectorEnd:
 		// A connect-clause end redefines the end of the typing connector
 		// definition at the same position (SysML 7.13.2).
@@ -1247,13 +1250,36 @@ func ImplicitlyRedefined(sym *symbols.Symbol) bool {
 	case *ast.Usage:
 		// An end of a specializing association or connector redefines the
 		// corresponding end by position (KerML 8.4.4.6).
-		if decl.IsEnd {
+		return decl.IsEnd
+	}
+	return false
+}
+
+// IsCaseRole reports whether sym is the subject, an actor, a stakeholder or the
+// objective of a requirement or case, whose redefinitions redefinedFeatures knows exactly.
+func IsCaseRole(sym *symbols.Symbol) bool {
+	if sym == nil {
+		return false
+	}
+	if sym.Recorded() {
+		if sym.Facts.Node == symbols.NodeSubject {
 			return true
 		}
-		switch decl.Kind {
-		case ast.UsageSubject, ast.UsageActor, ast.UsageStakeholder, ast.UsageObjective:
-			return true
-		}
+		return caseRoleKind(sym.Facts.UsageKind)
+	}
+	switch decl := sym.Decl.(type) {
+	case *ast.SubjectMember:
+		return true
+	case *ast.Usage:
+		return caseRoleKind(decl.Kind)
+	}
+	return false
+}
+
+func caseRoleKind(kind ast.UsageKind) bool {
+	switch kind {
+	case ast.UsageSubject, ast.UsageActor, ast.UsageStakeholder, ast.UsageObjective:
+		return true
 	}
 	return false
 }

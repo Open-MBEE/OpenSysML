@@ -27,16 +27,17 @@ make lint   # runs staticcheck and gosec, as CI does
 ./scripts/download-spec-examples.sh       # extract the specification examples (needs pdftotext)
 ./scripts/download-pilot-library-xmi.sh   # fetch the pilot's XMI of the standard library
 ./scripts/download-pssm-suite.sh          # fetch the OMG PSSM test suite
+./scripts/download-omg-json-schema.sh     # fetch the normative OMG SysML.json
 ```
 
 The gates over those downloads (`tests/corpus/training_examples_test.go`,
 `tests/corpus/pilot_corpora_test.go`, `tests/corpus/spec_examples_test.go`,
 `tests/identity/pilot_library_xmi_test.go`, `tests/corpus/pssm_migration_test.go`)
-skip while their corpus is absent, so run the five scripts once before trusting a local
+skip while their corpus is absent, so run the six scripts once before trusting a local
 `make test`; a corpus already at the pin is left alone. CI runs the scripts itself and sets
 `OPENSYSML_REQUIRE_TRAINING_CORPUS=1`, `OPENSYSML_REQUIRE_PILOT_CORPORA=1`,
-`OPENSYSML_REQUIRE_SPEC_EXAMPLES=1`, `OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI=1` and
-`OPENSYSML_REQUIRE_PSSM_SUITE=1`, which make a missing corpus a failure there instead of a skip;
+`OPENSYSML_REQUIRE_SPEC_EXAMPLES=1`, `OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI=1`,
+`OPENSYSML_REQUIRE_PSSM_SUITE=1` and `OPENSYSML_REQUIRE_OMG_JSON_SCHEMA=1`, which make a missing corpus a failure there instead of a skip;
 an environment that sets any of them must run the matching script first. See
 [docs/project/pilot-corpora.md](docs/project/pilot-corpora.md),
 [docs/project/spec-examples.md](docs/project/spec-examples.md)
@@ -294,6 +295,14 @@ queue tier skips it: the merge group's diff is the one the pull request's push a
 over, and the nightly catches a baseline that `develop` moved under it, which is then
 re-recorded through the `ci:rebaseline` workflow (`.github/workflows/rebaseline.yml`).
 
+The reference differential (`Reference differential reproduces its baseline`,
+`go run -C tools ./cmd/pilot-diff -check`: Java and the pinned pilot validators, about three
+minutes beside the Go shards) runs on a pull-request push whose diff can move its baseline — the
+layers its referee imports (`internal/syntax`, `semantic`, `check`, `ir`, `workspace`), the
+referee, the validators and pin, a compared root (`examples/`, `tests/testdata/`), the baseline —
+and under the full tier. The queue tier skips it, adding nothing to a merge group, and the
+nightly oracle-reproduction workflow reproduces it over `develop`.
+
 The derived census (`Derived census reproduces its baseline`,
 `go run -C tools ./cmd/derived-census -check -recorded-pilot`) runs on every Go change: it
 re-measures our columns against the pilot column the records hold, without Java. The nightly
@@ -420,7 +429,13 @@ reports an artifact it could not fetch: the second and fourth read
 `settings.xml` and its proxy still apply), which sends `central` to Google's mirror of it, and
 every attempt after the first passes `-U` so that Maven asks again for what it was just refused.
 Any other Maven failure fails the audit on the first attempt, and osv-scanner scans only an SBOM
-Maven wrote. `scripts/maven-sbom-test.sh` plays the outage on every pull request.
+Maven wrote. Each attempt runs under GNU `timeout` for 90 seconds (`MAVEN_SBOM_TIMEOUT_SECONDS`),
+because the resolver's own backoff from a 429 can last minutes and a stalled transfer has no end;
+a `timeout` that knows no `-k`, as BusyBox 1.30's, bounds it without the kill;
+an attempt cut there is retried as a refusal is, so a tree's SBOM takes under eight minutes or
+fails. In `pr.yml` the audit step has `timeout-minutes: 10` and follows the job's Maven tests and
+conformance run, so its wait for Maven Central is never taken from them.
+`scripts/maven-sbom-test.sh` plays the outage and the stall on every pull request.
 
 The pinned pilot validator, which `scripts/download-pilot-validator.sh` builds with Maven from a
 clone outside those trees, has a cache of its own: `.github/actions/pilot-validator` restores
@@ -450,6 +465,14 @@ workflow, an action or a pinned file, and daily; its matrix lists every request 
 job sets up, and it installs each a second time with the index unreachable. A new or changed pin
 therefore changes the call site and the matrix together; `tests/hygiene/pip_install_test.go` fails
 on a direct `pip install`, and on a request the matrix does not warm.
+
+cvc5, which has no apt package, is installed from its release zip by `.github/actions/cvc5`: the zip
+is restored under `cvc5-<os>-<arch>-<version>-<sha256>` from `scripts/cvc5-pin.sh`, and
+`scripts/ci-cvc5-install.sh` verifies it against that digest before installing, so a run with the
+entry never asks GitHub. Without it the script downloads through `scripts/fetch-https.sh`, verifies,
+and the action saves the zip; a zip that is not the pinned one fails the step, unretried and unkept.
+A pull request and a merge group restore only an entry saved on `develop`, which the nightly full
+scan and the extension-libraries run save. `tests/hygiene/cvc5_install_test.go` covers both paths.
 
 The dependency audit is the one step that cannot run from the wheels: `pip-audit` asks PyPI which
 versions an install would resolve today and which of them are vulnerable, and it gives up on the

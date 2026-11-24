@@ -28,6 +28,122 @@ func TestRuntimeRobustnessLoopPerformances(t *testing.T) {
 	t.Run("an_object_bound_an_iteration_reaches_is_the_typed_error", testLoopIterationPastObjectBound)
 	t.Run("a_step_budget_the_iterations_spend_is_the_typed_error", testLoopIterationPastStepBudget)
 	t.Run("the_loop_and_its_bodies_have_ended_with_the_run", testLoopPerformancesEndWithTheRun)
+	t.Run("an_object_bound_a_definition_run_reaches_is_the_typed_error", testDefinitionLoopPastObjectBound)
+	t.Run("a_step_budget_a_definition_run_spends_is_the_typed_error", testDefinitionLoopPastStepBudget)
+	t.Run("an_object_bound_a_case_loop_reaches_is_the_typed_error", testCaseLoopPastObjectBound)
+	t.Run("an_assertion_the_held_loops_fail_is_the_typed_error", testAssertionOverHeldLoops)
+}
+
+// An assertion a definition run reaches reads the loops the run holds by then.
+const assertedLoopPerformancesModel = `package test {
+	private import ScalarValues::Integer;
+	private import SequenceFunctions::size;
+	action def Held {
+		attribute n : Integer = 0;
+		first start;
+		then while n < 2 { assign n := n + 1; }
+		then assert constraint twice { size(loops.body) == 2 }
+		then done;
+	}
+	action def Missed {
+		attribute n : Integer = 0;
+		first start;
+		then while n < 2 { assign n := n + 1; }
+		then assert constraint thrice { size(loops.body) == 3 }
+		then done;
+	}
+}`
+
+func testAssertionOverHeldLoops(t *testing.T) {
+	ctx, idx := libraryModelContext(t, assertedLoopPerformancesModel)
+	run := func(name string) error {
+		exec, err := ctx.CreateActionExecutor(lookupOne(t, idx, name))
+		if err != nil {
+			t.Fatalf("create action executor for %s: %v", name, err)
+		}
+		return exec.RunToCompletion()
+	}
+	if err := run("test::Held"); err != nil {
+		t.Fatalf("an assertion the held iterations satisfy: %v", err)
+	}
+	var violation *ViolationError
+	if err := run("test::Missed"); !errors.As(err, &violation) {
+		t.Fatalf("an assertion the held iterations fail: got %v, want a ViolationError", err)
+	}
+}
+
+// A definition performed on its own holds the loops its body reaches, nested ones
+// under the iteration that reached them; a case holds those of its body.
+const definitionLoopPerformancesModel = `package test {
+	private import ScalarValues::Integer;
+	action def Run {
+		attribute n : Integer = 0;
+		attribute t : Integer = 0;
+		first start;
+		then while n < 5 {
+			assign n := n + 1;
+			for i in (1, 2) {
+				action add assign t := t + i;
+			}
+		}
+		then done;
+	}
+	analysis def Counted {
+		subject s : Integer = 0;
+		attribute n : Integer = 0;
+		loop action body {
+			action inc assign n := n + 1;
+		} until n >= 5;
+		return r : Integer = n;
+	}
+	part def K {
+		analysis counted : Counted;
+		attribute r : Integer = counted.r;
+	}
+	part k : K;
+}`
+
+func definitionLoopRun(t *testing.T, budget func(*Context)) (*Context, error) {
+	t.Helper()
+	ctx, idx := libraryModelContext(t, definitionLoopPerformancesModel)
+	exec, err := ctx.CreateActionExecutor(lookupOne(t, idx, "test::Run"))
+	if err != nil {
+		t.Fatalf("create action executor: %v", err)
+	}
+	budget(ctx)
+	return ctx, exec.RunToCompletion()
+}
+
+func testDefinitionLoopPastObjectBound(t *testing.T) {
+	ctx, err := definitionLoopRun(t, func(ctx *Context) { ctx.SetMaxInstances(6) })
+	if !errors.Is(err, ErrInstanceLimitExceeded) {
+		t.Fatalf("Run under a bound of 6 objects: err = %v, want ErrInstanceLimitExceeded", err)
+	}
+	if got := ctx.InstanceCount(); got > 6 {
+		t.Errorf("InstanceCount = %d after the refused iteration, want at most 6", got)
+	}
+}
+
+func testDefinitionLoopPastStepBudget(t *testing.T) {
+	_, err := definitionLoopRun(t, func(ctx *Context) { ctx.maxSteps = 12 })
+	if !errors.Is(err, ErrStepLimitExceeded) {
+		t.Fatalf("Run under a budget of 12 steps: err = %v, want ErrStepLimitExceeded", err)
+	}
+}
+
+func testCaseLoopPastObjectBound(t *testing.T) {
+	ctx, idx := libraryModelContext(t, definitionLoopPerformancesModel)
+	ctx.SetMaxInstances(5)
+	k, err := ctx.Instantiate(lookupOne(t, idx, "test::k"))
+	if err == nil {
+		_, err = k.GetFeatureValue(ctx, "r")
+	}
+	if !errors.Is(err, ErrInstanceLimitExceeded) {
+		t.Fatalf("k.r under a bound of 5 objects: err = %v, want ErrInstanceLimitExceeded", err)
+	}
+	if got := ctx.InstanceCount(); got > 5 {
+		t.Errorf("InstanceCount = %d after the refused iteration, want at most 5", got)
+	}
 }
 
 func testLoopIterationPastObjectBound(t *testing.T) {

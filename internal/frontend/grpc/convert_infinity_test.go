@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"errors"
+	"math"
 	"strings"
 	"testing"
 
@@ -166,5 +167,55 @@ func TestProtoToValueRefusesAFalseInfinityArm(t *testing.T) {
 	}
 	if got, err := protoconv.ProtoToValueIn(infinityValue(), nil, nil); err != nil || !got.Const.IsUnbounded() {
 		t.Errorf("infinity: true read as %v (%v), want the unbounded value", got.Kind, err)
+	}
+}
+
+// TestNegativeInfinityRoundTrip: `-*`, the Real below every number, crosses as the double that holds it,
+// leaving the infinity arm to `*` alone; either infinity sent as a double reads back as what it denotes.
+func TestNegativeInfinityRoundTrip(t *testing.T) {
+	idx := symbols.NewIndex()
+	negative := runtime.Value{Kind: runtime.ValConst, Const: semantics.NegativeInfinity()}
+
+	pv := protoconv.ValueToProto(negative, idx)
+	if realValue, ok := pv.GetKind().(*pb.Value_RealValue); !ok || !math.IsInf(realValue.RealValue, -1) {
+		t.Fatalf("-* crossed as %v, want the real -Inf", pv)
+	}
+	back, err := protoconv.ProtoToValueIn(pv, idx, nil)
+	if err != nil {
+		t.Fatalf("ProtoToValueIn: %v", err)
+	}
+	if back.Kind != runtime.ValConst || !back.Const.IsNegativeInfinity() {
+		t.Errorf("round trip of -* = %s (%v)", back.Kind, back)
+	}
+
+	positive, err := protoconv.ProtoToValueIn(&pb.Value{Kind: &pb.Value_RealValue{RealValue: math.Inf(1)}}, idx, nil)
+	if err != nil {
+		t.Fatalf("ProtoToValueIn(+Inf): %v", err)
+	}
+	if positive.Kind != runtime.ValConst || !positive.Const.IsUnbounded() {
+		t.Errorf("the real +Inf read as %s (%v), want *", positive.Kind, positive)
+	}
+
+	srv := mustNewService(t, 4)
+	modelHash := mustParse(t, srv, `
+package N {
+  private import ScalarValues::*;
+  attribute lowest : Real = -*;
+  attribute below = 1 - *;
+  attribute restored = -(-*);
+  attribute bounds [*] = (-*, 0, *);
+}
+`)
+	for _, name := range []string{"N::lowest", "N::below"} {
+		if got := mustEvaluate(t, srv, modelHash, name); !math.IsInf(got.GetRealValue(), -1) {
+			t.Errorf("%s = %v, want the real -Inf", name, got)
+		}
+	}
+	if got := mustEvaluate(t, srv, modelHash, "N::restored"); !got.GetInfinity() {
+		t.Errorf("N::restored = %v, want the infinity arm", got)
+	}
+	bounds := mustEvaluate(t, srv, modelHash, "N::bounds").GetSequence().GetElements()
+	if len(bounds) != 3 || !math.IsInf(bounds[0].GetRealValue(), -1) || bounds[1].GetIntValue() != 0 || !bounds[2].GetInfinity() {
+		t.Errorf("N::bounds = %v, want (-*, 0, *)", bounds)
 	}
 }

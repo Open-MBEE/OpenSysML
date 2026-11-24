@@ -87,6 +87,17 @@ func (t Term) Lang() string {
 // IRI returns an IRI term.
 func IRI(iri string) Term { return Term{Value: iri} }
 
+// IRIForbidden returns the first character of s that an IRI reference cannot hold
+// unescaped (RDF 1.1 Turtle § 6.5, IRIREF): a control, a space or one of <>"{}|^`\.
+func IRIForbidden(s string) (rune, bool) {
+	for _, r := range s {
+		if r <= 0x20 || strings.ContainsRune("<>\"{}|^`\\", r) {
+			return r, true
+		}
+	}
+	return 0, false
+}
+
 // String returns a plain string literal.
 func String(value string) Term { return Term{Value: value, form: plainLiteral()} }
 

@@ -109,7 +109,7 @@ func (c *refCollector) addReference(scope *symbols.Scope, decl ast.Node, qn *ast
 
 // constraintCondition records the names a require/assume member's condition
 // uses; a lone name is the reference form, recorded as decl's reference target.
-func (c *refCollector) constraintCondition(scope *symbols.Scope, decl ast.Node, expr ast.Node) {
+func (c *refCollector) constraintCondition(scope *symbols.Scope, decl, expr ast.Node) {
 	if ref := ast.ConditionReference(decl); ref != nil {
 		c.referenceTarget(scope, decl, ref)
 		return
@@ -440,7 +440,9 @@ func (c *refCollector) behaviorDecl(scope *symbols.Scope, decl ast.Node) bool {
 		return true
 	case *ast.TransitionMember:
 		// Ends, trigger and guard scopes as in resolveBehaviorDecl.
-		c.addEndpoint(scope, d.Source)
+		if d.Source != nil {
+			c.push(Reference{Scope: scope, QN: d.Source, Endpoint: true, AccepterSource: d.Trigger != nil})
+		}
 		c.addEndpoint(scope, d.Target)
 		c.trigger(scope, d.Trigger)
 		c.addVia(scope, d.Via)
@@ -641,7 +643,7 @@ func (c *refCollector) relationships(scope *symbols.Scope, decl ast.Node, rels [
 
 // redefinitionTarget collects a redefinition's target; a chain's leading name
 // and its member segments are both read as the redefinition rule reads them.
-func (c *refCollector) redefinitionTarget(scope *symbols.Scope, decl ast.Node, target ast.Node) {
+func (c *refCollector) redefinitionTarget(scope *symbols.Scope, decl, target ast.Node) {
 	if fr, ok := target.(*ast.FeatureReference); ok {
 		target = fr.Name
 	}
@@ -660,7 +662,7 @@ func (c *refCollector) redefinitionTarget(scope *symbols.Scope, decl ast.Node, t
 
 // referenceTarget collects a reference subsetting's target, tagging the leading
 // qualified name with the declaration that refers to it.
-func (c *refCollector) referenceTarget(scope *symbols.Scope, decl ast.Node, target ast.Node) {
+func (c *refCollector) referenceTarget(scope *symbols.Scope, decl, target ast.Node) {
 	if fr, ok := target.(*ast.FeatureReference); ok {
 		target = fr.Name
 	}

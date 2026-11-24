@@ -59,21 +59,11 @@ func Source(name string, src []byte, opts Options) ([]byte, error) {
 	if opts.IndentWidth <= 0 {
 		opts.IndentWidth = DefaultOptions.IndentWidth
 	}
-	out := (&formatter{src: src, opts: opts, nl: dominantNewline(src)}).run(tokenize(name, src))
+	out := (&formatter{src: src, opts: opts, nl: source.DominantNewline(src)}).run(tokenize(name, src))
 	if !sameTokens(name, src, out) {
 		return src, ErrNotIdempotent
 	}
 	return out, nil
-}
-
-// dominantNewline reports the line ending to emit: CRLF only when the document
-// already uses it more than bare LF.
-func dominantNewline(src []byte) string {
-	crlf := bytes.Count(src, []byte("\r\n"))
-	if crlf > bytes.Count(src, []byte("\n"))-crlf {
-		return "\r\n"
-	}
-	return "\n"
 }
 
 func tokenize(name string, src []byte) []lexer.Token {

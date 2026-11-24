@@ -967,6 +967,15 @@ func apiJSONIdentity(object apiJSONElementData) error {
 	case object.typ == "":
 		return fmt.Errorf("element %q needs a string \"@type\"", object.id)
 	}
+	return apiJSONNameable("id", object.id)
+}
+
+// apiJSONNameable refuses text an IRI cannot hold, so an id, type or key read
+// from a document names one term and cannot spell further Turtle.
+func apiJSONNameable(what, text string) error {
+	if r, forbidden := rdf.IRIForbidden(text); forbidden {
+		return fmt.Errorf("the %s %q holds %q, which an IRI cannot; an id, a \"@type\" and a key are free of spaces, controls and <>\"{}|^`\\", what, text, r)
+	}
 	return nil
 }
 
@@ -976,8 +985,7 @@ func (index *apiJSONIndex) classifyExpressions(
 	objects []apiJSONElementData,
 	graph *rdf.Graph,
 	mappingElements map[string]bool,
-	reconstructedNames, mappingNames map[string]string,
-	specNames map[string]string,
+	reconstructedNames, mappingNames, specNames map[string]string,
 ) {
 	mappingElement := make([]bool, len(objects))
 	dependents := make(map[string][]int, len(objects))
@@ -1366,6 +1374,9 @@ func apiJSONValueOf(dec *json.Decoder) (any, error) {
 // apiJSONTypeIRI maps a "@type" to its metaclass IRI: a bare name is a sysml:
 // class, the sysx: CURIE an extension class; anything else cannot be named.
 func apiJSONTypeIRI(typ string) (rdf.Term, error) {
+	if err := apiJSONNameable("\"@type\"", typ); err != nil {
+		return rdf.Term{}, err
+	}
 	if name, ok := strings.CutPrefix(typ, "sysx:"); ok {
 		if name == "" {
 			return rdf.Term{}, fmt.Errorf("the \"@type\" %q has no metaclass name", typ)
@@ -1381,6 +1392,9 @@ func apiJSONTypeIRI(typ string) (rdf.Term, error) {
 // apiJSONPredicate maps a member key to its predicate IRI, reporting the sysml:
 // local name for the collection annotation it may carry.
 func apiJSONPredicate(key string) (rdf.Term, string, error) {
+	if err := apiJSONNameable("key", key); err != nil {
+		return rdf.Term{}, "", err
+	}
 	if name, ok := strings.CutPrefix(key, "sysx:"); ok {
 		if name == "" {
 			return rdf.Term{}, "", fmt.Errorf("the key %q has no property name", key)
@@ -1495,6 +1509,9 @@ func (cache *apiJSONTermCache) referenceTarget(subject rdf.Term, object map[stri
 			}
 			if target, ok := cache.references[key]; ok {
 				return target, nil
+			}
+			if err := apiJSONNameable("reference id", id); err != nil {
+				return rdf.Term{}, err
 			}
 			if strings.HasPrefix(id, rdf.Expression) || strings.HasPrefix(id, rdf.Element) {
 				// A service that hands a reference back as the IRI itself names
@@ -1627,7 +1644,7 @@ func apiJSONPropertyScalar(
 // apiJSONScalarOf turns one JSON value into the term a triple holds: a
 // reference object an IRI, a bool or number its typed literal, a string a plain
 // literal — or the expression text a reference-valued property carries.
-func apiJSONScalarOf(subject rdf.Term, predicate rdf.Term, sysmlKey string, value any, expressionIDs map[string]bool, cache *apiJSONTermCache) (rdf.Term, error) {
+func apiJSONScalarOf(subject, predicate rdf.Term, sysmlKey string, value any, expressionIDs map[string]bool, cache *apiJSONTermCache) (rdf.Term, error) {
 	switch v := value.(type) {
 	case bool:
 		return rdf.Bool(v), nil

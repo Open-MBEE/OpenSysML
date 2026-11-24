@@ -23,7 +23,7 @@ const constructCoverList = "testdata/construct_cover.txt"
 func TestConstructCover(t *testing.T) {
 	// Parsing only, it sweeps the whole corpus whatever OPENSYSML_CORPUS_SUBSET
 	// says; an absent root skips it, or fails it where the root is required.
-	files, _, whole := corpusRoundTripFiles(t)
+	files, _, whole := corpusRoundTripFiles(t, sweepWhole)
 	if !whole {
 		t.Skip("a downloaded corpus is absent, so the subset cannot be checked against the whole")
 	}

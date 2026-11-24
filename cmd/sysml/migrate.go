@@ -118,7 +118,7 @@ func migrateFlagsMisuse(input string) error {
 
 // migrateInput runs the migration -migrate asks for. Its report and results
 // are written by the sidecars, once the destination has taken the model.
-func migrateInput(name string, data []byte, _ convert.Format, to convert.Format) (produced, error) {
+func migrateInput(name string, data []byte, _, to convert.Format) (produced, error) {
 	migOpts, err := migrationOptions()
 	if err != nil {
 		return produced{}, err

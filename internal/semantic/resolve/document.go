@@ -346,7 +346,7 @@ func (r *Resolver) resolveBehaviorDecl(scope *symbols.Scope, decl ast.Node) bool
 		// than at lowering, which consumes what this resolved.
 		// The guard, effect and body resolve against the parameters the
 		// transition's call trigger declares, which live in a scope of their own.
-		r.ResolveEndpoint(scope, d.Source)
+		r.ResolveTransitionSource(scope, d)
 		r.ResolveEndpoint(scope, d.Target)
 		r.resolveTrigger(scope, d.Trigger)
 		if d.Via != nil {
@@ -492,34 +492,6 @@ func (r *Resolver) resolveTrigger(scope *symbols.Scope, trigger ast.Node) {
 	default:
 		r.resolveExpr(scope, trigger)
 	}
-}
-
-// ParameterizedByName reports whether sym is a case or requirement — including
-// a concern or viewpoint, which are requirements — whose subject, actors and
-// stakeholders redefine the inherited ones by name (SysML 7.18.4, 7.19.4). That
-// is not modelled and not distinguishable from an ordinary feature here, so the
-// conflict rule skips such a body entirely.
-func ParameterizedByName(sym *symbols.Symbol) bool {
-	if sym.Recorded() {
-		return sym.Facts.Modifiers.Has(symbols.ModParameterizedByName)
-	}
-	switch decl := sym.Decl.(type) {
-	case *ast.Usage:
-		switch decl.Kind {
-		case ast.UsageRequirement, ast.UsageSatisfy, ast.UsageConcern,
-			ast.UsageFramedConcern, ast.UsageViewpoint,
-			ast.UsageCase, ast.UsageAnalysisCase,
-			ast.UsageVerificationCase, ast.UsageUseCase:
-			return true
-		}
-	case *ast.Definition:
-		switch decl.Kind {
-		case ast.DefRequirement, ast.DefConcern, ast.DefViewpoint, ast.DefCase,
-			ast.DefAnalysisCase, ast.DefVerificationCase, ast.DefUseCase:
-			return true
-		}
-	}
-	return false
 }
 
 // childScope finds the child scope whose node is decl.
@@ -844,7 +816,7 @@ func namesDecl(qn *ast.QualifiedName, decl ast.Node) bool {
 
 // resolveCondition resolves the condition expression of the require/assume
 // member decl; a lone name is the reference form, so it resolves as one.
-func (r *Resolver) resolveCondition(scope *symbols.Scope, decl ast.Node, expr ast.Node) {
+func (r *Resolver) resolveCondition(scope *symbols.Scope, decl, expr ast.Node) {
 	if ref := ast.ConditionReference(decl); ref != nil {
 		r.resolveTarget(scope, ref, referenceFilter(decl, ref))
 		return

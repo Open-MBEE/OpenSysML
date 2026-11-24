@@ -11,7 +11,7 @@ is bundled by the same `embed.FS` as the vendored tree and enters the same
 gates — the current bundled-library gate reports 112/112 clean, including this, the
 `DocumentQueries`, `IdentityMetadata`, `DiagramLayout`, `OOSEM`, `MOSA`, `StateSpaceIntegration`,
 `Stochastic`, `RandomFunctions`, `Simulation`, `AnalysisRecords`, `MigrationMetadata`,
-`OpenSysMLRenderings`, `StateMachines`, `SysMLValidation`, `StateActivity` and `NPR7123` extensions. It is OpenSysML code under
+`OpenSysMLRenderings`, `StateMachines`, `SysMLValidation`, `StateActivity`, `NPR7123` and `QVTS` extensions. It is OpenSysML code under
 Apache 2.0, not OMG code under EPL-2.0; `internal/workspace/libs/stdlib/NOTICE` carves
 the subdirectory out of the OMG notice.
 

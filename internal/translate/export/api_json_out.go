@@ -390,6 +390,13 @@ func (w *apiJSONElementWriter) element(subject rdf.Term) (apiJSONObject, error) 
 	if legacyIndividual {
 		metaclass, typeName = standard, standard
 	}
+	// A legacy KerML type name is none of the metamodel's: the element is its metaclass.
+	absenceType := types[0]
+	if _, legacy := legacyKerMLTypeMetaclasses[metaclass]; legacy {
+		keyword, _ := w.graph.Lexical(subject, rdf.OpenSysML+xDeclaredKeyword)
+		metaclass = legacyKerMLTypeMetaclass(metaclass, keyword)
+		typeName, absenceType = metaclass, rdf.SysMLTerm(metaclass)
+	}
 	predicates := w.graph.PredicatesView(subject)
 	element := make(apiJSONObject, 0, len(predicates)+5)
 	element = append(element,
@@ -519,7 +526,7 @@ func (w *apiJSONElementWriter) element(subject rdf.Term) (apiJSONObject, error) 
 			element[mappingValuesPosition] = member
 		}
 	}
-	element = appendAPIJSONOwnedAbsencesWithScratch(w.graph, subject, element, types[0], w.scratch)
+	element = appendAPIJSONOwnedAbsencesWithScratch(w.graph, subject, element, absenceType, w.scratch)
 	if apiJSONRootSubject(w.graph, subject) && !apiJSONExternalForm(w.graph, w.scratch) {
 		element = append(element, apiJSONMember{key: apiJSONStatedDefaultsKey, value: true})
 	}
@@ -919,8 +926,7 @@ func apiJSONPropertyValuesEqual(
 	graph *rdf.Graph,
 	nameIndex *apiJSONNameIndex,
 	subject rdf.Term,
-	predicate string,
-	key, metaclass string,
+	predicate, key, metaclass string,
 	value any,
 	keep bool,
 	cache *apiJSONTermCache,
@@ -965,8 +971,7 @@ func apiJSONPropertyValuesEqual(
 }
 
 func apiJSONCollectionMemberMatches(
-	subject rdf.Term,
-	object rdf.Term,
+	subject, object rdf.Term,
 	member rdf.CollectionMember,
 ) (bool, error) {
 	if member.ID != "" {
@@ -1164,8 +1169,7 @@ func apiJSONSysMLValue(
 	subject rdf.Term,
 	predicate, key, metaclass string,
 	property ontology.Property,
-	propertyKnown bool,
-	objectProperty bool,
+	propertyKnown, objectProperty bool,
 	nameIndex *apiJSONNameIndex,
 	cache *apiJSONTermCache,
 ) (any, error) {
@@ -1261,8 +1265,7 @@ func apiJSONResolveUnresolvedProperty(
 	graph *rdf.Graph,
 	nameIndex *apiJSONNameIndex,
 	subject rdf.Term,
-	metaclass string,
-	key string,
+	metaclass, key string,
 	value any,
 	options APIJSONOptions,
 ) (any, bool) {

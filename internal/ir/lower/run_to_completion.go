@@ -30,7 +30,7 @@ var runToCompletionFeatureFQNs = map[string]string{
 // body targets, an alias followed to what it names, and tells the library's own
 // declarations from a model's spelled like them.
 type StateRedefinitionResolver interface {
-	RedefinitionTarget(scope *symbols.Scope, decl ast.Node, target ast.Node) (*symbols.Symbol, bool)
+	RedefinitionTarget(scope *symbols.Scope, decl, target ast.Node) (*symbols.Symbol, bool)
 	LibraryFeature(sym *symbols.Symbol) bool
 }
 

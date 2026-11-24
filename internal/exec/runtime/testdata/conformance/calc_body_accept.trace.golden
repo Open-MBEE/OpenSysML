@@ -9,6 +9,9 @@ enter action node: calc test::Host::Heard
       eval literal 7 -> 7
 materialize: Ping #1
 materialize: Heard #2
+materialize: tx #3
+materialize: Heard #4
+materialize: rx #5
     stmt assign x
         eval feature x -> 3
         eval chain v -> (7)

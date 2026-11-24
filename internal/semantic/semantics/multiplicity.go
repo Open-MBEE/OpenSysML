@@ -51,7 +51,11 @@ func (m *Model) boundIn(scope *symbols.Scope, n ast.Node) Bound {
 		n, ok := v.Int64()
 		return Bound{Value: n, Known: ok}
 	case ValInfinity:
-		return Bound{Infinite: true, Known: true}
+		// `-*` is no Natural, so it bounds nothing.
+		if v.IsUnbounded() {
+			return Bound{Infinite: true, Known: true}
+		}
+		return Bound{}
 	default:
 		return Bound{}
 	}

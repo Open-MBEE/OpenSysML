@@ -125,22 +125,18 @@ func TestElementPropertiesServeEveryRuleAndExplainEveryOmission(t *testing.T) {
 	settled := map[string]censusWitness{}
 	tried := map[string]int{}
 	const triesPerKey = 40
-	// closed reports whether every key is settled, out of tries, or has no carrier the
-	// element form can state, so the scan need not export the examples that remain.
+	// closed reports whether every key is settled or out of tries, so the scan need not export
+	// the examples that remain.
 	closed := func() bool {
-		for key, w := range open {
+		for key := range open {
 			if _, done := settled[key]; done || tried[key] >= triesPerKey {
 				continue
 			}
-			if _, absent := elementFormAbsentMetaclasses[w.class]; !absent {
-				return false
-			}
+			return false
 		}
 		return true
 	}
 
-	// carriers are the elements stated with a metaclass of elementFormAbsentMetaclasses.
-	carriers := map[string][]string{}
 	fixtures, examples := censusModels(t)
 	read := 0
 	for _, path := range append(fixtures, examples...) {
@@ -164,9 +160,6 @@ func TestElementPropertiesServeEveryRuleAndExplainEveryOmission(t *testing.T) {
 		for _, object := range objects {
 			metaclass, _ := object["@type"].(string)
 			id, _ := object["@id"].(string)
-			if _, absent := elementFormAbsentMetaclasses[metaclass]; absent {
-				carriers[metaclass] = append(carriers[metaclass], filepath.Base(path)+" "+id)
-			}
 			var pending []string
 			for _, key := range keysOf(metaclass) {
 				if _, done := settled[key]; !done && tried[key] < triesPerKey {
@@ -231,26 +224,10 @@ func TestElementPropertiesServeEveryRuleAndExplainEveryOmission(t *testing.T) {
 			kind = "omitted (" + w.reason + ")"
 		}
 		if len(seen[key]) == 0 {
-			if reason, absent := elementFormAbsentMetaclasses[w.class]; absent {
-				t.Logf("%s (%s): no model element carries it: %s", key, kind, reason)
-				continue
-			}
 			t.Errorf("%s (%s): no model element carries it", key, kind)
 			continue
 		}
 		t.Errorf("%s (%s): no model element is answered as expected; seen:\n  %s", key, kind, strings.Join(seen[key], "\n  "))
 	}
-	for class, reason := range elementFormAbsentMetaclasses {
-		if stated := carriers[class]; len(stated) > 0 {
-			t.Errorf("the element form now states %s elements (%s), so drop it from elementFormAbsentMetaclasses (%s)",
-				class, strings.Join(stated, ", "), reason)
-		}
-	}
 	t.Logf("%d served rules and %d omissions witnessed over %d models", len(rules), len(omissions), read)
-}
-
-// elementFormAbsentMetaclasses are the relationships the API element form states as owner text,
-// not elements; the absent-forms fixture writes each, and the census fails once one is an element.
-var elementFormAbsentMetaclasses = map[string]string{
-	"TypeFeaturing": "a feature's `featured by` is a text property of the feature in the element form",
 }

@@ -1,0 +1,12 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::plant",
+  "slots": {
+    "run.total": {"type": "Integer", "value": 6},
+    "run.one.v": {"type": "Integer", "value": 1},
+    "run.add.a": {"type": "Integer", "value": 1},
+    "run.add.b": {"type": "Integer", "value": 5},
+    "run.add.sum": {"type": "Integer", "value": 6}
+  }
+}

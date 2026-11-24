@@ -29,7 +29,7 @@ make build            # build bin/sysml and bin/sysml-lsp (with version ldflags)
 make build-sysml      # REPL binary only
 make build-lsp        # LSP binary only
 make test             # full suite: go test -race -coverprofile ... ./...
-make test-shard SHARD=runtime   # one CI shard of the race suite (runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep|export|export-library|export-examples|export-corpus|graph|graph-corpora|codegen|translate|translate-structure|grpc|tools|internal|rest|migrate|cli)
+make test-shard SHARD=runtime   # one CI shard of the race suite (runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep-committed|corpus-sweep-corpora|export|export-library|export-examples|export-corpus|graph|graph-corpora|codegen|translate|translate-structure|grpc|tools|internal|rest|migrate|cli)
 make test-quick SHARDS="rest grpc"  # the same shards without -race, in turn: what a pull-request push runs
 make test-queue SHARDS="rest export-corpus"  # the merge queue's tier: -race, but the examples/ sweeps (scripts/race-shard.sh --sweeps) race-free over the construct-cover subset
 make test-short       # faster, no race detector
@@ -77,6 +77,12 @@ migrator is gated over: fetch it with `./scripts/download-pssm-suite.sh` and run
 variable must run the matching download script first; the scripts are idempotent, and none
 reports success over an empty corpus.
 
+The normative OMG `SysML.json` gates the `api-json` element form the same way: fetch it with
+`./scripts/download-omg-json-schema.sh` and run
+`go test -count=1 ./tests/export -run TestAPIJSONNormativeSchema`. CI sets
+`OPENSYSML_REQUIRE_OMG_JSON_SCHEMA=1`. Its baseline may only shrink over the same elements; re-record a
+movement toward the schema with `-update-normative-schema`.
+
 The Modelica Reference-FMUs gate the FMI integration the same way: fetch them with
 `./scripts/download-reference-fmus.sh` (into `examples/reference-fmus/`, gitignored), install
 the runner's simulator with `pip install fmpy`, and run
@@ -102,7 +108,7 @@ answers under `internal/ir/docplan/markup/testdata/`, and the `Installed` test t
 against the pinned converter — re-record them (`asciidoctor-json.js < x.adoc > x.json`) when either moves.
 
 The RDF mapping has a per-file ratchet of its own over every model under `examples/`, the
-downloaded corpora included: `TestExamplesSweep` in `tests/corpus` loads each file once, converts it
+downloaded corpora included: the two `TestExamplesSweep*` tests in `tests/corpus` (the committed models, the downloaded corpora) load each file once, convert it
 notation → Turtle → notation → Turtle (and the same through `api-json`) and pins the verdicts. Run it with
 the require variables set after any change to `internal/translate/export`, adjudicate every movement,
 then regenerate with `-update-corpus-roundtrip` (`-update-api-json-roundtrip`). See `docs/project/rdf-corpus-roundtrip.md`.

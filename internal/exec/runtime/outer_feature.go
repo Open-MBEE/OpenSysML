@@ -60,8 +60,9 @@ func (ctx *Context) featureDenoting(inst *Instance, sym *symbols.Symbol) (string
 func (ctx *Context) denotedFeature(typ, sym *symbols.Symbol) (string, bool) {
 	index, ok := ctx.model.denotedFeatures[typ]
 	if !ok {
-		index = make(map[*symbols.Symbol]string)
-		for _, feat := range ctx.FeaturesOf(typ) {
+		features := ctx.FeaturesOf(typ)
+		index = make(map[*symbols.Symbol]string, len(features))
+		for _, feat := range features {
 			if feat.Symbol == nil {
 				continue
 			}

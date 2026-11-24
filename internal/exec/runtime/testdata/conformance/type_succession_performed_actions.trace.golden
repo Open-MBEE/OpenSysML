@@ -7,6 +7,7 @@ start: performed action grip of #4
 materialize: grip #5
 run: performed action grip of #2
 step 1: token 1@grip1
+materialize: grip1 #6
 stmt assign n
     eval feature n -> 0
     eval literal 10 -> 10
@@ -15,6 +16,7 @@ step 2: token 1@done
 step 3: no active tokens
 run: performed action grip of #4
 step 1: token 1@grip1
+materialize: grip1 #7
 stmt assign n
     eval feature n -> 0
     eval literal 10 -> 10
@@ -22,9 +24,10 @@ stmt assign n
 step 2: token 1@done
 step 3: no active tokens
 start: performed action move of #2
-materialize: move #6
+materialize: move #8
 run: performed action move of #2
 step 1: token 1@move1
+materialize: move1 #9
 stmt assign n
     eval feature n -> 0
     eval literal 1 -> 1
@@ -32,9 +35,10 @@ stmt assign n
 step 2: token 1@done
 step 3: no active tokens
 start: performed action move of #4
-materialize: move #7
+materialize: move #10
 run: performed action move of #4
 step 1: token 1@move1
+materialize: move1 #11
 stmt assign n
     eval feature n -> 0
     eval literal 1 -> 1

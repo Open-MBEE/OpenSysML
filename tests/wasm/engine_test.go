@@ -361,7 +361,7 @@ func TestEngineWireParity(t *testing.T) {
 
 	// The equal cases: everything else the engine serves is byte-compatible in
 	// meaning, so both answers decode to the same JSON value.
-	equal := func(method string, params string, grpcOut []byte) {
+	equal := func(method, params string, grpcOut []byte) {
 		t.Helper()
 		engineOut := mustCall(t, eng, method, params)
 		var grpcJSON, engineJSON any

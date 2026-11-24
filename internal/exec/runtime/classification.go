@@ -232,9 +232,17 @@ func (ctx *Context) representationClassifies(value Value, target *symbols.Symbol
 		return semantics.ClassifiesNone, false
 	}
 	got := representationPrim(value)
-	if value.Kind == ValConst && value.Const.IsUnbounded() {
+	switch {
+	case value.Kind != ValConst:
+	case value.Const.IsUnbounded():
 		// `*` is the Positive exceeding every bound (KerML 8.4.4.6), so its lattice place decides.
 		got = semantics.PrimNatural
+	case value.Const.IsNegativeInfinity():
+		// `-*` is an Integer (KerML 9.3.2.2.3) and no Natural.
+		if prim == semantics.PrimNatural {
+			return semantics.ClassifiesNone, true
+		}
+		got = semantics.PrimInteger
 	}
 	switch {
 	case got == semantics.PrimUnknown:

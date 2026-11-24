@@ -1789,33 +1789,48 @@ func (e *Evaluator) structureFlowProperty(element Element, property string) (Val
 		}
 		return sequence(uniqueValueSequence(types).Values...), true, true
 	case "sourceOutputFeature":
-		return e.structureFlowAttachment(element, 0)
+		return e.structureFlowEndFeature(element, 0)
 	case "targetInputFeature":
-		return e.structureFlowAttachment(element, 1)
+		return e.structureFlowEndFeature(element, 1)
 	case "interaction":
 		return e.structureTypedFeatureTypes(element, "Interaction", false)
 	}
 	return Value{}, false, false
 }
 
-func (e *Evaluator) structureFlowAttachment(element Element, index int) (Value, bool, bool) {
-	sym, ok := e.structureSymbolOf(element)
-	if !ok || sym.Scope == nil || e.model == nil || e.resolver == nil {
+// structureFlowEndFeature is the first ownedFeature of the flow's connectorEnd at index
+// (KerML 8.3.4.9.2 deriveFlowSourceOutputFeature, deriveFlowTargetInputFeature).
+func (e *Evaluator) structureFlowEndFeature(element Element, index int) (Value, bool, bool) {
+	ends, handled, ok := e.structureEffectiveEndFeatures(element, "Connector", "connectorEnd")
+	if !handled || !ok {
 		return Value{}, true, false
 	}
-	attachments := e.model.FlowEndAttachments(sym)
-	if index >= len(attachments) {
+	if index >= len(ends.Values) {
 		return nullValue(), true, true
 	}
-	ends, handled, ok := e.structureFlowProperty(element, "flowEnd")
-	if !handled || !ok || len(ends.Values) != len(attachments) {
+	if ends.Values[index].Kind != ElementValue {
 		return Value{}, true, false
 	}
-	target, ok := e.resolver.ResolveTarget(sym.Scope, attachments[index].Attachment)
-	if !ok || target == nil {
+	end := ends.Values[index].Element
+	// An inherited library end is described by the semantic model, not the structure.
+	if symbol := e.structureLibrarySymbol(end); symbol != nil && e.model != nil {
+		owned, ok := e.model.ReflectiveElements(symbol, "ownedFeature")
+		if !ok {
+			return Value{}, true, false
+		}
+		if len(owned) == 0 {
+			return nullValue(), true, true
+		}
+		return elementValue(ElementOf(owned[0])), true, true
+	}
+	features, handled, ok := e.structureOwnedFeatures(end)
+	if !handled || !ok {
 		return Value{}, true, false
 	}
-	return elementValue(ElementOf(target)), true, true
+	if len(features.Values) == 0 {
+		return nullValue(), true, true
+	}
+	return features.Values[0], true, true
 }
 
 func (e *Evaluator) structureFilterValuesAsSequence(values []Value, expected string) (Value, bool, bool) {
@@ -3416,8 +3431,7 @@ func (e *Evaluator) structureQualifiedNameNamespaceOwner(namespace Element) (Val
 }
 
 func (e *Evaluator) structureQualifiedNameHasEarlierName(
-	namespace Element,
-	element Element,
+	namespace, element Element,
 	name string,
 	memberships bool,
 ) (bool, Reason, bool) {
@@ -4223,48 +4237,8 @@ func (e *Evaluator) structureDirectionThrough(
 		return ast.DirNone, false
 	}
 	visited[owner.Key()] = true
-	if isConjugatedPortDefinition, known := e.isMetaclass(owner, "ConjugatedPortDefinition"); known &&
-		isConjugatedPortDefinition {
-		original, ok := e.Property(owner, "ConjugatedPortDefinition", "originalPortDefinition")
-		if !ok || original.Kind != ElementValue {
-			return ast.DirNone, false
-		}
-		direction, ok := e.structureDirectionThrough(original.Element, feature, visited)
-		if !ok {
-			return ast.DirNone, false
-		}
-		return semantics.ConjugateDirection(direction), true
-	}
-	// A feature the port owns keeps its own direction; a typing reverses only what it inherits.
-	if isPortUsage, known := e.isMetaclass(owner, "PortUsage"); known && isPortUsage && !e.structureKnownToOwnFeature(owner, feature) {
-		relationships, known := e.options.Structure.OwnedRelationships(owner)
-		if !known {
-			return ast.DirNone, false
-		}
-		for _, relationship := range relationships {
-			isConjugatedTyping, known := e.isMetaclass(relationship, "ConjugatedPortTyping")
-			if !known {
-				return ast.DirNone, false
-			}
-			if !isConjugatedTyping {
-				continue
-			}
-			conjugated, known := e.relationshipEndpoints(relationship, "conjugatedPortDefinition")
-			if !known || len(conjugated) != 1 || conjugated[0].Kind != ElementValue {
-				return ast.DirNone, false
-			}
-			original, ok := e.Property(
-				conjugated[0].Element, "ConjugatedPortDefinition", "originalPortDefinition",
-			)
-			if !ok || original.Kind != ElementValue {
-				return ast.DirNone, false
-			}
-			direction, ok := e.structureDirectionThrough(original.Element, feature, visited)
-			if !ok {
-				return ast.DirNone, false
-			}
-			return semantics.ConjugateDirection(direction), true
-		}
+	if direction, ok, settled := e.structureConjugatedDirection(owner, feature, visited); settled {
+		return direction, ok
 	}
 
 	featureSymbol := e.structureElementSymbol(feature)
@@ -4275,23 +4249,97 @@ func (e *Evaluator) structureDirectionThrough(
 			return e.structureDirectionThrough(general, feature, visited)
 		}
 	}
-	if ownerSymbol != nil {
-		if featureSymbol != nil {
-			portUsage, portUsageKnown := e.isMetaclass(owner, "PortUsage")
-			portDefinition, portDefinitionKnown := e.isMetaclass(owner, "PortDefinition")
-			if e.model != nil && (portUsageKnown && portUsage || portDefinitionKnown && portDefinition) {
-				for _, portFeature := range e.model.PortFeatures(ownerSymbol) {
-					if portFeature.Symbol == featureSymbol {
-						return portFeature.Direction, true
-					}
-				}
+	if ownerSymbol != nil && featureSymbol != nil {
+		if direction, settled := e.structureModelDirection(owner, ownerSymbol, featureSymbol); settled {
+			return direction, true
+		}
+	}
+	if direction, ok, settled := e.structureStatedDirection(feature); settled {
+		return direction, ok
+	}
+	if featureSymbol != nil && e.model != nil {
+		if direction, settled := e.structureDeclaredDirection(ownerSymbol, featureSymbol); settled {
+			return direction, true
+		}
+	}
+	return e.structureMembershipDirection(feature)
+}
+
+// structureConjugatedDirection is the direction of feature read through a conjugation of owner: a
+// conjugated port definition, or a port usage's conjugated typing of a feature it does not own,
+// reverses the direction the original definition gives. settled is false when owner conjugates nothing.
+func (e *Evaluator) structureConjugatedDirection(
+	owner, feature Element, visited map[ElementKey]bool,
+) (direction ast.FeatureDirection, ok, settled bool) {
+	if isConjugatedPortDefinition, known := e.isMetaclass(owner, "ConjugatedPortDefinition"); known &&
+		isConjugatedPortDefinition {
+		original, ok := e.Property(owner, "ConjugatedPortDefinition", "originalPortDefinition")
+		if !ok || original.Kind != ElementValue {
+			return ast.DirNone, false, true
+		}
+		direction, ok := e.structureDirectionThrough(original.Element, feature, visited)
+		if !ok {
+			return ast.DirNone, false, true
+		}
+		return semantics.ConjugateDirection(direction), true, true
+	}
+	// A feature the port owns keeps its own direction; a typing reverses only what it inherits.
+	if isPortUsage, known := e.isMetaclass(owner, "PortUsage"); known && isPortUsage && !e.structureKnownToOwnFeature(owner, feature) {
+		relationships, known := e.options.Structure.OwnedRelationships(owner)
+		if !known {
+			return ast.DirNone, false, true
+		}
+		for _, relationship := range relationships {
+			isConjugatedTyping, known := e.isMetaclass(relationship, "ConjugatedPortTyping")
+			if !known {
+				return ast.DirNone, false, true
 			}
-			direction := e.model.EffectiveDirection(ownerSymbol, featureSymbol)
-			if direction != ast.DirNone {
-				return direction, true
+			if !isConjugatedTyping {
+				continue
+			}
+			conjugated, known := e.relationshipEndpoints(relationship, "conjugatedPortDefinition")
+			if !known || len(conjugated) != 1 || conjugated[0].Kind != ElementValue {
+				return ast.DirNone, false, true
+			}
+			original, ok := e.Property(
+				conjugated[0].Element, "ConjugatedPortDefinition", "originalPortDefinition",
+			)
+			if !ok || original.Kind != ElementValue {
+				return ast.DirNone, false, true
+			}
+			direction, ok := e.structureDirectionThrough(original.Element, feature, visited)
+			if !ok {
+				return ast.DirNone, false, true
+			}
+			return semantics.ConjugateDirection(direction), true, true
+		}
+	}
+	return ast.DirNone, false, false
+}
+
+// structureModelDirection is the direction the model gives featureSymbol within ownerSymbol: a
+// port's own feature direction, else the effective one. settled is false when the model gives none.
+func (e *Evaluator) structureModelDirection(
+	owner Element, ownerSymbol, featureSymbol *symbols.Symbol,
+) (ast.FeatureDirection, bool) {
+	portUsage, portUsageKnown := e.isMetaclass(owner, "PortUsage")
+	portDefinition, portDefinitionKnown := e.isMetaclass(owner, "PortDefinition")
+	if e.model != nil && (portUsageKnown && portUsage || portDefinitionKnown && portDefinition) {
+		for _, portFeature := range e.model.PortFeatures(ownerSymbol) {
+			if portFeature.Symbol == featureSymbol {
+				return portFeature.Direction, true
 			}
 		}
 	}
+	direction := e.model.EffectiveDirection(ownerSymbol, featureSymbol)
+	if direction != ast.DirNone {
+		return direction, true
+	}
+	return ast.DirNone, false
+}
+
+// structureStatedDirection is the direction the graph states on feature. settled is false when it states none.
+func (e *Evaluator) structureStatedDirection(feature Element) (parsed ast.FeatureDirection, ok, settled bool) {
 	value, ok := e.options.Structure.Attribute(feature, "direction")
 	var direction string
 	if ok {
@@ -4302,44 +4350,51 @@ func (e *Evaluator) structureDirectionThrough(
 			direction = value.String
 		case NullValue:
 		default:
-			return ast.DirNone, false
+			return ast.DirNone, false, true
 		}
 	}
 	switch direction {
 	case ast.DirIn.String():
-		return ast.DirIn, true
+		return ast.DirIn, true, true
 	case ast.DirOut.String():
-		return ast.DirOut, true
+		return ast.DirOut, true, true
 	case ast.DirInOut.String():
-		return ast.DirInOut, true
+		return ast.DirInOut, true, true
 	case ast.DirNone.String():
-		return ast.DirNone, true
+		return ast.DirNone, true, true
 	}
+	return ast.DirNone, false, false
+}
 
-	if featureSymbol != nil && e.model != nil {
-		if ownerSymbol == nil {
-			if declaringOwner := featureSymbol.Owner(); declaringOwner != nil {
-				if direction := e.model.EffectiveDirection(declaringOwner, featureSymbol); direction != ast.DirNone {
-					return direction, true
-				}
+// structureDeclaredDirection is the direction featureSymbol's declaration gives it. settled is false when it gives none.
+func (e *Evaluator) structureDeclaredDirection(ownerSymbol, featureSymbol *symbols.Symbol) (ast.FeatureDirection, bool) {
+	if ownerSymbol == nil {
+		if declaringOwner := featureSymbol.Owner(); declaringOwner != nil {
+			if direction := e.model.EffectiveDirection(declaringOwner, featureSymbol); direction != ast.DirNone {
+				return direction, true
 			}
 		}
-		if direction := e.model.DeclaredDirection(featureSymbol); direction != ast.DirNone {
-			return direction, true
-		}
-		// A parameter takes its membership's parameterDirection(): out for a return, else in (KerML 8.3.4.6.4).
-		kind := e.model.MembershipMetaclassOf(featureSymbol.Owner(), featureSymbol)
-		switch {
-		case kind == "ReturnParameterMembership" || e.options.Structure.Specializes(kind, "ReturnParameterMembership"):
-			return ast.DirOut, true
-		case kind == "ParameterMembership" || e.options.Structure.Specializes(kind, "ParameterMembership"):
-			return ast.DirIn, true
-		}
-		if ownerSymbol == nil && featureSymbol.Owner() != nil {
-			return ast.DirNone, true
-		}
 	}
+	if direction := e.model.DeclaredDirection(featureSymbol); direction != ast.DirNone {
+		return direction, true
+	}
+	// A parameter takes its membership's parameterDirection(): out for a return, else in (KerML 8.3.4.6.4).
+	kind := e.model.MembershipMetaclassOf(featureSymbol.Owner(), featureSymbol)
+	switch {
+	case kind == "ReturnParameterMembership" || e.options.Structure.Specializes(kind, "ReturnParameterMembership"):
+		return ast.DirOut, true
+	case kind == "ParameterMembership" || e.options.Structure.Specializes(kind, "ParameterMembership"):
+		return ast.DirIn, true
+	}
+	if ownerSymbol == nil && featureSymbol.Owner() != nil {
+		return ast.DirNone, true
+	}
+	return ast.DirNone, false
+}
 
+// structureMembershipDirection is the parameterDirection() of feature's owning membership: out for a
+// return parameter, in for a parameter, none otherwise.
+func (e *Evaluator) structureMembershipDirection(feature Element) (ast.FeatureDirection, bool) {
 	membership, handled, known := e.structureOwningMembership(feature)
 	if !handled || !known {
 		return ast.DirNone, false
@@ -4391,17 +4446,25 @@ func (e *Evaluator) structureGeneralWithFeature(
 	if !known || owns {
 		return Element{}, false, known
 	}
-	generals, known := e.structureGeneralTypes(owner)
+	generals, known := e.sharedGeneralTypes(owner)
 	if !known {
 		return Element{}, false, false
 	}
+	// Each general is searched from the types visited on the way here, on one reused copy.
+	var searched map[ElementKey]bool
 	for _, general := range generals {
-		has, known := e.structureHasFeature(general, feature, maps.Clone(visited))
+		if searched == nil {
+			searched = maps.Clone(visited)
+		} else {
+			clear(searched)
+			maps.Copy(searched, visited)
+		}
+		has, known := e.structureHasFeature(general.Element, feature, searched)
 		if !known {
 			return Element{}, false, false
 		}
 		if has {
-			return general, true, true
+			return general.Element, true, true
 		}
 	}
 	return Element{}, false, true
@@ -4889,7 +4952,17 @@ func (e *Evaluator) computeStructureInheritedMemberships(element Element) ([]Val
 	return e.structureRemoveRedefinedMemberships(element, inherited)
 }
 
+// structureGeneralTypes lists the types the element specializes by clause, by role, by
+// chaining and by implication, computed once per element.
 func (e *Evaluator) structureGeneralTypes(element Element) ([]Element, bool) {
+	return elementsOfValues(e.sharedGeneralTypes(element))
+}
+
+func (e *Evaluator) sharedGeneralTypes(element Element) ([]Value, bool) {
+	return e.memoizedElementValues(memoGeneralTypes, element, e.computeStructureGeneralTypes)
+}
+
+func (e *Evaluator) computeStructureGeneralTypes(element Element) ([]Element, bool) {
 	bases, ok := e.structureSpecializedGeneralTypes(element)
 	if !ok {
 		return nil, false
@@ -5848,35 +5921,9 @@ func (e *Evaluator) structureTypeEndFeatures(element Element, visited map[Elemen
 	if !ok {
 		return nil, nil, false
 	}
-	type candidate struct {
-		value     Value
-		own       ElementKey
-		redefined []ElementKey
-	}
-	var candidates []candidate
-	seen := make(map[ElementKey]bool)
-	for _, ends := range inheritableEnds {
-		for _, end := range ends {
-			if end.Kind != ElementValue {
-				return nil, nil, false
-			}
-			entry := candidate{value: end, own: e.structureFeatureKey(end.Element)}
-			if seen[entry.own] {
-				continue
-			}
-			seen[entry.own] = true
-			closure, ok := e.structureAllRedefinedFeatures(end.Element)
-			if !ok {
-				return nil, nil, false
-			}
-			for _, feature := range closure {
-				if key := e.structureFeatureKey(feature); key != entry.own {
-					entry.redefined = append(entry.redefined, key)
-					redefinedByOthers[key] = true
-				}
-			}
-			candidates = append(candidates, entry)
-		}
+	candidates, ok := e.structureInheritableEndCandidates(inheritableEnds, redefinedByOthers)
+	if !ok {
+		return nil, nil, false
 	}
 	for _, entry := range candidates {
 		removed := redefinedByOthers[entry.own] || ownedRedefined[entry.own]
@@ -5891,6 +5938,46 @@ func (e *Evaluator) structureTypeEndFeatures(element Element, visited map[Elemen
 		redefinedByOthers[key] = true
 	}
 	return values, redefinedByOthers, true
+}
+
+// endFeatureCandidate is an inherited end feature with its key and the keys of the features it redefines.
+type endFeatureCandidate struct {
+	value     Value
+	own       ElementKey
+	redefined []ElementKey
+}
+
+// structureInheritableEndCandidates is the distinct end features among inheritableEnds, in order; it
+// records in redefinedByOthers every feature one of them redefines.
+func (e *Evaluator) structureInheritableEndCandidates(
+	inheritableEnds [][]Value, redefinedByOthers map[ElementKey]bool,
+) ([]endFeatureCandidate, bool) {
+	var candidates []endFeatureCandidate
+	seen := make(map[ElementKey]bool)
+	for _, ends := range inheritableEnds {
+		for _, end := range ends {
+			if end.Kind != ElementValue {
+				return nil, false
+			}
+			entry := endFeatureCandidate{value: end, own: e.structureFeatureKey(end.Element)}
+			if seen[entry.own] {
+				continue
+			}
+			seen[entry.own] = true
+			closure, ok := e.structureAllRedefinedFeatures(end.Element)
+			if !ok {
+				return nil, false
+			}
+			for _, feature := range closure {
+				if key := e.structureFeatureKey(feature); key != entry.own {
+					entry.redefined = append(entry.redefined, key)
+					redefinedByOthers[key] = true
+				}
+			}
+			candidates = append(candidates, entry)
+		}
+	}
+	return candidates, true
 }
 
 // structureGeneralEndFeatures lists each supertype's Type::endFeature, the non-private ones of them
@@ -5910,14 +5997,8 @@ func (e *Evaluator) structureGeneralEndFeatures(
 				return nil, nil, nil, false
 			}
 			ends := e.model.EndFeatures(base.Symbol)
-			visible := make([]*symbols.Symbol, 0, len(ends))
-			for _, end := range ends {
-				if end != nil && (e.resolver == nil || e.resolver.InheritedMemberVisible(nil, end)) {
-					visible = append(visible, end)
-				}
-			}
 			all = append(all, symbolSequence(ends).Values)
-			inheritable = append(inheritable, symbolSequence(visible).Values)
+			inheritable = append(inheritable, symbolSequence(e.inheritedVisible(ends)).Values)
 			continue
 		}
 		if visited[general.Key()] {
@@ -5929,18 +6010,9 @@ func (e *Evaluator) structureGeneralEndFeatures(
 		if !ok {
 			return nil, nil, nil, false
 		}
-		private, ok := e.structurePrivateOwnedFeatureKeys(general)
+		visible, ok := e.structureNonPrivateEnds(general, ends)
 		if !ok {
 			return nil, nil, nil, false
-		}
-		visible := make([]Value, 0, len(ends))
-		for _, end := range ends {
-			if end.Kind != ElementValue {
-				return nil, nil, nil, false
-			}
-			if !private[e.structureFeatureKey(end.Element)] {
-				visible = append(visible, end)
-			}
 		}
 		all = append(all, ends)
 		inheritable = append(inheritable, visible)
@@ -5949,6 +6021,35 @@ func (e *Evaluator) structureGeneralEndFeatures(
 		}
 	}
 	return all, inheritable, redefined, true
+}
+
+// inheritedVisible is the library end features among ends that a specializing type inherits.
+func (e *Evaluator) inheritedVisible(ends []*symbols.Symbol) []*symbols.Symbol {
+	visible := make([]*symbols.Symbol, 0, len(ends))
+	for _, end := range ends {
+		if end != nil && (e.resolver == nil || e.resolver.InheritedMemberVisible(nil, end)) {
+			visible = append(visible, end)
+		}
+	}
+	return visible
+}
+
+// structureNonPrivateEnds is the end features among ends that general does not own privately.
+func (e *Evaluator) structureNonPrivateEnds(general Element, ends []Value) ([]Value, bool) {
+	private, ok := e.structurePrivateOwnedFeatureKeys(general)
+	if !ok {
+		return nil, false
+	}
+	visible := make([]Value, 0, len(ends))
+	for _, end := range ends {
+		if end.Kind != ElementValue {
+			return nil, false
+		}
+		if !private[e.structureFeatureKey(end.Element)] {
+			visible = append(visible, end)
+		}
+	}
+	return visible, true
 }
 
 // structurePrivateOwnedFeatureKeys is the features element owns through a private FeatureMembership,
@@ -5987,6 +6088,34 @@ func (e *Evaluator) structureFeatureTypes(element Element) (Value, bool, bool) {
 		e.recordUnsupportedReason(element, "Feature", "type", reason)
 		return Value{}, true, false
 	}
+	if value, ok := e.symbolFeatureTypes(element); ok {
+		return value, true, true
+	}
+	value, handled, ok := e.structureFeatureTypesFrom(element, make(map[ElementKey]bool))
+	if !handled || !ok {
+		return unsupported(
+			Reason{Category: ReasonUnrepresentedEndpoint, Detail: "Feature::type a FeatureTyping, Subsetting, or FeatureChaining target is unavailable in Structure"},
+		)
+	}
+	if len(value.Values) != 0 {
+		return value, handled, ok
+	}
+	if reason, ok := e.structureUnavailableTyping(element); !ok {
+		return unsupported(reason)
+	}
+	chaining, handled, ok := e.structureFeatureChaining(element)
+	if !handled || !ok {
+		return unsupported(Reason{Category: ReasonUnrepresentedEndpoint, Detail: "Feature::type FeatureChaining endpoints are unavailable"})
+	}
+	if len(chaining.Values) != 0 {
+		return unsupported(Reason{Category: ReasonDependsOnUnsupported, Dependency: "Feature::chainingFeature"})
+	}
+	return value, true, true
+}
+
+// symbolFeatureTypes answers Feature::type from the semantic model for an element a symbol backs
+// and that declares its types; ok is false when the structural derivation must answer instead.
+func (e *Evaluator) symbolFeatureTypes(element Element) (Value, bool) {
 	if resolver, ok := e.options.Structure.(symbolBackedStructure); ok && e.model != nil {
 		// One derivation for every surface: the Symbol facts answer Feature::type
 		// from the semantic model, so the structure reads the same answer.
@@ -5998,27 +6127,25 @@ func (e *Evaluator) structureFeatureTypes(element Element) (Value, bool, bool) {
 				for _, typ := range types {
 					values = append(values, Value{Kind: ElementValue, Element: resolver.ElementFor(typ), Success: true})
 				}
-				return Value{Kind: SequenceValue, Values: values, Success: true}, true, true
+				return Value{Kind: SequenceValue, Values: values, Success: true}, true
 			}
 		}
 	}
-	value, handled, ok := e.structureFeatureTypesFrom(element, make(map[ElementKey]bool))
-	if !handled || !ok {
-		return unsupported(
-			Reason{Category: ReasonUnrepresentedEndpoint, Detail: "Feature::type a FeatureTyping, Subsetting, or FeatureChaining target is unavailable in Structure"},
-		)
-	}
-	if len(value.Values) != 0 {
-		return value, handled, ok
-	}
+	return Value{}, false
+}
+
+// structureUnavailableTyping checks the typing and subsetting relationships element owns when the
+// structure found no type for it: one that is present names a target the structure lacks, and ok is
+// false with the reason.
+func (e *Evaluator) structureUnavailableTyping(element Element) (Reason, bool) {
 	relationships, known := e.options.Structure.OwnedRelationships(element)
 	if !known {
-		return unsupported(Reason{Category: ReasonUnrepresentedEndpoint, Detail: "Feature::type owned typing and subsetting relationships are unavailable"})
+		return Reason{Category: ReasonUnrepresentedEndpoint, Detail: "Feature::type owned typing and subsetting relationships are unavailable"}, false
 	}
 	for _, relationship := range relationships {
 		isCrossSubsetting, known := e.isMetaclass(relationship, "CrossSubsetting")
 		if !known {
-			return unsupported(Reason{Category: ReasonUnrepresentedElement, Detail: "Feature::type owned relationship metaclass is unavailable"})
+			return Reason{Category: ReasonUnrepresentedElement, Detail: "Feature::type owned relationship metaclass is unavailable"}, false
 		}
 		if isCrossSubsetting {
 			continue
@@ -6026,24 +6153,17 @@ func (e *Evaluator) structureFeatureTypes(element Element) (Value, bool, bool) {
 		for _, metaclass := range []string{"FeatureTyping", "Subsetting"} {
 			matches, known := e.isMetaclass(relationship, metaclass)
 			if !known {
-				return unsupported(Reason{Category: ReasonUnrepresentedElement, Detail: "Feature::type owned relationship metaclass is unavailable"})
+				return Reason{Category: ReasonUnrepresentedElement, Detail: "Feature::type owned relationship metaclass is unavailable"}, false
 			}
 			if matches {
-				return unsupported(Reason{
+				return Reason{
 					Category: ReasonUnrepresentedEndpoint,
 					Detail:   "Feature::type owned " + metaclass + " target is unavailable",
-				})
+				}, false
 			}
 		}
 	}
-	chaining, handled, ok := e.structureFeatureChaining(element)
-	if !handled || !ok {
-		return unsupported(Reason{Category: ReasonUnrepresentedEndpoint, Detail: "Feature::type FeatureChaining endpoints are unavailable"})
-	}
-	if len(chaining.Values) != 0 {
-		return unsupported(Reason{Category: ReasonDependsOnUnsupported, Dependency: "Feature::chainingFeature"})
-	}
-	return value, true, true
+	return Reason{}, true
 }
 
 func (e *Evaluator) structureFeatureTypesFrom(element Element, visiting map[ElementKey]bool) (Value, bool, bool) {
@@ -6563,37 +6683,8 @@ func (e *Evaluator) structureUnmaterializedEndName(element Element, property str
 	if !handled || !ok || owningType.Kind != ElementValue {
 		return Value{}, handled, ok
 	}
-	isFlowEnd, known := e.isMetaclass(element, "FlowEnd")
-	if !known {
-		return Value{}, true, false
-	}
-	if isFlowEnd {
-		isFlowUsage, known := e.isMetaclass(owningType.Element, "FlowUsage")
-		if !known {
-			return Value{}, true, false
-		}
-		if isFlowUsage {
-			redefinitions, handled, ok := e.structureOwnedFilter(element, "Redefinition", false)
-			if !handled || !ok {
-				return Value{}, true, false
-			}
-			if len(redefinitions.Values) == 0 {
-				if name, ok := e.structureFlowEndName(owningType.Element, element, property); ok {
-					return name, true, true
-				}
-				e.recordUnsupportedReason(
-					element,
-					"Element",
-					property,
-					Reason{
-						Category: ReasonImpliedRelationshipNotMaterialized,
-						Detail:   "FlowEnd::" + property + " requires its implied Redefinition",
-					},
-				)
-				return Value{}, true, false
-			}
-			return Value{}, false, false
-		}
+	if name, handled, ok, settled := e.structureFlowEndImpliedName(element, owningType.Element, property); settled {
+		return name, handled, ok
 	}
 	isSuccession, known := e.isMetaclass(owningType.Element, "SuccessionAsUsage")
 	if !known {
@@ -6619,6 +6710,45 @@ func (e *Evaluator) structureUnmaterializedEndName(element Element, property str
 		}
 	}
 	return nullValue(), true, true
+}
+
+// structureFlowEndImpliedName names the end of a flow usage that owns no redefinition by the flow
+// end it implies. settled is false when element is not the flow end of a flow usage.
+func (e *Evaluator) structureFlowEndImpliedName(element, owningType Element, property string) (name Value, handled, ok, settled bool) {
+	isFlowEnd, known := e.isMetaclass(element, "FlowEnd")
+	if !known {
+		return Value{}, true, false, true
+	}
+	if !isFlowEnd {
+		return Value{}, false, false, false
+	}
+	isFlowUsage, known := e.isMetaclass(owningType, "FlowUsage")
+	if !known {
+		return Value{}, true, false, true
+	}
+	if !isFlowUsage {
+		return Value{}, false, false, false
+	}
+	redefinitions, handled, ok := e.structureOwnedFilter(element, "Redefinition", false)
+	if !handled || !ok {
+		return Value{}, true, false, true
+	}
+	if len(redefinitions.Values) != 0 {
+		return Value{}, false, false, true
+	}
+	if name, ok := e.structureFlowEndName(owningType, element, property); ok {
+		return name, true, true, true
+	}
+	e.recordUnsupportedReason(
+		element,
+		"Element",
+		property,
+		Reason{
+			Category: ReasonImpliedRelationshipNotMaterialized,
+			Detail:   "FlowEnd::" + property + " requires its implied Redefinition",
+		},
+	)
+	return Value{}, true, false, true
 }
 
 func (e *Evaluator) structureFlowEndName(flow, flowEnd Element, property string) (Value, bool) {
@@ -8402,7 +8532,12 @@ func (e *Evaluator) structureInvocationArguments(element Element) (Value, bool, 
 				if target.Kind != ElementValue {
 					return Value{}, true, false
 				}
-				explicit[index] = append(explicit[index], target.Element)
+				// A library formal is compared through its symbol, as the formal inputs spell it.
+				formal := target.Element
+				if symbol := e.structureElementSymbol(formal); symbol != nil {
+					formal = ElementOf(symbol)
+				}
+				explicit[index] = append(explicit[index], formal)
 			}
 		}
 		if len(explicit[index]) != 0 {

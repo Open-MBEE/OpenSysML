@@ -1,0 +1,39 @@
+// view: ChargingViews::placed
+// kind: action
+// stated: render asInterconnectionDiagram, view def ActionFlowView
+// layout: neato -n
+digraph "ChargingViews::placed" {
+  graph [fontname="Helvetica", splines=ortho, layout=neato, inputscale=72, dpi=72];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  subgraph "cluster_frame" {
+    label=<<font point-size="10"><i>«view»</i></font> <b>ChargingViews::placed</b> : ActionFlowView>;
+    labeljust=l;
+    labelloc=t;
+    penwidth=0.5;
+    margin=8;
+    bb="-16,-333,528,-24";
+    subgraph "cluster_n0" {
+      label=<<font point-size="10"><i>«action def»</i></font><br/><b>Charge</b>>;
+      color=black;
+      penwidth=0.5;
+      bb="-8,-325,520,-52";
+      "n0" [shape=point, style=invis, width=0, height=0, label="", pos="246,-188.5!", pin=true];
+      "n1" [shape=circle, fillcolor=black, label="", pos="7.2,-67.2!", pin=true, width=0.2, height=0.2];
+      "n2" [label=<<font point-size="10"><i>«merge»</i></font><br/><b>again</b>>, pos="131.5,-78.5!", pin=true, width=0.875, height=0.5138888888888888];
+      "n3" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>monitor</b>>, pos="40.5,-178.5!", pin=true, width=1.125, height=0.5138888888888888];
+      "n4" [label=<<font point-size="10"><i>«decision»</i></font><br/><b>full</b>>, pos="288,-178.5!", pin=true, width=1.0555555555555556, height=0.5138888888888888];
+      "n5" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>supply</b>>, pos="476,-178.5!", pin=true, width=1, height=0.5138888888888888];
+      "n6" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>finish</b>>, pos="286,-298.5!", pin=true, width=1, height=0.5138888888888888];
+      "n7" [shape=doublecircle, fillcolor=black, label="", pos="7.2,-297.2!", pin=true, width=0.2, height=0.2];
+    }
+    "frame_tr" [shape=none, margin=0, label=<<font point-size="10">expose Charging::Charge</font>>, pos="415,-70!", pin=true, width=2.9166666666666665, height=0.5];
+  }
+  "n1" -> "n2" [style=dashed, arrowhead=vee];
+  "n2" -> "n3" [style=dashed, arrowhead=vee];
+  "n3" -> "n4" [style=dashed, arrowhead=vee];
+  "n4" -> "n5" [xlabel="[true]", style=dashed, arrowhead=vee];
+  "n4" -> "n6" [xlabel="[false]", style=dashed, arrowhead=vee];
+  "n5" -> "n2" [style=dashed, arrowhead=vee];
+  "n6" -> "n7" [style=dashed, arrowhead=vee];
+}

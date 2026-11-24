@@ -19,14 +19,19 @@ func (m *Model) ImpliedSpecializations(sym *symbols.Symbol) []*symbols.Symbol {
 	m.resolver.Enter()
 	// The candidates are what inheritance reads for the kind and ImplicitSubsettings for the position.
 	candidates := slices.Clone(m.ImplicitGenerals(sym))
+	add := func(generals []*symbols.Symbol) {
+		for _, general := range generals {
+			if general != nil && general != sym && !slices.Contains(candidates, general) {
+				candidates = append(candidates, general)
+			}
+		}
+	}
+	add(m.impliedFeatureGenerals(sym))
+	// What is left of the supertypes is what the declaration states.
 	declared := slices.DeleteFunc(slices.Clone(m.DirectSupertypes(sym)), func(super *symbols.Symbol) bool {
 		return slices.Contains(candidates, super)
 	})
-	for _, general := range m.ImplicitSubsettings(sym) {
-		if !slices.Contains(candidates, general) {
-			candidates = append(candidates, general)
-		}
-	}
+	add(m.ImplicitSubsettings(sym))
 	out := m.withoutRedundant(sym, candidates, declared)
 	if m.resolver.Leave() {
 		journal(m, m.impliedSpecializations, sym, sym.Decl)
@@ -121,4 +126,14 @@ func (m *Model) subsetsByPosition(sym, general *symbols.Symbol) bool {
 		}
 	}
 	return false
+}
+
+// impliedFeatureGenerals returns the generals DirectSupertypes derives for a feature from where it stands
+// (KerML Table 9; SysML Table 32): an end's participant, a cross feature's types, a value, a variation.
+func (m *Model) impliedFeatureGenerals(sym *symbols.Symbol) []*symbols.Symbol {
+	redefines := len(m.implicitEndRedefinitions(sym)) > 0 || declaresRedefinition(sym)
+	out := []*symbols.Symbol{m.implicitEndParticipant(sym, redefines)}
+	out = append(out, m.implicitCrossFeatureGenerals(sym)...)
+	out = append(out, m.FeatureValueGeneral(sym), m.VariationPointOwning(sym))
+	return append(out, m.expressionElementGenerals(sym)...)
 }

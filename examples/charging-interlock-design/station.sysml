@@ -80,15 +80,15 @@ package ChargingInterlock {
         action request send new ChargeRequested() to rig.controller;
         action acquire send new LockDetected() to rig.controller;
         join reported;
-        succession arrivalRace then request;
-        succession arrivalRace then acquire;
-        succession request then reported;
-        succession acquire then reported;
-        succession reported then waitForRetry;
+        succession first arrivalRace then request;
+        succession first arrivalRace then acquire;
+        succession first request then reported;
+        succession first acquire then reported;
+        succession first reported then waitForRetry;
         action waitForRetry accept after 1 [s];
-        succession waitForRetry then retry;
+        succession first waitForRetry then retry;
         action retry send new ChargeRequested() to rig.controller;
-        succession retry then done;
+        succession first retry then done;
     }
 
     // Separate finite scenario: allow each signal to settle before observing

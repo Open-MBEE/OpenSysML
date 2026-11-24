@@ -4,6 +4,7 @@
 import { Code, ConnectError } from "@connectrpc/connect";
 import {
   AuthenticationError,
+  ClosedConnectionError,
   InvalidRequestError,
   ModelFileNotFoundError,
   ModelNotFoundError,
@@ -83,6 +84,10 @@ export function fromRpcError(
     return error;
   }
   const connectError = ConnectError.from(error);
+  // A call cancelled by closing its connection failed for that, not for a deadline.
+  if (connectError.code === Code.Canceled && connectError.cause instanceof ClosedConnectionError) {
+    return connectError.cause;
+  }
   const status = statusName(connectError.code);
   const message =
     connectError.rawMessage === ""

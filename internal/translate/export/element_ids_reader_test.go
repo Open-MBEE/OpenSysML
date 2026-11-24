@@ -13,7 +13,7 @@ import (
 
 const readerModel = "package P {\n\tpart a;\n\tpart a;\n\tpart : X;\n\tpart def X;\n}\n"
 
-func readerIndex(t *testing.T, name string, text string) (*source.SourceFile, *symbols.Index, ElementIDDocument) {
+func readerIndex(t *testing.T, name, text string) (*source.SourceFile, *symbols.Index, ElementIDDocument) {
 	t.Helper()
 	sf := source.New(name, []byte(text))
 	p := parser.New(sf)

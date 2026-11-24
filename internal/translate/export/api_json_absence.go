@@ -1,6 +1,7 @@
 package export
 
 import (
+	"maps"
 	"strings"
 	"sync"
 
@@ -33,17 +34,17 @@ var (
 	apiJSONEmptyCollection          = []any{}
 )
 
+// apiJSONOwnedAbsenceTypeAliases maps a name the ontology does not declare to the metaclass
+// whose properties it takes; init adds the legacy KerML type names.
 var apiJSONOwnedAbsenceTypeAliases = map[string]string{
-	"AssociationUsage": "Association",
-	"BehaviorUsage":    "Behavior",
-	"BooleanUsage":     "BooleanExpression",
-	"ClassUsage":       "Class",
+	"BooleanUsage": "BooleanExpression",
 	// The individual names are what earlier releases' Turtle types an `individual` as.
 	"IndividualDefinition": "OccurrenceDefinition",
 	"IndividualUsage":      "OccurrenceUsage",
-	"InteractionUsage":     "Interaction",
-	"PredicateUsage":       "Predicate",
-	"StructureUsage":       "Structure",
+}
+
+func init() {
+	maps.Copy(apiJSONOwnedAbsenceTypeAliases, legacyKerMLTypeMetaclasses)
 }
 
 var apiJSONOwnedAbsenceExtensionParents = map[string]string{

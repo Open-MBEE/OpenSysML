@@ -109,7 +109,7 @@ func TestQuantityValueTypeRoundTrip(t *testing.T) {
 		{"M::bare", "asTorque", false},
 	} {
 		resp := invoke(tc.calc, sent(tc.expr))
-		if refused := strings.Contains(resp.GetError(), "type mismatch"); refused != tc.refused {
+		if strings.Contains(resp.GetError(), "type mismatch") != tc.refused {
 			t.Errorf("%s(%s sent back): error = %q, want refused = %v", tc.calc, tc.expr, resp.GetError(), tc.refused)
 		}
 		if !tc.refused && soleElement(t, tc.calc, resp.Result).GetQuantity() == nil {
@@ -211,7 +211,7 @@ func TestQuantityValueTypeCrossesFromADocumentQuery(t *testing.T) {
 		if err != nil {
 			t.Fatalf("EvaluateCalc: %v", err)
 		}
-		if refused := strings.Contains(resp.GetError(), "type mismatch"); refused != tc.refused {
+		if strings.Contains(resp.GetError(), "type mismatch") != tc.refused {
 			t.Errorf("asTorque(%v): error = %q, want refused = %v", tc.quantity, resp.GetError(), tc.refused)
 		}
 	}

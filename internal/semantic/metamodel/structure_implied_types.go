@@ -53,20 +53,6 @@ func (e *Evaluator) structureImpliedFeatureTypes(element Element) ([]Value, bool
 func (e *Evaluator) structureExpressionFunction(element Element) ([]Value, bool) {
 	var function *symbols.Symbol
 	switch node := expressionNodeOf(element).(type) {
-	case *ast.OperatorExpr:
-		function = e.model.OperatorFunction(node.Operator)
-	case *ast.CastExpr:
-		function = e.model.OperatorFunction(ast.OpAs)
-	case *ast.IndexExpr:
-		function = e.model.IndexFunction(node)
-	case *ast.SequenceExpr:
-		function = e.model.OperatorFunctionNamed(",")
-	case *ast.FeatureChainExpr:
-		function = e.model.OperatorFunctionNamed(".")
-	case *ast.SelectExpr:
-		function = e.librarySymbol("ControlFunctions::select")
-	case *ast.CollectExpr:
-		function = e.librarySymbol("ControlFunctions::collect")
 	case *ast.TimeEvent:
 		// A trigger's argument wrapper shares the trigger's node; only the invocation is typed by it.
 		if e.structureIsTriggerInvocation(element) {
@@ -82,6 +68,9 @@ func (e *Evaluator) structureExpressionFunction(element Element) ([]Value, bool)
 		}
 	case nil:
 		function = e.statedExpressionFunction(element)
+	}
+	if function == nil {
+		function = e.model.ExpressionNodeFunction(expressionNodeOf(element))
 	}
 	if function != nil && semantics.IsType(function) {
 		return []Value{elementValue(ElementOf(function))}, true

@@ -152,13 +152,16 @@ func corpusRoundTripRootOf(rel string) string {
 	return corpusRoundTripCommitted
 }
 
-// corpusRoundTripFiles returns every model under examples/ as sorted slash-separated relative
+// corpusRoundTripFiles returns every model of the part under examples/ as sorted slash-separated relative
 // paths, the file count per root, and whether every root is present so the ratchets can be checked.
-func corpusRoundTripFiles(t *testing.T) (files []string, totals map[string]int, ratchet bool) {
+func corpusRoundTripFiles(t *testing.T, part sweepPart) (files []string, totals map[string]int, ratchet bool) {
 	t.Helper()
 
 	missing := map[string]bool{}
 	for _, root := range corpusRoundTripRoots {
+		if !part.corpora {
+			break
+		}
 		dir := filepath.Join(corpusRoundTripExamples, filepath.FromSlash(root.name))
 		if _, err := os.Stat(dir); os.IsNotExist(err) {
 			root.absent(t, dir+" is missing")
@@ -182,7 +185,9 @@ func corpusRoundTripFiles(t *testing.T) (files []string, totals map[string]int, 
 		if err != nil {
 			return err
 		}
-		files = append(files, filepath.ToSlash(rel))
+		if part.holds(filepath.ToSlash(rel)) {
+			files = append(files, filepath.ToSlash(rel))
+		}
 		return nil
 	})
 	if err != nil {
@@ -194,12 +199,12 @@ func corpusRoundTripFiles(t *testing.T) (files []string, totals map[string]int, 
 	for _, rel := range files {
 		totals[corpusRoundTripRootOf(rel)]++
 	}
-	if totals[corpusRoundTripCommitted] == 0 {
+	if part.committed && totals[corpusRoundTripCommitted] == 0 {
 		t.Fatalf("%s holds no committed model files", corpusRoundTripExamples)
 	}
 	// An empty directory is a broken download or a bad cache restore, not a corpus.
 	for _, root := range corpusRoundTripRoots {
-		if !missing[root.name] && totals[root.name] == 0 {
+		if part.corpora && !missing[root.name] && totals[root.name] == 0 {
 			root.absent(t, "examples/"+root.name+" holds no model files")
 			missing[root.name] = true
 		}
@@ -405,22 +410,32 @@ func (g roundTripGate) readExpected(t *testing.T) (map[string]int, map[string]st
 	return totals, want
 }
 
-func (g roundTripGate) writeExpected(t *testing.T, files []string, got map[string]string) {
+// writeExpected records the part's verdicts and keeps the other part's records as they are.
+func (g roundTripGate) writeExpected(t *testing.T, part sweepPart, files []string, got map[string]string) {
 	t.Helper()
 
+	_, records := g.readExpected(t)
+	for path := range records {
+		if part.holds(path) {
+			delete(records, path)
+		}
+	}
+	for _, rel := range files {
+		records[rel] = got[rel]
+	}
 	var b strings.Builder
 	b.WriteString(g.header)
-	for _, rel := range files {
-		fmt.Fprintf(&b, "%s\t%s\n", got[rel], rel)
+	for _, rel := range sortedStringKeys(records) {
+		fmt.Fprintf(&b, "%s\t%s\n", records[rel], rel)
 	}
 	if err := os.WriteFile(g.expected, []byte(b.String()), 0o644); err != nil {
 		t.Fatalf("write %s: %v", g.expected, err)
 	}
 }
 
-// check takes the sweep's verdict of every visited file (files, the subset of corpus) and either
-// regenerates the gate's expectation or fails on any movement from it.
-func (g roundTripGate) check(t *testing.T, subset corpussubset.Subset, corpus, files []string, totals map[string]int, got map[string]string) {
+// check takes the sweep's verdict of every visited file (files, the subset of the part's corpus) and
+// either regenerates the part's records or fails on any movement from them.
+func (g roundTripGate) check(t *testing.T, subset corpussubset.Subset, part sweepPart, corpus, files []string, totals map[string]int, got map[string]string) {
 	t.Helper()
 	t.Log(g.summary(files, got))
 
@@ -428,36 +443,42 @@ func (g roundTripGate) check(t *testing.T, subset corpussubset.Subset, corpus, f
 		if err := subset.Recording(g.updateFlag); err != nil {
 			t.Fatal(err)
 		}
-		g.writeExpected(t, files, got)
+		g.writeExpected(t, part, files, got)
 		t.Logf("wrote %s: %d file(s)", g.expected, len(files))
 		return
 	}
 
 	wantTotals, want := g.readExpected(t)
 	for _, root := range append([]string{corpusRoundTripCommitted}, rootNames()...) {
-		if wantTotals[root] != totals[root] {
+		if part.holdsRoot(root) && wantTotals[root] != totals[root] {
 			t.Errorf("%s holds %d model file(s), expectations were recorded against %d; "+
 				"re-download the pinned corpus or regenerate with %s",
 				root, totals[root], wantTotals[root], g.updateFlag)
 		}
 	}
 
-	// Under a subset the unvisited files keep their recorded verdicts unchecked.
+	unchecked, recorded := 0, 0
 	exists := make(map[string]bool, len(corpus))
 	for _, path := range corpus {
 		exists[path] = true
 	}
 	for _, path := range sortedStringKeys(want) {
+		if !part.holds(path) {
+			continue
+		}
+		recorded++
 		switch verdict, ok := got[path]; {
 		case !exists[path]:
 			t.Errorf("%s: recorded %s but the file is gone; regenerate with %s",
 				path, want[path], g.updateFlag)
 		case !ok:
+			unchecked++
 		case verdict != want[path]:
 			t.Errorf("%s: %s, expected %s; adjudicate the change, then regenerate with %s",
 				path, verdict, want[path], g.updateFlag)
 		}
 	}
+	announceUnchecked(t, g.name, subset, unchecked, recorded, "files")
 	for _, path := range files {
 		if _, ok := want[path]; !ok {
 			t.Errorf("%s: %s but the file is not recorded; regenerate with %s",

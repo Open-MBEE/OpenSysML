@@ -367,7 +367,7 @@ func (tr *TraceRecorder) recordAcceptAt(mark int, origin TraceOrigin, serial uin
 }
 
 // RecordStateTransition records a transition fired, with the trigger it fired on.
-func (tr *TraceRecorder) RecordStateTransition(origin TraceOrigin, fromState, toState string, event string) {
+func (tr *TraceRecorder) RecordStateTransition(origin TraceOrigin, fromState, toState, event string) {
 	tr.add(TraceRecord{Kind: TraceTransition, Origin: origin, From: fromState, To: toState, Event: event})
 }
 
@@ -817,7 +817,7 @@ func formatConst(c semantics.Value) string {
 	case semantics.ValBool:
 		return strconv.FormatBool(c.Bool)
 	case semantics.ValInfinity:
-		return "*"
+		return semantics.FormatConst(c)
 	default:
 		return "invalid"
 	}

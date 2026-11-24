@@ -1,4 +1,4 @@
-sha256 90b091b321006eeaef40d5da0d484ae858c87046af2e63b5468ac6f83a44ce55 bytes 239785 lines 4048
+sha256 b5b8fb227cc7428d7091ebea66819e57d9d77f9a5b7530569b6235dc1d5cf630 bytes 239765 lines 4048
 @prefix elmt: <urn:sysmlv2:element:> .
 @prefix expr: <urn:opensysml:expr:> .
 @prefix json: <urn:sysmlv2:annotation:json:> .
@@ -29,7 +29,7 @@ elmt:ConnectorEnds
     json:ownedRelationship "[{\"@id\":\"ConnectorEnds__Engine_om\"},{\"@id\":\"ConnectorEnds__Tank_om\"},{\"@id\":\"ConnectorEnds__Trigger_om\"},{\"@id\":\"ConnectorEnds__Vehicle_om\"}]" .
 
 elmt:ConnectorEnds__Engine
-    a sysml:ClassUsage ;
+    a sysml:Class ;
     sysml:qualifiedName "ConnectorEnds::Engine" ;
     sysx:sourceLine "2"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;

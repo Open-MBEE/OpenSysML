@@ -22,7 +22,9 @@ adjudicating every moved line here.
 **Subset:** under `OPENSYSML_CORPUS_SUBSET=construct-cover` the gate still opens each root whole but
 diagnoses only the files listed in `tests/corpus/testdata/construct_cover.txt` and checks their counts
 against the expectation,
-leaving the other recorded lines unchecked; the recorder refuses to run under it. See
+leaving the other recorded lines unchecked and printing `RATCHET INCOMPLETE: … left N of M recorded
+files unchecked` to say so; the recorder refuses to run under it. A recorded file that is no longer
+in its root fails the gate, with or without the subset. See
 [construct-cover-subset.md](construct-cover-subset.md).
 **Referee:** the root `spec-examples` of `tools/referee/diff` (`go run -C tools ./cmd/pilot-diff`),
 recorded in `docs/project/pilot-differential-baseline.json` and summarised in

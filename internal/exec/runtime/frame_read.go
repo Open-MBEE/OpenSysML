@@ -27,6 +27,11 @@ const (
 	frameMRefsRole            = tensorMRefTypeFQN + "::mRefs"
 	scaleUnitRole             = measurementScaleTypeFQN + "::unit"
 	scaleMappingRole          = measurementScaleTypeFQN + "::quantityValueMapping"
+	cyclicModulusRole         = cyclicRatioScaleTypeFQN + "::modulus"
+	logBaseRole               = logarithmicScaleTypeFQN + "::logarithmBase"
+	logFactorRole             = logarithmicScaleTypeFQN + "::factor"
+	logExponentRole           = logarithmicScaleTypeFQN + "::exponent"
+	logReferenceRole          = logarithmicScaleTypeFQN + "::referenceQuantity"
 	transformationSourceRole  = transformationTypeFQN + "::source"
 	transformationTargetRole  = transformationTypeFQN + "::target"
 	placementOriginRole       = placementTypeFQN + "::origin"
@@ -47,6 +52,7 @@ const (
 // object is read by, each keyed by the type declaring it and its name.
 var frameFeatureRoles = []string{
 	frameTransformationRole, frameMRefsRole, scaleUnitRole, scaleMappingRole,
+	cyclicModulusRole, logBaseRole, logFactorRole, logExponentRole, logReferenceRole,
 	transformationSourceRole, transformationTargetRole, placementOriginRole, placementBasisRole,
 	translationVectorRole, rotationAxisRole, rotationAngleRole, rotationIntrinsicRole,
 	affineRotationRole, affineTranslationRole, mappingMappedRole, mappingReferenceRole,
@@ -342,11 +348,71 @@ func (ctx *Context) readScale(what string, inst *Instance, frame *CoordinateFram
 	if err != nil {
 		return err
 	}
-	if !ok {
-		return nil
+	if ok {
+		if frame.Scale.Mapping, err = ctx.readMapping(what, frame.Scale.Unit, mapping); err != nil {
+			return err
+		}
 	}
-	frame.Scale.Mapping, err = ctx.readMapping(what, frame.Scale.Unit, mapping)
+	switch ctx.scaleKindOf(inst.Type) {
+	case cyclicRatioScale:
+		frame.Scale.Modulus, err = ctx.scaleNumber(what, inst, cyclicModulusRole)
+		if err == nil && frame.Scale.Modulus <= 0 {
+			err = fmt.Errorf("%w: %s: modulus is %g; the periodic cycle of a CyclicRatioScale is a positive number of its unit %s",
+				semantics.ErrArithmeticDomain, what, frame.Scale.Modulus, frame.Scale.Unit)
+		}
+	case logarithmicScale:
+		frame.Scale.Log, err = ctx.readLogarithm(what, inst)
+	}
 	return err
+}
+
+// scaleNumber is the one number a scale states under a role declared `: Number`.
+func (ctx *Context) scaleNumber(what string, inst *Instance, role string) (float64, error) {
+	val, ok, err := ctx.roleValue(what, inst, role)
+	if err != nil {
+		return 0, err
+	}
+	if !ok {
+		return 0, fmt.Errorf("%w: %s states no %s", ErrNoValue, what, roleFeatureName(role))
+	}
+	if val.Kind != ValConst || !val.Const.IsNumeric() {
+		return 0, fmt.Errorf("%w: %s: %s is %s, want a Number", ErrTypeMismatch, what, roleFeatureName(role), DescribeValue(val))
+	}
+	return val.Const.AsReal(), nil
+}
+
+// readLogarithm reads what a LogarithmicScale states: a base that has a logarithm,
+// a factor and exponent that leave the value invertible, and the reference quantity if any.
+func (ctx *Context) readLogarithm(what string, inst *Instance) (*LogarithmicMapping, error) {
+	log := &LogarithmicMapping{}
+	for _, part := range []struct {
+		role string
+		into *float64
+	}{{logBaseRole, &log.Base}, {logFactorRole, &log.Factor}, {logExponentRole, &log.Exponent}} {
+		num, err := ctx.scaleNumber(what, inst, part.role)
+		if err != nil {
+			return nil, err
+		}
+		*part.into = num
+	}
+	if log.Base <= 0 || log.Base == 1 {
+		return nil, fmt.Errorf("%w: %s: logarithmBase is %g, which has no logarithm; a base is positive and not 1",
+			semantics.ErrArithmeticDomain, what, log.Base)
+	}
+	if log.Factor == 0 || log.Exponent == 0 {
+		return nil, fmt.Errorf("%w: %s: factor %g and exponent %g map every quantity to 0; neither may be 0",
+			semantics.ErrArithmeticDomain, what, log.Factor, log.Exponent)
+	}
+	ref, ok, err := ctx.roleValue(what, inst, logReferenceRole)
+	if err != nil || !ok {
+		return log, err
+	}
+	q, isQuantity := asQuantity(ref)
+	if !isQuantity {
+		return nil, fmt.Errorf("%w: %s: referenceQuantity is %s, want a ScalarQuantityValue", ErrTypeMismatch, what, DescribeValue(ref))
+	}
+	log.Reference = q
+	return log, nil
 }
 
 // readMapping reads a QuantityValueMapping: the mapped point is in the scale's

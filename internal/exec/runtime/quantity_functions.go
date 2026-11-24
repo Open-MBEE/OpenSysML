@@ -124,6 +124,11 @@ func angleScalars(params []string, apply func([]semantics.Value) (semantics.Valu
 		values := make([]semantics.Value, len(args))
 		for i, arg := range args {
 			arg = soleElement(arg)
+			if isInfinity(arg) {
+				// No circular function has a limit at an infinite angle.
+				return Value{}, fmt.Errorf("%w: function %s is undefined at %s",
+					semantics.ErrArithmeticDomain, name, semantics.FormatConst(arg.Const))
+			}
 			num, ok := angleArgument(ctx, arg)
 			if !ok {
 				return Value{}, fmt.Errorf(
@@ -295,7 +300,8 @@ func quantityExtremum(op ast.OperatorKind) libraryApply {
 				return Value{}, fmt.Errorf("function %s: %w", name, err)
 			}
 		}
-		yWins, err := ctx.compareQuantities(op, y, x)
+		// The comparison is made on the first operand's reference, as `x < y` is.
+		yWins, err := ctx.compareQuantities(flipOrdering(op), x, y)
 		if err != nil {
 			return Value{}, fmt.Errorf("function %s: %w", name, err)
 		}
@@ -304,6 +310,14 @@ func quantityExtremum(op ast.OperatorKind) libraryApply {
 		}
 		return args[0], nil
 	}
+}
+
+// flipOrdering is the strict ordering that holds of (x, y) when op holds of (y, x).
+func flipOrdering(op ast.OperatorKind) ast.OperatorKind {
+	if op == ast.OpGt {
+		return ast.OpLt
+	}
+	return ast.OpGt
 }
 
 // quantitySqrt is sqrt: the root of the magnitude in the root of the unit.

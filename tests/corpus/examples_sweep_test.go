@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -16,6 +17,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
@@ -120,11 +122,125 @@ type sweepDirectory struct {
 	broken  atomic.Bool // a document did not parse clean, so the directory is not a model
 }
 
-// TestExamplesSweep loads every model under examples/ once and checks every per-model property
-// on that load: both round-trip ratchets, settled collections, the gRPC agreement, modelsync's read-back.
-func TestExamplesSweep(t *testing.T) {
+// sweepPart is the share of the sweep one test runs: the two tests are a race shard each, since
+// one load of every model outgrew a shard's timeout. No directory spans the two.
+type sweepPart struct {
+	name      string
+	committed bool // the models committed under examples/ and the export fixtures
+	corpora   bool // the downloaded corpora, corpusRoundTripRoots
+}
+
+var (
+	sweepCommitted = sweepPart{name: "committed", committed: true}
+	sweepCorpora   = sweepPart{name: "corpora", corpora: true}
+	sweepParts     = []sweepPart{sweepCommitted, sweepCorpora}
+	// sweepWhole lists every model, for the tests that walk the corpus without sweeping it.
+	sweepWhole = sweepPart{name: "whole", committed: true, corpora: true}
+)
+
+// holdsRoot reports whether the part sweeps a root of corpusRoundTripRootOf.
+func (p sweepPart) holdsRoot(root string) bool {
+	if root == corpusRoundTripCommitted {
+		return p.committed
+	}
+	return p.corpora
+}
+
+// holds reports whether the part sweeps the model at rel, a slash path relative to examples/.
+func (p sweepPart) holds(rel string) bool { return p.holdsRoot(corpusRoundTripRootOf(rel)) }
+
+// TestExamplesSweepCommitted sweeps the models committed under examples/ and the export fixtures.
+func TestExamplesSweepCommitted(t *testing.T) { examplesSweep(t, sweepCommitted) }
+
+// TestExamplesSweepCorpora sweeps the downloaded corpora under examples/.
+func TestExamplesSweepCorpora(t *testing.T) { examplesSweep(t, sweepCorpora) }
+
+// TestSweepPartsPartitionTheExamples: every model under examples/, each corpus root and the fixtures
+// fall to exactly one sweep part, so the two race shards together sweep each model once.
+func TestSweepPartsPartitionTheExamples(t *testing.T) {
+	holders := func(holds func(sweepPart) bool) (n int) {
+		for _, part := range sweepParts {
+			if holds(part) {
+				n++
+			}
+		}
+		return n
+	}
+	for _, root := range append([]string{corpusRoundTripCommitted}, rootNames()...) {
+		if n := holders(func(p sweepPart) bool { return p.holdsRoot(root) }); n != 1 {
+			t.Errorf("root %s is swept by %d parts, want 1", root, n)
+		}
+	}
+	if n := holders(func(p sweepPart) bool { return p.committed }); n != 1 {
+		t.Errorf("the export fixtures are swept by %d parts, want 1", n)
+	}
+	whole, _, _ := corpusRoundTripFiles(t, sweepWhole)
+	swept := map[string]int{}
+	directories := map[string]string{}
+	for _, part := range sweepParts {
+		files, _, _ := corpusRoundTripFiles(t, part)
+		if len(files) == 0 {
+			t.Errorf("part %s sweeps no model", part.name)
+		}
+		for _, rel := range files {
+			swept[rel]++
+			dir := path.Dir(rel)
+			if other, ok := directories[dir]; ok && other != part.name {
+				t.Errorf("directory %s is split between parts %s and %s, so neither sees it whole", dir, other, part.name)
+			}
+			directories[dir] = part.name
+		}
+	}
+	for _, rel := range whole {
+		if swept[rel] != 1 {
+			t.Errorf("%s is swept by %d parts, want 1", rel, swept[rel])
+		}
+	}
+	if len(swept) != len(whole) {
+		t.Errorf("the parts sweep %d models, examples/ holds %d", len(swept), len(whole))
+	}
+}
+
+// sweepProgressEvery is how often a running sweep reports, well inside CI's no-output limits.
+const sweepProgressEvery = time.Minute
+
+// sweepProgress counts what a sweep has finished, for the lines it logs while it runs.
+type sweepProgress struct {
+	models, directories atomic.Int64
+}
+
+// report logs the counts every interval until the test ends; -v and -json print each line as it
+// is logged, so a long sweep is not silent until it ends.
+func (p *sweepProgress) report(t *testing.T, part sweepPart, models, directories int, every time.Duration) {
+	start := time.Now()
+	done := make(chan struct{})
+	var reporting sync.WaitGroup
+	reporting.Add(1)
+	go func() {
+		defer reporting.Done()
+		tick := time.NewTicker(every)
+		defer tick.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-tick.C:
+				t.Logf("sweep %s: %d of %d models loaded, %d of %d directories checked after %s", part.name,
+					p.models.Load(), models, p.directories.Load(), directories, time.Since(start).Round(time.Second))
+			}
+		}
+	}()
+	t.Cleanup(func() {
+		close(done)
+		reporting.Wait()
+	})
+}
+
+// examplesSweep loads every model of its part once and checks every per-model property on that
+// load: both round-trip ratchets, settled collections, the gRPC agreement, modelsync's read-back.
+func examplesSweep(t *testing.T, part sweepPart) {
 	subset := corpussubset.Must(t, "../..")
-	corpus, totals, ratchet := corpusRoundTripFiles(t)
+	corpus, totals, ratchet := corpusRoundTripFiles(t, part)
 	if !ratchet && (*updateCorpusRoundTrip || *updateAPIJSONRoundTrip) {
 		t.Fatal("re-recording the round-trip expectations needs every corpus downloaded")
 	}
@@ -133,7 +249,9 @@ func TestExamplesSweep(t *testing.T) {
 	for _, rel := range corpus {
 		models = append(models, &sweepModel{rel: rel, path: filepath.Join(corpusRoundTripExamples, filepath.FromSlash(rel)), wanted: subset.Wants(rel)})
 	}
-	models = append(models, sweepFixtureModels(t)...)
+	if part.committed {
+		models = append(models, sweepFixtureModels(t)...)
+	}
 	models = sweepSubsetModels(models)
 	directories := sweepDirectoriesOf(models)
 	if !subset.Whole() {
@@ -149,6 +267,8 @@ func TestExamplesSweep(t *testing.T) {
 	var counts sweepCounts
 	var agreement agreementCounts
 	ctx := context.Background()
+	var progress sweepProgress
+	progress.report(t, part, len(models), len(directories), sweepProgressEvery)
 
 	// A directory is checked as soon as its last document is loaded, in one of the slots the
 	// per-model workers load in: -parallel bounds the models in hand, a whole-directory model among them.
@@ -166,6 +286,7 @@ func TestExamplesSweep(t *testing.T) {
 			<-slots
 			settled := d.check(t)
 			slots <- struct{}{}
+			progress.directories.Add(1)
 			if settled {
 				counts.add(sweepTally{settled: 1})
 			}
@@ -199,6 +320,7 @@ func TestExamplesSweep(t *testing.T) {
 					counts.add(sweepProperties(t, ctx, srv, m, &agreement))
 				}
 				slots <- struct{}{}
+				progress.models.Add(1)
 				if !strings.HasSuffix(m.path, ".sysml") {
 					m.doc = export.ModelDocument{}
 					continue
@@ -235,7 +357,7 @@ func TestExamplesSweep(t *testing.T) {
 
 	total := counts.total
 	t.Logf("%d models checked", total.settled)
-	if total.settled < 50 {
+	if part.committed && total.settled < 50 {
 		t.Errorf("only %d models converted; the fixtures moved", total.settled)
 	}
 	if total.converted == 0 || total.elements == 0 {
@@ -243,17 +365,17 @@ func TestExamplesSweep(t *testing.T) {
 	}
 	t.Logf("%d of %d examples convert; %d elements, %d (element, property) pairs agree",
 		total.converted, total.agreementExamples, total.elements, total.pairs)
-	if total.dropped == 0 {
+	if part.committed && total.dropped == 0 {
 		t.Error("no example has a derived property to leave out")
 	}
-	checkAgreementRatchet(t, subset, subset.Whole() && ratchet, &agreement)
+	checkAgreementRatchet(t, subset, part, subset.Whole() && ratchet, &agreement)
 
 	if !ratchet {
 		t.Log("round-trip ratchets not checked: a corpus is absent")
 		return
 	}
-	corpusRoundTripGate.check(t, subset, corpus, files, totals, gotTurtle)
-	apiJSONRoundTripGate.check(t, subset, corpus, files, totals, gotAPIJSON)
+	corpusRoundTripGate.check(t, subset, part, corpus, files, totals, gotTurtle)
+	apiJSONRoundTripGate.check(t, subset, part, corpus, files, totals, gotAPIJSON)
 }
 
 // sweepSubsetModels keeps the models the subset iterates and, as tests/export's sweep did, every

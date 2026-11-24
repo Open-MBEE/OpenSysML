@@ -688,8 +688,6 @@ sysml \-run\-inline\-query 'Project(Descendants(Named("Lander")), \e
 sysml \-action Drive model.sysml
 # Run a state machine for 10 time units
 sysml \-state Mission \-advance 10 model.sysml
-# Check recorded observations against a state machine on an object
-sysml \-state "Mission rover1" \-check\-trace observed.jsonl model.sysml
 # \&...an action and a machine on one clock
 sysml \-action Ping \-state Sm \-advance 5 m.sysml
 # Run every linearization; table the outcomes
@@ -716,6 +714,13 @@ Pkg::part"; a verification case also reports the verdict its body produced.
 and a subject the same way, as \-requirement "Pkg::Under(limit = 5)
 Pkg::part".
 .SH RUNNING ACTIONS AND STATE MACHINES
+.RS 2
+.nf
+# Check an observed trace
+sysml \-state "Mission rover1" \-check\-trace trace.jsonl m.sysml
+.fi
+.RE
+.PP
 \-action runs an action to completion and \-state a state machine, both on one
 shared clock that \-advance runs for the given simulated time units; without
 \-advance a state machine takes only its initial transition. Either names a

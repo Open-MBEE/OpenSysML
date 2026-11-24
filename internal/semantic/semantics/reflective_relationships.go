@@ -42,12 +42,7 @@ func (m *Model) implicitRelationshipsOf(owner *symbols.Symbol) []*symbols.Symbol
 		return out
 	}
 	if owner.Recorded() {
-		for ordinal, rel := range owner.Facts.Relationships {
-			if implicitRelationshipKind(rel.Kind) && !rel.Echo {
-				out = append(out, implicitRelationshipSymbol(owner, ordinal, rel.Kind, rel.Conjugated, nil))
-			}
-		}
-		return out
+		return recordedImplicitRelationships(owner)
 	}
 	ordinal := 0
 	rels := RelationshipsOf(owner)
@@ -88,9 +83,9 @@ func (m *Model) implicitRelationshipsOf(owner *symbols.Symbol) []*symbols.Symbol
 		})
 		ordinal++
 	}
-	// A constructor's named argument feature redefines the feature of the
-	// instantiated type it names (KerML 8.3.4.8.3 ConstructorExpression).
-	if formal, named := m.constructorArgumentFormal(owner); named && formal != nil {
+	// A named argument's feature redefines the feature it names: of the instantiated type
+	// (KerML 8.3.4.8.3 ConstructorExpression) or of what is invoked (8.3.4.8.5).
+	for _, formal := range m.namedArgumentRedefinitions(owner) {
 		out = append(out, &symbols.Symbol{
 			Kind:     symbols.SymbolRelationship,
 			DocName:  owner.DocName,
@@ -102,16 +97,7 @@ func (m *Model) implicitRelationshipsOf(owner *symbols.Symbol) []*symbols.Symbol
 		})
 		ordinal++
 	}
-	// A connector end reference-subsets the feature it attaches to whether or
-	// not a clause of its own says so (SysML v2 8.2.2.13.1).
-	if end, ok := owner.Decl.(*ast.ConnectorEnd); ok {
-		if target := ImpliedEndReference(end); target != nil {
-			out = append(out, implicitRelationshipSymbol(owner, ordinal, ast.RelReferences, false, connectorEndAttachment(target)))
-		}
-	} else if target := MessageEndReference(owner); target != nil {
-		// A message's end is declared by the node naming the event it relates.
-		out = append(out, implicitRelationshipSymbol(owner, ordinal, ast.RelReferences, false, impliedRelationship(ast.RelReferences, target)))
-	}
+	out = withEndReference(owner, out, ordinal)
 	if target, stated := m.flowEndReference(owner); stated {
 		// A flow's end reference-subsets the feature before the last it names (SysML.xtext FlowEndMember).
 		out = append(out, &symbols.Symbol{
@@ -176,6 +162,32 @@ func (m *Model) implicitRelationshipsOf(owner *symbols.Symbol) []*symbols.Symbol
 	// the declaration rather than in a Relationships list.
 	if decl, ok := owner.Decl.(*ast.MultiplicityDecl); ok && decl.Subsets != nil {
 		out = append(out, implicitRelationshipSymbol(owner, ordinal, ast.RelSubsets, false, nil))
+	}
+	return out
+}
+
+// recordedImplicitRelationships is the implicit relationships a recorded symbol's facts hold.
+func recordedImplicitRelationships(owner *symbols.Symbol) []*symbols.Symbol {
+	var out []*symbols.Symbol
+	for ordinal, rel := range owner.Facts.Relationships {
+		if implicitRelationshipKind(rel.Kind) && !rel.Echo {
+			out = append(out, implicitRelationshipSymbol(owner, ordinal, rel.Kind, rel.Conjugated, nil))
+		}
+	}
+	return out
+}
+
+// withEndReference appends the reference subsetting an end implies, which takes no ordinal of its own.
+func withEndReference(owner *symbols.Symbol, out []*symbols.Symbol, ordinal int) []*symbols.Symbol {
+	// A connector end reference-subsets the feature it attaches to whether or
+	// not a clause of its own says so (SysML v2 8.2.2.13.1).
+	if end, ok := owner.Decl.(*ast.ConnectorEnd); ok {
+		if target := ImpliedEndReference(end); target != nil {
+			out = append(out, implicitRelationshipSymbol(owner, ordinal, ast.RelReferences, false, connectorEndAttachment(target)))
+		}
+	} else if target := MessageEndReference(owner); target != nil {
+		// A message's end is declared by the node naming the event it relates.
+		out = append(out, implicitRelationshipSymbol(owner, ordinal, ast.RelReferences, false, impliedRelationship(ast.RelReferences, target)))
 	}
 	return out
 }

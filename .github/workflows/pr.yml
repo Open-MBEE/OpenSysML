@@ -42,6 +42,9 @@ env:
   # Same for the pilot's XMI of the standard library, downloaded below and
   # compared against by tests/identity (TestPilotLibraryXMI).
   OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI: "1"
+  # Same for the normative SysML.json, downloaded below and measured against
+  # by tests/export (TestAPIJSONNormativeSchema).
+  OPENSYSML_REQUIRE_OMG_JSON_SCHEMA: "1"
   # z3 is installed below, so "no solver, therefore skip" would exercise nothing:
   # this turns an absent solver into a failure (see internal/exec/solve).
   OPENSYSML_REQUIRE_SMT: "1"
@@ -67,6 +70,7 @@ jobs:
       go_shards: ${{ steps.shards.outputs.go_shards }}
       go: ${{ steps.areas.outputs.go }}
       apijson: ${{ steps.areas.outputs.apijson }}
+      pilotdiff: ${{ steps.areas.outputs.pilotdiff }}
       docs: ${{ steps.areas.outputs.docs }}
       node: ${{ steps.areas.outputs.node }}
       python: ${{ steps.areas.outputs.python }}
@@ -119,9 +123,9 @@ jobs:
           TIER: ${{ steps.areas.outputs.tier }}
         run: |
           if [ "$TIER" != quick ]; then
-            echo 'go_shards=["runtime","runtime-corpus","runtime-exploration","model","smt","corpus","corpus-sweep","export","export-library","export-examples","export-corpus","graph","graph-corpora","codegen","translate translate-structure","grpc","internal","rest","migrate","cli"]'
+            echo 'go_shards=["runtime","runtime-corpus","runtime-exploration","model","smt","corpus","corpus-sweep-committed","corpus-sweep-corpora","export","export-library","export-examples","export-corpus","graph","graph-corpora","codegen","translate translate-structure","grpc","internal","rest","migrate","cli"]'
           else
-            echo 'go_shards=["runtime runtime-corpus runtime-exploration model","codegen migrate","cli translate translate-structure","graph graph-corpora internal","smt","corpus corpus-sweep","export export-examples","export-library export-corpus","rest grpc"]'
+            echo 'go_shards=["runtime runtime-corpus runtime-exploration model","codegen migrate","cli translate translate-structure","graph graph-corpora internal","smt","corpus corpus-sweep-committed corpus-sweep-corpora","export export-examples","export-library export-corpus","rest grpc"]'
           fi | tee -a "$GITHUB_OUTPUT"
 
       # A cold fUML cache (a new key, and every merge-queue ref) would send each Go job to Maven
@@ -215,14 +219,8 @@ jobs:
       # apt package, so the official static release is what CI runs, pinned by
       # digest so a substituted asset is not run.
       - name: Install cvc5
-        run: |
-          curl -fsSL --proto '=https' --proto-redir '=https' -o /tmp/cvc5.zip \
-            https://github.com/cvc5/cvc5/releases/download/cvc5-1.3.4/cvc5-Linux-x86_64-static.zip
-          echo "dcdbfada0ce493ee98259c0816e0daafc561c223aadb3af298c2968e73ea39c6  /tmp/cvc5.zip" | sha256sum --check --strict
-          unzip -p /tmp/cvc5.zip '*/bin/cvc5' > /tmp/cvc5-bin
-          sudo install -m 0755 /tmp/cvc5-bin /usr/local/bin/cvc5
-          cvc5_version="$(cvc5 --version)"
-          echo "${cvc5_version%%$'\n'*}"
+        timeout-minutes: 20
+        uses: ./.github/actions/cvc5
 
       # Every corpus the suite's gates are required over, with the FMI gate's simulator
       # and FMUs; see .github/actions/corpora.
@@ -315,14 +313,8 @@ jobs:
 
       - name: Install cvc5
         if: needs.changes.outputs.tier != 'quick'
-        run: |
-          curl -fsSL --proto '=https' --proto-redir '=https' -o /tmp/cvc5.zip \
-            https://github.com/cvc5/cvc5/releases/download/cvc5-1.3.4/cvc5-Linux-x86_64-static.zip
-          echo "dcdbfada0ce493ee98259c0816e0daafc561c223aadb3af298c2968e73ea39c6  /tmp/cvc5.zip" | sha256sum --check --strict
-          unzip -p /tmp/cvc5.zip '*/bin/cvc5' > /tmp/cvc5-bin
-          sudo install -m 0755 /tmp/cvc5-bin /usr/local/bin/cvc5
-          cvc5_version="$(cvc5 --version)"
-          echo "${cvc5_version%%$'\n'*}"
+        timeout-minutes: 20
+        uses: ./.github/actions/cvc5
 
       # Every corpus below comes through this downloader, so it is checked first.
       - name: Test the pilot downloader
@@ -534,7 +526,7 @@ jobs:
           OPENSYSML_CORPUS_SUBSET: ${{ needs.changes.outputs.tier == 'queue' && 'construct-cover' || '' }}
         run: |
           set -o pipefail
-          go test -count=1 -v ./tests/corpus -run 'TestExamplesSweep' | tee corpus-roundtrip-gate.log
+          go test -count=1 -v -timeout 30m ./tests/corpus -run 'TestExamplesSweep' | tee corpus-roundtrip-gate.log
           grep -E ': corpus round trip: [0-9]+ files:' corpus-roundtrip-gate.log
           grep -E 'api-json corpus round trip: [0-9]+ files:' corpus-roundtrip-gate.log
           if grep -qE '^\s*--- SKIP' corpus-roundtrip-gate.log; then
@@ -831,6 +823,70 @@ jobs:
           path: build/hideo-suite/test-suite/results/
           if-no-files-found: warn
 
+  # No pull request reproduced the reference differential's baseline, so a change that moved it reached develop unnoticed
+  # until the nightly; the queue tier skips it (the push ran the same diff) and the nightly still reproduces it.
+  pilot-differential:
+    name: Reference differential reproduces its baseline
+    needs: changes
+    if: needs.changes.outputs.pilotdiff == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        id: checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        timeout-minutes: 3
+        continue-on-error: true
+
+      # A stalled fetch hangs rather than fails, so the action's own retries never see it.
+      - name: Check out repository again
+        if: steps.checkout.outcome == 'failure'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        timeout-minutes: 3
+
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # The pinned pilot implementation is a Java artifact; the two validators are compiled against it.
+      - name: Set up Java
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # A pull request that moves the pin saves its own build; any other restores develop's.
+      - name: Provision the pinned pilot validator
+        uses: ./.github/actions/pilot-validator
+        with:
+          save: 'true'
+
+      - name: Build the pinned pilot SysML and KerML validators
+        run: |
+          ./scripts/download-pilot-sysml-validator.sh
+          ./scripts/download-pilot-kerml-validator.sh
+
+      - name: Provision the pinned corpora
+        uses: ./.github/actions/corpora
+
+      # A failure names whether the provenance moved (an input changed underneath the baseline) or
+      # only the counts did: adjudicate, then re-record with pilot-diff -update.
+      - name: Reference differential reproduces its baseline
+        run: go run -C tools ./cmd/pilot-diff -check
+
+      # The fresh report, so a failing run can be read without reproducing the environment.
+      - name: Upload the fresh report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pilot-diff
+          path: build/pilot-diff/
+          if-no-files-found: warn
+
   # The api-json baseline records no writer digest, so re-running the differential (Java, pilot jar, corpora; 18-25 min) on
   # what can move it proves it current; the queue tier skips it (the push proved the diff) and the nightly reproduces it.
   apijson-differential:
@@ -1011,6 +1067,7 @@ jobs:
       - derived-census
       - hideo-suite
       - apijson-differential
+      - pilot-differential
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -1039,6 +1096,7 @@ jobs:
           WASM_GATE_RESULT: ${{ needs.wasm-gate.result }}
           XPECT_ORACLE_RESULT: ${{ needs.xpect-oracle.result }}
           APIJSON_DIFFERENTIAL_RESULT: ${{ needs.apijson-differential.result }}
+          PILOT_DIFFERENTIAL_RESULT: ${{ needs.pilot-differential.result }}
           DERIVED_CENSUS_RESULT: ${{ needs.derived-census.result }}
           HIDEO_SUITE_RESULT: ${{ needs.hideo-suite.result }}
         run: |
@@ -1064,6 +1122,7 @@ jobs:
              ! ok "$WASM_GATE_RESULT" ||
              ! ok "$XPECT_ORACLE_RESULT" ||
              ! ok "$APIJSON_DIFFERENTIAL_RESULT" ||
+             ! ok "$PILOT_DIFFERENTIAL_RESULT" ||
              ! ok "$DERIVED_CENSUS_RESULT" ||
              ! ok "$HIDEO_SUITE_RESULT"; then
             echo "changes=$CHANGES_RESULT"
@@ -1087,6 +1146,7 @@ jobs:
             echo "wasm-gate=$WASM_GATE_RESULT"
             echo "xpect-oracle=$XPECT_ORACLE_RESULT"
             echo "apijson-differential=$APIJSON_DIFFERENTIAL_RESULT"
+            echo "pilot-differential=$PILOT_DIFFERENTIAL_RESULT"
             echo "derived-census=$DERIVED_CENSUS_RESULT"
             echo "hideo-suite=$HIDEO_SUITE_RESULT"
             exit 1
@@ -1355,6 +1415,7 @@ jobs:
         run: editors/mdk/scripts/compile-against-cameo-test.sh
 
       - name: Audit the plugin's dependencies
+        timeout-minutes: 10
         run: |
           scripts/download-sca-tools.sh osv-scanner
           make audit-java JAVA_PROJECT_DIRS=editors/mdk
@@ -1569,6 +1630,7 @@ jobs:
     needs: [changes, build]
     if: needs.changes.outputs.node == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:
@@ -1855,6 +1917,7 @@ jobs:
     needs: [changes, build]
     if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:
@@ -1958,6 +2021,7 @@ jobs:
     needs: [changes, build]
     if: needs.changes.outputs.julia == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     permissions:
       contents: read
     strategy:
@@ -2019,6 +2083,7 @@ jobs:
     needs: [changes, build]
     if: needs.changes.outputs.matlab == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:
@@ -2126,11 +2191,6 @@ jobs:
       - name: Make the service binary executable
         run: chmod +x bin/sysml-grpc
 
-      - name: Audit the Java client's dependencies
-        run: |
-          scripts/download-sca-tools.sh osv-scanner
-          make audit-java JAVA_PROJECT_DIRS=client/java
-
       # opensysml.requireService turns "no binary, so skip" into a failure, and
       # `install` builds the sources and javadoc jars a release needs on every commit.
       - name: Test and install the client
@@ -2144,6 +2204,13 @@ jobs:
             org.openmbee.opensysml.conformance.Main \
             -binary bin/sysml-grpc -protocols connect,connect-json -allow-skips \
             -report conformance-report-java.json
+
+      # Last, and under its own bound: the audit is the one step that asks Maven Central in every job.
+      - name: Audit the Java client's dependencies
+        timeout-minutes: 10
+        run: |
+          scripts/download-sca-tools.sh osv-scanner
+          make audit-java JAVA_PROJECT_DIRS=client/java
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
@@ -2198,6 +2265,7 @@ jobs:
         run: mvn -B -f editors/syson/pom.xml install -Dopensysml.requireService=true
 
       - name: Audit the backend's dependencies
+        timeout-minutes: 10
         run: |
           scripts/download-sca-tools.sh osv-scanner
           make audit-java JAVA_PROJECT_DIRS=editors/syson
@@ -2226,6 +2294,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:

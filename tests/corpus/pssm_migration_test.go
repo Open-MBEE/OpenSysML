@@ -1,3 +1,5 @@
+//go:build !sysml_re && !sysml_nov1
+
 package corpus
 
 import (

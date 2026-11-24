@@ -283,6 +283,7 @@ var Unserved = map[string]string{
 	"html-math":           noHTMLStyling,
 	"html-mermaid":        noHTMLStyling,
 	"trace":               "ExecuteActionRequest has no trace field",
+	"check-trace":         "no RPC checks an observed trace against a model",
 	"render-run":          "no RPC renders a recorded run as a timeline or sequence",
 	"render-limit":        "no RPC renders a recorded run as a timeline or sequence",
 }

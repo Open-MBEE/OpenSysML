@@ -1,0 +1,7 @@
+{
+  "type": "action",
+  "evaluate": "P::Two",
+  "outputs": {
+    "result": {"type": "Sequence", "elements": [{"type": "Integer", "value": 10}]}
+  }
+}

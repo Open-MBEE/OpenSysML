@@ -70,6 +70,7 @@ func TestEditingASupertypeListLeavesTheMemoizedListIntact(t *testing.T) {
 	lists := map[string]func(Element) ([]Element, bool){
 		"owned supertypes":          evaluator.structureOwnedSupertypes,
 		"specialized general types": evaluator.structureSpecializedGeneralTypes,
+		"general types":             evaluator.structureGeneralTypes,
 	}
 	for name, list := range lists {
 		first, ok := list(leaf)

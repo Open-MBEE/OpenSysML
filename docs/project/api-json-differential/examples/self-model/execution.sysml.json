@@ -11,11 +11,11 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 19182,
+      "presentEqual": 19199,
       "presentDifferent": 2032,
-      "oursMissing": 690,
+      "oursMissing": 673,
       "pilotMissing": 742,
-      "absentBoth": 22415,
+      "absentBoth": 23028,
       "indeterminate": 860,
       "pilotNondeterministic": 0
     },
@@ -23,7 +23,7 @@
     "extensionProperties": 2542,
     "duplicateElements": {
       "ours": 0,
-      "pilot": 9166
+      "pilot": 9176
     },
     "ambiguousKeys": {
       "ours": 0,
@@ -255,7 +255,8 @@
     "FeatureMembership.isLibraryElement": [204,0,0,0,0,0,0],
     "FeatureMembership.memberElement": [148,25,0,0,0,31,0],
     "FeatureMembership.memberElementId": [148,25,0,0,0,31,0],
-    "FeatureMembership.memberName": [131,0,42,25,0,0,0],
+    "FeatureMembership.memberName": [148,0,25,25,6,0,0],
+    "FeatureMembership.memberShortName": [0,0,0,0,204,0,0],
     "FeatureMembership.membershipOwningNamespace": [204,0,0,0,0,0,0],
     "FeatureMembership.ownedAnnotation": [0,0,0,0,204,0,0],
     "FeatureMembership.ownedElement": [0,0,0,0,204,0,0],
@@ -310,6 +311,8 @@
     "FeatureValue.isLibraryElement": [79,0,0,0,0,0,0],
     "FeatureValue.memberElement": [79,0,0,0,0,0,0],
     "FeatureValue.memberElementId": [79,0,0,0,0,0,0],
+    "FeatureValue.memberName": [0,0,0,0,79,0,0],
+    "FeatureValue.memberShortName": [0,0,0,0,79,0,0],
     "FeatureValue.membershipOwningNamespace": [79,0,0,0,0,0,0],
     "FeatureValue.ownedAnnotation": [0,0,0,0,79,0,0],
     "FeatureValue.ownedElement": [0,0,0,0,79,0,0],
@@ -1154,7 +1157,8 @@
     "OwningMembership.isLibraryElement": [119,0,0,0,0,0,0],
     "OwningMembership.memberElement": [119,0,0,0,0,0,0],
     "OwningMembership.memberElementId": [119,0,0,0,0,0,0],
-    "OwningMembership.memberName": [27,0,0,0,0,0,0],
+    "OwningMembership.memberName": [27,0,0,0,92,0,0],
+    "OwningMembership.memberShortName": [0,0,0,0,119,0,0],
     "OwningMembership.membershipOwningNamespace": [119,0,0,0,0,0,0],
     "OwningMembership.ownedAnnotation": [0,0,0,0,119,0,0],
     "OwningMembership.ownedElement": [0,0,0,0,119,0,0],
@@ -1204,6 +1208,7 @@
     "ParameterMembership.memberElement": [0,34,0,0,0,0,0],
     "ParameterMembership.memberElementId": [0,34,0,0,0,0,0],
     "ParameterMembership.memberName": [0,0,34,0,0,0,0],
+    "ParameterMembership.memberShortName": [0,0,0,0,34,0,0],
     "ParameterMembership.membershipOwningNamespace": [34,0,0,0,0,0,0],
     "ParameterMembership.ownedAnnotation": [0,0,0,0,34,0,0],
     "ParameterMembership.ownedElement": [0,0,0,0,34,0,0],

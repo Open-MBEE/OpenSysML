@@ -301,14 +301,17 @@ class TestRuntimeIntegration:
 
         lbcf = self.conn.eval("Frames::lbcf", model.hash)
         posed = lbcf.transformation
-        assert posed.source.frame_id == "Frames::datum" and posed.target is None
-        assert len(posed.steps) == 2 and posed.steps[1].rotation.angle.magnitude == 180
+        assert posed.source.frame_id == "Frames::datum"
+        assert posed.target is None
+        assert len(posed.steps) == 2
+        assert posed.steps[1].rotation.angle.magnitude == 180
         assert posed.pose.origin == (10.0, 0.0, 0.0)
         assert posed.pose.basis[0] == pytest.approx(-1.0)
 
         own = self.conn.eval("Frames::lbcf.transformation", model.hash)
         assert isinstance(own, CoordinateTransformation)
-        assert own.target.frame_id == "Frames::lbcf" and own.target.transformation is None
+        assert own.target.frame_id == "Frames::lbcf"
+        assert own.target.transformation is None
 
     def test_an_unbound_feature_evaluates_undetermined_not_as_an_error(self):
         """The service says it sends the undetermined arm, and does."""
