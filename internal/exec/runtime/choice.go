@@ -322,7 +322,7 @@ func (ctx *Context) noteFrom(n RunNote, self *Instance, behavior *symbols.Symbol
 	}
 	if c, ok := n.(ChoicePoint); ok {
 		if c.serial == 0 {
-			c.serial = nextChoiceSerial()
+			c.serial = ctx.choiceSerials.next()
 			n = c
 		}
 		ctx.run.marks.seed(c, ctx.clock.now)
