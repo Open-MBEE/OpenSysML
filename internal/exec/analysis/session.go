@@ -629,11 +629,20 @@ func (s *session) send(method string, params any, sink *progressSink) (int64, ch
 const unwritableGrace = time.Second
 
 // unwritable is the error of a message the pipe did not take: the process's end, as the
-// reader reports it once it sees the pipe close, else the write's own error.
+// reader reports it once it sees the pipe close, else its collected exit, else the write's
+// own error.
 func (s *session) unwritable(err error) error {
 	select {
 	case <-s.ended:
 	case <-time.After(min(s.timeout, unwritableGrace)):
+		select {
+		case <-s.waited:
+			// A descendant still holds the output open: the exit is known all the same.
+			if s.exit != nil {
+				err = s.exit
+			}
+		default:
+		}
 		s.end(&EngineExitedError{Engine: s.entry.Name, Process: s.entry.Executable, Started: true,
 			Err: err, Stderr: strings.TrimSpace(string(s.stderr.Bytes()))})
 	}

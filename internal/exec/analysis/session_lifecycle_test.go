@@ -169,6 +169,20 @@ func TestSessionRefusedWriteDoesNotWaitTheTimeout(t *testing.T) {
 	}
 }
 
+// An engine that exited while a helper holds its output open fails the request written
+// after it with the engine's own exit status, not with the broken pipe.
+func TestSessionRefusedWriteReportsTheCollectedExit(t *testing.T) {
+	t.Setenv(engineStandinMode, "exit-holding-output")
+	s := standinSession(t, standinEntry(t), time.Minute)
+	<-s.waited
+	_, err := s.call(context.Background(), enginewire.MethodCovers, enginewire.CoversParams{Question: questionA()}, nil)
+	var exited *EngineExitedError
+	var status *exec.ExitError
+	if !errors.As(err, &exited) || !errors.As(err, &status) || status.ExitCode() != 7 {
+		t.Fatalf("got %v; want the engine's exit with status 7", err)
+	}
+}
+
 // What the engine wrote before it exited is still readable after its exit was collected:
 // collecting the exit does not close the pipe under the reader.
 func TestSessionOutputSurvivesTheCollectedExit(t *testing.T) {

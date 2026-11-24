@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"sync"
@@ -75,6 +76,9 @@ const (
 	ModeAnswerAndExit       = "answer-and-exit"
 	ModeDuplicateAnswer     = "duplicate-answer"
 	ModeStdinClosed         = "stdin-closed"
+	ModeExitHoldingOutput   = "exit-holding-output"
+	// ModeHoldOutput is the helper ModeExitHoldingOutput leaves behind.
+	ModeHoldOutput = "hold-output"
 )
 
 func main() {
@@ -117,6 +121,10 @@ func serve() error {
 		defer f.Close()
 	}
 	e.log("start")
+	if e.mode == ModeHoldOutput {
+		time.Sleep(5 * time.Second)
+		return nil
+	}
 	if e.mode == ModeExitAtStart {
 		fmt.Fprintln(os.Stderr, "cannot load formalism")
 		os.Exit(2)
@@ -146,6 +154,16 @@ func serve() error {
 			_ = os.Stdin.Close()
 			e.log("stdin closed")
 			time.Sleep(time.Hour)
+		}
+		if e.mode == ModeExitHoldingOutput && msg.Method == enginewire.MethodDescribe {
+			// Exits with a status while a helper keeps its standard output open.
+			helper := exec.Command(os.Args[0]) // #nosec G204 -- the stand-in runs itself
+			helper.Env = append(os.Environ(), ModeEnv+"="+ModeHoldOutput)
+			helper.Stdout = os.Stdout
+			if err := helper.Start(); err != nil {
+				return err
+			}
+			os.Exit(7)
 		}
 	}
 	e.wg.Wait()
