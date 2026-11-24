@@ -587,6 +587,18 @@ func (r *Renderer) specializes(sym, general *symbols.Symbol) bool {
 	})
 }
 
+// holds reports whether owner declares feature or gets it from what it specializes,
+// is typed by or reference-subsets, which contributes members without a supertype.
+func (r *Renderer) holds(owner, feature *symbols.Symbol) bool {
+	if owner == nil || feature == nil {
+		return false
+	}
+	declaring := feature.Owner()
+	return declaring == owner || declaring != nil && slices.ContainsFunc(r.model.MemberSources(owner), func(source *symbols.Symbol) bool {
+		return symbols.SameElement(source, declaring)
+	})
+}
+
 // orderEnd is an end of an order on the lifeline it is read on: the one it is
 // named through, or stated within, when that inherits it, else the nearest owner shown.
 func (e *lifelineEnds) orderEnd(o order, occurrence, through *symbols.Symbol) lifelineEnd {
@@ -622,7 +634,7 @@ func (r *Renderer) inheritedOrders(orders []order, ends *lifelineEnds, lifelines
 	for grew := true; grew; {
 		grew = false
 		for i, o := range orders {
-			if o.fromThrough != nil || o.toThrough != nil || r.memberFor(o.within, o.from) == nil || r.memberFor(o.within, o.to) == nil {
+			if o.fromThrough != nil || o.toThrough != nil || !r.holds(o.within, o.from) || !r.holds(o.within, o.to) {
 				continue
 			}
 			for at, lifeline := range lifelines {
