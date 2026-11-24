@@ -16,6 +16,7 @@ func TestRuntimeRobustnessActionLocalConnection(t *testing.T) {
 	t.Run("inherited_from_the_definition", testActionLocalConnectionInherited)
 	t.Run("read_by_a_nested_action", testActionLocalConnectionNested)
 	t.Run("nested_action_declaring_the_same_name", testActionLocalConnectionShadowed)
+	t.Run("as_many_connectors_as_the_lower_bound", testActionLocalConnectionMultiplicity)
 	t.Run("end_selecting_nothing", testActionLocalConnectionEndSelectingNothing)
 }
 
@@ -67,6 +68,19 @@ const actionLocalConnectionFixture = `
 					connection link : Link connect x to y;
 					assign again := link;
 				}
+			}
+			action connectOptional {
+				in ref firstNode : Node;
+				in ref secondNode : Node;
+				connection link : Link [0..1] connect firstNode to secondNode;
+				assign links := link;
+			}
+			action connectPair {
+				in ref firstNode : Node;
+				in ref secondNode : Node;
+				connection link : Link [2] connect firstNode to secondNode;
+				assign links := link;
+				assign again := link;
 			}
 			action connectIndexed {
 				in ref firstNode : Node;
@@ -175,6 +189,42 @@ func testActionLocalConnectionShadowed(t *testing.T) {
 	}
 	if outer, inner := wantLinkEnds(t, ctx, inst, "links", a, b), wantLinkEnds(t, ctx, inst, "again", b, a); outer == inner {
 		t.Errorf("both actions hold connector #%d, want one each", outer)
+	}
+}
+
+// testActionLocalConnectionMultiplicity: a performance holds as many connectors as the
+// connection's lower bound, none for [0..1] and two for [2], the same ones on every read.
+func testActionLocalConnectionMultiplicity(t *testing.T) {
+	ctx, inst, a, b := actionLocalConnectionNetwork(t)
+	held := func(feature string) []Value {
+		t.Helper()
+		fv, err := inst.GetFeatureValue(ctx, feature)
+		if err != nil {
+			t.Fatalf("%s: %v", feature, err)
+		}
+		return elementsOf(fv.HeldValue())
+	}
+	if _, err := ctx.invokeOperation(inst, "connectOptional", map[string]Value{"firstNode": a, "secondNode": b}); err != nil {
+		t.Fatalf("connectOptional(a, b): %v", err)
+	}
+	if links := held("links"); len(links) != 0 {
+		t.Errorf("links = %v after connectOptional, want none", links)
+	}
+	if _, err := ctx.invokeOperation(inst, "connectPair", map[string]Value{"firstNode": a, "secondNode": b}); err != nil {
+		t.Fatalf("connectPair(a, b): %v", err)
+	}
+	links, again := held("links"), held("again")
+	if len(links) != 2 || len(again) != 2 || links[0].Instance == links[1].Instance {
+		t.Fatalf("links = %v, again = %v, want the same two connectors", links, again)
+	}
+	for i, link := range links {
+		conn := ctx.instances[link.Instance]
+		if conn == nil || len(conn.Ends) != 2 || !valueIdentical(conn.Ends[0].Value, a) || !valueIdentical(conn.Ends[1].Value, b) {
+			t.Errorf("links[%d] = %v, want a connector of a and b", i, link)
+		}
+		if !valueIdentical(link, again[i]) {
+			t.Errorf("again[%d] = %v, want %v", i, again[i], link)
+		}
 	}
 }
 

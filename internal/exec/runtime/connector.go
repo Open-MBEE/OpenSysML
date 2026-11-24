@@ -906,7 +906,7 @@ func (ctx *Context) connectorEndError(connSym *symbols.Symbol, end semantics.Con
 }
 
 // performedConnector reads a connection usage a behavior being performed declares as the
-// performance's own connector, attached on its first read to what its ends name in that run.
+// performance's own connectors, its lower bound attached on first read to what its ends name there.
 func (ec *EvalContext) performedConnector(sym *symbols.Symbol) (Value, bool, error) {
 	ctx := ec.ctx
 	if sym == nil || sym.OwnerScope == nil || !ctx.model.semantics.IsConnectorObjectUsage(sym) {
@@ -924,6 +924,7 @@ func (ec *EvalContext) performedConnector(sym *symbols.Symbol) (Value, bool, err
 	if val, ok := perf.connectors[sym]; ok {
 		return val, true, nil
 	}
+	mult := ctx.featureMultiplicity(sym, ctx.findOwnerType(sym))
 	scope := sym.OwnerScope
 	if origin := ctx.model.semantics.ConnectorEndsOrigin(sym); origin != nil && origin.OwnerScope != nil {
 		scope = origin.OwnerScope
@@ -934,13 +935,39 @@ func (ec *EvalContext) performedConnector(sym *symbols.Symbol) (Value, bool, err
 		}
 		return ctx.readConnectorEnd(ec.evalIn(scope), sym, end)
 	}
-	var conn *Instance
-	if err := ctx.materializeConnectorAttaching(nil, sym, sym, 0, true, attach, func(c *Instance) { conn = c }); err != nil {
-		return Value{}, true, err
-	}
-	val, err := ctx.objectValue(conn)
+	count, err := ctx.lowerBoundCount(mult, 0, SymbolText(sym))
 	if err != nil {
 		return Value{}, true, err
+	}
+	release := ctx.elementScope()
+	if err := ctx.chargeElements(count); err != nil {
+		release()
+		return Value{}, true, err
+	}
+	mark := len(ctx.created)
+	commit, rollback := ctx.beginJournal()
+	fail := func(err error) (Value, bool, error) {
+		rollback()
+		ctx.abandonInstancesSince(mark)
+		release()
+		return Value{}, true, err
+	}
+	elements := make([]Value, 0, count)
+	for range count {
+		var conn *Instance
+		if err := ctx.materializeConnectorAttaching(nil, sym, sym, 0, true, attach, func(c *Instance) { conn = c }); err != nil {
+			return fail(err)
+		}
+		val, err := ctx.objectValue(conn)
+		if err != nil {
+			return fail(err)
+		}
+		elements = append(elements, val)
+	}
+	commit()
+	val := sequenceOf(elements)
+	if one, _ := mult.HasBounds(1, 1); one {
+		val = elements[0]
 	}
 	if perf.connectors == nil {
 		perf.connectors = make(map[*symbols.Symbol]Value)
