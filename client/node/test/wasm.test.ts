@@ -544,6 +544,41 @@ test("a worker port refuses a call past its bound on waiting calls", () => {
   assert.match(refused.envelope, /waiting calls/);
 });
 
+test("a worker port drops the calls cancelled while they waited", async () => {
+  const answers: WasmWorkerResponse[] = [];
+  let deliver: ((event: MessageEvent<WasmWorkerRequest>) => void) | undefined;
+  serveWasmPort({
+    postMessage(message) {
+      answers.push(message);
+    },
+    addEventListener(_type, listener) {
+      deliver = listener;
+    },
+  });
+  const send = (data: WasmWorkerRequest): void => {
+    deliver?.({ data } as MessageEvent<WasmWorkerRequest>);
+  };
+  // Several full queues are sent and cancelled in one turn: none stays behind.
+  let id = 0;
+  for (let round = 0; round < 3; round++) {
+    const first = id + 1;
+    for (let n = 0; n < MAX_PENDING_WASM_CALLS; n++) {
+      send({ type: "call", id: ++id, method: "Echo", params: "{}" });
+    }
+    for (let cancelled = first; cancelled <= id; cancelled++) {
+      send({ type: "cancel", id: cancelled });
+    }
+  }
+  const last = ++id;
+  send({ type: "call", id: last, method: "Echo", params: "{}" });
+  // One turn of the port's queue reaches the surviving call, not one per cancelled call.
+  await new Promise<void>((resolve) => setTimeout(resolve, 20));
+  assert.deepEqual(
+    answers.map((answer) => (answer.type === "answer" ? answer.id : answer.type)),
+    [last],
+  );
+});
+
 test("an inline start that never finishes fails at its deadline and frees the next start", async (t) => {
   let ran = 0;
   class CountingGo extends FakeGo {

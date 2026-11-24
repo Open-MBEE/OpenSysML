@@ -481,8 +481,8 @@ export function serveWasmPort(port: WasmPortLike, loaders: WasmPortLoaders = {})
   let host: WasmHost | undefined;
   let initializing = false;
   let closed = false;
-  let calls = Promise.resolve();
-  const queued = new Set<number>();
+  let draining = false;
+  const queued = new Map<number, Extract<WasmWorkerRequest, { type: "call" }>>();
 
   const onMessage = (event: MessageEvent<WasmWorkerRequest>): void => {
     const request = event.data;
@@ -517,20 +517,30 @@ export function serveWasmPort(port: WasmPortLike, loaders: WasmPortLoaders = {})
       });
       return;
     }
-    queued.add(request.id);
-    calls = calls.then(async () => {
+    queued.set(request.id, request);
+    if (!draining) {
+      draining = true;
+      void drain();
+    }
+  };
+
+  // One loop serves the waiting calls in turn, so a cancelled call leaves nothing behind.
+  const drain = async (): Promise<void> => {
+    while (queued.size > 0) {
       // The Go call blocks this thread, so cancellations sent meanwhile are read first.
       await nextTask();
-      if (!queued.delete(request.id)) {
-        return;
+      const request = queued.values().next().value;
+      if (request === undefined) {
+        break;
       }
+      queued.delete(request.id);
       if (closed || host === undefined) {
         port.postMessage({
           type: "answer",
           id: request.id,
           envelope: errorEnvelope(new ConnectError("the WASM worker is unavailable", Code.Unavailable)),
         });
-        return;
+        continue;
       }
       try {
         port.postMessage({
@@ -541,7 +551,8 @@ export function serveWasmPort(port: WasmPortLike, loaders: WasmPortLoaders = {})
       } catch (cause) {
         port.postMessage({ type: "answer", id: request.id, envelope: errorEnvelope(cause) });
       }
-    });
+    }
+    draining = false;
   };
 
   const initialize = async (
