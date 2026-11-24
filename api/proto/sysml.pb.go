@@ -17872,7 +17872,11 @@ type RenderNode struct {
 	// the line's second end, "left" toward its first. Empty for every other node.
 	Arrow string `protobuf:"bytes,16,opt,name=arrow,proto3" json:"arrow,omitempty"`
 	// The state's substates run in parallel; a label writes «parallel» under the name.
-	Parallel      bool `protobuf:"varint,17,opt,name=parallel,proto3" json:"parallel,omitempty"`
+	Parallel bool `protobuf:"varint,17,opt,name=parallel,proto3" json:"parallel,omitempty"`
+	// The declared element's durable id, the EffectiveID a written form's {id}
+	// link anchor carries. Empty when the node stands for no identified element.
+	// This is not `id`, which identifies the node within this rendering only.
+	ElementId     string `protobuf:"bytes,18,opt,name=element_id,json=elementId,proto3" json:"element_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -18026,6 +18030,13 @@ func (x *RenderNode) GetParallel() bool {
 	return false
 }
 
+func (x *RenderNode) GetElementId() string {
+	if x != nil {
+		return x.ElementId
+	}
+	return ""
+}
+
 // RenderPort is a feature drawn on a node's border.
 type RenderPort struct {
 	state     protoimpl.MessageState `protogen:"open.v1"`
@@ -18034,7 +18045,10 @@ type RenderPort struct {
 	Type      string                 `protobuf:"bytes,3,opt,name=type,proto3" json:"type,omitempty"`
 	Direction string                 `protobuf:"bytes,4,opt,name=direction,proto3" json:"direction,omitempty"`
 	// The node's owner has the port from its type rather than declares it; drawn with a `^` before `name`.
-	Inherited     bool `protobuf:"varint,5,opt,name=inherited,proto3" json:"inherited,omitempty"`
+	Inherited bool `protobuf:"varint,5,opt,name=inherited,proto3" json:"inherited,omitempty"`
+	// The declared feature's durable id, the EffectiveID a written form's {id}
+	// link anchor carries. Empty when the port stands for no identified element.
+	ElementId     string `protobuf:"bytes,6,opt,name=element_id,json=elementId,proto3" json:"element_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -18104,19 +18118,29 @@ func (x *RenderPort) GetInherited() bool {
 	return false
 }
 
+func (x *RenderPort) GetElementId() string {
+	if x != nil {
+		return x.ElementId
+	}
+	return ""
+}
+
 // RenderEdge joins two rendered nodes and may connect their ports.
 type RenderEdge struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	From          string                 `protobuf:"bytes,1,opt,name=from,proto3" json:"from,omitempty"`
-	To            string                 `protobuf:"bytes,2,opt,name=to,proto3" json:"to,omitempty"`
-	FromPort      string                 `protobuf:"bytes,3,opt,name=from_port,json=fromPort,proto3" json:"from_port,omitempty"`
-	ToPort        string                 `protobuf:"bytes,4,opt,name=to_port,json=toPort,proto3" json:"to_port,omitempty"`
-	Label         string                 `protobuf:"bytes,5,opt,name=label,proto3" json:"label,omitempty"`
-	Name          string                 `protobuf:"bytes,6,opt,name=name,proto3" json:"name,omitempty"`
-	Kind          string                 `protobuf:"bytes,7,opt,name=kind,proto3" json:"kind,omitempty"`
-	Origin        *Span                  `protobuf:"bytes,8,opt,name=origin,proto3" json:"origin,omitempty"`
-	Route         []*RenderPoint         `protobuf:"bytes,9,rep,name=route,proto3" json:"route,omitempty"`
-	Style         *RenderStyle           `protobuf:"bytes,10,opt,name=style,proto3" json:"style,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	From     string                 `protobuf:"bytes,1,opt,name=from,proto3" json:"from,omitempty"`
+	To       string                 `protobuf:"bytes,2,opt,name=to,proto3" json:"to,omitempty"`
+	FromPort string                 `protobuf:"bytes,3,opt,name=from_port,json=fromPort,proto3" json:"from_port,omitempty"`
+	ToPort   string                 `protobuf:"bytes,4,opt,name=to_port,json=toPort,proto3" json:"to_port,omitempty"`
+	Label    string                 `protobuf:"bytes,5,opt,name=label,proto3" json:"label,omitempty"`
+	Name     string                 `protobuf:"bytes,6,opt,name=name,proto3" json:"name,omitempty"`
+	Kind     string                 `protobuf:"bytes,7,opt,name=kind,proto3" json:"kind,omitempty"`
+	Origin   *Span                  `protobuf:"bytes,8,opt,name=origin,proto3" json:"origin,omitempty"`
+	Route    []*RenderPoint         `protobuf:"bytes,9,rep,name=route,proto3" json:"route,omitempty"`
+	Style    *RenderStyle           `protobuf:"bytes,10,opt,name=style,proto3" json:"style,omitempty"`
+	// The connection's durable id, the EffectiveID a written form's {id} link
+	// anchor carries. Empty when the edge stands for no identified element.
+	ElementId     string `protobuf:"bytes,11,opt,name=element_id,json=elementId,proto3" json:"element_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -18219,6 +18243,13 @@ func (x *RenderEdge) GetStyle() *RenderStyle {
 		return x.Style
 	}
 	return nil
+}
+
+func (x *RenderEdge) GetElementId() string {
+	if x != nil {
+		return x.ElementId
+	}
+	return ""
 }
 
 // RenderGeometry locates a node on the rendering's canvas.
@@ -21659,7 +21690,7 @@ const file_sysml_proto_rawDesc = "" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12\x18\n" +
 	"\aexposes\x18\x03 \x03(\tR\aexposes\x12\x18\n" +
 	"\afilters\x18\x04 \x03(\tR\afilters\x12 \n" +
-	"\vannotations\x18\x05 \x03(\tR\vannotations\"\xff\x03\n" +
+	"\vannotations\x18\x05 \x03(\tR\vannotations\"\x9e\x04\n" +
 	"\n" +
 	"RenderNode\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
@@ -21679,14 +21710,18 @@ const file_sysml_proto_rawDesc = "" +
 	"\vcompartment\x18\x0e \x01(\tR\vcompartment\x12\x1c\n" +
 	"\tinherited\x18\x0f \x01(\bR\tinherited\x12\x14\n" +
 	"\x05arrow\x18\x10 \x01(\tR\x05arrow\x12\x1a\n" +
-	"\bparallel\x18\x11 \x01(\bR\bparallel\"\x80\x01\n" +
+	"\bparallel\x18\x11 \x01(\bR\bparallel\x12\x1d\n" +
+	"\n" +
+	"element_id\x18\x12 \x01(\tR\telementId\"\x9f\x01\n" +
 	"\n" +
 	"RenderPort\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
 	"\x04type\x18\x03 \x01(\tR\x04type\x12\x1c\n" +
 	"\tdirection\x18\x04 \x01(\tR\tdirection\x12\x1c\n" +
-	"\tinherited\x18\x05 \x01(\bR\tinherited\"\x9d\x02\n" +
+	"\tinherited\x18\x05 \x01(\bR\tinherited\x12\x1d\n" +
+	"\n" +
+	"element_id\x18\x06 \x01(\tR\telementId\"\xbc\x02\n" +
 	"\n" +
 	"RenderEdge\x12\x12\n" +
 	"\x04from\x18\x01 \x01(\tR\x04from\x12\x0e\n" +
@@ -21699,7 +21734,9 @@ const file_sysml_proto_rawDesc = "" +
 	"\x06origin\x18\b \x01(\v2\v.sysml.SpanR\x06origin\x12(\n" +
 	"\x05route\x18\t \x03(\v2\x12.sysml.RenderPointR\x05route\x12(\n" +
 	"\x05style\x18\n" +
-	" \x01(\v2\x12.sysml.RenderStyleR\x05style\"\xaf\x01\n" +
+	" \x01(\v2\x12.sysml.RenderStyleR\x05style\x12\x1d\n" +
+	"\n" +
+	"element_id\x18\v \x01(\tR\telementId\"\xaf\x01\n" +
 	"\x0eRenderGeometry\x12\f\n" +
 	"\x01x\x18\x01 \x01(\x01R\x01x\x12\f\n" +
 	"\x01y\x18\x02 \x01(\x01R\x01y\x12\x14\n" +

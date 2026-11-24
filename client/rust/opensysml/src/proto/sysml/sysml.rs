@@ -4623,6 +4623,11 @@ pub struct RenderNode {
     /// The state's substates run in parallel; a label writes «parallel» under the name.
     #[prost(bool, tag="17")]
     pub parallel: bool,
+    /// The declared element's durable id, the EffectiveID a written form's {id}
+    /// link anchor carries. Empty when the node stands for no identified element.
+    /// This is not `id`, which identifies the node within this rendering only.
+    #[prost(string, tag="18")]
+    pub element_id: ::prost::alloc::string::String,
 }
 /// RenderPort is a feature drawn on a node's border.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -4638,6 +4643,10 @@ pub struct RenderPort {
     /// The node's owner has the port from its type rather than declares it; drawn with a `^` before `name`.
     #[prost(bool, tag="5")]
     pub inherited: bool,
+    /// The declared feature's durable id, the EffectiveID a written form's {id}
+    /// link anchor carries. Empty when the port stands for no identified element.
+    #[prost(string, tag="6")]
+    pub element_id: ::prost::alloc::string::String,
 }
 /// RenderEdge joins two rendered nodes and may connect their ports.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -4662,6 +4671,10 @@ pub struct RenderEdge {
     pub route: ::prost::alloc::vec::Vec<RenderPoint>,
     #[prost(message, optional, tag="10")]
     pub style: ::core::option::Option<RenderStyle>,
+    /// The connection's durable id, the EffectiveID a written form's {id} link
+    /// anchor carries. Empty when the edge stands for no identified element.
+    #[prost(string, tag="11")]
+    pub element_id: ::prost::alloc::string::String,
 }
 /// RenderGeometry locates a node on the rendering's canvas.
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]

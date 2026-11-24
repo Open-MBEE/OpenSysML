@@ -417,7 +417,9 @@ type JRenderCanvas struct {
 }
 
 type JRenderNode struct {
-	ID              string           `json:"id,omitempty"`
+	ID string `json:"id,omitempty"`
+	// ElementID is the declared element's EffectiveID, as protojson writes elementId.
+	ElementID       string           `json:"elementId,omitempty"`
 	Kind            string           `json:"kind,omitempty"`
 	Name            string           `json:"name,omitempty"`
 	NameSynthesized bool             `json:"nameSynthesized,omitempty"`
@@ -436,7 +438,9 @@ type JRenderNode struct {
 }
 
 type JRenderPort struct {
-	ID        string `json:"id,omitempty"`
+	ID string `json:"id,omitempty"`
+	// ElementID is the declared feature's EffectiveID, as protojson writes elementId.
+	ElementID string `json:"elementId,omitempty"`
 	Name      string `json:"name,omitempty"`
 	Type      string `json:"type,omitempty"`
 	Direction string `json:"direction,omitempty"`
@@ -465,16 +469,18 @@ type JRenderStyle struct {
 }
 
 type JRenderEdge struct {
-	From     string         `json:"from,omitempty"`
-	To       string         `json:"to,omitempty"`
-	FromPort string         `json:"fromPort,omitempty"`
-	ToPort   string         `json:"toPort,omitempty"`
-	Label    string         `json:"label,omitempty"`
-	Name     string         `json:"name,omitempty"`
-	Kind     string         `json:"kind,omitempty"`
-	Origin   *JSpan         `json:"origin,omitempty"`
-	Route    []JRenderPoint `json:"route,omitempty"`
-	Style    *JRenderStyle  `json:"style,omitempty"`
+	// ElementID is the connection's EffectiveID, as protojson writes elementId.
+	ElementID string         `json:"elementId,omitempty"`
+	From      string         `json:"from,omitempty"`
+	To        string         `json:"to,omitempty"`
+	FromPort  string         `json:"fromPort,omitempty"`
+	ToPort    string         `json:"toPort,omitempty"`
+	Label     string         `json:"label,omitempty"`
+	Name      string         `json:"name,omitempty"`
+	Kind      string         `json:"kind,omitempty"`
+	Origin    *JSpan         `json:"origin,omitempty"`
+	Route     []JRenderPoint `json:"route,omitempty"`
+	Style     *JRenderStyle  `json:"style,omitempty"`
 }
 
 type JRenderPoint struct {

@@ -353,6 +353,10 @@ func (k EdgeKind) String() string {
 type Node struct {
 	// ID identifies the node within its rendering, and is what an edge names.
 	ID string
+	// ElementID is the declared element's durable identity, the EffectiveID a
+	// written form's {id} link anchor carries. Empty when the node stands for
+	// no identified element. Unlike ID it is stable across renderings.
+	ElementID string
 	// Kind is what the notation calls the element — "part def", "state",
 	// "fork" — never a Go type name.
 	Kind string
@@ -440,6 +444,9 @@ type Node struct {
 type Port struct {
 	// ID identifies the port within its rendering, and is what an edge names.
 	ID string
+	// ElementID is the declared feature's durable identity, the EffectiveID a
+	// written form's {id} link anchor carries. Empty when no element declares it.
+	ElementID string
 	// Name is the pin's name, as the notation writes it.
 	Name string
 	// NameSynthesized marks a name the model did not give, which a form
@@ -515,6 +522,9 @@ func (p Port) label() string {
 
 // Edge joins two nodes of a rendering.
 type Edge struct {
+	// ElementID is the declared connection's durable identity, the EffectiveID
+	// a written form's {id} link anchor carries. Empty when no element declares it.
+	ElementID string
 	// From and To are node IDs.
 	From string
 	To   string
@@ -751,6 +761,7 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn, query bool) (*Rend
 	case KindTable, KindMatrix, KindSequence:
 		r.undrawnPicturesOf(view, out)
 	}
+	r.resolveElementIDs(out)
 	return out, nil
 }
 
@@ -792,6 +803,7 @@ func (r *Renderer) RenderExposed(exposed []*symbols.Symbol, kind Kind, stated st
 	if out.Empty() && out.emptyReason == "" {
 		out.emptyReason = exposedReason(exposed, out)
 	}
+	r.resolveElementIDs(out)
 	return out, nil
 }
 

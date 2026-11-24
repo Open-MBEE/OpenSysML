@@ -401,6 +401,8 @@ pub struct RenderSpan {
 pub struct RenderPort {
     /// Stable identifier within the rendered view.
     pub id: String,
+    /// The declared feature's EffectiveID, carried by a written form's `{id}` anchor.
+    pub element_id: String,
     /// Port name.
     pub name: String,
     /// Port type name.
@@ -464,6 +466,8 @@ pub struct RenderPoint {
 pub struct RenderNode {
     /// Stable identifier within the rendered view.
     pub id: String,
+    /// The declared element's EffectiveID, carried by a written form's `{id}` anchor.
+    pub element_id: String,
     /// Rendered node kind.
     pub kind: String,
     /// Display name.
@@ -503,6 +507,8 @@ pub struct RenderNode {
 /// A rendered edge between two nodes.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct RenderEdge {
+    /// The connection's EffectiveID, carried by a written form's `{id}` anchor.
+    pub element_id: String,
     /// Source node identifier.
     pub from: String,
     /// Target node identifier.
@@ -651,6 +657,7 @@ pub(crate) fn rendered_view_of(response: wire::RenderViewResponse) -> RenderedVi
             .into_iter()
             .map(|node| RenderNode {
                 id: node.id,
+                element_id: node.element_id,
                 kind: node.kind,
                 name: node.name,
                 name_synthesized: node.name_synthesized,
@@ -667,6 +674,7 @@ pub(crate) fn rendered_view_of(response: wire::RenderViewResponse) -> RenderedVi
                     .into_iter()
                     .map(|port| RenderPort {
                         id: port.id,
+                        element_id: port.element_id,
                         name: port.name,
                         port_type: port.r#type,
                         direction: port.direction,
@@ -690,6 +698,7 @@ pub(crate) fn rendered_view_of(response: wire::RenderViewResponse) -> RenderedVi
             .edges
             .into_iter()
             .map(|edge| RenderEdge {
+                element_id: edge.element_id,
                 from: edge.from,
                 to: edge.to,
                 from_port: edge.from_port,
@@ -766,6 +775,7 @@ mod render_view_tests {
             nodes: vec![
                 wire::RenderNode {
                     id: "n0".to_owned(),
+                    element_id: "Demo__root".to_owned(),
                     kind: "part".to_owned(),
                     name: "root".to_owned(),
                     name_synthesized: true,
@@ -776,6 +786,7 @@ mod render_view_tests {
                     parallel: true,
                     ports: vec![wire::RenderPort {
                         id: "n0.0".to_owned(),
+                        element_id: "Demo__API__api".to_owned(),
                         name: "api".to_owned(),
                         r#type: "Demo::API".to_owned(),
                         direction: "inout".to_owned(),
@@ -807,6 +818,7 @@ mod render_view_tests {
                 wire::RenderNode::default(),
             ],
             edges: vec![wire::RenderEdge {
+                element_id: "Demo__link".to_owned(),
                 from: "n0".to_owned(),
                 to: "n1".to_owned(),
                 from_port: "n0.0".to_owned(),
@@ -849,6 +861,9 @@ mod render_view_tests {
 
         let rendered = rendered_view_of(response);
         assert_eq!(rendered.view, "Demo::view");
+        assert_eq!(rendered.nodes[0].element_id, "Demo__root");
+        assert_eq!(rendered.nodes[0].ports[0].element_id, "Demo__API__api");
+        assert_eq!(rendered.edges[0].element_id, "Demo__link");
         assert!(rendered.nodes[0].name_synthesized);
         assert_eq!(rendered.nodes[0].ports[0].direction, "inout");
         assert!(rendered.nodes[0].ports[0].inherited);
