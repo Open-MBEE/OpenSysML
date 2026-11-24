@@ -46,6 +46,17 @@ type runnerReply struct {
 // call's reserved inputs over the DefaultExperiment, the start values typed by
 // each variable's kind and the outputs to read at stopTime.
 func requestOf(call *runtime.ToolCall, d *Description, fmu string) ([]byte, error) {
+	request, err := requestFields(call, d, fmu)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(request)
+}
+
+// requestFields is the request one call composes before it is encoded. A
+// session reuses it for its init command, clearing the outputs a whole run reads
+// at stopTime: a session reads whatever a later step asks for.
+func requestFields(call *runtime.ToolCall, d *Description, fmu string) (runnerRequest, error) {
 	var iface string
 	switch {
 	case d.CoSimulation != nil:
@@ -89,7 +100,7 @@ func requestOf(call *runtime.ToolCall, d *Description, fmu string) ([]byte, erro
 			}
 			n, err := reservedNumber(call, in, unit)
 			if err != nil {
-				return nil, err
+				return runnerRequest{}, err
 			}
 			switch in.Variable {
 			case "fmi:startTime":
@@ -108,7 +119,7 @@ func requestOf(call *runtime.ToolCall, d *Description, fmu string) ([]byte, erro
 		v, _ := d.Variable(in.Variable)
 		value, err := inputValue(call, in, d, v)
 		if err != nil {
-			return nil, err
+			return runnerRequest{}, err
 		}
 		request.Start[v.Name] = value
 	}
@@ -121,7 +132,7 @@ func requestOf(call *runtime.ToolCall, d *Description, fmu string) ([]byte, erro
 	}
 	request.Experiment = runnerExperiment{StartTime: startTime, StopTime: stopTime,
 		StepSize: stepSize, Tolerance: tolerance}
-	return json.Marshal(request)
+	return request, nil
 }
 
 // reservedNumber is the number a reserved fmi: input carries: Real or Integer,

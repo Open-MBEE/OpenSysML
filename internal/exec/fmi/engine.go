@@ -31,6 +31,16 @@ const RunnerEnv = "OPENSYSML_FMI_RUNNER"
 // an engine listing reports it.
 const Exchange = "fmi/1"
 
+// SessionExchange names the long-lived protocol a session-capable runner speaks:
+// newline-delimited init, step and read commands on one process's pipes. It is
+// additive; Exchange still names what the one-shot engine speaks.
+const SessionExchange = "fmi/2"
+
+// StepVariable is the reserved input a tool call names to ask a session to
+// advance to a time before reading its outputs. A call without it stays a
+// one-shot fmi/1 evaluation.
+const StepVariable = "fmi:stepTime"
+
 // runnerDescription names the process the engine needs, as Describe reports it.
 const runnerDescription = "the FMI runner OPENSYSML_FMI_RUNNER names"
 
@@ -140,6 +150,7 @@ var reservedInputs = map[string]bool{
 	"fmi:stopTime":  true,
 	"fmi:stepSize":  true,
 	"fmi:tolerance": true,
+	StepVariable:    true,
 }
 
 // reservedOutputs are the variables a call may name beside the FMU's own outputs.
@@ -159,6 +170,9 @@ func (e *engine) Covers(_ *analysis.Model, q analysis.Question) analysis.Coverag
 	call := q.Compute.Call
 	if call.ToolName != "fmi" {
 		return analysis.Coverage{Refusal: &analysis.WrongToolError{Engine: e.Name(), Tool: call.ToolName}}
+	}
+	if namesStep(call) {
+		return analysis.Coverage{Refusal: &SessionRequiredError{Tool: e.Name()}}
 	}
 	if _, err := e.Process(); err != nil {
 		return analysis.Coverage{Refusal: err}
@@ -324,6 +338,9 @@ func (e *engine) Run(ctx context.Context, _ *analysis.Model, q analysis.Question
 		return analysis.Result{}, &analysis.MalformedQuestionError{Kind: q.Kind, Missing: "a Compute with a Call"}
 	}
 	call := q.Compute.Call
+	if namesStep(call) {
+		return analysis.Result{}, &SessionRequiredError{Tool: e.Name()}
+	}
 	path, err := e.look()
 	if err != nil {
 		return analysis.Result{}, &analysis.ProcessAbsentError{Engine: e.Name(), Process: runnerDescription, Err: err}
@@ -377,6 +394,22 @@ func (e *engine) Run(ctx context.Context, _ *analysis.Model, q analysis.Question
 	}, nil
 }
 
+// runnerEnv is the minimal environment both the one-shot and the session
+// process get: the names analysis passes through, with the values actually set.
+func runnerEnv() ([]string, error) {
+	env, err := analysis.ToolEnvNames()
+	if err != nil {
+		return nil, err
+	}
+	list := make([]string, 0, len(env))
+	for _, name := range env {
+		if value, set := os.LookupEnv(name); set {
+			list = append(list, name+"="+value)
+		}
+	}
+	return list, nil
+}
+
 // execution is what one run of the runner produced.
 type execution struct {
 	stdout, stderr []byte
@@ -387,15 +420,9 @@ func (e *engine) invoke(ctx context.Context, runner string, request []byte, time
 	tctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	cmd := exec.CommandContext(tctx, runner) // #nosec G204 -- the runner is the operator's grant
-	env, err := analysis.ToolEnvNames()
+	list, err := runnerEnv()
 	if err != nil {
 		return nil, &runtime.ToolError{Tool: "fmi", Kind: runtime.ToolProcessFailed, Detail: err.Error()}
-	}
-	list := make([]string, 0, len(env))
-	for _, name := range env {
-		if value, set := os.LookupEnv(name); set {
-			list = append(list, name+"="+value)
-		}
 	}
 	cmd.Env = list
 	cmd.Stdin = strings.NewReader(string(request))
