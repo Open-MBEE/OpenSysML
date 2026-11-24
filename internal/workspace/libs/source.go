@@ -143,10 +143,24 @@ func (s *dirSource) Read(name string) ([]byte, error) {
 	if !filepath.IsLocal(name) {
 		return nil, fmt.Errorf("libs: invalid library file path %q", name)
 	}
-	root, err := os.OpenRoot(s.dir)
+	// The directory and the file are both resolved first, so a link that stays
+	// inside the directory reads whether its target is relative or absolute.
+	dir, err := filepath.EvalSymlinks(s.dir)
+	if err != nil {
+		return nil, err
+	}
+	resolved, err := filepath.EvalSymlinks(filepath.Join(dir, name))
+	if err != nil {
+		return nil, err
+	}
+	rel, err := filepath.Rel(dir, resolved)
+	if err != nil || !filepath.IsLocal(rel) {
+		return nil, fmt.Errorf("libs: library file %q is outside the library directory", name)
+	}
+	root, err := os.OpenRoot(dir)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = root.Close() }()
-	return root.ReadFile(name)
+	return root.ReadFile(rel)
 }

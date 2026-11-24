@@ -1048,3 +1048,45 @@ func TestEmbedImagesRefusesPicturesOutsideTheBase(t *testing.T) {
 		}
 	}
 }
+
+// A picture under the base is read however the base and the picture are reached:
+// through a link to the base, by the picture's resolved absolute path, or through a
+// link under the base whose target is an absolute path into it.
+func TestEmbedImagesReadsPicturesThroughLinksIntoTheBase(t *testing.T) {
+	pngData, err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==")
+	if err != nil {
+		t.Fatal(err)
+	}
+	realBase, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	picture := filepath.Join(realBase, "picture.png")
+	if err := os.WriteFile(picture, pngData, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	linkedBase := filepath.Join(t.TempDir(), "work")
+	if err := os.Symlink(realBase, linkedBase); err != nil {
+		t.Skipf("symbolic links are not available: %v", err)
+	}
+	if err := os.Symlink(picture, filepath.Join(realBase, "link.png")); err != nil {
+		t.Fatal(err)
+	}
+	for _, location := range []string{picture, "picture.png", "link.png", filepath.Join(linkedBase, "picture.png")} {
+		path := filepath.Join(t.TempDir(), "diagram.svg")
+		source := `<svg xmlns="http://www.w3.org/2000/svg"><image href="` + location + `"/></svg>`
+		if err := os.WriteFile(path, []byte(source), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := embedImages(path, linkedBase); err != nil {
+			t.Fatalf("embedImages: %v", err)
+		}
+		out, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Contains(out, []byte("data:image/png")) {
+			t.Errorf("picture %s under the base was not inlined:\n%s", location, out)
+		}
+	}
+}

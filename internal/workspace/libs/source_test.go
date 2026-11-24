@@ -113,6 +113,7 @@ func TestDirSourceRejectsSymlinksOutsideBase(t *testing.T) {
 		"Out.kerml":    filepath.Join(outside, "Secret.kerml"),
 		"outdir":       outside,
 		"Inside.kerml": "Real.kerml",
+		"Abs.kerml":    filepath.Join(base, "Real.kerml"),
 	} {
 		if err := os.Symlink(target, filepath.Join(base, link)); err != nil {
 			t.Skipf("symbolic links are not available: %v", err)
@@ -124,7 +125,9 @@ func TestDirSourceRejectsSymlinksOutsideBase(t *testing.T) {
 			t.Errorf("Read(%q) = %q, want an error for a link out of the directory", name, data)
 		}
 	}
-	if data, err := src.Read("Inside.kerml"); err != nil || string(data) != "package Real;" {
-		t.Errorf("Read of a link within the directory = %q, %v", data, err)
+	for _, name := range []string{"Inside.kerml", "Abs.kerml"} {
+		if data, err := src.Read(name); err != nil || string(data) != "package Real;" {
+			t.Errorf("Read(%q), a link within the directory = %q, %v", name, data, err)
+		}
 	}
 }

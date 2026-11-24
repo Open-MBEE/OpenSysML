@@ -157,22 +157,32 @@ var errOutsidePicture = errors.New("the file is not readable under the working d
 // readPicture reads a picture file under base, named relative to it or by an
 // absolute path into it; ".." elements and symbolic links out of base are refused.
 func readPicture(base, file string) ([]byte, error) {
-	if filepath.IsAbs(file) {
-		rel, err := filepath.Rel(base, file)
-		if err != nil {
+	if !filepath.IsAbs(file) {
+		if !filepath.IsLocal(file) {
 			return nil, errOutsidePicture
 		}
-		file = rel
+		file = filepath.Join(base, file)
 	}
-	if !filepath.IsLocal(file) {
+	// Both are resolved first, so base may be reached through a link, and a link
+	// under it may name its target by either a relative or an absolute path.
+	dir, err := filepath.EvalSymlinks(base)
+	if err != nil {
+		return nil, err
+	}
+	resolved, err := filepath.EvalSymlinks(file)
+	if err != nil {
+		return nil, err
+	}
+	rel, err := filepath.Rel(dir, resolved)
+	if err != nil || !filepath.IsLocal(rel) {
 		return nil, errOutsidePicture
 	}
-	root, err := os.OpenRoot(base)
+	root, err := os.OpenRoot(dir)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = root.Close() }()
-	return root.ReadFile(file)
+	return root.ReadFile(rel)
 }
 
 // embedImages inlines each safe local image an SVG refers to; refused images
