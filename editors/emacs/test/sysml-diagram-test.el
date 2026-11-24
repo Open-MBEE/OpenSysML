@@ -132,12 +132,12 @@
                                (concat "#!/bin/sh\n"
                                        "echo \"$@\" > " (shell-quote-argument args) "\n"
                                        "while [ \"$1\" != -o ]; do shift; done\n"
-                                       "echo '<svg id=\"v\"><text>a</text></svg>' > \"$2\"\n"))))
+                                       "echo '<svg id=\"v\"><text>a &amp;#58; &amp;quot;b&amp;quot;</text></svg>' > \"$2\"\n"))))
     (unwind-protect
         (progn
           (set-file-modes mmdc #o755)
-          (should (string-prefix-p "<svg xml:space=\"preserve\" "
-                                   (sysml-diagram--mermaid-to-svg mmdc "flowchart TD")))
+          (should (equal (sysml-diagram--mermaid-to-svg mmdc "flowchart TD")
+                         "<svg xml:space=\"preserve\" id=\"v\"><text>a &#58; &quot;b&quot;</text></svg>\n"))
           (should (string-match-p "-c [^ ]+\\.json" (with-temp-buffer
                                                      (insert-file-contents args)
                                                      (buffer-string)))))

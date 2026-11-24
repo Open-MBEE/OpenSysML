@@ -666,6 +666,11 @@ does not draw, and wrap only where a label's line exceeds 400 pixels.")
             (goto-char (point-min))
             (when (search-forward "<svg " nil t)
               (insert "xml:space=\"preserve\" "))
+            ;; Mermaid leaves entity codes escaped in SVG text labels:
+            ;; https://github.com/mermaid-js/mermaid/issues/7015
+            (goto-char (point-min))
+            (while (re-search-forward "&amp;\\(#[0-9]+\\|quot\\);" nil t)
+              (replace-match (concat "&" (match-string 1) ";") t t))
             (buffer-string)))
       (delete-file input)
       (delete-file config)
