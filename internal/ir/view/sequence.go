@@ -924,9 +924,9 @@ func rowsFollowed(messages []message, successions []succession, orders []timing,
 			}
 		}
 	}
-	for i, later := range chained {
-		for _, j := range later {
-			if !reached[j][i] {
+	for i := range successions {
+		for j := range successions {
+			if reached[i][j] && !reached[j][i] {
 				follows[len(messages)+j] = append(follows[len(messages)+j], len(messages)+i)
 			}
 		}
