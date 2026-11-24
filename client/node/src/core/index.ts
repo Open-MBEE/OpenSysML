@@ -314,6 +314,7 @@ export {
   OpenSysMLError,
   ParseError,
   QueryError,
+  ServiceCancelledError,
   ServiceError,
   ServiceStartError,
   ServiceTimeoutError,
