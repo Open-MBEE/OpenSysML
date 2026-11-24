@@ -1,1 +1,0 @@
-- The reflective `direction` of the `ReferenceUsage` a flow's end owns is the direction of the feature it redefines, as the feature the end references inherits it (KerML.xtext FlowFeature, note 1): `flow from src.photons to snk.photons` reads `out` and `in` there, as the RDF and `api-json` forms already state, where the symbol-backed reading gave none.

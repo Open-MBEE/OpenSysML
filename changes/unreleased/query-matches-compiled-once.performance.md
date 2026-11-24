@@ -1,1 +1,0 @@
-- A document query filtering with `matches` runs faster: `WhereName`, `WhereFeature` and `WhereText` compile the pattern once for the query instead of once for every row and value compared. Filtering 2,000 rows by name takes about 79% less time and 96% fewer allocations (`BenchmarkWhereNameMatches`); the rows a query returns do not change.

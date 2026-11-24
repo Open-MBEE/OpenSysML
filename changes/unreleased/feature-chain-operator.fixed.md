@@ -1,1 +1,0 @@
-- A `FeatureChainExpression` (`d.a` as a value or operand) states `operator "."` in the RDF conversion, as KerML 1.0 § 8.3.4.8.4 defines it and the pilot exports it; the native walk already answered it, so the query leg and the RDF leg now agree on the cell.
