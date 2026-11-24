@@ -98,7 +98,8 @@ same `fmi/1` request and reads the same reply as before.
   close and reclaim. Concurrent opens for one key now wait on that key's
   placeholder; the manager's lock is held only for map updates. The step budget
   is checked only when another step is asked for, so the last allowed step's
-  value can still be read.
+  value can still be read. A budget-exhausted session is still reclaimed by the
+  janitor on a later sweep, so the final value must be read before that sweep.
 
 ## Public surface added
 
@@ -130,7 +131,7 @@ CLI flag or environment variable changed.
 | Bounded sessions | `TestSessionBounds` (count, steps, idle lifetime), `TestSessionReadsTheLastAllowedStep`, `TestSessionBudgetReadsEveryStep` (the last allowed step's value stays readable), and `TestSessionManagerZeroValue` |
 | Isolated per caller | `TestSessionIsolatesCallers` (two principals at different times, plus re-open returning the same session) |
 | Typed failure modes | `TestSessionRefusesABackwardStep`, `TestSessionRefusesAnUnknownOutput`, `TestOneShotRefusesASteppedCall`, `TestSessionRunnerFaults`, `TestSessionStepFaultIsTyped` |
-| Safe concurrent reclamation and startup | `TestSessionJanitorReclaimWhileStepping` races an idle reclaim against Step's reads of the session's close state and process handle; `TestHungInitDoesNotBlockManager` keeps the janitor and a second caller responsive while init is unanswered |
+| Safe concurrent reclamation and startup | `TestSessionJanitorReclaimWhileStepping` races an idle reclaim against Step's reads of the session's close state and process handle; `TestHungInitDoesNotBlockManager` keeps the janitor and a second caller responsive while init is unanswered; `TestSameKeyJoinsInFlightAtCapacity` joins a same-key pending init at capacity while a different key still gets the limit error |
 
 ## Verification
 

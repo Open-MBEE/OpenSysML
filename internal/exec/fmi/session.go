@@ -372,10 +372,6 @@ func (m *SessionManager) Open(ctx context.Context, caller string, call *runtime.
 		_ = existing.expireLocked(reason)
 		existing.mu.Unlock()
 	}
-	if len(m.sessions)+len(m.opening) >= m.config.MaxSessions {
-		m.mu.Unlock()
-		return nil, &SessionLimitError{Caller: caller, Limit: m.config.MaxSessions}
-	}
 	if inFlight := m.opening[key]; inFlight != nil {
 		m.mu.Unlock()
 		select {
@@ -387,6 +383,10 @@ func (m *SessionManager) Open(ctx context.Context, caller string, call *runtime.
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		}
+	}
+	if len(m.sessions)+len(m.opening) >= m.config.MaxSessions {
+		m.mu.Unlock()
+		return nil, &SessionLimitError{Caller: caller, Limit: m.config.MaxSessions}
 	}
 	inFlight := &sessionOpening{done: make(chan struct{})}
 	m.opening[key] = inFlight

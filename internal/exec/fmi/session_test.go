@@ -755,3 +755,57 @@ func TestHungInitDoesNotBlockManager(t *testing.T) {
 		t.Fatalf("a hung init stored %d sessions, want none", stored)
 	}
 }
+
+// A same-key caller joins an in-flight init even when the manager is at
+// capacity; a different key still gets the limit error.
+func TestSameKeyJoinsInFlightAtCapacity(t *testing.T) {
+	fmu := decayFMU(t)
+	uri := fileURI(fmu)
+	p := parseProbe(t, fmt.Sprintf(decayDriver, uri))
+	resetModes(t, "session-hang")
+	m := newSessionManager(func() (string, error) { return runner(t), nil },
+		func() time.Duration { return 300 * time.Millisecond }, func() int { return 1 << 20 },
+		SessionConfig{MaxSessions: 1})
+	t.Cleanup(func() { _ = m.Close() })
+	ctx := context.Background()
+	call := decayCall(t, p, uri, 3)
+
+	first := make(chan error, 1)
+	go func() { _, err := m.Open(ctx, "alice", call); first <- err }()
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		m.mu.Lock()
+		open := len(m.opening)
+		m.mu.Unlock()
+		if open > 0 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the open never registered as in flight")
+		}
+		time.Sleep(time.Millisecond)
+	}
+
+	second := make(chan error, 1)
+	go func() { _, err := m.Open(ctx, "alice", call); second <- err }()
+	_, limitErr := m.Open(ctx, "bob", call)
+	var limit *SessionLimitError
+	if !errors.As(limitErr, &limit) {
+		t.Fatalf("a different key at capacity: %v, want a SessionLimitError", limitErr)
+	}
+
+	for name, result := range map[string]<-chan error{"first": first, "second": second} {
+		select {
+		case err := <-result:
+			if err == nil {
+				t.Fatalf("the %s open answered a hung init", name)
+			}
+			var joinedLimit *SessionLimitError
+			if errors.As(err, &joinedLimit) {
+				t.Fatalf("the %s open hit the limit instead of joining the init", name)
+			}
+		case <-time.After(3 * time.Second):
+			t.Fatalf("the %s open did not return", name)
+		}
+	}
+}
