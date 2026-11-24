@@ -64,6 +64,7 @@ AssignmentActionUsage::actionDefinition	15	symbol-35
 AssignmentActionUsage::behavior	15	symbol-26
 AssignmentActionUsage::definition	15	symbol-37
 AssignmentActionUsage::occurrenceDefinition	15	symbol-41
+AssignmentActionUsage::parameter	126	symbol-27
 AssignmentActionUsage::type	15	symbol-19
 Association::relatedElement	8	symbol-10
 Association::source	8	symbol-11
@@ -341,6 +342,7 @@ ForLoopActionUsage::actionDefinition	2	symbol-35
 ForLoopActionUsage::behavior	2	symbol-26
 ForLoopActionUsage::definition	2	symbol-37
 ForLoopActionUsage::occurrenceDefinition	2	symbol-41
+ForLoopActionUsage::parameter	5	symbol-27
 ForLoopActionUsage::type	2	symbol-19
 ForkNode::actionDefinition	8	symbol-35
 ForkNode::behavior	8	symbol-26
@@ -402,8 +404,8 @@ Membership::source	478	symbol-11
 Membership::target	31	symbol-12
 MembershipExpose::importedElement	36	symbol-75
 MembershipExpose::relatedElement	86	symbol-10
-MembershipImport::importedElement	159	symbol-75
-MembershipImport::relatedElement	193	symbol-10
+MembershipImport::importedElement	157	symbol-75
+MembershipImport::relatedElement	191	symbol-10
 MergeNode::actionDefinition	18	symbol-35
 MergeNode::behavior	18	symbol-26
 MergeNode::definition	18	symbol-37
@@ -431,7 +433,7 @@ OperatorExpression::input	16	symbol-51
 OperatorExpression::operand	953	symbol-30
 OwningMembership::ownedMemberFeature	9	symbol-16
 OwningMembership::owningType	9	symbol-45
-ParameterMembership::ownedMemberFeature	7	symbol-16
+ParameterMembership::ownedMemberFeature	16	symbol-16
 ParameterMembership::ownedMemberName	2851	symbol-85
 PartDefinition::ownedFlow	11	symbol-45
 PartDefinition::ownedInterface	3	symbol-45
@@ -477,7 +479,7 @@ ReferenceSubsetting::relatedElement	3	symbol-10
 ReferenceSubsetting::subsettedFeature	3	symbol-45
 ReferenceSubsetting::target	3	symbol-12
 ReferenceUsage::crossFeature	3	symbol-45
-ReferenceUsage::definition	2960	symbol-37
+ReferenceUsage::definition	3471	symbol-37
 ReferenceUsage::feature	37	symbol-14
 ReferenceUsage::featureMembership	37	symbol-15
 ReferenceUsage::featuringType	3	symbol-17
@@ -490,7 +492,7 @@ ReferenceUsage::owningDefinition	1	symbol-45
 ReferenceUsage::owningFeatureMembership	3	symbol-45
 ReferenceUsage::owningType	3	symbol-45
 ReferenceUsage::qualifiedName	4	symbol-47
-ReferenceUsage::type	3057	symbol-19
+ReferenceUsage::type	3568	symbol-19
 ReferenceUsage::usage	6	symbol-50
 RenderingDefinition::ownedRendering	1	symbol-45
 RenderingDefinition::ownedView	1	symbol-45
@@ -697,4 +699,5 @@ WhileLoopActionUsage::actionDefinition	3	symbol-35
 WhileLoopActionUsage::behavior	3	symbol-26
 WhileLoopActionUsage::definition	3	symbol-37
 WhileLoopActionUsage::occurrenceDefinition	3	symbol-41
+WhileLoopActionUsage::parameter	7	symbol-27
 WhileLoopActionUsage::type	3	symbol-19
