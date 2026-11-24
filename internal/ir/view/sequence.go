@@ -533,9 +533,8 @@ func (r *Renderer) messageEnd(flow *symbols.Symbol, end ast.Node, ends *lifeline
 // successions are the orders drawn as the dashed succession arrows of the sequence
 // (SysML v2.1 §8.2.3.9 sq-succession), each between the proxies or lifelines of
 // its ends; an order with an end on no lifeline shown is kept for sorting only.
-// They are read as the messages are, in the order a reader reads the declarations,
-// whether a `succession` usage or a member-attached `then` states each.
 func (r *Renderer) successions(view *symbols.Symbol, orders []order, ends *lifelineEnds, out *Rendering) ([]succession, []timing) {
+	// Read in declaration order, whether a `succession` usage or a member-attached `then` states each.
 	sort.SliceStable(orders, func(i, j int) bool { return orders[i].declaredBefore(orders[j]) })
 	var successions []succession
 	var timings []timing
@@ -850,7 +849,7 @@ func reaches(later [][]int, at map[lifelineEnd]int) func(a, b lifelineEnd) bool 
 // sequenceRows are the rows of the sequence in order: the messages as sorted, then
 // each succession's arrow after the last row holding its source or an event ordered
 // before it, else before the first row holding its target or an event ordered after
-// it, else after the messages. The successions are placed in causal order, so a
+// it, else after the messages. A placed succession's row holds its two events, so a
 // chain declared out of order still settles by its events; successions nothing orders
 // keep declaration order. before is the events' order, identity when cyclic.
 func sequenceRows(messages []message, successions []succession, orders []timing, before func(a, b lifelineEnd) bool) []Edge {
@@ -893,9 +892,8 @@ func sequenceRows(messages []message, successions []succession, orders []timing,
 	return edges
 }
 
-// causalSuccessions are the successions with each one after those whose target is
-// its source or an event ordered before it, declaration order standing otherwise
-// and throughout when the successions form a cycle.
+// causalSuccessions are the successions, each after those leading to its source;
+// declaration order stands otherwise, and throughout when they form a cycle.
 func causalSuccessions(successions []succession, orders []timing, before func(a, b lifelineEnd) bool) []succession {
 	later := make([][]int, len(successions))
 	indegree := make([]int, len(successions))
