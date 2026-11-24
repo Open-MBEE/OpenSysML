@@ -10,9 +10,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
-// strictRedefinitionFixture is the model the strict redefinition check must
-// reject: `length` resolves through the import, but HotLegPipe declares no such
-// member, so `:>> length` has nothing to redefine in the pipe's type.
+// strictRedefinitionFixture declares a pipe typed by a type with no `length`;
+// the name resolves through an import, so only strict mode rejects it.
 const strictRedefinitionFixture = "../../../tests/testdata/passes/strict_redefinition_resolves_to_nothing.sysml"
 
 func strictRedefinitionDiags(t *testing.T, name, src string, mode diag.ConformanceMode) []diag.Diagnostic {
@@ -116,6 +115,82 @@ func TestStrictRedefinitionAcceptsSnapshotOfEnclosingType(t *testing.T) {
 		if d.Code == CodeRedefinitionResolvesToNothing {
 			t.Errorf("unexpected %s: %s", d.Code, d.Message)
 		}
+	}
+}
+
+// A member of an enclosing type is not a member of the declaring type: the
+// narrow context must still report a targetless redefinition.
+func TestStrictRedefinitionDoesNotBorrowAnEnclosingTypeName(t *testing.T) {
+	const src = `package P {
+		part def Outer {
+			attribute length;
+			part def Inner { attribute diameter; }
+			part pipe : Inner {
+				attribute :>> length = 7;
+			}
+		}
+	}`
+	got := strictRedefinitionDiags(t, "model.sysml", src, diag.ConformanceStrict)
+	var found []diag.Diagnostic
+	for _, d := range got {
+		if d.Code == CodeRedefinitionResolvesToNothing {
+			found = append(found, d)
+		}
+	}
+	if len(found) != 1 {
+		t.Fatalf("got %d %s diagnostics, want one: %+v", len(found), CodeRedefinitionResolvesToNothing, got)
+	}
+	if !strings.Contains(found[0].Message, "in Inner") {
+		t.Errorf("message = %q, want the declaring type Inner", found[0].Message)
+	}
+}
+
+// A target the redefining feature cannot access is already reported by the
+// inheritance rule; the strict check must not add a contradictory second finding.
+func TestStrictRedefinitionDefersToTheInheritanceRule(t *testing.T) {
+	const src = `package P {
+		part def A { attribute diameter; }
+		part def B { attribute length; }
+		part p : A {
+			attribute :>> B::length = 1;
+		}
+	}`
+	got := strictRedefinitionDiags(t, "model.sysml", src, diag.ConformanceStrict)
+	var related []diag.Diagnostic
+	for _, d := range got {
+		if d.Code == CodeRedefinitionResolvesToNothing || d.Code == "redefinition-no-inherited" {
+			related = append(related, d)
+		}
+	}
+	if len(related) != 1 || related[0].Code != "redefinition-no-inherited" {
+		t.Fatalf("got %+v, want only redefinition-no-inherited", related)
+	}
+}
+
+// A targetless redefinition in a snapshot reports the occurrence's type, not
+// the snapshot usage that declares the clause.
+func TestStrictRedefinitionSnapshotFailureNamesTheOccurrenceType(t *testing.T) {
+	const src = `package P {
+		private import ISQBase::*;
+		occurrence def Callout { attribute diameter; }
+		occurrence callout17 : Callout {
+			snapshot arrival {
+				attribute :>> length = 10.0 [SI::m];
+			}
+		}
+	}`
+	got := strictRedefinitionDiags(t, "model.sysml", src, diag.ConformanceStrict)
+	var found []diag.Diagnostic
+	for _, d := range got {
+		if d.Code == CodeRedefinitionResolvesToNothing {
+			found = append(found, d)
+		}
+	}
+	if len(found) != 1 {
+		t.Fatalf("got %d %s diagnostics, want one: %+v", len(found), CodeRedefinitionResolvesToNothing, got)
+	}
+	if !strings.Contains(found[0].Message, "in Callout") {
+		t.Errorf("message = %q, want the occurrence type Callout", found[0].Message)
 	}
 }
 

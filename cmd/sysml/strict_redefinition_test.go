@@ -2,9 +2,8 @@ package main
 
 import "testing"
 
-// strictRedefinitionFile declares a pipe typed by HotLegPipe and redefines a
-// `length` that the type does not declare; the name resolves through an import,
-// so only strict conformance can tell the redefinition has no target.
+// strictRedefinitionFile redefines a `length` HotLegPipe does not declare;
+// the name resolves through an import, so only strict mode rejects it.
 const strictRedefinitionFile = "../../tests/testdata/passes/strict_redefinition_resolves_to_nothing.sysml"
 
 func TestStrictConformanceRejectsRedefinitionResolvingToNothing(t *testing.T) {

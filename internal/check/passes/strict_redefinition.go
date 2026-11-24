@@ -9,22 +9,16 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
-// CodeRedefinitionResolvesToNothing marks a `:>>` clause that names no member of
-// the type declaring the redefining feature.
+// CodeRedefinitionResolvesToNothing marks a `:>>` clause naming no member of the declaring type.
 const CodeRedefinitionResolvesToNothing = "redefinition-resolves-to-nothing"
 
-// StrictRedefinitionPass reports redefinitions that name nothing in the type that
-// declares them. A Redefinition replaces a feature the declaring type inherits
-// (KerML 1.0 §8.3.3.3.6): a name the resolver reaches only through an import or
-// the enclosing namespace is not a member of that type, and the redefinition
-// would be written into the export as a handle with no target. Under strict
-// conformance that is an error; in the default mode the pass reports nothing,
-// so models using OpenSysML's looser name lookup are unaffected.
+// StrictRedefinitionPass reports targetless redefinitions, in strict conformance only.
+// It is an export-integrity check over members, not an extension to the grammar.
 type StrictRedefinitionPass struct{}
 
 func (StrictRedefinitionPass) Level() PassLevel { return LevelConstraint }
 
-// Run walks the document's symbols in the strict conformance mode only.
+// Run walks the document's features only when the caller asked for strict conformance.
 func (StrictRedefinitionPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || !ctx.Options.Conformance.IsStrict() || ctx.Index == nil || root == nil {
 		return nil
@@ -33,10 +27,7 @@ func (StrictRedefinitionPass) Run(ctx *Context, name string, root *ast.RootNames
 	if rootScope == nil {
 		return nil
 	}
-	c := &strictRedefinitionChecker{
-		model: ctx.Model(),
-		seen:  make(map[*symbols.Symbol]bool),
-	}
+	c := &strictRedefinitionChecker{model: ctx.Model(), seen: make(map[*symbols.Symbol]bool)}
 	c.walk(rootScope)
 	return c.diags
 }
@@ -47,8 +38,7 @@ type strictRedefinitionChecker struct {
 	diags []diag.Diagnostic
 }
 
-// walk visits every symbol of the subtree once: a declaration with a short and
-// a primary name registers the same *Symbol under two keys.
+// walk visits each symbol once, deduping the two keys of a short/primary-name declaration.
 func (c *strictRedefinitionChecker) walk(scope *symbols.Scope) {
 	if scope == nil {
 		return
@@ -68,7 +58,7 @@ func (c *strictRedefinitionChecker) check(sym *symbols.Symbol) {
 	if !sym.IsFeature() {
 		return
 	}
-	types := c.contextTypes(sym)
+	types, named := c.contextTypes(sym)
 	if len(types) == 0 {
 		return
 	}
@@ -76,69 +66,84 @@ func (c *strictRedefinitionChecker) check(sym *symbols.Symbol) {
 		if rel == nil || rel.Kind != ast.RelRedefines || rel.Target == nil {
 			continue
 		}
-		// A chain redefines below the feature its prefix denotes; whether that
-		// feature owns the leaf is a separate rule (redefinition-through-reference).
-		if chainTarget(rel.Target) {
+		// Chains and unresolved names are judged by their own rules.
+		target := c.model.RelationshipTarget(sym, rel)
+		if chainTarget(rel.Target) || target == nil {
 			continue
 		}
 		member, _ := ast.TargetName(rel.Target)
-		if member == "" {
+		if member == "" || c.inaccessible(sym, rel, target) || c.resolvesIn(types, sym, member) {
 			continue
 		}
-		// A name that names no element is the name-resolution tier's finding;
-		// reporting it here too would duplicate it.
-		if c.model.RelationshipTarget(sym, rel) == nil {
-			continue
-		}
-		if c.resolvesIn(types, sym, member) {
-			continue
+		typ := types[0]
+		if named != nil {
+			typ = named
 		}
 		c.diags = append(c.diags, diag.Diagnostic{
 			Severity: diag.SeverityError,
 			Span:     rel.Target.Span(),
-			Message:  fmt.Sprintf("member %s redefines nothing resolvable in %s", member, types[0].Name),
+			Message:  fmt.Sprintf("member %s redefines nothing resolvable in %s", member, typ.Name),
 			Code:     CodeRedefinitionResolvesToNothing,
 			Source:   "constraint",
 		})
 	}
 }
 
-// contextTypes is the chain of types whose members a redefinition written in
-// sym can name. The innermost is the declared type of the owning usage, or the
-// owning definition; the enclosing usages contribute theirs too, since a body
-// nested in one (a snapshot or timeslice of an occurrence) redefines features
-// of the type that occurrence instantiates. Packages and namespaces own no
-// feature members and end the chain.
-func (c *strictRedefinitionChecker) contextTypes(sym *symbols.Symbol) []*symbols.Symbol {
+// inaccessible leaves a failed featuring-type check to the always-on redefinition rule.
+func (c *strictRedefinitionChecker) inaccessible(sym *symbols.Symbol, rel *ast.Relationship, target *symbols.Symbol) bool {
+	if target == nil || target == sym || !target.IsFeature() {
+		return false
+	}
+	accessed := target
+	if path := c.model.ChainTargetPath(sym, rel.Kind, rel.Target); len(path) > 0 {
+		accessed = path[0]
+	}
+	return accessed != nil && accessed.IsFeature() && !c.model.CanAccess(sym, accessed)
+}
+
+// contextTypes lists the declaring type's members and, for a portion, its occurrence's.
+// Only snapshot and timeslice owners contribute an enclosing occurrence's declared type.
+func (c *strictRedefinitionChecker) contextTypes(sym *symbols.Symbol) ([]*symbols.Symbol, *symbols.Symbol) {
 	var types []*symbols.Symbol
-	seen := make(map[*symbols.Symbol]bool)
+	var named *symbols.Symbol
+	seen := map[*symbols.Symbol]bool{}
 	add := func(owner *symbols.Symbol) {
 		if owner == nil || owner.Kind == symbols.SymbolPackage || owner.Kind == symbols.SymbolNamespace {
 			return
 		}
 		declared := c.model.DeclaredTypes(owner)
-		if len(declared) == 0 {
+		fromTyping := len(declared) > 0
+		if !fromTyping {
 			declared = []*symbols.Symbol{owner}
 		}
 		for _, typ := range declared {
-			if typ != nil && !seen[typ] {
-				seen[typ] = true
-				types = append(types, typ)
+			if typ == nil || seen[typ] {
+				continue
+			}
+			seen[typ] = true
+			types = append(types, typ)
+			if fromTyping && named == nil {
+				named = typ
 			}
 		}
 	}
-	if owner := c.model.OwningType(sym); owner != nil {
+	owner := c.model.OwningType(sym)
+	if owner == nil && sym.OwnerScope != nil {
+		owner = sym.OwnerScope.Owner()
+	}
+	add(owner)
+	for portionUsage(owner) {
+		parent := owner.OwnerScope
+		if parent == nil {
+			break
+		}
+		owner = parent.Owner()
 		add(owner)
 	}
-	for scope := sym.OwnerScope; scope != nil; scope = scope.Parent() {
-		add(scope.Owner())
-	}
-	return types
+	return types, named
 }
 
-// resolvesIn reports whether the type offers a member of that name to the
-// declaration being written. The declaring view suspends the mask the feature
-// being checked would itself cause, so its own redefinition stays visible.
+// resolvesIn checks the declaring member view, which suspends the mask the clause itself causes.
 func (c *strictRedefinitionChecker) resolvesIn(types []*symbols.Symbol, sym *symbols.Symbol, member string) bool {
 	for _, typ := range types {
 		if typ == nil {
@@ -153,8 +158,19 @@ func (c *strictRedefinitionChecker) resolvesIn(types []*symbols.Symbol, sym *sym
 	return false
 }
 
-// chainTarget reports whether a relationship target is written as a feature
-// chain (`a.b`) rather than a name, unwrapping a feature reference to its name.
+// portionUsage reports a snapshot or timeslice, whose names read from its occurrence.
+func portionUsage(sym *symbols.Symbol) bool {
+	if sym == nil {
+		return false
+	}
+	if sym.Recorded() {
+		return sym.Facts != nil && sym.Facts.Modifiers.Has(symbols.ModPortion)
+	}
+	u, ok := sym.Decl.(*ast.Usage)
+	return ok && u.Portion != ast.PortionNone
+}
+
+// chainTarget reports a chain target, unwrapping a feature reference to its name.
 func chainTarget(node ast.Node) bool {
 	if ref, ok := node.(*ast.FeatureReference); ok {
 		node = ref.Name

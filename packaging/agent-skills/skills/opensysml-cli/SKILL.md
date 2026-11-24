@@ -21,7 +21,8 @@ cat model.sysml | sysml -validate -    # `-` reads standard input
 A model with any error is never run or checked: every mode reports `did not analyse cleanly; no
 check was made` and exits 2. Read and fix the diagnostics (`file:line:col: error: ...`, with a caret
 under the location) before anything else. Add `-strict` when another SysML v2 tool must read the
-model: OpenSysML's own notations then become errors instead of warnings.
+model: OpenSysML's own notations then become errors instead of warnings, duplicate member names
+become errors, and a `:>>` redefinition naming no member of the declaring type is rejected.
 
 ## Exit status
 

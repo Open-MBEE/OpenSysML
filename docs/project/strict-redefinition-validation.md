@@ -30,6 +30,9 @@ Chain redefinitions (`:>> a.b`) are left to the rule that already judges them by
 - **No export-side repair.** Dropping the dangling handle in the writer would hide the invalid input instead of rejecting it, and would leave strict validation answering a different question from the element form.
 - **No new flag or mode.** Strict conformance already exists on every surface; a separate switch would fragment the meaning of `-strict`.
 - **Name-based lookup in the declaring view, not symbol identity.** A qualified target that names an equivalent inherited member is accepted rather than reported; this favours a small number of missed exotic cases over false positives on conforming models.
+- **Only portions widen the declaring context.** An earlier version added every enclosing scope owner, which let a member of an enclosing type stand in for a member of the declaring type. The context now widens only while the immediate owner is a snapshot or timeslice, because those bodies read names from the occurrence they portion. An ordinary nested definition or usage contributes nothing from its parent.
+- **Defer inaccessible targets to the inheritance rule.** A target the redefining feature cannot access is already reported by `redefinition-no-inherited`. The strict pass declines those relationships instead of adding a second, contradictory finding; it reports only where the target is accessible yet absent from the declaring type.
+- **Name the declared type, not a bare usage.** When an immediate owner such as a snapshot has no declared typing, the diagnostic names the enclosing occurrence's declared type, since that is the type whose members were actually searched.
 
 ## Public surface added
 
@@ -46,6 +49,9 @@ Chain redefinitions (`:>> a.b`) are left to the rule that already judges them by
 | Named diagnostic pins code, message, span and severity | `internal/check/passes/strict_redefinition_test.go:TestStrictRedefinitionResolvesToNothing` |
 | Declared and inherited targets stay legal | `TestStrictRedefinitionAcceptsDeclaredAndInheritedMembers` |
 | Snapshot and timeslice bodies of an occurrence stay legal | `TestStrictRedefinitionAcceptsSnapshotOfEnclosingType` |
+| A member of an enclosing type is not borrowed as a member of the declaring type | `TestStrictRedefinitionDoesNotBorrowAnEnclosingTypeName` |
+| An inaccessible target is left to the inheritance rule, with exactly one finding | `TestStrictRedefinitionDefersToTheInheritanceRule` |
+| A snapshot failure names the occurrence's type, not the snapshot usage | `TestStrictRedefinitionSnapshotFailureNamesTheOccurrenceType` |
 | Chain targets stay with their own rule | `TestStrictRedefinitionLeavesChainsToTheirOwnRule` |
 | Unresolved names stay with name resolution | `TestStrictRedefinitionLeavesUnresolvedNamesToNameResolution` |
 | Code is documented and explainable | `internal/check/codes` `TestCatalogueIsCurrent`, `TestCatalogueAnchorsEveryCode`; `cmd/sysml/explain_test.go` |
@@ -61,12 +67,16 @@ All commands ran from the worktree root. Parallel builds in sibling worktrees ex
 | `gofmt -l .` | clean (no output) |
 | `go build ./...` | pass |
 | `go vet ./...` | pass |
-| `go test -count=1 -run 'TestStrictRedefinition' ./internal/check/passes/` | pass — code, message, span, severity, default no-op, declared/inherited/snapshot/chain/unresolved cases |
-| `go test -count=1 -run TestStrictConformanceRejectsRedefinitionResolvingToNothing ./cmd/sysml/` | pass (exit 2, code, message, `10:27`) |
-| `go test -count=1 -timeout 30m ./internal/check/passes/...` | pass (`internal/check/passes` 810.669s; behavior, diagram, document, identity and kit also pass) |
-| `go test -count=1 ./internal/check/codes/` | pass (0.141s) — catalogue drift and anchors |
+| `go test -p 2 -count=1 -run 'TestStrictRedefinition' ./internal/check/passes/` | pass — nine tests: code/message/span/severity, default no-op, declared/inherited/owned, snapshot, enclosing-name rejection, inheritance-rule deferral, snapshot naming, chains, unresolved names |
+| `go test -p 2 -count=1 -run TestStrictConformanceRejectsRedefinitionResolvingToNothing ./cmd/sysml/` | pass (exit 2, code, message, `10:27`) |
+| `make diagnostics-check` / `go test -count=1 -run TestCatalogueIsCurrent ./internal/check/codes` | pass (0.013s) |
+| `go test -p 2 -count=1 ./tests/hygiene/` | pass (34.417s) |
+| `go test -p 2 -count=1 -run TestSelfModelPassRegistryMatchesImplementation ./examples/` | pass (0.242s) — the self-model's `PassRegistry` now declares the pass and `passCount = 67` |
+| Bounded full suite `go test -p 1 -count=1 -timeout 45m ./...` (GOMAXPROCS=2) | cancelled by a server restart after roughly 50 minutes; before cancellation `cmd/sysml` (855.398s), `internal/check/passes` (182.267s), runtime (513.918s), SMT (474.156s) and the other reached packages passed. The one failure, `TestSelfModelPassRegistryMatchesImplementation`, was fixed by updating `examples/self-model/pipeline.sysml` and now passes |
 | `python3 scripts/check-doc-ids.py`, `python3 scripts/spec_compliance.py check`, `python3 scripts/changelog.py check` | pass; 57 compliance sources well-formed |
+| Comment-length `awk` gate over the added Go files | empty (no comment block over two lines) |
 | `make diagnostics-catalogue` | regenerated `docs/reference/diagnostics.md` from the registry |
+| CLI probes for an enclosing-name case and a qualified-target case | enclosing name: only `redefinition-resolves-to-nothing` (`in Inner`); qualified target: only `redefinition-no-inherited` |
 | Strict-mode sweep of every committed model under `examples/` and `tests/testdata/` | only the intentional repro fixture produced `redefinition-resolves-to-nothing`; the two snapshot/timeslice false positives found during development were removed |
 | `go test -count=1 -run '^$' ./...` | pass — every test package compiles |
 
@@ -77,7 +87,8 @@ The corpus gates printed explicit `GATE NOT RUN` banners for the absent OMG trai
 ## Known limitations and follow-ups
 
 - The check is name-based: a qualified target that names a different feature while a same-named member exists in the declaring context is accepted. This avoids false positives on conforming models but leaves a narrow class of wrong-qualifier cases to the existing accessibility rules.
-- The declaring context includes enclosing usages so that snapshot and timeslice redefinitions resolve against the occurrence's type. A contrived model that redefines a same-named member of an enclosing type rather than of the immediately declaring type stays silent.
+- The declaring context widens only through snapshot and timeslice owners. A redefinition inside an ordinary nested definition or usage cannot reach a member of its enclosing type, which is deliberate; a legitimate redefinition of such a member must be written where that type is declared or inherited.
 - Chain redefinitions whose leaf is absent from the type reached by their prefix are not covered here; they remain under the chain-specific rules.
+- The in-tree `packaging/agent-skills/` copy of the CLI skill is updated here. The corresponding change in the separate `Open-MBEE/OpenSysML-MDK-Skills` repository is not part of this tree and remains to be opened there; this tree does not claim it was done.
 - The downloaded OMG corpora and specification examples are not present in a fresh checkout, and their gates skip with explicit banners rather than passing silently. The committed examples were swept in strict mode and only the intentional repro fixture produced the new finding.
 - No upstream issue tracks this capability; the nearest prior art is the unresolved-reference work in issues [#649](https://github.com/Open-MBEE/OpenSysML/issues/649)/[#650](https://github.com/Open-MBEE/OpenSysML/issues/650) and the featuring-type checks in [PR #2306](https://github.com/Open-MBEE/OpenSysML/pull/2306).

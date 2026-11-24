@@ -1715,9 +1715,7 @@ Specification: KerML 1.0 validateRedefinitionFeaturingTypes
 
 **error** · Constraints · a strict-conformance `:>>` naming no member of the declaring type
 
-A redefinition replaces a feature the type declaring it owns or inherits. The name resolves elsewhere — an import or the enclosing namespace — but that type has no such member, so the redefinition has no target. Redefine a member the type declares or inherits, or drop the redefinition. Reported only under strict conformance.
-
-Specification: KerML 1.0 §8.3.3.3.6 Redefinition
+OpenSysML's strict-conformance export-integrity check: a redefinition replaces a feature the declaring type owns or inherits, but the name resolves only through an import or the enclosing namespace, so the redefinition would export a `redefines` handle with no target. Redefine a member the type declares or inherits, or drop the redefinition. The default mode keeps the looser name lookup.
 
 #### `redefinition-same-featuring`
 
