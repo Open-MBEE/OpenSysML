@@ -91,3 +91,27 @@ func TestHungUpRequestEndsItsToolCall(t *testing.T) {
 		t.Fatal("the tool call outlived the request its client dropped")
 	}
 }
+
+// TestCallOfAnEndedRequestIsNotStarted checks a call dispatched after the POST
+// that carried it ended is given a context already over, and that a call no
+// POST carried, as over stdio, is left its own.
+func TestCallOfAnEndedRequestIsNotStarted(t *testing.T) {
+	var live liveRequests
+	var carried http.Header
+	live.track(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) { carried = r.Header })).
+		ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodPost, HTTPPath, nil))
+	if carried.Get(requestHeader) == "" {
+		t.Fatal("the POST was not numbered")
+	}
+
+	late, release := live.bound(context.Background(), &sdk.CallToolRequest{Extra: &sdk.RequestExtra{Header: carried}})
+	defer release()
+	if late.Err() == nil {
+		t.Error("a call of a POST that already ended was left running")
+	}
+	local, release := live.bound(context.Background(), &sdk.CallToolRequest{})
+	defer release()
+	if local.Err() != nil {
+		t.Error("a call no POST carried was ended")
+	}
+}

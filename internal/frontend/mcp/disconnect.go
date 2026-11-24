@@ -56,10 +56,16 @@ func (l *liveRequests) bound(ctx context.Context, req sdk.Request) (context.Cont
 	if extra == nil || extra.Header == nil {
 		return ctx, cancel
 	}
+	id := extra.Header.Get(requestHeader)
+	if id == "" {
+		return ctx, cancel
+	}
 	l.mu.Lock()
-	post := l.ctx[extra.Header.Get(requestHeader)]
+	post := l.ctx[id]
 	l.mu.Unlock()
 	if post == nil {
+		// The POST ended before its call was dispatched.
+		cancel()
 		return ctx, cancel
 	}
 	stop := context.AfterFunc(post, cancel)
