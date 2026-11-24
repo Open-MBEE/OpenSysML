@@ -6,6 +6,8 @@
       (Membership visibility="default"
         (Definition kind="part" abstract=false variation=false name="B"))
       (Membership visibility="default"
+        (Definition kind="port" abstract=false variation=false name="C"))
+      (Membership visibility="default"
         (Usage kind="part" name="g" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
           (Relationship kind="typing" target=A
             (*ast.QualifiedName))))
@@ -24,4 +26,20 @@
                 (*ast.QualifiedName))
               (Relationship kind="subsets" target=g
                 (*ast.QualifiedName))
-              (FeatureReference name="a"))))))))
+              (FeatureReference name="a")))
+          (InvocationExpr type="collect"
+            (FeatureReference name="xs")
+            (BodyExpr params=[b:A]
+              (Relationship kind="typing" target=B
+                (*ast.QualifiedName))
+              (Relationship kind="subsets" target=g
+                (*ast.QualifiedName))
+              (FeatureReference name="b")))
+          (InvocationExpr type="collect"
+            (FeatureReference name="xs")
+            (BodyExpr params=[c]
+              (Relationship kind="typing" target=C conjugated=true
+                (*ast.QualifiedName))
+              (Relationship kind="typing" target=C conjugated=true
+                (*ast.QualifiedName))
+              (FeatureReference name="c"))))))))

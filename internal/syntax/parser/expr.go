@@ -723,23 +723,34 @@ func (p *Parser) parseBodyExpr(start int) ast.Node {
 		}
 		if ok {
 			var paramMembers []ast.Node
+			var paramRels []*ast.Relationship
 			if p.at(lexer.Colon) {
 				p.advance() // :
-				paramType = p.parseQualifiedName()
-				// Parse optional multiplicity after type
-				if p.at(lexer.LBracket) {
-					paramMult = p.parseMultiplicity()
+				// A conjugated type (`in p : ~P`) is a relationship; Type names a plain first one.
+				if p.at(lexer.Tilde) {
+					paramRels = p.parseTypingRelationships()
+				} else {
+					paramType = p.parseQualifiedName()
+					// Parse optional multiplicity after type
+					if p.at(lexer.LBracket) {
+						paramMult = p.parseMultiplicity()
+					}
+					// The typing clause lists its further types (`in p : A, B`) as a head's does.
+					if paramType != nil && p.accept2(lexer.Comma) {
+						paramRels = p.parseTypingRelationships()
+					}
 				}
-			}
-			// The typing clause lists its further types (`in p : A, B`) as a head's does.
-			var paramRels []*ast.Relationship
-			for paramType != nil && p.accept2(lexer.Comma) {
-				paramRels = append(paramRels, p.parseRelationshipClauseTarget(ast.RelTyping))
 			}
 			// A parameter may specialize a feature instead of naming a type
 			// (`in p :> ISQ::mass`), which is how a filter names the feature its
 			// elements redefine.
-			paramRels = append(paramRels, p.parseRelationships(declFeature)...)
+			var seen relClauseState
+			paramRels = append(paramRels, p.parseRelationshipsInto(declFeature, &seen)...)
+			// FeatureSpecialization* MultiplicityPart? FeatureSpecialization* (KerML.xtext:574).
+			if paramMult == nil && p.at(lexer.LBracket) {
+				paramMult = p.parseMultiplicity()
+				paramRels = append(paramRels, p.parseRelationshipsInto(declFeature, &seen)...)
+			}
 			if _, ok := p.accept(lexer.Eq); ok {
 				paramValue = p.ParseExpression()
 			}
