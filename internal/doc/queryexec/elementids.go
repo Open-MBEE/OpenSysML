@@ -43,6 +43,9 @@ const defaultMultiplicitySlot = "multiplicity"
 // loopVariableSlot is the slot the conversion mints a `for` loop's variable under.
 const loopVariableSlot = "loopVariable"
 
+// loopBodySlot is the slot the conversion files a loop's body at.
+const loopBodySlot = "loopBody"
+
 // defaultMultiplicityOwner is the node of the usage whose implicit [1..1] sym
 // states (semantics.DefaultMultiplicityMember), by its span when the usage is a record.
 func defaultMultiplicityOwner(sym *symbols.Symbol) (ast.Node, bool) {
@@ -141,6 +144,35 @@ func rangeBoundSlot(sym *symbols.Symbol) (ast.Node, string, bool) {
 	return owner.OwnerScope.Owner().Decl, sym.Expr.Slot, true
 }
 
+// nodeParameterSlot is the statement whose parameter or loop body sym is and the slot the
+// conversion files it at: a parameter's own, under those of the parameters nesting it.
+func nodeParameterSlot(sym *symbols.Symbol) (ast.Node, string, bool) {
+	if sym == nil || sym.Expr == nil {
+		return nil, "", false
+	}
+	slot, owner := loopBodySlot, sym.Expr.Owner
+	switch sym.Expr.Role {
+	case symbols.ExpressionLoopBody:
+	case symbols.ExpressionNodeParameter:
+		slot = sym.Expr.Slot
+		for ; owner != nil && owner.Expr != nil && owner.Expr.Role == symbols.ExpressionNodeParameter; owner = owner.Expr.Owner {
+			slot = owner.Expr.Slot + "." + slot
+		}
+	default:
+		return nil, "", false
+	}
+	if owner == nil || owner.Decl == nil {
+		return nil, "", false
+	}
+	if usage, named := owner.Decl.(*ast.Usage); named {
+		// `action a for …` is the loop: its parts are filed under the statement.
+		if statement := semantics.NodeStatementOf(usage); statement != nil {
+			return statement, slot, true
+		}
+	}
+	return owner.Decl, slot, true
+}
+
 // sendArgumentSlot is the send whose argument parameter sym is and the slot the conversion
 // files it at (`arg%d`, the argument's position: payload, sender, receiver).
 func sendArgumentSlot(sym *symbols.Symbol) (ast.Node, string, bool) {
@@ -223,6 +255,10 @@ func ElementIDOf(read ElementIDReader, idx *symbols.Index, sym *symbols.Symbol) 
 	if target, ok := headClauseChain(sym); ok {
 		// The chain Feature a head clause's chain target denotes is minted under the head (headChain).
 		element, _, err := read.ReadExpressionPart(sym.DocName, target, "chain")
+		return element, err
+	}
+	if statement, slot, ok := nodeParameterSlot(sym); ok {
+		element, _, err := read.ReadExpressionPart(sym.DocName, statement, slot)
 		return element, err
 	}
 	if semantics.IsLoopVariable(sym) {
@@ -339,6 +375,10 @@ func implicitMembershipID(read ElementIDReader, idx *symbols.Index, member *symb
 	if flow, slot, ok := flowEndFeatureSlot(member); ok {
 		// The ReferenceUsage a flow's end owns is minted under the end with its FeatureMembership (`_pff_om`).
 		_, membership, err := read.ReadExpressionPart(member.DocName, flow, slot)
+		return membership, true, err
+	}
+	if statement, slot, ok := nodeParameterSlot(member); ok {
+		_, membership, err := read.ReadExpressionPart(member.DocName, statement, slot)
 		return membership, true, err
 	}
 	if semantics.IsLoopVariable(member) {

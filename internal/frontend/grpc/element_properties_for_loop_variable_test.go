@@ -32,10 +32,12 @@ func TestElementPropertiesReadAForLoopVariable(t *testing.T) {
 		if names := r.property(variable, "declaredName").Values; len(names) != 1 || names[0].GetStringValue() != "i" {
 			t.Errorf("%s: the first owned feature %s is named %v, want i", loop, variable, names)
 		}
-		for _, property := range []string{"loopVariable", "nestedReference"} {
-			if got := propertyElementIDs(r.property(loop, property).Values); !slices.Equal(got, []string{variable}) {
-				t.Errorf("%s: %s = %v, want %s", loop, property, got, variable)
-			}
+		if got := propertyElementIDs(r.property(loop, "loopVariable").Values); !slices.Equal(got, []string{variable}) {
+			t.Errorf("%s: loopVariable = %v, want %s", loop, got, variable)
+		}
+		// The collection's parameter is a ReferenceUsage the loop nests after its variable.
+		if got := propertyElementIDs(r.property(loop, "nestedReference").Values); len(got) != 2 || got[0] != variable {
+			t.Errorf("%s: nestedReference = %v, want %s and the collection's parameter", loop, got, variable)
 		}
 		if got := propertyElementIDs(r.property(variable, "type").Values); len(got) != 1 {
 			t.Errorf("%s: type = %v, want Integer alone", variable, got)
