@@ -21,6 +21,9 @@ func TestRuntimeRobustnessActionLocalConnection(t *testing.T) {
 	t.Run("read_from_the_enclosing_action", testActionLocalConnectionReadFromParent)
 	t.Run("held_by_the_performance_occurrence", testActionLocalConnectionOccurrence)
 	t.Run("carried_by_a_held_image", testActionLocalConnectionHeldImage)
+	t.Run("end_read_by_feature_chain", testActionLocalConnectionEndChain)
+	t.Run("written_through_a_feature_chain", testActionLocalConnectionChainWrite)
+	t.Run("read_by_the_definition_qualified_name", testActionLocalConnectionDefinitionQualified)
 	t.Run("end_selecting_nothing", testActionLocalConnectionEndSelectingNothing)
 }
 
@@ -28,7 +31,7 @@ const actionLocalConnectionFixture = `
 	package test {
 		part def Node;
 		item def Go;
-		connection def Link { end left : Node; end right : Node; }
+		connection def Link { end left : Node; end right : Node; attribute weight : ScalarValues::Integer [0..1]; }
 		action def Connect {
 			in ref firstNode : Node;
 			in ref secondNode : Node;
@@ -50,6 +53,8 @@ const actionLocalConnectionFixture = `
 			ref again : Link [0..*];
 			ref staged : Link [0..*];
 			ref stagedAgain : Link [0..*];
+			ref seen : Node [0..*];
+			ref seenAgain : Node [0..*];
 			action connectNodes {
 				in ref firstNode : Node;
 				in ref secondNode : Node;
@@ -132,6 +137,25 @@ const actionLocalConnectionFixture = `
 				}
 				then action wait { accept Go; }
 				then action read { assign stagedAgain := child.link; }
+			}
+			action connectChain {
+				in ref firstNode : Node;
+				in ref secondNode : Node;
+				connection link : Link connect firstNode to secondNode;
+				assign seen := link.left;
+				assign seenAgain := link.right;
+			}
+			action connectChainWrite {
+				in ref firstNode : Node;
+				in ref secondNode : Node;
+				connection link : Link connect firstNode to secondNode;
+				assign link.weight := 3;
+				then assign links := link;
+			}
+			action connectDefinitionQualified : Connect {
+				assign seen := Connect::link.left;
+				then assign links := Connect::link;
+				then assign again := link;
 			}
 			action connectIndexed {
 				in ref firstNode : Node;
@@ -383,5 +407,64 @@ func testActionLocalConnectionEndSelectingNothing(t *testing.T) {
 	}
 	if fv, err := inst.GetFeatureValue(ctx, "links"); err != nil || len(elementsOf(fv.HeldValue())) != 0 {
 		t.Errorf("links = %v, %v, want none", fv, err)
+	}
+}
+
+// testActionLocalConnectionEndChain: `link.left` attaches the performance's connector
+// when no bare `link` has read it, and reads that connector's end.
+func testActionLocalConnectionEndChain(t *testing.T) {
+	ctx, inst, a, b := actionLocalConnectionNetwork(t)
+	before := len(ctx.instances)
+	if _, err := ctx.invokeOperation(inst, "connectChain", map[string]Value{"firstNode": a, "secondNode": b}); err != nil {
+		t.Fatalf("connectChain(a, b): %v", err)
+	}
+	if got := networkObject(t, ctx, inst, "seen"); !valueIdentical(got, a) {
+		t.Errorf("link.left = %v, want %v", got, a)
+	}
+	if got := networkObject(t, ctx, inst, "seenAgain"); !valueIdentical(got, b) {
+		t.Errorf("link.right = %v, want %v", got, b)
+	}
+	if made := len(ctx.instances) - before; made != 1 {
+		t.Errorf("the performance made %d objects, want its one connector", made)
+	}
+}
+
+// testActionLocalConnectionDefinitionQualified: a usage reading the connection it inherits
+// by its definition's qualified name, in a chain and alone, names the one connector a bare read names.
+func testActionLocalConnectionDefinitionQualified(t *testing.T) {
+	ctx, inst, a, b := actionLocalConnectionNetwork(t)
+	before := len(ctx.instances)
+	if _, err := ctx.invokeOperation(inst, "connectDefinitionQualified", map[string]Value{"firstNode": a, "secondNode": b}); err != nil {
+		t.Fatalf("connectDefinitionQualified(a, b): %v", err)
+	}
+	if got := networkObject(t, ctx, inst, "seen"); !valueIdentical(got, a) {
+		t.Errorf("Connect::link.left = %v, want %v", got, a)
+	}
+	if qualified, bare := wantLinkEnds(t, ctx, inst, "links", a, b), wantLinkEnds(t, ctx, inst, "again", a, b); qualified != bare {
+		t.Errorf("qualified and bare reads hold connectors #%d and #%d, want one", qualified, bare)
+	}
+	if made := len(ctx.instances) - before; made != 1 {
+		t.Errorf("the performance made %d objects, want its one connector", made)
+	}
+}
+
+// testActionLocalConnectionChainWrite: `assign link.weight := 3` attaches the performance's
+// connector and writes on it, the one a later bare read names.
+func testActionLocalConnectionChainWrite(t *testing.T) {
+	ctx, inst, a, b := actionLocalConnectionNetwork(t)
+	before := len(ctx.instances)
+	if _, err := ctx.invokeOperation(inst, "connectChainWrite", map[string]Value{"firstNode": a, "secondNode": b}); err != nil {
+		t.Fatalf("connectChainWrite(a, b): %v", err)
+	}
+	conn := ctx.instances[wantLinkEnds(t, ctx, inst, "links", a, b)]
+	fv, err := conn.GetFeatureValue(ctx, "weight")
+	if err != nil {
+		t.Fatalf("weight: %v", err)
+	}
+	if got := fv.HeldValue(); !valueIdentical(got, constInt(3)) {
+		t.Errorf("link.weight = %v, want 3", got)
+	}
+	if made := len(ctx.instances) - before; made != 1 {
+		t.Errorf("the performance made %d objects, want its one connector", made)
 	}
 }
