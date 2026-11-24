@@ -2,6 +2,7 @@ package passes
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -207,18 +208,31 @@ func (a *hdbkAudit) kindOfType(t *symbols.Symbol) hdbkKind {
 }
 
 // declaredKind is the kind of a part, requirement or verification case usage
-// the model declares. Nothing else is classified: a satisfy or verify naming a
-// requirement is not another one, and an annotation body is read once resolved.
+// the model declares, read from a recorded symbol's facts as from a body. A
+// satisfy or verify is one only when it declares the requirement it names.
 func (a *hdbkAudit) declaredKind(sym *symbols.Symbol) hdbkKind {
-	usage, ok := sym.Decl.(*ast.Usage)
+	kind, ok := sym.UsageKind()
 	if !ok {
 		return hdbkNone
 	}
-	switch usage.Kind {
+	switch kind {
 	case ast.UsagePart, ast.UsageRequirement, ast.UsageVerificationCase:
 		return a.kindOf(sym)
+	case ast.UsageSatisfy:
+		if declaresRequirement(sym) {
+			return a.kindOf(sym)
+		}
 	}
 	return hdbkNone
+}
+
+// declaresRequirement reports the `requirement` of `satisfy requirement r by v`.
+func declaresRequirement(sym *symbols.Symbol) bool {
+	if sym.Recorded() {
+		return sym.Facts.Modifiers.Has(symbols.ModDeclaresRequirement)
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && usage.DeclaresRequirement
 }
 
 // gather records the kinds a document declares and the relationships it states.
@@ -245,7 +259,7 @@ func (a *hdbkAudit) gather(root *symbols.Scope) {
 				for _, e := range a.model.RelationshipEdgesOf(sym, semantics.RelationshipVerification) {
 					a.note(hdbkVerifiedBy, e.Target, e.Source)
 				}
-			case decl.Kind == ast.UsageSatisfy:
+			case decl.Kind == ast.UsageSatisfy && !decl.IsNegated:
 				for _, e := range a.model.RelationshipEdgesOf(sym, semantics.RelationshipSatisfaction) {
 					a.noteBoth(hdbkSatisfies, hdbkSatisfiedBy, e.Source, e.Target)
 				}
@@ -266,7 +280,7 @@ func (a *hdbkAudit) gather(root *symbols.Scope) {
 			}
 		}
 	}
-	each(rec.Derivations, func(s, t *symbols.Symbol) { a.note(hdbkDerivedFrom, t, s) })
+	each(rec.RequirementDerivations, func(s, t *symbols.Symbol) { a.note(hdbkDerivedFrom, t, s) })
 	each(rec.Dependencies, func(s, t *symbols.Symbol) { a.note(hdbkTracedTo, s, t) })
 	each(rec.Refinements, func(s, t *symbols.Symbol) { a.noteBoth(hdbkRefines, hdbkRefinedBy, s, t) })
 	each(rec.Verifications, func(s, t *symbols.Symbol) { a.note(hdbkVerifiedBy, t, s) })
@@ -300,7 +314,7 @@ func (a *hdbkAudit) noteBoth(forward, backward hdbkRelation, source, target *sym
 func (a *hdbkAudit) check(root *symbols.Scope) {
 	kit.WalkSymbols(a.ctx, root, func(sym *symbols.Symbol) {
 		usage, ok := sym.Decl.(*ast.Usage)
-		if !ok || usage.Kind != ast.UsageRequirement {
+		if !ok || usage.Kind != ast.UsageRequirement && !usage.DeclaresRequirement {
 			return
 		}
 		kind := a.declaredKind(sym)
@@ -317,10 +331,12 @@ func (a *hdbkAudit) check(root *symbols.Scope) {
 	})
 }
 
-// checkDerivation expects a requirement to derive from the level above it once that level exists.
+// checkDerivation expects a requirement to derive from the level above it once
+// that level exists; a level deriving from itself too does not stand for it.
 func (a *hdbkAudit) checkDerivation(sym *symbols.Symbol, key symbols.ElementKey, kind hdbkKind) {
 	from, derives := hdbkDerivesFrom[kind]
-	if !derives || !a.hasAnyKind(from) || a.linked(hdbkDerivedFrom, key, from...) {
+	above := slices.DeleteFunc(slices.Clone(from), func(k hdbkKind) bool { return k == kind })
+	if !derives || !a.hasAnyKind(above) || a.linked(hdbkDerivedFrom, key, from...) {
 		return
 	}
 	a.report(sym, CodeHDBK1009RequirementNotDerived, fmt.Sprintf(

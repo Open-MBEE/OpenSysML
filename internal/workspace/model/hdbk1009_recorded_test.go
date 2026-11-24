@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -63,5 +64,47 @@ func TestWorkspaceHDBK1009ReadsRecordedRelationships(t *testing.T) {
 	}
 	if !ws.Recorded("links.sysml") {
 		t.Fatal("links.sysml was hydrated: the fixture does not exercise recorded relationships")
+	}
+}
+
+// A recorded document still declares its kinds, and its record keeps a
+// derivation written as a typed connection.
+func TestWorkspaceHDBK1009ReadsRecordedKindsAndTypedDerivations(t *testing.T) {
+	reqs := []byte(`package Reqs {
+		private import HDBK1009::*;
+		#systemRequirement requirement sys;
+	}`)
+	const objective = `package Above {
+		private import HDBK1009::*;
+		private import Reqs::*;
+		#missionObjective requirement o;
+		%s
+	}`
+	derived := func(above string) int {
+		t.Helper()
+		content := []byte(fmt.Sprintf(objective, above))
+		loaded := NewWorkspace()
+		loaded.OpenAll([]Input{{Name: "reqs.sysml", Content: reqs, Version: 1}, {Name: "above.sysml", Content: content, Version: 1}})
+		loaded.DiagnosticsAll([]string{"reqs.sysml", "above.sysml"})
+		rec, err := loaded.InterfaceRecord("above.sysml")
+		if err != nil {
+			t.Fatal(err)
+		}
+		ws := NewWorkspace()
+		ws.Open("reqs.sysml", reqs, 1)
+		if err := ws.OpenRecorded(rec, content); err != nil {
+			t.Fatal(err)
+		}
+		n := codesOf(ws.Diagnostics("reqs.sysml"))["hdbk1009-requirement-not-derived"]
+		if !ws.Recorded("above.sysml") {
+			t.Fatal("above.sysml was hydrated: the fixture does not exercise a recorded document")
+		}
+		return n
+	}
+	if got := derived(""); got != 1 {
+		t.Errorf("beside a recorded objective: %d underived requirements, want 1", got)
+	}
+	if got := derived("connection d : DerivationConnections::Derivation connect o to sys;"); got != 0 {
+		t.Errorf("beside a recorded typed derivation: %d underived requirements, want 0", got)
 	}
 }

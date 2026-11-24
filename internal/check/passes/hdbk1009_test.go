@@ -53,6 +53,16 @@ func TestHDBK1009DerivationWaitsForTheLevelAbove(t *testing.T) {
 	w8dWantLines(t, src, CodeHDBK1009RequirementNotDerived)
 }
 
+// A subsystem requirement is not the level above itself: alone it waits for a
+// system requirement.
+func TestHDBK1009LoneSubsystemRequirementIsNotItsOwnOrigin(t *testing.T) {
+	w8dWantLines(t, hdbkModel(`
+		#subsystemRequirement requirement sub;`), CodeHDBK1009RequirementNotDerived)
+	w8dWantLines(t, hdbkModel(`
+		#systemRequirement requirement sys;
+		#subsystemRequirement requirement sub;`), CodeHDBK1009RequirementNotDerived, 4)
+}
+
 // Expectation statements trace to stakeholders; needs, goals and objectives to
 // expectation statements. A refinement is a dependency and so a trace.
 func TestHDBK1009ExpectationNotTraced(t *testing.T) {
@@ -145,6 +155,23 @@ func TestHDBK1009SatisfyIsNotARequirement(t *testing.T) {
 	for _, code := range hdbkCodes {
 		w8dWantLines(t, src, code)
 	}
+}
+
+// A satisfy declaring its requirement declares one the rules judge.
+func TestHDBK1009SatisfyDeclaringARequirementIsJudged(t *testing.T) {
+	src := hdbkModel(`
+		#missionObjective requirement o;
+		part p { satisfy requirement sys : SystemRequirement; }`)
+	w8dWantLines(t, src, CodeHDBK1009RequirementNotDerived, 4)
+}
+
+// `not satisfy` states that the requirement is not satisfied: it validates nothing.
+func TestHDBK1009NegatedSatisfyDoesNotValidate(t *testing.T) {
+	src := hdbkModel(`
+		#missionObjective requirement o;
+		#validationRequirement requirement val { :>> verifyMethod = VerificationMethodKind::test; }
+		not satisfy o by val;`)
+	w8dWantLines(t, src, CodeHDBK1009ObjectiveNotValidated, 3, 4)
 }
 
 // A model that does not touch the HDBK1009 library gets no finding.

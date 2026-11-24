@@ -110,8 +110,10 @@ is early, not wrong.
 Classification follows the typing or the keyword, as for `NPR7123`. The relationships are read
 across the workspace: a derivation or a V&V case kept in another document answers the rule. To
 keep that true when the other document is held as an interface record, the record now carries the
-dependencies, refinements and verifications a body states beside the derivations, allocations and
-satisfactions it already carried. Library documents are not audited, a model that never touches
+dependencies, refinements and verifications a body states, and every derivation the model reads —
+a connection typed by `Derivation` as well as an annotated one — beside the derivations,
+allocations and satisfactions it already carried. A `not satisfy` validates nothing, and a
+`satisfy requirement r : T` declares a requirement the rules judge like any other. Library documents are not audited, a model that never touches
 `HDBK1009` gets no finding, and a workspace package that merely reuses the name is not the
 vocabulary.
 

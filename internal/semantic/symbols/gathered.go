@@ -24,6 +24,9 @@ type GatheredRelationships struct {
 	// Verifications: Sources are what a `verify` verifies with — the case whose
 	// objective states it, else its owner — Targets the requirements verified.
 	Verifications []GatheredEnds
+	// RequirementDerivations: Sources are the original requirement of a
+	// derivation however it is written, Targets a requirement derived from it.
+	RequirementDerivations []GatheredEnds
 	// SentSignals are the signal names the body's `send` actions send, sorted.
 	SentSignals []string
 }
@@ -56,14 +59,15 @@ func (g *GatheredRelationships) Clone() *GatheredRelationships {
 		return out
 	}
 	out := &GatheredRelationships{
-		Derivations:   ends(g.Derivations),
-		Allocations:   ends(g.Allocations),
-		Conformances:  ends(g.Conformances),
-		Satisfactions: slices.Clone(g.Satisfactions),
-		Dependencies:  ends(g.Dependencies),
-		Refinements:   ends(g.Refinements),
-		Verifications: ends(g.Verifications),
-		SentSignals:   slices.Clone(g.SentSignals),
+		Derivations:            ends(g.Derivations),
+		Allocations:            ends(g.Allocations),
+		Conformances:           ends(g.Conformances),
+		Satisfactions:          slices.Clone(g.Satisfactions),
+		Dependencies:           ends(g.Dependencies),
+		Refinements:            ends(g.Refinements),
+		Verifications:          ends(g.Verifications),
+		RequirementDerivations: ends(g.RequirementDerivations),
+		SentSignals:            slices.Clone(g.SentSignals),
 	}
 	for i := range out.Satisfactions {
 		out.Satisfactions[i].Requirements = cloneRefs(out.Satisfactions[i].Requirements)
@@ -75,7 +79,7 @@ func (g *GatheredRelationships) Clone() *GatheredRelationships {
 // Empty reports whether g states no relationship.
 func (g *GatheredRelationships) Empty() bool {
 	return g == nil || len(g.Derivations)+len(g.Allocations)+len(g.Conformances)+len(g.Satisfactions)+len(g.SentSignals)+
-		len(g.Dependencies)+len(g.Refinements)+len(g.Verifications) == 0
+		len(g.Dependencies)+len(g.Refinements)+len(g.Verifications)+len(g.RequirementDerivations) == 0
 }
 
 // Gathered returns the relationships doc's record carries, nil for a document

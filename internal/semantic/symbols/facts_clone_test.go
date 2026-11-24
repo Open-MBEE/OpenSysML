@@ -80,22 +80,23 @@ func TestAnnotationFactsCloneOwnsItsValues(t *testing.T) {
 func TestGatheredRelationshipsCloneOwnsEveryPath(t *testing.T) {
 	ref := func(fqn string) ElementRef { return ElementRef{FQN: fqn, Path: []int32{1}, Doc: "a.sysml"} }
 	g := &GatheredRelationships{
-		Derivations:   []GatheredEnds{{Sources: []ElementRef{ref("s")}, Targets: []ElementRef{ref("t")}}},
-		Allocations:   []GatheredEnds{{Sources: []ElementRef{ref("s")}, Targets: []ElementRef{ref("t")}}},
-		Conformances:  []GatheredEnds{{Sources: []ElementRef{ref("s")}, Targets: []ElementRef{ref("t")}}},
-		Satisfactions: []GatheredSatisfaction{{Requirements: []ElementRef{ref("r")}, Satisfiers: []ElementRef{ref("p")}}},
-		Dependencies:  []GatheredEnds{{Sources: []ElementRef{ref("s")}, Targets: []ElementRef{ref("t")}}},
-		Refinements:   []GatheredEnds{{Sources: []ElementRef{ref("s")}, Targets: []ElementRef{ref("t")}}},
-		Verifications: []GatheredEnds{{Sources: []ElementRef{ref("s")}, Targets: []ElementRef{ref("t")}}},
+		Derivations:            []GatheredEnds{{Sources: []ElementRef{ref("s")}, Targets: []ElementRef{ref("t")}}},
+		Allocations:            []GatheredEnds{{Sources: []ElementRef{ref("s")}, Targets: []ElementRef{ref("t")}}},
+		Conformances:           []GatheredEnds{{Sources: []ElementRef{ref("s")}, Targets: []ElementRef{ref("t")}}},
+		Satisfactions:          []GatheredSatisfaction{{Requirements: []ElementRef{ref("r")}, Satisfiers: []ElementRef{ref("p")}}},
+		Dependencies:           []GatheredEnds{{Sources: []ElementRef{ref("s")}, Targets: []ElementRef{ref("t")}}},
+		Refinements:            []GatheredEnds{{Sources: []ElementRef{ref("s")}, Targets: []ElementRef{ref("t")}}},
+		RequirementDerivations: []GatheredEnds{{Sources: []ElementRef{ref("s")}, Targets: []ElementRef{ref("t")}}},
+		Verifications:          []GatheredEnds{{Sources: []ElementRef{ref("s")}, Targets: []ElementRef{ref("t")}}},
 	}
 	clone := g.Clone()
-	for _, ends := range [][]GatheredEnds{clone.Derivations, clone.Allocations, clone.Conformances, clone.Dependencies, clone.Refinements, clone.Verifications} {
+	for _, ends := range [][]GatheredEnds{clone.Derivations, clone.Allocations, clone.Conformances, clone.Dependencies, clone.Refinements, clone.Verifications, clone.RequirementDerivations} {
 		ends[0].Sources[0].Path[0] = 99
 		ends[0].Targets[0].Path[0] = 99
 	}
 	clone.Satisfactions[0].Requirements[0].Path[0] = 99
 	clone.Satisfactions[0].Satisfiers[0].Path[0] = 99
-	for _, ends := range [][]GatheredEnds{g.Derivations, g.Allocations, g.Conformances, g.Dependencies, g.Refinements, g.Verifications} {
+	for _, ends := range [][]GatheredEnds{g.Derivations, g.Allocations, g.Conformances, g.Dependencies, g.Refinements, g.Verifications, g.RequirementDerivations} {
 		if ends[0].Sources[0].Path[0] != 1 || ends[0].Targets[0].Path[0] != 1 {
 			t.Fatalf("the original's ends read %+v after the clone's changed", ends[0])
 		}

@@ -25,8 +25,11 @@ func GatherRelationships(ctx *Context, doc string) (*symbols.GatheredRelationshi
 		switch decl := sym.Decl.(type) {
 		case *ast.Usage:
 			g.gather(sym, decl)
-			if decl.Kind == ast.UsageSatisfy && decl.Keyword == "verify" {
+			switch {
+			case decl.Kind == ast.UsageSatisfy && decl.Keyword == "verify":
 				g.out.Verifications = append(g.out.Verifications, g.edges(ctx, sym, semantics.RelationshipVerification)...)
+			case decl.Kind == ast.UsageConnection:
+				g.out.RequirementDerivations = append(g.out.RequirementDerivations, g.edges(ctx, sym, semantics.RelationshipDerivation)...)
 			}
 		case *ast.Dependency:
 			g.out.Dependencies = append(g.out.Dependencies, g.edges(ctx, sym, semantics.RelationshipDependency)...)
