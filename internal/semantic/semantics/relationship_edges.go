@@ -230,7 +230,7 @@ func (m *Model) derivationPath(scope *symbols.Scope, node ast.Node) []*symbols.S
 	}
 	var path []*symbols.Symbol
 	for i, step := range steps[:len(steps)-1] {
-		if _, usage := step.Decl.(*ast.Usage); usage && !symbols.SameElement(steps[i+1].Owner(), step) {
+		if step.DeclaresUsage() && !symbols.SameElement(steps[i+1].Owner(), step) {
 			path = append(path, step)
 		}
 	}
