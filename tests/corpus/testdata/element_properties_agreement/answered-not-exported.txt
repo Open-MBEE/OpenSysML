@@ -404,8 +404,8 @@ Membership::source	478	symbol-11
 Membership::target	31	symbol-12
 MembershipExpose::importedElement	36	symbol-75
 MembershipExpose::relatedElement	86	symbol-10
-MembershipImport::importedElement	157	symbol-75
-MembershipImport::relatedElement	191	symbol-10
+MembershipImport::importedElement	159	symbol-75
+MembershipImport::relatedElement	193	symbol-10
 MergeNode::actionDefinition	18	symbol-35
 MergeNode::behavior	18	symbol-26
 MergeNode::definition	18	symbol-37

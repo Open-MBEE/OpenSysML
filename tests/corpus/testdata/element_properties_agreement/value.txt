@@ -155,12 +155,12 @@ FeatureReferenceExpression::ownedRelationship	13	symbol-03
 FeatureReferenceExpression::parameter	2	symbol-54
 FeatureReferenceExpression::referent	10	export-56
 FeatureReferenceExpression::result	2	export-56
-FeatureTyping::general	49	export-15
+FeatureTyping::general	47	export-15
 FeatureTyping::ownedRelatedElement	1	export-06
 FeatureTyping::ownedRelationship	4	symbol-03
-FeatureTyping::relatedElement	49	export-13
-FeatureTyping::target	49	export-14
-FeatureTyping::type	49	export-01
+FeatureTyping::relatedElement	47	export-13
+FeatureTyping::target	47	export-14
+FeatureTyping::type	47	export-01
 FeatureValue::visibility	40	export-05
 FlowDefinition::relatedElement	3	export-64
 FlowEnd::directedFeature	1	symbol-53
@@ -207,7 +207,7 @@ Membership::owningNamespace	53	symbol-69
 MembershipExpose::owningNamespace	86	symbol-69
 MembershipImport::importedMembership	6	export-56
 MembershipImport::ownedRelatedElement	1	export-60
-MembershipImport::owningNamespace	172	symbol-69
+MembershipImport::owningNamespace	174	symbol-69
 MembershipImport::target	6	export-14
 MembershipImport::visibility	1	export-05
 MetadataUsage::annotation	2	export-57
@@ -368,7 +368,7 @@ ReferenceUsage::owningNamespace	4	export-03
 ReferenceUsage::owningRelationship	4	export-04
 ReferenceUsage::owningType	4	export-57
 ReferenceUsage::owningUsage	2	export-57
-ReferenceUsage::type	38	export-01
+ReferenceUsage::type	36	export-01
 ReferenceUsage::usage	25	symbol-51
 RenderingUsage::declaredName	28	symbol-01
 RenderingUsage::feature	26	symbol-51
