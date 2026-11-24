@@ -446,10 +446,10 @@ func (e *encoder) encodeLoop(n *ast.WhileLoopActionNode, head func(rdf.Term), su
 		if n.Kind == ast.LoopWhile {
 			while, until = n.Condition, n.Until
 		}
-		if err := e.expression(subject, e.sysx(xWhileCondition), xWhileCondition, fqn, while); err != nil {
+		if err := e.expressionAs(subject, e.sysx(xWhileCondition), xWhileCondition, fqn, while, mParameterMembership); err != nil {
 			return err
 		}
-		if err := e.expression(subject, e.sysx(xUntilCondition), xUntilCondition, fqn, until); err != nil {
+		if err := e.expressionAs(subject, e.sysx(xUntilCondition), xUntilCondition, fqn, until, mParameterMembership); err != nil {
 			return err
 		}
 	}

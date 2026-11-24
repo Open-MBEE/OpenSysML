@@ -820,7 +820,8 @@ func expressionMembershipMetaclassName(member *symbols.Symbol) string {
 		return "EndFeatureMembership"
 	case symbols.ExpressionOperand:
 		switch member.Expr.Slot {
-		case "condition":
+		case "condition", "whileCondition", "untilCondition":
+			// An `if` or loop owns its test as a parameter (SysML.xtext ExpressionParameterMember).
 			return "ParameterMembership"
 		case "value":
 			return "FeatureValue"
