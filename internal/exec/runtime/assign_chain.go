@@ -58,32 +58,46 @@ func writeOnReached(ec *EvalContext, target *Instance, chain *lower.AssignTarget
 // read of one path reach one object. A step holding no object, or holding more
 // than one, names no object to write on and is reported.
 func (ec *EvalContext) chainCarrier(target *lower.AssignTarget) (*Instance, error) {
-	// A chain through a step of the action performed reaches what the step's performance holds.
-	if name := simpleEndName(target.Base); name != "" && len(target.Steps) > 0 {
+	// A chain through a step of the action performed starts at what the step's performance holds.
+	if name := simpleEndName(target.Base); name != "" {
 		if perf, declared, err := ec.lookupSubaction(name); declared {
 			if err != nil {
 				return nil, err
 			}
-			parts := make([]ast.NameSegment, len(target.Steps))
-			for i, step := range target.Steps {
-				parts[i] = ast.NameSegment{Text: step}
+			steps := target.Steps
+			for len(steps) > 0 {
+				inner, nested, err := perf.subaction(steps[0], nil)
+				if !nested {
+					break
+				}
+				if err != nil {
+					return nil, err
+				}
+				perf, steps = inner, steps[1:]
 			}
-			value, err := ec.evalSubactionPath(perf, parts)
-			if err != nil {
-				return nil, err
+			if len(steps) > 0 {
+				value, err := ec.evalSubactionPath(perf, []ast.NameSegment{{Text: steps[0]}})
+				if err != nil {
+					return nil, err
+				}
+				return ec.chainSteps(value, steps[0], steps[1:])
 			}
-			return ec.chainObject(value, target.Steps[len(target.Steps)-1])
 		}
 	}
 	value, err := ec.chainRoot(target.Base, target.BaseID)
 	if err != nil {
 		return nil, err
 	}
-	reached := lower.FeaturePath(target.Base)
-	for _, step := range target.Steps {
+	return ec.chainSteps(value, lower.FeaturePath(target.Base), target.Steps)
+}
+
+// chainSteps walks steps from value, which reached names, to the one object the last reaches.
+func (ec *EvalContext) chainSteps(value Value, reached string, steps []string) (*Instance, error) {
+	for _, step := range steps {
 		if _, err := ec.chainObject(value, reached); err != nil {
 			return nil, err
 		}
+		var err error
 		if value, err = ec.chainMemberValue(value, []ast.NameSegment{{Text: step}}, reached); err != nil {
 			return nil, err
 		}

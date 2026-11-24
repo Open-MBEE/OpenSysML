@@ -26,6 +26,9 @@ func TestRuntimeRobustnessActionLocalConnection(t *testing.T) {
 	t.Run("end_read_from_the_enclosing_action", testActionLocalConnectionEndFromParent)
 	t.Run("end_read_from_the_enclosing_action_first", testActionLocalConnectionUnreadByStep)
 	t.Run("written_from_the_enclosing_action", testActionLocalConnectionWriteFromParent)
+	t.Run("end_read_from_the_enclosing_action_by_short_name", testActionLocalConnectionShortNameFromParent)
+	t.Run("read_across_a_repeated_step", testActionLocalConnectionRepeatedStep)
+	t.Run("write_across_a_repeated_step_reaches_no_one_object", testActionLocalConnectionRepeatedStepWrite)
 	t.Run("read_by_the_definition_qualified_name", testActionLocalConnectionDefinitionQualified)
 	t.Run("end_selecting_nothing", testActionLocalConnectionEndSelectingNothing)
 }
@@ -159,6 +162,41 @@ const actionLocalConnectionFixture = `
 				}
 				action write { assign child.link.weight := 5; }
 				first child then write;
+			}
+			action connectChildShortName {
+				in ref firstNode : Node;
+				in ref secondNode : Node;
+				action child {
+					in ref x : Node = firstNode;
+					in ref y : Node = secondNode;
+					connection <ln> link : Link connect x to y;
+				}
+				action read { assign seen := child.ln.right; }
+				first child then read;
+			}
+			action connectRepeatedUnread {
+				in ref firstNode : Node;
+				in ref secondNode : Node;
+				first start then child;
+				action child [2] {
+					in ref x : Node = firstNode;
+					in ref y : Node = secondNode;
+					connection link : Link connect x to y;
+				}
+				action read { assign links := child.link; }
+				succession first [*] child then [1] read;
+			}
+			action connectRepeatedWrite {
+				in ref firstNode : Node;
+				in ref secondNode : Node;
+				first start then child;
+				action child [2] {
+					in ref x : Node = firstNode;
+					in ref y : Node = secondNode;
+					connection link : Link connect x to y;
+				}
+				action write { assign child.link.weight := 5; }
+				succession first [*] child then [1] write;
 			}
 			perform action connectPerformed : Recorded {
 				in ref firstNode = a;
@@ -554,5 +592,47 @@ func testActionLocalConnectionWriteFromParent(t *testing.T) {
 	}
 	if made := len(ctx.instances) - before; made != 1 {
 		t.Errorf("the performance made %d objects, want its one connector", made)
+	}
+}
+
+// testActionLocalConnectionShortNameFromParent: `child.ln.right` reads the connector the
+// step holds under the connection's name, `link`.
+func testActionLocalConnectionShortNameFromParent(t *testing.T) {
+	ctx, inst, a, b := actionLocalConnectionNetwork(t)
+	if _, err := ctx.invokeOperation(inst, "connectChildShortName", map[string]Value{"firstNode": a, "secondNode": b}); err != nil {
+		t.Fatalf("connectChildShortName(a, b): %v", err)
+	}
+	if got := networkObject(t, ctx, inst, "seen"); !valueIdentical(got, b) {
+		t.Errorf("child.ln.right = %v, want %v", got, b)
+	}
+}
+
+// testActionLocalConnectionRepeatedStep: `child.link` read across a step performed twice
+// attaches a connector in each performance, none of which read `link` itself.
+func testActionLocalConnectionRepeatedStep(t *testing.T) {
+	ctx, inst, a, b := actionLocalConnectionNetwork(t)
+	before := len(ctx.instances)
+	if _, err := ctx.invokeOperation(inst, "connectRepeatedUnread", map[string]Value{"firstNode": a, "secondNode": b}); err != nil {
+		t.Fatalf("connectRepeatedUnread(a, b): %v", err)
+	}
+	fv, err := inst.GetFeatureValue(ctx, "links")
+	if err != nil {
+		t.Fatalf("links: %v", err)
+	}
+	if got := len(elementsOf(fv.HeldValue())); got != 2 {
+		t.Errorf("child.link holds %d connectors, want one per performance", got)
+	}
+	if made := len(ctx.instances) - before; made != 2 {
+		t.Errorf("the performances made %d objects, want their two connectors", made)
+	}
+}
+
+// testActionLocalConnectionRepeatedStepWrite: a write through `child.link` of a step
+// performed twice names two connectors and is refused, writing on neither.
+func testActionLocalConnectionRepeatedStepWrite(t *testing.T) {
+	ctx, inst, a, b := actionLocalConnectionNetwork(t)
+	_, err := ctx.invokeOperation(inst, "connectRepeatedWrite", map[string]Value{"firstNode": a, "secondNode": b})
+	if !errors.Is(err, ErrTypeMismatch) {
+		t.Fatalf("connectRepeatedWrite(a, b) = %v, want ErrTypeMismatch", err)
 	}
 }
