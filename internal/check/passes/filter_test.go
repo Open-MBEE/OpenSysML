@@ -326,3 +326,14 @@ func TestAFilterNestedPastTheBoundIsNotEvaluated(t *testing.T) {
 		t.Fatalf("a condition past the bound: got %v, want one filter-not-evaluated", diags)
 	}
 }
+
+// TestAFilterNestedPastTheBoundInsideAConstructorIsNotEvaluated: the levels under a
+// constructor's argument count toward the bound like any other.
+func TestAFilterNestedPastTheBoundInsideAConstructorIsNotEvaluated(t *testing.T) {
+	n := semantics.MaxFilterDepth + 1
+	src := filterMetadata + "package P { filter new Safety(" + strings.Repeat("not (", n) + "true" + strings.Repeat(")", n) + ") == null; }\n"
+	diags := filterDiags(t, src)
+	if len(diags) != 1 || diags[0].Code != "filter-not-evaluated" {
+		t.Fatalf("got %v, want one filter-not-evaluated", diags)
+	}
+}
