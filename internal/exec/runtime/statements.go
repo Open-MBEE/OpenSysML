@@ -151,19 +151,6 @@ func (env *stmtEnv) rootDeclares(name string) bool {
 	return env.unvaluedLocal[name]
 }
 
-// rootLocal reports whether name belongs to the behavior root rather than a block.
-func (env *stmtEnv) rootLocal(name string) bool {
-	if !env.rootDeclares(name) {
-		return false
-	}
-	for i := len(env.frames) - 1; i >= 0; i-- {
-		if env.frameDeclares(i, name) {
-			return false
-		}
-	}
-	return true
-}
-
 // assignRootLocal writes a name declared in the behavior's root scope.
 func (env *stmtEnv) assignRootLocal(ctx *Context, name string, value Value) bool {
 	if !env.rootDeclares(name) {
@@ -178,14 +165,54 @@ func (env *stmtEnv) assignRootLocal(ctx *Context, name string, value Value) bool
 	return true
 }
 
-// holdsLocal reports whether an entered block declares name.
-func (env *stmtEnv) holdsLocal(name string) bool {
+// heldLocal finds the innermost entered block declaring the feature sym, or else the
+// behavior's own locals at depth 0, and the name it is bound under there.
+func (env *stmtEnv) heldLocal(sym *symbols.Symbol) (depth int, name string, ok bool) {
+	for i := len(env.held) - 1; i >= 0; i-- {
+		if name, ok := env.held[i][sym]; ok && env.frameDeclares(i, name) {
+			return i + 1, name, true
+		}
+	}
+	if name, ok := env.localHeld[sym]; ok && env.rootDeclares(name) {
+		return 0, name, true
+	}
+	return 0, "", false
+}
+
+// namedLocal finds the innermost declaration of name, an entered block's or else the
+// behavior's own at depth 0, passing over one holding name as a feature other than sym.
+func (env *stmtEnv) namedLocal(name string, sym *symbols.Symbol) (depth int, ok bool) {
 	for i := len(env.frames) - 1; i >= 0; i-- {
-		if env.frameDeclares(i, name) {
+		if env.frameDeclares(i, name) && !holdsAnother(env.held[i], name, sym) {
+			return i + 1, true
+		}
+	}
+	return 0, env.rootDeclares(name) && !holdsAnother(env.localHeld, name, sym)
+}
+
+// holdsAnother reports whether held binds name as a feature other than sym, nil for any.
+func holdsAnother(held map[*symbols.Symbol]string, name string, sym *symbols.Symbol) bool {
+	if sym == nil {
+		return false
+	}
+	if _, ok := held[sym]; ok {
+		return false
+	}
+	for _, bound := range held {
+		if bound == name {
 			return true
 		}
 	}
-	return env.rootDeclares(name)
+	return false
+}
+
+// boundName is the name a binding of the feature sym is kept under where written is
+// read as it: the feature's own name for its short name.
+func boundName(sym *symbols.Symbol, written string) string {
+	if sym.Name != "" && sym.HasShortName() && written == sym.ShortName {
+		return sym.Name
+	}
+	return written
 }
 
 // assignLocal writes to the innermost local declaration of name and reports
@@ -193,25 +220,30 @@ func (env *stmtEnv) holdsLocal(name string) bool {
 func (env *stmtEnv) assignLocal(ctx *Context, name string, value Value) bool {
 	for i := len(env.frames) - 1; i >= 0; i-- {
 		if env.frameDeclares(i, name) {
-			delete(env.unvalued[i], name)
-			if cells := env.cells[i]; cells != nil {
-				ctx.writeBodyCell(cells, name, value)
-			} else {
-				env.frames[i][name] = value
-			}
+			env.writeLocal(ctx, i+1, name, value)
 			return true
 		}
 	}
 	if env.rootDeclares(name) {
-		delete(env.unvaluedLocal, name)
-		if env.localCells != nil {
-			ctx.writeBodyCell(env.localCells, name, value)
-		} else {
-			env.locals[name] = value
-		}
+		env.writeLocal(ctx, 0, name, value)
 		return true
 	}
 	return false
+}
+
+// writeLocal writes name where it is declared: the entered block at depth, or the
+// behavior's own locals at depth 0.
+func (env *stmtEnv) writeLocal(ctx *Context, depth int, name string, value Value) {
+	locals, cells, unvalued := env.locals, env.localCells, env.unvaluedLocal
+	if depth > 0 {
+		locals, cells, unvalued = env.frames[depth-1], env.cells[depth-1], env.unvalued[depth-1]
+	}
+	delete(unvalued, name)
+	if cells != nil {
+		ctx.writeBodyCell(cells, name, value)
+	} else {
+		locals[name] = value
+	}
 }
 
 // values is the values a statement reads, with locals overriding behavior data.
@@ -1628,9 +1660,7 @@ func (e *stmtEngine) forIteration(stmt lower.Loop, f *loopFrame, resumed bool) (
 		e.syncLoopCells(f)
 		e.ctx.resetBodyCells(f.cells)
 		f.locals[stmt.Variable] = f.elements[f.iteration-1]
-		if stmt.Alias != "" {
-			f.locals[stmt.Alias] = f.elements[f.iteration-1]
-		}
+		e.env.hold(e.ctx, stmt.VariableSymbol, stmt.Variable)
 	}
 	control := e.ctx.underControl(f.control)
 	flow, err = e.runBlock(stmt.Body)
@@ -1766,27 +1796,70 @@ func (e *stmtEngine) assign(s lower.Assign) (value Value, err error) {
 		}
 		return value, e.host.assignForeign(ec, s, value)
 	}
-	// An output is bound by the host even when the body's data holds it, so a
-	// second binding is reported; a block-local of the name shadows it.
-	if e.env.holdsLocal(s.Target) {
+	target := s.Target
+	feature := e.targetFeature(s)
+	depth, local, resolved := 0, false, false
+	if feature != nil {
+		// The feature decides the binding written, under the one name it is bound
+		// by: neither a nearer redeclaration nor its short name is another binding.
+		if depth, target, local = e.env.heldLocal(feature); local {
+			resolved = true
+		} else if target, resolved = e.env.data.heldName(feature); !resolved {
+			target = boundName(feature, s.Target)
+		}
+	}
+	if !resolved {
+		depth, local = e.env.namedLocal(target, feature)
+	}
+	if !resolved && !local && target != s.Target && e.redeclares(target, feature) {
+		// A nearer declaration takes the feature's name, so the run around this one
+		// that holds the feature is written.
+		if written, err := e.evalIn(s.Scope).writeHeld(feature, value); written || err != nil {
+			return value, err
+		}
+	}
+	if local {
 		if err := e.ctx.checkBodyWrite(e.host, s, &value); err != nil {
 			return value, err
 		}
-		rootLocal := e.env.rootLocal(s.Target)
-		e.env.assignLocal(e.ctx, s.Target, value)
-		if rootLocal {
+		e.env.writeLocal(e.ctx, depth, target, value)
+		if depth == 0 {
 			if mirror, ok := e.host.(rootLocalMirror); ok {
-				return value, mirror.mirrorRootLocal(s.Target, value)
+				return value, mirror.mirrorRootLocal(target, value)
 			}
 		}
 		return value, nil
 	}
-	if !e.host.declaredOutput(s.Target) {
-		if e.env.data.has(s.Target) {
-			return value, e.host.assignData(e.env, s.Target, value, s)
+	// An output is bound by the host even when the body's data holds it, so a
+	// second binding is reported; a block-local of the name shadows it.
+	if !e.host.declaredOutput(target) {
+		if e.env.data.has(target) {
+			return value, e.host.assignData(e.env, target, value, s)
 		}
 	}
-	return value, e.host.assignOuter(e.env, s.Target, value, s)
+	return value, e.host.assignOuter(e.env, target, value, s)
+}
+
+// redeclares reports whether this run binds name as a feature other than feature.
+func (e *stmtEngine) redeclares(name string, feature *symbols.Symbol) bool {
+	if e.env.data.has(name) && e.env.data.holdsAnother(name, feature) {
+		return true
+	}
+	for i := range e.env.frames {
+		if e.env.frameDeclares(i, name) && holdsAnother(e.env.held[i], name, feature) {
+			return true
+		}
+	}
+	return e.env.rootDeclares(name) && holdsAnother(e.env.localHeld, name, feature)
+}
+
+// targetFeature is the feature a plain assignment's target resolves to where it was
+// written, nil for a name declaring none there.
+func (e *stmtEngine) targetFeature(s lower.Assign) *symbols.Symbol {
+	if target, ok := e.ctx.writeTargetIn(s.Scope, s.Target); ok {
+		return target.feature
+	}
+	return nil
 }
 
 // assignRecorder records assignments made while stepping an action token.

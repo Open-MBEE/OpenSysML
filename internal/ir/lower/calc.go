@@ -300,6 +300,7 @@ func ToCalc(sym *symbols.Symbol, env CalcEnv) (*program.Calc, *CalcTrees) {
 	calc.FlowBody = (calc.StatesFlow || calc.PerformsActions) && flowBody(trees.Steps)
 	calc.Params = calcParameters(chain, env, trees, &calc.Aliases)
 	calc.Outputs = calcOutputs(chain, env, trees, &calc.Aliases)
+	calc.Aliases = aliasShortNames(calc.Aliases, calc.Params, calc.Outputs)
 	calc.ParamNames = paramNames(calc.Params)
 	calc.BodyOutputs = assignedOutputs(trees.Steps, calc.Outputs, calc.Aliases)
 	trees.Bindings = calcBindings(chain)
@@ -329,6 +330,7 @@ func ToPredicate(sym *symbols.Symbol, env CalcEnv) (*program.Calc, *CalcTrees) {
 	}
 	trees := &CalcTrees{Exprs: ExprTable{resolver: env.Resolver}}
 	calc.Params = calcParameters(chain, env, trees, &calc.Aliases)
+	calc.Aliases = aliasShortNames(calc.Aliases, calc.Params, nil)
 	calc.ParamNames = paramNames(calc.Params)
 	return calc, trees
 }
@@ -482,6 +484,40 @@ func calcParameters(chain []*symbols.Symbol, env CalcEnv, trees *CalcTrees, alia
 		}
 	}
 	return params
+}
+
+// aliasShortNames maps the short name of each declaration of a parameter or output to the
+// name it is bound under, so both name one binding; a member's own name is never aliased.
+func aliasShortNames(aliases map[string]string, params []program.CalcParam, outputs []program.CalcOutput) map[string]string {
+	named := make(map[string]bool, len(params)+len(outputs))
+	for _, param := range params {
+		named[param.Name] = true
+	}
+	for _, out := range outputs {
+		named[out.Name] = true
+	}
+	alias := func(declarations []program.CalcMember, name string) {
+		for _, declared := range declarations {
+			short := declared.Feature.ShortName
+			if name == "" || short == "" || named[short] {
+				continue
+			}
+			if _, taken := aliases[short]; taken {
+				continue
+			}
+			if aliases == nil {
+				aliases = make(map[string]string)
+			}
+			aliases[short] = name
+		}
+	}
+	for _, param := range params {
+		alias(param.Declarations, param.Name)
+	}
+	for _, out := range outputs {
+		alias(out.Declarations, out.Name)
+	}
+	return aliases
 }
 
 // declarationsOf appends the declaration of sym by link, under name, to those it
