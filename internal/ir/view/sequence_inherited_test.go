@@ -433,3 +433,25 @@ func TestSequenceRenderingKeepsAnEventAnotherBranchRedefines(t *testing.T) {
 		t.Errorf("edges = %q, want the message on the both lifeline; notices %q", got, rendering.Notices)
 	}
 }
+
+// A message naming an event of an action definition through an action typed by
+// it is drawn on the usage's lifeline; the definition, reached by nothing, is not shown.
+func TestSequenceRenderingDrawsAnActionsInheritedEventOnTheUsage(t *testing.T) {
+	rendering := renderSequenceOf(t, `package P {
+	item def Ping;
+	action def Run {
+		event occurrence sent;
+	}
+	action run : Run;
+	part server {
+		event occurrence got;
+	}
+	message ping of Ping from run.sent to server.got;
+}`, "Run", "run", "server", "ping")
+	if got := sequenceEnds(rendering); !slices.Equal(got, []string{"ping of Ping: P::run.sent -> got"}) {
+		t.Errorf("got %q, want the message on the run lifeline", got)
+	}
+	if got := lifelineNames(rendering); slices.Contains(got, "P::Run") {
+		t.Errorf("lifelines = %v, want the definition no message reaches left out", got)
+	}
+}
