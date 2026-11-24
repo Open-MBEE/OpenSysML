@@ -70,12 +70,15 @@ func (m *Model) UsageMayTimeVary(sym *symbols.Symbol) bool {
 
 // synthesizedUsageMayTimeVary derives Usage::mayTimeVary for a referential part the model synthesizes:
 // a flow end's ReferenceUsage, a transition's link parameter, a trigger's payload and receiver parameters,
-// or an assignment's or a loop's node parameter.
+// or an assignment's or a loop's node parameter, the loop's body among them.
 func (m *Model) synthesizedUsageMayTimeVary(sym *symbols.Symbol) (varies, ok bool) {
 	if _, ok := symbols.ImpliedFlowEndFeatureIndex(sym); ok {
 		// A flow end's ReferenceUsage is owned by the FlowEnd, which redefines Flows::Flow::source
 		// or target, an Occurrence-typed feature (SysML v2.1 §8.3.16.6), as the pilot exports it.
 		return !m.isKerMLDoc(sym) && m.UsageMayTimeVaryUnderLibraryFeature("Flows::Flow::source"), true
+	}
+	if isWrittenLoopBody(sym) {
+		return m.UsageMayTimeVaryUnderKind(ast.UsageAction), true
 	}
 	if sym.OwnerScope != nil || sym.Expr == nil {
 		return false, false
@@ -90,7 +93,7 @@ func (m *Model) synthesizedUsageMayTimeVary(sym *symbols.Symbol) (varies, ok boo
 	case symbols.ExpressionPayload:
 		// A trigger's parameters are owned by the AcceptActionUsage the trigger implies, an action.
 		return m.UsageMayTimeVaryUnderKind(ast.UsageAction), true
-	case symbols.ExpressionNodeParameter:
+	case symbols.ExpressionNodeParameter, symbols.ExpressionLoopBody:
 		// It is nested in an occurrence it varies over: the action node, or the parameter nesting it.
 		return m.UsageMayTimeVaryUnderKind(ast.UsageAction), true
 	case symbols.ExpressionTransitionLink:

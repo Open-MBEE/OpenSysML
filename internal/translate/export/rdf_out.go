@@ -1690,6 +1690,8 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		// is the AcceptActionUsage the trigger implies, an action.
 		_, triggerParam := e.triggerParams[n]
 		triggerVaries := triggerParam && e.ids.model.UsageMayTimeVaryUnderKind(ast.UsageAction)
+		// So does a loop's written body, a parameter of the loop.
+		bodyVaries := e.loopBodies[n] && e.ids.model.UsageMayTimeVaryUnderKind(ast.UsageAction)
 		e.flags(subject, []boolProperty{
 			{"isAbstract", n.IsAbstract || n.IsVariation},
 			{"isVariation", n.IsVariation},
@@ -1702,8 +1704,8 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			// A declared end that varies in time is constant though `constant` is not notated (SysML v2.1 §8.2.2.6.1).
 			{"isConstant", n.IsConstant || (n.IsEnd && ontology.IsAncestorOrSelf(metaclass, "Usage") && e.usageMayTimeVary(n))},
 			// A payload is a PayloadFeature, a KerML Feature with no `var` keyword.
-			{"isVariable", !payload && (e.usageIsVariable(n) || triggerVaries)},
-			{"mayTimeVary", ontology.IsAncestorOrSelf(metaclass, "Usage") && (e.usageMayTimeVary(n) || triggerVaries)},
+			{"isVariable", !payload && (e.usageIsVariable(n) || triggerVaries || bodyVaries)},
+			{"mayTimeVary", ontology.IsAncestorOrSelf(metaclass, "Usage") && (e.usageMayTimeVary(n) || triggerVaries || bodyVaries)},
 			{"isEvent", n.IsEvent && metaclass != mEventOccurrenceUsage},
 			{"isIndividual", n.IsIndividual},
 			// A snapshot or timeslice is a portion by its kind (OccurrenceUsage::portionKind).

@@ -2753,7 +2753,7 @@ func ReflectiveDirection(sym *symbols.Symbol) (ast.FeatureDirection, bool) {
 			return ast.DirIn, true
 		case symbols.ExpressionResult:
 			return ast.DirOut, true
-		case symbols.ExpressionPayload, symbols.ExpressionTransitionLinkParameter:
+		case symbols.ExpressionPayload, symbols.ExpressionTransitionLinkParameter, symbols.ExpressionLoopBody:
 			return ast.DirIn, true
 		case symbols.ExpressionNodeParameter:
 			if owner := sym.Expr.Owner; owner != nil && owner.Expr != nil && owner.Expr.Role == symbols.ExpressionNodeParameter {

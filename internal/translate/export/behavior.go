@@ -497,6 +497,11 @@ func (e *encoder) loopBody(n *ast.WhileLoopActionNode, subject rdf.Term, fqn str
 	e.graph.Add(body, e.sysx(xIsLoopBody), rdf.Bool(true))
 	membership := e.bodyMembership(subject, body, mParameterMembership)
 	e.graph.Add(membership, e.sysml(pOwnedMemberParameter), body)
+	e.graph.Add(body, e.sysml(pDirection), rdf.String("in"))
+	// A parameter is referential, and nested in the loop it varies over.
+	if e.ids.model.UsageMayTimeVaryUnderKind(ast.UsageAction) {
+		e.flags(body, []boolProperty{{"isVariable", true}, {"mayTimeVary", true}})
+	}
 	return e.encode(n.Body, fqn, body)
 }
 

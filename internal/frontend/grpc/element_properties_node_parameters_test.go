@@ -183,11 +183,28 @@ func TestElementPropertiesReadLoopBodyParameter(t *testing.T) {
 	if got := r.property(charging, "name").GetValues(); len(got) != 1 || got[0].GetStringValue() != "charging" {
 		t.Errorf("charging: name = %v", got)
 	}
-	if got := r.property(charging, "direction").GetValues(); len(got) != 1 || got[0].GetStringValue() != "in" {
-		t.Errorf("charging: direction = %v, want in", got)
-	}
 	expect(each, "parameter", each+"_pcollectionParameter ReferenceUsage", visit+" ActionUsage")
 	expect(visit, "owner", each+" ForLoopActionUsage")
+	nameless := bodyOf(spin, 1)
+	// A body is a referential input of the loop it varies over, written as an action or as a block.
+	r2 := parseForElementProperties(t, `package P {
+    action def A {
+        action plain loop { action again; }
+    }
+}`)
+	for _, body := range []struct {
+		properties *elementPropertiesReader
+		id         string
+	}{{r, charging}, {r, nameless}, {r, visit}, {r2, "P__A__plain_loopBody"}} {
+		if got := body.properties.property(body.id, "direction").GetValues(); len(got) != 1 || got[0].GetStringValue() != "in" {
+			t.Errorf("%s: direction = %v, want in", body.id, got)
+		}
+		for property, want := range map[string]bool{"isComposite": false, "isReference": true, "isVariable": true, "mayTimeVary": true} {
+			if got := body.properties.property(body.id, property).GetValues(); len(got) != 1 || got[0].GetBoolValue() != want {
+				t.Errorf("%s: %s = %v, want %v", body.id, property, got, want)
+			}
+		}
+	}
 	if got := described(spin, "parameter"); len(got) != 3 || !strings.HasSuffix(got[1], " ActionUsage") || strings.Contains(got[1], "_loopBody") {
 		t.Errorf("spin: parameter = %v, want the empty parameter, the written body action and the until condition", got)
 	}

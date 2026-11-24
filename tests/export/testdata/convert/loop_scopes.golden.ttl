@@ -173,12 +173,15 @@ expr:Loops__Charge___401_pemptyParameter_om
 
 elmt:Loops__Charge___401_loopBody
     a sysml:ActionUsage ;
-    sysml:isComposite "true"^^xsd:boolean ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Loops__Charge___401_loopBody" ;
     sysx:isLoopBody "true"^^xsd:boolean ;
     sysml:owner elmt:Loops__Charge___401 ;
     sysml:owningRelationship elmt:Loops__Charge___401_loopBody_om ;
     sysml:owningMembership elmt:Loops__Charge___401_loopBody_om ;
+    sysml:direction "in" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Loops__Charge___401__charging ;
     sysml:ownedMembership elmt:Loops__Charge___401__charging_om ;
     sysml:ownedRelationship elmt:Loops__Charge___401__charging_om ;
@@ -626,12 +629,15 @@ expr:Loops__Charge___402_pwhileCondition_om
 
 elmt:Loops__Charge___402_loopBody
     a sysml:ActionUsage ;
-    sysml:isComposite "true"^^xsd:boolean ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Loops__Charge___402_loopBody" ;
     sysx:isLoopBody "true"^^xsd:boolean ;
     sysml:owner elmt:Loops__Charge___402 ;
     sysml:owningRelationship elmt:Loops__Charge___402_loopBody_om ;
     sysml:owningMembership elmt:Loops__Charge___402_loopBody_om ;
+    sysml:direction "in" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Loops__Charge___402__pace ;
     sysml:ownedMembership elmt:Loops__Charge___402__pace_om ;
     sysml:ownedRelationship elmt:Loops__Charge___402__pace_om ;
