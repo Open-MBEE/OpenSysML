@@ -896,12 +896,16 @@ func rowsFollowed(messages []message, successions []succession, orders []timing,
 	follows := make([][]int, len(messages)+len(successions))
 	for i, s := range successions {
 		o, row := orders[s.order], len(messages)+i
+		anchored := false
 		for m, msg := range messages {
-			events := msg.events()
-			switch {
-			case slices.ContainsFunc(events, func(held lifelineEnd) bool { return before(held, o.from) }):
+			if slices.ContainsFunc(msg.events(), func(held lifelineEnd) bool { return before(held, o.from) }) {
 				follows[row] = append(follows[row], m)
-			case slices.ContainsFunc(events, func(held lifelineEnd) bool { return before(o.to, held) }):
+				anchored = true
+			}
+		}
+		// A succession following a message is placed by that, also where a cycle leads it to another.
+		for m, msg := range messages {
+			if !anchored && slices.ContainsFunc(msg.events(), func(held lifelineEnd) bool { return before(o.to, held) }) {
 				follows[m] = append(follows[m], row)
 			}
 		}
