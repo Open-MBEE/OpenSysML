@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"connectrpc.com/connect"
@@ -53,31 +54,40 @@ func (r *fileRoot) path(name string) string {
 }
 
 // within is the part of an absolute path below the root, by either of the root's
-// names, uncleaned; ok is false for a path that does not start in the root.
-func (r *fileRoot) within(path string) (rest string, ok bool) {
-	for _, root := range []string{r.given, r.dir} {
-		if path == root {
-			return "", true
-		}
-		if after, found := strings.CutPrefix(path, root); found && (os.IsPathSeparator(root[len(root)-1]) || os.IsPathSeparator(after[0])) {
-			return after, true
-		}
+// names, as elements; ok is false for a path that does not start in the root. The
+// name the root was configured by counts only while it still leads to the root.
+func (r *fileRoot) within(path string) (rest []string, ok bool) {
+	if filepath.VolumeName(path) != filepath.VolumeName(r.dir) {
+		return nil, false
 	}
-	return "", false
+	elements := namedElements(path)
+	for _, root := range []string{r.dir, r.given} {
+		prefix := pathElements(root)
+		if len(elements) < len(prefix) || !slices.Equal(elements[:len(prefix)], prefix) {
+			continue
+		}
+		if root != r.dir {
+			if now, err := filepath.EvalSymlinks(root); err != nil || now != r.dir {
+				continue
+			}
+		}
+		return elements[len(prefix):], true
+	}
+	return nil, false
 }
 
 // resolve walks name one element at a time and returns the file it names, relative to
 // the root. It fails when any step is outside the root, even one that a later link
 // brings back in, so a name tells nothing of what lies outside.
 func (r *fileRoot) resolve(name string) (string, error) {
+	pending := namedElements(name)
 	if filepath.IsAbs(name) {
 		rest, ok := r.within(name)
 		if !ok {
 			return "", errOutsideFileRoot
 		}
-		name = rest
+		pending = rest
 	}
-	pending := pathElements(name)
 	var at []string
 	for links := 0; len(pending) > 0; {
 		element := pending[0]
@@ -98,6 +108,9 @@ func (r *fileRoot) resolve(name string) (string, error) {
 			return "", err
 		}
 		if info.Mode()&os.ModeSymlink == 0 {
+			if len(pending) > 0 && !info.IsDir() {
+				return "", errOutsideFileRoot
+			}
 			at = append(at, element)
 			continue
 		}
@@ -108,19 +121,30 @@ func (r *fileRoot) resolve(name string) (string, error) {
 		if err != nil {
 			return "", err
 		}
+		follow := namedElements(target)
 		if filepath.IsAbs(target) {
 			rest, ok := r.within(target)
 			if !ok {
 				return "", errOutsideFileRoot
 			}
-			at, target = nil, rest
+			at, follow = nil, rest
 		}
-		pending = append(pathElements(target), pending...)
+		pending = append(follow, pending...)
 	}
 	if len(at) == 0 {
 		return "", errOutsideFileRoot
 	}
 	return filepath.Join(at...), nil
+}
+
+// namedElements is the elements of a path a request or a link names, with a "." for
+// a trailing separator, which names what is before it as a directory.
+func namedElements(path string) []string {
+	elements := pathElements(path)
+	if path != "" && os.IsPathSeparator(path[len(path)-1]) {
+		elements = append(elements, ".")
+	}
+	return elements
 }
 
 // pathElements splits a path at its separators, dropping the empty elements.

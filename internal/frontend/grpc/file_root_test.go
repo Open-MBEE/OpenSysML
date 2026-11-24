@@ -249,6 +249,111 @@ func TestConfinedServiceReadsUnderEitherNameOfItsRoot(t *testing.T) {
 	}
 }
 
+// An absolute name is under the root however its separators are doubled, as it is
+// for the system.
+func TestConfinedServiceReadsAnAbsoluteNameWithRepeatedSeparators(t *testing.T) {
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "inside.sysml"), []byte("package P;"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	srv, err := NewService(10, "test", ConfineFilesTo(root))
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	t.Cleanup(srv.Close)
+	sep := string(filepath.Separator)
+	parent, base := filepath.Split(root)
+	for _, name := range []string{
+		parent + sep + base + sep + "inside.sysml",
+		root + sep + sep + "inside.sysml",
+		root + sep + "." + sep + "inside.sysml",
+	} {
+		if data, err := srv.readNamedFile(name); err != nil || string(data) != "package P;" {
+			t.Errorf("readNamedFile(%q) = %q, %v", name, data, err)
+		}
+	}
+}
+
+// A name that goes through a file as if it were a directory names nothing, as for the
+// system, whatever follows the file.
+func TestConfinedServiceRefusesANameThroughAFile(t *testing.T) {
+	root := t.TempDir()
+	for _, name := range []string{"inside.sysml", "beside.sysml"} {
+		if err := os.WriteFile(filepath.Join(root, name), []byte("package P;"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	linked := os.Symlink("inside.sysml"+string(filepath.Separator), filepath.Join(root, "link.sysml")) == nil
+	srv, err := NewService(10, "test", ConfineFilesTo(root))
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	t.Cleanup(srv.Close)
+	sep := string(filepath.Separator)
+	names := []string{
+		"inside.sysml" + sep,
+		"inside.sysml" + sep + ".",
+		"inside.sysml" + sep + ".." + sep + "beside.sysml",
+		"inside.sysml" + sep + "beside.sysml",
+	}
+	if linked {
+		names = append(names, "link.sysml")
+	}
+	for _, name := range names {
+		if _, err := os.ReadFile(root + sep + name); err == nil {
+			t.Fatalf("the system reads %q, so it is no case of a name through a file", name)
+		}
+		if err := srv.readNamedFileError(name); connect.CodeOf(err) != connect.CodePermissionDenied {
+			t.Errorf("readNamedFile(%q) = %v, want it refused", name, err)
+		}
+	}
+}
+
+// When the name the root was configured by is made to lead elsewhere, a request by
+// that name is refused rather than answered with a file the name no longer reaches.
+func TestConfinedServiceRefusesTheGivenNameOnceItLeadsElsewhere(t *testing.T) {
+	physical, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(physical, "sub"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for name, text := range map[string]string{"m.sysml": "package Old;", filepath.Join("sub", "m.sysml"): "package New;"} {
+		if err := os.WriteFile(filepath.Join(physical, name), []byte(text), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	given := filepath.Join(t.TempDir(), "given")
+	if err := os.Symlink(physical, given); err != nil {
+		t.Skipf("symbolic links are not available: %v", err)
+	}
+	srv, err := NewService(10, "test", ConfineFilesTo(given))
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	t.Cleanup(srv.Close)
+	name := filepath.Join(given, "m.sysml")
+	if data, err := srv.readNamedFile(name); err != nil || string(data) != "package Old;" {
+		t.Fatalf("readNamedFile(%q) = %q, %v", name, data, err)
+	}
+	if err := os.Remove(given); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(physical, "sub"), given); err != nil {
+		t.Fatal(err)
+	}
+	if data, err := srv.readNamedFile(name); connect.CodeOf(err) != connect.CodePermissionDenied {
+		t.Errorf("readNamedFile(%q) = %q, %v, want it refused", name, data, err)
+	}
+	if data, err := srv.readNamedFile(filepath.Join(physical, "m.sysml")); err != nil || string(data) != "package Old;" {
+		t.Errorf("the root's own name reads %q, %v", data, err)
+	}
+}
+
 func (s *Service) readNamedFileError(name string) error {
 	_, err := s.readNamedFile(name)
 	return err
