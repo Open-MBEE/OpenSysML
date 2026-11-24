@@ -126,6 +126,15 @@ func TestHDBK1009SelfDerivationThroughTheDeclaringPart(t *testing.T) {
 		part def D { #subsystemRequirement requirement r; }
 		part c : D { #derivation connection { end #original ::> r; end #derive ::> c.r; } }`),
 		CodeHDBK1009RequirementNotDerived, 3, 4)
+	for _, other := range []string{"$::M::a::r", "Q::a::r"} {
+		w8dWantLines(t, hdbkModel(`
+		#subsystemRequirement requirement loose;
+		part def D { #subsystemRequirement requirement r; }
+		part a : D;
+		package Q { public import M::a; }
+		#derivation connection { end #original ::> a::r; end #derive ::> `+other+`; }`),
+			CodeHDBK1009RequirementNotDerived, 3, 4)
+	}
 	w8dWantLines(t, hdbkModel(`
 		#subsystemRequirement requirement loose;
 		part def D { #subsystemRequirement requirement r; }

@@ -36,15 +36,16 @@ func (e RelationshipEdge) SameEnds() bool {
 		slices.EqualFunc(reachedThrough(e.Source, e.SourcePath), reachedThrough(e.Target, e.TargetPath), symbols.SameElement)
 }
 
-// reachedThrough is path without each feature that declares the one after it,
-// so `p.r` and `r` agree where p declares r; a nil path is element alone.
+// reachedThrough is path's last element after the features it is inherited through:
+// a namespace, and a feature declaring the next (`p.r` where p declares r), drop out.
 func reachedThrough(element *symbols.Symbol, path []*symbols.Symbol) []*symbols.Symbol {
 	if len(path) == 0 {
 		return []*symbols.Symbol{element}
 	}
 	out := make([]*symbols.Symbol, 0, len(path))
 	for i, sym := range path {
-		if i+1 < len(path) && path[i+1].OwnerScope != nil && symbols.SameElement(path[i+1].OwnerScope.Owner(), sym) {
+		if i+1 < len(path) && (!sym.Kind.IsFeature() ||
+			path[i+1].OwnerScope != nil && symbols.SameElement(path[i+1].OwnerScope.Owner(), sym)) {
 			continue
 		}
 		out = append(out, sym)
@@ -260,14 +261,12 @@ func (m *Model) derivationPath(scope *symbols.Scope, node ast.Node) []*symbols.S
 // each of which may hold the next by inheritance as a chain's features do.
 func (m *Model) qualifierPath(scope *symbols.Scope, node ast.Node) []*symbols.Symbol {
 	name, ok := node.(*ast.QualifiedName)
-	if !ok || name.Global {
+	if !ok {
 		return nil
 	}
 	var path []*symbols.Symbol
-	segments := make([]string, 0, len(name.Parts))
-	for _, part := range name.Parts[:len(name.Parts)-1] {
-		segments = append(segments, part.Text)
-		qualifier, ok := m.resolver.ResolveSegments(scope, segments...)
+	for i := 1; i < len(name.Parts); i++ {
+		qualifier, ok := m.resolver.ResolveQualified(scope, &ast.QualifiedName{Global: name.Global, Parts: name.Parts[:i]})
 		if !ok || qualifier == nil {
 			return nil
 		}
