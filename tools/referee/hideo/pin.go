@@ -7,6 +7,9 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
+
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/subprocess"
 )
 
 const (
@@ -83,12 +86,18 @@ func (p Pin) Verify(dir string) error {
 	return nil
 }
 
+// gitTimeout and maxGitAnswer bound one git query about the suite's checkout.
+const (
+	gitTimeout   = 5 * time.Minute
+	maxGitAnswer = 16 << 20
+)
+
 func git(dir string, args ...string) (string, error) {
 	path, err := exec.LookPath("git")
 	if err != nil {
 		return "", fmt.Errorf("git not found on PATH: %w", err)
 	}
-	out, err := exec.Command(path, append([]string{"-C", dir}, args...)...).Output() // #nosec G204 -- git is resolved by LookPath and the arguments are fixed
+	out, _, err := subprocess.Output(gitTimeout, maxGitAnswer, path, append([]string{"-C", dir}, args...)...)
 	if err != nil {
 		return "", fmt.Errorf("git -C %s %s: %w", dir, strings.Join(args, " "), err)
 	}
