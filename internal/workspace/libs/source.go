@@ -148,10 +148,20 @@ func resolvedDir(dir string) (string, error) {
 		if wd, err = filepath.EvalSymlinks(wd); err != nil {
 			return "", err
 		}
-		// Joined uncleaned: a ".." after a link must leave the link's target.
-		dir = wd + string(filepath.Separator) + dir
+		if fromWorkingDirectory(dir) {
+			// Joined uncleaned: a ".." after a link must leave the link's target.
+			dir = wd + string(filepath.Separator) + dir
+		} else if dir, err = filepath.Abs(dir); err != nil {
+			return "", err
+		}
 	}
 	return filepath.EvalSymlinks(dir)
+}
+
+// fromWorkingDirectory reports whether a path that is not absolute starts at the working
+// directory; on Windows one naming a drive or starting at a drive's root does not.
+func fromWorkingDirectory(dir string) bool {
+	return filepath.VolumeName(dir) == "" && (dir == "" || !os.IsPathSeparator(dir[0]))
 }
 
 func (s *dirSource) Read(name string) ([]byte, error) {
