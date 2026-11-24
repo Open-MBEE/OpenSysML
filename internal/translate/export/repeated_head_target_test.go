@@ -25,6 +25,7 @@ const repeatedHeadTargetSource = `package P {
     feature x references g, g;
     feature c crosses g, g;
     feature t : A, A, B;
+    feature m subsets g, g specializes g;
 }
 `
 
@@ -93,6 +94,7 @@ func TestRepeatedHeadTargetsReadBackFromTheGraphAlone(t *testing.T) {
 		"feature r redefines g, g;", "classifier U unions A, A;", "classifier I intersects A, A;",
 		"classifier D differences A, A;", "classifier C disjoint from A, A;", "feature f featured by A, A;",
 		"feature x references g, g;", "feature c crosses g, g;", "feature t : A, A, B;",
+		"feature m subsets g, g specializes g;",
 	} {
 		if !strings.Contains(string(notation), head) {
 			t.Errorf("%q does not come back:\n%s", head, notation)

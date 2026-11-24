@@ -4555,7 +4555,7 @@ func (d *decoder) spelledHead(el *element) []headClause {
 		if len(targets) == 0 {
 			continue
 		}
-		var candidates, repeated []headClause
+		var free, repeated []headClause
 		for _, kind := range headClauseKinds[metaclass] {
 			for index, object := range objects[kind] {
 				clause := headClause{kind: kind, index: index}
@@ -4566,15 +4566,11 @@ func (d *decoder) spelledHead(el *element) []headClause {
 					repeated = append(repeated, clause)
 					continue
 				}
-				candidates = append(candidates, clause)
+				free = append(free, clause)
 				break
 			}
 		}
-		// A relationship whose every clause is taken repeats one (`: T, T`).
-		if len(candidates) == 0 {
-			candidates = repeated
-		}
-		if clause, ok := d.headClauseOf(owned, candidates); ok {
+		if clause, ok := d.headClauseOf(owned, free, repeated); ok {
 			taken[clause] = true
 			clauses = append(clauses, clause)
 		}
@@ -4582,30 +4578,29 @@ func (d *decoder) spelledHead(el *element) []headClause {
 	return clauses
 }
 
-// headClauseOf picks the clause a relationship element states among the candidates its
-// metaclass admits: the keyword it carries decides between several, else the kinds' fixed order.
-func (d *decoder) headClauseOf(owned rdf.Term, candidates []headClause) (headClause, bool) {
-	switch len(candidates) {
-	case 0:
-		return headClause{}, false
-	case 1:
-		return candidates[0], true
-	}
+// headClauseOf picks the clause a relationship element states: the one its keyword names, else
+// a free clause before a repeated one (`: T, T`), each in the kinds' fixed order.
+func (d *decoder) headClauseOf(owned rdf.Term, free, repeated []headClause) (headClause, bool) {
 	if keyword, ok := d.graph.Object(owned, rdf.OpenSysML+xHeadClause); ok {
-		for _, clause := range candidates {
+		for _, clause := range slices.Concat(free, repeated) {
 			if relationshipSyntax[clause.kind] == keyword.Value {
 				return clause, true
 			}
 		}
 	}
-	for _, kind := range relationshipOrder {
-		for _, clause := range candidates {
-			if clause.kind == kind {
-				return clause, true
+	for _, candidates := range [][]headClause{free, repeated} {
+		for _, kind := range relationshipOrder {
+			for _, clause := range candidates {
+				if clause.kind == kind {
+					return clause, true
+				}
 			}
 		}
+		if len(candidates) > 0 {
+			return candidates[0], true
+		}
 	}
-	return candidates[0], true
+	return headClause{}, false
 }
 
 func (d *decoder) multiplicityText(el *element) string {
