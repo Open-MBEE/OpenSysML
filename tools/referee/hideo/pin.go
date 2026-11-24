@@ -63,8 +63,9 @@ func Required() bool {
 	return os.Getenv(RequireEnv) != ""
 }
 
-// provisioned are the two untracked entries scripts/download-hideo-suite.sh leaves in a checkout.
-var provisioned = map[string]bool{".hideo-suite-pin": true, mdkLink: true}
+// provisioned are the untracked entries a checkout is expected to hold: the two that
+// scripts/download-hideo-suite.sh leaves, and the lock file Execute's `uv sync` writes.
+var provisioned = map[string]bool{".hideo-suite-pin": true, mdkLink: true, pythonDir + "/uv.lock": true}
 
 // Verify refuses a checkout that is not the pinned commit with its tracked files
 // untouched and no file of its own added, before anything in it is run.

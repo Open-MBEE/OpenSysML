@@ -95,7 +95,7 @@ func TestVerifyRefusesAnotherCommitAndAModifiedTree(t *testing.T) {
 }
 
 // An untracked file is one the suites' go test and pytest would discover, so it is refused;
-// what the download script leaves and what the suite ignores are not.
+// what the download script and a run leave, and what the suite ignores, are not.
 func TestVerifyRefusesAnUntrackedFile(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Fatal("git is not installed")
@@ -128,6 +128,7 @@ func TestVerifyRefusesAnUntrackedFile(t *testing.T) {
 	pin := Pin{Repository: testPin.Repository, Commit: run("rev-parse", "HEAD")}
 	write(".hideo-suite-pin")
 	write(ResultsDir + "/parse.csv")
+	write(pythonDir + "/uv.lock")
 	if err := os.Symlink(t.TempDir(), filepath.Join(dir, mdkLink)); err != nil {
 		t.Fatal(err)
 	}
