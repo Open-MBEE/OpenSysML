@@ -2755,6 +2755,12 @@ func ReflectiveDirection(sym *symbols.Symbol) (ast.FeatureDirection, bool) {
 			return ast.DirOut, true
 		case symbols.ExpressionPayload, symbols.ExpressionTransitionLinkParameter:
 			return ast.DirIn, true
+		case symbols.ExpressionNodeParameter:
+			if owner := sym.Expr.Owner; owner != nil && owner.Expr != nil && owner.Expr.Role == symbols.ExpressionNodeParameter {
+				// A feature an assignment's target parameter nests is no parameter.
+				return ast.DirNone, true
+			}
+			return ast.DirIn, true
 		}
 		return ast.DirNone, true
 	}
