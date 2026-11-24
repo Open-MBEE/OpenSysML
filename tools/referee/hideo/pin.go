@@ -63,8 +63,11 @@ func Required() bool {
 	return os.Getenv(RequireEnv) != ""
 }
 
-// Verify refuses a checkout that is not the pinned commit with its tracked
-// files untouched, before anything in it is run.
+// provisioned are the two untracked entries scripts/download-hideo-suite.sh leaves in a checkout.
+var provisioned = map[string]bool{".hideo-suite-pin": true, mdkLink: true}
+
+// Verify refuses a checkout that is not the pinned commit with its tracked files
+// untouched and no file of its own added, before anything in it is run.
 func (p Pin) Verify(dir string) error {
 	head, err := git(dir, "rev-parse", "HEAD^{commit}")
 	if err != nil {
@@ -73,12 +76,26 @@ func (p Pin) Verify(dir string) error {
 	if head != p.Commit {
 		return fmt.Errorf("%s is at commit %s, not the pinned %s; re-run ./scripts/download-hideo-suite.sh", dir, head, p.Commit)
 	}
-	changed, err := git(dir, "status", "--porcelain", "--untracked-files=no")
+	status, err := git(dir, "status", "--porcelain", "--untracked-files=all")
 	if err != nil {
 		return err
 	}
-	if changed != "" {
-		return fmt.Errorf("%s has modified tracked files, so it is not the pinned suite; re-run ./scripts/download-hideo-suite.sh --force:\n%s", dir, changed)
+	var changed, added []string
+	for _, line := range strings.Split(status, "\n") {
+		name, untracked := strings.CutPrefix(line, "?? ")
+		switch {
+		case line == "" || untracked && provisioned[strings.TrimSuffix(name, "/")]:
+		case untracked:
+			added = append(added, line)
+		default:
+			changed = append(changed, line)
+		}
+	}
+	if len(changed) > 0 {
+		return fmt.Errorf("%s has modified tracked files, so it is not the pinned suite; re-run ./scripts/download-hideo-suite.sh --force:\n%s", dir, strings.Join(changed, "\n"))
+	}
+	if len(added) > 0 {
+		return fmt.Errorf("%s has untracked files the suites would read, so it is not the pinned suite; re-run ./scripts/download-hideo-suite.sh --force:\n%s", dir, strings.Join(added, "\n"))
 	}
 	return nil
 }

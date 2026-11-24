@@ -74,6 +74,12 @@ func Reproduces(committed, fresh *Report) error {
 	if len(moved) > 0 {
 		differences = append(differences, "moved: "+strings.Join(moved, ", "))
 	}
+	if added := testsOnlyIn(fresh, committed); len(added) > 0 {
+		differences = append(differences, "added: "+strings.Join(added, ", "))
+	}
+	if removed := testsOnlyIn(committed, fresh); len(removed) > 0 {
+		differences = append(differences, "removed: "+strings.Join(removed, ", "))
+	}
 	if !strings.HasPrefix(differences[0], "provenance") {
 		differences = append(differences, "the provenance matches, so this is a movement of the runtime or the translation: adjudicate it, then re-record with -update")
 	} else {
@@ -92,6 +98,21 @@ func movedTests(committed, fresh *Report) []string {
 	for _, t := range fresh.Tests {
 		if b, ok := was[t.Name]; ok && b != t.Bucket {
 			out = append(out, fmt.Sprintf("%s %s -> %s", t.Name, b, t.Bucket))
+		}
+	}
+	return out
+}
+
+// testsOnlyIn names the tests of one report the other does not have, with their bucket.
+func testsOnlyIn(in, other *Report) []string {
+	has := make(map[string]bool, len(other.Tests))
+	for _, t := range other.Tests {
+		has[t.Name] = true
+	}
+	var out []string
+	for _, t := range in.Tests {
+		if !has[t.Name] {
+			out = append(out, fmt.Sprintf("%s (%s)", t.Name, t.Bucket))
 		}
 	}
 	return out

@@ -93,3 +93,49 @@ func TestVerifyRefusesAnotherCommitAndAModifiedTree(t *testing.T) {
 		t.Errorf("a modified tree: %v", err)
 	}
 }
+
+// An untracked file is one the suites' go test and pytest would discover, so it is refused;
+// what the download script leaves and what the suite ignores are not.
+func TestVerifyRefusesAnUntrackedFile(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Fatal("git is not installed")
+	}
+	dir := t.TempDir()
+	run := func(args ...string) string {
+		t.Helper()
+		out, err := git(dir, args...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return out
+	}
+	write := func(name string) {
+		t.Helper()
+		if err := os.MkdirAll(filepath.Dir(filepath.Join(dir, name)), 0o750); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, name), []byte("x\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write(".gitignore")
+	if err := os.WriteFile(filepath.Join(dir, ".gitignore"), []byte(ResultsDir+"/\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	run("init", "--quiet")
+	run("add", ".gitignore")
+	run("-c", "user.name=t", "-c", "user.email=t@example.test", "-c", "commit.gpgsign=false", "commit", "--quiet", "-m", "c")
+	pin := Pin{Repository: testPin.Repository, Commit: run("rev-parse", "HEAD")}
+	write(".hideo-suite-pin")
+	write(ResultsDir + "/parse.csv")
+	if err := os.Symlink(t.TempDir(), filepath.Join(dir, mdkLink)); err != nil {
+		t.Fatal(err)
+	}
+	if err := pin.Verify(dir); err != nil {
+		t.Fatalf("a provisioned checkout with results is refused: %v", err)
+	}
+	write(goDir + "/extra_test.go")
+	if err := pin.Verify(dir); err == nil || !strings.Contains(err.Error(), "untracked files") || !strings.Contains(err.Error(), "extra_test.go") {
+		t.Errorf("an untracked test file: %v", err)
+	}
+}
