@@ -1391,120 +1391,166 @@ func (ctx *Context) checkResultOf(holds bool, subject carrier) CheckResult {
 // behind. enclosing are the values bound around the element (a case run's, for its
 // objective), which the binding expressions read.
 func (ctx *Context) memberBindings(sym *symbols.Symbol, kind, element string, members []scopedMember, self, subject *Instance, enclosing frame) (map[string]Value, error) {
-	bindings := make(map[string]Value)
 	features := ctx.conditionFeatures(sym)
 	// The bindings are evaluated as one, so a calc usage two of them read answers
 	// from one evaluation, and the next check reads it again.
 	activation, endStep := ctx.beginStep()
 	defer endStep()
-	evalIn := func(memberScope *symbols.Scope) *EvalContext {
-		ec := NewEvalContextIn(ctx, memberScope, self)
-		ec.activation = activation
-		ec.features = features
-		if enclosing.vars != nil {
-			ec.pushFrame(enclosing)
-		}
-		ec.Push(bindings)
-		return ec
+	binder := &memberBinder{
+		ctx:        ctx,
+		sym:        sym,
+		kind:       kind,
+		element:    element,
+		self:       self,
+		subject:    subject,
+		enclosing:  enclosing,
+		bindings:   make(map[string]Value),
+		features:   features,
+		activation: activation,
+		superseded: ctx.redefinedAmong(sym, members),
 	}
-	superseded := ctx.redefinedAmong(sym, members)
-	hold := func(member scopedMember, what string, value Value) error {
-		if memberSym := memberSymbol(member.scope, member.node); memberSym == nil || superseded[memberSym] {
-			return nil
-		}
-		return ctx.holdBound(sym, member, fmt.Sprintf("%s %s: %s", kind, element, what), value)
-	}
-
 	commit, rollback := ctx.beginJournal()
-	// A satisfy usage's `by` is its subject's binding (SysML v2 §7.21.4), read like
-	// a body's `subject = x;` unless an object is supplied from outside.
-	suppliedBy := false
-	if by := satisfiedBy(sym); by != nil && subject == nil {
-		value, err := evalIn(sym.OwnerScope).Eval(by)
-		if err != nil {
-			rollback()
-			return nil, fmt.Errorf("%s %s: subject binding evaluation failed: %w", kind, element, err)
-		}
-		for _, name := range ctx.subjectParameterNames(sym) {
-			bindings[name] = value
-		}
-		suppliedBy = true
-	}
-	for _, member := range members {
-		var what string
-		var names []string
-		var expr ast.Node
-		isSubject := false
-		switch rm := member.node.(type) {
-		case *ast.SubjectMember:
-			what, names, expr, isSubject = "subject", ctx.memberNames(sym, member, rm.Ident.Name, rm.Ident.ShortName), rm.BindingExpr, true
-		case *ast.Usage:
-			switch rm.Kind {
-			case ast.UsageSubject:
-				what, names, expr, isSubject = "subject", ctx.memberNames(sym, member, effectiveName(rm), rm.Ident.ShortName), rm.Value, true
-			case ast.UsageActor:
-				what, names, expr = "actor", ctx.memberNames(sym, member, effectiveName(rm), rm.Ident.ShortName), rm.Value
-			}
-		default:
-			continue
-		}
-		if isSubject && subject != nil {
-			value := Value{Kind: ValInstance, Instance: subject.ID}
-			if err := hold(member, what, value); err != nil {
-				rollback()
-				return nil, err
-			}
-			for _, name := range names {
-				bindings[name] = value
-			}
-			continue
-		}
-		// A redeclaration valuing nothing reads the value the feature it redefines binds,
-		// under its own names too; so does the subject the `by` operand supersedes (§7.21.4).
-		superseded := false
-		if isSubject && suppliedBy {
-			_, superseded = boundUnder(bindings, names)
-		}
-		if expr == nil || superseded {
-			if value, ok := boundUnder(bindings, names); ok {
-				if err := hold(member, what+" binding", value); err != nil {
-					rollback()
-					return nil, err
-				}
-				for _, name := range names {
-					bindings[name] = value
-				}
-			}
-			continue
-		}
-		var value Value
-		var err error
-		bound := false
-		if isSubject {
-			value, bound, err = ctx.qualifiedMemberOf(self, member.scope, expr)
-			// A subject defaulted to a member holding nothing determined stays unbound;
-			// a value written with `=` is held, and refused when it is empty.
-			if bound && err == nil && valueIsDefault(member.node) && (value.Kind == ValUndetermined || certainlyEmpty(value)) {
-				continue
-			}
-		}
-		if !bound && err == nil {
-			value, err = evalIn(member.scope).Eval(expr)
-		}
-		if err != nil {
-			rollback()
-			return nil, fmt.Errorf("%s %s: %s binding evaluation failed: %w", kind, element, what, err)
-		}
-		if err := hold(member, what+" binding", value); err != nil {
-			rollback()
-			return nil, err
-		}
-		for _, name := range names {
-			bindings[name] = value
-		}
+	if err := binder.bindAll(members); err != nil {
+		rollback()
+		return nil, err
 	}
 	commit()
-	return bindings, nil
+	return binder.bindings, nil
+}
+
+// memberBinder evaluates the bindings of one element's members (see memberBindings).
+type memberBinder struct {
+	ctx           *Context
+	sym           *symbols.Symbol
+	kind, element string
+	self, subject *Instance
+	enclosing     frame
+	bindings      map[string]Value
+	features      map[string]scopedExpr
+	activation    int64
+	// superseded are the members another member redefines, whose declaration holds no value.
+	superseded map[*symbols.Symbol]bool
+	// suppliedBy records that a satisfy usage's `by` operand bound the subjects.
+	suppliedBy bool
+}
+
+func (b *memberBinder) evalIn(memberScope *symbols.Scope) *EvalContext {
+	ec := NewEvalContextIn(b.ctx, memberScope, b.self)
+	ec.activation = b.activation
+	ec.features = b.features
+	if b.enclosing.vars != nil {
+		ec.pushFrame(b.enclosing)
+	}
+	ec.Push(b.bindings)
+	return ec
+}
+
+// hold holds value to member's effective declaration and binds it under names.
+func (b *memberBinder) hold(member scopedMember, what string, names []string, value Value) error {
+	if memberSym := memberSymbol(member.scope, member.node); memberSym != nil && !b.superseded[memberSym] {
+		if err := b.ctx.holdBound(b.sym, member, fmt.Sprintf("%s %s: %s", b.kind, b.element, what), value); err != nil {
+			return err
+		}
+	}
+	for _, name := range names {
+		b.bindings[name] = value
+	}
+	return nil
+}
+
+func (b *memberBinder) bindAll(members []scopedMember) error {
+	if err := b.bindSatisfiedBy(); err != nil {
+		return err
+	}
+	for _, member := range members {
+		if err := b.bind(member); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// bindSatisfiedBy reads a satisfy usage's `by` as its subject's binding (SysML v2 §7.21.4),
+// like a body's `subject = x;`, unless an object is supplied from outside.
+func (b *memberBinder) bindSatisfiedBy() error {
+	by := satisfiedBy(b.sym)
+	if by == nil || b.subject != nil {
+		return nil
+	}
+	value, err := b.evalIn(b.sym.OwnerScope).Eval(by)
+	if err != nil {
+		return fmt.Errorf("%s %s: subject binding evaluation failed: %w", b.kind, b.element, err)
+	}
+	for _, name := range b.ctx.subjectParameterNames(b.sym) {
+		b.bindings[name] = value
+	}
+	b.suppliedBy = true
+	return nil
+}
+
+// boundMember reads a member that may bind a value: what it is called in messages, the names
+// it binds, its binding expression and whether it is a subject. ok is false for any other node.
+func (b *memberBinder) boundMember(member scopedMember) (what string, names []string, expr ast.Node, isSubject, ok bool) {
+	switch rm := member.node.(type) {
+	case *ast.SubjectMember:
+		return "subject", b.ctx.memberNames(b.sym, member, rm.Ident.Name, rm.Ident.ShortName), rm.BindingExpr, true, true
+	case *ast.Usage:
+		switch rm.Kind {
+		case ast.UsageSubject:
+			return "subject", b.ctx.memberNames(b.sym, member, effectiveName(rm), rm.Ident.ShortName), rm.Value, true, true
+		case ast.UsageActor:
+			return "actor", b.ctx.memberNames(b.sym, member, effectiveName(rm), rm.Ident.ShortName), rm.Value, false, true
+		}
+		return "", nil, nil, false, true
+	}
+	return "", nil, nil, false, false
+}
+
+func (b *memberBinder) bind(member scopedMember) error {
+	what, names, expr, isSubject, ok := b.boundMember(member)
+	if !ok {
+		return nil
+	}
+	if isSubject && b.subject != nil {
+		return b.hold(member, what, names, Value{Kind: ValInstance, Instance: b.subject.ID})
+	}
+	// A redeclaration valuing nothing reads the value the feature it redefines binds,
+	// under its own names too; so does the subject the `by` operand supersedes (§7.21.4).
+	superseded := false
+	if isSubject && b.suppliedBy {
+		_, superseded = boundUnder(b.bindings, names)
+	}
+	if expr == nil || superseded {
+		if value, ok := boundUnder(b.bindings, names); ok {
+			return b.hold(member, what+" binding", names, value)
+		}
+		return nil
+	}
+	value, unbound, err := b.evaluate(member, expr, isSubject)
+	if err != nil {
+		return fmt.Errorf("%s %s: %s binding evaluation failed: %w", b.kind, b.element, what, err)
+	}
+	if unbound {
+		return nil
+	}
+	return b.hold(member, what+" binding", names, value)
+}
+
+// evaluate is the value of member's binding expression; unbound reports a subject left without one.
+func (b *memberBinder) evaluate(member scopedMember, expr ast.Node, isSubject bool) (value Value, unbound bool, err error) {
+	bound := false
+	if isSubject {
+		value, bound, err = b.ctx.qualifiedMemberOf(b.self, member.scope, expr)
+		// A subject defaulted to a member holding nothing determined stays unbound;
+		// a value written with `=` is held, and refused when it is empty.
+		if bound && err == nil && valueIsDefault(member.node) && (value.Kind == ValUndetermined || certainlyEmpty(value)) {
+			return Value{}, true, nil
+		}
+	}
+	if !bound && err == nil {
+		value, err = b.evalIn(member.scope).Eval(expr)
+	}
+	return value, false, err
 }
 
 // redefinedAmong is the set of members of owner another of members redefines: their
