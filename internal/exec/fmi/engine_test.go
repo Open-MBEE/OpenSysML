@@ -25,16 +25,27 @@ import (
 )
 
 var (
+	runnerDir  = gobuild.Scratch{Pattern: "fmirunner"}
 	runnerOnce sync.Once
 	runnerPath string
 	runnerErr  error
 )
 
+// TestMain removes the directory the commands under test were built into.
+func TestMain(m *testing.M) {
+	code := m.Run()
+	if err := runnerDir.Remove(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		code = 1
+	}
+	os.Exit(code)
+}
+
 // runner builds the stand-in FMI runner once per test binary and returns its path.
 func runner(t *testing.T) string {
 	t.Helper()
 	runnerOnce.Do(func() {
-		dir, err := os.MkdirTemp("", "fmirunner")
+		dir, err := runnerDir.Dir()
 		if err != nil {
 			runnerErr = err
 			return

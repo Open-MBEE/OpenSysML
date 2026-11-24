@@ -897,7 +897,20 @@ var conformanceTools = map[string]struct {
 	"toolcalc": {"Thermo", []string{`"mass"`, `"power"`, `"warn"`, `"Tmax"`}},
 }
 
-var conformanceToolBuilds sync.Map // name -> string path or error
+var (
+	conformanceToolDir    = gobuild.Scratch{Pattern: "conformance-tool"}
+	conformanceToolBuilds sync.Map // name -> string path or error
+)
+
+// TestMain removes the directory the commands under test were built into.
+func TestMain(m *testing.M) {
+	code := m.Run()
+	if err := conformanceToolDir.Remove(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		code = 1
+	}
+	os.Exit(code)
+}
 
 // conformanceToolBinary builds a stand-in once per test binary.
 func conformanceToolBinary(t *testing.T, name string) string {
@@ -910,7 +923,7 @@ func conformanceToolBinary(t *testing.T, name string) string {
 			t.Fatalf("building the %s stand-in: %v", name, v)
 		}
 	}
-	dir, err := os.MkdirTemp("", "conformance-tool")
+	dir, err := conformanceToolDir.Dir()
 	if err != nil {
 		t.Fatal(err)
 	}

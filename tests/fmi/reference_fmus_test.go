@@ -29,17 +29,28 @@ const (
 )
 
 var (
+	buildDir  = gobuild.Scratch{Pattern: "sysml-build"}
 	buildOnce sync.Once
 	buildPath string
 	buildErr  error
 )
+
+// TestMain removes the directory the commands under test were built into.
+func TestMain(m *testing.M) {
+	code := m.Run()
+	if err := buildDir.Remove(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		code = 1
+	}
+	os.Exit(code)
+}
 
 // buildCLI builds the sysml binary once per test binary, so the gate exercises
 // the real command line.
 func buildCLI(t *testing.T) string {
 	t.Helper()
 	buildOnce.Do(func() {
-		dir, err := os.MkdirTemp("", "sysml-build")
+		dir, err := buildDir.Dir()
 		if err != nil {
 			buildErr = err
 			return
