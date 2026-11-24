@@ -151,7 +151,9 @@ expr:Loops__Charge___401_pemptyParameter
     sysml:owner elmt:Loops__Charge___401 ;
     sysml:owningRelationship expr:Loops__Charge___401_pemptyParameter_om ;
     sysml:owningMembership expr:Loops__Charge___401_pemptyParameter_om ;
-    sysml:direction "in" .
+    sysml:direction "in" ;
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean .
 
 expr:Loops__Charge___401_pemptyParameter_om
     a sysml:ParameterMembership ;
