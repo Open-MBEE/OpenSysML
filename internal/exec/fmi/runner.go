@@ -14,12 +14,21 @@ import (
 
 // runnerRequest is the JSON object written to the runner's standard input.
 type runnerRequest struct {
-	Protocol   int              `json:"protocol"`
-	FMU        string           `json:"fmu"`
-	Interface  string           `json:"interface"`
-	Experiment runnerExperiment `json:"experiment"`
-	Start      map[string]any   `json:"start"`
-	Outputs    []string         `json:"outputs"`
+	Protocol   int                  `json:"protocol"`
+	FMU        string               `json:"fmu"`
+	Interface  string               `json:"interface"`
+	Experiment runnerExperiment     `json:"experiment"`
+	Start      map[string]any       `json:"start"`
+	Outputs    []string             `json:"outputs"`
+	Series     *runnerSeriesRequest `json:"series,omitempty"`
+}
+
+// runnerSeriesRequest asks for a sampled trajectory beside the scalar outputs.
+// The runner answers one sample per requested variable at each of Samples
+// evenly spaced instants from startTime to stopTime.
+type runnerSeriesRequest struct {
+	Samples int      `json:"samples"`
+	Outputs []string `json:"outputs"`
 }
 
 // runnerExperiment is the request's experiment member: startTime and stopTime
@@ -33,19 +42,30 @@ type runnerExperiment struct {
 }
 
 // runnerReply is the JSON object the runner writes: the simulation time and
-// the outputs, or its own error.
+// the outputs, or its own error. A trajectory answers one series member with
+// the sample instants and one list of samples per requested variable.
 type runnerReply struct {
 	Protocol int                        `json:"protocol"`
 	Time     *float64                   `json:"time"`
 	Outputs  map[string]json.RawMessage `json:"outputs"`
+	Series   *runnerSeriesReply         `json:"series,omitempty"`
 	Error    *string                    `json:"error"`
+}
+
+// runnerSeriesReply is the trajectory of a series request: Times holds one
+// instant per sample and Outputs maps each requested variable to its samples.
+type runnerSeriesReply struct {
+	Times   []float64                    `json:"times"`
+	Outputs map[string][]json.RawMessage `json:"outputs"`
 }
 
 // requestOf composes the request one call makes of the FMU at path: the
 // interface the FMU provides (coSimulation first), the experiment from the
 // call's reserved inputs over the DefaultExperiment, the start values typed by
-// each variable's kind and the outputs to read at stopTime.
-func requestOf(call *runtime.ToolCall, d *Description, fmu string) ([]byte, error) {
+// each variable's kind, the outputs to read at stopTime and, when an output
+// names one, a sampled trajectory. The plan returned beside the bytes is what
+// replyOf validates the runner's series against.
+func requestOf(call *runtime.ToolCall, d *Description, fmu string) ([]byte, seriesPlan, error) {
 	var iface string
 	switch {
 	case d.CoSimulation != nil:
@@ -81,15 +101,16 @@ func requestOf(call *runtime.ToolCall, d *Description, fmu string) ([]byte, erro
 			tolerance = &t
 		}
 	}
+	var samples, interval *float64
 	for _, in := range call.Inputs {
 		if strings.HasPrefix(in.Variable, "fmi:") {
 			unit := ""
-			if in.Variable != "fmi:tolerance" {
+			if in.Variable != "fmi:tolerance" && in.Variable != seriesSamplesInput {
 				unit = "s"
 			}
 			n, err := reservedNumber(call, in, unit)
 			if err != nil {
-				return nil, err
+				return nil, seriesPlan{}, err
 			}
 			switch in.Variable {
 			case "fmi:startTime":
@@ -102,18 +123,33 @@ func requestOf(call *runtime.ToolCall, d *Description, fmu string) ([]byte, erro
 			case "fmi:tolerance":
 				t := n
 				tolerance = &t
+			case seriesSamplesInput:
+				samples = &n
+			case seriesIntervalInput:
+				interval = &n
 			}
 			continue
 		}
 		v, _ := d.Variable(in.Variable)
 		value, err := inputValue(call, in, d, v)
 		if err != nil {
-			return nil, err
+			return nil, seriesPlan{}, err
 		}
 		request.Start[v.Name] = value
 	}
+	plan, err := planSeries(call, startTime, stopTime, samples, interval)
+	if err != nil {
+		return nil, seriesPlan{}, err
+	}
+	if plan.requested() {
+		outputs := plan.vars
+		if outputs == nil {
+			outputs = []string{}
+		}
+		request.Series = &runnerSeriesRequest{Samples: plan.samples, Outputs: outputs}
+	}
 	for _, out := range call.Outputs {
-		if reservedOutputs[out.Variable] {
+		if isSeriesOutput(out.Variable) || reservedOutputs[out.Variable] {
 			continue
 		}
 		v, _ := d.Variable(out.Variable)
@@ -121,7 +157,8 @@ func requestOf(call *runtime.ToolCall, d *Description, fmu string) ([]byte, erro
 	}
 	request.Experiment = runnerExperiment{StartTime: startTime, StopTime: stopTime,
 		StepSize: stepSize, Tolerance: tolerance}
-	return json.Marshal(request)
+	encoded, err := json.Marshal(request)
+	return encoded, plan, err
 }
 
 // reservedNumber is the number a reserved fmi: input carries: Real or Integer,
@@ -239,8 +276,10 @@ func displayValue(v runtime.ToolValue) string {
 }
 
 // replyOf reads the runner's standard output as the reply, the outputs mapped
-// to the call's variables as runtime.ToolValues the call binds.
-func replyOf(call *runtime.ToolCall, d *Description, stdout, stderr []byte) (map[string]runtime.ToolValue, error) {
+// to the call's variables as runtime.ToolValues the call binds. A series output
+// is always bound from the reply's series member, never from the scalar answer
+// at stopTime: a trajectory is not silently collapsed to one value.
+func replyOf(call *runtime.ToolCall, d *Description, plan seriesPlan, stdout, stderr []byte) (map[string]runtime.ToolValue, error) {
 	malformed := func(detail string) error {
 		return &runtime.ToolError{Tool: call.ToolName, Kind: runtime.ToolMalformed, Detail: detail}
 	}
@@ -260,10 +299,44 @@ func replyOf(call *runtime.ToolCall, d *Description, stdout, stderr []byte) (map
 	if math.IsNaN(*reply.Time) || math.IsInf(*reply.Time, 0) {
 		return nil, malformed(fmt.Sprintf("the runner answered a non-finite time %v", *reply.Time))
 	}
+	var series *runnerSeriesReply
+	if plan.requested() {
+		if reply.Series == nil {
+			return nil, malformed("the runner answered no series")
+		}
+		if len(reply.Series.Times) != plan.samples {
+			return nil, malformed(fmt.Sprintf("the runner answered %d sample times, expected %d", len(reply.Series.Times), plan.samples))
+		}
+		for i, t := range reply.Series.Times {
+			if math.IsNaN(t) || math.IsInf(t, 0) {
+				return nil, malformed(fmt.Sprintf("sample time %d is not finite", i))
+			}
+			if i > 0 && t < reply.Series.Times[i-1] {
+				return nil, malformed(fmt.Sprintf("sample times are not ordered at index %d", i))
+			}
+		}
+		series = reply.Series
+	}
 	outputs := make(map[string]runtime.ToolValue, len(call.Outputs))
 	for _, out := range call.Outputs {
 		if out.Variable == "fmi:time" {
 			outputs[out.Variable] = runtime.ToolValue{Value: semantics.Value{Kind: semantics.ValReal, Real: *reply.Time}}
+			continue
+		}
+		if out.Variable == seriesTimeOutput {
+			items := make([]runtime.ToolValue, 0, plan.samples)
+			for _, t := range series.Times {
+				items = append(items, runtime.ToolValue{Value: semantics.Value{Kind: semantics.ValReal, Real: t}})
+			}
+			outputs[out.Variable] = runtime.ToolValue{Unit: "s", Items: items}
+			continue
+		}
+		if name, ok := seriesVariable(out.Variable); ok {
+			value, err := seriesOutput(d, name, plan.samples, series.Outputs[name])
+			if err != nil {
+				return nil, malformed(err.Error())
+			}
+			outputs[out.Variable] = value
 			continue
 		}
 		v, _ := d.Variable(out.Variable)
@@ -278,6 +351,33 @@ func replyOf(call *runtime.ToolCall, d *Description, stdout, stderr []byte) (map
 		outputs[out.Variable] = value
 	}
 	return outputs, nil
+}
+
+// seriesOutput is the sampled trajectory of one FMU variable as a ToolValue:
+// one item per sample, typed by the variable's kind and measured in its coherent
+// unit when it resolves one. A missing series, a wrong number of samples or a
+// sample of the wrong type is a protocol break.
+func seriesOutput(d *Description, name string, samples int, raws []json.RawMessage) (runtime.ToolValue, error) {
+	if raws == nil {
+		return runtime.ToolValue{}, fmt.Errorf("the runner answered no series for %q", name)
+	}
+	if len(raws) != samples {
+		return runtime.ToolValue{}, fmt.Errorf("series %q answered %d samples, expected %d", name, len(raws), samples)
+	}
+	v, _ := d.Variable(name)
+	unit := ""
+	if exponents, ok := v.UnitExponents(d); ok {
+		unit = exponents.SIExpression()
+	}
+	items := make([]runtime.ToolValue, 0, len(raws))
+	for i, raw := range raws {
+		value, err := scalarOutput(v, raw)
+		if err != nil {
+			return runtime.ToolValue{}, fmt.Errorf("series %q sample %d: %w", name, i, err)
+		}
+		items = append(items, value)
+	}
+	return runtime.ToolValue{Unit: unit, Items: items}, nil
 }
 
 // outputValue is the JSON the runner answered for one variable as a ToolValue,

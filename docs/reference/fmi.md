@@ -137,7 +137,8 @@ output, nothing else on stdout:
 ```json
 {"protocol":1,"fmu":"/abs/path/model.fmu","interface":"coSimulation",
  "experiment":{"startTime":0.0,"stopTime":3.0,"stepSize":0.01},
- "start":{"g":-9.81,"e":0.7,"u":[1.0,2.0,3.0]},"outputs":["h","v","y"]}
+ "start":{"g":-9.81,"e":0.7,"u":[1.0,2.0,3.0]},"outputs":["h","v","y"],
+ "series":{"samples":5,"outputs":["T"]}}
 ```
 
 - `protocol` is `1`. `fmu` is the archive's absolute path. `interface` is `coSimulation`,
@@ -146,12 +147,15 @@ output, nothing else on stdout:
 - `experiment` carries `startTime` and `stopTime` always, `stepSize` and `tolerance` only when
   the declaration binds them.
 - `start` maps every remaining `in` variable name to the value bound for it; `outputs` lists
-  the `out` variable names in declaration order.
+  the `out` variable names in declaration order; `series`, when present, asks for a
+  trajectory of `samples` points at evenly spaced instants from `startTime` to `stopTime`
+  and names the variables to sample. A call with no series output omits the member entirely.
 
 The reply is either the result or the error:
 
 ```json
-{"protocol":1,"time":3.0,"outputs":{"h":0.0,"v":-29.43,"y":[2.7,5.4,8.1]}}
+{"protocol":1,"time":3.0,"outputs":{"h":0.0,"v":-29.43,"y":[2.7,5.4,8.1]},
+ "series":{"times":[0.0,0.75,1.5,2.25,3.0],"outputs":{"T":[1.0,2.0,3.0,4.0,5.0]}}}
 {"protocol":1,"error":"the FMU failed to initialize"}
 ```
 
@@ -166,7 +170,7 @@ another unit is refused rather than converted silently.
 
 ### Reserved `fmi:` variables
 
-Four names carry the experiment rather than a model variable:
+The names below carry the experiment or a trajectory rather than a model variable:
 
 | `ToolVariable` name | Direction | Carries |
 |---|---|---|
@@ -174,7 +178,47 @@ Four names carry the experiment rather than a model variable:
 | `fmi:stopTime` | input | the experiment's stop time, default `1.0` |
 | `fmi:stepSize` | input | the step size — only when `DefaultExperiment` declares one |
 | `fmi:tolerance` | input | the solver tolerance — only when declared |
+| `fmi:samples` | input | the number of points in a trajectory — an integer from 2 to 10000, default 11 |
+| `fmi:sampleInterval` | input | an alternative to `fmi:samples`: the spacing in seconds, converted from a measured value |
 | `fmi:time` | output | the reply's `time` — bound when the FMU declares no output |
+| `fmi:seriesTime` | output | the trajectory's sample times, bound as a sequence measured in seconds |
+| `fmi:series:<name>` | output | the sampled trajectory of the FMU variable `<name>`, bound as a sequence |
+
+## Trajectory (series) outputs
+
+A tool-computed calc normally binds each output once, at `stopTime`. To decide a
+condition over a whole run — a maximum temperature, a minimum pressure, an area
+under a curve — bind an output whose `ToolVariable` name begins `fmi:series:` to
+a multi-valued parameter and ask for the sample count or spacing with the
+reserved inputs:
+
+```sysml
+package BoilerDrive {
+	private import AnalysisTooling::*;
+	private import ScalarValues::*;
+	private import ControlFunctions::*;
+
+	calc def Trajectory {
+		metadata ToolExecution { toolName = "fmi"; uri = "file:///opt/fmus/boiler.fmu"; }
+		in samples : Integer = 5 { @ToolVariable { name = "fmi:samples"; } }
+		in stopTime : Real = 3.0 { @ToolVariable { name = "fmi:stopTime"; } }
+		return temps : Real[1..*] nonunique { @ToolVariable { name = "fmi:series:T"; } }
+	}
+
+	requirement def PeakTemperature {
+		in temps : Real[1..*] nonunique;
+		in limit : Real;
+		require constraint { temps->maximize { in t; t } <= limit }
+	}
+}
+```
+
+The run answers five samples and binds them as a `Real[1..*]` value; the requirement
+check decides `max(T) <= limit` from that one trajectory. The scalar answer at
+`stopTime` is never substituted for a series: if the runner omits `series`, answers
+the wrong number of samples, or a caller binds the trajectory to a single-valued
+parameter, the performance fails with a malformed-output error. A series variable
+must name a scalar output of the FMU; arrays cannot be sampled into a trajectory.
 
 ## Reference runner
 
@@ -208,4 +252,6 @@ $ sysml -calc 'BouncingBall::BouncingBall' bouncing.sysml
 - A `Real` variable's unit projects as an ISQ quantity type only when it resolves to
   coherent base exponents; non-coherent units (`km`, `degC`) and array element units stay
   comments, and an input measured in such a unit is refused rather than converted.
+- A trajectory samples scalar variables only; an array variable named by `fmi:series:` is
+  refused, though scalar outputs at `stopTime` still answer arrays as before.
 - `fmu` is an input format only.
