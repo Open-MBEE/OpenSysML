@@ -24,8 +24,8 @@ const (
 type RelationshipEdge struct {
 	Source *symbols.Symbol
 	Target *symbols.Symbol
-	// SourcePath and TargetPath are a derivation end as written, outermost first and
-	// less the features the derivation lies inside (`a.r` is [a r]); nil when unnamed.
+	// SourcePath and TargetPath are a derivation end as written, outermost first (`a.r` is
+	// [a r]), led by the feature that inherits a bare first name; nil when unnamed.
 	SourcePath, TargetPath []*symbols.Symbol
 }
 
@@ -233,23 +233,47 @@ type derivationReferent struct {
 	path    []*symbols.Symbol
 }
 
-// derivationPath is the path node is written as in scope, less the leading
-// features scope lies inside: there `c.r` names what a bare `r` does.
+// derivationPath is the path node is written as in scope, led by the enclosing
+// feature a bare first name is inherited by: in `c : D`, `r` is `c.r`.
 func (m *Model) derivationPath(scope *symbols.Scope, node ast.Node) []*symbols.Symbol {
 	path := m.attachmentPath(scope, node)
-	for len(path) > 1 && encloses(path[0], scope) {
-		path = path[1:]
+	if len(path) == 0 {
+		return nil
+	}
+	prefixes := chainPrefixes(node)
+	path = append(m.qualifierPath(scope, prefixes[len(prefixes)-1]), path...)
+	first := func(member *symbols.Symbol) bool { return symbols.SameElement(member, path[0]) }
+	for s := scope; s != nil; s = s.Parent() {
+		holder := s.Owner()
+		if holder == nil || !slices.ContainsFunc(m.MembersOf(holder), first) {
+			continue
+		}
+		if path[0].OwnerScope != s {
+			path = append([]*symbols.Symbol{holder}, path...)
+		}
+		break
 	}
 	return path
 }
 
-func encloses(sym *symbols.Symbol, scope *symbols.Scope) bool {
-	for s := scope; s != nil; s = s.Parent() {
-		if symbols.SameElement(s.Owner(), sym) {
-			return true
-		}
+// qualifierPath is what qualifies a name written `a::b::r` in scope, [a b],
+// each of which may hold the next by inheritance as a chain's features do.
+func (m *Model) qualifierPath(scope *symbols.Scope, node ast.Node) []*symbols.Symbol {
+	name, ok := node.(*ast.QualifiedName)
+	if !ok || name.Global {
+		return nil
 	}
-	return false
+	var path []*symbols.Symbol
+	segments := make([]string, 0, len(name.Parts))
+	for _, part := range name.Parts[:len(name.Parts)-1] {
+		segments = append(segments, part.Text)
+		qualifier, ok := m.resolver.ResolveSegments(scope, segments...)
+		if !ok || qualifier == nil {
+			return nil
+		}
+		path = append(path, qualifier)
+	}
+	return path
 }
 
 func (m *Model) derivationUsageEnds(sym *symbols.Symbol) []derivationEnd {

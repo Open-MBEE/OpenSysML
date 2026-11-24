@@ -213,6 +213,13 @@ func TestRelationshipEdgesOfDerivationKeepEndPaths(t *testing.T) {
 		}
 		#derivation connection qualified { end #original ::> p.q; end #derive ::> p::q; }
 		part c : D { #derivation connection inherited { end #original ::> r; end #derive ::> c.r; } }
+		#derivation connection names { end #original ::> a::r; end #derive ::> b::r; }
+		part outer : D {
+			part inner : D {
+				#derivation connection nested { end #original ::> outer.r; end #derive ::> inner.r; }
+				#derivation connection bare { end #original ::> r; end #derive ::> outer.inner.r; }
+			}
+		}
 	}`)
 	index := m.resolver.Index()
 	fqns := func(path []*symbols.Symbol) []string {
@@ -229,9 +236,12 @@ func TestRelationshipEdgesOfDerivationKeepEndPaths(t *testing.T) {
 	}{
 		{"P::across", []string{"P::a", "P::D::r"}, []string{"P::b", "P::D::r"}, false},
 		{"P::within", []string{"P::a", "P::D::r"}, []string{"P::a", "P::D::r"}, true},
-		{"P::p::declared", []string{"P::p::q"}, []string{"P::p::q"}, true},
-		{"P::qualified", []string{"P::p", "P::p::q"}, []string{"P::p::q"}, true},
-		{"P::c::inherited", []string{"P::D::r"}, []string{"P::D::r"}, true},
+		{"P::p::declared", []string{"P::p::q"}, []string{"P::p", "P::p::q"}, true},
+		{"P::qualified", []string{"P::p", "P::p::q"}, []string{"P::p", "P::p::q"}, true},
+		{"P::c::inherited", []string{"P::c", "P::D::r"}, []string{"P::c", "P::D::r"}, true},
+		{"P::outer::inner::nested", []string{"P::outer", "P::D::r"}, []string{"P::outer::inner", "P::D::r"}, false},
+		{"P::outer::inner::bare", []string{"P::outer::inner", "P::D::r"}, []string{"P::outer", "P::outer::inner", "P::D::r"}, true},
+		{"P::names", []string{"P::a", "P::D::r"}, []string{"P::b", "P::D::r"}, false},
 	} {
 		edges := m.RelationshipEdgesOf(nestedSym(t, root, tc.symbol), RelationshipDerivation)
 		if len(edges) != 1 {

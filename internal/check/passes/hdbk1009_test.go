@@ -95,6 +95,13 @@ func TestHDBK1009DerivationBetweenTwoPathsToOneInheritedRequirement(t *testing.T
 	w8dWantLines(t, hdbkModel(`
 		part def D { #subsystemRequirement requirement r; }
 		part a : D;
+		part b : D;
+		#subsystemRequirement requirement loose;
+		#derivation connection { end #original ::> a::r; end #derive ::> b::r; }`),
+		CodeHDBK1009RequirementNotDerived, 6)
+	w8dWantLines(t, hdbkModel(`
+		part def D { #subsystemRequirement requirement r; }
+		part a : D;
 		#subsystemRequirement requirement loose;
 		#derivation connection { end #original ::> a.r; end #derive ::> a.r; }`),
 		CodeHDBK1009RequirementNotDerived, 3, 5)
@@ -119,6 +126,12 @@ func TestHDBK1009SelfDerivationThroughTheDeclaringPart(t *testing.T) {
 		part def D { #subsystemRequirement requirement r; }
 		part c : D { #derivation connection { end #original ::> r; end #derive ::> c.r; } }`),
 		CodeHDBK1009RequirementNotDerived, 3, 4)
+	w8dWantLines(t, hdbkModel(`
+		#subsystemRequirement requirement loose;
+		part def D { #subsystemRequirement requirement r; }
+		part outer : D {
+			part inner : D { #derivation connection { end #original ::> outer.r; end #derive ::> r; } }
+		}`), CodeHDBK1009RequirementNotDerived, 3)
 }
 
 // The peer that makes a lone subsystem requirement warn may sit in another document.
