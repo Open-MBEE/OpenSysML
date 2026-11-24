@@ -800,12 +800,12 @@ func (r *Renderer) orderMessages(messages []message, successions []succession, o
 		eventsIndegree[at[o.to]]++
 	}
 	var cyclic []string
-	ordered := func(a, b lifelineEnd) bool { return a == b }
+	// The successions are placed by the events' orders also where those form a cycle.
+	ordered := reaches(eventsLater, at)
 	if placed, ok := stableTopological(eventsLater, eventsIndegree); !ok {
 		cyclic = r.cyclicOrders(stated, at, placed)
 	} else {
 		cyclic = r.sortMessageRows(messages, occurrences, stated)
-		ordered = reaches(eventsLater, at)
 	}
 	if cyclic != nil {
 		out.Notices = append(out.Notices, fmt.Sprintf(
@@ -890,33 +890,66 @@ func sequenceRows(messages []message, successions []succession, orders []timing,
 	return edges
 }
 
-// rowsFollowed lists, for each message row and then each succession, the rows it is
-// drawn below: those holding an event at or before its source, a message's at or after its target.
+// rowsFollowed lists, for each message row and then each succession, the rows it is drawn
+// below: those leading to it and not back, so that rows forming a cycle stay as declared.
 func rowsFollowed(messages []message, successions []succession, orders []timing, before func(a, b lifelineEnd) bool) [][]int {
+	chained := make([][]int, len(successions))
+	for i, s := range successions {
+		for j, then := range successions {
+			if i != j && before(orders[s.order].to, orders[then.order].from) {
+				chained[i] = append(chained[i], j)
+			}
+		}
+	}
+	reached := rowsReached(chained)
 	follows := make([][]int, len(messages)+len(successions))
 	for i, s := range successions {
 		o, row := orders[s.order], len(messages)+i
-		anchored := false
 		for m, msg := range messages {
-			if slices.ContainsFunc(msg.events(), func(held lifelineEnd) bool { return before(held, o.from) }) {
+			events := msg.events()
+			heldBefore := slices.ContainsFunc(events, func(held lifelineEnd) bool { return before(held, o.from) })
+			heldAfter := slices.ContainsFunc(events, func(held lifelineEnd) bool { return before(o.to, held) })
+			// A succession from a message's own event follows it, also where a cycle leads back.
+			if heldBefore && (!heldAfter || slices.Contains(events, o.from)) {
 				follows[row] = append(follows[row], m)
-				anchored = true
 			}
 		}
-		// A succession following a message is placed by that, also where a cycle leads it to another.
+		// A succession following a message is placed by that, whichever message it leads to.
 		for m, msg := range messages {
-			if !anchored && slices.ContainsFunc(msg.events(), func(held lifelineEnd) bool { return before(o.to, held) }) {
+			events := msg.events()
+			if len(follows[row]) == 0 &&
+				slices.ContainsFunc(events, func(held lifelineEnd) bool { return before(o.to, held) }) &&
+				!slices.ContainsFunc(events, func(held lifelineEnd) bool { return before(held, o.from) }) {
 				follows[m] = append(follows[m], row)
 			}
 		}
-		// Successions leading back to each other form a cycle, and stay as declared.
-		for j, then := range successions {
-			if next := orders[then.order]; i != j && before(o.to, next.from) && !before(next.to, o.from) {
-				follows[len(messages)+j] = append(follows[len(messages)+j], row)
+	}
+	for i, later := range chained {
+		for _, j := range later {
+			if !reached[j][i] {
+				follows[len(messages)+j] = append(follows[len(messages)+j], len(messages)+i)
 			}
 		}
 	}
 	return follows
+}
+
+// rowsReached reports, for each row, the rows it leads to through any number of rows.
+func rowsReached(leads [][]int) [][]bool {
+	reached := make([][]bool, len(leads))
+	for from := range leads {
+		reached[from] = make([]bool, len(leads))
+		stack := slices.Clone(leads[from])
+		for len(stack) > 0 {
+			row := stack[len(stack)-1]
+			stack = stack[:len(stack)-1]
+			if !reached[from][row] {
+				reached[from][row] = true
+				stack = append(stack, leads[row]...)
+			}
+		}
+	}
+	return reached
 }
 
 // sortMessageRows sorts the messages by the orders between their rows, or

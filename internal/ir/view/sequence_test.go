@@ -694,6 +694,13 @@ func TestSequenceRenderingDrawsSuccessionChainInCausalOrder(t *testing.T) {
 		{"a chain declared last step first after a cycle",
 			`succession first c then d; succession first d then c; succession first b then e; succession first a then b;`, "",
 			[]string{"c then d", "d then c", "a then b", "b then e"}},
+		{"a three-step cycle is placed as declared",
+			`succession first a then b; succession first c then a; succession first b then c;`, "",
+			[]string{"a then b", "c then a", "b then c"}},
+		{"a chain ending at a send that a cycle follows",
+			`succession first d then c; succession first c then e; succession first e then c;
+			succession first b then d; succession first a then b;`, sending,
+			[]string{"a then b", "b then d", "d then got", "d then c", "c then e", "e then c"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			rendering := renderSource(t, "Chained::shown", `package Chained {
