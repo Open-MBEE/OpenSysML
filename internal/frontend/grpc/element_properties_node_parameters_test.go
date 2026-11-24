@@ -132,3 +132,63 @@ func TestElementPropertiesReadActionNodeParameters(t *testing.T) {
 	expect(while+"___400__step", "owner", while+"_loopBody ActionUsage")
 	expect(while+"_loopBody", "parameter")
 }
+
+// TestElementPropertiesReadLoopBodyParameter pins a loop body written as the action it is
+// (SysML.xtext ActionBodyParameter, `action <name>? { … }`): that action is the loop's body
+// parameter itself, named or not, and no second action wraps it.
+func TestElementPropertiesReadLoopBodyParameter(t *testing.T) {
+	r := parseForElementProperties(t, `package P {
+    private import ScalarValues::*;
+    action def A {
+        attribute count : Integer;
+        action charge while count < 3 action charging { action step; }
+        action spin loop action { action again; } until count > 9;
+        action each for i : Integer in (1, 2, 3) action visit { action look; }
+    }
+}`)
+	described := func(id, property string) []string {
+		var out []string
+		for _, value := range r.property(id, property).GetValues() {
+			out = append(out, value.GetElement().GetId()+" "+value.GetElement().GetMetaclass())
+		}
+		return out
+	}
+	expect := func(id, property string, want ...string) {
+		t.Helper()
+		if got := described(id, property); !slices.Equal(got, want) {
+			t.Errorf("%s: %s =\n  %v\nwant\n  %v", id, property, got, want)
+		}
+	}
+	const (
+		charge = "P__A__charge"
+		spin   = "P__A__spin"
+		each   = "P__A__each"
+	)
+	// The written body keeps the id its declaration has, under the statement's scope.
+	bodyOf := func(loop string, at int) string {
+		t.Helper()
+		parameters := described(loop, "parameter")
+		if at >= len(parameters) || !strings.HasSuffix(parameters[at], " ActionUsage") || strings.Contains(parameters[at], "_loopBody") {
+			t.Fatalf("%s: parameter = %v, want the written body action at %d", loop, parameters, at)
+		}
+		return strings.TrimSuffix(parameters[at], " ActionUsage")
+	}
+	charging, visit := bodyOf(charge, 1), bodyOf(each, 1)
+	expect(charge, "ownedRelationship",
+		charge+"_pwhileCondition_om ParameterMembership", charging+"_om ParameterMembership")
+	expect(charge, "parameter", charge+"_pwhileCondition OperatorExpression", charging+" ActionUsage")
+	expect(charge, "input", charge+"_pwhileCondition OperatorExpression", charging+" ActionUsage")
+	expect(charging, "owner", charge+" WhileLoopActionUsage")
+	expect(charging, "ownedMember", charging+"__step ActionUsage")
+	if got := r.property(charging, "name").GetValues(); len(got) != 1 || got[0].GetStringValue() != "charging" {
+		t.Errorf("charging: name = %v", got)
+	}
+	if got := r.property(charging, "direction").GetValues(); len(got) != 1 || got[0].GetStringValue() != "in" {
+		t.Errorf("charging: direction = %v, want in", got)
+	}
+	expect(each, "parameter", each+"_pcollectionParameter ReferenceUsage", visit+" ActionUsage")
+	expect(visit, "owner", each+" ForLoopActionUsage")
+	if got := described(spin, "parameter"); len(got) != 3 || !strings.HasSuffix(got[1], " ActionUsage") || strings.Contains(got[1], "_loopBody") {
+		t.Errorf("spin: parameter = %v, want the empty parameter, the written body action and the until condition", got)
+	}
+}

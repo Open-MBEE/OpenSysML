@@ -667,6 +667,7 @@ func newEncoderOver(file *source.SourceFile, root *ast.RootNamespace, form IDFor
 		effects:            map[ast.Node]bool{},
 		triggerParams:      map[ast.Node]string{},
 		acceptPayloads:     map[ast.Node]rdf.Term{},
+		loopBodies:         map[ast.Node]bool{},
 		triggerMembers:     map[ast.Node]string{},
 		links:              map[*ast.QualifiedName]*symbols.Symbol{},
 		ids:                ids,
@@ -739,6 +740,8 @@ type encoder struct {
 	// acceptPayloads holds the payload parameter of each accept node, mapped
 	// to the AcceptActionUsage that owns it as its payloadParameter.
 	acceptPayloads map[ast.Node]rdf.Term
+	// loopBodies holds the action each loop's body is written as (`loop action a { … }`).
+	loopBodies     map[ast.Node]bool
 	triggerMembers map[ast.Node]string
 	// links is what each written reference resolves to, read with the rule of
 	// its position (a redefinition among the generals, an edge end as a vertex).
@@ -1591,6 +1594,10 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			// A `return` member is the result parameter its ReturnParameterMembership
 			// owns (SysML.xtext ReturnParameterMember).
 			parameterClass, parameterEnd = mReturnParameterMembership, pOwnedMemberParameter
+		}
+		if e.loopBodies[n] {
+			// A loop's written body is the parameter the loop owns (SysML.xtext ActionBodyParameterMember).
+			parameterClass, parameterEnd = mParameterMembership, pOwnedMemberParameter
 		}
 		if parameterClass != "" {
 			h.membershipClass = parameterClass

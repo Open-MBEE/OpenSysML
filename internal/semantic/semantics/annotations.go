@@ -2764,6 +2764,10 @@ func ReflectiveDirection(sym *symbols.Symbol) (ast.FeatureDirection, bool) {
 		}
 		return ast.DirNone, true
 	}
+	if isWrittenLoopBody(sym) {
+		// A loop's body is its parameter (SysML.xtext ActionBodyParameterMember).
+		return ast.DirIn, true
+	}
 	if sym != nil && sym.Recorded() {
 		if !sym.IsFeature() {
 			return ast.DirNone, false

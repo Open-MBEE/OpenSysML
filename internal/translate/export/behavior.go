@@ -483,6 +483,14 @@ const loopBodySuffix = "_loopBody"
 // (SysML.xtext ActionBodyParameterMember), which owns what the body declares.
 func (e *encoder) loopBody(n *ast.WhileLoopActionNode, subject rdf.Term, fqn string) error {
 	e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(e.bracedBody(n, n.Body)))
+	if len(n.Body) == 1 {
+		written, _ := naming.UnwrapMember(n.Body[0])
+		if usage, isUsage := written.(*ast.Usage); isUsage && usage.IsBodyParameter {
+			// A body written as `action a { … }` is that action, which the loop owns as it stands.
+			e.loopBodies[usage] = true
+			return e.encode(n.Body, fqn, subject)
+		}
+	}
 	body := e.ids.minted(rdf.IRI(subject.Value+loopBodySuffix), subject, loopBodySuffix)
 	e.typed(body, usageMetaclass[ast.UsageAction])
 	e.graph.Add(body, e.sysml(pElementID), rdf.String(rdf.LocalName(body.Value)))
@@ -503,10 +511,10 @@ func (e *encoder) nodeParameter(subject rdf.Term, slot, metaclass string) rdf.Te
 	if metaclass == mParameterMembership {
 		e.graph.Add(param, e.sysml(pDirection), rdf.String("in"))
 		e.graph.Add(membership, e.sysml(pOwnedMemberParameter), param)
-		// The node owning it is an action, and so an occurrence its referential usage varies over.
-		if e.ids.model.UsageMayTimeVaryUnderKind(ast.UsageAction) {
-			e.flags(param, []boolProperty{{"isVariable", true}, {"mayTimeVary", true}})
-		}
+	}
+	// It is referential and nested in an occurrence it varies over: the action node, or the parameter nesting it.
+	if e.ids.model.UsageMayTimeVaryUnderKind(ast.UsageAction) {
+		e.flags(param, []boolProperty{{"isVariable", true}, {"mayTimeVary", true}})
 	}
 	return param
 }
@@ -2256,7 +2264,7 @@ func (d *decoder) loopText(el *element, depth int) (string, error) {
 	if until, ok := d.stringOf(el, rdf.OpenSysML+xUntilCondition); ok {
 		return text + " until " + until + ";", nil
 	}
-	if !d.boolOf(el, rdf.OpenSysML+xHasBody) && !strings.HasSuffix(text, ";") && el.metaclass != mForLoop {
+	if !d.boolOf(el, rdf.OpenSysML+xHasBody) && !strings.HasSuffix(text, ";") && !strings.HasSuffix(text, "}") && el.metaclass != mForLoop {
 		return text + ";", nil
 	}
 	return text, nil

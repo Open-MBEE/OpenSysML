@@ -120,7 +120,7 @@ func (m *Model) withBodyMemberships(sym *symbols.Symbol, out []*symbols.Symbol, 
 	}
 	loop, body := loopStatementOf(sym) != nil, isLoopBody(sym)
 	scope.ForEachMember(func(member *symbols.Symbol) bool {
-		if (loop || body) && IsLoopVariable(member) == body {
+		if (loop || body) && IsLoopVariable(member) == body && !isWrittenLoopBody(member) {
 			// A loop owns its variable; its body owns what the body declares.
 			return true
 		}
@@ -749,8 +749,8 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 		// OwningMembership (SysML.xtext PrefixMetadataMember, AnnotatingMember).
 		return "OwningMembership"
 	}
-	if _, ok := member.Decl.(*ast.IfBranchNode); ok {
-		// A branch of `if` is an ActionUsage parameter the conditional owns
+	if _, ok := member.Decl.(*ast.IfBranchNode); ok || isWrittenLoopBody(member) {
+		// A branch of `if` or a loop's written body is an ActionUsage parameter its node owns
 		// (SysML.xtext ActionBodyParameterMember).
 		return "ParameterMembership"
 	}

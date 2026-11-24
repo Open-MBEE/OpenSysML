@@ -91,9 +91,8 @@ func (m *Model) synthesizedUsageMayTimeVary(sym *symbols.Symbol) (varies, ok boo
 		// A trigger's parameters are owned by the AcceptActionUsage the trigger implies, an action.
 		return m.UsageMayTimeVaryUnderKind(ast.UsageAction), true
 	case symbols.ExpressionNodeParameter:
-		// An assignment's or a loop's parameter is owned by that action; a feature a parameter nests is not.
-		nested := sym.Expr.Owner != nil && sym.Expr.Owner.Expr != nil && sym.Expr.Owner.Expr.Role == symbols.ExpressionNodeParameter
-		return !nested && m.UsageMayTimeVaryUnderKind(ast.UsageAction), true
+		// It is nested in an occurrence it varies over: the action node, or the parameter nesting it.
+		return m.UsageMayTimeVaryUnderKind(ast.UsageAction), true
 	case symbols.ExpressionTransitionLink:
 		// The pilot exports a transition's transitionLink as neither variable nor time-varying.
 		return false, true
