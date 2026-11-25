@@ -1,1 +1,0 @@
-- Rendering a document no longer copies each section's whole subtree once per ancestor on every pass over it: a document of deeply nested sections renders in about a tenth of the memory.

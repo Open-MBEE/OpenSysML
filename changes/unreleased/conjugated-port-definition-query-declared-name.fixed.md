@@ -1,1 +1,0 @@
-- A query's `declaredName` column, `Element::declaredName` column expression and `WhereFeature` filter read no value for a port definition's implied `ConjugatedPortDefinition`, as reflection and the RDF and API JSON conversions already state none: `~P` is the `name` its `effectiveName()` derives (SysML v2.1 §8.3.12.2), and `name` still reads `~P`.

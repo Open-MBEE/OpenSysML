@@ -383,7 +383,7 @@ func (e *ActionExecutor) noteTokenOrder(step int, order stepOrder, schedule *tok
 		Span:         e.action.DeclSpan,
 	}
 	choice.alike = e.ctx.heldAlike
-	classifyChoice(&choice, fps, nil)
+	classifyChoice(e.ctx.choiceSerials, &choice, fps, nil)
 	e.noteChoice(choice)
 }
 
@@ -437,7 +437,7 @@ func (e *ActionExecutor) chooseBranch(ec *EvalContext, frame *actionFrame, node 
 		Span:         node.Span(),
 		Weights:      weights,
 	}
-	classifyExclusive(&choice, e.branchFutures(frame, successors, holding))
+	classifyExclusive(e.ctx.choiceSerials, &choice, e.branchFutures(frame, successors, holding))
 	if err := e.ctx.scheduling().chooseWeighted(&choice, nil); err != nil {
 		return nil, 0, err
 	}

@@ -1009,3 +1009,30 @@ func TestDefineMasksMovesD2MasksIntoDefs(t *testing.T) {
 		t.Error("a missing SVG must be an error")
 	}
 }
+
+// A drawn view names each picture by the path of the model stating it, which need not be
+// under the working directory the relative ones resolve against: that picture is drawn too.
+func TestEmbedImagesDrawsAPictureBesideAModelElsewhere(t *testing.T) {
+	var data bytes.Buffer
+	if err := png.Encode(&data, image.NewRGBA(image.Rect(0, 0, 2, 2))); err != nil {
+		t.Fatal(err)
+	}
+	picture := filepath.Join(t.TempDir(), "mark.png")
+	if err := os.WriteFile(picture, data.Bytes(), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "diagram-1.svg")
+	if err := os.WriteFile(path, []byte(`<svg xmlns="http://www.w3.org/2000/svg"><image href="`+filepath.ToSlash(picture)+`"/></svg>`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := embedImages(path, t.TempDir()); err != nil {
+		t.Fatalf("embedImages: %v", err)
+	}
+	out, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := `<image href="data:image/png;base64,` + base64.StdEncoding.EncodeToString(data.Bytes()) + `"/>`; !strings.Contains(string(out), want) {
+		t.Errorf("the picture is not drawn:\n%s", out)
+	}
+}

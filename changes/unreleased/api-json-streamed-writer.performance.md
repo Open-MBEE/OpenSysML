@@ -1,1 +1,0 @@
-- `sysml -convert api-json` writes the element array one element at a time instead of holding every element and two copies of the encoded document, so a conversion to a file peaks well below the old writer on a large model (#2239).
