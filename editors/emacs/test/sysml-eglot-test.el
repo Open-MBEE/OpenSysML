@@ -114,6 +114,12 @@
                                     (buffer-substring (line-beginning-position) (line-end-position)))))
         (kill-buffer buffer)))))
 
+(ert-deftest sysml-eglot-live-formats-with-the-mode-offset ()
+  (sysml-eglot-test--with-session (sysml-test--fixture "package P {\npart def A;\n}\n")
+    (setq-local sysml-indent-offset 3)
+    (eglot-format-buffer)
+    (should (equal (buffer-string) "package P {\n   part def A;\n}\n"))))
+
 (ert-deftest sysml-eglot-live-reports-each-change ()
   (let* (versions
          (sysml-eglot-render-changed-functions
