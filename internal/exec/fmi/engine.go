@@ -144,16 +144,20 @@ func (e *VariableError) Is(target error) bool { return target == ErrVariable }
 
 // reservedInputs are the variables a call may name beside the FMU's own inputs.
 var reservedInputs = map[string]bool{
-	"fmi:startTime": true,
-	"fmi:stopTime":  true,
-	"fmi:stepSize":  true,
-	"fmi:tolerance": true,
-	StepVariable:    true,
+	"fmi:startTime":     true,
+	"fmi:stopTime":      true,
+	"fmi:stepSize":      true,
+	"fmi:tolerance":     true,
+	StepVariable:        true,
+	seriesSamplesInput:  true,
+	seriesIntervalInput: true,
 }
 
-// reservedOutputs are the variables a call may name beside the FMU's own outputs.
+// reservedOutputs are the scalar names a call may bind beside FMU outputs.
+// Trajectory names are checked in checkSeriesVariables.
 var reservedOutputs = map[string]bool{
-	"fmi:time": true,
+	"fmi:time":       true,
+	seriesTimeOutput: true,
 }
 
 // Covers takes a Compute question whose call names the fmi tool, the runner is
@@ -180,6 +184,9 @@ func (e *engine) Covers(_ *analysis.Model, q analysis.Question) analysis.Coverag
 		return analysis.Coverage{Refusal: err}
 	}
 	if err := checkVariables(call, d); err != nil {
+		return analysis.Coverage{Refusal: err}
+	}
+	if err := checkSeriesVariables(call, d); err != nil {
 		return analysis.Coverage{Refusal: err}
 	}
 	return analysis.Coverage{Covered: true}
@@ -284,7 +291,7 @@ func checkVariables(call *runtime.ToolCall, d *Description) error {
 		}
 	}
 	for _, out := range call.Outputs {
-		if reservedOutputs[out.Variable] {
+		if isSeriesOutput(out.Variable) || reservedOutputs[out.Variable] {
 			continue
 		}
 		v, ok := d.Variable(out.Variable)
@@ -350,7 +357,10 @@ func (e *engine) Run(ctx context.Context, _ *analysis.Model, q analysis.Question
 	if err := checkVariables(call, d); err != nil {
 		return analysis.Result{}, err
 	}
-	request, err := requestOf(call, d, fmu)
+	if err := checkSeriesVariables(call, d); err != nil {
+		return analysis.Result{}, err
+	}
+	request, plan, err := requestOf(call, d, fmu)
 	if err != nil {
 		return analysis.Result{}, err
 	}
@@ -366,7 +376,7 @@ func (e *engine) Run(ctx context.Context, _ *analysis.Model, q analysis.Question
 	if err != nil {
 		return failed(err)
 	}
-	reply, err := replyOf(call, d, ex.stdout, ex.stderr)
+	reply, err := replyOf(call, d, plan, ex.stdout, ex.stderr)
 	if err != nil {
 		return failed(err)
 	}
