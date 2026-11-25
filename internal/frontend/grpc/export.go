@@ -69,6 +69,9 @@ func (s *Service) Convert(ctx context.Context, req *pb.ConvertRequest) (*pb.Conv
 	}
 	out, syntax, err := convertModel(name, data, from, to, req.TolerateSyntaxErrors, opts)
 	if err != nil {
+		if bad := projectionArgumentError(err); bad != nil {
+			return nil, bad
+		}
 		resp.Error = err.Error()
 		var broken *convert.SyntaxError
 		if errors.As(err, &broken) {
@@ -218,6 +221,11 @@ func (s *Service) convertOptions(req *pb.ConvertRequest, from, to convert.Format
 		}
 	}
 	opts := convert.Options{IncludeLibraryStubs: req.IncludeLibraryStubs, InheritedMembers: req.InheritedMembers}
+	projection, err := s.projectionOptions(req, to)
+	if err != nil {
+		return opts, err
+	}
+	opts.Projection = projection
 	if req.IdForm != "" {
 		if from != convert.FormatSysML || (to != convert.FormatTurtle && to != convert.FormatAPIJSON) {
 			return opts, statusError(connect.CodeInvalidArgument, "id_form applies to notation converted to ttl or api-json")
@@ -245,6 +253,36 @@ func (s *Service) libraryReferencesReceiver(resp *pb.ConvertResponse) func([]exp
 			resp.LibraryReferences = append(resp.LibraryReferences, &pb.LibraryReference{Id: ref.ID, QualifiedName: ref.QualifiedName, Type: ref.Type, LibraryPath: ref.LibraryPath})
 		}
 	}
+}
+
+// projectionOptions reads the api-json projection, refusing it for any other
+// target. An empty projection is the whole corpus, as before.
+func (s *Service) projectionOptions(req *pb.ConvertRequest, to convert.Format) (*export.APIJSONProjection, error) {
+	p := req.GetProjection()
+	if p == nil || (len(p.QualifiedNames) == 0 && len(p.Metaclasses) == 0 && len(p.AnnotationTypes) == 0) {
+		return nil, nil
+	}
+	if err := s.requireCapability(CapabilityConvertProjection); err != nil {
+		return nil, err
+	}
+	if to != convert.FormatAPIJSON {
+		return nil, statusError(connect.CodeInvalidArgument, "projection applies to api-json output")
+	}
+	return &export.APIJSONProjection{
+		QualifiedNames:  slices.Clone(p.QualifiedNames),
+		Metaclasses:     slices.Clone(p.Metaclasses),
+		AnnotationTypes: slices.Clone(p.AnnotationTypes),
+	}, nil
+}
+
+// projectionArgumentError maps an unmatched selector name to INVALID_ARGUMENT,
+// so a misspelled name does not return a plausible empty reply.
+func projectionArgumentError(err error) error {
+	var unknown *export.APIJSONProjectionError
+	if errors.As(err, &unknown) {
+		return statusError(connect.CodeInvalidArgument, unknown.Error())
+	}
+	return nil
 }
 
 // compactOptions reads compact, omit_derived and keep_derived: nil when the
@@ -467,6 +505,9 @@ func (s *Service) convertModelOfDocuments(ctx context.Context, req *pb.ConvertRe
 		return nil, true, gone
 	}
 	if err != nil {
+		if bad := projectionArgumentError(err); bad != nil {
+			return nil, true, bad
+		}
 		resp.Error = err.Error()
 		return resp, true, nil
 	}
@@ -476,6 +517,9 @@ func (s *Service) convertModelOfDocuments(ctx context.Context, req *pb.ConvertRe
 		return nil, true, gone
 	}
 	if err != nil {
+		if bad := projectionArgumentError(err); bad != nil {
+			return nil, true, bad
+		}
 		resp.Error = err.Error()
 		return resp, true, nil
 	}

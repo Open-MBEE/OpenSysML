@@ -2400,6 +2400,40 @@ object in place of the element array; `omit_derived` and `keep_derived` leave ou
 derived properties. Expanded, it is the element array. The format is defined in
 [Compact API JSON](api-json-compact.md).
 
+`projection`, under the `convert_projection` capability, writes only the API JSON elements a
+caller reads. It is a `ConvertProjection` object with up to three `repeated string` selectors:
+`qualifiedNames` (elements whose written `qualifiedName` is named, such as `Structure::boiler`),
+`metaclasses` (elements whose written `@type` is named, such as `PartUsage`), and
+`annotationTypes` (annotations whose annotating element's metaclass or metadata-definition name is
+named, with the annotation element, its annotating element and the declaration it annotates). The
+selectors are unioned; an empty one contributes nothing, and all three empty write the whole
+model as if no projection were sent. A metadata usage typed by `@Facet` can be named `Facet` or by
+its qualified name, and a `Comment`, `Documentation` or `TextualRepresentation` by its metaclass.
+
+Everything the projection writes is **byte-identical to the same element in a whole-corpus
+conversion**, including its `@id` and every reference: the writer's indexes and the element shape
+are built from the whole model and only the set of written subjects is narrowed. Elements left out
+become bare `@id` references from the ones still written, just as library elements are. The
+standard element array is written one element at a time, so a projection returns a smaller reply
+without the client ever materializing the full array. Projection composes with `documents`,
+`idForm`, `compact`, `includeLibraryStubs` and `inheritedMembers`: the documents and the elements
+both narrow the answer, and the compact document's id table keeps the same shape. It is
+`invalid_argument` for any target other than `api-json`, and a selector naming no element the model
+carries is `invalid_argument` with the selector and the name, so a misspelled name never quietly
+answers an empty array. A metaclass the metamodel declares is known even when this model holds no
+element of it; that projection is simply empty.
+
+```console
+$ … /Convert -d '{"content":"package P { part def Plain; part def Faceted; metadata def Facet; metadata f : Facet about Faceted; }","fromFormat":"sysml","toFormat":"api-json","projection":{"qualifiedNames":["P::Faceted"]}}'
+# content holds only the P::Faceted element object, byte-for-byte as the whole-corpus reply writes it
+```
+
+The Go client offers `WithProjection(Projection{...})`, Python `projection=Projection(...)`, Node
+`projection: {qualifiedNames, metaclasses, annotationTypes}`, Java `withProjection(Projection)`,
+Rust `ConvertOptions.projection`, Julia `projection=Projection(...)`, MATLAB the `projection`
+name-value option, and the MCP `convert` tool the `projection` object. Only clients whose service
+advertises `convert_projection` send it.
+
 `libraryReferences` on a successful API JSON response, including a compact conversion,
 names every standard-library element the output references: each entry has `id` (the
 literal normative ID), `qualifiedName` and `type` (the API JSON metaclass). Entries are

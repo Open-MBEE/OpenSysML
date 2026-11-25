@@ -283,6 +283,10 @@ const CapabilityConvertLibraryStubs = "convert_library_stubs"
 // the converted output.
 const CapabilityConvertCheckDiagnostics = "convert_check_diagnostics"
 
+// CapabilityConvertProjection names ConvertRequest.projection: writing only the
+// api-json elements named by qualified name, metaclass or annotation type.
+const CapabilityConvertProjection = "convert_projection"
+
 // CapabilityParseSourcesAffected names ParseSourcesRequest.base_model_hash and
 // ParseSourcesResponse.affected: the documents whose results may differ from
 // the base model's, so a client re-reads only those after an edit.
@@ -467,6 +471,7 @@ var capabilities = []string{
 	CapabilityConvertLibraryStubs,
 	CapabilityConvertInheritedMembers,
 	CapabilityConvertCheckDiagnostics,
+	CapabilityConvertProjection,
 	CapabilityParseSourcesAffected,
 	CapabilityParseSourcesKeep,
 	CapabilityRenderDocumentFileName,

@@ -25,6 +25,7 @@ from opensysml.capabilities import (
     CAPABILITY_CONVERT_COMPACT,
     CAPABILITY_CONVERT_INHERITED_MEMBERS,
     CAPABILITY_CONVERT_LIBRARY_STUBS,
+    CAPABILITY_CONVERT_PROJECTION,
     MissingCapabilityError,
 )
 from opensysml.connection import Connection
@@ -36,6 +37,7 @@ from opensysml.conversion import (
     ID_FORM_UUID,
     ExperimentalFeatureWarning,
     LibraryReference,
+    Projection,
     format_of_path,
     is_experimental,
 )
@@ -267,6 +269,41 @@ def test_convert_sends_the_compact_options_asked_for(fake_service):
     assert defaulted.omit_derived is False
     assert list(defaulted.keep_derived) == []
     assert defaulted.include_check_diagnostics is False
+
+
+def test_convert_sends_the_projection_asked_for(fake_service):
+    """All three projection selectors reach the wire, and none is sent by default."""
+    port, service = fake_service(capabilities=(
+        CAPABILITY_CONVERT, CAPABILITY_CONVERT_PROJECTION,
+    ))
+    with Connection(port=port, auto_start=False) as conn:
+        conn.convert(
+            FORMAT_API_JSON, content=MODEL, from_format=FORMAT_SYSML,
+            projection=Projection(
+                qualified_names=["P::A"], metaclasses=["PartUsage"],
+                annotation_types=["P::Facet"],
+            ),
+        )
+        conn.convert(FORMAT_API_JSON, content=MODEL, from_format=FORMAT_SYSML)
+
+    asked, defaulted = service.requests
+    assert list(asked.projection.qualified_names) == ["P::A"]
+    assert list(asked.projection.metaclasses) == ["PartUsage"]
+    assert list(asked.projection.annotation_types) == ["P::Facet"]
+    assert not defaulted.HasField("projection")
+
+
+def test_projection_requires_its_capability(fake_service):
+    """A service that would write the whole corpus is not asked for a projection."""
+    port, service = fake_service()
+    with Connection(port=port, auto_start=False) as conn, \
+            pytest.raises(MissingCapabilityError) as excinfo:
+        conn.convert(
+            FORMAT_API_JSON, content=MODEL, from_format=FORMAT_SYSML,
+            projection=Projection(qualified_names=["P::A"]),
+        )
+    assert excinfo.value.capability == CAPABILITY_CONVERT_PROJECTION
+    assert service.requests == []
 
 
 @pytest.mark.parametrize(

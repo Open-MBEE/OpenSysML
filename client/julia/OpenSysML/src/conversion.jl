@@ -1,4 +1,21 @@
 """
+The api-json declarations and annotations a caller reads. The three selectors are unioned;
+an empty one contributes nothing, and all three empty write the whole model. Everything written
+keeps the shape an unprojected conversion gives it.
+"""
+struct Projection
+    qualified_names::Vector{String}
+    metaclasses::Vector{String}
+    annotation_types::Vector{String}
+end
+Projection(; qualified_names=String[], metaclasses=String[], annotation_types=String[]) =
+    Projection(String[string(n) for n in qualified_names],
+               String[string(n) for n in metaclasses],
+               String[string(n) for n in annotation_types])
+is_empty(p::Projection) =
+    isempty(p.qualified_names) && isempty(p.metaclasses) && isempty(p.annotation_types)
+
+"""
 A standard-library element an api-json conversion references outside its element array, in
 place of the library stub releases before 0.11.0 wrote: its `id`, `qualified_name` (such as
 `SI::second`) and `type`, the metaclass as API JSON's `@type` spells it.
@@ -79,7 +96,7 @@ function _convert(conn::Connection, to_format::AbstractString; file_path=nothing
                   tolerate_syntax_errors=false, id_form="", include_library_stubs::Bool=false,
                   compact::Bool=false, omit_derived::Bool=false, keep_derived=String[],
                   include_check_diagnostics::Bool=false,
-                  inherited_members::Bool=false)
+                  inherited_members::Bool=false, projection=nothing)
     sources = Pair{String,Any}["file_path" => file_path, "content" => content,
                                "model_hash" => model_hash]
     given = Pair{String,Any}[p for p in sources if last(p) !== nothing]
@@ -101,6 +118,9 @@ function _convert(conn::Connection, to_format::AbstractString; file_path=nothing
     (compact || omit_derived || !isempty(kept)) &&
         require_capability(conn, CAPABILITY_CONVERT_COMPACT)
     include_check_diagnostics && require_capability(conn, CAPABILITY_CONVERT_CHECK_DIAGNOSTICS)
+    if projection !== nothing && !is_empty(projection)
+        require_capability(conn, CAPABILITY_CONVERT_PROJECTION)
+    end
     request = Dict{String,Any}("toFormat" => String(to_format),
         "fromFormat" => String(from_format), "tolerateSyntaxErrors" => Bool(tolerate_syntax_errors))
     isempty(String(id_form)) || (request["idForm"] = String(id_form))
@@ -110,6 +130,12 @@ function _convert(conn::Connection, to_format::AbstractString; file_path=nothing
     omit_derived && (request["omitDerived"] = true)
     isempty(kept) || (request["keepDerived"] = kept)
     include_check_diagnostics && (request["includeCheckDiagnostics"] = true)
+    if projection !== nothing
+        request["projection"] = Dict{String,Any}(
+            "qualifiedNames" => String[string(n) for n in projection.qualified_names],
+            "metaclasses" => String[string(n) for n in projection.metaclasses],
+            "annotationTypes" => String[string(n) for n in projection.annotation_types])
+    end
     request[source_name == "file_path" ? "filePath" :
             source_name == "model_hash" ? "modelHash" : "content"] = String(source_value)
     source_not_found = source_name == "file_path" ? ModelFileNotFoundError : ModelNotFoundError
@@ -142,52 +168,52 @@ convert_file(conn::Connection, path::AbstractString, to_format::AbstractString;
              from_format="", tolerate_syntax_errors=false, id_form="",
              include_library_stubs::Bool=false, compact::Bool=false, omit_derived::Bool=false,
              keep_derived=String[], include_check_diagnostics::Bool=false,
-             inherited_members::Bool=false) =
+             inherited_members::Bool=false, projection=nothing) =
     _convert(conn, to_format; file_path=path, from_format=from_format,
              tolerate_syntax_errors=tolerate_syntax_errors, id_form=id_form,
              include_library_stubs=include_library_stubs, compact=compact,
              omit_derived=omit_derived, keep_derived=keep_derived,
              include_check_diagnostics=include_check_diagnostics,
-             inherited_members=inherited_members)
+             inherited_members=inherited_members, projection=projection)
 
 """Convert inline source to `to_format`, naming its input format explicitly."""
 convert_source(conn::Connection, content::AbstractString, to_format::AbstractString;
                from_format, tolerate_syntax_errors=false, id_form="",
                include_library_stubs::Bool=false, compact::Bool=false, omit_derived::Bool=false,
                keep_derived=String[], include_check_diagnostics::Bool=false,
-               inherited_members::Bool=false) =
+               inherited_members::Bool=false, projection=nothing) =
     _convert(conn, to_format; content=content, from_format=from_format,
              tolerate_syntax_errors=tolerate_syntax_errors, id_form=id_form,
              include_library_stubs=include_library_stubs, compact=compact,
              omit_derived=omit_derived, keep_derived=keep_derived,
              include_check_diagnostics=include_check_diagnostics,
-             inherited_members=inherited_members)
+             inherited_members=inherited_members, projection=projection)
 
 """Convert a cached model by hash to `to_format`."""
 convert_model(conn::Connection, model_hash::AbstractString, to_format::AbstractString;
               tolerate_syntax_errors=false, id_form="", include_library_stubs::Bool=false,
               compact::Bool=false, omit_derived::Bool=false, keep_derived=String[],
               include_check_diagnostics::Bool=false,
-              inherited_members::Bool=false) =
+              inherited_members::Bool=false, projection=nothing) =
     _convert(conn, to_format; model_hash=model_hash,
              tolerate_syntax_errors=tolerate_syntax_errors, id_form=id_form,
              include_library_stubs=include_library_stubs, compact=compact,
              omit_derived=omit_derived, keep_derived=keep_derived,
              include_check_diagnostics=include_check_diagnostics,
-             inherited_members=inherited_members)
+             inherited_members=inherited_members, projection=projection)
 
 """Convert the source retained for `model` to `to_format`."""
 convert_model(model::Model, to_format::AbstractString;
               tolerate_syntax_errors=false, id_form="", include_library_stubs::Bool=false,
               compact::Bool=false, omit_derived::Bool=false, keep_derived=String[],
               include_check_diagnostics::Bool=false,
-              inherited_members::Bool=false) =
+              inherited_members::Bool=false, projection=nothing) =
     convert_model(model.connection, model.hash, to_format;
                   tolerate_syntax_errors=tolerate_syntax_errors, id_form=id_form,
                   include_library_stubs=include_library_stubs, compact=compact,
                   omit_derived=omit_derived, keep_derived=keep_derived,
                   include_check_diagnostics=include_check_diagnostics,
-                  inherited_members=inherited_members)
+                  inherited_members=inherited_members, projection=projection)
 
 """Write `model` back out as SysML notation."""
 function to_sysml(model::Model; tolerate_syntax_errors=false)
