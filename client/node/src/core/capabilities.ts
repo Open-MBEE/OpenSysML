@@ -174,6 +174,8 @@ export const CAPABILITY_CONVERT_INHERITED_MEMBERS = "convert_inherited_members";
 export const CAPABILITY_CONVERT_CHECK_DIAGNOSTICS = "convert_check_diagnostics";
 /** `ParseSourcesRequest.baseModelHash` and `ParseSourcesResponse.affected`: the documents whose results may differ from the base model's, so a client re-reads only those after an edit. */
 export const CAPABILITY_PARSE_SOURCES_AFFECTED = "parse_sources_affected";
+/** `ParseSourcesRequest.keep`: answer a parse without keeping the model, so a transient union cannot evict one the caller holds. */
+export const CAPABILITY_PARSE_SOURCES_KEEP = "parse_sources_keep";
 /** `RenderDocumentResponse.fileName`: the file a rendered set writes the document to, which the other documents' links to it name. */
 export const CAPABILITY_RENDER_DOCUMENT_FILE_NAME = "render_document_file_name";
 

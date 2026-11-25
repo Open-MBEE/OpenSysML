@@ -20,6 +20,7 @@ from opensysml.capabilities import (
     CAPABILITY_INLINE_LANGUAGE,
     CAPABILITY_PARSE_SOURCES,
     CAPABILITY_PARSE_SOURCES_AFFECTED,
+    CAPABILITY_PARSE_SOURCES_KEEP,
     CAPABILITY_STRICT_CONFORMANCE,
     MissingCapabilityError,
 )
@@ -68,6 +69,7 @@ ALL_CAPABILITIES = (
     CAPABILITY_INLINE_LANGUAGE,
     CAPABILITY_STRICT_CONFORMANCE,
     CAPABILITY_PARSE_SOURCES_AFFECTED,
+    CAPABILITY_PARSE_SOURCES_KEEP,
 )
 
 
@@ -267,6 +269,24 @@ class TestParseSourcesRequest:
         assert related.affected == ("top.sysml",)
         assert fresh.affected == ()
 
+    def test_keep_false_is_sent_as_a_present_field_only_when_asked(self, fake_service):
+        """An ordinary parse leaves the field unset: an older service keeps as before."""
+        port, service = fake_service()
+        with Connection(port=port, auto_start=False) as conn:
+            conn.parse_sources([("a.sysml", "package A;")], keep=False)
+            conn.parse_sources([("a.sysml", "package A;")], keep=True)
+
+        assert [request.HasField("keep") for request in service.requests] == [True, False]
+        assert [request.keep for request in service.requests] == [False, False]
+
+    def test_keep_false_requires_its_capability(self, fake_service):
+        port, service = fake_service(capabilities=(CAPABILITY_PARSE_SOURCES,))
+        with Connection(port=port, auto_start=False) as conn, \
+                pytest.raises(MissingCapabilityError) as excinfo:
+            conn.parse_sources([("a.sysml", "package A;")], keep=False)
+        assert excinfo.value.capability == CAPABILITY_PARSE_SOURCES_KEEP
+        assert service.requests == [], "the request was sent to a service that would keep the model"
+
     def test_a_base_model_requires_its_capability(self, fake_service):
         port, service = fake_service(capabilities=(CAPABILITY_PARSE_SOURCES,))
         with Connection(port=port, auto_start=False) as conn, \
@@ -370,8 +390,8 @@ def test_module_level_parse_sources_uses_the_default_connection(monkeypatch):
 
     class Recorder:
         def parse_sources(self, documents, strict=False, strict_conformance=False,
-                          base_model_hash=''):
-            calls.append((documents, strict, strict_conformance, base_model_hash))
+                          base_model_hash='', keep=True):
+            calls.append((documents, strict, strict_conformance, base_model_hash, keep))
             return "model"
 
     monkeypatch.setattr(opensysml, "_default_connection", None)
@@ -383,7 +403,12 @@ def test_module_level_parse_sources_uses_the_default_connection(monkeypatch):
     docs = [("a.sysml", "package A;")]
     assert opensysml.parse_sources(docs, strict=True, strict_conformance=True) == "model"
     assert opensysml.parse_sources(docs, base_model_hash="base-hash") == "model"
-    assert calls == [(docs, True, True, ""), (docs, False, False, "base-hash")]
+    assert opensysml.parse_sources(docs, keep=False) == "model"
+    assert calls == [
+        (docs, True, True, "", True),
+        (docs, False, False, "base-hash", True),
+        (docs, False, False, "", False),
+    ]
 
 
 class TestModelOfSeveralRoots:

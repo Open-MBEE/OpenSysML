@@ -28,7 +28,10 @@ intended shape. `ParseFile` and `ParseSource` each parse one document; `ParseFil
 `ParseDocuments` parse several as one model, each keeping its own name, so an import between them
 resolves and a diagnostic locates itself in the file it came from. `ParseDocuments` given
 `WithBaseModel(previous)` fills the model's `Affected` with the documents whose results may differ
-from the base model's, under the `parse_sources_affected` capability.
+from the base model's, under the `parse_sources_affected` capability. `WithKeep(false)` answers a
+transient parse — a derived union read for its results — without evicting or promoting a model the
+caller holds, under the `parse_sources_keep` capability; its answer is otherwise the one a kept
+parse gives.
 
 `ExecuteAction`, `ExecuteState` and `RunAnalysis` answer one run, under the scheduling policy
 `WithSchedule`/`Schedule` names (`declared`, `reverse`, `seed:<n>`), on the object

@@ -27,6 +27,7 @@ type ServerInfo struct {
 var CapabilityTools = map[string]string{
 	sysmlgrpc.CapabilityParseSources:                   "parse",
 	sysmlgrpc.CapabilityParseSourcesAffected:           "parse",
+	sysmlgrpc.CapabilityParseSourcesKeep:               "parse",
 	sysmlgrpc.CapabilityRenderDocumentFileName:         "render_model_document",
 	sysmlgrpc.CapabilityInlineLanguage:                 "parse",
 	sysmlgrpc.CapabilityStrictConformance:              "parse",

@@ -21,6 +21,7 @@ type ParseInput struct {
 	Sources           []Source `json:"sources,omitempty" jsonschema:"documents given inline, parsed with paths as one model"`
 	StrictConformance bool     `json:"strictConformance,omitempty" jsonschema:"judge the documents as conforming SysML v2: notation no pinned production admits is an error rather than a warning"`
 	BaseModelHash     string   `json:"baseModelHash,omitempty" jsonschema:"the modelHash of an earlier parse of these documents; the answer's affected then lists the documents whose results may differ from it"`
+	Keep              *bool    `json:"keep,omitempty" jsonschema:"false answers a transient model without keeping it in the service's cache, so it cannot evict a model the caller holds; needs parse_sources_keep"`
 }
 
 // SymbolInput names one element of a model.
@@ -60,13 +61,14 @@ func (g *group) registerParse(s *mcp.Server) {
 			"every diagnostic (the ParseSources RPC). Parsing is content-addressed: the same documents give the same modelHash, and the " +
 			"hash is what every other runtime tool takes as modelHash, so parse once and pass the hash, or give those tools the same " +
 			"paths/sources and they parse implicitly. A model is only readable when no diagnostic has severity error. The result is the " +
-			"ParseSourcesResponse as protojson writes it; the text lists each root and the diagnostics as the CLI prints them.",
+			"ParseSourcesResponse as protojson writes it; the text lists each root and the diagnostics as the CLI prints them. " +
+			"With keep:false the answer is transient and leaves the service's cached models untouched.",
 		Annotations: toolkit.ReadOnly("Parse model"),
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in ParseInput) (*mcp.CallToolResult, Result, error) {
 		if len(in.Paths)+len(in.Sources) == 0 {
 			return nil, nil, argumentError("paths and/or sources must name at least one document")
 		}
-		resp, err := g.parse(ctx, ModelInput{Paths: in.Paths, Sources: in.Sources, StrictConformance: in.StrictConformance}, in.BaseModelHash)
+		resp, err := g.parse(ctx, ModelInput{Paths: in.Paths, Sources: in.Sources, StrictConformance: in.StrictConformance}, in.BaseModelHash, in.Keep)
 		if err != nil {
 			return nil, nil, err
 		}
