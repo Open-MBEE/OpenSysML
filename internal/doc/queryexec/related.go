@@ -1,6 +1,8 @@
 package queryexec
 
 import (
+	"sort"
+
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -18,11 +20,25 @@ const (
 	relationshipTyping         = "typing"
 	relationshipConnection     = "connection"
 	relationshipAllocation     = "allocation"
+	relationshipAllocate       = "allocate"
+	relationshipDependency     = "dependency"
 	relationshipSatisfaction   = "satisfaction"
 	relationshipVerification   = "verification"
 	relationshipDerivation     = "derivation"
 	relationshipRefinement     = "refinement"
 )
+
+// SupportedRelationships lists row-set relationship kinds in stable order;
+// `allocation` and `allocate` name the same edges.
+func SupportedRelationships() []string {
+	out := append([]string(nil), relationshipSpecialization, relationshipSubsetting,
+		relationshipRedefinition, relationshipTyping, relationshipConnection,
+		relationshipAllocation, relationshipAllocate, relationshipDependency,
+		relationshipSatisfaction, relationshipVerification, relationshipDerivation,
+		relationshipRefinement)
+	sort.Strings(out)
+	return out
+}
 
 // Traversal directions: outgoing follows an edge from its source to its
 // targets, incoming follows it in reverse.
@@ -122,11 +138,12 @@ func (e *executor) relationshipArguments(expression queryplan.Expression) (relat
 	}
 	if !supportedRelationship(kind) {
 		return relationshipWalk{}, &Error{
-			Kind:      ErrorUnknownRelationship,
-			Query:     e.definition.Name(),
-			Operation: expression.Operation(),
-			Actual:    kind,
-			Origin:    expression.Origin(),
+			Kind:       ErrorUnknownRelationship,
+			Query:      e.definition.Name(),
+			Operation:  expression.Operation(),
+			Actual:     kind,
+			Candidates: SupportedRelationships(),
+			Origin:     expression.Origin(),
 		}
 	}
 	if direction != directionOutgoing && direction != directionIncoming {
@@ -182,8 +199,8 @@ func supportedRelationship(kind string) bool {
 		return true
 	}
 	switch kind {
-	case relationshipConnection, relationshipAllocation,
-		relationshipSatisfaction, relationshipVerification,
+	case relationshipConnection, relationshipAllocation, relationshipAllocate,
+		relationshipDependency, relationshipSatisfaction, relationshipVerification,
 		relationshipDerivation, relationshipRefinement:
 		return true
 	}
@@ -270,6 +287,9 @@ func (e *executor) scanSymbol(edges *relationshipEdges, kind string, sym *symbol
 }
 
 func semanticRelationshipKind(kind string) semantics.RelationshipKind {
+	if kind == relationshipAllocate {
+		return semantics.RelationshipAllocation
+	}
 	return semantics.RelationshipKind(kind)
 }
 

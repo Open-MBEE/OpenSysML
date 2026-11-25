@@ -68,9 +68,18 @@ const (
 	// PropertyText is RequirementDefinition::text / RequirementUsage::text: the
 	// body of each `doc` the requirement owns, in order.
 	PropertyText = "text"
+	// PropertyIsActive is StateActivity::isActive: whether the state usage is
+	// part of an active configuration in the query's runtime session.
+	PropertyIsActive = "isActive"
+	// PropertyAnnotations is the metadata annotations of a row: the values each
+	// annotation binds, read for the whole row set in one pass.
+	PropertyAnnotations = "annotations"
 	// PropertyElementID is the elementId a conversion of the model writes for
 	// the element, reported only where the reader is given one (WithElementID).
 	PropertyElementID = "elementId"
+	// PropertyBoundSubject is the qualified name of the declaration a case's
+	// subject binds; absent when it binds none.
+	PropertyBoundSubject = "boundSubject"
 )
 
 // propertyNames is the closed set of properties supported by element queries.
@@ -86,6 +95,7 @@ var propertyNames = []string{
 	PropertyPayloadArgument, PropertySenderArgument, PropertyReceiverArgument,
 	PropertyElementID,
 	PropertySymbolKind, PropertyText,
+	PropertyIsActive, PropertyAnnotations, PropertyBoundSubject,
 }
 
 // PropertyNames returns the supported property names in stable order.

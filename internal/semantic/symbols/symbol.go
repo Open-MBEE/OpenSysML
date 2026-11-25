@@ -566,4 +566,7 @@ type AnnotationValueFacts struct {
 	Feature string
 	Value   FilterValue
 	Values  []FilterValue
+	// Bound reports whether the annotation body writes this feature, as opposed
+	// to its value coming from the metadata type's default.
+	Bound bool
 }

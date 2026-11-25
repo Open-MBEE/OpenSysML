@@ -1142,6 +1142,12 @@ func (e *executor) propertyValuesBeforeMemberPath(row Value, property string) ([
 		return e.eventPropertyValues(row, property)
 	}
 	sym, _ := row.Element()
+	if property == query.PropertyIsActive {
+		return e.stateActivityValues(sym)
+	}
+	if property == query.PropertyAnnotations {
+		return e.annotationValues(sym)
+	}
 	if isQueryableProperty(property) && readsAnnotationProperty(sym, property) {
 		values, present := e.reader.Values(sym, property)
 		if property == query.PropertyElementID && e.elementIDErr != nil {
@@ -1281,7 +1287,8 @@ func isQueryableProperty(property string) bool {
 		query.PropertyMultiplicityLower,
 		query.PropertyMultiplicityUpper,
 		query.PropertyElementID,
-		query.PropertySymbolKind:
+		query.PropertySymbolKind, query.PropertyIsActive, query.PropertyAnnotations,
+		query.PropertyBoundSubject:
 		return true
 	default:
 		return false
@@ -1291,8 +1298,8 @@ func isQueryableProperty(property string) bool {
 func (e *executor) typedPropertyValue(property, value string, sym *symbols.Symbol) Value {
 	var result Value
 	switch property {
-	case query.PropertyGeneral:
-		// A general is the element itself, so it prints and links by name.
+	case query.PropertyGeneral, query.PropertyBoundSubject:
+		// A link to an element prints and links by that element's name.
 		if targets := e.context.Index.LookupQualified(value); len(targets) == 1 {
 			return valueAt(ElementValue(targets[0]), ElementValue(sym).Origin())
 		}

@@ -44,6 +44,9 @@ const (
 	QueryPropReceiverArgument      = corequery.PropertyReceiverArgument
 	QueryPropSymbolKind            = corequery.PropertySymbolKind
 	QueryPropText                  = corequery.PropertyText
+	QueryPropIsActive              = corequery.PropertyIsActive
+	QueryPropAnnotations           = corequery.PropertyAnnotations
+	QueryPropBoundSubject          = corequery.PropertyBoundSubject
 )
 
 // QueryErrorKind classifies why a query could not be evaluated. Every kind fails
