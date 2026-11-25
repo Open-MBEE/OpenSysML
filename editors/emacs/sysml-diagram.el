@@ -639,7 +639,9 @@ Needs `sysml-diagram-mmdc-program' and a frame that can display SVG."
           (let ((inhibit-read-only t))
             (erase-buffer)
             (insert-image (create-image svg 'svg t))
-            (special-mode)))
+            (special-mode)
+            ;; A view spans many frame widths, more so at a HiDPI output scale.
+            (setq-local max-image-size t)))
         (pop-to-buffer buffer)))))
 
 (defconst sysml-diagram--mmdc-config

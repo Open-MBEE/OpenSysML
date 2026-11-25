@@ -126,6 +126,29 @@
               (should (string-match-p "matrix" (cadr err))))))
       (kill-buffer source))))
 
+(ert-deftest sysml-diagram-image-lifts-the-image-size-limit ()
+  (let ((source (generate-new-buffer " *model*")))
+    (unwind-protect
+        (with-temp-buffer
+          (sysml-diagram-mode)
+          (setq sysml-diagram--source source
+                sysml-diagram--view "#tree")
+          (cl-letf (((symbol-function 'display-images-p) (lambda (&rest _) t))
+                    ((symbol-function 'image-type-available-p) (lambda (&rest _) t))
+                    ((symbol-function 'executable-find) (lambda (&rest _) "/bin/mmdc"))
+                    ((symbol-function 'sysml-diagram--text-document) #'ignore)
+                    ((symbol-function 'lsp-request)
+                     (lambda (&rest _) (sysml-diagram-test--json sysml-diagram-test--tree)))
+                    ((symbol-function 'sysml-diagram--mermaid-to-svg)
+                     (lambda (&rest _) "<svg width=\"1\" height=\"1\"/>"))
+                    ((symbol-function 'pop-to-buffer) #'ignore))
+            (sysml-diagram-image)
+            (with-current-buffer (format "*SysML Image: %s*" (buffer-name source))
+              (unwind-protect
+                  (should (eq max-image-size t))
+                (kill-buffer)))))
+      (kill-buffer source))))
+
 (ert-deftest sysml-diagram-asks-mermaid-for-an-svg-librsvg-draws ()
   (let* ((args (make-temp-file "sysml-mmdc-args"))
          (config (make-temp-file "sysml-mmdc-config"))
