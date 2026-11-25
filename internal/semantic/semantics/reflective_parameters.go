@@ -83,7 +83,7 @@ func (m *Model) outputElements(sym *symbols.Symbol) ([]*symbols.Symbol, bool) {
 	}
 	var out []*symbols.Symbol
 	for _, parameter := range m.BehaviorParametersOf(sym) {
-		if parameter.Symbol == nil || parameter.IsResult || masked(parameter.Symbol) ||
+		if parameter.Symbol == nil || parameter.IsResult || slices.Contains(stated, parameter.Symbol) || masked(parameter.Symbol) ||
 			(parameter.Direction != ast.DirOut && parameter.Direction != ast.DirInOut) {
 			continue
 		}
