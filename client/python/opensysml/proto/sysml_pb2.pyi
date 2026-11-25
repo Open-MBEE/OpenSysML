@@ -3015,7 +3015,7 @@ class RenderFrame(_message.Message):
     def __init__(self, name: _Optional[str] = ..., type: _Optional[str] = ..., exposes: _Optional[_Iterable[str]] = ..., filters: _Optional[_Iterable[str]] = ..., annotations: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class RenderNode(_message.Message):
-    __slots__ = ("id", "kind", "name", "name_synthesized", "type", "detail", "text", "stand_in", "parent", "ports", "origin", "geometry", "style", "compartment", "inherited", "arrow", "parallel")
+    __slots__ = ("id", "kind", "name", "name_synthesized", "type", "detail", "text", "stand_in", "parent", "ports", "origin", "geometry", "style", "compartment", "inherited", "arrow", "parallel", "element_id")
     ID_FIELD_NUMBER: _ClassVar[int]
     KIND_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
@@ -3033,6 +3033,7 @@ class RenderNode(_message.Message):
     INHERITED_FIELD_NUMBER: _ClassVar[int]
     ARROW_FIELD_NUMBER: _ClassVar[int]
     PARALLEL_FIELD_NUMBER: _ClassVar[int]
+    ELEMENT_ID_FIELD_NUMBER: _ClassVar[int]
     id: str
     kind: str
     name: str
@@ -3050,24 +3051,27 @@ class RenderNode(_message.Message):
     inherited: bool
     arrow: str
     parallel: bool
-    def __init__(self, id: _Optional[str] = ..., kind: _Optional[str] = ..., name: _Optional[str] = ..., name_synthesized: _Optional[bool] = ..., type: _Optional[str] = ..., detail: _Optional[str] = ..., text: _Optional[str] = ..., stand_in: _Optional[bool] = ..., parent: _Optional[str] = ..., ports: _Optional[_Iterable[_Union[RenderPort, _Mapping]]] = ..., origin: _Optional[_Union[Span, _Mapping]] = ..., geometry: _Optional[_Union[RenderGeometry, _Mapping]] = ..., style: _Optional[_Union[RenderStyle, _Mapping]] = ..., compartment: _Optional[str] = ..., inherited: _Optional[bool] = ..., arrow: _Optional[str] = ..., parallel: _Optional[bool] = ...) -> None: ...
+    element_id: str
+    def __init__(self, id: _Optional[str] = ..., kind: _Optional[str] = ..., name: _Optional[str] = ..., name_synthesized: _Optional[bool] = ..., type: _Optional[str] = ..., detail: _Optional[str] = ..., text: _Optional[str] = ..., stand_in: _Optional[bool] = ..., parent: _Optional[str] = ..., ports: _Optional[_Iterable[_Union[RenderPort, _Mapping]]] = ..., origin: _Optional[_Union[Span, _Mapping]] = ..., geometry: _Optional[_Union[RenderGeometry, _Mapping]] = ..., style: _Optional[_Union[RenderStyle, _Mapping]] = ..., compartment: _Optional[str] = ..., inherited: _Optional[bool] = ..., arrow: _Optional[str] = ..., parallel: _Optional[bool] = ..., element_id: _Optional[str] = ...) -> None: ...
 
 class RenderPort(_message.Message):
-    __slots__ = ("id", "name", "type", "direction", "inherited")
+    __slots__ = ("id", "name", "type", "direction", "inherited", "element_id")
     ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     TYPE_FIELD_NUMBER: _ClassVar[int]
     DIRECTION_FIELD_NUMBER: _ClassVar[int]
     INHERITED_FIELD_NUMBER: _ClassVar[int]
+    ELEMENT_ID_FIELD_NUMBER: _ClassVar[int]
     id: str
     name: str
     type: str
     direction: str
     inherited: bool
-    def __init__(self, id: _Optional[str] = ..., name: _Optional[str] = ..., type: _Optional[str] = ..., direction: _Optional[str] = ..., inherited: _Optional[bool] = ...) -> None: ...
+    element_id: str
+    def __init__(self, id: _Optional[str] = ..., name: _Optional[str] = ..., type: _Optional[str] = ..., direction: _Optional[str] = ..., inherited: _Optional[bool] = ..., element_id: _Optional[str] = ...) -> None: ...
 
 class RenderEdge(_message.Message):
-    __slots__ = ("to", "from_port", "to_port", "label", "name", "kind", "origin", "route", "style")
+    __slots__ = ("to", "from_port", "to_port", "label", "name", "kind", "origin", "route", "style", "element_id")
     FROM_FIELD_NUMBER: _ClassVar[int]
     TO_FIELD_NUMBER: _ClassVar[int]
     FROM_PORT_FIELD_NUMBER: _ClassVar[int]
@@ -3078,6 +3082,7 @@ class RenderEdge(_message.Message):
     ORIGIN_FIELD_NUMBER: _ClassVar[int]
     ROUTE_FIELD_NUMBER: _ClassVar[int]
     STYLE_FIELD_NUMBER: _ClassVar[int]
+    ELEMENT_ID_FIELD_NUMBER: _ClassVar[int]
     to: str
     from_port: str
     to_port: str
@@ -3087,7 +3092,8 @@ class RenderEdge(_message.Message):
     origin: Span
     route: _containers.RepeatedCompositeFieldContainer[RenderPoint]
     style: RenderStyle
-    def __init__(self, to: _Optional[str] = ..., from_port: _Optional[str] = ..., to_port: _Optional[str] = ..., label: _Optional[str] = ..., name: _Optional[str] = ..., kind: _Optional[str] = ..., origin: _Optional[_Union[Span, _Mapping]] = ..., route: _Optional[_Iterable[_Union[RenderPoint, _Mapping]]] = ..., style: _Optional[_Union[RenderStyle, _Mapping]] = ..., **kwargs) -> None: ...
+    element_id: str
+    def __init__(self, to: _Optional[str] = ..., from_port: _Optional[str] = ..., to_port: _Optional[str] = ..., label: _Optional[str] = ..., name: _Optional[str] = ..., kind: _Optional[str] = ..., origin: _Optional[_Union[Span, _Mapping]] = ..., route: _Optional[_Iterable[_Union[RenderPoint, _Mapping]]] = ..., style: _Optional[_Union[RenderStyle, _Mapping]] = ..., element_id: _Optional[str] = ..., **kwargs) -> None: ...
 
 class RenderGeometry(_message.Message):
     __slots__ = ("x", "y", "width", "height", "has_size", "collapsed", "unplaced")

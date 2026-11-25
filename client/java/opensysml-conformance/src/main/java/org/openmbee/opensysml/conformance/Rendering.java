@@ -993,6 +993,7 @@ final class Rendering {
       org.openmbee.opensysml.proto.RenderNode.Builder rendered =
           org.openmbee.opensysml.proto.RenderNode.newBuilder()
               .setId(node.id())
+              .setElementId(node.elementId())
               .setKind(node.kind())
               .setName(node.name())
               .setNameSynthesized(node.nameSynthesized())
@@ -1007,6 +1008,7 @@ final class Rendering {
                   rendered.addPorts(
                       org.openmbee.opensysml.proto.RenderPort.newBuilder()
                           .setId(port.id())
+                          .setElementId(port.elementId())
                           .setName(port.name())
                           .setType(port.type())
                           .setDirection(port.direction())));
@@ -1029,6 +1031,7 @@ final class Rendering {
     for (RenderedView.Edge edge : view.edges()) {
       org.openmbee.opensysml.proto.RenderEdge.Builder rendered =
           org.openmbee.opensysml.proto.RenderEdge.newBuilder()
+              .setElementId(edge.elementId())
               .setFrom(edge.from())
               .setTo(edge.to())
               .setFromPort(edge.fromPort())

@@ -1398,7 +1398,11 @@ with `model.render_document(id, form="html")`; each checks the form's capability
 
 `RenderView` answers a named view or targeted pseudo-view as ordered nodes,
 edges, table and matrix rows, notes, source spans and optional canvas/geometry/style data,
-using the engine renderer's `view.Data` rather than diagram pictures. Its
+using the engine renderer's `view.Data` rather than diagram pictures. Every node, port and edge
+also carries `element_id` when it comes from an identified declaration: the effective element id
+the written forms link to through `{id}`, distinct from the render-local `id` that names a node
+within one rendering. A canvas can address an element by `element_id` without resolving its
+identity again. Its
 `ports` field is empty or `minimal` by default; `full` includes all declared
 ports. Its `show` field names the
 [optional notation elements](../project/view-rendering-forms.md#optional-notation-elements)

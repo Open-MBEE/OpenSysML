@@ -2569,6 +2569,10 @@ with `file not found:`.
 `RenderView` returns the machine-readable fields of a named view or targeted pseudo-view. The
 response preserves node and edge order, parent links, ports, source spans, table and matrix rows, notes and
 notices; optional canvas, geometry and style messages are absent when the model states none.
+Each node, port and edge may also carry `elementId`, the element's durable effective id: the
+same value a written form's `{id}` link anchor uses. It is absent when the artifact stands for
+no identified declaration. `elementId` is separate from `id`, which is the node or port's
+identity within this rendering only and is reused by the next one.
 Pictures are not included; a refused picture contributes its reason to `notices`. An omitted or
 `minimal` `ports` value includes only ports used by rendered connections; `full` includes every
 declared port. The service advertises this method as
@@ -2592,6 +2596,7 @@ with protobuf JSON:
   "nodes": [
     {
       "id": "n0",
+      "elementId": "RenderViewDemo__Assembly",
       "kind": "part def",
       "name": "RenderViewDemo::Assembly",
       "origin": {
@@ -2604,12 +2609,13 @@ with protobuf JSON:
     },
     {
       "id": "n1",
+      "elementId": "RenderViewDemo__Assembly__sender",
       "kind": "part",
       "name": "sender",
       "type": "Sender",
       "parent": "n0",
       "ports": [
-        {"id": "n1.0", "name": "api", "type": "API"}
+        {"id": "n1.0", "elementId": "RenderViewDemo__Sender__api", "name": "api", "type": "API"}
       ],
       "origin": {
         "file": "<content>",
@@ -2621,12 +2627,13 @@ with protobuf JSON:
     },
     {
       "id": "n2",
+      "elementId": "RenderViewDemo__Assembly__receiver",
       "kind": "part",
       "name": "receiver",
       "type": "Receiver",
       "parent": "n0",
       "ports": [
-        {"id": "n2.0", "name": "api", "type": "API"}
+        {"id": "n2.0", "elementId": "RenderViewDemo__Receiver__api", "name": "api", "type": "API"}
       ],
       "origin": {
         "file": "<content>",
@@ -2641,6 +2648,7 @@ with protobuf JSON:
     {
       "from": "n1",
       "to": "n2",
+      "elementId": "RenderViewDemo__Assembly__link",
       "fromPort": "n1.0",
       "toPort": "n2.0",
       "label": "link",

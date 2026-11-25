@@ -64,6 +64,8 @@ struct RenderPort
     name::String
     type::String
     direction::String
+    """The declared feature's EffectiveID, the id a written form's `{id}` anchor carries."""
+    element_id::String
 end
 
 struct RenderGeometry
@@ -106,9 +108,13 @@ struct RenderNode
     origin::Union{Nothing,RenderSpan}
     geometry::Union{Nothing,RenderGeometry}
     style::Union{Nothing,RenderStyle}
+    """The declared element's EffectiveID, the id a written form's `{id}` anchor carries."""
+    element_id::String
 end
 
 struct RenderEdge
+    """The connection's EffectiveID, the id a written form's `{id}` anchor carries."""
+    element_id::String
     from::String
     to::String
     from_port::String
@@ -383,7 +389,8 @@ function rendered_view_result(raw)
     nodes = RenderNode[]
     for node in get(raw, "nodes", Any[])
         ports = RenderPort[RenderPort(_render_string(port, "id"), _render_string(port, "name"),
-            _render_string(port, "type"), _render_string(port, "direction"))
+            _render_string(port, "type"), _render_string(port, "direction"),
+            _render_string(port, "elementId"))
             for port in get(node, "ports", Any[])]
         push!(nodes, RenderNode(_render_string(node, "id"), _render_string(node, "kind"),
             _render_string(node, "name"), _render_bool(node, "nameSynthesized"),
@@ -392,9 +399,11 @@ function rendered_view_result(raw)
             _render_string(node, "parent"), _render_string(node, "compartment"), ports,
             _render_span(get(node, "origin", nothing)),
             _render_geometry(get(node, "geometry", nothing)),
-            _render_style(get(node, "style", nothing))))
+            _render_style(get(node, "style", nothing)),
+            _render_string(node, "elementId")))
     end
-    edges = RenderEdge[RenderEdge(_render_string(edge, "from"), _render_string(edge, "to"),
+    edges = RenderEdge[RenderEdge(_render_string(edge, "elementId"),
+        _render_string(edge, "from"), _render_string(edge, "to"),
         _render_string(edge, "fromPort"), _render_string(edge, "toPort"),
         _render_string(edge, "label"), _render_string(edge, "name"),
         _render_string(edge, "kind"), _render_span(get(edge, "origin", nothing)),
