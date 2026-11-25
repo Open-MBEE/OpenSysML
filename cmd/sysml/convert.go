@@ -414,8 +414,8 @@ func convertOptions(from, to convert.Format) (convert.Options, error) {
 		opts.LibraryReferences = func(refs []export.APIJSONLibraryReference) { conversionLibraryReferences = refs }
 	}
 	if idForm == "" {
-		// The normative schema's "@id" is a uuid.
-		if interchangeForm && from == convert.FormatSysML {
+		// The normative schema's "@id" is a uuid; an FMU is converted through the notation.
+		if interchangeForm && (from == convert.FormatSysML || from == convert.FormatFMU) {
 			opts.ID = export.IDUUID
 		}
 		return opts, nil
