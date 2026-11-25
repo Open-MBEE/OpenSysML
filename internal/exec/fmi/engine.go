@@ -166,6 +166,11 @@ func (e *engine) Covers(_ *analysis.Model, q analysis.Question) analysis.Coverag
 	if call.ToolName != "fmi" {
 		return analysis.Coverage{Refusal: &analysis.WrongToolError{Engine: e.Name(), Tool: call.ToolName}}
 	}
+	// The combination is refused by both surfaces, so name it before the
+	// step-only short-circuit chooses the generic session error.
+	if namesStep(call) && namesSeries(call) {
+		return analysis.Coverage{Refusal: &SessionSeriesError{Tool: e.Name()}}
+	}
 	if namesStep(call) {
 		return analysis.Coverage{Refusal: &SessionRequiredError{Tool: e.Name()}}
 	}
@@ -336,6 +341,9 @@ func (e *engine) Run(ctx context.Context, _ *analysis.Model, q analysis.Question
 		return analysis.Result{}, &analysis.MalformedQuestionError{Kind: q.Kind, Missing: "a Compute with a Call"}
 	}
 	call := q.Compute.Call
+	if namesStep(call) && namesSeries(call) {
+		return analysis.Result{}, &SessionSeriesError{Tool: e.Name()}
+	}
 	if namesStep(call) {
 		return analysis.Result{}, &SessionRequiredError{Tool: e.Name()}
 	}
