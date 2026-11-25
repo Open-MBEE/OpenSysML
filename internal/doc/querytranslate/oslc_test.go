@@ -231,7 +231,7 @@ func TestOSLCPropertyNamespacesFollowTheMetamodel(t *testing.T) {
 		prefix := "sysml:"
 		switch name {
 		case query.PropertyMultiplicityLower, query.PropertyMultiplicityUpper, query.PropertySymbolKind, query.PropertyVerifyingCase,
-			query.PropertyIsActive, query.PropertyAnnotations:
+			query.PropertyIsActive, query.PropertyAnnotations, query.PropertyBoundSubject:
 			prefix = "sysx:"
 		}
 		if _, err := ParseOSLC(prefix+name+`="x"`, nil); err != nil {
@@ -447,7 +447,7 @@ func TestParseOSLCPropertyDiagnosticsFollowTheActiveBindings(t *testing.T) {
 		t.Errorf("error = %#v, want ErrMalformed naming the unusable prefix", err)
 	}
 	names, unbound := PrefixedPropertyNames(map[string]string{"rdf": rdf.RDFNS}, NewTable(nil, nil))
-	if len(names) != 1 || names[0] != "rdf:type" || len(unbound[rdf.SysML]) == 0 || len(unbound[rdf.OpenSysML]) != 6 {
+	if len(names) != 1 || names[0] != "rdf:type" || len(unbound[rdf.SysML]) == 0 || len(unbound[rdf.OpenSysML]) != 7 {
 		t.Errorf("names = %#v, unbound = %#v", names, unbound)
 	}
 }
