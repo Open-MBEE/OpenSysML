@@ -295,17 +295,26 @@ download() { # <url> <destination>
 	fi
 }
 
-# probe <url> <destination>: downloads like `download` and prints the HTTP status
-# of the final answer, 000 when there was none; the file is kept only on 200.
+# probe <url> <destination>: downloads like `download` and prints 200 when the
+# file arrived whole, else the HTTP status the server refused with, 000 when
+# there was none or the transfer broke off; the file is kept only on 200.
 probe() {
 	if [ "$downloader" = curl ]; then
 		# shellcheck disable=SC2086  # curl_proto is a list of options
-		probe_status=$(curl -sSL $curl_proto --retry 3 -o "$2" -w '%{http_code}' "$1" 2>/dev/null) || probe_status=000
+		if probe_status=$(curl -fsSL $curl_proto --retry 3 -o "$2" -w '%{http_code}' "$1" 2>/dev/null); then
+			probe_status=200
+		fi
+	elif probe_status=$(wget -S -q -O "$2" "$1" 2>&1); then
+		probe_status=200
 	else
-		probe_status=$(wget -S -q -O "$2" "$1" 2>&1 | sed -n 's/^[[:space:]]*HTTP\/[0-9.]*[[:space:]][[:space:]]*\([0-9][0-9][0-9]\).*/\1/p' | tail -n 1)
+		probe_status=$(printf '%s\n' "$probe_status" | sed -n 's/^[[:space:]]*HTTP\/[0-9.]*[[:space:]][[:space:]]*\([0-9][0-9][0-9]\).*/\1/p' | tail -n 1)
 	fi
-	[ "$probe_status" = 200 ] || rm -f "$2"
-	printf '%s\n' "${probe_status:-000}"
+	case "$probe_status" in
+	200) ;;
+	[345][0-9][0-9]) rm -f "$2" ;;
+	*) rm -f "$2" && probe_status=000 ;;
+	esac
+	printf '%s\n' "$probe_status"
 }
 
 sha256_of() { # <file>: the hex digest
