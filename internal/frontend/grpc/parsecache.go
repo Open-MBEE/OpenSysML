@@ -250,7 +250,7 @@ func (s *Service) restoreFromDisk(ctx context.Context, inputs []sourceInput, mod
 }
 
 // restoredAnalysis primes the lineage workspace from the analysis record's
-// diagnostics and reads, so a later edit reports exact affected docs.
+// diagnostics and reads, but never stamps a set a library stand-in sends fresh.
 func (s *Service) restoredAnalysis(ctx context.Context, inputs []sourceInput, mode diag.ConformanceMode, documents []*CachedDocument, reads map[string]*resolve.Reads) *analysisSnapshot {
 	key := lineageKey(inputs, mode)
 	l, _ := s.lineages.get(key, func() *lineage { return &lineage{held: map[string]string{}} })
@@ -259,16 +259,31 @@ func (s *Service) restoredAnalysis(ctx context.Context, inputs []sourceInput, mo
 	if err := ctx.Err(); err != nil {
 		return nil
 	}
+	if l.fresh {
+		// parseFromLineage already gave up this workspace and its held map.
+		return nil
+	}
 	if l.ws == nil {
 		idx, library := s.libIndexes.get()
 		l.ws = wsmodel.NewWorkspaceWithIndex(idx, wsmodel.WithConformanceMode(mode), wsmodel.WithLibrarySource(library))
 		l.library = library
 	}
+	if l.held == nil {
+		l.held = map[string]string{}
+	}
+	standIns := map[string]string{}
 	for i, input := range inputs {
 		doc := documents[i]
 		l.ws.OpenParsed(input.name, []byte(input.content), l.versions, input.kind,
 			doc.Root, doc.ParseDiags, doc.parseWarnings)
 		l.held[input.name] = input.content
+		if l.ws.StandsIn(input.name) {
+			standIns[input.name] = input.content
+		}
+	}
+	if len(standIns) > 0 {
+		l.fresh, l.standIns, l.ws, l.held, l.answered = true, standIns, nil, nil, nil
+		return nil
 	}
 	stamps := make(map[string]uint64, len(inputs))
 	for i, input := range inputs {
