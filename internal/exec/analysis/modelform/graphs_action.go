@@ -836,9 +836,9 @@ func connections(conns []lower.Connection) []ConnectionForm {
 		if c.Owner == lower.OwnerObject {
 			owner = "object"
 		}
-		ends := c.Ends
-		if ends == nil {
-			ends = []string{}
+		ends := make([]string, 0, len(c.Ends))
+		for _, end := range c.Ends {
+			ends = append(ends, end.Notation())
 		}
 		out = append(out, ConnectionForm{Ends: ends, Variation: c.Variation, Variant: c.Variant, Owner: owner, Scope: scopeName(c.Scope)})
 	}
