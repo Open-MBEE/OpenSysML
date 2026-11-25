@@ -277,9 +277,8 @@ func runCtx(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 	if *parallel < 0 {
 		return fmt.Errorf("-p must not be negative, got %d", *parallel)
 	}
-	// The fleet is resolved before sizing shards: an override to the shard
-	// subset or the concurrency must change the CPU budget per shard, not add
-	// workers with the default fleet's GOMAXPROCS.
+	// Resolve the fleet before sizing: shard or concurrency overrides change
+	// the per-shard CPU budget, not add workers at the default GOMAXPROCS.
 	workers := min(concurrency, len(shards))
 	procsPerShard, err := goMaxProcs(*procs, workers, cpus)
 	if err != nil {
@@ -383,9 +382,8 @@ func envLimit(cpus int, mem uint64) (int, error) {
 	return n, nil
 }
 
-// goMaxProcs returns 0 when the caller explicitly set GOMAXPROCS, leaving the
-// caller's value untouched in the child environment. Otherwise it divides the
-// host's CPU budget over the workers that will actually run.
+// goMaxProcs returns 0 when the caller set GOMAXPROCS, else divides the host's
+// CPU budget over the workers actually in flight.
 func goMaxProcs(explicit, workers, cpus int) (int, error) {
 	if explicit < 0 {
 		return 0, fmt.Errorf("-gomaxprocs must not be negative, got %d", explicit)

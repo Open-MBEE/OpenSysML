@@ -101,10 +101,8 @@ func (r *Renderer) derivePositional(doc string) map[*symbols.Symbol]string {
 	return bySym
 }
 
-// walkNodes visits every node of a rendering once, roots, compartment rows and
-// children included. A rendering can share one node between several parents —
-// folded rows and expanded type trees clone pointers rather than subtrees — so
-// a plain recursive walk would re-enter shared nodes exponentially.
+// walkNodes visits every node once, roots, compartments and children included;
+// shared node pointers make a plain recursion re-enter them exponentially.
 func walkNodes(roots []*Node, visit func(*Node)) {
 	seen := make(map[*Node]bool)
 	var walk func([]*Node)

@@ -740,9 +740,8 @@ func TestGoMaxProcsConfiguration(t *testing.T) {
 	}
 }
 
-// TestGoMaxProcsFollowsEffectiveWorkers pins the CPU sizing when the fleet is
-// overridden: a 16-CPU host with four workers in flight gives each four CPUs,
-// not the two-shard default's eight, and a two-shard subset gets eight.
+// TestGoMaxProcsFollowsEffectiveWorkers pins per-worker CPUs after fleet
+// overrides: four workers get four, a two-shard subset gets eight.
 func TestGoMaxProcsFollowsEffectiveWorkers(t *testing.T) {
 	t.Setenv("GOMAXPROCS", "")
 	t.Setenv(procsEnv, "")

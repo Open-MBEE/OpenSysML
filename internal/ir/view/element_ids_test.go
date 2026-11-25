@@ -125,10 +125,8 @@ func TestRenderedElementsCarryTheLinkIdentity(t *testing.T) {
 	}
 }
 
-// TestAnonymousConnectorsHaveDistinctElementIDs pins a durable id per unnamed
-// connector declaration: the index names them all after their owner, but a canvas
-// has to tell which connector a click selected. Each id must resolve back to its
-// own declaration, and the written {id} anchor must carry the same value.
+// TestAnonymousConnectorsHaveDistinctElementIDs pins one durable id per unnamed
+// connector that resolves to its declaration and written {id} anchor.
 func TestAnonymousConnectorsHaveDistinctElementIDs(t *testing.T) {
 	const doc = "anonymous-connector-ids.sysml"
 	renderer, index := loadFixture(t, doc)
@@ -190,9 +188,8 @@ func TestAnonymousConnectorsHaveDistinctElementIDs(t *testing.T) {
 	}
 }
 
-// TestWalkNodesVisitsSharedNodesOnce pins the dedup that keeps id resolution
-// linear in a rendering's distinct nodes: folded rows and expanded type trees
-// share node pointers, so a plain recursive walk re-enters them exponentially.
+// TestWalkNodesVisitsSharedNodesOnce pins linear dedup over folded rows and
+// expanded type trees, which share node pointers.
 func TestWalkNodesVisitsSharedNodesOnce(t *testing.T) {
 	shared := &Node{ID: "shared"}
 	root := &Node{ID: "root", Children: []*Node{shared, {ID: "wrapper", Children: []*Node{shared}}}}
