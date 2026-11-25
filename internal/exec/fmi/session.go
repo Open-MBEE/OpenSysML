@@ -585,11 +585,12 @@ func (s *Session) Read(ctx context.Context, names []string) (map[string]runtime.
 	}
 	modelNames := make([]string, 0, len(names))
 	for _, name := range names {
-		if reservedOutputs[name] {
-			continue
-		}
-		v, ok := s.d.Variable(name)
-		if !ok {
+		kind, v, _ := classifyOutput(name, s.d)
+		switch kind {
+		case replyTime, sampleTimes:
+			continue // the reply's time, answered from the reached state
+		case fmuOutput:
+		default:
 			return nil, &VariableError{FMU: s.fmu, Variable: name, Detail: "has no variable"}
 		}
 		if !outputDirection(v) {
@@ -610,11 +611,14 @@ func (s *Session) Read(ctx context.Context, names []string) (map[string]runtime.
 	}
 	values := make(map[string]runtime.ToolValue, len(names))
 	for _, name := range names {
-		if reservedOutputs[name] {
+		kind, v, _ := classifyOutput(name, s.d)
+		if kind == replyTime || kind == sampleTimes {
 			values[name] = runtime.ToolValue{Value: valueReal(s.now)}
 			continue
 		}
-		v, _ := s.d.Variable(name)
+		if kind != fmuOutput {
+			continue
+		}
 		raw, ok := read[v.Name]
 		if !ok {
 			return nil, &SessionError{Caller: s.caller, FMU: s.fmu,
