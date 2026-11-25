@@ -927,8 +927,8 @@ func startSessionProcess(ctx context.Context, runner string, limit int, timeout 
 	return p, nil
 }
 
-// command writes one line and reads its one answer. A deadline, output
-// overrun or runner exit ends the process with a typed fault.
+// command writes one line and reads its one answer as one cancellable exchange.
+// A deadline, overrun or exit ends the runner so blocked I/O workers return.
 func (p *sessionProcess) command(ctx context.Context, cmd sessionCommand, limit int) ([]byte, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -941,42 +941,52 @@ func (p *sessionProcess) command(ctx context.Context, cmd sessionCommand, limit 
 	if err != nil {
 		return nil, err
 	}
-	if _, err := p.stdin.Write(append(raw, '\n')); err != nil {
-		return nil, p.failureOr(err)
-	}
-	type read struct {
+	type exchange struct {
 		line []byte
 		err  error
 	}
-	answer := make(chan read, 1)
+	done := make(chan exchange, 1)
 	go func() {
+		if _, err := p.stdin.Write(append(raw, '\n')); err != nil {
+			done <- exchange{err: p.failureOr(err)}
+			return
+		}
 		line, err := readBoundedLine(p.stdout, limit)
-		answer <- read{line: line, err: err}
+		if err == nil {
+			done <- exchange{line: line}
+			return
+		}
+		// A process that exited while the read waited has a richer fault
+		// than the pipe's EOF: its exit status and bounded standard error.
+		select {
+		case <-p.dead:
+		case <-time.After(200 * time.Millisecond):
+		}
+		select {
+		case <-p.dead:
+			done <- exchange{err: p.failure()}
+			return
+		default:
+		}
+		p.cancel()
+		done <- exchange{err: err}
 	}()
 	select {
-	case got := <-answer:
-		if got.err != nil {
-			// A process that exited while the read waited has a richer fault
-			// than the pipe's EOF: its exit status and bounded standard error.
-			select {
-			case <-p.dead:
-			case <-time.After(200 * time.Millisecond):
-			}
-			select {
-			case <-p.dead:
-				return nil, p.failure()
-			default:
-			}
-			p.cancel()
-			return nil, got.err
-		}
-		return got.line, nil
+	case got := <-done:
+		return got.line, got.err
 	case <-ctx.Done():
-		p.cancel()
+		p.stop()
 		return nil, ctx.Err()
 	case <-p.dead:
 		return nil, p.failure()
 	}
+}
+
+// stop ends the runner and closes its input so a worker blocked writing a
+// large command or reading an answer returns.
+func (p *sessionProcess) stop() {
+	p.cancel()
+	_ = p.stdin.Close()
 }
 
 // failure is why the runner process ended, with its bounded standard error.
@@ -986,7 +996,11 @@ func (p *sessionProcess) failure() error {
 	default:
 		<-p.dead
 	}
-	detail := analysis.ProcessDetail(p.cmd.Path, p.waitErr, p.stderr.Bytes())
+	waitErr := p.waitErr
+	if waitErr == nil {
+		waitErr = errors.New("the session runner exited before answering")
+	}
+	detail := analysis.ProcessDetail(p.cmd.Path, waitErr, p.stderr.Bytes())
 	return &runtime.ToolError{Tool: "fmi", Kind: runtime.ToolProcessFailed, Detail: detail}
 }
 

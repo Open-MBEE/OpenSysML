@@ -130,8 +130,8 @@ CLI flag or environment variable changed.
 | Byte-compatible one-shot behavior | `TestSessionToolRunnerDelegatesOneShot`, the unchanged `engine_test.go` request assertions, and `TestSessionProtocolCommands` pinning the additive command bytes |
 | Bounded sessions | `TestSessionBounds` (count, steps, idle lifetime), `TestSessionReadsTheLastAllowedStep`, `TestSessionBudgetReadsEveryStep` (the last allowed step's value stays readable), and `TestSessionManagerZeroValue` |
 | Isolated per caller | `TestSessionIsolatesCallers` (two principals at different times, plus re-open returning the same session) |
-| Typed failure modes | `TestSessionRefusesABackwardStep`, `TestSessionRefusesAnUnknownOutput`, `TestOneShotRefusesASteppedCall`, `TestSessionRunnerFaults`, `TestSessionStepFaultIsTyped` |
-| Safe concurrent reclamation and startup | `TestSessionJanitorReclaimWhileStepping` races an idle reclaim against Step's reads of the session's close state and process handle; `TestHungInitDoesNotBlockManager` keeps the janitor and a second caller responsive while init is unanswered; `TestSameKeyJoinsInFlightAtCapacity` joins a same-key pending init at capacity while a different key still gets the limit error |
+| Typed failure modes | `TestSessionRefusesABackwardStep`, `TestSessionRefusesAnUnknownOutput`, `TestOneShotRefusesASteppedCall`, `TestSessionRunnerFaults`, `TestSessionStepFaultIsTyped`, `TestSessionCleanExitIsTyped` (a runner that exits successfully before answering yields a typed process fault, not a panic) |
+| Safe concurrent reclamation and startup | `TestSessionJanitorReclaimWhileStepping` races an idle reclaim against Step's reads of the session's close state and process handle; `TestHungInitDoesNotBlockManager` keeps the janitor and a second caller responsive while init is unanswered; `TestSameKeyJoinsInFlightAtCapacity` joins a same-key pending init at capacity while a different key still gets the limit error; `TestInitDeadlineWithBlockedWrite` ends an init larger than the pipe's capacity at its deadline when the runner never reads stdin |
 
 ## Verification
 
