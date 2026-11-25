@@ -120,6 +120,14 @@ def run(request: dict[str, Any]) -> dict[str, Any]:
     return reply
 
 
+def _fields(result: Any) -> list[str]:
+    """An fmpy result's column names, from its structured dtype or its dict rows."""
+    names = getattr(getattr(result, "dtype", None), "names", None)
+    if names:
+        return list(names)
+    return list(result[0].keys()) if len(result) else []
+
+
 def _series_problem(series: dict[str, Any]) -> str:
     """A bad series request, or the empty string when it can be answered."""
     if not isinstance(series, dict):
@@ -155,7 +163,7 @@ def _series(result: Any, series: dict[str, Any], names: list[str],
         times = [float(row["time"]) for row in sampled]
     else:
         times = [float(value) for value in wanted]
-        sampled = _interpolate(result, times)
+        sampled = _interpolate(result, times, types)
     answer: dict[str, Any] = {"times": times, "outputs": {}}
     for name in names:
         fmi_type, is_array = types.get(name, ("", False))
@@ -175,9 +183,28 @@ def _sample_rows(result: Any, samples: int) -> list[Any]:
             for i in range(samples)]
 
 
-def _interpolate(result: Any, times: list[float]) -> list[dict[str, Any]]:
-    """Rows interpolating every variable of result at the requested instants."""
+def _continuous(fmi_type: str) -> bool:
+    """Whether an FMI type is a continuous number, the only kind worth interpolating."""
+    return fmi_type == "Real" or fmi_type.startswith("Float")
+
+
+def _interpolate_value(before: Any, after: Any, fraction: float, fmi_type: str,
+                       is_array: bool) -> Any:
+    """One field between two recorded steps: continuous numbers blend, the rest stay recorded."""
+    if is_array:
+        if _continuous(fmi_type):
+            return [v + (w - v) * fraction for v, w in zip(before, after)]
+        return before if fraction < 0.5 else after
+    if _continuous(fmi_type):
+        return before + (after - before) * fraction
+    return after if fraction >= 0.5 else before
+
+
+def _interpolate(result: Any, times: list[float],
+                 types: dict[str, tuple[str, bool]]) -> list[Any]:
+    """Rows at the requested instants; exact rows pass through, interior ones use named fields."""
     recorded = [float(row["time"]) for row in result]
+    fields = _fields(result)
     sampled = []
     for time in times:
         if time <= recorded[0]:
@@ -190,15 +217,11 @@ def _interpolate(result: Any, times: list[float]) -> list[dict[str, Any]]:
         before, after = result[high - 1], result[high]
         fraction = (time - recorded[high - 1]) / (recorded[high] - recorded[high - 1])
         row = {"time": time}
-        for name, value in before.items():
-            other = after[name]
-            if (not isinstance(value, bool) and not isinstance(other, bool)
-                    and isinstance(value, (int, float)) and isinstance(other, (int, float))):
-                row[name] = value + (other - value) * fraction
-            elif isinstance(value, list) and isinstance(other, list):
-                row[name] = [v + (w - v) * fraction for v, w in zip(value, other)]
-            else:
-                row[name] = other if fraction >= 0.5 else value
+        for name in fields:
+            if name == "time":
+                continue
+            fmi_type, is_array = types.get(name, ("", False))
+            row[name] = _interpolate_value(before[name], after[name], fraction, fmi_type, is_array)
         sampled.append(row)
     return sampled
 

@@ -84,6 +84,12 @@ substituted for a trajectory.
 - **Scalar variables only.** FMI arrays already bind at `stopTime`; sampling an array at
   every instant would produce a sequence of arrays, which the runtime has no value form
   for. Naming one as a trajectory is refused rather than flattened.
+- **Exact FMU names win over selectors.** The importer preserves archive names verbatim in
+  `ToolVariable` metadata, so a variable literally named `fmi:series:y` would otherwise be
+  read as a trajectory of `y`. One classifier shared by validation, request construction and
+  reply binding gives the FMU's own names first claim; the reserved spellings apply only when
+  the FMU declares no variable by that exact name. This keeps every surface in agreement
+  without a second, escaped name for imported variables.
 
 ## Public surface
 
@@ -116,7 +122,9 @@ substituted for a trajectory.
 | Sample configuration, units and sample times | `TestSampleCountValidatesTheRequest`, `TestSeriesCarriesUnitsAndTimes` |
 | A non-dividing interval is sampled at the requested instants, and a respaced reply is refused | `TestSeriesIntervalSpacingIsHonoured` |
 | Invalid series variables are refused | `TestSeriesVariableErrors` |
+| A literal imported name colliding with a selector reads the scalar at `stopTime` | `TestLiteralNameCollidingWithSeriesSelectorBindsAtStopTime`, `TestClassifyGivesFMUNamesFirstClaim` |
 | The reference runner samples a trajectory and honours requested instants | `test_series_answers_evenly_spaced_samples`, `test_series_only_variables_are_requested_from_fmpy`, `test_requested_sample_instants_are_honoured`, `test_requested_instants_interpolate_between_steps`, `test_bad_series_requests_are_error_replies` (`client/python/tests/test_fmi_runner.py`) |
+| FMPy structured records sample at exact and interpolated instants, and discrete values stay recorded | `test_structured_fmpy_records_sample_exact_and_interior_instants`, `test_structured_array_column_interpolates_elements`, `test_discrete_variables_are_not_interpolated` |
 
 ## Verification
 

@@ -110,7 +110,8 @@ func requestFields(call *runtime.ToolCall, d *Description, fmu string) (runnerRe
 	}
 	var samples, interval *float64
 	for _, in := range call.Inputs {
-		if strings.HasPrefix(in.Variable, "fmi:") {
+		kind, v := classifyInput(in.Variable, d)
+		if kind == reservedInput {
 			unit := ""
 			if in.Variable != "fmi:tolerance" && in.Variable != seriesSamplesInput {
 				unit = "s"
@@ -137,14 +138,13 @@ func requestFields(call *runtime.ToolCall, d *Description, fmu string) (runnerRe
 			}
 			continue
 		}
-		v, _ := d.Variable(in.Variable)
 		value, err := inputValue(call, in, d, v)
 		if err != nil {
 			return runnerRequest{}, seriesPlan{}, err
 		}
 		request.Start[v.Name] = value
 	}
-	plan, err := planSeries(call, startTime, stopTime, samples, interval)
+	plan, err := planSeries(call, d, startTime, stopTime, samples, interval)
 	if err != nil {
 		return runnerRequest{}, seriesPlan{}, err
 	}
@@ -161,11 +161,9 @@ func requestFields(call *runtime.ToolCall, d *Description, fmu string) (runnerRe
 		request.Series = &runnerSeriesRequest{Samples: plan.samples, Times: plan.instants, Outputs: outputs}
 	}
 	for _, out := range call.Outputs {
-		if isSeriesOutput(out.Variable) || reservedOutputs[out.Variable] {
-			continue
+		if kind, v, _ := classifyOutput(out.Variable, d); kind == fmuOutput {
+			request.Outputs = append(request.Outputs, v.Name)
 		}
-		v, _ := d.Variable(out.Variable)
-		request.Outputs = append(request.Outputs, v.Name)
 	}
 	request.Experiment = runnerExperiment{StartTime: startTime, StopTime: stopTime,
 		StepSize: stepSize, Tolerance: tolerance}
@@ -334,36 +332,35 @@ func replyOf(call *runtime.ToolCall, d *Description, plan seriesPlan, stdout, st
 	}
 	outputs := make(map[string]runtime.ToolValue, len(call.Outputs))
 	for _, out := range call.Outputs {
-		if out.Variable == "fmi:time" {
+		kind, v, name := classifyOutput(out.Variable, d)
+		switch kind {
+		case replyTime:
 			outputs[out.Variable] = runtime.ToolValue{Value: semantics.Value{Kind: semantics.ValReal, Real: *reply.Time}}
-			continue
-		}
-		if out.Variable == seriesTimeOutput {
+		case sampleTimes:
 			items := make([]runtime.ToolValue, 0, plan.samples)
 			for _, t := range series.Times {
 				items = append(items, runtime.ToolValue{Value: semantics.Value{Kind: semantics.ValReal, Real: t}})
 			}
 			outputs[out.Variable] = runtime.ToolValue{Unit: "s", Items: items}
-			continue
-		}
-		if name, ok := seriesVariable(out.Variable); ok {
+		case sampleSeries:
 			value, err := seriesOutput(d, name, plan.samples, series.Outputs[name])
 			if err != nil {
 				return nil, malformed(err.Error())
 			}
 			outputs[out.Variable] = value
-			continue
+		case fmuOutput:
+			raw, ok := reply.Outputs[v.Name]
+			if !ok {
+				return nil, malformed(fmt.Sprintf("the runner answered no output %q", v.Name))
+			}
+			value, err := outputValue(d, v, raw)
+			if err != nil {
+				return nil, malformed(err.Error())
+			}
+			outputs[out.Variable] = value
+		default:
+			return nil, malformed(fmt.Sprintf("the call names unknown output %q", out.Variable))
 		}
-		v, _ := d.Variable(out.Variable)
-		raw, ok := reply.Outputs[v.Name]
-		if !ok {
-			return nil, malformed(fmt.Sprintf("the runner answered no output %q", v.Name))
-		}
-		value, err := outputValue(d, v, raw)
-		if err != nil {
-			return nil, malformed(err.Error())
-		}
-		outputs[out.Variable] = value
 	}
 	return outputs, nil
 }

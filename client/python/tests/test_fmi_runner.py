@@ -198,6 +198,52 @@ def test_requested_instants_interpolate_between_steps(mocker):
     assert reply["series"]["outputs"]["h"] == [0.0, 1.5, 3.0]
 
 
+def test_structured_fmpy_records_sample_exact_and_interior_instants(mocker):
+    """A real numpy result carries named fields, not dicts; exact and interpolated instants both work."""
+    np = pytest.importorskip("numpy")
+    rows = np.array(
+        [(0.0, 0.0, False), (1.0, 2.0, False), (2.0, 4.0, True)],
+        dtype=[("time", "f8"), ("h", "f8"), ("ok", "?")],
+    )
+    mocker.patch.dict(sys.modules, {"fmpy": fake_fmpy(rows, {"h": "Float64", "ok": "Boolean"})})
+    reply = fmi_runner.run(request(
+        outputs=[],
+        series={"samples": 4, "times": [0.0, 1.0, 1.25, 2.0], "outputs": ["h", "ok"]},
+    ))
+    assert "error" not in reply
+    assert reply["series"]["times"] == [0.0, 1.0, 1.25, 2.0]
+    assert reply["series"]["outputs"]["h"] == [0.0, 2.0, 2.5, 4.0]
+    assert reply["series"]["outputs"]["ok"] == [False, False, False, True]
+
+
+def test_structured_array_column_interpolates_elements(mocker):
+    """An array column carried by a structured result interpolates element by element."""
+    np = pytest.importorskip("numpy")
+    rows = np.array(
+        [(0.0, [0.0, 1.0]), (2.0, [2.0, 3.0])],
+        dtype=[("time", "f8"), ("y", "O")],
+    )
+    mocker.patch.dict(sys.modules, {"fmpy": fake_fmpy(rows, {"y": ("Float64", [object()])})})
+    reply = fmi_runner.run(request(
+        outputs=[],
+        series={"samples": 3, "times": [0.0, 1.0, 2.0], "outputs": ["y"]},
+    ))
+    assert "error" not in reply
+    assert reply["series"]["outputs"]["y"] == [[0.0, 1.0], [1.0, 2.0], [2.0, 3.0]]
+
+
+def test_discrete_variables_are_not_interpolated(mocker):
+    """An Integer between recorded steps stays a recorded value, never an average."""
+    rows = [{"time": 0.0, "n": 2}, {"time": 2.0, "n": 4}]
+    mocker.patch.dict(sys.modules, {"fmpy": fake_fmpy(rows, {"n": "Integer"})})
+    reply = fmi_runner.run(request(
+        outputs=[],
+        series={"samples": 3, "times": [0.0, 1.5, 2.0], "outputs": ["n"]},
+    ))
+    assert "error" not in reply
+    assert reply["series"]["outputs"]["n"] == [2, 4, 4]
+
+
 def test_bad_series_requests_are_error_replies(mocker):
     """A sample count that is not an integer of at least two is refused."""
     rows = [{"time": 0.0}]

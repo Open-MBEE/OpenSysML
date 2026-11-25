@@ -188,6 +188,13 @@ variable; `fmi:stepTime` asks for a session step:
 | `fmi:seriesTime` | output | the trajectory's sample times, bound as a sequence measured in seconds |
 | `fmi:series:<name>` | output | the sampled trajectory of the FMU variable `<name>`, bound as a sequence |
 
+These spellings are selectors, but an FMU variable whose archive name is exactly
+one of them is still a model variable: the engine gives the FMU's own names first
+claim. An output named `fmi:series:y` on an FMU declaring that variable reads its
+value at `stopTime`, as the importer's `ToolVariable` name preserves it verbatim.
+When both `y` and `fmi:series:y` exist in one FMU, that spelling reads the literal,
+so a trajectory of `y` cannot be requested — avoid such names when both are needed.
+
 ## Trajectory (series) outputs
 
 A tool-computed calc normally binds each output once, at `stopTime`. To decide a

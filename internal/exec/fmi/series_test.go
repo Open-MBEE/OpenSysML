@@ -388,6 +388,41 @@ func TestSeriesVariableErrors(t *testing.T) {
 	}
 }
 
+// TestLiteralNameCollidingWithSeriesSelectorBindsAtStopTime proves an output named
+// `fmi:series:y` reads that variable at stopTime, even when the FMU also declares `y`.
+func TestLiteralNameCollidingWithSeriesSelectorBindsAtStopTime(t *testing.T) {
+	fmu := writeFMU(t, "collide.fmu", `<?xml version="1.0" encoding="UTF-8"?>
+<fmiModelDescription fmiVersion="2.0" modelName="Collide" guid="{collide}">
+  <CoSimulation modelIdentifier="Collide"/>
+  <ModelVariables>
+    <ScalarVariable name="y" valueReference="1" causality="output"><Real/></ScalarVariable>
+    <ScalarVariable name="fmi:series:y" valueReference="2" causality="output"><Real/></ScalarVariable>
+  </ModelVariables>
+</fmiModelDescription>`, "x86_64-linux")
+	scratch(t, "mode.txt", "answer")
+	scratch(t, "reply.json", `{"protocol": 1, "time": 3.0, "outputs": {"fmi:series:y": 42.0}}`)
+	p := parseProbe(t, fmt.Sprintf(`package Drive {
+	private import AnalysisTooling::*;
+	private import ScalarValues::*;
+
+	calc def Literal {
+		metadata ToolExecution { toolName = "fmi"; uri = "%s"; }
+		return literal : Real[1] { @ToolVariable { name = "fmi:series:y"; } }
+	}
+}`, fileURI(fmu)))
+	value, err := invokeCalcNamed(t, p, "Literal", engineFor(t))
+	if err != nil {
+		t.Fatalf("InvokeCalc: %v", err)
+	}
+	if got := runtime.FormatValue(value); got != "42.0" {
+		t.Fatalf("value = %s, want the literal stopTime value 42.0", got)
+	}
+	want := fmt.Sprintf(`{"protocol":1,"fmu":%q,"interface":"coSimulation","experiment":{"startTime":0,"stopTime":1},"start":{},"outputs":["fmi:series:y"]}`, fmu)
+	if got := seriesRequest(t); got != want {
+		t.Fatalf("request =\n%s\nwant\n%s", got, want)
+	}
+}
+
 // TestSampleCountValidatesTheRequest is the typed refusal of contradictory or
 // unbounded sampling inputs, checked before the runner is started.
 func TestSampleCountValidatesTheRequest(t *testing.T) {
