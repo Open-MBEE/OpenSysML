@@ -88,6 +88,10 @@ CAPABILITY_RENDER_VIEW = "render_view"
 #: ``RenderViewResponse.text``. Without it the service drops them unanswered.
 CAPABILITY_RENDER_VIEW_FORM = "render_view_form"
 
+#: ``RenderNode.shape`` carries the notation outline of a rendered node, so a
+#: canvas draws case, requirement and actor glyphs without parsing a form.
+CAPABILITY_RENDER_NODE_SHAPE = "render_node_shape"
+
 #: The ``ExportGraphs`` RPC, which exports the lowered graph of an action or
 #: state machine as the canonical ``graphs:1`` JSON an external engine is sent.
 CAPABILITY_EXPORT_GRAPHS = "export_graphs"
@@ -363,9 +367,17 @@ CAPABILITY_CONVERT_LIBRARY_STUBS = "convert_library_stubs"
 #: Namespace's and Type's inherited and imported members; a service without it always writes them.
 CAPABILITY_CONVERT_INHERITED_MEMBERS = "convert_inherited_members"
 
+#: ``ConvertRequest.projection``: api-json written for only the elements named by
+#: qualified name, metaclass or annotation type.
+CAPABILITY_CONVERT_PROJECTION = "convert_projection"
+
 #: ``ParseSourcesRequest.base_model_hash`` and ``ParseSourcesResponse.affected``: the documents
 #: whose results may differ from the base model's, so a client re-reads only those after an edit.
 CAPABILITY_PARSE_SOURCES_AFFECTED = "parse_sources_affected"
+
+#: ``ParseSourcesRequest.keep``: a parse can be answered without keeping the model, so a
+#: transient result such as a derived union does not evict a model the caller holds.
+CAPABILITY_PARSE_SOURCES_KEEP = "parse_sources_keep"
 
 #: ``RenderDocumentResponse.file_name``: the file a rendered set writes the document to, which the
 #: other documents' links to it name.

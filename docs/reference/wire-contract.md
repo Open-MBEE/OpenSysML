@@ -308,16 +308,18 @@ and a new model arrives, or until the process exits. Every call that names a has
 use, so a model in active use is not evicted. Re-parsing a model the cache still holds returns
 the same hash and does not re-parse.
 
-What a process restart keeps is the model's analysis, not the model: a parse whose documents all
-parse clean files the diagnostics its validation passes reported in the record cache (the
-`sysml-ls/libs` directory under `XDG_CACHE_HOME` or the user cache directory), under the model
-hash, the standard library's identity and the build. The next process to parse the same documents
-at the same strictness parses and indexes them, reads the diagnostics from the record instead of
-running the passes, and answers exactly what a first parse answers. A record that is missing,
-unreadable or of another model is a miss, and the model is analyzed. The model records of a cache
-directory are held to 64 MiB together, the least recently used going first, and a record no parse
-has read for 30 days is removed. `sysml-grpc -no-record-cache`, or `OPENSYSML_RECORD_CACHE=0`,
-reads and writes none.
+What a process restart keeps is each document's parse and the model's analysis: a parse whose
+documents all parse clean files the diagnostics its validation passes reported in the record
+cache (the `sysml-ls/libs` directory under `XDG_CACHE_HOME` or the user cache directory), under
+the model hash, the standard library's identity and the build, beside a tree record for each
+document. The next process to parse the same documents at the same strictness restores those
+trees and reads the diagnostics from the analysis record; it still runs the validation passes
+over the restored trees to prime the incremental workspace that makes `affected` exact, and
+answers exactly what a first parse answers. A record that is missing, unreadable or of another
+model is a miss, and the model is parsed and analyzed. The model records and the tree records of
+a cache directory are each held to 64 MiB, the least recently used going first; model records no
+parse has read for 30 days are removed. `sysml-grpc -no-record-cache`, or
+`OPENSYSML_RECORD_CACHE=0`, reads and writes none.
 
 The consequence for a client: a hash is a **cache key, not a durable identifier**. Store the
 documents, not the hash; recompute by re-parsing whenever the service says the hash is gone.
@@ -352,6 +354,45 @@ answer changes. The model, its hash, its diagnostics and every later call on it 
 parse of the same documents gives; only the time differs. A set is keyed by its documents' names
 and languages and the conformance mode, and the service keeps the four most recently used.
 `ParseFile` parses its one document whole.
+
+### Restoring a model another process parsed
+
+When the service is run with a record cache (the default), the cache is also shared across
+processes: `ParseSources` and `ParseFile` are the warm/restore surface. Each document's parse is
+filed under its name, language and bytes together with the build that produced it. Asking a fresh
+service for the same document set restores those trees from disk and rebuilds the symbol index
+from them, so no document is parsed at all; its analysis is restored from the analysis record the
+writer left, but validation passes run again over the restored trees to prime the incremental
+workspace, so a model restored here is still a base whose `affected` answer names only the
+documents a later edit changed. The answer, its model hash and every later call on
+it are what a first parse of the same bytes gives. The hash a response returns is thus a base-model
+handle a later process can send back as `base_model_hash`. An edit to one document misses only that
+document's record: the unchanged documents' trees are restored and just the edited one is parsed.
+
+The cache is bounded and keyed by content and build, so an edited document leaves its old record
+behind until it is evicted, and a different binary never restores another one's trees. A damaged
+or missing record is a miss, not an error: the service parses the document and records it again.
+A restored model is a usable base: after an edit, `affected` still names only the documents whose
+results changed. A service run without a record cache parses every document afresh, which is
+otherwise identical to the cached path.
+
+### Transient parses
+
+The design and its baseline are recorded in [the non-keeping parse record](../project/nonkeeping-parse.md).
+
+Under the `parse_sources_keep` capability a client can set `keep: false` on a `ParseSources`
+request. The answer — hash, roots, diagnostics and, with `base_model_hash`, `affected` — is what
+the same parse with `keep: true` gives, but the service neither inserts the model into its
+parsed-model LRU nor looks up an entry already under that hash there: the transient parse evicts
+nothing and promotes nothing in that LRU. Disk parse records, when a record cache is configured,
+are a separate store that this option does not govern: a transient parse may read and write them. A client that parses a derived union for its results can answer it
+and drop it without displacing the model it has open; a hash the service did not already hold is
+`NOT_FOUND` on every later request. The field has presence: only an absent field needs no
+capability and gives the ordinary kept parse. A service without `parse_sources_keep` refuses any
+request that states the field, including `keep: true`, with `UNIMPLEMENTED` rather than silently
+keeping a model the caller asked it not to keep; `TestParseSourcesKeepNeedsTheCapability` locks
+both refusals.
+
 
 Under the `parse_sources_affected` capability a client can also ask which documents an edit
 reached. It sends the hash it was answered last as `base_model_hash`, and the answer's `affected`
@@ -2359,6 +2400,40 @@ object in place of the element array; `omit_derived` and `keep_derived` leave ou
 derived properties. Expanded, it is the element array. The format is defined in
 [Compact API JSON](api-json-compact.md).
 
+`projection`, under the `convert_projection` capability, writes only the API JSON elements a
+caller reads. It is a `ConvertProjection` object with up to three `repeated string` selectors:
+`qualifiedNames` (elements whose written `qualifiedName` is named, such as `Structure::boiler`),
+`metaclasses` (elements whose written `@type` is named, such as `PartUsage`), and
+`annotationTypes` (annotations whose annotating element's metaclass or metadata-definition name is
+named, with the annotation element, its annotating element and the declaration it annotates). The
+selectors are unioned; an empty one contributes nothing, and all three empty write the whole
+model as if no projection were sent. A metadata usage typed by `@Facet` can be named `Facet` or by
+its qualified name, and a `Comment`, `Documentation` or `TextualRepresentation` by its metaclass.
+
+Everything the projection writes is **byte-identical to the same element in a whole-corpus
+conversion**, including its `@id` and every reference: the writer's indexes and the element shape
+are built from the whole model and only the set of written subjects is narrowed. Elements left out
+become bare `@id` references from the ones still written, just as library elements are. The
+standard element array is written one element at a time, so a projection returns a smaller reply
+without the client ever materializing the full array. Projection composes with `documents`,
+`idForm`, `compact`, `includeLibraryStubs` and `inheritedMembers`: the documents and the elements
+both narrow the answer, and the compact document's id table keeps the same shape. It is
+`invalid_argument` for any target other than `api-json`, and a selector naming no element the model
+carries is `invalid_argument` with the selector and the name, so a misspelled name never quietly
+answers an empty array. A metaclass the metamodel declares is known even when this model holds no
+element of it; that projection is simply empty.
+
+```console
+$ … /Convert -d '{"content":"package P { part def Plain; part def Faceted; metadata def Facet; metadata f : Facet about Faceted; }","fromFormat":"sysml","toFormat":"api-json","projection":{"qualifiedNames":["P::Faceted"]}}'
+# content holds only the P::Faceted element object, byte-for-byte as the whole-corpus reply writes it
+```
+
+The Go client offers `WithProjection(Projection{...})`, Python `projection=Projection(...)`, Node
+`projection: {qualifiedNames, metaclasses, annotationTypes}`, Java `withProjection(Projection)`,
+Rust `ConvertOptions.projection`, Julia `projection=Projection(...)`, MATLAB the `projection`
+name-value option, and the MCP `convert` tool the `projection` object. Only clients whose service
+advertises `convert_projection` send it.
+
 `libraryReferences` on a successful API JSON response, including a compact conversion,
 names every standard-library element the output references: each entry has `id` (the
 literal normative ID), `qualifiedName` and `type` (the API JSON metaclass). Entries are
@@ -2528,6 +2603,10 @@ with `file not found:`.
 `RenderView` returns the machine-readable fields of a named view or targeted pseudo-view. The
 response preserves node and edge order, parent links, ports, source spans, table and matrix rows, notes and
 notices; optional canvas, geometry and style messages are absent when the model states none.
+Each node, port and edge may also carry `elementId`, the element's durable effective id: the
+same value a written form's `{id}` link anchor uses. It is absent when the artifact stands for
+no identified declaration. `elementId` is separate from `id`, which is the node or port's
+identity within this rendering only and is reused by the next one.
 Pictures are not included; a refused picture contributes its reason to `notices`. An omitted or
 `minimal` `ports` value includes only ports used by rendered connections; `full` includes every
 declared port. The service advertises this method as
@@ -2551,6 +2630,7 @@ with protobuf JSON:
   "nodes": [
     {
       "id": "n0",
+      "elementId": "RenderViewDemo__Assembly",
       "kind": "part def",
       "name": "RenderViewDemo::Assembly",
       "origin": {
@@ -2563,12 +2643,13 @@ with protobuf JSON:
     },
     {
       "id": "n1",
+      "elementId": "RenderViewDemo__Assembly__sender",
       "kind": "part",
       "name": "sender",
       "type": "Sender",
       "parent": "n0",
       "ports": [
-        {"id": "n1.0", "name": "api", "type": "API"}
+        {"id": "n1.0", "elementId": "RenderViewDemo__Sender__api", "name": "api", "type": "API"}
       ],
       "origin": {
         "file": "<content>",
@@ -2580,12 +2661,13 @@ with protobuf JSON:
     },
     {
       "id": "n2",
+      "elementId": "RenderViewDemo__Assembly__receiver",
       "kind": "part",
       "name": "receiver",
       "type": "Receiver",
       "parent": "n0",
       "ports": [
-        {"id": "n2.0", "name": "api", "type": "API"}
+        {"id": "n2.0", "elementId": "RenderViewDemo__Receiver__api", "name": "api", "type": "API"}
       ],
       "origin": {
         "file": "<content>",
@@ -2600,6 +2682,7 @@ with protobuf JSON:
     {
       "from": "n1",
       "to": "n2",
+      "elementId": "RenderViewDemo__Assembly__link",
       "fromPort": "n1.0",
       "toPort": "n2.0",
       "label": "link",

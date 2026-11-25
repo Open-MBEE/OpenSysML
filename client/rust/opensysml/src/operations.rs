@@ -7,13 +7,14 @@ use crate::capabilities::{
     CAPABILITY_COMPARE_RESULTS, CAPABILITY_COMPLEX_VALUES, CAPABILITY_CONVERT,
     CAPABILITY_CONVERT_CHECK_DIAGNOSTICS, CAPABILITY_CONVERT_COMPACT, CAPABILITY_CONVERT_DOCUMENTS,
     CAPABILITY_CONVERT_INHERITED_MEMBERS, CAPABILITY_CONVERT_LIBRARY_STUBS,
+    CAPABILITY_CONVERT_PROJECTION,
     CAPABILITY_DOCUMENT_QUERY, CAPABILITY_ELEMENT_PROPERTIES, CAPABILITY_ENGINES,
     CAPABILITY_ENUM_VALUES, CAPABILITY_EXPORT_GRAPHS, CAPABILITY_FUNCTION_VALUES,
     CAPABILITY_IMPORT_DATA, CAPABILITY_INFINITY_VALUE, CAPABILITY_INLINE_DOCUMENT_QUERY,
     CAPABILITY_INLINE_LANGUAGE, CAPABILITY_MEASUREMENT_REFS, CAPABILITY_METAOBJECT_VALUES,
     CAPABILITY_MIGRATE, CAPABILITY_OSLC_QUERY, CAPABILITY_PARSE_SOURCES,
-    CAPABILITY_PARSE_SOURCES_AFFECTED, CAPABILITY_PERFORMER, CAPABILITY_QUERY,
-    CAPABILITY_QUERY_ORDER_BY, CAPABILITY_RATIONAL_VALUES, CAPABILITY_RECORD_RUN,
+    CAPABILITY_PARSE_SOURCES_AFFECTED, CAPABILITY_PARSE_SOURCES_KEEP, CAPABILITY_PERFORMER,
+    CAPABILITY_QUERY, CAPABILITY_QUERY_ORDER_BY, CAPABILITY_RATIONAL_VALUES, CAPABILITY_RECORD_RUN,
     CAPABILITY_RENDER_DOCUMENT, CAPABILITY_RENDER_DOCUMENT_ASCIIDOC,
     CAPABILITY_RENDER_DOCUMENT_HTML, CAPABILITY_RUNS, CAPABILITY_SCHEDULE,
     CAPABILITY_SCHEDULE_EXPLORE, CAPABILITY_SELF_CHECK, CAPABILITY_SET_VALUES,
@@ -78,6 +79,10 @@ pub struct SourcesOptions {
     /// names the documents whose results may differ from it. Empty asks for nothing. Needs the
     /// `parse_sources_affected` capability.
     pub base_model_hash: String,
+    /// Whether the service keeps the model in its cache; `false` answers a
+    /// transient parse without evicting or promoting a model the caller holds.
+    /// `None` keeps the model as before. Needs the `parse_sources_keep` capability.
+    pub keep: Option<bool>,
 }
 
 /// How to run an action or state machine.
@@ -331,6 +336,9 @@ impl Connection {
         if !options.base_model_hash.is_empty() {
             capabilities.push(CAPABILITY_PARSE_SOURCES_AFFECTED);
         }
+        if options.keep.is_some() {
+            capabilities.push(CAPABILITY_PARSE_SOURCES_KEEP);
+        }
         self.require_all(&capabilities)?;
         let response: wire::ParseSourcesResponse = self.gated_rpc(
             "ParseSources",
@@ -338,6 +346,7 @@ impl Connection {
                 documents: encoded,
                 strict_conformance: options.strict_conformance,
                 base_model_hash: options.base_model_hash.clone(),
+                keep: options.keep,
             },
             &capabilities,
         )?;
@@ -398,6 +407,9 @@ impl Connection {
         }
         if options.include_check_diagnostics {
             required.push(CAPABILITY_CONVERT_CHECK_DIAGNOSTICS);
+        }
+        if options.projection.as_ref().is_some_and(|p| !p.is_empty()) {
+            required.push(CAPABILITY_CONVERT_PROJECTION);
         }
         self.require_all(&required)?;
         let response =

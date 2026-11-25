@@ -25,6 +25,8 @@ export interface RenderSpan {
 
 export interface RenderPort {
   id: string;
+  /** The declared feature's EffectiveID, the id a written form's `{id}` anchor carries. */
+  elementId: string;
   name: string;
   type: string;
   direction: string;
@@ -60,6 +62,8 @@ export interface RenderPoint {
 
 export interface RenderNode {
   id: string;
+  /** The declared element's EffectiveID, the id a written form's `{id}` anchor carries; empty for one drawn from no identified element. */
+  elementId: string;
   kind: string;
   name: string;
   nameSynthesized: boolean;
@@ -73,6 +77,8 @@ export interface RenderNode {
   inherited: boolean;
   /** The state's substates run in parallel; the notation writes «parallel» under the name. */
   parallel: boolean;
+  /** The notation outline derived from the node's metaclass; empty when the server withholds it. */
+  shape: string;
   parent: string;
   /** The compartment of the parent this node is a row of ("attributes", "parts", ...); empty for a box. */
   compartment: string;
@@ -83,6 +89,8 @@ export interface RenderNode {
 }
 
 export interface RenderEdge {
+  /** The connection's EffectiveID, the id a written form's `{id}` anchor carries. */
+  elementId: string;
   from: string;
   to: string;
   fromPort: string;
@@ -187,7 +195,7 @@ function styleOf(style: PbRenderStyle | undefined): RenderStyle | undefined {
 }
 
 function portOf(port: PbRenderPort): RenderPort {
-  return { id: port.id, name: port.name, type: port.type, direction: port.direction, inherited: port.inherited };
+  return { id: port.id, elementId: port.elementId, name: port.name, type: port.type, direction: port.direction, inherited: port.inherited };
 }
 
 function pointOf(point: PbRenderPoint): RenderPoint {
@@ -200,6 +208,7 @@ function nodeOf(node: PbRenderNode): RenderNode {
   const style = styleOf(node.style);
   return {
     id: node.id,
+    elementId: node.elementId,
     kind: node.kind,
     name: node.name,
     nameSynthesized: node.nameSynthesized,
@@ -210,6 +219,7 @@ function nodeOf(node: PbRenderNode): RenderNode {
     standIn: node.standIn,
     inherited: node.inherited,
     parallel: node.parallel,
+    shape: node.shape,
     compartment: node.compartment,
     parent: node.parent,
     ports: node.ports.map(portOf),
@@ -223,6 +233,7 @@ function edgeOf(edge: PbRenderEdge): RenderEdge {
   const origin = spanOf(edge.origin);
   const style = styleOf(edge.style);
   return {
+    elementId: edge.elementId,
     from: edge.from,
     to: edge.to,
     fromPort: edge.fromPort,

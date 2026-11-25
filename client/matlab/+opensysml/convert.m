@@ -1,10 +1,12 @@
 function conversion = convert(conn, toFormat, varargin)
 %CONVERT Convert a file, inline source or cached model.
+%   'projection' selects api-json elements by qualifiedNames, metaclasses or annotationTypes.
 
     sources = struct('filePath', [], 'content', [], 'modelHash', []);
     options = struct('fromFormat', '', 'tolerateSyntaxErrors', false, 'idForm', '', ...
         'includeLibraryStubs', false, 'compact', false, 'omitDerived', false, ...
-        'keepDerived', {{}}, 'includeCheckDiagnostics', false, 'inheritedMembers', false);
+        'keepDerived', {{}}, 'includeCheckDiagnostics', false, 'inheritedMembers', false, ...
+        'projection', struct());
     if mod(numel(varargin), 2) ~= 0
         opensysml.internal.raise('opensysml:argument', 'convert options must be name-value pairs');
     end
@@ -72,6 +74,33 @@ function conversion = convert(conn, toFormat, varargin)
         conn.require('convert_check_diagnostics');
         capabilities{end+1} = 'convert_check_diagnostics';
     end
+    projection = options.projection;
+    if ~isempty(projection)
+        if ~isstruct(projection)
+            opensysml.internal.raise('opensysml:argument', ...
+                'convert projection must be a struct with qualifiedNames, metaclasses and annotationTypes');
+        end
+        fields = {'qualifiedNames', 'metaclasses', 'annotationTypes'};
+        selectors = struct();
+        anySelector = false;
+        for i = 1:numel(fields)
+            if isfield(projection, fields{i})
+                values = textListOption(projection.(fields{i}), fields{i});
+                if ~isempty(values), anySelector = true; end
+                selectors.(fields{i}) = values;
+            end
+        end
+        if anySelector
+            conn.require('convert_projection');
+            capabilities{end+1} = 'convert_projection';
+            requestProjection = struct();
+            for i = 1:numel(fields)
+                if isfield(selectors, fields{i}) && ~isempty(selectors.(fields{i}))
+                    requestProjection.(fields{i}) = selectors.(fields{i});
+                end
+            end
+        end
+    end
     request = struct('toFormat', toFormat);
     for i = 1:numel(present)
         name = present{i};
@@ -90,6 +119,7 @@ function conversion = convert(conn, toFormat, varargin)
     if omitDerived, request.omitDerived = true; end
     if ~isempty(keepDerived), request.keepDerived = keepDerived; end
     if includeCheckDiagnostics, request.includeCheckDiagnostics = true; end
+    if exist('requestProjection', 'var'), request.projection = requestProjection; end
     answer = opensysml.internal.checkError( ...
         opensysml.call(conn, 'Convert', request, capabilities), 'Convert');
     diagnostics = {};

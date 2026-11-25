@@ -37,6 +37,8 @@ pub const CAPABILITY_RENDER_DOCUMENT_ASCIIDOC: &str = "render_document_asciidoc"
 pub const CAPABILITY_RENDER_VIEW: &str = "render_view";
 /// `form` and the writer options on `RenderViewRequest`, answered in `text`.
 pub const CAPABILITY_RENDER_VIEW_FORM: &str = "render_view_form";
+/// `shape` on a rendered node carries its notation outline without parsing a written form.
+pub const CAPABILITY_RENDER_NODE_SHAPE: &str = "render_node_shape";
 /// The `ExportGraphs` RPC, exporting a behavior's lowered graph as `graphs:1` JSON.
 pub const CAPABILITY_EXPORT_GRAPHS: &str = "export_graphs";
 /// The ImportData RPC, which sets the feature values data files assign.
@@ -177,9 +179,16 @@ pub const CAPABILITY_CONVERT_INHERITED_MEMBERS: &str = "convert_inherited_member
 /// `ConvertRequest.include_check_diagnostics`: the semantic check's diagnostics, each with its
 /// own severity, reported alongside the converted output.
 pub const CAPABILITY_CONVERT_CHECK_DIAGNOSTICS: &str = "convert_check_diagnostics";
+
+/// `ConvertRequest.projection`: api-json written for only the elements named by qualified name,
+/// metaclass or annotation type.
+pub const CAPABILITY_CONVERT_PROJECTION: &str = "convert_projection";
 /// `ParseSourcesRequest.base_model_hash` and `ParseSourcesResponse.affected`: the documents whose
 /// results may differ from the base model's, so a client re-reads only those after an edit.
 pub const CAPABILITY_PARSE_SOURCES_AFFECTED: &str = "parse_sources_affected";
+/// `ParseSourcesRequest.keep`: answer a parse without keeping the model, so a transient union
+/// cannot evict one the caller holds.
+pub const CAPABILITY_PARSE_SOURCES_KEEP: &str = "parse_sources_keep";
 /// `RenderDocumentResponse.file_name`: the file a rendered set writes the document to, which the
 /// other documents' links to it name.
 pub const CAPABILITY_RENDER_DOCUMENT_FILE_NAME: &str = "render_document_file_name";

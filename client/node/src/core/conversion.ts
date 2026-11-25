@@ -83,6 +83,21 @@ export function formatOfPath(path: string): string {
 /** Spelling of a graph's derived ids: from each qualified name (the default) or as name-based uuids. */
 export type IdForm = "qualified" | "uuid";
 
+/**
+ * The api-json declarations and annotations a caller reads. The three selectors
+ * are unioned; an empty one contributes nothing, and all three empty write the
+ * whole model. Everything written keeps the shape an unprojected conversion
+ * gives it.
+ */
+export interface Projection {
+  /** Elements whose written qualifiedName is one of these. */
+  readonly qualifiedNames?: readonly string[];
+  /** Elements whose written `@type` is one of these. */
+  readonly metaclasses?: readonly string[];
+  /** Annotations whose annotating element type is named, with what they annotate. */
+  readonly annotationTypes?: readonly string[];
+}
+
 /** Options for writing a model through Convert. */
 export interface ConvertOptions {
   fromFormat?: string;
@@ -118,6 +133,12 @@ export interface ConvertOptions {
    * `convert_check_diagnostics`.
    */
   includeCheckDiagnostics?: boolean;
+  /**
+   * For API JSON, write only the elements named by projection; requires
+   * `convert_projection`. Refused for any other target, and a name the model
+   * does not carry fails the call.
+   */
+  projection?: Projection;
 }
 
 /** A referenced standard-library element, not a model root. */

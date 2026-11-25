@@ -26,6 +26,14 @@ action, case and mixed kinds are produced from the model — the behavior kinds 
 `StateGraph` and `ActionGraph` the runtime executes — and nothing in the rendering is text of any
 diagram language.
 
+Each node, port and edge also carries the `ElementID` of the declaration it
+came from, resolved from its origin by the same identity lookup a written form's
+`{id}` link anchor uses. It is separate from the node's own `id`, which only
+names it within one rendering, and is empty for an artifact with no identified
+declaration. The structured transports expose it as `elementId`, so a canvas
+can address an element without resolving its identity again; the written forms
+are unchanged.
+
 What a kind walks into nodes is model content. A view's own bookkeeping is left out of every
 kind, by the one member walk the kinds share (`contentKind` in `tree.go`): a
 [DiagramLayout](diagram-layout-annotations.md) annotation — a `Canvas`, `Layout` or `Route`,

@@ -80,6 +80,10 @@ const RenderDepthCapability = "openSysmlRenderDepth"
 // each node drawn that way `included`.
 const RenderIncludeCapability = "openSysmlRenderInclude"
 
+// RenderNodeShapeCapability is advertised when the render result carries each
+// node's notation shape, so a canvas needs no written form to draw its glyph.
+const RenderNodeShapeCapability = "openSysmlRenderNodeShape"
+
 // renderElementNames lists the optional notation elements, then "all".
 func renderElementNames() []string {
 	names := make([]string, 0, len(view.Elements())+1)
@@ -211,7 +215,10 @@ type RenderResult struct {
 // for a node left black and white, and for every node when no palette is asked for.
 // Style is the node's own Style annotation, which wins over the palette and the drawing style.
 type RenderNode struct {
-	ID              string          `json:"id"`
+	ID string `json:"id"`
+	// ElementID is the declared element's EffectiveID, the same id a written
+	// form's {id} link anchor carries; empty for one drawn from no element.
+	ElementID       string          `json:"elementId,omitempty"`
 	Kind            string          `json:"kind"`
 	Name            string          `json:"name"`
 	NameSynthesized bool            `json:"nameSynthesized,omitzero"`
@@ -223,6 +230,7 @@ type RenderNode struct {
 	Arrow           string          `json:"arrow,omitempty"`
 	Parent          string          `json:"parent,omitempty"`
 	Compartment     string          `json:"compartment,omitempty"`
+	Shape           string          `json:"shape,omitempty"`
 	Fill            string          `json:"fill,omitempty"`
 	Border          string          `json:"border,omitempty"`
 	Style           *RenderStyle    `json:"style,omitzero"`
@@ -251,7 +259,9 @@ type RenderOwner struct {
 }
 
 type RenderPort struct {
-	ID        string `json:"id"`
+	ID string `json:"id"`
+	// ElementID is the declared feature's EffectiveID; empty when none declares it.
+	ElementID string `json:"elementId,omitempty"`
 	Name      string `json:"name"`
 	Type      string `json:"type,omitempty"`
 	Direction string `json:"direction,omitempty"`
@@ -263,6 +273,8 @@ type RenderPort struct {
 // FQN and Declaration identify that declaration to a setRoute as a node's do.
 // Style is the edge's own Style annotation.
 type RenderEdge struct {
+	// ElementID is the connection's EffectiveID; empty when none declares it.
+	ElementID   string          `json:"elementId,omitempty"`
 	From        string          `json:"from"`
 	To          string          `json:"to"`
 	Label       string          `json:"label"`
@@ -566,6 +578,7 @@ func (s *Server) renderNodes(out *RenderResult, snapshot *model.Snapshot, nodes 
 	for _, node := range nodes {
 		n := RenderNode{
 			ID:              node.ID,
+			ElementID:       node.ElementID,
 			Kind:            node.Kind,
 			Name:            node.Name,
 			NameSynthesized: node.NameSynthesized,
@@ -577,6 +590,7 @@ func (s *Server) renderNodes(out *RenderResult, snapshot *model.Snapshot, nodes 
 			Arrow:           node.Arrow,
 			Parent:          node.Parent,
 			Compartment:     node.Compartment,
+			Shape:           string(node.Shape),
 			Fill:            fills[node.ID].Fill,
 			Border:          fills[node.ID].Border,
 			Style:           wireStyle(node.Style),
@@ -585,7 +599,7 @@ func (s *Server) renderNodes(out *RenderResult, snapshot *model.Snapshot, nodes 
 		}
 		for _, port := range node.Ports {
 			n.Ports = append(n.Ports, RenderPort{
-				ID: port.ID, Name: port.Name, Type: port.Type, Direction: port.Direction.String(), Inherited: port.Inherited,
+				ID: port.ID, ElementID: port.ElementID, Name: port.Name, Type: port.Type, Direction: port.Direction.String(), Inherited: port.Inherited,
 			})
 		}
 		if node.Style != nil {
@@ -636,7 +650,7 @@ func (s *Server) renderNodes(out *RenderResult, snapshot *model.Snapshot, nodes 
 func (s *Server) renderEdges(out *RenderResult, snapshot *model.Snapshot, edges []view.EdgeData) {
 	for _, edge := range edges {
 		e := RenderEdge{
-			From: edge.From, To: edge.To, FromPort: edge.FromPort, ToPort: edge.ToPort,
+			From: edge.From, To: edge.To, FromPort: edge.FromPort, ToPort: edge.ToPort, ElementID: edge.ElementID,
 			Label: edge.Text(), Kind: edge.Kind.String(), Style: wireStyle(edge.Style),
 		}
 		declaring := s.declaring(snapshot, edge.Origin)

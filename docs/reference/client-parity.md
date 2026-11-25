@@ -124,6 +124,7 @@ from the clients and a gap is a stated gap rather than a silent one.
 | `action_trace` | bound | bound | bound | bound | bound | bound | bound |
 | `render_view` | bound | bound | bound | bound | bound | bound | bound |
 | `render_view_form` | bound | bound | bound | bound | bound | bound | bound |
+| `render_node_shape` | bound | bound | bound | bound | bound | bound | bound |
 | `symbol_lookup_kind` | bound | bound | bound | bound | bound | bound | bound |
 | `export_graphs` | bound | bound | bound | bound | bound | bound | bound |
 | `import_data` | bound | bound | bound | bound | bound | bound | bound |
@@ -136,7 +137,9 @@ from the clients and a gap is a stated gap rather than a silent one.
 | `convert_library_stubs` | bound | bound | bound | bound | bound | bound | bound |
 | `convert_inherited_members` | bound | bound | bound | bound | bound | bound | bound |
 | `convert_check_diagnostics` | bound | bound | bound | bound | bound | bound | bound |
+| `convert_projection` | bound | bound | bound | bound | bound | bound | bound |
 | `parse_sources_affected` | bound | bound | bound | bound | bound | bound | bound |
+| `parse_sources_keep` | bound | bound | bound | bound | bound | bound | bound |
 | `render_document_file_name` | bound | not bound | bound | bound | bound | bound | not bound |
 | `order_dependence` | bound | not bound | bound | not bound | not bound | not bound | not bound |
 | `verdict_notes` | bound | bound | bound | bound | bound | bound | bound |
@@ -159,6 +162,7 @@ from the clients and a gap is a stated gap rather than a silent one.
 | `Query.oslc_query` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/opensysml/surface_test.go) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_query.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/query.test.ts) | typed | typed | typed | typed |
 | `Query.order_by` (capability gated) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/opensysml/surface_test.go) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_query.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/query.test.ts) | typed | typed | typed | typed |
 | `ParseSources.base_model_hash` / `affected` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/opensysml/parity_options_test.go) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_parse_sources.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/sources.test.ts) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/tests/compact_affected.rs) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/julia/OpenSysML/test/extended_client.jl) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/matlab/tests/test_surface_live.m) |
+| `ParseSources.keep` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/opensysml/keep_internal_test.go) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_parse_sources.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/sources.test.ts) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/PublicTypesTest.java) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/tests/compact_affected.rs) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/julia/OpenSysML/test/extended_client.jl) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/matlab/tests/test_errors_capabilities.m) |
 | `RunSweep.samples` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/opensysml/sweep_test.go) | typed | typed | typed | typed | typed | typed |
 | `ListEngines` engine origin (`kind`, `protocol`, `source`, `command`, `version`, `served`) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/opensysml/engines_test.go) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_engines.py) | typed | typed | typed | typed | typed |
 | `RenderView.compartments` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/opensysml/surface_test.go) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_document.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/document.test.ts) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/tests/surface.rs) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/julia/OpenSysML/test/extended_client.jl) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/matlab/tests/test_surface_live.m) |

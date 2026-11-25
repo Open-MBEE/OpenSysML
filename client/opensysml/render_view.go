@@ -170,7 +170,10 @@ type RenderFrame struct {
 
 // RenderNode is a view node with optional geometry and style.
 type RenderNode struct {
-	ID              string
+	ID string
+	// ElementID is the declared element's EffectiveID, the id a written form's
+	// {id} link anchor carries; empty for one drawn from no identified element.
+	ElementID       string
 	Kind            string
 	Name            string
 	NameSynthesized bool
@@ -185,15 +188,20 @@ type RenderNode struct {
 	// Compartment names the compartment of Parent this node is a row of
 	// ("attributes", "parts", "ports", ...); empty for a node drawn as a box.
 	Compartment string
-	Ports       []RenderPort
-	Origin      *Span
-	Geometry    *RenderGeometry
-	Style       *RenderStyle
+	// Shape is the notation outline derived from the node's metaclass: a rectangle,
+	// rounded box, stadium, actor, note, diamond, circle, ring, cross, bar, history or item.
+	Shape    string
+	Ports    []RenderPort
+	Origin   *Span
+	Geometry *RenderGeometry
+	Style    *RenderStyle
 }
 
 // RenderPort is a port shown on a rendered node.
 type RenderPort struct {
-	ID        string
+	ID string
+	// ElementID is the declared feature's EffectiveID; empty when none declares it.
+	ElementID string
 	Name      string
 	Type      string
 	Direction string
@@ -201,16 +209,18 @@ type RenderPort struct {
 
 // RenderEdge is a connection between rendered nodes.
 type RenderEdge struct {
-	From     string
-	To       string
-	FromPort string
-	ToPort   string
-	Label    string
-	Name     string
-	Kind     string
-	Origin   *Span
-	Route    []RenderPoint
-	Style    *RenderStyle
+	// ElementID is the connection's EffectiveID; empty when none declares it.
+	ElementID string
+	From      string
+	To        string
+	FromPort  string
+	ToPort    string
+	Label     string
+	Name      string
+	Kind      string
+	Origin    *Span
+	Route     []RenderPoint
+	Style     *RenderStyle
 }
 
 // RenderGeometry is a node's position and optional size; an Unplaced one only
@@ -330,13 +340,13 @@ func renderedViewFromProto(response *pb.RenderViewResponse) *RenderedView {
 	}
 	for _, node := range response.Nodes {
 		converted := RenderNode{
-			ID: node.Id, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
+			ID: node.Id, ElementID: node.ElementId, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
 			Type: node.Type, Detail: node.Detail, Text: node.Text, StandIn: node.StandIn, Parallel: node.Parallel, Parent: node.Parent,
-			Compartment: node.Compartment, Origin: renderSpanFromProto(node.Origin),
+			Compartment: node.Compartment, Shape: node.Shape, Origin: renderSpanFromProto(node.Origin),
 		}
 		for _, port := range node.Ports {
 			converted.Ports = append(converted.Ports, RenderPort{
-				ID: port.Id, Name: port.Name, Type: port.Type, Direction: port.Direction,
+				ID: port.Id, ElementID: port.ElementId, Name: port.Name, Type: port.Type, Direction: port.Direction,
 			})
 		}
 		if node.Geometry != nil {
@@ -350,7 +360,7 @@ func renderedViewFromProto(response *pb.RenderViewResponse) *RenderedView {
 	}
 	for _, edge := range response.Edges {
 		converted := RenderEdge{
-			From: edge.From, To: edge.To, FromPort: edge.FromPort, ToPort: edge.ToPort,
+			From: edge.From, To: edge.To, FromPort: edge.FromPort, ToPort: edge.ToPort, ElementID: edge.ElementId,
 			Label: edge.Label, Name: edge.Name, Kind: edge.Kind, Origin: renderSpanFromProto(edge.Origin),
 			Style: renderStyleFromProto(edge.Style),
 		}

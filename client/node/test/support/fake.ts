@@ -13,6 +13,7 @@ export interface FakeInfo {
 
 export const ALL_CAPABILITIES = [
   "parse_sources",
+  "parse_sources_keep",
   "inline_language",
   "strict_conformance",
   "convert",
@@ -43,6 +44,7 @@ export const ALL_CAPABILITIES = [
   "unset_value",
   "undetermined_value",
   "coordinate_frame_values",
+  "render_node_shape",
   "big_int_values",
   "apply_edits",
   "edit_documents",

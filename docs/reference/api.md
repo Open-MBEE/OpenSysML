@@ -28,7 +28,10 @@ intended shape. `ParseFile` and `ParseSource` each parse one document; `ParseFil
 `ParseDocuments` parse several as one model, each keeping its own name, so an import between them
 resolves and a diagnostic locates itself in the file it came from. `ParseDocuments` given
 `WithBaseModel(previous)` fills the model's `Affected` with the documents whose results may differ
-from the base model's, under the `parse_sources_affected` capability.
+from the base model's, under the `parse_sources_affected` capability. `WithKeep(false)` answers a
+transient parse — a derived union read for its results — without evicting or promoting a model the
+caller holds, under the `parse_sources_keep` capability; its answer is otherwise the one a kept
+parse gives.
 
 `ExecuteAction`, `ExecuteState` and `RunAnalysis` answer one run, under the scheduling policy
 `WithSchedule`/`Schedule` names (`declared`, `reverse`, `seed:<n>`), on the object
@@ -1170,6 +1173,9 @@ with no `@id`, reported as written (`a.p`); `sourceFeature.featureTarget` and
 | `multiplicityUpper` | Declared upper bound, `*` when unbounded | ✅ |
 | `symbolKind` | The symbol kind `GetSymbol` reports as `SymbolInfo.kind` (`partDef`, `stateUsage`, `actionUsage`), present on every row, one with a positional `@id` included. It tells apart rows no `LookupSymbol` reaches; a transition is an `actionUsage` here and a `TransitionUsage` by `@type` | |
 | `text` | `RequirementDefinition::text` / `RequirementUsage::text`: the body of the requirement's `doc`, as `documentation` reads it; absent for a requirement that states none. This single-valued record reports the first body. On any other element `text` names a feature of the model, as every name outside this table does | |
+| `isActive` | On a `StateUsage`, `true` when the state is part of an active configuration of a state machine the query's session runs, `false` when it has never been entered or no session is supplied; absent for any other element. This single-valued record reports the first value | |
+| `annotations` | The metadata annotations of the row as `<metadata>::<feature>=<value>` strings: the values the annotation bodies bind, read for the whole row set in one pass rather than one symbol lookup per element; absent for an element no annotation binds. This single-valued record reports the first binding — a document query's `Project` carries every one | |
+| `boundSubject` | On a case usage, the qualified name of the declaration its subject binds as a value (`subject :>> s = Structure::boilerAsMaintained;`, `subject s = Declaration;`, or a feature chain such as `config.target`) — the bound declaration, not the subject parameter itself and not the case's runtime object. Absent when no subject in its redefinition chain states a binding or names a declaration. A `subjectParameter` property (when the metaclass declares it) reports the parameter element; `boundSubject` reports what that parameter is bound to. OSLC text writes it `sysx:boundSubject` | |
 
 ### `@type` — symbol kind → metamodel type
 
@@ -1344,6 +1350,15 @@ with `INVALID_ARGUMENT` as any form its kind is not written in. All of it is adv
 `query_result_view`, and the document forms need `render_view_form` as well; a service without
 the capability does not know the fields, so a client checks the capability before asking.
 
+Every `RenderNode` carries a `shape` naming the notation outline derived from the element's
+metaclass and the rendering kind: `rectangle` (a definition), `rounded` (a usage), `stadium`
+(a case), `actor`, `note`, `diamond`, `circle`, `ring`, `cross`, `bar`, `history` or `item`.
+A canvas can draw a use case, requirement or actor without parsing a written diagram form. The
+field is additive — written forms are byte-for-byte unchanged — and gated by `render_node_shape`:
+a service without it leaves `shape` empty. The same field is carried by the JSON-RPC engine's
+`RenderViewResponse`, by `opensysml/render` in the language server, by the typed Go, Python,
+Node, Java and Rust clients, and as a declared capability in Julia and MATLAB.
+
 Both name a loaded model by its hash and a definition by qualified name, and
 compose the engine packages the REPL and CLI compose — `queryplan` →
 `queryexec` for a query, `docplan` → `docir` → `docrender` for a document — so
@@ -1392,7 +1407,11 @@ with `model.render_document(id, form="html")`; each checks the form's capability
 
 `RenderView` answers a named view or targeted pseudo-view as ordered nodes,
 edges, table and matrix rows, notes, source spans and optional canvas/geometry/style data,
-using the engine renderer's `view.Data` rather than diagram pictures. Its
+using the engine renderer's `view.Data` rather than diagram pictures. Every node, port and edge
+also carries `element_id` when it comes from an identified declaration: the effective element id
+the written forms link to through `{id}`, distinct from the render-local `id` that names a node
+within one rendering. A canvas can address an element by `element_id` without resolving its
+identity again. Its
 `ports` field is empty or `minimal` by default; `full` includes all declared
 ports. Its `show` field names the
 [optional notation elements](../project/view-rendering-forms.md#optional-notation-elements)

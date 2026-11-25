@@ -22,6 +22,7 @@ from opensysml.capabilities import (
     CAPABILITY_CONVERT_CHECK_DIAGNOSTICS,
     CAPABILITY_CONVERT_COMPACT,
     CAPABILITY_CONVERT_INHERITED_MEMBERS,
+    CAPABILITY_CONVERT_PROJECTION,
     CAPABILITY_CONVERT_LIBRARY_STUBS,
     CAPABILITY_OSLC_QUERY,
     CAPABILITY_APPLY_EDITS,
@@ -47,6 +48,7 @@ from opensysml.capabilities import (
     CAPABILITY_INLINE_LANGUAGE,
     CAPABILITY_PARSE_SOURCES,
     CAPABILITY_PARSE_SOURCES_AFFECTED,
+    CAPABILITY_PARSE_SOURCES_KEEP,
     CAPABILITY_STRICT_CONFORMANCE,
     CAPABILITY_COMPLEX_VALUES,
     CAPABILITY_CONVERT,
@@ -101,6 +103,7 @@ from opensysml.conversion import (
     ExperimentalFeatureWarning,
     MIGRATED_NOT_CONVERTED,
     Migration,
+    Projection,
     is_experimental,
     is_v1,
     migration_report_of,
@@ -1470,7 +1473,7 @@ class Connection:
         return model
 
     def parse_sources(self, documents, strict=False, strict_conformance=False,
-                      base_model_hash=''):
+                      base_model_hash='', keep=True):
         """Parse several documents together as one model.
 
         An import from one document into another resolves, and each
@@ -1503,6 +1506,11 @@ class Connection:
                 service cannot compare, such as for a set it has not seen
                 before; a base it no longer holds is not an error. Needs the
                 ``parse_sources_affected`` capability.
+            keep (bool): Keep the parsed model in the service's cache, as by
+                default. ``False`` answers a transient model, such as a derived
+                union read for its results, without evicting or promoting a
+                model the caller holds; needs the ``parse_sources_keep``
+                capability.
 
         Returns:
             Model: The model of all the documents, with one root per document
@@ -1515,7 +1523,7 @@ class Connection:
                 of none of the accepted forms
             MissingCapabilityError: If the service predates ``parse_sources``,
                 or ``strict_conformance``/``inline_language``/
-                ``parse_sources_affected`` when asked for
+                ``parse_sources_affected``/``parse_sources_keep`` when asked for
             ModelFileNotFoundError: If the service cannot read a file
             InvalidRequestError: If the service refuses the documents
             ModelError: If the service could not parse the documents as a
@@ -1562,6 +1570,14 @@ class Connection:
             strict_conformance=strict_conformance,
             base_model_hash=base_model_hash,
         )
+        if not keep:
+            require(
+                info,
+                CAPABILITY_PARSE_SOURCES_KEEP,
+                upgrade_remedy(CAPABILITY_PARSE_SOURCES_KEEP),
+            )
+            capabilities.append(CAPABILITY_PARSE_SOURCES_KEEP)
+            request.keep = False
         with translate_rpc_errors(
             not_found=ModelFileNotFoundError,
             unimplemented=self._capability_refusal(capabilities),
@@ -1585,7 +1601,7 @@ class Connection:
                 from_format='', tolerate_syntax_errors=False, id_form='',
                 include_library_stubs=False, compact=False, omit_derived=False,
                 keep_derived=(), include_check_diagnostics=False,
-                inherited_members=False):
+                inherited_members=False, projection=None):
         """Write a model out in another of the formats OpenSysML writes.
 
         The source is a loaded model, named by its hash, or one named the way
@@ -1639,6 +1655,10 @@ class Connection:
                 model with errors is told apart from one of a clean model.
                 Notation sources only. Needs the ``convert_check_diagnostics``
                 capability.
+            projection (Projection, optional): For api-json, write only the
+                elements named by qualified name, metaclass or annotation
+                type; what is written is byte-identical to the whole corpus.
+                Needs the ``convert_projection`` capability.
 
         A SysML v1 model — ``from_format`` of 'xmi', 'uml' or 'mdzip', or a
         file_path with that extension — is refused: it is migrated, not
@@ -1720,6 +1740,12 @@ class Connection:
                 CAPABILITY_CONVERT_CHECK_DIAGNOSTICS,
                 upgrade_remedy(CAPABILITY_CONVERT_CHECK_DIAGNOSTICS),
             )
+        if projection is not None and not projection.is_empty():
+            require(
+                self.server_info(),
+                CAPABILITY_CONVERT_PROJECTION,
+                upgrade_remedy(CAPABILITY_CONVERT_PROJECTION),
+            )
 
         request = sysml_pb2.ConvertRequest(
             to_format=to_format,
@@ -1733,6 +1759,10 @@ class Connection:
             keep_derived=keep_derived,
             include_check_diagnostics=include_check_diagnostics,
         )
+        if projection is not None:
+            request.projection.qualified_names.extend(projection.qualified_names)
+            request.projection.metaclasses.extend(projection.metaclasses)
+            request.projection.annotation_types.extend(projection.annotation_types)
         if file_path is not None:
             request.file_path = file_path
         elif content is not None:
