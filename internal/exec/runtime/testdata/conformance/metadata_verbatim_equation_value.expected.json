@@ -1,0 +1,10 @@
+{
+  "type": "instance",
+  "instantiate": "test::Report",
+  "libraries": true,
+  "slots": {
+    "eqOne": {"type": "String", "value": "Medium.temperature(state_a)"},
+    "eqTwo": {"type": "String", "value": "inStream(port_a.h_outflow)"},
+    "eqThree": {"type": "String", "value": "noEvent(if abs(m_flow) > 1.0 then m_flow else 1.0)"}
+  }
+}
