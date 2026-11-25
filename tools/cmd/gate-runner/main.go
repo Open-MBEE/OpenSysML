@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -31,6 +32,12 @@ const (
 	logTailEnv      = "OPENSYSML_GATE_LOG_TAIL"
 	defaultLogTail  = 64 << 10
 	skipBanner      = "GATE NOT RUN"
+	// One package binary at a time keeps Go's package concurrency from
+	// multiplying the shard's CPU allowance.
+	defaultPackageParallel = 1
+	// The runner gives the tools module one owner in a local all-shards plan;
+	// CI jobs keep their own copy of the whole module.
+	skipToolsTestsVar = "SKIP_TOOLS_TESTS"
 )
 
 // tierTarget maps each tier to the Makefile target CI invokes for it.
@@ -302,7 +309,13 @@ func runCtx(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 		}
 		return nil
 	}
-	r.exec = processExecutor(repo, r.pkgParallel, r.procs)
+	flags, err := effectiveGoFlags()
+	if err != nil {
+		return err
+	}
+	r.pkgParallel = packageParallel(*parallel, flags)
+	r.procs = perProcessProcs(procsPerShard, r.pkgParallel)
+	r.exec = processExecutor(repo, r.pkgParallel, r.procs, flags)
 	results, err := r.run(ctx, commands)
 	if results != nil {
 		printSummary(r, results)
@@ -433,9 +446,70 @@ func (r *runner) commands() [][]string {
 		} else {
 			command = append(command, target, "SHARDS="+shard)
 		}
+		// Both shards would otherwise run the tools module's snapshot generator
+		// against this checkout. With both in the plan, tools owns it; a plan
+		// with only rest keeps rest's tools coverage.
+		if shard == "rest" && slices.Contains(r.shards, "tools") {
+			command = append(command, skipToolsTestsVar+"=1")
+		}
 		commands = append(commands, command)
 	}
 	return commands
+}
+
+// flagsPackageParallel reads an explicit -p from GOFLAGS, exported or saved
+// with `go env -w`. Zero means the flag is absent or malformed.
+func flagsPackageParallel(flags string) int {
+	fields := strings.Fields(flags)
+	for i, field := range fields {
+		var value string
+		switch {
+		case field == "-p" && i+1 < len(fields):
+			value = fields[i+1]
+		case strings.HasPrefix(field, "-p="):
+			value = strings.TrimPrefix(field, "-p=")
+		default:
+			continue
+		}
+		if n, err := strconv.Atoi(value); err == nil && n > 0 {
+			return n
+		}
+	}
+	return 0
+}
+
+// effectiveGoFlags returns the flags Go will actually read, including a value
+// saved with `go env -w` that the caller did not export.
+func effectiveGoFlags() (string, error) {
+	out, err := exec.Command("go", "env", "GOFLAGS").Output()
+	if err != nil {
+		return "", fmt.Errorf("go env GOFLAGS: %w", err)
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// packageParallel resolves the -p passed to every shard: an explicit flag or
+// GOFLAGS entry wins, otherwise one package binary runs at a time.
+func packageParallel(flag int, flags string) int {
+	if flag > 0 {
+		return flag
+	}
+	if p := flagsPackageParallel(flags); p > 0 {
+		return p
+	}
+	return defaultPackageParallel
+}
+
+// perProcessProcs divides the shard's CPU allowance among the package test
+// processes Go may run at once. Zero leaves an explicit caller GOMAXPROCS alone.
+func perProcessProcs(procs, p int) int {
+	if procs <= 0 {
+		return 0
+	}
+	if p < 1 {
+		p = 1
+	}
+	return max(1, procs/p)
 }
 
 // goFlagsWithP replaces any -p in GOFLAGS with the runner's bound.
@@ -456,23 +530,24 @@ func goFlagsWithP(flags string, p int) string {
 	return strings.Join(append(kept, "-p="+strconv.Itoa(p)), " ")
 }
 
-// childEnv bounds each shard's CPU demand and package parallelism.
-func childEnv(pkgParallel, procs int) []string {
+// childEnv bounds each shard's package processes and per-process CPU demand.
+// flags is what Go will read, exported or saved with `go env -w`.
+func childEnv(p, procs int, flags string) []string {
 	env := append(os.Environ(), snapshotSkipEnv+"="+snapshotSkipOn)
 	if procs > 0 {
 		env = append(env, "GOMAXPROCS="+strconv.Itoa(procs))
 	}
-	if pkgParallel > 0 {
-		env = append(env, "GOFLAGS="+goFlagsWithP(os.Getenv("GOFLAGS"), pkgParallel))
+	if p > 0 {
+		env = append(env, "GOFLAGS="+goFlagsWithP(flags, p))
 	}
 	return env
 }
 
-func processExecutor(root string, pkgParallel, procs int) executor {
+func processExecutor(root string, p, procs int, flags string) executor {
 	return func(ctx context.Context, command []string, out io.Writer) error {
 		cmd := exec.CommandContext(ctx, command[0], command[1:]...)
 		cmd.Dir = root
-		cmd.Env = childEnv(pkgParallel, procs)
+		cmd.Env = childEnv(p, procs, flags)
 		cmd.Stdout, cmd.Stderr = out, out
 		setProcessGroup(cmd)
 		cmd.Cancel = func() error { return killProcessGroup(cmd) }
