@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -175,6 +176,10 @@ type Renderer struct {
 	included []*symbols.Symbol
 	// performers caches, by performed action, the elements performing it.
 	performers map[symbols.ElementKey][]*symbols.Symbol
+	// positional caches, per document, the positional identities of unnamed
+	// declarations, used for the durable id of anonymous connectors.
+	positionalMu sync.Mutex
+	positional   map[string]map[*symbols.Symbol]string
 }
 
 // SetIncluded names elements every rendering draws besides what its view

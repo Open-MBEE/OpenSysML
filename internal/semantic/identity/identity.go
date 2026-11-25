@@ -219,6 +219,12 @@ func Of(model *semantics.Model, res *resolve.Resolver, sym *symbols.Symbol) (*In
 	return info, info != nil
 }
 
+// DerivedElementID is the element id the conversion derives from a qualified
+// name, the form an unnamed declaration takes from its positional identity.
+func DerivedElementID(qualifiedName string) string {
+	return rdf.EncodeElementID(qualifiedName)
+}
+
 // Root is the outermost declaration enclosing sym, sym itself at a root; a
 // ProjectRef written there binds sym's whole document subtree.
 func Root(sym *symbols.Symbol) *symbols.Symbol {

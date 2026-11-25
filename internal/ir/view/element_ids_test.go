@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
@@ -119,6 +121,71 @@ func TestRenderedElementsCarryTheLinkIdentity(t *testing.T) {
 	}
 	if anchors == 0 {
 		t.Error("no d2 anchor was written from an element id")
+	}
+}
+
+// TestAnonymousConnectorsHaveDistinctElementIDs pins a durable id per unnamed
+// connector declaration: the index names them all after their owner, but a canvas
+// has to tell which connector a click selected. Each id must resolve back to its
+// own declaration, and the written {id} anchor must carry the same value.
+func TestAnonymousConnectorsHaveDistinctElementIDs(t *testing.T) {
+	const doc = "anonymous-connector-ids.sysml"
+	renderer, index := loadFixture(t, doc)
+	rendering, err := renderer.Render(lookup(t, index, "AnonymousConnectors::wiring"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	scope := index.DocumentRoot(doc)
+	byName := make(map[string]*symbols.Symbol)
+	for sym, name := range derivePositional(index, renderer.text, doc) {
+		byName[name] = sym
+	}
+
+	seen := make(map[string]bool)
+	var edges int
+	for _, edge := range rendering.Edges {
+		if edge.Kind != EdgeConnection {
+			continue
+		}
+		edges++
+		if edge.ElementID == "" {
+			t.Fatalf("connection %q has no durable id", edge.Kind)
+		}
+		if seen[edge.ElementID] {
+			t.Fatalf("two unnamed connections share the element id %q", edge.ElementID)
+		}
+		seen[edge.ElementID] = true
+
+		sym := scope.DeclaredAt(edge.Origin.Span)
+		if sym == nil {
+			t.Fatalf("no declaration at %v", edge.Origin.Span)
+		}
+		positional := renderer.positionalOf(doc, sym)
+		if positional == "" {
+			t.Fatalf("connection %q has no positional identity", edge.Kind)
+		}
+		if want := identity.DerivedElementID(positional); edge.ElementID != want {
+			t.Errorf("connection id = %q, want the positional identity %q", edge.ElementID, want)
+		}
+		if resolved := byName[positional]; resolved != sym {
+			t.Errorf("positional identity %q resolves to %v, want the connection at %v", positional, resolved, edge.Origin.Span)
+		}
+	}
+	if edges < 2 {
+		t.Fatalf("fixture rendered %d connections; want at least two unnamed ones", edges)
+	}
+
+	sites := renderer.Sites(func(o Origin) (string, source.Pos, bool) {
+		return "model/" + o.Doc, source.Pos{Line: 1, Col: 1}, true
+	})
+	for _, edge := range rendering.Edges {
+		if edge.Kind != EdgeConnection {
+			continue
+		}
+		site, ok := sites(edge.Origin)
+		if !ok || site.ID != edge.ElementID {
+			t.Errorf("written {id} anchor %q differs from structured id %q", site.ID, edge.ElementID)
+		}
 	}
 }
 

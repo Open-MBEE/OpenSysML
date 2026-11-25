@@ -41,10 +41,16 @@ has the model and resolver, and stores it on the view model:
 - `internal/ir/view/element_ids.go` factors the origin-to-identity lookup out
   of `Renderer.Sites` into `Renderer.identityOf`, and
   `Renderer.resolveElementIDs` fills every node, compartment row, port and edge
-  after a rendering is built, memoized by origin.
+  after a rendering is built, memoized by origin. An unnamed connector the
+  index names only by its owner falls back to the positional identity the
+  element form gives its declaration, so connectors under one owner no longer
+  share an id; because `Sites` reads the same lookup, the written `{id}` anchor
+  carries that id too.
 - `view.Node`, `view.Port`, `view.Edge`, `view.NodeData` and `view.EdgeData`
   carry `ElementID`. The written forms do not read the new field; they keep
-  using the same identity through `Sites`, so their bytes do not move.
+  using the same identity through `Sites`. Their bytes move only where an
+  unnamed connector's `{id}` anchor now names its declaration instead of the
+  shared owner name.
 - The gRPC response, the JSON engine's protojson-shaped response and the LSP
   `opensysml/render` result each report the field, and every client that
   exposes the three types decodes it.
