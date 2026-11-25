@@ -368,7 +368,7 @@ while the variable is set, so an expectation file is never recorded from a parti
 [docs/project/construct-cover-subset.md](docs/project/construct-cover-subset.md) records the
 measured subset size and feature count and says what the switch does to each sweep.
 
-**Running the whole gate locally.** Several worktrees on one host should not each run `go test ./...` with a private build cache: the recompilations, temporary files and concurrent test processes contend for CPU and RAM and make wall-clock deadlines unreliable. Use the bounded, shard-aware runner (`go run -C tools ./cmd/gate-runner`) with one warm cache shared across the worktrees; see [test gate throughput](docs/project/test-gate-throughput.md). The opt-in `OPENSYSML_TEST_BUDGET_SCALE` stretches only wall-clock deadlines on a contended host. CI leaves it unset.
+**Running the whole gate locally.** Several worktrees on one host should not each run `go test ./...` with a private build cache: the recompilations, temporary files and concurrent test processes contend for CPU and RAM and make wall-clock deadlines unreliable. Use the bounded, shard-aware runner (`go run -C tools ./cmd/gate-runner`), sharing one warm cache where several lanes compete; see [test gate throughput](docs/project/test-gate-throughput.md). The opt-in `OPENSYSML_TEST_BUDGET_SCALE` stretches only wall-clock deadlines on a contended host. CI leaves it unset.
 
 Open a pull request ready for review rather than as a draft: both run the same tier, and a draft
 is not considered until it is marked ready. The queue tier is what a pull request has to pass to

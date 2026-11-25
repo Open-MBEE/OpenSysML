@@ -81,10 +81,8 @@ func TestOverflowIsRejected(t *testing.T) {
 	}
 }
 
-// TestBudgetOverrunProbe is run as a child process by
-// TestOverBudgetStillFailsAtDefaultScale. It uses the same deadline pattern as
-// the tests whose budgets the scale stretches, and must fail when the work
-// exceeds the deadline at the default scale.
+// TestBudgetOverrunProbe is the child process that proves an over-budget run
+// still fails at the default scale.
 func TestBudgetOverrunProbe(t *testing.T) {
 	if os.Getenv("OPENSYSML_TEST_BUDGET_PROBE") == "" {
 		t.Skip("only run as the overrun probe's child process")

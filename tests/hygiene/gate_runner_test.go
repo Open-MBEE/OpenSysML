@@ -20,9 +20,8 @@ func gateRunnerOutput(t *testing.T, args ...string) string {
 	return string(out)
 }
 
-// TestGateRunnerListsEveryRaceShard is the load-bearing check that the runner
-// covers every shard the Makefile and the CI matrices know about: both read
-// scripts/race-shard.sh, so a new shard missing from either fails here.
+// TestGateRunnerListsEveryRaceShard checks the runner covers every shard the
+// Makefile and CI matrices read from scripts/race-shard.sh.
 func TestGateRunnerListsEveryRaceShard(t *testing.T) {
 	got := strings.Fields(gateRunnerOutput(t, "-list"))
 	want := slices.Sorted(slices.Values(raceShards(t)))
@@ -31,10 +30,8 @@ func TestGateRunnerListsEveryRaceShard(t *testing.T) {
 	}
 }
 
-// TestGateRunnerPlansEveryRaceShard checks the commands themselves, not just
-// the list: each of the three tiers must plan exactly one invocation per shard,
-// calling that tier's Makefile target and skipping the shared snapshot step
-// that the runner performs once before starting its workers.
+// TestGateRunnerPlansEveryRaceShard checks each tier plans one invocation per
+// shard with its Makefile target and the shared snapshot guard.
 func TestGateRunnerPlansEveryRaceShard(t *testing.T) {
 	want := slices.Sorted(slices.Values(raceShards(t)))
 	for tier, target := range map[string]string{"quick": "test-quick", "queue": "test-queue", "full": "test-shard"} {
@@ -81,10 +78,8 @@ func TestGateRunnerPlansEveryRaceShard(t *testing.T) {
 	}
 }
 
-// TestShardTargetsSkipTheSnapshotWhenTheRunnerDidIt checks the other half of
-// the contract: the recursive make calls inside test-quick and test-queue must
-// honour the environment the runner sets, or parallel shards would each
-// regenerate the embedded-library source under the same tree.
+// TestShardTargetsSkipTheSnapshotWhenTheRunnerDidIt pins the recursive make
+// guard that stops parallel shards regenerating the snapshot.
 func TestShardTargetsSkipTheSnapshotWhenTheRunnerDidIt(t *testing.T) {
 	makefile := readRepoFile(t, "Makefile")
 	guard := "$(if $(SKIP_STDLIB_SNAPSHOT),,stdlib-snapshot)"

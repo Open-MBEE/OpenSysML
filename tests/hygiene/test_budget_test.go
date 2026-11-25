@@ -7,9 +7,8 @@ import (
 
 const budgetScaleEnv = "OPENSYSML_TEST_BUDGET_SCALE"
 
-// TestCIDoesNotScaleTestBudgets: CI's deadlines are the tests' declared values.
-// The scale is a local, opt-in accommodation for a contended host, never a way
-// to make a CI gate pass.
+// TestCIDoesNotScaleTestBudgets: CI uses each test's declared deadline; the
+// scale is a local accommodation, never a way to pass a gate.
 func TestCIDoesNotScaleTestBudgets(t *testing.T) {
 	for _, path := range []string{".github/workflows/pr.yml", ".circleci/config.yml"} {
 		if strings.Contains(readRepoFile(t, path), budgetScaleEnv) {
@@ -18,9 +17,8 @@ func TestCIDoesNotScaleTestBudgets(t *testing.T) {
 	}
 }
 
-// TestBudgetScaleHasOneReader keeps the opt-in in one helper: a test that
-// reaches for the environment directly would add a second, differently parsed
-// scale and could silently change an assertion rather than a deadline.
+// TestBudgetScaleHasOneReader keeps the opt-in in one helper, so no test
+// parses a second scale that could change an assertion.
 func TestBudgetScaleHasOneReader(t *testing.T) {
 	for _, path := range trackedFiles(t) {
 		if !strings.HasSuffix(path, ".go") {

@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
-# Prints the root-module package paths assigned to one race-test shard.
 # Usage: scripts/race-shard.sh runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep-committed|corpus-sweep-corpora|export|export-library|export-examples|export-corpus|graph|graph-corpora|codegen|translate|translate-structure|grpc|tools|internal|rest|migrate|cli | --all | --sweeps
-# --all prints every shard, one per line, for callers that run the whole gate.
 
 # A hyphenated shard is a by-test-name part of its package (make test-shard); the others are whole packages:
 # internal is every internal/ package not named here but internal/frontend, rest everything else.

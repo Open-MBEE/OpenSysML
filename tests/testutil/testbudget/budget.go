@@ -1,9 +1,5 @@
-// Package testbudget applies an opt-in multiplier to wall-clock test deadlines.
-//
-// Set OPENSYSML_TEST_BUDGET_SCALE to a positive number to stretch deadlines on
-// a contended host. Unset, every deadline is exactly the value its test
-// declares, so ordinary local runs and CI are unchanged. Only deadlines are
-// scaled: no expected value, model budget, step bound or assertion changes.
+// Package testbudget scales wall-clock deadline durations when a contended
+// host asks for it. Expected values, budgets and assertions never change.
 package testbudget
 
 import (
@@ -63,9 +59,8 @@ type Fataler interface {
 	Fatalf(format string, args ...any)
 }
 
-// Deadline returns d stretched by the configured scale, failing t when the
-// configuration is invalid. Call it at the start of a test, before the work a
-// deadline bounds, so a misconfiguration fails at the point of use.
+// Deadline returns d stretched by the configured scale, failing t on invalid
+// configuration before the work the deadline bounds begins.
 func Deadline(t Fataler, d time.Duration) time.Duration {
 	scaled, err := Apply(d)
 	if err != nil {

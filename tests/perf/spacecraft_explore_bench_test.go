@@ -9,17 +9,12 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
 )
 
-// spacecraftExploreModel is the model whose race at t=79 the CLI's
-// -schedule explore:runs=500,depth=1024 case walks. The benchmark drives the
-// same repl surface in process, so -benchmem reports the exploration's own
-// allocations instead of a child process's.
+// spacecraftExploreModel is the CLI case's t=79 race model. The benchmark
+// drives repl in process, so -benchmem measures the exploration itself.
 const spacecraftExploreModel = "../../examples/runtime-showcase/spacecraft-comms.sysml"
 
-// BenchmarkExploreSpacecraftRace varies the runs and depth budgets over the
-// spacecraft race. It measures one bounded exploration per iteration, loading
-// and instantiating the model outside the timer; the budgets below include the
-// CLI test's 500/1024 case. It does not replace the test: this only measures
-// where the time and allocations go.
+// BenchmarkExploreSpacecraftRace varies runs and depth, including the CLI's
+// 500/1024 case. It measures where time and allocations go, not coverage.
 func BenchmarkExploreSpacecraftRace(b *testing.B) {
 	if _, err := os.Stat(spacecraftExploreModel); err != nil {
 		b.Fatalf("read %s: %v", spacecraftExploreModel, err)

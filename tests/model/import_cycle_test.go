@@ -13,9 +13,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/tests/testutil/testbudget"
 )
 
-// importCycleLimit bounds each analysis: thirty packages take seconds, tens of them under
-// the race detector, and do not finish at all when every route through them is searched.
-// The host's contention budget is the only thing that moves; the analysis is unchanged.
+// importCycleLimit bounds each analysis; only the host's contention budget
+// moves, never the analysis or its expected diagnostics.
 func importCycleLimit(t *testing.T) time.Duration {
 	return testbudget.Deadline(t, 3*time.Minute)
 }

@@ -405,9 +405,8 @@ SHARD_SELECT_translate = -skip '$(RACE_SHARD_SKIP)|$(RACE_TRANSLATE_STRUCTURE)'
 SHARD_SELECT = $(or $(SHARD_SELECT_$(SHARD)),-skip '$(RACE_SHARD_SKIP)')
 # -race for the race suite (test-shard); test-quick runs the same shards with it empty.
 TEST_SHARD_RACE ?= -race
-# SKIP_STDLIB_SNAPSHOT lets the gate runner write the snapshot once for all
-# shards; it reaches recursive make calls, unlike -o. The dependency stays in
-# each target so the self-model's snapshot gate still sees it.
+# SKIP_STDLIB_SNAPSHOT lets the runner write the snapshot once for all shards;
+# it reaches recursive make calls, unlike -o, and the literal prerequisite stays.
 SKIP_STDLIB_SNAPSHOT ?=
 
 test-shard: $(if $(SKIP_STDLIB_SNAPSHOT),,stdlib-snapshot) ## Run one CI shard of the race suite (SHARD=runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep-committed|corpus-sweep-corpora|export|export-library|export-examples|export-corpus|graph|graph-corpora|codegen|translate|translate-structure|grpc|tools|internal|rest|migrate|cli)

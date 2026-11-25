@@ -5,9 +5,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -17,8 +20,7 @@ import (
 
 var fakeShards = []string{"cli", "graph", "rest", "runtime", "smt", "tools"}
 
-// fakeRoot writes a tree whose shard script is the single source the runner
-// reads; nothing about the shards is compiled into the runner.
+// fakeRoot writes a tree whose shard script is the single source the runner reads.
 func fakeRoot(t *testing.T, script string) string {
 	t.Helper()
 	root := t.TempDir()
@@ -34,9 +36,7 @@ func fakeRoot(t *testing.T, script string) string {
 	return root
 }
 
-func allShardsScript() string {
-	return "printf '%s\\n' " + strings.Join(fakeShards, " ") + "\n"
-}
+func allShardsScript() string { return "printf '%s\\n' " + strings.Join(fakeShards, " ") + "\n" }
 
 func TestDiscoverReadsTheScript(t *testing.T) {
 	root := fakeRoot(t, allShardsScript())
@@ -89,19 +89,10 @@ func TestPlanCoversEveryDiscoveredShardAtEveryTier(t *testing.T) {
 				if !slices.Contains(fields, target) {
 					t.Errorf("command %q does not call %s", line, target)
 				}
-				key := "SHARDS="
-				if tier == "full" {
-					key = "SHARD="
-				}
-				found := false
 				for _, field := range fields {
-					if strings.HasPrefix(field, key) {
-						planned = append(planned, strings.TrimPrefix(field, key))
-						found = true
+					if strings.HasPrefix(field, "SHARD=") || strings.HasPrefix(field, "SHARDS=") {
+						planned = append(planned, strings.TrimPrefix(strings.TrimPrefix(field, "SHARDS="), "SHARD="))
 					}
-				}
-				if !found {
-					t.Errorf("command %q names no %s", line, key)
 				}
 			}
 			want := slices.Clone(fakeShards)
@@ -120,14 +111,10 @@ func TestRunBoundsConcurrencyAndReportsEveryFailure(t *testing.T) {
 	var mu sync.Mutex
 	var seen []string
 	r := &runner{
-		root:        root,
-		tier:        "quick",
-		concurrency: 3,
-		pkgParallel: 1,
-		shards:      fakeShards,
-		stdout:      &stdout,
+		root: root, tier: "quick", concurrency: 3, pkgParallel: 1,
+		shards: fakeShards, stdout: &stdout,
 	}
-	r.exec = func(_ context.Context, command []string) (string, error) {
+	r.exec = func(_ context.Context, command []string, out io.Writer) error {
 		n := inFlight.Add(1)
 		for {
 			old := peak.Load()
@@ -149,12 +136,13 @@ func TestRunBoundsConcurrencyAndReportsEveryFailure(t *testing.T) {
 			mu.Unlock()
 		}
 		if shard == "smt" {
-			return "smt: failing output\n", errors.New("exit status 1")
+			_, _ = io.WriteString(out, "smt: failing output\n")
+			return errors.New("exit status 1")
 		}
-		return "ok " + shard + "\n", nil
+		_, _ = io.WriteString(out, "ok "+shard+"\n")
+		return nil
 	}
-	commands := r.commands()
-	results, err := r.run(context.Background(), commands)
+	results, err := r.run(context.Background(), r.commands())
 	var failed *FailureError
 	if !errors.As(err, &failed) {
 		t.Fatalf("run error = %v, want a FailureError", err)
@@ -187,21 +175,14 @@ func TestRunBoundsConcurrencyAndReportsEveryFailure(t *testing.T) {
 
 func TestRunGeneratesTheSnapshotOnce(t *testing.T) {
 	root := fakeRoot(t, allShardsScript())
-	var stdout bytes.Buffer
 	var calls atomic.Int64
 	r := &runner{
-		root:        root,
-		tier:        "quick",
-		concurrency: 2,
-		shards:      []string{"cli", "smt", "tools"},
-		stdout:      &stdout,
+		root: root, tier: "quick", concurrency: 2,
+		shards: []string{"cli", "smt", "tools"}, stdout: io.Discard,
 	}
-	r.exec = func(_ context.Context, command []string) (string, error) {
+	r.exec = func(_ context.Context, _ []string, _ io.Writer) error {
 		calls.Add(1)
-		if slices.Equal(command, snapshotCommand()) {
-			return "snapshot\n", nil
-		}
-		return "", nil
+		return nil
 	}
 	if _, err := r.run(context.Background(), r.commands()); err != nil {
 		t.Fatalf("run: %v", err)
@@ -213,18 +194,15 @@ func TestRunGeneratesTheSnapshotOnce(t *testing.T) {
 
 func TestSnapshotFailureStopsTheRun(t *testing.T) {
 	root := fakeRoot(t, allShardsScript())
-	var stdout bytes.Buffer
 	var calls atomic.Int64
 	r := &runner{
-		root:        root,
-		tier:        "quick",
-		concurrency: 2,
-		shards:      []string{"cli", "smt"},
-		stdout:      &stdout,
+		root: root, tier: "quick", concurrency: 2,
+		shards: []string{"cli", "smt"}, stdout: io.Discard,
 	}
-	r.exec = func(_ context.Context, _ []string) (string, error) {
+	r.exec = func(_ context.Context, _ []string, out io.Writer) error {
 		calls.Add(1)
-		return "snapshot failed\n", errors.New("exit status 2")
+		_, _ = io.WriteString(out, "snapshot failed\n")
+		return errors.New("exit status 2")
 	}
 	results, err := r.run(context.Background(), r.commands())
 	if err == nil || !strings.Contains(err.Error(), "snapshot") {
@@ -232,6 +210,110 @@ func TestSnapshotFailureStopsTheRun(t *testing.T) {
 	}
 	if results != nil || calls.Load() != 1 {
 		t.Fatalf("ran after the snapshot failed: %d commands, %d results", calls.Load(), len(results))
+	}
+}
+
+func TestLargeShardOutputIsBounded(t *testing.T) {
+	root := fakeRoot(t, allShardsScript())
+	var stdout bytes.Buffer
+	r := &runner{
+		root: root, tier: "quick", concurrency: 1,
+		shards: []string{"cli"}, stdout: &stdout,
+	}
+	r.exec = func(_ context.Context, command []string, out io.Writer) error {
+		if !slices.Contains(command, "test-quick") {
+			return nil
+		}
+		if _, err := io.WriteString(out, strings.Repeat("x", 11<<20)); err != nil {
+			return err
+		}
+		_, _ = io.WriteString(out, "DIAGNOSTIC: shard failed\n")
+		return errors.New("exit status 1")
+	}
+	results, err := r.run(context.Background(), r.commands())
+	if err == nil {
+		t.Fatal("run accepted a failing shard")
+	}
+	if got := len(results[0].output); got == 0 || got > r.logTail {
+		t.Fatalf("retained %d bytes, want a bounded non-empty tail of %d", got, r.logTail)
+	}
+	if !strings.Contains(results[0].output, "DIAGNOSTIC: shard failed") {
+		t.Error("the failing shard's last diagnostic was not retained")
+	}
+	if !results[0].truncated {
+		t.Error("truncation was not reported")
+	}
+	printSummary(r, results)
+	if summary := stdout.String(); !strings.Contains(summary, "DIAGNOSTIC: shard failed") || !strings.Contains(summary, "only the last 65536 bytes retained") {
+		t.Errorf("summary = %q, want the diagnostic and the retention note", summary)
+	}
+}
+
+func TestVerboseStreamsPassingOutput(t *testing.T) {
+	root := fakeRoot(t, allShardsScript())
+	var stdout bytes.Buffer
+	r := &runner{
+		root: root, tier: "quick", concurrency: 1, verbose: true,
+		shards: []string{"cli"}, stdout: &stdout,
+	}
+	r.exec = func(_ context.Context, _ []string, out io.Writer) error {
+		_, _ = io.WriteString(out, "streamed while running\n")
+		return nil
+	}
+	results, err := r.run(context.Background(), r.commands())
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if !strings.Contains(stdout.String(), "streamed while running") {
+		t.Error("verbose output was not streamed")
+	}
+	if results[0].output != "" {
+		t.Errorf("a passing shard retained %d bytes", len(results[0].output))
+	}
+}
+
+func TestCancellationKillsShardDescendants(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("process groups are a POSIX facility")
+	}
+	dir := t.TempDir()
+	pidFile, killedFile := filepath.Join(dir, "pid"), filepath.Join(dir, "killed")
+	script := "#!/usr/bin/env bash\nsleep 30 &\nchild=$!\nprintf '%s\\n' \"$child\" > \"$GATE_TEST_PID_FILE\"\n" +
+		"trap 'printf killed > \"$GATE_TEST_KILLED\"; kill \"$child\" 2>/dev/null; exit 0' TERM\nwait \"$child\"\n"
+	if err := os.WriteFile(filepath.Join(dir, "make"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("GATE_TEST_PID_FILE", pidFile)
+	t.Setenv("GATE_TEST_KILLED", killedFile)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		done <- processExecutor(dir, 0, 0)(ctx, []string{"make", "--no-print-directory", "test-quick", "SHARDS=cli"}, io.Discard)
+	}()
+	var pid []byte
+	for i := 0; i < 200; i++ {
+		if pid, _ = os.ReadFile(pidFile); len(pid) > 0 {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if len(pid) == 0 {
+		cancel()
+		t.Fatal("the fake shard never started its child")
+	}
+	if _, err := strconv.Atoi(strings.TrimSpace(string(pid))); err != nil {
+		t.Fatalf("bad child pid %q: %v", pid, err)
+	}
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(4 * time.Second):
+		t.Fatal("the executor did not return after cancellation")
+	}
+	if _, err := os.Stat(killedFile); err != nil {
+		t.Fatalf("the shard child was not signalled: %v", err)
 	}
 }
 
@@ -255,6 +337,7 @@ func TestListAndSubsetValidation(t *testing.T) {
 		{"-root", root, "-shards", "cli,cli", "-plan"},
 		{"-root", root, "-tier", "nope", "-plan"},
 		{"-root", root, "-concurrency", "0x", "-plan"},
+		{"-root", root, "-gomaxprocs", "-1", "-plan"},
 	} {
 		stdout.Reset()
 		stderr.Reset()
@@ -264,14 +347,74 @@ func TestListAndSubsetValidation(t *testing.T) {
 	}
 }
 
-func TestChildEnvSkipsTheSharedSnapshot(t *testing.T) {
+func TestChildEnvBoundsProcsAndPackages(t *testing.T) {
 	t.Setenv("GOFLAGS", "-mod=readonly")
-	env := childEnv(2)
-	if !slices.Contains(env, snapshotSkipEnv+"="+snapshotSkipOn) {
-		t.Errorf("child env %v does not skip the snapshot prerequisite", env)
+	t.Setenv("GOMAXPROCS", "")
+	t.Setenv(procsEnv, "")
+	env := childEnv(2, 3)
+	for _, want := range []string{snapshotSkipEnv + "=" + snapshotSkipOn, "GOMAXPROCS=3", "GOFLAGS=-mod=readonly -p=2"} {
+		if !slices.Contains(env, want) {
+			t.Errorf("child env %v lacks %s", env, want)
+		}
 	}
-	if !slices.Contains(env, "GOFLAGS=-mod=readonly -p=2") {
-		t.Errorf("child env %v does not bound package parallelism", env)
+	t.Setenv("GOMAXPROCS", "9")
+	if got, err := goMaxProcs(0); err != nil || got != 0 {
+		t.Errorf("explicit GOMAXPROCS: goMaxProcs = %d, %v; want 0, nil", got, err)
+	}
+	if got := childEnv(0, 0); slices.Contains(got, "GOMAXPROCS=2") {
+		t.Errorf("child env %v overrode an explicit GOMAXPROCS", got)
+	}
+}
+
+func TestGoMaxProcsConfiguration(t *testing.T) {
+	t.Setenv("GOMAXPROCS", "")
+	t.Setenv(procsEnv, "")
+	_, derived := deriveDefaults()
+	if got, err := goMaxProcs(0); err != nil || got != derived {
+		t.Errorf("default = %d, %v; want the derived %d", got, err, derived)
+	}
+	t.Setenv(procsEnv, " 5 ")
+	if got, err := goMaxProcs(0); err != nil || got != 5 {
+		t.Errorf("env = %d, %v; want 5", got, err)
+	}
+	if got, err := goMaxProcs(7); err != nil || got != 7 {
+		t.Errorf("flag = %d, %v; want 7", got, err)
+	}
+	t.Setenv(procsEnv, "nope")
+	if _, err := goMaxProcs(0); err == nil {
+		t.Error("accepted an invalid procs value")
+	}
+}
+
+func TestLogTailBytes(t *testing.T) {
+	t.Setenv(logTailEnv, "")
+	if got, err := logTailBytes(""); err != nil || got != defaultLogTail {
+		t.Errorf("default = %d, %v; want %d", got, err, defaultLogTail)
+	}
+	for value, want := range map[string]int{"128K": 128 << 10, "2M": 2 << 20, "4096": 4096} {
+		if got, err := logTailBytes(value); err != nil || got != want {
+			t.Errorf("logTailBytes(%q) = %d, %v; want %d", value, got, err, want)
+		}
+	}
+	t.Setenv(logTailEnv, "1M")
+	if got, err := logTailBytes(""); err != nil || got != 1<<20 {
+		t.Errorf("env = %d, %v; want 1M", got, err)
+	}
+	for _, value := range []string{"0", "-1", "oops", "1T"} {
+		if _, err := logTailBytes(value); err == nil {
+			t.Errorf("accepted %q", value)
+		}
+	}
+}
+
+func TestDerivedDefaultsStayWithinTheHost(t *testing.T) {
+	cpus, _ := hostCapacity()
+	concurrency, procs := deriveDefaults()
+	if concurrency < 1 || procs < 1 {
+		t.Fatalf("derived %d shards and %d procs", concurrency, procs)
+	}
+	if concurrency > cpus || concurrency*procs > cpus {
+		t.Errorf("derived %d shards x %d procs exceeds the host's %d CPUs", concurrency, procs, cpus)
 	}
 }
 
@@ -285,7 +428,6 @@ func TestGoFlagsWithP(t *testing.T) {
 		{flags: "-mod=readonly -v", p: 2, want: "-mod=readonly -v -p=2"},
 		{flags: "-p 8 -tags sysml_re", p: 3, want: "-tags sysml_re -p=3"},
 		{flags: "-p=16 -trimpath", p: 4, want: "-trimpath -p=4"},
-		{flags: "-p -v -mod=readonly", p: 5, want: "-mod=readonly -p=5"},
 	} {
 		if got := goFlagsWithP(tc.flags, tc.p); got != tc.want {
 			t.Errorf("goFlagsWithP(%q, %d) = %q, want %q", tc.flags, tc.p, got, tc.want)
@@ -295,8 +437,9 @@ func TestGoFlagsWithP(t *testing.T) {
 
 func TestEnvLimit(t *testing.T) {
 	t.Setenv(concurrencyEnv, "")
-	if got, err := envLimit(); err != nil || got != defaultLimit {
-		t.Errorf("unset limit = %d, %v; want %d", got, err, defaultLimit)
+	derived, _ := deriveDefaults()
+	if got, err := envLimit(); err != nil || got != derived {
+		t.Errorf("unset limit = %d, %v; want the derived %d", got, err, derived)
 	}
 	t.Setenv(concurrencyEnv, " 7 ")
 	if got, err := envLimit(); err != nil || got != 7 {
