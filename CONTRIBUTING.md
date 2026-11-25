@@ -322,10 +322,10 @@ syntactic construct the whole corpus does; unset, they walk the whole corpus.
 
 **The quick tier** is what every push to a pull request gets, draft or ready, in about half the
 runner time of the full tier and a third of its wall time: the binaries, the same Go suite without
-`-race` in nine groups of the race shards (`make test-quick`), the download-free static checks
-(gofmt, vet, the production build, grpc imports, proto lint and breaking), the WebAssembly, Xpect
-and conformance gates, and only the clients, editors and docs whose own paths changed. The lint,
-the corpus and solver gates, the PDF toolchain and the fan-out from a service change to every
+`-race` in nine groups of the race shards (`make test-quick`), the cheap static checks
+(gofmt, vet, `make lint`, the production build, grpc imports, proto lint and breaking), the WebAssembly, Xpect
+and conformance gates, and only the clients, editors and docs whose own paths changed. The
+corpus and solver gates, the PDF toolchain and the fan-out from a service change to every
 client wait for the full tier. Only a push touching a path no area claims escalates itself to
 the full tier (`scripts/ci-changed-areas.sh`, and its test pins it).
 
