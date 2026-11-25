@@ -232,11 +232,13 @@ function Get-EarlierRelease([string]$Latest) {
         return $null
     }
     $versions = @(foreach ($release in @($releases)) {
+        if ($release -isnot [System.Management.Automation.PSCustomObject]) { continue }
         if ($release.PSObject.Properties['prerelease'] -and $release.prerelease) { continue }
         if ($release.PSObject.Properties['draft'] -and $release.draft) { continue }
         if ($release.PSObject.Properties['tag_name'] -and "$($release.tag_name)" -match '^v(\d+\.\d+\.\d+)$') { [version]$Matches[1] }
     })
-    return @($versions | Where-Object { $_ -lt $ceiling } | Sort-Object -Descending -Unique | ForEach-Object { "v$_" })
+    # The comma keeps an empty list an empty list: listed, with nothing earlier in it.
+    return , @($versions | Where-Object { $_ -lt $ceiling } | Sort-Object -Descending -Unique | ForEach-Object { "v$_" })
 }
 
 function Get-HttpStatus([string]$Url, [string]$Destination) {

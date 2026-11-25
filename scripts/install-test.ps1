@@ -13,6 +13,7 @@ param(
     [Parameter(Mandatory)][string]$MirrorUrl,
     [Parameter(Mandatory)][string]$PendingUrl,
     [Parameter(Mandatory)][string]$FailingUrl,
+    [Parameter(Mandatory)][string]$CutUrl,
     [Parameter(Mandatory)][string]$HostPlatform,
     [Parameter(Mandatory)][string]$Good,
     [Parameter(Mandatory)][string]$Signed,
@@ -255,6 +256,17 @@ $env:OPENSYSML_RELEASES_API = "$PendingUrl/missing.json"
 $null = Test-Failure 'latest without assets and an unreachable releases list' "the earlier releases could not be listed from $PendingUrl/missing.json; pass -Version <tag>" -BaseUrl $PendingUrl
 $env:OPENSYSML_RELEASES_API = "$PendingUrl/list-object.json"
 $null = Test-Failure 'latest without assets and a releases answer that is not a list' "the earlier releases could not be listed from $PendingUrl/list-object.json; pass -Version <tag>" -BaseUrl $PendingUrl
+$env:OPENSYSML_RELEASES_API = "$PendingUrl/list-scalars.json"
+$null = Test-Failure 'latest without assets and a releases list of things that are not releases' 'and no earlier release has a SHA256SUMS.txt' -BaseUrl $PendingUrl
+# A manifest that broke off is never read, whichever release it belongs to.
+$env:OPENSYSML_RELEASES_API = "$PendingUrl/list.json"
+if (Test-Failure 'latest whose manifest is cut off' "could not download $CutUrl/download/v8.3.0/SHA256SUMS.txt" -BaseUrl $CutUrl) {
+    Assert-Unsaid 'not uploaded yet'
+}
+$env:OPENSYSML_RELEASES_API = "$PendingUrl/list-cut.json"
+if (Test-Failure 'latest without assets and an earlier manifest that is cut off' "$PendingUrl/download/v8.2.3/SHA256SUMS.txt could not be downloaded" -BaseUrl $PendingUrl) {
+    Assert-Unsaid 'installing v8.1.0'
+}
 # Only a manifest that is not there is a release without assets: a server error is a failure.
 $env:OPENSYSML_RELEASES_API = "$PendingUrl/list.json"
 if (Test-Failure 'latest whose manifest the server fails on' "could not download $FailingUrl/download/v8.3.0/SHA256SUMS.txt" -BaseUrl $FailingUrl) {

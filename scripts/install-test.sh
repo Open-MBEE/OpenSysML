@@ -172,6 +172,11 @@ printf '{"message":"Not Found","status":"404"}\n' >"$pending_dir/list-object.jso
 # The same tree with a v8.2.2 whose manifest the server fails on, and one whose
 # latest release has assets but whose manifest the server fails on.
 releases_list "$pending_dir/list-failing.json" v8.3.0 v8.2.2 v8.1.0
+printf '[1,"a",null]\n' >"$pending_dir/list-scalars.json"
+# A v8.2.3 and a latest release whose manifests the server cuts off half way after a 200.
+releases_list "$pending_dir/list-cut.json" v8.3.0 v8.2.3 v8.1.0
+mkdir -p "$work/site/cut/releases/download"
+cp -R "$pending_dir/download/v8.1.0" "$work/site/cut/releases/download/v8.3.0"
 mkdir -p "$work/site/failing/releases/download"
 cp -R "$pending_dir/download/v8.1.0" "$work/site/failing/releases/download/v8.3.0"
 
@@ -180,7 +185,8 @@ cp -R "$pending_dir/download/v8.1.0" "$work/site/failing/releases/download/v8.3.
 cat >"$work/server.py" <<'PY'
 import functools, http.server, sys
 site, tag = sys.argv[1], sys.argv[2]
-latest = {"/releases": tag, "/pending/releases": "v8.3.0", "/failing/releases": "v8.3.0"}
+latest = {"/releases": tag, "/pending/releases": "v8.3.0", "/failing/releases": "v8.3.0", "/cut/releases": "v8.3.0"}
+cut = ("/cut/releases/download/v8.3.0/SHA256SUMS.txt", "/pending/releases/download/v8.2.3/SHA256SUMS.txt")
 failing = ("/failing/releases/download/v8.3.0/SHA256SUMS.txt", "/pending/releases/download/v8.2.2/SHA256SUMS.txt")
 
 class Handler(http.server.SimpleHTTPRequestHandler):
@@ -189,6 +195,15 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.send_response(500)
             self.send_header("Content-Length", "0")
             self.end_headers()
+            return True
+        if self.path in cut:
+            with open(site + "/cut/releases/download/v8.3.0/SHA256SUMS.txt", "rb") as manifest:
+                body = manifest.read()
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body[: len(body) // 2])
+            self.close_connection = True
             return True
         for releases, tag in latest.items():
             if self.path == releases + "/latest":
@@ -227,6 +242,7 @@ base="http://127.0.0.1:$(cat "$work/port")/releases"
 mirror="http://127.0.0.1:$(cat "$work/port")/mirror"
 pending="http://127.0.0.1:$(cat "$work/port")/pending/releases"
 failing="http://127.0.0.1:$(cat "$work/port")/failing/releases"
+cut="http://127.0.0.1:$(cat "$work/port")/cut/releases"
 
 # --- the cases ---------------------------------------------------------------
 
@@ -437,6 +453,19 @@ OPENSYSML_RELEASES_API="$pending/missing.json" fails "latest without assets and 
 	"the earlier releases could not be listed from $pending/missing.json; pass --version <tag>" --base-url "$pending" --prefix @P@
 OPENSYSML_RELEASES_API="$pending/list-object.json" fails "latest without assets and a releases answer that is not a list" \
 	"the earlier releases could not be listed from $pending/list-object.json; pass --version <tag>" --base-url "$pending" --prefix @P@
+OPENSYSML_RELEASES_API="$pending/list-scalars.json" fails "latest without assets and a releases list of things that are not releases" \
+	"and no earlier release has a SHA256SUMS.txt" --base-url "$pending" --prefix @P@
+# A manifest that broke off is never read, whichever release it belongs to.
+if OPENSYSML_RELEASES_API="$pending/list.json" fails "latest whose manifest is cut off" \
+	"could not download $cut/download/v8.3.0/SHA256SUMS.txt" --base-url "$cut" --prefix @P@; then
+	unsaid "not uploaded yet"
+	absent bin
+fi
+if OPENSYSML_RELEASES_API="$pending/list-cut.json" fails "latest without assets and an earlier manifest that is cut off" \
+	"$pending/download/v8.2.3/SHA256SUMS.txt could not be downloaded" --base-url "$pending" --prefix @P@; then
+	unsaid "installing v8.1.0"
+	absent bin
+fi
 # Only a manifest that is not there is a release without assets: a server error is a failure.
 if OPENSYSML_RELEASES_API="$pending/list.json" fails "latest whose manifest the server fails on" \
 	"could not download $failing/download/v8.3.0/SHA256SUMS.txt" --base-url "$failing" --prefix @P@; then
@@ -654,7 +683,7 @@ else
 fi
 
 if command -v pwsh >/dev/null 2>&1; then
-	pwsh -NoProfile -File "$root/scripts/install-test.ps1" -Script "$root/install.ps1" -BaseUrl "$base" -MirrorUrl "$mirror" -PendingUrl "$pending" -FailingUrl "$failing" \
+	pwsh -NoProfile -File "$root/scripts/install-test.ps1" -Script "$root/install.ps1" -BaseUrl "$base" -MirrorUrl "$mirror" -PendingUrl "$pending" -FailingUrl "$failing" -CutUrl "$cut" \
 		-HostPlatform "$host" -Good "$good" -Signed "$signed" -Tampered "$tampered" -Unlisted "$unlisted" -NoKernel "$nokernel" -NoGrpc "$nogrpc" \
 		-Repeated "$repeated" -Conflicting "$conflicting" ||
 		failures=$((failures + 1))

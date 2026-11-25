@@ -295,25 +295,25 @@ download() { # <url> <destination>
 	fi
 }
 
-# probe <url> <destination>: downloads like `download` and prints 200 when the
-# file arrived whole, else the HTTP status the server refused with, 000 when
-# there was none or the transfer broke off; the file is kept only on 200.
+# probe <url> <destination>: downloads like `download` and prints 200 when the file arrived
+# whole, else the status the server refused with, 000 for anything else; only a 200 keeps the file.
 probe() {
+	probe_ok=false
 	if [ "$downloader" = curl ]; then
 		# shellcheck disable=SC2086  # curl_proto is a list of options
-		if probe_status=$(curl -fsSL $curl_proto --retry 3 -o "$2" -w '%{http_code}' "$1" 2>/dev/null); then
-			probe_status=200
-		fi
+		probe_status=$(curl -fsSL $curl_proto --retry 3 -o "$2" -w '%{http_code}' "$1" 2>/dev/null) && probe_ok=true
 	elif probe_status=$(wget -S -q -O "$2" "$1" 2>&1); then
-		probe_status=200
+		probe_ok=true
 	else
 		probe_status=$(printf '%s\n' "$probe_status" | sed -n 's/^[[:space:]]*HTTP\/[0-9.]*[[:space:]][[:space:]]*\([0-9][0-9][0-9]\).*/\1/p' | tail -n 1)
 	fi
-	case "$probe_status" in
-	200) ;;
-	[345][0-9][0-9]) rm -f "$2" ;;
-	*) rm -f "$2" && probe_status=000 ;;
-	esac
+	if [ "$probe_ok" = true ]; then
+		probe_status=200
+	else
+		rm -f "$2"
+		# A transfer that failed after the server answered 200 has no status to report.
+		case "$probe_status" in [345][0-9][0-9]) ;; *) probe_status=000 ;; esac
+	fi
 	printf '%s\n' "$probe_status"
 }
 
