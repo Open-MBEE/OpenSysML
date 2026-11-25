@@ -14,12 +14,21 @@ import (
 
 // runnerRequest is the JSON object written to the runner's standard input.
 type runnerRequest struct {
-	Protocol   int              `json:"protocol"`
-	FMU        string           `json:"fmu"`
-	Interface  string           `json:"interface"`
-	Experiment runnerExperiment `json:"experiment"`
-	Start      map[string]any   `json:"start"`
-	Outputs    []string         `json:"outputs"`
+	Protocol   int                  `json:"protocol"`
+	FMU        string               `json:"fmu"`
+	Interface  string               `json:"interface"`
+	Experiment runnerExperiment     `json:"experiment"`
+	Start      map[string]any       `json:"start"`
+	Outputs    []string             `json:"outputs"`
+	Series     *runnerSeriesRequest `json:"series,omitempty"`
+}
+
+// runnerSeriesRequest asks for a trajectory beside the scalar outputs.
+// Times, when present, names the exact instants instead of even spacing.
+type runnerSeriesRequest struct {
+	Samples int       `json:"samples"`
+	Times   []float64 `json:"times,omitempty"`
+	Outputs []string  `json:"outputs"`
 }
 
 // runnerExperiment is the request's experiment member: startTime and stopTime
@@ -32,20 +41,38 @@ type runnerExperiment struct {
 	Tolerance *float64 `json:"tolerance,omitempty"`
 }
 
-// runnerReply is the JSON object the runner writes: the simulation time and
-// the outputs, or its own error.
+// runnerReply is the runner's time and outputs, or its error.
+// A trajectory answers one series member with times and samples.
 type runnerReply struct {
 	Protocol int                        `json:"protocol"`
 	Time     *float64                   `json:"time"`
 	Outputs  map[string]json.RawMessage `json:"outputs"`
+	Series   *runnerSeriesReply         `json:"series,omitempty"`
 	Error    *string                    `json:"error"`
 }
 
-// requestOf composes the request one call makes of the FMU at path: the
-// interface the FMU provides (coSimulation first), the experiment from the
-// call's reserved inputs over the DefaultExperiment, the start values typed by
-// each variable's kind and the outputs to read at stopTime.
-func requestOf(call *runtime.ToolCall, d *Description, fmu string) ([]byte, error) {
+// runnerSeriesReply is the trajectory of a series request: Times holds one
+// instant per sample and Outputs maps each requested variable to its samples.
+type runnerSeriesReply struct {
+	Times   []float64                    `json:"times"`
+	Outputs map[string][]json.RawMessage `json:"outputs"`
+}
+
+// requestOf composes the request for one call: interface, experiment, start
+// values, stopTime outputs and any sampled trajectory. Its plan validates the reply.
+func requestOf(call *runtime.ToolCall, d *Description, fmu string) ([]byte, seriesPlan, error) {
+	fields, plan, err := requestFields(call, d, fmu)
+	if err != nil {
+		return nil, seriesPlan{}, err
+	}
+	encoded, err := json.Marshal(fields)
+	return encoded, plan, err
+}
+
+// requestFields composes a call's request before encoding. A session reuses it
+// for init, clearing the outputs a whole run reads at stopTime; the plan
+// validates a trajectory the one-shot runner answers.
+func requestFields(call *runtime.ToolCall, d *Description, fmu string) (runnerRequest, seriesPlan, error) {
 	var iface string
 	switch {
 	case d.CoSimulation != nil:
@@ -81,15 +108,17 @@ func requestOf(call *runtime.ToolCall, d *Description, fmu string) ([]byte, erro
 			tolerance = &t
 		}
 	}
+	var samples, interval *float64
 	for _, in := range call.Inputs {
-		if strings.HasPrefix(in.Variable, "fmi:") {
+		kind, v := classifyInput(in.Variable, d)
+		if kind == reservedInput {
 			unit := ""
-			if in.Variable != "fmi:tolerance" {
+			if in.Variable != "fmi:tolerance" && in.Variable != seriesSamplesInput {
 				unit = "s"
 			}
 			n, err := reservedNumber(call, in, unit)
 			if err != nil {
-				return nil, err
+				return runnerRequest{}, seriesPlan{}, err
 			}
 			switch in.Variable {
 			case "fmi:startTime":
@@ -102,26 +131,41 @@ func requestOf(call *runtime.ToolCall, d *Description, fmu string) ([]byte, erro
 			case "fmi:tolerance":
 				t := n
 				tolerance = &t
+			case seriesSamplesInput:
+				samples = &n
+			case seriesIntervalInput:
+				interval = &n
 			}
 			continue
 		}
-		v, _ := d.Variable(in.Variable)
 		value, err := inputValue(call, in, d, v)
 		if err != nil {
-			return nil, err
+			return runnerRequest{}, seriesPlan{}, err
 		}
 		request.Start[v.Name] = value
 	}
-	for _, out := range call.Outputs {
-		if reservedOutputs[out.Variable] {
-			continue
+	plan, err := planSeries(call, d, startTime, stopTime, samples, interval)
+	if err != nil {
+		return runnerRequest{}, seriesPlan{}, err
+	}
+	if namesStep(call, d) && namesSeries(call, d) {
+		return runnerRequest{}, seriesPlan{}, &SessionSeriesError{Tool: call.ToolName}
+	}
+	if plan.requested() {
+		outputs := plan.vars
+		if outputs == nil {
+			outputs = []string{}
 		}
-		v, _ := d.Variable(out.Variable)
-		request.Outputs = append(request.Outputs, v.Name)
+		request.Series = &runnerSeriesRequest{Samples: plan.samples, Times: plan.instants, Outputs: outputs}
+	}
+	for _, out := range call.Outputs {
+		if kind, v, _ := classifyOutput(out.Variable, d); kind == fmuOutput {
+			request.Outputs = append(request.Outputs, v.Name)
+		}
 	}
 	request.Experiment = runnerExperiment{StartTime: startTime, StopTime: stopTime,
 		StepSize: stepSize, Tolerance: tolerance}
-	return json.Marshal(request)
+	return request, plan, nil
 }
 
 // reservedNumber is the number a reserved fmi: input carries: Real or Integer,
@@ -238,9 +282,9 @@ func displayValue(v runtime.ToolValue) string {
 	return semantics.FormatConst(v.Value)
 }
 
-// replyOf reads the runner's standard output as the reply, the outputs mapped
-// to the call's variables as runtime.ToolValues the call binds.
-func replyOf(call *runtime.ToolCall, d *Description, stdout, stderr []byte) (map[string]runtime.ToolValue, error) {
+// replyOf binds the runner's outputs to the call's variables.
+// A series is never collapsed to the scalar answer at stopTime.
+func replyOf(call *runtime.ToolCall, d *Description, plan seriesPlan, stdout, stderr []byte) (map[string]runtime.ToolValue, error) {
 	malformed := func(detail string) error {
 		return &runtime.ToolError{Tool: call.ToolName, Kind: runtime.ToolMalformed, Detail: detail}
 	}
@@ -260,24 +304,88 @@ func replyOf(call *runtime.ToolCall, d *Description, stdout, stderr []byte) (map
 	if math.IsNaN(*reply.Time) || math.IsInf(*reply.Time, 0) {
 		return nil, malformed(fmt.Sprintf("the runner answered a non-finite time %v", *reply.Time))
 	}
+	var series *runnerSeriesReply
+	if plan.requested() {
+		if reply.Series == nil {
+			return nil, malformed("the runner answered no series")
+		}
+		if len(reply.Series.Times) != plan.samples {
+			return nil, malformed(fmt.Sprintf("the runner answered %d sample times, expected %d", len(reply.Series.Times), plan.samples))
+		}
+		for i, t := range reply.Series.Times {
+			if math.IsNaN(t) || math.IsInf(t, 0) {
+				return nil, malformed(fmt.Sprintf("sample time %d is not finite", i))
+			}
+			if i > 0 && t < reply.Series.Times[i-1] {
+				return nil, malformed(fmt.Sprintf("sample times are not ordered at index %d", i))
+			}
+		}
+		for i, want := range plan.instants {
+			got := reply.Series.Times[i]
+			if math.Abs(got-want) > 1e-9*math.Max(1, math.Abs(want)) {
+				return nil, malformed(fmt.Sprintf("sample time %d is %v, expected %v from %s", i, got, want, seriesIntervalInput))
+			}
+		}
+		series = reply.Series
+	}
 	outputs := make(map[string]runtime.ToolValue, len(call.Outputs))
 	for _, out := range call.Outputs {
-		if out.Variable == "fmi:time" {
+		kind, v, name := classifyOutput(out.Variable, d)
+		switch kind {
+		case replyTime:
 			outputs[out.Variable] = runtime.ToolValue{Value: semantics.Value{Kind: semantics.ValReal, Real: *reply.Time}}
-			continue
+		case sampleTimes:
+			items := make([]runtime.ToolValue, 0, plan.samples)
+			for _, t := range series.Times {
+				items = append(items, runtime.ToolValue{Value: semantics.Value{Kind: semantics.ValReal, Real: t}})
+			}
+			outputs[out.Variable] = runtime.ToolValue{Unit: "s", Items: items}
+		case sampleSeries:
+			value, err := seriesOutput(d, name, plan.samples, series.Outputs[name])
+			if err != nil {
+				return nil, malformed(err.Error())
+			}
+			outputs[out.Variable] = value
+		case fmuOutput:
+			raw, ok := reply.Outputs[v.Name]
+			if !ok {
+				return nil, malformed(fmt.Sprintf("the runner answered no output %q", v.Name))
+			}
+			value, err := outputValue(d, v, raw)
+			if err != nil {
+				return nil, malformed(err.Error())
+			}
+			outputs[out.Variable] = value
+		default:
+			return nil, malformed(fmt.Sprintf("the call names unknown output %q", out.Variable))
 		}
-		v, _ := d.Variable(out.Variable)
-		raw, ok := reply.Outputs[v.Name]
-		if !ok {
-			return nil, malformed(fmt.Sprintf("the runner answered no output %q", v.Name))
-		}
-		value, err := outputValue(d, v, raw)
-		if err != nil {
-			return nil, malformed(err.Error())
-		}
-		outputs[out.Variable] = value
 	}
 	return outputs, nil
+}
+
+// seriesOutput is one variable's trajectory as a ToolValue: one item per sample,
+// typed and measured in the variable's unit. Bad shapes are protocol breaks.
+func seriesOutput(d *Description, name string, samples int, raws []json.RawMessage) (runtime.ToolValue, error) {
+	if raws == nil {
+		return runtime.ToolValue{}, fmt.Errorf("the runner answered no series for %q", name)
+	}
+	if len(raws) != samples {
+		return runtime.ToolValue{}, fmt.Errorf("series %q answered %d samples, expected %d", name, len(raws), samples)
+	}
+	v, _ := d.Variable(name)
+	unit := ""
+	if exponents, ok := v.UnitExponents(d); ok {
+		unit = exponents.SIExpression()
+	}
+	items := make([]runtime.ToolValue, 0, len(raws))
+	for i, raw := range raws {
+		value, err := scalarOutput(v, raw)
+		if err != nil {
+			return runtime.ToolValue{}, fmt.Errorf("series %q sample %d: %w", name, i, err)
+		}
+		items = append(items, value)
+	}
+	return runtime.ToolValue{Unit: unit, Items: items}, nil
 }
 
 // outputValue is the JSON the runner answered for one variable as a ToolValue,

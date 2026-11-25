@@ -224,6 +224,9 @@ besides the ones the view's rendering shows (`"all"` for every one), and the
 `RenderedView`'s `shown` lists the elements drawn. `compartments` says how a
 tree rendering folds owned members into compartment rows (`"positioned"`, the
 default, `"most"` or `"ports"`); a folded `RenderNode` names its `compartment`.
+Julia declares the `render_node_shape` capability, but its typed `RenderNode` does not
+decode the `shape` field a server reports; see
+[the shape design record](../project/structured-render-node-shape.md#known-limitations-and-follow-ups).
 
 Conversion is available through `convert_file(conn, path, to_format; ...)`,
 `convert_source(conn, content, to_format; from_format, ...)`,

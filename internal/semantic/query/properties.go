@@ -109,6 +109,13 @@ func (r *PropertyReader) Values(sym *symbols.Symbol, property string) ([]string,
 	case PropertyText:
 		texts, ok := r.semantics.RequirementTextsOf(sym)
 		return texts, ok && len(texts) > 0
+	case PropertyBoundSubject:
+		if r.semantics == nil {
+			return nil, false
+		}
+		if target, ok := r.semantics.BoundSubjectOf(sym); ok {
+			return presentValues(r.elementIdentity(target))
+		}
 	}
 	return nil, false
 }

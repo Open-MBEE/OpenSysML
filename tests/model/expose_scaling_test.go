@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/testbudget"
 )
 
 // Analysing a view resolves the names in its body against its exposes, and each
@@ -27,6 +28,7 @@ func TestViewWithManyExposesAnalysesPromptly(t *testing.T) {
 	}
 	src.WriteString("\t@Tag;\n}\n")
 
+	limit := testbudget.Deadline(t, 10*time.Second)
 	done := make(chan int, 1)
 	go func() {
 		ws := model.NewWorkspace()
@@ -38,7 +40,7 @@ func TestViewWithManyExposesAnalysesPromptly(t *testing.T) {
 		if count != 0 {
 			t.Fatalf("the view is valid SysML; got %d diagnostics", count)
 		}
-	case <-time.After(10 * time.Second):
-		t.Fatalf("analysing a view with %d exposes did not finish in 10s", n)
+	case <-time.After(limit):
+		t.Fatalf("analysing a view with %d exposes did not finish in %v", n, limit)
 	}
 }

@@ -34,6 +34,7 @@ func ReadFeature(context Context, row Value, property string, options Options) (
 		derived:       &derivedValues{},
 		metadataTypes: make(map[string]*symbols.Symbol),
 		reflection:    &reflectionMemo{},
+		stateActivity: &stateActivityIndex{},
 		depthLeft:     defaultInvocationDepth,
 	}
 	execution.reader.WithElementID(execution.elementID)

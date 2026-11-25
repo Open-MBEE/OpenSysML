@@ -8,13 +8,14 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // modelFormatVersion is the on-disk format version of a model record. Bump it
 // whenever ModelRecord or diag.Diagnostic changes shape or meaning.
-const modelFormatVersion = 1
+const modelFormatVersion = 2
 
 // maxModelRecordBytes bounds what a cache directory's model records take together: an
 // edit to any document leaves the model's old record behind, so the least recently used go.
@@ -30,11 +31,13 @@ type ModelRecord struct {
 	Documents []ModelDocument
 }
 
-// ModelDocument is one document's part of a ModelRecord.
+// ModelDocument is one document's part of a ModelRecord, with the reads its
+// analysis made so a restored workspace needs no passes to prune on an edit.
 type ModelDocument struct {
 	Name        string
 	Kind        source.Kind
 	Diagnostics []diag.Diagnostic
+	Reads       *resolve.Reads
 }
 
 // ModelKey derives a model record's key from the library's identity, the build, the format and

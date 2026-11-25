@@ -2,6 +2,7 @@ package queryexec
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -145,6 +146,44 @@ func TestExecuteRelatedConnectionsAllocationsAndAssertions(t *testing.T) {
 	// Verification traversal never follows satisfaction edges.
 	assertRelated(t, fixture, "massRequirement", "verification", "incoming", 1,
 		[]string{"massVerification"})
+}
+
+// Dependency and both allocation spellings are distinct row-set edges whose
+// ends a Related operation answers from either side.
+func TestExecuteRelatedDependencyAndAllocate(t *testing.T) {
+	fixture := loadExecutionFixtureFile(t, "testdata/tmt_relationships.sysml")
+
+	assertRelated(t, fixture, "scienceComputer", "dependency", "outgoing", 1,
+		[]string{"massRequirement"})
+	assertRelated(t, fixture, "massRequirement", "dependency", "incoming", 1,
+		[]string{"scienceComputer"})
+	// A dependency traversal never follows an allocation edge.
+	assertRelated(t, fixture, "telescope::instrumentCluster", "dependency", "outgoing", 1, nil)
+
+	for _, kind := range []string{"allocation", "allocate"} {
+		assertRelated(t, fixture, "telescope::instrumentCluster", kind, "outgoing", 1,
+			[]string{"scienceComputer"})
+		assertRelated(t, fixture, "scienceComputer", kind, "incoming", 1,
+			[]string{"telescope::instrumentCluster"})
+	}
+	// An allocate traversal never follows a dependency edge.
+	assertRelated(t, fixture, "scienceComputer", "allocate", "outgoing", 1, nil)
+}
+
+// A relationship kind outside the supported set is a typed refusal that names
+// every kind a row-set traversal accepts.
+func TestExecuteRelatedRefusalNamesTheSupportedKinds(t *testing.T) {
+	fixture := loadExecutionFixtureFile(t, "testdata/tmt_relationships.sysml")
+	_, err := fixture.related(t, fixture.symbol(t, "scienceComputer"), "traceability", "outgoing", 1, Options{})
+	var executionError *Error
+	if !errors.As(err, &executionError) || executionError.Kind != ErrorUnknownRelationship {
+		t.Fatalf("unknown kind: err = %v, want an unknown-relationship refusal", err)
+	}
+	for _, kind := range SupportedRelationships() {
+		if !strings.Contains(err.Error(), kind) {
+			t.Errorf("refusal %q does not name supported kind %q", err.Error(), kind)
+		}
+	}
 }
 
 func TestExecuteRelatedDeclaredRequirements(t *testing.T) {

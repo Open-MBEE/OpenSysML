@@ -1031,6 +1031,13 @@ func (d *decoder) isExpressionIRI(term rdf.Term) bool {
 	return term.IsIRI() && strings.HasPrefix(term.Value, rdf.Expression)
 }
 
+// definedEndFeature accepts a derived connector property naming a graph-defined
+// end; this writer keeps such properties on the feature the end references.
+func (d *decoder) definedEndFeature(term rdf.Term) bool {
+	return d.isExpressionIRI(term) && d.metaclass(term) != "" &&
+		d.graph.BoolValue(term, rdf.SysML+pIsEnd)
+}
+
 // expressionOwner reports whether a term can own an expression parameter.
 func (d *decoder) expressionOwner(term rdf.Term) bool {
 	return d.isExpressionIRI(term) || expressionMetaclasses[d.metaclass(term)] &&
@@ -1413,6 +1420,11 @@ func (d *decoder) checkReferences() error {
 		}
 		if isChain {
 			// A chain is written as its `a.b.c` text wherever it is reached.
+			continue
+		}
+		if d.derivedConnectorFeature(triple) && d.definedEndFeature(triple.Object) {
+			// A derived connector property may name a defined end feature, which
+			// carries sysx:endElement when indexed, instead of a named element.
 			continue
 		}
 		if d.metaclass(triple.Subject) == mReferenceSubsetting &&

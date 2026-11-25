@@ -44,6 +44,9 @@ const (
 	QueryPropReceiverArgument      = corequery.PropertyReceiverArgument
 	QueryPropSymbolKind            = corequery.PropertySymbolKind
 	QueryPropText                  = corequery.PropertyText
+	QueryPropIsActive              = corequery.PropertyIsActive
+	QueryPropAnnotations           = corequery.PropertyAnnotations
+	QueryPropBoundSubject          = corequery.PropertyBoundSubject
 )
 
 // QueryErrorKind classifies why a query could not be evaluated. Every kind fails
@@ -171,6 +174,8 @@ func (s *Service) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryRes
 		}
 		bindings[querytranslate.SourceParameter] = values
 	}
+	qctx.Features = plan.Features
+	qctx.Builtins = plan.Builtins
 	result, err := queryexec.Execute(plan.Program, qctx, bindings, queryexec.Options{})
 	if err != nil {
 		status := held.queryExecStatus(err)

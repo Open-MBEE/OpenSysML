@@ -412,6 +412,28 @@ func (w *Workspace) Update(name string, content []byte, version int) {
 	w.setOpenBuffer(name, content, version)
 }
 
+// OpenParsed installs a tree parsed elsewhere as an open buffer over content,
+// without parsing it again; the caller supplies the tree of these bytes and kind.
+func (w *Workspace) OpenParsed(name string, content []byte, version int, kind source.Kind,
+	root *ast.RootNamespace, parseDiags, parseWarnings []parser.Diagnostic) {
+	if root == nil {
+		// No tree to install: parse the text rather than index an empty scope.
+		sf := newDocumentSource(name, content, kind)
+		p := parser.New(sf)
+		root, parseDiags, parseWarnings, kind = p.ParseFile(), p.Diagnostics, p.Warnings, sf.Kind()
+	}
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.open[name] = true
+	w.kinds[name] = kind
+	doc := newParsedDocument(name, content, version, kind, root, parseDiags, parseWarnings)
+	w.docs[name] = doc
+	w.changes[name]++
+	w.installLocked(doc)
+	w.index.ExpandWildcardImports()
+	w.invalidateLocked(name)
+}
+
 // SetOnDisk records a copy of the bytes a file holds on disk. If the document is
 // not open, it becomes the active content and the document is reindexed.
 func (w *Workspace) SetOnDisk(name string, content []byte) {
@@ -855,13 +877,38 @@ func (w *Workspace) memberSymbolsLocked(resolver *resolve.Resolver, sem *semanti
 // semanticsLocked is the workspace's resolver with its model and argument typer, made
 // on first use and kept for its life; it tracks per document what each entry read.
 func (w *Workspace) semanticsLocked() (*resolve.Resolver, *semantics.Model) {
+	w.ensureSemanticsLocked()
+	w.settleGathersLocked()
+	return w.resolver, w.model
+}
+
+// ensureSemanticsLocked makes the resolver and gathers a workspace owns on
+// first semantic use, without settling gathers. Caller holds the write lock.
+func (w *Workspace) ensureSemanticsLocked() *resolve.Resolver {
 	if w.resolver == nil {
 		resolver, sem := w.resolverOver(w.index)
 		resolver.Track()
 		w.resolver, w.model, w.gathers = resolver, sem, passes.NewGathers()
 	}
-	w.settleGathersLocked()
-	return w.resolver, w.model
+	return w.resolver
+}
+
+// RestoreAnalyzed installs a recorded analysis over the document's current tree:
+// no passes run, and later index changes drop it by what the passes read.
+func (w *Workspace) RestoreAnalyzed(name string, diagnostics []diag.Diagnostic, reads *resolve.Reads) bool {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	doc := w.docs[name]
+	if doc == nil || doc.Recorded() || len(doc.ParseDiagnostics) > 0 || reads == nil {
+		return false
+	}
+	w.diagCache[name] = diagnostics
+	if resolver := w.ensureSemanticsLocked(); !resolver.RestoreReads(name, *reads) {
+		delete(w.diagCache, name)
+		return false
+	}
+	w.stampLocked(name)
+	return true
 }
 
 // sharedLocked is the workspace's semantic state as a pass context shares it.

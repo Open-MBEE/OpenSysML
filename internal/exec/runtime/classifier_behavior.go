@@ -202,6 +202,28 @@ func (inst *Instance) ExhibitedStates() []*ObjectBehavior {
 	return machines
 }
 
+// Symbols lists the declarations through which this behavior is addressed:
+// its binding member, the chain's names and the kinds it conforms to.
+func (b *ObjectBehavior) Symbols() []*symbols.Symbol {
+	if b == nil {
+		return nil
+	}
+	out := make([]*symbols.Symbol, 0, 2+len(b.bindings)+len(b.kinds))
+	add := func(sym *symbols.Symbol) {
+		if sym != nil {
+			out = append(out, sym)
+		}
+	}
+	add(b.member)
+	for _, sym := range b.bindings {
+		add(sym)
+	}
+	for _, sym := range b.kinds {
+		add(sym)
+	}
+	return out
+}
+
 // ExhibitedStatesOf returns the machines the object exhibits under sym's declaration:
 // the one sym itself binds, or else every one reaching sym through its bindings
 // (the usage it names, or the definition holding its body) or typed by it, since

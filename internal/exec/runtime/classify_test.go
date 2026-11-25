@@ -1701,7 +1701,11 @@ func TestRelationshipsComeFromEveryTypeOfTheObject(t *testing.T) {
 	}
 	var conns []string
 	for _, conn := range ctx.connectionsOf(raw) {
-		if ends := strings.Join(conn.Ends, "-"); ends == "p-q" || ends == "q-r" {
+		paths := make([]string, 0, len(conn.Ends))
+		for _, end := range conn.Ends {
+			paths = append(paths, end.Path)
+		}
+		if ends := strings.Join(paths, "-"); ends == "p-q" || ends == "q-r" {
 			conns = append(conns, ends)
 		}
 	}
