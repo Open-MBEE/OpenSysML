@@ -53,10 +53,14 @@ At the pinned baseline `4d67c7a98f` (a nightly of `v0.12.1`, which itself is
 ## What this change implements
 
 A memoized semantic derivation reads the case's subject member and, when that
-member states no value of its own, follows the subjects it redefines. It takes
+member states no value of its own, follows every branch of the subjects it
+redefines, including siblings reached through different general cases. It takes
 the expression of a plain `=` binding (not a `default` and not an initial `:=`
 value), resolves it in the scope where it is written, follows an alias to its
-target, and returns the target element. It deliberately never returns a subject
+target, and returns the target element. A plain binding is the case's own
+answer: once written it stops the walk, so an expression that names no
+declaration — a constructor, for instance — reports absence rather than the
+general's older binding. The derivation deliberately never returns a subject
 parameter from the chain. The result is cached per element, so projecting the
 property over every row of a query resolves each binding once.
 
@@ -85,9 +89,12 @@ and a `Project` reports the element.
   the inherited subject parameter; the declaration is named by the `= …` value.
   Reading the redefinition target itself would answer the parameter — exactly
   the wrong element the absence rule forbids. When the redefining subject states
-  no value of its own, the redefinition chain is followed to a general subject
-  that does bind a declaration, so the binding is inherited. A visited set
-  guards cycles, and no subject parameter in the chain can be the answer.
+  no value of its own, every redefinition branch is followed in declaration
+  order to a general subject that binds a declaration, so a binding on a later
+  general is inherited even when an earlier one is unbound. A visited set
+  guards cycles, and no subject parameter in the chain can be the answer. A
+  binding the case does write is final: when its expression names no declaration
+  (a constructor, for example), the answer is absence, never an older binding.
 - **A plain `=` is a binding; `default` is not.** A subject that declares a
   default (the standard library's `subject subj default Case::result;` is the
   common form) is a fallback for a run, not an element the case is verifying;
@@ -120,6 +127,8 @@ is no versioned format to bump.
 | A case binding nothing answers an explicit absence, never another element | the same test (`Verification::unboundSizing` has no property; the `s` parameter never appears as a value) and `internal/semantic/semantics/bound_subject_test.go:TestBoundSubjectOfNamesTheBoundDeclaration` |
 | Both binding forms, a feature chain, a default, an initial value and an inherited binding are read | `TestBoundSubjectOfNamesTheBoundDeclaration` (`:>> s = …`, `s = …`, absence) and `TestBoundSubjectOfReadsChainsDefaultsInitialAndInheritedBindings` (chain FQN, absent default and initial value, redefining subject with no value inheriting the general's binding) |
 | A cast binding answers the value's declaration, never the cast type | `TestBoundSubjectOfNamesTheBoundDeclaration` (`subject s = boiler as Boiler` answers the value's FQN; a standalone `(as T)` binds nothing) |
+| A binding on a later redefined general is found when an earlier one is unbound | `TestBoundSubjectOfWalksEveryRedefinedGeneral` and `query_boundsubject_test.go:TestQueryBoundSubjectReadsEveryGeneral` (two generals, only the second binds) |
+| An explicit binding naming no declaration is absent, never a general's older binding | `TestBoundSubjectOfStopsAtAnExplicitUnnameableBinding` and `query_boundsubject_test.go:TestQueryBoundSubjectStopsAtAConstructor` (a constructor replaces an inherited declaration binding) |
 | The property constrains rows as well as projecting them | `query_boundsubject_test.go:TestQueryBoundSubjectSelectsCasesByTheirBinding` and `:TestQueryOSLCBoundSubject` |
 | An undeclared name near the new one is still refused | `query_boundsubject_test.go:TestQueryStillRefusesAPropertyNextToBoundSubject` |
 | No per-row re-resolution explosion | `internal/semantic/semantics/bound_subject_test.go:TestBoundSubjectOfResolvesEachBindingOnce` (the resolver memo does not grow on a second read) and `client/opensysml/bound_subject_internal_test.go:TestQueryBoundSubjectNeedsNoPerRowLookup` (one `Query` RPC, zero `GetSymbol` RPCs for a listing) |
@@ -161,7 +170,9 @@ those tests skip by design in that state.
 - A redefinition edge alone is not a declaration. A redefining subject with no
   value of its own inherits a general's binding when one exists; when no subject
   in the redefinition chain states a plain `=` binding, the property is absent.
-  The redefinition target itself is never answered as the declaration.
+  The redefinition target itself is never answered as the declaration. A plain
+  binding that constructs an object names no declaration either, so it is
+  absent even when a general supplies a declaration-valued binding.
 - The property reports one declaration. A multiplicity of subjects bound to
   several declarations is outside this surface; the single-valued query row
   cannot represent all of them without changing the wire shape.

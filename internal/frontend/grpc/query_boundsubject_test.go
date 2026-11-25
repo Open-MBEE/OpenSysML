@@ -52,6 +52,49 @@ func TestQueryBoundSubjectNamesTheBoundDeclaration(t *testing.T) {
 	}
 }
 
+// boundSubjectRedefinitionModel has an unbound general, a bound second general and
+// a constructor binding; it stays inline so the fixture's provenance is unchanged.
+const boundSubjectRedefinitionModel = `package Structure {
+	part def Boiler;
+	part boilerAsMaintained : Boiler;
+}
+package Verification {
+	verification def UnboundGen { subject a : Structure::Boiler; }
+	verification def BoundGen { subject b : Structure::Boiler = Structure::boilerAsMaintained; }
+	verification twoGenerals :> UnboundGen, BoundGen { subject :>> Verification::UnboundGen::a; }
+	verification constructed : BoundGen { subject :>> b = new Structure::Boiler(); }
+}`
+
+func projectedBoundSubjects(t *testing.T, model string) map[string]string {
+	t.Helper()
+	_, _, resp := runQueryOnSource(t, model, &pb.Query{
+		Select: []string{QueryPropID, QueryPropBoundSubject},
+	})
+	got := map[string]string{}
+	for _, element := range resp.Elements {
+		if value, ok := element.Properties[QueryPropBoundSubject]; ok {
+			got[element.Id] = value
+		}
+	}
+	return got
+}
+
+// A binding on a second general is found when the first is unbound.
+func TestQueryBoundSubjectReadsEveryGeneral(t *testing.T) {
+	got := projectedBoundSubjects(t, boundSubjectRedefinitionModel)
+	if value := got["Verification::twoGenerals"]; value != "Structure::boilerAsMaintained" {
+		t.Errorf("twoGenerals boundSubject = %q, want Structure::boilerAsMaintained", value)
+	}
+}
+
+// An explicit binding naming no declaration is absent, not an older binding.
+func TestQueryBoundSubjectStopsAtAConstructor(t *testing.T) {
+	got := projectedBoundSubjects(t, boundSubjectRedefinitionModel)
+	if value, present := got["Verification::constructed"]; present {
+		t.Errorf("constructed boundSubject = %q, want absence", value)
+	}
+}
+
 // TestQueryBoundSubjectSelectsCasesByTheirBinding pins an equality on the
 // bound FQN selecting only the case bound to that declaration.
 func TestQueryBoundSubjectSelectsCasesByTheirBinding(t *testing.T) {

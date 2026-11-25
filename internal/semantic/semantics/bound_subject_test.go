@@ -24,6 +24,10 @@ package P {
     verification initial : Check { subject s : Boiler := P::boilerAsMaintained; }
     verification def BoundDef { subject s : Boiler = P::boilerAsMaintained; }
     verification redefNoValue : BoundDef { subject :>> s; }
+    verification constructed : BoundDef { subject :>> s = new Boiler(); }
+    verification def UnboundGen { subject a : Boiler; }
+    verification def BoundGen { subject b : Boiler = P::boilerAsMaintained; }
+    verification def TwoGens :> UnboundGen, BoundGen { subject :>> P::UnboundGen::a; }
 }
 `
 
@@ -104,6 +108,27 @@ func TestBoundSubjectOfReadsChainsDefaultsInitialAndInheritedBindings(t *testing
 		if got := symbols.FQNOf(target); got != tc.want {
 			t.Errorf("%s: BoundSubjectOf = %s, want %s", tc.name, got, tc.want)
 		}
+	}
+}
+
+// A constructor binding names no declaration, so an older binding is not inherited.
+func TestBoundSubjectOfStopsAtAnExplicitUnnameableBinding(t *testing.T) {
+	m, root := buildModel(t, boundSubjectModel)
+	target, ok := m.BoundSubjectOf(boundSubjectSym(t, root, "P", "constructed"))
+	if ok || target != nil {
+		t.Errorf("constructed: BoundSubjectOf = %v, %v; want absence", target, ok)
+	}
+}
+
+// A binding on a second general is found when the first, unbound branch hides it.
+func TestBoundSubjectOfWalksEveryRedefinedGeneral(t *testing.T) {
+	m, root := buildModel(t, boundSubjectModel)
+	target, ok := m.BoundSubjectOf(boundSubjectSym(t, root, "P", "TwoGens"))
+	if !ok || target == nil {
+		t.Fatal("TwoGens: BoundSubjectOf answered no target")
+	}
+	if got := symbols.FQNOf(target); got != "P::boilerAsMaintained" {
+		t.Errorf("TwoGens: BoundSubjectOf = %s, want P::boilerAsMaintained", got)
 	}
 }
 
