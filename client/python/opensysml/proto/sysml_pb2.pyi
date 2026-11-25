@@ -823,14 +823,16 @@ class SourceDocument(_message.Message):
     def __init__(self, file_path: _Optional[str] = ..., content: _Optional[str] = ..., language: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...
 
 class ParseSourcesRequest(_message.Message):
-    __slots__ = ("documents", "strict_conformance", "base_model_hash")
+    __slots__ = ("documents", "strict_conformance", "base_model_hash", "keep")
     DOCUMENTS_FIELD_NUMBER: _ClassVar[int]
     STRICT_CONFORMANCE_FIELD_NUMBER: _ClassVar[int]
     BASE_MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
+    KEEP_FIELD_NUMBER: _ClassVar[int]
     documents: _containers.RepeatedCompositeFieldContainer[SourceDocument]
     strict_conformance: bool
     base_model_hash: str
-    def __init__(self, documents: _Optional[_Iterable[_Union[SourceDocument, _Mapping]]] = ..., strict_conformance: _Optional[bool] = ..., base_model_hash: _Optional[str] = ...) -> None: ...
+    keep: bool
+    def __init__(self, documents: _Optional[_Iterable[_Union[SourceDocument, _Mapping]]] = ..., strict_conformance: _Optional[bool] = ..., base_model_hash: _Optional[str] = ..., keep: _Optional[bool] = ...) -> None: ...
 
 class ParseSourcesResponse(_message.Message):
     __slots__ = ("model_hash", "roots", "diagnostics", "error", "affected")
@@ -1255,8 +1257,18 @@ class ExecuteStateResponse(_message.Message):
     order_dependent: _containers.ScalarMap[str, int]
     def __init__(self, states_visited: _Optional[_Iterable[str]] = ..., final_context: _Optional[_Mapping[str, Value]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., outcomes: _Optional[_Iterable[_Union[Outcome, _Mapping]]] = ..., exploration: _Optional[_Union[ExplorationStatus, _Mapping]] = ..., final_time: _Optional[float] = ..., trace: _Optional[_Iterable[_Union[DocumentEvent, _Mapping]]] = ..., trace_dropped: _Optional[int] = ..., order_dependent: _Optional[_Mapping[str, int]] = ...) -> None: ...
 
+class ConvertProjection(_message.Message):
+    __slots__ = ("qualified_names", "metaclasses", "annotation_types")
+    QUALIFIED_NAMES_FIELD_NUMBER: _ClassVar[int]
+    METACLASSES_FIELD_NUMBER: _ClassVar[int]
+    ANNOTATION_TYPES_FIELD_NUMBER: _ClassVar[int]
+    qualified_names: _containers.RepeatedScalarFieldContainer[str]
+    metaclasses: _containers.RepeatedScalarFieldContainer[str]
+    annotation_types: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, qualified_names: _Optional[_Iterable[str]] = ..., metaclasses: _Optional[_Iterable[str]] = ..., annotation_types: _Optional[_Iterable[str]] = ...) -> None: ...
+
 class ConvertRequest(_message.Message):
-    __slots__ = ("file_path", "content", "model_hash", "from_format", "to_format", "tolerate_syntax_errors", "id_form", "documents", "compact", "omit_derived", "keep_derived", "include_check_diagnostics", "include_library_stubs", "inherited_members")
+    __slots__ = ("file_path", "content", "model_hash", "from_format", "to_format", "tolerate_syntax_errors", "id_form", "documents", "compact", "omit_derived", "keep_derived", "include_check_diagnostics", "include_library_stubs", "inherited_members", "projection")
     FILE_PATH_FIELD_NUMBER: _ClassVar[int]
     CONTENT_FIELD_NUMBER: _ClassVar[int]
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
@@ -1271,6 +1283,7 @@ class ConvertRequest(_message.Message):
     INCLUDE_CHECK_DIAGNOSTICS_FIELD_NUMBER: _ClassVar[int]
     INCLUDE_LIBRARY_STUBS_FIELD_NUMBER: _ClassVar[int]
     INHERITED_MEMBERS_FIELD_NUMBER: _ClassVar[int]
+    PROJECTION_FIELD_NUMBER: _ClassVar[int]
     file_path: str
     content: str
     model_hash: str
@@ -1285,7 +1298,8 @@ class ConvertRequest(_message.Message):
     include_check_diagnostics: bool
     include_library_stubs: bool
     inherited_members: bool
-    def __init__(self, file_path: _Optional[str] = ..., content: _Optional[str] = ..., model_hash: _Optional[str] = ..., from_format: _Optional[str] = ..., to_format: _Optional[str] = ..., tolerate_syntax_errors: _Optional[bool] = ..., id_form: _Optional[str] = ..., documents: _Optional[_Iterable[str]] = ..., compact: _Optional[bool] = ..., omit_derived: _Optional[bool] = ..., keep_derived: _Optional[_Iterable[str]] = ..., include_check_diagnostics: _Optional[bool] = ..., include_library_stubs: _Optional[bool] = ..., inherited_members: _Optional[bool] = ...) -> None: ...
+    projection: ConvertProjection
+    def __init__(self, file_path: _Optional[str] = ..., content: _Optional[str] = ..., model_hash: _Optional[str] = ..., from_format: _Optional[str] = ..., to_format: _Optional[str] = ..., tolerate_syntax_errors: _Optional[bool] = ..., id_form: _Optional[str] = ..., documents: _Optional[_Iterable[str]] = ..., compact: _Optional[bool] = ..., omit_derived: _Optional[bool] = ..., keep_derived: _Optional[_Iterable[str]] = ..., include_check_diagnostics: _Optional[bool] = ..., include_library_stubs: _Optional[bool] = ..., inherited_members: _Optional[bool] = ..., projection: _Optional[_Union[ConvertProjection, _Mapping]] = ...) -> None: ...
 
 class ConvertResponse(_message.Message):
     __slots__ = ("content", "from_format", "to_format", "error", "diagnostics", "experimental", "experimental_notice", "library_references")
@@ -3013,7 +3027,7 @@ class RenderFrame(_message.Message):
     def __init__(self, name: _Optional[str] = ..., type: _Optional[str] = ..., exposes: _Optional[_Iterable[str]] = ..., filters: _Optional[_Iterable[str]] = ..., annotations: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class RenderNode(_message.Message):
-    __slots__ = ("id", "kind", "name", "name_synthesized", "type", "detail", "text", "stand_in", "parent", "ports", "origin", "geometry", "style", "compartment", "inherited", "arrow", "parallel")
+    __slots__ = ("id", "kind", "name", "name_synthesized", "type", "detail", "text", "stand_in", "parent", "ports", "origin", "geometry", "style", "compartment", "inherited", "arrow", "parallel", "element_id", "shape")
     ID_FIELD_NUMBER: _ClassVar[int]
     KIND_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
@@ -3031,6 +3045,8 @@ class RenderNode(_message.Message):
     INHERITED_FIELD_NUMBER: _ClassVar[int]
     ARROW_FIELD_NUMBER: _ClassVar[int]
     PARALLEL_FIELD_NUMBER: _ClassVar[int]
+    ELEMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    SHAPE_FIELD_NUMBER: _ClassVar[int]
     id: str
     kind: str
     name: str
@@ -3048,24 +3064,28 @@ class RenderNode(_message.Message):
     inherited: bool
     arrow: str
     parallel: bool
-    def __init__(self, id: _Optional[str] = ..., kind: _Optional[str] = ..., name: _Optional[str] = ..., name_synthesized: _Optional[bool] = ..., type: _Optional[str] = ..., detail: _Optional[str] = ..., text: _Optional[str] = ..., stand_in: _Optional[bool] = ..., parent: _Optional[str] = ..., ports: _Optional[_Iterable[_Union[RenderPort, _Mapping]]] = ..., origin: _Optional[_Union[Span, _Mapping]] = ..., geometry: _Optional[_Union[RenderGeometry, _Mapping]] = ..., style: _Optional[_Union[RenderStyle, _Mapping]] = ..., compartment: _Optional[str] = ..., inherited: _Optional[bool] = ..., arrow: _Optional[str] = ..., parallel: _Optional[bool] = ...) -> None: ...
+    element_id: str
+    shape: str
+    def __init__(self, id: _Optional[str] = ..., kind: _Optional[str] = ..., name: _Optional[str] = ..., name_synthesized: _Optional[bool] = ..., type: _Optional[str] = ..., detail: _Optional[str] = ..., text: _Optional[str] = ..., stand_in: _Optional[bool] = ..., parent: _Optional[str] = ..., ports: _Optional[_Iterable[_Union[RenderPort, _Mapping]]] = ..., origin: _Optional[_Union[Span, _Mapping]] = ..., geometry: _Optional[_Union[RenderGeometry, _Mapping]] = ..., style: _Optional[_Union[RenderStyle, _Mapping]] = ..., compartment: _Optional[str] = ..., inherited: _Optional[bool] = ..., arrow: _Optional[str] = ..., parallel: _Optional[bool] = ..., element_id: _Optional[str] = ..., shape: _Optional[str] = ...) -> None: ...
 
 class RenderPort(_message.Message):
-    __slots__ = ("id", "name", "type", "direction", "inherited")
+    __slots__ = ("id", "name", "type", "direction", "inherited", "element_id")
     ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     TYPE_FIELD_NUMBER: _ClassVar[int]
     DIRECTION_FIELD_NUMBER: _ClassVar[int]
     INHERITED_FIELD_NUMBER: _ClassVar[int]
+    ELEMENT_ID_FIELD_NUMBER: _ClassVar[int]
     id: str
     name: str
     type: str
     direction: str
     inherited: bool
-    def __init__(self, id: _Optional[str] = ..., name: _Optional[str] = ..., type: _Optional[str] = ..., direction: _Optional[str] = ..., inherited: _Optional[bool] = ...) -> None: ...
+    element_id: str
+    def __init__(self, id: _Optional[str] = ..., name: _Optional[str] = ..., type: _Optional[str] = ..., direction: _Optional[str] = ..., inherited: _Optional[bool] = ..., element_id: _Optional[str] = ...) -> None: ...
 
 class RenderEdge(_message.Message):
-    __slots__ = ("to", "from_port", "to_port", "label", "name", "kind", "origin", "route", "style")
+    __slots__ = ("to", "from_port", "to_port", "label", "name", "kind", "origin", "route", "style", "element_id")
     FROM_FIELD_NUMBER: _ClassVar[int]
     TO_FIELD_NUMBER: _ClassVar[int]
     FROM_PORT_FIELD_NUMBER: _ClassVar[int]
@@ -3076,6 +3096,7 @@ class RenderEdge(_message.Message):
     ORIGIN_FIELD_NUMBER: _ClassVar[int]
     ROUTE_FIELD_NUMBER: _ClassVar[int]
     STYLE_FIELD_NUMBER: _ClassVar[int]
+    ELEMENT_ID_FIELD_NUMBER: _ClassVar[int]
     to: str
     from_port: str
     to_port: str
@@ -3085,7 +3106,8 @@ class RenderEdge(_message.Message):
     origin: Span
     route: _containers.RepeatedCompositeFieldContainer[RenderPoint]
     style: RenderStyle
-    def __init__(self, to: _Optional[str] = ..., from_port: _Optional[str] = ..., to_port: _Optional[str] = ..., label: _Optional[str] = ..., name: _Optional[str] = ..., kind: _Optional[str] = ..., origin: _Optional[_Union[Span, _Mapping]] = ..., route: _Optional[_Iterable[_Union[RenderPoint, _Mapping]]] = ..., style: _Optional[_Union[RenderStyle, _Mapping]] = ..., **kwargs) -> None: ...
+    element_id: str
+    def __init__(self, to: _Optional[str] = ..., from_port: _Optional[str] = ..., to_port: _Optional[str] = ..., label: _Optional[str] = ..., name: _Optional[str] = ..., kind: _Optional[str] = ..., origin: _Optional[_Union[Span, _Mapping]] = ..., route: _Optional[_Iterable[_Union[RenderPoint, _Mapping]]] = ..., style: _Optional[_Union[RenderStyle, _Mapping]] = ..., element_id: _Optional[str] = ..., **kwargs) -> None: ...
 
 class RenderGeometry(_message.Message):
     __slots__ = ("x", "y", "width", "height", "has_size", "collapsed", "unplaced")

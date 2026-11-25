@@ -230,12 +230,35 @@ func TestOSLCPropertyNamespacesFollowTheMetamodel(t *testing.T) {
 		}
 		prefix := "sysml:"
 		switch name {
-		case query.PropertyMultiplicityLower, query.PropertyMultiplicityUpper, query.PropertySymbolKind, query.PropertyVerifyingCase:
+		case query.PropertyMultiplicityLower, query.PropertyMultiplicityUpper, query.PropertySymbolKind, query.PropertyVerifyingCase,
+			query.PropertyIsActive, query.PropertyAnnotations, query.PropertyBoundSubject:
 			prefix = "sysx:"
 		}
 		if _, err := ParseOSLC(prefix+name+`="x"`, nil); err != nil {
 			t.Errorf("%s%s: %v", prefix, name, err)
 		}
+	}
+}
+
+func TestOSLCUnambiguousBuiltinSpelling(t *testing.T) {
+	for _, text := range []string{`oslc.select=sysx:isActive`, `oslc.select=sysx:@isActive`} {
+		q, err := ParseOSLC(text, nil)
+		if err != nil {
+			t.Fatalf("ParseOSLC(%q): %v", text, err)
+		}
+		if !q.Builtins[query.PropertyIsActive] {
+			t.Fatalf("ParseOSLC(%q) builtins = %v, want isActive", text, q.Builtins)
+		}
+		if len(q.Select) != 1 || q.Select[0].Property != query.PropertyIsActive {
+			t.Fatalf("ParseOSLC(%q) select = %v", text, q.Select)
+		}
+	}
+	q, err := ParseOSLC(`oslc.select=sysx:@annotations`, nil)
+	if err != nil || !q.Builtins[query.PropertyAnnotations] {
+		t.Fatalf("ParseOSLC annotations alias = %#v, %v", q, err)
+	}
+	if _, err := ParseOSLC(`oslc.select=sysx:@nope`, nil); err == nil {
+		t.Fatal("an unknown OSLC property was accepted")
 	}
 }
 
@@ -446,7 +469,7 @@ func TestParseOSLCPropertyDiagnosticsFollowTheActiveBindings(t *testing.T) {
 		t.Errorf("error = %#v, want ErrMalformed naming the unusable prefix", err)
 	}
 	names, unbound := PrefixedPropertyNames(map[string]string{"rdf": rdf.RDFNS}, NewTable(nil, nil))
-	if len(names) != 1 || names[0] != "rdf:type" || len(unbound[rdf.SysML]) == 0 || len(unbound[rdf.OpenSysML]) != 4 {
+	if len(names) != 1 || names[0] != "rdf:type" || len(unbound[rdf.SysML]) == 0 || len(unbound[rdf.OpenSysML]) != 7 {
 		t.Errorf("names = %#v, unbound = %#v", names, unbound)
 	}
 }

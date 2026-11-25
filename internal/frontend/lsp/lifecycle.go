@@ -41,6 +41,7 @@ func (s *Server) Initialize(ctx context.Context, params *protocol.InitializePara
 		RenderElementsCapability:     renderElementNames(),
 		RenderDepthCapability:        true,
 		RenderIncludeCapability:      true,
+		RenderNodeShapeCapability:    true,
 		RelatedElementsCapability:    relatedKindNames(),
 		RenderOverlaysCapability:     renderOverlayNames(),
 	})

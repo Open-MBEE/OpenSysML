@@ -27,6 +27,7 @@ type ServerInfo struct {
 var CapabilityTools = map[string]string{
 	sysmlgrpc.CapabilityParseSources:                   "parse",
 	sysmlgrpc.CapabilityParseSourcesAffected:           "parse",
+	sysmlgrpc.CapabilityParseSourcesKeep:               "parse",
 	sysmlgrpc.CapabilityRenderDocumentFileName:         "render_model_document",
 	sysmlgrpc.CapabilityInlineLanguage:                 "parse",
 	sysmlgrpc.CapabilityStrictConformance:              "parse",
@@ -81,6 +82,7 @@ var CapabilityTools = map[string]string{
 	sysmlgrpc.CapabilityRenderDocumentAsciiDoc:         "render_model_document",
 	sysmlgrpc.CapabilityRenderView:                     "render_model_view",
 	sysmlgrpc.CapabilityRenderViewForm:                 "render_model_view",
+	sysmlgrpc.CapabilityRenderNodeShape:                "render_model_view",
 	sysmlgrpc.CapabilityExportGraphs:                   "export_graphs",
 	sysmlgrpc.CapabilityImportData:                     "import_data",
 	sysmlgrpc.CapabilityInstancePaths:                  "instance_paths",
@@ -92,6 +94,7 @@ var CapabilityTools = map[string]string{
 	sysmlgrpc.CapabilityConvertLibraryStubs:            "convert",
 	sysmlgrpc.CapabilityConvertInheritedMembers:        "convert",
 	sysmlgrpc.CapabilityConvertCheckDiagnostics:        "convert",
+	sysmlgrpc.CapabilityConvertProjection:              "convert",
 	sysmlgrpc.CapabilityMigrate:                        "migrate",
 	sysmlgrpc.CapabilityApplyEdits:                     "apply_edits",
 	sysmlgrpc.CapabilityEditDocuments:                  "apply_edits",

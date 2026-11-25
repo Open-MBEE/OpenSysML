@@ -40,6 +40,12 @@ type Context struct {
 	// Related memoizes relationship edge tables across the executions sharing
 	// this context; nil builds them once per execution.
 	Related *RelationshipTables
+	// Features are the properties a translated request named as model features,
+	// rather than the evaluator's own properties of the same name.
+	Features map[string]bool
+	// Builtins are the properties a translated request named as the evaluator's
+	// own, rather than model features of the same name.
+	Builtins map[string]bool
 }
 
 // Root is one object a session holds directly, under its label (`Demo::car`, `#7`).
@@ -113,6 +119,9 @@ type executor struct {
 	// reflection memoizes what the metamodel declares, shared by every
 	// executor of one execution.
 	reflection *reflectionMemo
+	// stateActivity indexes the activity of every state usage from one walk of
+	// the session, shared by every executor of one execution.
+	stateActivity *stateActivityIndex
 	// elementIDErr is why the model has no elementIds, once a read asked for
 	// one: the conversion that writes them refused the model.
 	elementIDErr error
@@ -171,6 +180,7 @@ func Execute(program *queryplan.Program, context Context, bindings Bindings, opt
 		derived:       &derivedValues{},
 		metadataTypes: make(map[string]*symbols.Symbol),
 		reflection:    &reflectionMemo{},
+		stateActivity: &stateActivityIndex{},
 		depthLeft:     depth,
 		stack:         []string{definition.Name()},
 	}
@@ -543,6 +553,7 @@ func (e *executor) evaluateInvoke(expression queryplan.Expression) (sequence, er
 		derived:       e.derived,
 		metadataTypes: e.metadataTypes,
 		reflection:    e.reflection,
+		stateActivity: e.stateActivity,
 		depthLeft:     e.depthLeft - 1,
 		stack:         append(append([]string(nil), e.stack...), target),
 	}

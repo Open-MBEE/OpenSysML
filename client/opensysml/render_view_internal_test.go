@@ -12,9 +12,9 @@ func TestRenderedViewFromProtoPreservesFieldsAndPresence(t *testing.T) {
 		Columns: []string{"name"}, Notices: []string{"notice"}, Shown: []string{"port-symbols", "edge-labels"},
 		Canvas: &pb.RenderCanvas{Unit: "px", Width: 800, Height: 400, HasSize: true},
 		Nodes: []*pb.RenderNode{{
-			Id: "n0", Kind: "part", Name: "root", NameSynthesized: true, Type: "Demo::Part",
-			Detail: "detail", Text: "text", StandIn: true, Parallel: true, Parent: "parent",
-			Ports:    []*pb.RenderPort{{Id: "n0.0", Name: "api", Type: "Demo::API", Direction: "inout"}},
+			Id: "n0", ElementId: "Demo__root", Kind: "part", Name: "root", NameSynthesized: true, Type: "Demo::Part",
+			Detail: "detail", Text: "text", StandIn: true, Parallel: true, Parent: "parent", Shape: "stadium",
+			Ports:    []*pb.RenderPort{{Id: "n0.0", ElementId: "Demo__API__api", Name: "api", Type: "Demo::API", Direction: "inout"}},
 			Origin:   &pb.Span{File: "views.sysml", StartLine: 4},
 			Geometry: &pb.RenderGeometry{X: 1, Y: 2, Width: 3, Height: 4, HasSize: true, Collapsed: true, Unplaced: true},
 			Style: &pb.RenderStyle{Fill: "#fff", Line: "#000", Text: "#111", Font: "sans",
@@ -22,7 +22,7 @@ func TestRenderedViewFromProtoPreservesFieldsAndPresence(t *testing.T) {
 		}},
 		Edges: []*pb.RenderEdge{{
 			From: "n1", To: "n0", FromPort: "n1.0", ToPort: "n0.0", Label: "wire",
-			Name: "wire", Kind: "connection", Origin: &pb.Span{File: "views.sysml"},
+			Name: "wire", Kind: "connection", ElementId: "Demo__link", Origin: &pb.Span{File: "views.sysml"},
 			Route: []*pb.RenderPoint{{X: 2, Y: 3}},
 			Style: &pb.RenderStyle{Line: "#222"},
 		}},
@@ -40,16 +40,17 @@ func TestRenderedViewFromProtoPreservesFieldsAndPresence(t *testing.T) {
 		t.Fatalf("rendered metadata = %+v", rendered)
 	}
 	node := rendered.Nodes[0]
-	if node.ID != "n0" || node.Kind != "part" || node.Name != "root" || !node.NameSynthesized ||
+	if node.ID != "n0" || node.ElementID != "Demo__root" || node.Kind != "part" || node.Name != "root" || !node.NameSynthesized ||
 		node.Type != "Demo::Part" || node.Detail != "detail" || node.Text != "text" ||
-		!node.StandIn || !node.Parallel || node.Parent != "parent" || node.Ports[0].Direction != "inout" {
+		!node.StandIn || !node.Parallel || node.Parent != "parent" || node.Shape != "stadium" || node.Ports[0].Direction != "inout" ||
+		node.Ports[0].ElementID != "Demo__API__api" {
 		t.Errorf("rendered node = %+v", node)
 	}
 	if node.Origin == nil || node.Origin.StartLine != 4 || node.Geometry == nil ||
 		!node.Geometry.Collapsed || !node.Geometry.Unplaced || node.Style == nil || node.Style.FontSize != 12 || !node.Style.Bold {
 		t.Errorf("rendered node optional fields = %+v", node)
 	}
-	if edge := rendered.Edges[0]; edge.From != "n1" || edge.To != "n0" ||
+	if edge := rendered.Edges[0]; edge.From != "n1" || edge.To != "n0" || edge.ElementID != "Demo__link" ||
 		edge.FromPort != "n1.0" || edge.ToPort != "n0.0" || edge.Name != "wire" ||
 		edge.Kind != "connection" || edge.Route[0] != (RenderPoint{X: 2, Y: 3}) ||
 		edge.Style == nil || edge.Style.Line != "#222" || edge.Origin == nil {

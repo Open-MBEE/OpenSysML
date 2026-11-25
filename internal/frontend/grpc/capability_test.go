@@ -248,6 +248,14 @@ func TestCapabilityGatedRequestsAreRefused(t *testing.T) {
 			})
 			return err
 		}},
+		{"parse sources keep", CapabilityParseSourcesKeep, func(s *Service) error {
+			keep := false
+			_, err := s.ParseSources(ctx, &pb.ParseSourcesRequest{
+				Documents: inlineDocuments("p.sysml", "package P;"),
+				Keep:      &keep,
+			})
+			return err
+		}},
 		{"inline language", CapabilityInlineLanguage, func(s *Service) error {
 			_, err := s.ParseFile(ctx, &pb.ParseFileRequest{
 				Source:   &pb.ParseFileRequest_Content{Content: "package P;"},
@@ -454,12 +462,12 @@ func TestRenderDocumentFileNameIsWithheldWithoutItsCapability(t *testing.T) {
 
 // A capability is appended after every one before it: the newest ends the
 // list, directly after the ones that were newest before it.
-func TestQueryResultViewCapabilityIsTheNewest(t *testing.T) {
+func TestRenderNodeShapeCapabilityIsTheNewest(t *testing.T) {
 	all := Capabilities()
 	want := []string{
 		CapabilityInlineDocumentQuery, CapabilitySymbolNameResolution, CapabilityRenderViewForm,
 		CapabilitySymbolAnnotatingMetadata, CapabilitySymbolLookupKind, CapabilitySymbolMemberDirection,
-		CapabilityCoordinateFrameValues, CapabilityQueryResultView,
+		CapabilityCoordinateFrameValues, CapabilityQueryResultView, CapabilityRenderNodeShape,
 	}
 	if len(all) < len(want) || !slices.Equal(all[len(all)-len(want):], want) {
 		t.Errorf("capabilities %v do not end with %q, the newest last", all, want)

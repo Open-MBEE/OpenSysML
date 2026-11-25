@@ -13,14 +13,14 @@ const FIXTURES = normpath(joinpath(@__DIR__, "..", "..", "..", "..", "conformanc
     raw = Dict{String,Any}(
         "view" => "Demo::view", "kind" => "interconnection", "stated" => "rendered",
         "nodes" => [Dict{String,Any}(
-            "id" => "n0", "kind" => "part", "name" => "root", "nameSynthesized" => true,
+            "id" => "n0", "elementId" => "Demo__root", "kind" => "part", "name" => "root", "nameSynthesized" => true,
             "type" => "Demo::Part", "detail" => "detail", "text" => "text", "standIn" => true,
-            "ports" => [Dict("id" => "n0.0", "name" => "api", "type" => "Demo::API", "direction" => "inout")],
+            "ports" => [Dict("id" => "n0.0", "elementId" => "Demo__API__api", "name" => "api", "type" => "Demo::API", "direction" => "inout")],
             "origin" => Dict("file" => "views.sysml", "startLine" => 4),
             "geometry" => Dict("x" => 1, "y" => 2, "width" => 3, "height" => 4, "hasSize" => true, "collapsed" => true, "unplaced" => true),
             "style" => Dict("fill" => "#fff", "fontSize" => 12, "bold" => true, "italic" => true),
         )],
-        "edges" => [Dict("from" => "n0", "to" => "n1", "fromPort" => "n0.0",
+        "edges" => [Dict("elementId" => "Demo__link", "from" => "n0", "to" => "n1", "fromPort" => "n0.0",
             "toPort" => "n1.0", "label" => "wire", "name" => "wire", "kind" => "connection",
             "route" => [Dict("x" => 2, "y" => 3)], "style" => Dict("line" => "#222"))],
         "columns" => ["a"],
@@ -32,6 +32,9 @@ const FIXTURES = normpath(joinpath(@__DIR__, "..", "..", "..", "..", "conformanc
     )
     rendered = OpenSysML.rendered_view_result(raw)
     @test rendered.view == "Demo::view"
+    @test rendered.nodes[1].element_id == "Demo__root"
+    @test rendered.nodes[1].ports[1].element_id == "Demo__API__api"
+    @test rendered.edges[1].element_id == "Demo__link"
     @test rendered.nodes[1].name_synthesized
     @test rendered.nodes[1].ports[1].direction == "inout"
     @test rendered.nodes[1].origin.start_line == 4

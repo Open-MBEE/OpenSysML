@@ -100,6 +100,31 @@ func TestCacheLRUEviction(t *testing.T) {
 	}
 }
 
+// Peek reads an entry without touching its LRU position, and misses without
+// inserting, so a transient parse cannot refresh the caller's cached models.
+func TestCachePeekDoesNotPromote(t *testing.T) {
+	cache := mustNewCache(t, 2)
+	oldest := &CachedModel{}
+	newer := &CachedModel{}
+	cache.Put("oldest", oldest)
+	cache.Put("newer", newer)
+
+	if got, ok := cache.Peek("oldest"); !ok || got != oldest {
+		t.Fatal("Peek of a cached hash did not return its model")
+	}
+	if got, ok := cache.Peek("absent"); ok || got != nil {
+		t.Fatal("Peek of an absent hash reported a hit")
+	}
+
+	cache.Put("third", &CachedModel{})
+	if _, ok := cache.items["oldest"]; ok {
+		t.Error("Peek promoted the older entry, so it survived an insertion")
+	}
+	if _, ok := cache.items["newer"]; !ok {
+		t.Error("the newer entry was evicted before the peeked one")
+	}
+}
+
 // TestCacheAddKeepsTheFirst: Add under a cached hash hands back the entry
 // already there and leaves it in place, where Put would replace it.
 func TestCacheAddKeepsTheFirst(t *testing.T) {

@@ -6,21 +6,25 @@
     "nodes": [
       {
         "id": "n0",
+        "elementId": "MissionSequence__LunarMission",
         "kind": "action def",
         "name": "MissionSequence::LunarMission",
         "ports": [
           {
             "id": "n0.0",
+            "elementId": "MissionSequence__LunarMission__budget",
             "name": "budget",
             "direction": "in"
           },
           {
             "id": "n0.1",
+            "elementId": "MissionSequence__LunarMission__landed",
             "name": "landed",
             "direction": "out"
           },
           {
             "id": "n0.2",
+            "elementId": "MissionSequence__LunarMission__returned",
             "name": "returned",
             "direction": "out"
           }
@@ -35,6 +39,7 @@
       },
       {
         "id": "n1",
+        "elementId": "MissionSequence__LunarMission__start",
         "kind": "initial",
         "name": "start",
         "nameSynthesized": true,
@@ -49,6 +54,7 @@
       },
       {
         "id": "n2",
+        "elementId": "MissionSequence__LunarMission__translunarInjection",
         "kind": "assign",
         "name": "translunarInjection",
         "detail": "remaining := remaining - 3150 ['m/s']",
@@ -63,6 +69,7 @@
       },
       {
         "id": "n3",
+        "elementId": "MissionSequence__LunarMission__lunarOrbitInsertion",
         "kind": "assign",
         "name": "lunarOrbitInsertion",
         "detail": "remaining := remaining - 900 ['m/s']",
@@ -77,6 +84,7 @@
       },
       {
         "id": "n4",
+        "elementId": "MissionSequence__LunarMission__landingGo",
         "kind": "decision",
         "name": "landingGo",
         "parent": "n0",
@@ -90,6 +98,7 @@
       },
       {
         "id": "n5",
+        "elementId": "MissionSequence__LunarMission__awaitGo",
         "kind": "accept action",
         "name": "awaitGo",
         "detail": "go : GoForDescent",
@@ -97,11 +106,13 @@
         "ports": [
           {
             "id": "n5.0",
+            "elementId": "MissionSequence__LunarMission__awaitGo__go",
             "name": "go",
             "direction": "out"
           },
           {
             "id": "n5.1",
+            "elementId": "bce3ce09-e07f-5493-9ea6-fedc95de5fd4",
             "name": "receiver",
             "direction": "in",
             "inherited": true
@@ -117,6 +128,7 @@
       },
       {
         "id": "n6",
+        "elementId": "MissionSequence__LunarMission__descent",
         "kind": "assign",
         "name": "descent",
         "detail": "remaining := remaining - 2100 ['m/s']",
@@ -131,6 +143,7 @@
       },
       {
         "id": "n7",
+        "elementId": "MissionSequence__LunarMission__surfaceOperations",
         "kind": "assign",
         "name": "surfaceOperations",
         "detail": "landed := true",
@@ -145,6 +158,7 @@
       },
       {
         "id": "n8",
+        "elementId": "MissionSequence__LunarMission__ascent",
         "kind": "assign",
         "name": "ascent",
         "detail": "remaining := remaining - 1870 ['m/s']",
@@ -159,6 +173,7 @@
       },
       {
         "id": "n9",
+        "elementId": "MissionSequence__LunarMission__transEarthInjection",
         "kind": "assign",
         "name": "transEarthInjection",
         "detail": "remaining := remaining - 1000 ['m/s']",
@@ -173,6 +188,7 @@
       },
       {
         "id": "n10",
+        "elementId": "MissionSequence__LunarMission__splashdown",
         "kind": "assign",
         "name": "splashdown",
         "detail": "returned := true",
@@ -202,6 +218,7 @@
     ],
     "edges": [
       {
+        "elementId": "MissionSequence__LunarMission___406",
         "from": "n1",
         "to": "n2",
         "kind": "succession",
@@ -214,6 +231,7 @@
         }
       },
       {
+        "elementId": "MissionSequence__LunarMission___408",
         "from": "n2",
         "to": "n3",
         "kind": "succession",
@@ -226,6 +244,7 @@
         }
       },
       {
+        "elementId": "MissionSequence__LunarMission___4010",
         "from": "n3",
         "to": "n4",
         "kind": "succession",
@@ -264,6 +283,7 @@
         }
       },
       {
+        "elementId": "MissionSequence__LunarMission___4015",
         "from": "n5",
         "to": "n6",
         "kind": "succession",
@@ -276,6 +296,7 @@
         }
       },
       {
+        "elementId": "MissionSequence__LunarMission___4017",
         "from": "n6",
         "to": "n7",
         "kind": "succession",
@@ -288,6 +309,7 @@
         }
       },
       {
+        "elementId": "MissionSequence__LunarMission___4019",
         "from": "n7",
         "to": "n8",
         "kind": "succession",
@@ -300,6 +322,7 @@
         }
       },
       {
+        "elementId": "MissionSequence__LunarMission___4020",
         "from": "n8",
         "to": "n9",
         "kind": "succession",
@@ -312,6 +335,7 @@
         }
       },
       {
+        "elementId": "MissionSequence__LunarMission___4023",
         "from": "n9",
         "to": "n10",
         "kind": "succession",
@@ -324,6 +348,7 @@
         }
       },
       {
+        "elementId": "MissionSequence__LunarMission___4025",
         "from": "n10",
         "to": "n11",
         "kind": "succession",

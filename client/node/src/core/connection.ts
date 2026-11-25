@@ -18,6 +18,7 @@ import {
   CAPABILITY_CONVERT_COMPACT,
   CAPABILITY_CONVERT_INHERITED_MEMBERS,
   CAPABILITY_CONVERT_LIBRARY_STUBS,
+  CAPABILITY_CONVERT_PROJECTION,
   CAPABILITY_DOCUMENT_QUERY,
   CAPABILITY_ENGINES,
   CAPABILITY_FEATURE_VALUES,
@@ -25,6 +26,7 @@ import {
   CAPABILITY_MIGRATE,
   CAPABILITY_PARSE_SOURCES,
   CAPABILITY_PARSE_SOURCES_AFFECTED,
+  CAPABILITY_PARSE_SOURCES_KEEP,
   CAPABILITY_PERFORMER,
   CAPABILITY_STATE_TRACE,
   CAPABILITY_ACTION_TRACE,
@@ -75,6 +77,7 @@ import {
   ExecuteActionRequestSchema,
   ExecuteStateRequestSchema,
   ConvertRequestSchema,
+  ConvertProjectionSchema,
   ListEnginesRequestSchema,
   MigrateRequestSchema,
   ParseSourcesRequestSchema,
@@ -418,12 +421,22 @@ export class Connection {
       );
       capabilities.push(CAPABILITY_PARSE_SOURCES_AFFECTED);
     }
+    const keep = options.keep ?? true;
+    if (!keep) {
+      requireCapability(
+        this.info,
+        CAPABILITY_PARSE_SOURCES_KEEP,
+        upgradeRemedy(CAPABILITY_PARSE_SOURCES_KEEP),
+      );
+      capabilities.push(CAPABILITY_PARSE_SOURCES_KEEP);
+    }
     const response = await callRpc(
       this.rpc.parseSources(
         create(ParseSourcesRequestSchema, {
           documents: sources.map((source) => source.toPb()),
           strictConformance: strictConformance === true,
           baseModelHash,
+          ...(!keep ? { keep: false } : {}),
         }),
         this.callOptions(),
       ),
@@ -493,6 +506,19 @@ export class Connection {
         upgradeRemedy(CAPABILITY_CONVERT_CHECK_DIAGNOSTICS),
       );
     }
+    const projection = options.projection;
+    if (
+      projection &&
+      ((projection.qualifiedNames?.length ?? 0) > 0 ||
+        (projection.metaclasses?.length ?? 0) > 0 ||
+        (projection.annotationTypes?.length ?? 0) > 0)
+    ) {
+      requireCapability(
+        this.info,
+        CAPABILITY_CONVERT_PROJECTION,
+        upgradeRemedy(CAPABILITY_CONVERT_PROJECTION),
+      );
+    }
     const request = create(ConvertRequestSchema, {
       toFormat,
       fromFormat: options.fromFormat ?? "",
@@ -504,6 +530,13 @@ export class Connection {
       omitDerived: options.omitDerived === true,
       keepDerived,
       includeCheckDiagnostics: options.includeCheckDiagnostics === true,
+      projection: projection
+        ? create(ConvertProjectionSchema, {
+            qualifiedNames: [...(projection.qualifiedNames ?? [])],
+            metaclasses: [...(projection.metaclasses ?? [])],
+            annotationTypes: [...(projection.annotationTypes ?? [])],
+          })
+        : undefined,
     });
     if ("path" in source) {
       request.source = { case: "filePath", value: source.path };

@@ -165,6 +165,45 @@ func (m *Model) AnnotationFactsOf(sym *symbols.Symbol) []symbols.AnnotationFacts
 	return annotationFacts(m, m.annotationsOf(sym))
 }
 
+// AnnotationNestedFactsOf states bindings nested in an annotation body's own
+// bindings, keyed by their path (`inner.label`), beside the direct ones.
+func (m *Model) AnnotationNestedFactsOf(sym *symbols.Symbol) []symbols.AnnotationFacts {
+	if m == nil || sym == nil {
+		return nil
+	}
+	var out []symbols.AnnotationFacts
+	for _, a := range m.annotationsOf(sym) {
+		if a.typ == nil || a.node == nil {
+			continue
+		}
+		typeFQN := m.fqnOf(a.typ)
+		if typeFQN == "" {
+			continue
+		}
+		facts := symbols.AnnotationFacts{TypeFQN: typeFQN, Span: a.span}
+		var walk func(prefix string, bindings []MetadataBinding)
+		walk = func(prefix string, bindings []MetadataBinding) {
+			for _, binding := range bindings {
+				name := prefix + binding.Feature
+				if prefix != "" && binding.Value != nil {
+					values := m.annotationSequence(binding.Scope, binding.Value)
+					fact := symbols.AnnotationValueFacts{Feature: name, Values: values, Bound: true}
+					if len(values) == 1 {
+						fact.Value = values[0]
+					}
+					facts.Values = append(facts.Values, fact)
+				}
+				walk(name+".", binding.Nested)
+			}
+		}
+		walk("", metadataBindings(valueScope(a.scope, a.node), metadataBody(a.node)))
+		if len(facts.Values) > 0 {
+			out = append(out, facts)
+		}
+	}
+	return out
+}
+
 // annotationFacts states annotations as names and constants. Type is the
 // reference that restores the metadata type, zero when none reaches it.
 func annotationFacts(m *Model, annots []annotation) []symbols.AnnotationFacts {
@@ -182,7 +221,8 @@ func annotationFacts(m *Model, annots []annotation) []symbols.AnnotationFacts {
 			facts.Type, _ = m.resolver.Index().RefTo(a.typ)
 		}
 		for _, feature := range a.featureNames() {
-			facts.Values = append(facts.Values, a.valueFacts(feature))
+			_, bound := a.bound[feature]
+			facts.Values = append(facts.Values, a.valueFacts(feature, bound))
 		}
 		out = append(out, facts)
 	}
@@ -222,7 +262,8 @@ func (m *Model) AnnotationSitesOf(sym *symbols.Symbol) []AnnotationSite {
 		}
 		site := AnnotationSite{TypeFQN: typFQN, Node: a.node, Span: a.span, Scope: a.scope, About: a.about}
 		for _, feature := range a.featureNames() {
-			site.Values = append(site.Values, a.valueFacts(feature))
+			_, bound := a.bound[feature]
+			site.Values = append(site.Values, a.valueFacts(feature, bound))
 		}
 		out = append(out, site)
 	}
@@ -367,10 +408,10 @@ func (a annotation) value(feature string) (symbols.FilterValue, bool) {
 
 // valueFacts states what the annotation binds feature to, as one constant and
 // as the sequence.
-func (a annotation) valueFacts(feature string) symbols.AnnotationValueFacts {
+func (a annotation) valueFacts(feature string, bound bool) symbols.AnnotationValueFacts {
 	value, _ := a.value(feature)
 	values, _ := a.values(feature)
-	return symbols.AnnotationValueFacts{Feature: feature, Value: value, Values: append([]symbols.FilterValue(nil), values...)}
+	return symbols.AnnotationValueFacts{Feature: feature, Value: value, Values: append([]symbols.FilterValue(nil), values...), Bound: bound}
 }
 
 // featureNames orders the annotation's valued features by name, so that what

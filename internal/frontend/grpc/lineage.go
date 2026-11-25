@@ -225,23 +225,28 @@ func (s *Service) bringLineageCurrent(l *lineage, inputs []sourceInput, mode dia
 		}
 		return false
 	case l.ws == nil:
-		// Seen again: the workspace is built over every document now.
+		// Seen again: install trees the parse cache holds so building the
+		// workspace parses only the documents whose bytes no record holds.
 		idx, library := s.libIndexes.get()
 		l.ws = model.NewWorkspaceWithIndex(idx, model.WithConformanceMode(mode), model.WithLibrarySource(library))
 		l.library = library
-		batch := make([]model.Input, len(inputs))
-		for i, input := range inputs {
-			batch[i] = model.Input{Name: input.name, Content: []byte(input.content), Kind: input.kind}
+		for _, input := range inputs {
+			doc, _ := s.parseDocument(input)
+			l.ws.OpenParsed(input.name, []byte(input.content), 0, input.kind,
+				doc.Root, doc.ParseDiags, doc.parseWarnings)
 			l.held[input.name] = input.content
 		}
-		l.ws.OpenAll(batch)
 	default:
 		for _, input := range inputs {
 			if l.held[input.name] == input.content {
 				continue
 			}
+			// An edit goes through the record-aware parser too, so a fresh
+			// process can restore its tree instead of parsing it again.
+			doc, _ := s.parseDocument(input)
 			l.versions++
-			l.ws.Update(input.name, []byte(input.content), l.versions)
+			l.ws.OpenParsed(input.name, []byte(input.content), l.versions, input.kind,
+				doc.Root, doc.ParseDiags, doc.parseWarnings)
 			l.held[input.name] = input.content
 		}
 	}

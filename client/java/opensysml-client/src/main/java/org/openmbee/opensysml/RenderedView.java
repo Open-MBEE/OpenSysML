@@ -55,6 +55,7 @@ public record RenderedView(
    */
   public record Node(
       String id,
+      String elementId,
       String kind,
       String name,
       boolean nameSynthesized,
@@ -65,12 +66,15 @@ public record RenderedView(
       boolean inherited,
       String parent,
       String compartment,
+      /** The notation outline derived from the metaclass; empty when the server withholds it. */
+      String shape,
       List<Port> ports,
       Optional<Span> origin,
       Optional<Geometry> geometry,
       Optional<Style> style) {
     public Node {
       Objects.requireNonNull(compartment, "compartment");
+      Objects.requireNonNull(shape, "shape");
       ports = List.copyOf(ports);
       Objects.requireNonNull(origin, "origin");
       Objects.requireNonNull(geometry, "geometry");
@@ -82,7 +86,8 @@ public record RenderedView(
    * One rendered feature on a node's boundary; {@code inherited} when the node's owner has it
    * from its type rather than declares it, drawn with a {@code ^} before its name.
    */
-  public record Port(String id, String name, String type, String direction, boolean inherited) {}
+  public record Port(
+      String id, String elementId, String name, String type, String direction, boolean inherited) {}
 
   /** Position and size of a node; an unplaced one only folds or hides it, x and y carrying no position. */
   public record Geometry(
@@ -109,6 +114,7 @@ public record RenderedView(
 
   /** A rendered connection between nodes. */
   public record Edge(
+      String elementId,
       String from,
       String to,
       String fromPort,
@@ -168,6 +174,7 @@ public record RenderedView(
                 node ->
                     new Node(
                         node.getId(),
+                        node.getElementId(),
                         node.getKind(),
                         node.getName(),
                         node.getNameSynthesized(),
@@ -178,11 +185,13 @@ public record RenderedView(
                         node.getInherited(),
                         node.getParent(),
                         node.getCompartment(),
+                        node.getShape(),
                         node.getPortsList().stream()
                             .map(
                                 port ->
                                     new Port(
                                         port.getId(),
+                                        port.getElementId(),
                                         port.getName(),
                                         port.getType(),
                                         port.getDirection(),
@@ -206,6 +215,7 @@ public record RenderedView(
             .map(
                 edge ->
                     new Edge(
+                        edge.getElementId(),
                         edge.getFrom(),
                         edge.getTo(),
                         edge.getFromPort(),

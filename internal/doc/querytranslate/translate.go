@@ -37,6 +37,10 @@ type Plan struct {
 	// Objects reports a query over the session's held objects, whose root is
 	// Objects rather than the bound source.
 	Objects bool
+	// Features and Builtins record which side of a shared property name the
+	// request named, so the evaluator reads the right one.
+	Features map[string]bool
+	Builtins map[string]bool
 }
 
 // Translate compiles a query to a plan named name, refusing before any element
@@ -119,9 +123,11 @@ func Translate(q Query, ctx Context, name string) (*Plan, error) {
 	parameters := []queryplan.Parameter{{Name: SourceParameter, Type: "Element", Multiplicity: elements}}
 	result := queryplan.Parameter{Name: "result", Type: "Element", Multiplicity: elements}
 	return &Plan{
-		Program: queryplan.NewProgram(name, parameters, result, expression, origin),
-		Columns: columns,
-		Objects: objects,
+		Program:  queryplan.NewProgram(name, parameters, result, expression, origin),
+		Columns:  columns,
+		Objects:  objects,
+		Features: q.Features,
+		Builtins: q.Builtins,
 	}, nil
 }
 

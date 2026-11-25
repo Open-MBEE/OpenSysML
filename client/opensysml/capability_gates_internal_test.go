@@ -42,6 +42,10 @@ func TestCallsAreNotSentWithoutTheirCapability(t *testing.T) {
 			_, err := c.ParseDocuments(ctx, inline, WithLanguage(LanguageSysML))
 			return err
 		}},
+		{"ParseDocuments WithKeep", CapabilityParseSourcesKeep, []string{CapabilityParseSources}, func(c *client) error {
+			_, err := c.ParseDocuments(ctx, inline, WithKeep(false))
+			return err
+		}},
 		{"ParseSource WithStrictConformance", CapabilityStrictConformance, nil, func(c *client) error {
 			_, err := c.ParseSource(ctx, "package A;", WithStrictConformance())
 			return err

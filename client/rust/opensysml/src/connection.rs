@@ -887,6 +887,64 @@ fn binary_on_path() -> Option<PathBuf> {
 mod tests {
     use super::*;
 
+    use crate::capabilities::{CAPABILITY_PARSE_SOURCES, CAPABILITY_PARSE_SOURCES_KEEP};
+    use crate::operations::SourcesOptions;
+    use crate::sources::SourceDocument;
+
+    /// A connection to an address nothing listens on, advertising the ordinary
+    /// parse capabilities but not `parse_sources_keep`.
+    fn without_keep_capability() -> Connection {
+        let info = ServerInfo::from_wire(wire::ServerInfoResponse {
+            capabilities: vec![CAPABILITY_PARSE_SOURCES.to_owned()],
+            ..Default::default()
+        });
+        Connection {
+            inner: Arc::new(ConnectionInner {
+                // A request that escapes the capability gate fails as a transport
+                // error, never as a missing-capability one.
+                base_url: "127.0.0.1:1".to_owned(),
+                info,
+                private: None,
+                token: None,
+            }),
+        }
+    }
+
+    #[test]
+    fn a_stated_keep_is_refused_before_the_request_when_the_capability_is_absent() {
+        let connection = without_keep_capability();
+        let documents = [SourceDocument::inline("a.sysml", "package A {}\n")];
+        for keep in [Some(false), Some(true)] {
+            let error = connection
+                .parse_sources(
+                    &documents,
+                    &SourcesOptions {
+                        keep,
+                        ..Default::default()
+                    },
+                )
+                .expect_err("a stated keep needs parse_sources_keep");
+            let Error::MissingCapability { capability, remedy } = error else {
+                panic!("{error:?}");
+            };
+            assert_eq!(capability, CAPABILITY_PARSE_SOURCES_KEEP);
+            assert!(remedy.contains(CAPABILITY_PARSE_SOURCES_KEEP), "{remedy}");
+        }
+    }
+
+    #[test]
+    fn an_omitted_keep_does_not_need_the_capability() {
+        let connection = without_keep_capability();
+        let documents = [SourceDocument::inline("a.sysml", "package A {}\n")];
+        let error = connection
+            .parse_sources(&documents, &SourcesOptions::default())
+            .expect_err("nothing listens at the fixture address");
+        assert!(
+            !matches!(error, Error::MissingCapability { .. }),
+            "an absent keep must stay on the ordinary parse path: {error:?}"
+        );
+    }
+
     #[test]
     fn a_release_asked_for_is_not_answered_by_a_binary_of_unknown_version() {
         // Serialized against the other test reading these variables.

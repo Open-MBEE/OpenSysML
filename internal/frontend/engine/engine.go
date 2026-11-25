@@ -446,14 +446,14 @@ func marshalRenderView(model *cachedModel, data view.Data, text string) ([]byte,
 	}
 	for _, node := range data.Nodes {
 		item := JRenderNode{
-			ID: node.ID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
+			ID: node.ID, ElementID: node.ElementID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
 			Type: node.Type, Detail: node.Detail, Text: node.Text, StandIn: node.StandIn,
 			Parent: node.Parent, Compartment: node.Compartment, Origin: origins.span(node.Origin), Style: jRenderStyle(node.Style),
-			Inherited: node.Inherited, Arrow: node.Arrow,
+			Inherited: node.Inherited, Arrow: node.Arrow, Shape: string(node.Shape),
 		}
 		for _, port := range node.Ports {
 			item.Ports = append(item.Ports, JRenderPort{
-				ID: port.ID, Name: port.Name, Type: port.Type, Direction: port.Direction.String(), Inherited: port.Inherited,
+				ID: port.ID, ElementID: port.ElementID, Name: port.Name, Type: port.Type, Direction: port.Direction.String(), Inherited: port.Inherited,
 			})
 		}
 		if node.Geometry != nil {
@@ -467,7 +467,7 @@ func marshalRenderView(model *cachedModel, data view.Data, text string) ([]byte,
 	for _, edge := range data.Edges {
 		item := JRenderEdge{
 			From: edge.From, To: edge.To, FromPort: edge.FromPort, ToPort: edge.ToPort,
-			Label: edge.Text(), Name: edge.Name, Kind: edge.Kind.String(),
+			Label: edge.Text(), Name: edge.Name, Kind: edge.Kind.String(), ElementID: edge.ElementID,
 			Origin: origins.span(edge.Origin), Style: jRenderStyle(edge.Style),
 		}
 		for _, point := range edge.Route {

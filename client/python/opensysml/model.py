@@ -209,7 +209,7 @@ class Model:
     def convert(self, to_format, tolerate_syntax_errors=False, id_form='',
                 include_library_stubs=False, compact=False, omit_derived=False,
                 keep_derived=(), include_check_diagnostics=False,
-                inherited_members=False):
+                inherited_members=False, projection=None):
         """Write this model out in one of the formats OpenSysML writes.
 
         Converts the source this model was parsed from, not the file as it
@@ -247,6 +247,9 @@ class Model:
                 diagnostics in the result's ``diagnostics`` alongside the
                 output, each with its own severity. Needs the
                 ``convert_check_diagnostics`` capability.
+            projection (Projection, optional): For api-json, write only the
+                elements named by qualified name, metaclass or annotation
+                type; needs the ``convert_projection`` capability.
 
         Returns:
             Conversion: The converted model; ``str()`` of it is the text
@@ -280,6 +283,7 @@ class Model:
             omit_derived=omit_derived,
             keep_derived=keep_derived,
             include_check_diagnostics=include_check_diagnostics,
+            projection=projection,
         )
 
     def to_sysml(self, tolerate_syntax_errors=False):

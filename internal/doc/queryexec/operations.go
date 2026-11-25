@@ -1123,6 +1123,11 @@ func (e *executor) reflectiveQueryableValues(sym *symbols.Symbol, property strin
 }
 
 func (e *executor) propertyValuesBeforeMemberPath(row Value, property string) ([]Value, bool, error) {
+	builtin, isBuiltin := query.BuiltinProperty(property)
+	// An explicit model feature or built-in decides the read. The bare name
+	// gives a declared feature precedence, as body, locale and language do.
+	explicitBuiltin := isBuiltin && (query.IsBuiltinAlias(property) || e.context.Builtins[property])
+	explicitFeature := isBuiltin && e.context.Features[property]
 	if _, _, isObject := row.Object(); isObject {
 		values, present, err := e.objectPropertyValues(row, property)
 		if !present && err == nil && property == PropertyValuation {
@@ -1142,6 +1147,20 @@ func (e *executor) propertyValuesBeforeMemberPath(row Value, property string) ([
 		return e.eventPropertyValues(row, property)
 	}
 	sym, _ := row.Element()
+	if isBuiltin && query.IsBuiltinAlias(property) && explicitFeature {
+		return e.shadowingFeatureValues(sym, builtin)
+	}
+	if isBuiltin && !explicitBuiltin && !explicitFeature {
+		if values, present, err := e.shadowingFeatureValues(sym, builtin); present || err != nil {
+			return values, present, err
+		}
+	}
+	if isBuiltin && !explicitFeature {
+		if builtin == query.PropertyIsActive {
+			return e.stateActivityValues(sym)
+		}
+		return e.annotationValues(sym)
+	}
 	if isQueryableProperty(property) && readsAnnotationProperty(sym, property) {
 		values, present := e.reader.Values(sym, property)
 		if property == query.PropertyElementID && e.elementIDErr != nil {
@@ -1191,6 +1210,18 @@ func (e *executor) verifyEndValues(sym *symbols.Symbol, property string) ([]Valu
 		return nil, false
 	}
 	return reflectiveElementValues(sym, []*symbols.Symbol{end}), true
+}
+
+// shadowingFeatureValues reads a model feature named like a built-in property.
+// The StateActivity library's isActive is the built-in, not a shadowing feature.
+func (e *executor) shadowingFeatureValues(sym *symbols.Symbol, property string) ([]Value, bool, error) {
+	if sym == nil || e.context.Model == nil {
+		return nil, false, nil
+	}
+	if member, ok := e.context.Model.LookupMember(sym, property); ok && semantics.IsStateActivity(member) {
+		return nil, false, nil
+	}
+	return e.declaredFeatureValues(sym, property)
 }
 
 // declaredFeatureValues reads a declared (non-metadata) feature of a row.
@@ -1281,7 +1312,8 @@ func isQueryableProperty(property string) bool {
 		query.PropertyMultiplicityLower,
 		query.PropertyMultiplicityUpper,
 		query.PropertyElementID,
-		query.PropertySymbolKind:
+		query.PropertySymbolKind, query.PropertyIsActive, query.PropertyAnnotations,
+		query.PropertyBoundSubject, query.PropertyIsActiveBuiltin, query.PropertyAnnotationsBuiltin:
 		return true
 	default:
 		return false
@@ -1291,8 +1323,8 @@ func isQueryableProperty(property string) bool {
 func (e *executor) typedPropertyValue(property, value string, sym *symbols.Symbol) Value {
 	var result Value
 	switch property {
-	case query.PropertyGeneral:
-		// A general is the element itself, so it prints and links by name.
+	case query.PropertyGeneral, query.PropertyBoundSubject:
+		// A link to an element prints and links by that element's name.
 		if targets := e.context.Index.LookupQualified(value); len(targets) == 1 {
 			return valueAt(ElementValue(targets[0]), ElementValue(sym).Origin())
 		}

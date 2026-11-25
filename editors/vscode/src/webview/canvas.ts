@@ -4,6 +4,7 @@
 // reads those attributes off whatever the pointer lands on.
 import type { RenderPoint } from "../protocol";
 import {
+  ACTOR_GLYPH,
   CanvasLayout,
   EDGE_LABEL_RISE,
   edgeExtent,
@@ -276,7 +277,7 @@ function nodeGroup(entry: PlacedNode, layout: CanvasLayout): SVGGElement {
   const proxy = entry.parent?.lifeline !== undefined;
   if (entry.lines.length > 0) {
     const placement = proxyLabelPlacement(entry);
-    const labelX = proxy ? placement.x : box.x + LABEL_PAD_X;
+    const labelX = proxy ? placement.x : box.x + LABEL_PAD_X + (entry.shape === "actor" ? ACTOR_GLYPH.width + LABEL_PAD_X : 0);
     const text = element("text", { x: String(labelX), y: String(proxy ? placement.y : box.y + LABEL_PAD_Y), class: "label" });
     entry.lines.forEach((line, i) => {
       let dy = 0;
@@ -422,6 +423,25 @@ function outlineOf(entry: PlacedNode): SVGElement {
         element("circle", { cx: String(cx), cy: String(cy), r: String(width / 2), class: "shape" }),
         element("line", { x1: String(cx - arm), y1: String(cy - arm), x2: String(cx + arm), y2: String(cy + arm), class: "shape" }),
         element("line", { x1: String(cx - arm), y1: String(cy + arm), x2: String(cx + arm), y2: String(cy - arm), class: "shape" }),
+      );
+      return group;
+    }
+    case "stadium":
+      return element("rect", {
+        x: String(x), y: String(y), width: String(width), height: String(height),
+        rx: String(height / 2), class: "shape stadium",
+      });
+    case "actor": {
+      // The UML actor stick figure, drawn beside its name (§8.2.3.10).
+      const gx = x + LABEL_PAD_X + ACTOR_GLYPH.width / 2;
+      const gy = y + (height - ACTOR_GLYPH.height) / 2;
+      const group = element("g", { class: "shape actor" });
+      group.append(
+        element("circle", { cx: String(gx), cy: String(gy + 4), r: "4", class: "shape" }),
+        element("line", { x1: String(gx), y1: String(gy + 8), x2: String(gx), y2: String(gy + 17), class: "shape" }),
+        element("line", { x1: String(gx - 6), y1: String(gy + 12), x2: String(gx + 6), y2: String(gy + 12), class: "shape" }),
+        element("line", { x1: String(gx), y1: String(gy + 17), x2: String(gx - 5), y2: String(gy + ACTOR_GLYPH.height), class: "shape" }),
+        element("line", { x1: String(gx), y1: String(gy + 17), x2: String(gx + 5), y2: String(gy + ACTOR_GLYPH.height), class: "shape" }),
       );
       return group;
     }

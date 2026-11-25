@@ -93,8 +93,14 @@ public final class Capabilities {
   /** Convert reports the semantic check's diagnostics, with their severities, alongside the output. */
   public static final String CONVERT_CHECK_DIAGNOSTICS = "convert_check_diagnostics";
 
+  /** api-json writes only the elements named by qualified name, metaclass or annotation type. */
+  public static final String CONVERT_PROJECTION = "convert_projection";
+
   /** A parse names the documents whose results may differ from those of {@code base_model_hash}. */
   public static final String PARSE_SOURCES_AFFECTED = "parse_sources_affected";
+
+  /** A parse can answer without keeping the model, so a transient union evicts nothing. */
+  public static final String PARSE_SOURCES_KEEP = "parse_sources_keep";
 
   /** A rendered document names the file a rendered set writes it to. */
   public static final String RENDER_DOCUMENT_FILE_NAME = "render_document_file_name";
@@ -237,6 +243,9 @@ public final class Capabilities {
 
   /** The {@code RenderView} RPC also writes the view in a named form, with writer options. */
   public static final String RENDER_VIEW_FORM = "render_view_form";
+
+  /** {@code shape} on a rendered node carries its notation outline without parsing a written form. */
+  public static final String RENDER_NODE_SHAPE = "render_node_shape";
 
   /** The {@code ExportGraphs} RPC exports a behavior's lowered graph as {@code graphs:1} JSON. */
   public static final String EXPORT_GRAPHS = "export_graphs";

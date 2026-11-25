@@ -4,7 +4,11 @@
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
 import { MissingCapabilityError, connect } from "../src/node/index.js";
-import { CAPABILITY_CONVERT_CHECK_DIAGNOSTICS, CAPABILITY_CONVERT_COMPACT } from "../src/core/capabilities.js";
+import {
+  CAPABILITY_CONVERT_CHECK_DIAGNOSTICS,
+  CAPABILITY_CONVERT_COMPACT,
+  CAPABILITY_CONVERT_PROJECTION,
+} from "../src/core/capabilities.js";
 import { ALL_CAPABILITIES, fakeConnection } from "./support/fake.js";
 import { useServiceBinary } from "./support/service.js";
 
@@ -68,6 +72,35 @@ test("compact, omitDerived, keepDerived and includeCheckDiagnostics reach the wi
     asked.diagnostics.map((diagnostic) => [diagnostic.severity, diagnostic.message]),
     [["warning", "unused import"], ["error", "unresolved name"]],
   );
+});
+
+test("the three projection selectors reach the wire", async () => {
+  const { requests, answer } = recordingConvert();
+  await using connection = await fakeConnection([...ALL_CAPABILITIES, CAPABILITY_CONVERT_PROJECTION], answer);
+  await connection.convert("api-json", { content: SOURCE }, {
+    projection: {
+      qualifiedNames: ["P::a"],
+      metaclasses: ["AttributeUsage"],
+      annotationTypes: ["P::Facet"],
+    },
+  });
+  await connection.convert("api-json", { content: SOURCE });
+  const [wanted, defaulted] = requests as [Record<string, unknown>, Record<string, unknown>];
+  const projection = wanted.projection as Record<string, string[]>;
+  assert.deepEqual(projection.qualifiedNames, ["P::a"]);
+  assert.deepEqual(projection.metaclasses, ["AttributeUsage"]);
+  assert.deepEqual(projection.annotationTypes, ["P::Facet"]);
+  assert.equal(defaulted.projection, undefined);
+});
+
+test("projection is refused before the call when convert_projection is absent", async () => {
+  const { requests, answer } = recordingConvert();
+  await using connection = await fakeConnection([...ALL_CAPABILITIES], answer);
+  await assert.rejects(
+    connection.convert("api-json", { content: SOURCE }, { projection: { qualifiedNames: ["P::a"] } }),
+    (error: unknown) => error instanceof MissingCapabilityError && error.capability === CAPABILITY_CONVERT_PROJECTION,
+  );
+  assert.equal(requests.length, 0);
 });
 
 for (const [name, options] of [

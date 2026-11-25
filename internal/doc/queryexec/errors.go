@@ -262,7 +262,11 @@ func (e *Error) Error() string {
 	case ErrorAmbiguousElement:
 		return fmt.Sprintf("query %s names %d elements %s: %s", e.Query, len(e.Candidates), e.Actual, declaredAs(spelled(e.Candidates, suggest.Notation)))
 	case ErrorUnknownRelationship:
-		return fmt.Sprintf("query %s%s does not support relationship kind %q", e.Query, e.column(), e.Actual)
+		message := fmt.Sprintf("query %s%s does not support relationship kind %q", e.Query, e.column(), e.Actual)
+		if len(e.Candidates) > 0 {
+			message += "; supported kinds are " + strings.Join(e.Candidates, ", ")
+		}
+		return message
 	case ErrorUnservedProperty:
 		message := fmt.Sprintf("query %s reads %s of %s, a metamodel property OpenSysML does not derive yet", e.Query, e.Expected, e.Target)
 		if e.Actual != "" {

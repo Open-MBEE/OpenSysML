@@ -148,13 +148,22 @@ type ChainForm struct {
 	Text  string    `json:"text"`
 }
 
-// ConnectionForm is a connector the behavior routes a `send … via` through.
+// ConnectionForm is a connector a behavior routes a `send … via` through.
+// Selectors carries each indexed end's index, read from where it was written.
 type ConnectionForm struct {
-	Ends      []string `json:"ends"`
-	Variation string   `json:"variation,omitempty"`
-	Variant   string   `json:"variant,omitempty"`
-	Owner     string   `json:"owner"`
-	Scope     string   `json:"scope,omitempty"`
+	Ends      []string          `json:"ends"`
+	Selectors []EndSelectorForm `json:"selectors,omitempty"`
+	Variation string            `json:"variation,omitempty"`
+	Variant   string            `json:"variant,omitempty"`
+	Owner     string            `json:"owner"`
+	Scope     string            `json:"scope,omitempty"`
+}
+
+// EndSelectorForm is an indexed end's position in Ends and its selector, as
+// written in the end's declaration scope.
+type EndSelectorForm struct {
+	At    int       `json:"at"`
+	Index *ExprForm `json:"index"`
 }
 
 // AcceptForm is what an accept node or a transition trigger receives.
@@ -433,7 +442,7 @@ func (x *graphsExporter) actionGraph(graph *lower.ActionGraph) (*ActionForm, err
 	if len(ids.order) != vertices || ids.late {
 		return nil, fmt.Errorf("%w: a vertex is reached only while it is written", ErrGraphsOrder)
 	}
-	form.Connections = connections(graph.Connections)
+	form.Connections = x.connections(graph.Connections, graph.Scope)
 	return form, nil
 }
 
@@ -828,19 +837,41 @@ func (x *graphsExporter) gate(scope *symbols.Scope, at lower.Extent) *SpanForm {
 	return &span
 }
 
-// connections writes the connectors a behavior routes through.
-func connections(conns []lower.Connection) []ConnectionForm {
+// connections writes the connectors a behavior routes through, reading each
+// indexed end's selector from its source extent in the end's declaration scope.
+func (x *graphsExporter) connections(conns []lower.Connection, enclosing *symbols.Scope) []ConnectionForm {
 	var out []ConnectionForm
 	for _, c := range conns {
 		owner := "behavior"
 		if c.Owner == lower.OwnerObject {
 			owner = "object"
 		}
-		ends := c.Ends
-		if ends == nil {
-			ends = []string{}
+		scope := orScope(c.Scope, enclosing)
+		ends := make([]string, 0, len(c.Ends))
+		var selectors []EndSelectorForm
+		for i, end := range c.Ends {
+			// Read the written name, not Path: `'a.b'` and `a.b` flatten alike.
+			name := end.Path
+			if written := x.exprAt(scope, end.TargetAt()); written != nil && written.Text != "" {
+				name = written.Text
+			}
+			ends = append(ends, name)
+			if end.Index == nil {
+				continue
+			}
+			index := x.exprAt(scope, end.IndexAt())
+			if index == nil {
+				index = &ExprForm{Span: x.span(scope, end.IndexAt())}
+			}
+			selectors = append(selectors, EndSelectorForm{At: i, Index: index})
+			if index.Text != "" {
+				ends[i] = name + "#(" + index.Text + ")"
+			}
 		}
-		out = append(out, ConnectionForm{Ends: ends, Variation: c.Variation, Variant: c.Variant, Owner: owner, Scope: scopeName(c.Scope)})
+		out = append(out, ConnectionForm{
+			Ends: ends, Selectors: selectors, Variation: c.Variation, Variant: c.Variant,
+			Owner: owner, Scope: scopeName(c.Scope),
+		})
 	}
 	return out
 }

@@ -25,6 +25,11 @@ type APIJSONOptions struct {
 	// InheritedMembers completes the derived families that repeat inherited members
 	// on every Namespace and Type (apiJSONInheritedFamilies); off, an element carries its owned structure.
 	InheritedMembers bool
+	// Projection writes only the elements the caller names. Nil or empty writes the whole model.
+	Projection *APIJSONProjection
+	// ProjectionGraph supplies names missing from a document-filtered graph;
+	// the output graph still decides which selected subjects are emitted.
+	ProjectionGraph *rdf.Graph
 }
 
 const (
@@ -116,12 +121,12 @@ func apiJSONElementsWithOptions(graph *rdf.Graph, options APIJSONOptions) ([]api
 	return elements, nil
 }
 
-// apiJSONEachElement hands visit the element object of every subject in order;
-// the object is visit's to keep, and nothing here holds it afterwards.
-func apiJSONEachElement(graph *rdf.Graph, options APIJSONOptions, visit func(apiJSONObject) error) error {
+// apiJSONSettledWriter settles a graph for the element writer and returns both:
+// the collections the writer reads and the indexes it derives names with.
+func apiJSONSettledWriter(graph *rdf.Graph, options APIJSONOptions) (*rdf.Graph, *apiJSONElementWriter, error) {
 	wrapped, err := withRootNamespace(graph)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 	settled, err := rdf.ReconcileCollectionsWithPolicy(wrapped, func(subject rdf.Term, key string) bool {
 		metaclass := apiJSONOntologyMetaclass(strings.TrimPrefix(wrapped.Type(subject), rdf.SysML))
@@ -129,12 +134,7 @@ func apiJSONEachElement(graph *rdf.Graph, options APIJSONOptions, visit func(api
 		return ok && property.Nonunique
 	})
 	if err != nil {
-		return err
-	}
-	subjects := settled.SubjectsView()
-	var referenced map[string]bool
-	if options.LibraryReferences != nil {
-		referenced = map[string]bool{}
+		return nil, nil, err
 	}
 	index := newAPIJSONWriteIndex(settled)
 	evaluation := newAPIJSONEvaluationWithIndex(index)
@@ -150,6 +150,37 @@ func apiJSONEachElement(graph *rdf.Graph, options APIJSONOptions, visit func(api
 		options:            options,
 		scratch:            &apiJSONWriteScratch{},
 	}
+	return settled, writer, nil
+}
+
+// apiJSONEachElement hands visit the element object of every subject in order;
+// the object is visit's to keep, and nothing here holds it afterwards.
+func apiJSONEachElement(graph *rdf.Graph, options APIJSONOptions, visit func(apiJSONObject) error) error {
+	settled, writer, err := apiJSONSettledWriter(graph, options)
+	if err != nil {
+		return err
+	}
+	subjects := settled.SubjectsView()
+	var referenced map[string]bool
+	if options.LibraryReferences != nil {
+		referenced = map[string]bool{}
+	}
+	// Project over written names; the full graph supplies names a document
+	// filter omitted, and the output graph limits which subjects are written.
+	var projection *apiJSONProjectionIndex
+	if !options.Projection.Empty() {
+		projectionGraph, projectionWriter := settled, writer
+		if options.ProjectionGraph != nil {
+			projectionGraph, projectionWriter, err = apiJSONSettledWriter(options.ProjectionGraph, options)
+			if err != nil {
+				return err
+			}
+		}
+		projection, err = newAPIJSONProjectionIndex(projectionGraph, projectionWriter, options.Projection)
+		if err != nil {
+			return err
+		}
+	}
 	var reached map[string]bool
 	if options.IncludeLibraryStubs && !options.InheritedMembers {
 		if reached, err = apiJSONOwnedStubIDs(settled, subjects, *writer); err != nil {
@@ -157,6 +188,9 @@ func apiJSONEachElement(graph *rdf.Graph, options APIJSONOptions, visit func(api
 		}
 	}
 	for _, subject := range subjects {
+		if projection != nil && !projection.Matches(subject) {
+			continue
+		}
 		// The element form holds the model's own elements only; a library element
 		// stays a bare reference, as an ownerless element there is a root (the OMG API JSON shape).
 		library := LibraryReference(settled, subject)
@@ -358,6 +392,50 @@ type apiJSONElementWriter struct {
 	scratch            *apiJSONWriteScratch
 }
 
+// apiJSONMetaclassNames resolves the metaclass names an element is written with:
+// the ontology metaclass, the @type on the element, and the type for absence checks.
+func apiJSONMetaclassNames(graph *rdf.Graph, subject rdf.Term, typ rdf.Term) (string, string, rdf.Term) {
+	var metaclass string
+	if strings.HasPrefix(typ.Value, rdf.SysML) {
+		metaclass = strings.TrimPrefix(typ.Value, rdf.SysML)
+	}
+	typeName := apiJSONType(typ)
+	if standard, legacy := legacyMetaclasses[metaclass]; legacy {
+		metaclass, typeName = standard, standard
+	}
+	absenceType := typ
+	if _, legacy := legacyKerMLTypeMetaclasses[metaclass]; legacy {
+		keyword, _ := graph.Lexical(subject, rdf.OpenSysML+xDeclaredKeyword)
+		metaclass = legacyKerMLTypeMetaclass(metaclass, keyword)
+		typeName, absenceType = metaclass, rdf.SysMLTerm(metaclass)
+	}
+	return metaclass, typeName, absenceType
+}
+
+// writtenQualifiedName is the qualifiedName the writer emits, derived by the
+// metamodel evaluator; it is the name a projection by qualified name matches.
+func (w *apiJSONElementWriter) writtenQualifiedName(subject rdf.Term) (string, error) {
+	if w.evaluation == nil || w.evaluation.evaluator == nil || w.evaluation.structure == nil {
+		return "", nil
+	}
+	element, ok := w.evaluation.structure.element(subject)
+	if !ok {
+		return "", nil
+	}
+	value, supported := w.evaluation.evaluator.PropertyReadOnlyUncached(element, "Element", "qualifiedName")
+	if !supported {
+		return "", nil
+	}
+	switch value.Kind {
+	case metamodel.NullValue:
+		return "", nil
+	case metamodel.StringValue:
+		return value.String, nil
+	default:
+		return "", fmt.Errorf("qualifiedName has unsupported evaluator value kind %d", value.Kind)
+	}
+}
+
 func (w *apiJSONElementWriter) element(subject rdf.Term) (apiJSONObject, error) {
 	types := w.graph.ObjectsView(subject, rdf.RDFType)
 	if len(types) != 1 {
@@ -379,24 +457,8 @@ func (w *apiJSONElementWriter) element(subject rdf.Term) (apiJSONObject, error) 
 			Note: "an element's metaclass is a sysml: or sysx: term",
 		}
 	}
-	// The metaclass name for the ontology's multiplicity lookup, empty for a
-	// sysx: element the metamodel does not declare.
-	var metaclass string
-	if strings.HasPrefix(types[0].Value, rdf.SysML) {
-		metaclass = strings.TrimPrefix(types[0].Value, rdf.SysML)
-	}
-	typeName := apiJSONType(types[0])
-	standard, legacyIndividual := legacyMetaclasses[metaclass]
-	if legacyIndividual {
-		metaclass, typeName = standard, standard
-	}
-	// A legacy KerML type name is none of the metamodel's: the element is its metaclass.
-	absenceType := types[0]
-	if _, legacy := legacyKerMLTypeMetaclasses[metaclass]; legacy {
-		keyword, _ := w.graph.Lexical(subject, rdf.OpenSysML+xDeclaredKeyword)
-		metaclass = legacyKerMLTypeMetaclass(metaclass, keyword)
-		typeName, absenceType = metaclass, rdf.SysMLTerm(metaclass)
-	}
+	metaclass, typeName, absenceType := apiJSONMetaclassNames(w.graph, subject, types[0])
+	_, legacyIndividual := legacyMetaclasses[rdf.LocalName(types[0].Value)]
 	predicates := w.graph.PredicatesView(subject)
 	element := make(apiJSONObject, 0, len(predicates)+5)
 	element = append(element,
@@ -405,20 +467,13 @@ func (w *apiJSONElementWriter) element(subject rdf.Term) (apiJSONObject, error) 
 	)
 	var mappingValues apiJSONObject
 	mappingValuesPosition := -1
+	derivedName, err := w.writtenQualifiedName(subject)
+	if err != nil {
+		return nil, err
+	}
 	var specName any
-	if w.evaluation != nil && w.evaluation.evaluator != nil && w.evaluation.structure != nil {
-		if semanticElement, ok := w.evaluation.structure.element(subject); ok {
-			value, supported := w.evaluation.evaluator.PropertyReadOnlyUncached(semanticElement, "Element", "qualifiedName")
-			if supported {
-				switch value.Kind {
-				case metamodel.NullValue:
-				case metamodel.StringValue:
-					specName = value.String
-				default:
-					return nil, fmt.Errorf("qualifiedName has unsupported evaluator value kind %d", value.Kind)
-				}
-			}
-		}
+	if derivedName != "" {
+		specName = derivedName
 	}
 	mappingName, hasMappingName, err := apiJSONMappingQualifiedName(w.graph, subject, w.mappingNames, specName)
 	if err != nil {

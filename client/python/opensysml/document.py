@@ -228,6 +228,9 @@ class RenderPort:
     #: The node's owner has the port from its type rather than declares it; the
     #: notation draws ``^`` before ``name``.
     inherited: bool = False
+    #: The declared feature's EffectiveID, the id a written form's ``{id}`` link
+    #: anchor carries; empty when no element declares the port.
+    element_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -284,6 +287,12 @@ class RenderNode:
     #: The state's substates run in parallel; the notation writes «parallel»
     #: under the name.
     parallel: bool = False
+    #: The declared element's EffectiveID, the id a written form's ``{id}`` link
+    #: anchor carries; empty when no element declares the node.
+    element_id: str = ""
+    #: The notation outline derived from the node's metaclass, empty when the
+    #: server withholds the render_node_shape capability.
+    shape: str = ""
 
 
 @dataclass(frozen=True)
@@ -298,6 +307,9 @@ class RenderEdge:
     origin: Optional[RenderSpan]
     route: tuple
     style: Optional[RenderStyle]
+    #: The connection's EffectiveID, the id a written form's ``{id}`` link
+    #: anchor carries; empty when no element declares the edge.
+    element_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -414,7 +426,7 @@ def render_view_result(response):
         RenderNode(
             node.id, node.kind, node.name, node.name_synthesized, node.type, node.detail,
             node.text, node.stand_in, node.parent, node.compartment,
-            tuple(RenderPort(port.id, port.name, port.type, port.direction, port.inherited) for port in node.ports),
+            tuple(RenderPort(port.id, port.name, port.type, port.direction, port.inherited, port.element_id) for port in node.ports),
             _render_span(node.origin if node.HasField("origin") else None),
             None if not node.HasField("geometry") else RenderGeometry(
                 node.geometry.x, node.geometry.y, node.geometry.width, node.geometry.height,
@@ -423,6 +435,8 @@ def render_view_result(response):
             _render_style(node.style if node.HasField("style") else None),
             inherited=node.inherited,
             parallel=node.parallel,
+            element_id=node.element_id,
+            shape=node.shape,
         )
         for node in response.nodes
     )
@@ -432,6 +446,7 @@ def render_view_result(response):
             _render_span(edge.origin if edge.HasField("origin") else None),
             tuple(RenderPoint(point.x, point.y) for point in edge.route),
             _render_style(edge.style if edge.HasField("style") else None),
+            edge.element_id,
         )
         for edge in response.edges
     )

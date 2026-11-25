@@ -23,17 +23,32 @@ type Document struct {
 // PositionalIdentities names the declared symbols of docs that no qualified
 // identity names (identifies reports those), by their position: `Owner::@N`.
 func PositionalIdentities(index *symbols.Index, docs []Document, identifies func(*symbols.Symbol) bool) (map[*symbols.Symbol]string, map[string]*symbols.Symbol) {
-	positional := make(map[*symbols.Symbol]string)
-	byPositional := make(map[string]*symbols.Symbol)
 	if index == nil || identifies == nil {
-		return positional, byPositional
+		return map[*symbols.Symbol]string{}, map[string]*symbols.Symbol{}
 	}
 	res := resolve.New(index)
 	model := semantics.NewModel(res)
 	res.SetModel(model)
+	return positionalIdentities(docs, res, model, true, identifies)
+}
+
+// PositionalIdentitiesResolved names the same symbols with a resolver and model
+// whose documents are already resolved. It does not resolve them again: a caller
+// rendering those documents derives identities without changing what a later
+// rendering draws, as eager resolution would.
+func PositionalIdentitiesResolved(index *symbols.Index, docs []Document, res *resolve.Resolver, model *semantics.Model, identifies func(*symbols.Symbol) bool) (map[*symbols.Symbol]string, map[string]*symbols.Symbol) {
+	if index == nil || res == nil || model == nil || identifies == nil {
+		return map[*symbols.Symbol]string{}, map[string]*symbols.Symbol{}
+	}
+	return positionalIdentities(docs, res, model, false, identifies)
+}
+
+func positionalIdentities(docs []Document, res *resolve.Resolver, model *semantics.Model, resolveDocs bool, identifies func(*symbols.Symbol) bool) (map[*symbols.Symbol]string, map[string]*symbols.Symbol) {
+	positional := make(map[*symbols.Symbol]string)
+	byPositional := make(map[string]*symbols.Symbol)
 	candidates := make(map[string]map[*symbols.Symbol]bool)
 	for _, doc := range docs {
-		positionalCandidatesOf(doc, res, model, identifies, candidates)
+		positionalCandidatesOf(doc, res, model, resolveDocs, identifies, candidates)
 	}
 	for _, candidate := range acceptedPositional(candidates) {
 		sym := candidate.sym
@@ -58,11 +73,13 @@ type positionalCandidate struct {
 
 // positionalCandidatesOf records, under each name the document derives, the
 // symbols claiming it.
-func positionalCandidatesOf(doc Document, res *resolve.Resolver, model *semantics.Model, identifies func(*symbols.Symbol) bool, candidates map[string]map[*symbols.Symbol]bool) {
+func positionalCandidatesOf(doc Document, res *resolve.Resolver, model *semantics.Model, resolveDocs bool, identifies func(*symbols.Symbol) bool, candidates map[string]map[*symbols.Symbol]bool) {
 	if doc.File == nil || doc.Root == nil || doc.Scope == nil {
 		return
 	}
-	res.ResolveDocument(doc.File.Name(), doc.Root)
+	if resolveDocs {
+		res.ResolveDocument(doc.File.Name(), doc.Root)
+	}
 	names, err := Build(doc.File, doc.Root, model, identity.Build(model, res, doc.Scope))
 	if err != nil {
 		return

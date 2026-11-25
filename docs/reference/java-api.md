@@ -358,6 +358,12 @@ for (String name : edited.affected()) {
 }
 ```
 
+`ParseOptions.defaults().withKeep(false)` answers a transient parse: the model is not inserted
+into the service's cache, so a derived union read for its results neither evicts nor promotes a
+model the caller holds. The answer is otherwise the one a kept parse gives. It needs the
+`parse_sources_keep` capability, and a one-document `load`/`parse` refuses the option with an
+`IllegalArgumentException`.
+
 A SysML v1 model — UML XMI, an Eclipse UML2 `.uml` file or a `.mdzip` archive — is **migrated,
 not converted**: `convert`/`convertFile` refuse it with a `ServiceException` of
 `INVALID_ARGUMENT` whose message says so and names `migrate`, since a migration is ledgered

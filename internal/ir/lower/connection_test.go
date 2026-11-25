@@ -258,7 +258,7 @@ func TestLowerAcceptRecordsViaPort(t *testing.T) {
 }
 
 func TestPeerPortsIgnoresUnconnectedAndSelf(t *testing.T) {
-	conns := []Connection{{Ends: []string{"a", "b"}}, {Ends: []string{"a", "a"}}}
+	conns := []Connection{{Ends: []ConnectionEnd{{Path: "a"}, {Path: "b"}}}, {Ends: []ConnectionEnd{{Path: "a"}, {Path: "a"}}}}
 	if got := peerPorts(conns, "lonely"); got != nil {
 		t.Errorf("peerPorts(lonely) = %v, want nothing", got)
 	}
@@ -273,9 +273,9 @@ func TestPeerPortsIgnoresUnconnectedAndSelf(t *testing.T) {
 
 func TestPeerPortsSpansMultiEndAndMultipleConnections(t *testing.T) {
 	conns := []Connection{
-		{Ends: []string{"hub", "left", "right"}},
-		{Ends: []string{"hub", "extra"}},
-		{Ends: []string{"hub", "left"}},
+		{Ends: []ConnectionEnd{{Path: "hub"}, {Path: "left"}, {Path: "right"}}},
+		{Ends: []ConnectionEnd{{Path: "hub"}, {Path: "extra"}}},
+		{Ends: []ConnectionEnd{{Path: "hub"}, {Path: "left"}}},
 	}
 	got := peerPorts(conns, "hub")
 	want := []string{"left", "right", "extra"}
@@ -337,17 +337,20 @@ func TestLowerVariantConnectionsCarryTheirVariation(t *testing.T) {
 	if len(graph.Connections) != 2 {
 		t.Fatalf("Connections = %v, want the two variants' connections", graph.Connections)
 	}
-	for i, want := range []Connection{
-		{Ends: []string{"p1", "p2"}, Variation: "link", Variant: "direct"},
-		{Ends: []string{"p1", "p3"}, Variation: "link", Variant: "indirect"},
+	for i, want := range []struct {
+		ends               []string
+		variation, variant string
+	}{
+		{[]string{"p1", "p2"}, "link", "direct"},
+		{[]string{"p1", "p3"}, "link", "indirect"},
 	} {
 		got := graph.Connections[i]
-		if got.Variation != want.Variation || got.Variant != want.Variant {
+		if got.Variation != want.variation || got.Variant != want.variant {
 			t.Errorf("connection %d = %+v, want variation %s variant %s",
-				i, got, want.Variation, want.Variant)
+				i, got, want.variation, want.variant)
 		}
-		if len(got.Ends) != 2 || got.Ends[0] != want.Ends[0] || got.Ends[1] != want.Ends[1] {
-			t.Errorf("connection %d ends = %v, want %v", i, got.Ends, want.Ends)
+		if len(got.Ends) != 2 || got.Ends[0].Path != want.ends[0] || got.Ends[1].Path != want.ends[1] {
+			t.Errorf("connection %d ends = %v, want %v", i, got.Ends, want.ends)
 		}
 	}
 }
@@ -451,6 +454,75 @@ func TestLowerObjectConnectionsAreOwnedByTheObject(t *testing.T) {
 	}
 }
 
+// The lowering keeps the selector beside the port path routing addresses, so a
+// consumer can tell `p#(1)` from `p`.
+func TestLowerIndexedConnectionEndKeepsItsSelector(t *testing.T) {
+	def := usageOrDefFor(t, `
+		part def C {
+			port p[3];
+			port q;
+			connect p#(1) to q;
+		}
+	`)
+	conns := ToObjectConnections(def, nil)
+	if len(conns) != 1 {
+		t.Fatalf("ToObjectConnections = %+v, want one connection", conns)
+	}
+	ends := conns[0].Ends
+	if len(ends) != 2 {
+		t.Fatalf("ends = %+v, want two", ends)
+	}
+	if ends[0].Path != "p" || ends[0].Index == nil {
+		t.Fatalf("indexed end = %+v, want the port p with an index", ends[0])
+	}
+	if got := (ast.ExprPrinter{}).Text(ends[0].Index); got != "1" {
+		t.Errorf("indexed end selector = %q, want 1", got)
+	}
+	if at := ends[0].IndexAt(); !at.Written || at.Span.Len == 0 {
+		t.Errorf("indexed end has no written extent: %+v", at)
+	}
+	if ends[1].Path != "q" || ends[1].Index != nil {
+		t.Errorf("plain end = %+v, want the port q with no index", ends[1])
+	}
+	if got := connectionPaths(conns[0]); len(got) != 2 || got[0] != "p" || got[1] != "q" {
+		t.Errorf("routing paths = %v, want [p q] (the ports, not p#(1))", got)
+	}
+}
+
+// Routing flattens a quoted name and a chain to the same path; the end keeps
+// the node it came from so a consumer with source can still tell them apart.
+func TestLowerIndexedEndKeepsItsWrittenTarget(t *testing.T) {
+	const src = `part def C {
+		part a { port b[3]; }
+		port 'a.b'[3];
+		port q;
+		connect 'a.b'#(1) to q;
+		connect a.b#(1) to q;
+	}`
+	def := usageOrDefFor(t, src)
+	conns := ToObjectConnections(def, nil)
+	if len(conns) != 2 {
+		t.Fatalf("ToObjectConnections = %+v, want two connections", conns)
+	}
+	quoted, nested := conns[0].Ends[0], conns[1].Ends[0]
+	if quoted.Path != "a.b" || nested.Path != "a.b" {
+		t.Fatalf("routing paths = %q and %q, want both flattened to a.b", quoted.Path, nested.Path)
+	}
+	textOf := func(e ConnectionEnd) string {
+		at := e.TargetAt()
+		if !at.Written || at.Span.Len <= 0 {
+			t.Fatalf("end has no written target: %+v", e)
+		}
+		return src[at.Span.Offset : at.Span.Offset+at.Span.Len]
+	}
+	if got := textOf(quoted); got != "'a.b'" {
+		t.Errorf("quoted target = %q, want 'a.b'", got)
+	}
+	if got := textOf(nested); got != "a.b" {
+		t.Errorf("nested target = %q, want a.b", got)
+	}
+}
+
 // usageOrDefFor parses one declaration and returns its node, for lowering that
 // starts from a type rather than from a behavior graph.
 func usageOrDefFor(t *testing.T, src string) ast.Node {
@@ -476,6 +548,15 @@ func usageOrDefFor(t *testing.T, src string) ast.Node {
 	return nil
 }
 
+// connectionPaths is the port paths a connection addresses, one per end.
+func connectionPaths(conn Connection) []string {
+	paths := make([]string, 0, len(conn.Ends))
+	for _, end := range conn.Ends {
+		paths = append(paths, end.Path)
+	}
+	return paths
+}
+
 // peerPorts returns the ends connected to port, in declaration order and
 // without duplicates. A port is never its own peer.
 func peerPorts(conns []Connection, port string) []string {
@@ -485,10 +566,10 @@ func peerPorts(conns []Connection, port string) []string {
 	var peers []string
 	seen := map[string]bool{port: true}
 	for _, conn := range conns {
-		if !slices.Contains(conn.Ends, port) {
+		if !slices.Contains(connectionPaths(conn), port) {
 			continue
 		}
-		for _, end := range conn.Ends {
+		for _, end := range connectionPaths(conn) {
 			if seen[end] {
 				continue
 			}

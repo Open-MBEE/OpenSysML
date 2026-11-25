@@ -104,7 +104,7 @@ func TestAMemberDirectionIsNotAskedWithoutTheCapability(t *testing.T) {
 // service lacks its capability, since such a service would ignore the field and answer as if unasked.
 func TestConvertOptionsAreNotRequestedWithoutTheirCapability(t *testing.T) {
 	ctx := context.Background()
-	others := []string{CapabilityConvert, CapabilityConvertDocuments, CapabilityConvertCompact, CapabilityConvertCheckDiagnostics}
+	others := []string{CapabilityConvert, CapabilityConvertDocuments, CapabilityConvertCompact, CapabilityConvertCheckDiagnostics, CapabilityConvertProjection}
 	for _, tc := range []struct {
 		name       string
 		capability string
@@ -115,6 +115,7 @@ func TestConvertOptionsAreNotRequestedWithoutTheirCapability(t *testing.T) {
 		{"WithOmitDerived", CapabilityConvertCompact, []ConvertOption{WithOmitDerived()}},
 		{"WithOmitDerived keeping", CapabilityConvertCompact, []ConvertOption{WithOmitDerived("qualifiedName")}},
 		{"WithCheckDiagnostics", CapabilityConvertCheckDiagnostics, []ConvertOption{WithCheckDiagnostics()}},
+		{"WithProjection", CapabilityConvertProjection, []ConvertOption{WithProjection(Projection{QualifiedNames: []string{"P::A"}})}},
 	} {
 		without := slices.DeleteFunc(slices.Clone(others), func(name string) bool { return name == tc.capability })
 		for name, old := range map[string]*oldCaller{
@@ -140,6 +141,7 @@ type recordingCaller struct {
 func (r *recordingCaller) serverInfo(context.Context) (*pb.ServerInfoResponse, error) {
 	return &pb.ServerInfoResponse{Version: "new", Capabilities: []string{
 		CapabilityConvert, CapabilityConvertDocuments, CapabilityConvertCompact, CapabilityConvertCheckDiagnostics,
+		CapabilityConvertProjection,
 	}}, nil
 }
 
@@ -158,21 +160,26 @@ func TestConvertOptionsReachTheWire(t *testing.T) {
 	recorded := &recordingCaller{}
 	c := &client{caller: recorded}
 	keep := []string{"qualifiedName", "owner"}
+	projection := Projection{QualifiedNames: []string{"P::A"}, Metaclasses: []string{"PartUsage"}}
 	asked, err := c.Convert(ctx, &Model{Hash: "h"}, FormatAPIJSON,
-		WithDocuments("a.sysml", "b.sysml"), WithCompact(), WithOmitDerived(keep...), WithCheckDiagnostics())
+		WithDocuments("a.sysml", "b.sysml"), WithCompact(), WithOmitDerived(keep...), WithCheckDiagnostics(),
+		WithProjection(projection))
 	if err != nil {
 		t.Fatalf("Convert: %v", err)
 	}
 	keep[0] = "changed after the option was built"
+	projection.QualifiedNames[0] = "changed after the option was built"
 	if _, err := c.Convert(ctx, &Model{Hash: "h"}, FormatAPIJSON); err != nil {
 		t.Fatalf("Convert: %v", err)
 	}
 	wanted, plain := recorded.requests[0], recorded.requests[1]
 	if !slices.Equal(wanted.Documents, []string{"a.sysml", "b.sysml"}) || !wanted.Compact || !wanted.OmitDerived ||
-		!slices.Equal(wanted.KeepDerived, []string{"qualifiedName", "owner"}) || !wanted.IncludeCheckDiagnostics {
+		!slices.Equal(wanted.KeepDerived, []string{"qualifiedName", "owner"}) || !wanted.IncludeCheckDiagnostics ||
+		wanted.GetProjection().GetQualifiedNames()[0] != "P::A" || wanted.GetProjection().GetMetaclasses()[0] != "PartUsage" {
 		t.Errorf("request with every option = %v", wanted)
 	}
-	if plain.Documents != nil || plain.Compact || plain.OmitDerived || plain.KeepDerived != nil || plain.IncludeCheckDiagnostics {
+	if plain.Documents != nil || plain.Compact || plain.OmitDerived || plain.KeepDerived != nil ||
+		plain.IncludeCheckDiagnostics || plain.Projection != nil {
 		t.Errorf("request with no option = %v", plain)
 	}
 	want := []Diagnostic{

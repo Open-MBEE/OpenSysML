@@ -6,6 +6,7 @@
     "nodes": [
       {
         "id": "n0",
+        "elementId": "OpenSysMLStack__stack",
         "kind": "part",
         "name": "OpenSysMLStack::stack",
         "origin": {
@@ -18,6 +19,7 @@
       },
       {
         "id": "n1",
+        "elementId": "OpenSysMLStack__stack__opensysml",
         "kind": "part",
         "name": "opensysml",
         "type": "Project",
@@ -25,6 +27,7 @@
         "ports": [
           {
             "id": "n1.0",
+            "elementId": "OpenSysMLStack__Project__api",
             "name": "api",
             "type": "ModelPort",
             "inherited": true
@@ -40,6 +43,7 @@
       },
       {
         "id": "n2",
+        "elementId": "OpenSysMLStack__stack__opensysml__label",
         "kind": "attribute",
         "name": "label",
         "type": "String",
@@ -54,6 +58,7 @@
       },
       {
         "id": "n3",
+        "elementId": "OpenSysMLStack__stack__opensysml__kind",
         "kind": "attribute",
         "name": "kind",
         "type": "String",
@@ -68,6 +73,7 @@
       },
       {
         "id": "n4",
+        "elementId": "OpenSysMLStack__stack__opensysml__lang",
         "kind": "attribute",
         "name": "lang",
         "type": "String",
@@ -82,6 +88,7 @@
       },
       {
         "id": "n5",
+        "elementId": "OpenSysMLStack__stack__opensysml__role",
         "kind": "attribute",
         "name": "role",
         "type": "String",
@@ -96,6 +103,7 @@
       },
       {
         "id": "n6",
+        "elementId": "OpenSysMLStack__stack__opensysml__repo",
         "kind": "attribute",
         "name": "repo",
         "type": "String",
@@ -110,6 +118,7 @@
       },
       {
         "id": "n7",
+        "elementId": "OpenSysMLStack__stack__opensysml__parser",
         "kind": "part",
         "name": "parser",
         "type": "Component",
@@ -124,6 +133,7 @@
       },
       {
         "id": "n8",
+        "elementId": "OpenSysMLStack__stack__opensysml__parser__label",
         "kind": "attribute",
         "name": "label",
         "type": "String",
@@ -138,6 +148,7 @@
       },
       {
         "id": "n9",
+        "elementId": "OpenSysMLStack__Component__kind",
         "kind": "attribute",
         "name": "kind",
         "type": "String",
@@ -153,6 +164,7 @@
       },
       {
         "id": "n10",
+        "elementId": "OpenSysMLStack__stack__opensysml__parser__role",
         "kind": "attribute",
         "name": "role",
         "type": "String",
@@ -167,6 +179,7 @@
       },
       {
         "id": "n11",
+        "elementId": "OpenSysMLStack__stack__opensysml__validation",
         "kind": "part",
         "name": "validation",
         "type": "Component",
@@ -181,6 +194,7 @@
       },
       {
         "id": "n12",
+        "elementId": "OpenSysMLStack__stack__opensysml__validation__label",
         "kind": "attribute",
         "name": "label",
         "type": "String",
@@ -195,6 +209,7 @@
       },
       {
         "id": "n13",
+        "elementId": "OpenSysMLStack__Component__kind",
         "kind": "attribute",
         "name": "kind",
         "type": "String",
@@ -210,6 +225,7 @@
       },
       {
         "id": "n14",
+        "elementId": "OpenSysMLStack__stack__opensysml__validation__role",
         "kind": "attribute",
         "name": "role",
         "type": "String",
@@ -224,6 +240,7 @@
       },
       {
         "id": "n15",
+        "elementId": "OpenSysMLStack__stack__opensysml__stdlib",
         "kind": "part",
         "name": "stdlib",
         "type": "Component",
@@ -238,6 +255,7 @@
       },
       {
         "id": "n16",
+        "elementId": "OpenSysMLStack__stack__opensysml__stdlib__label",
         "kind": "attribute",
         "name": "label",
         "type": "String",
@@ -252,6 +270,7 @@
       },
       {
         "id": "n17",
+        "elementId": "OpenSysMLStack__Component__kind",
         "kind": "attribute",
         "name": "kind",
         "type": "String",
@@ -267,6 +286,7 @@
       },
       {
         "id": "n18",
+        "elementId": "OpenSysMLStack__stack__opensysml__stdlib__role",
         "kind": "attribute",
         "name": "role",
         "type": "String",
@@ -281,6 +301,7 @@
       },
       {
         "id": "n19",
+        "elementId": "OpenSysMLStack__stack__opensysml__lsp",
         "kind": "part",
         "name": "lsp",
         "type": "Component",
@@ -295,6 +316,7 @@
       },
       {
         "id": "n20",
+        "elementId": "OpenSysMLStack__stack__opensysml__lsp__label",
         "kind": "attribute",
         "name": "label",
         "type": "String",
@@ -309,6 +331,7 @@
       },
       {
         "id": "n21",
+        "elementId": "OpenSysMLStack__Component__kind",
         "kind": "attribute",
         "name": "kind",
         "type": "String",
@@ -324,6 +347,7 @@
       },
       {
         "id": "n22",
+        "elementId": "OpenSysMLStack__stack__opensysml__lsp__role",
         "kind": "attribute",
         "name": "role",
         "type": "String",
@@ -338,6 +362,7 @@
       },
       {
         "id": "n23",
+        "elementId": "OpenSysMLStack__stack__opensysml__editors",
         "kind": "part",
         "name": "editors",
         "type": "Component",
@@ -352,6 +377,7 @@
       },
       {
         "id": "n24",
+        "elementId": "OpenSysMLStack__stack__opensysml__editors__label",
         "kind": "attribute",
         "name": "label",
         "type": "String",
@@ -366,6 +392,7 @@
       },
       {
         "id": "n25",
+        "elementId": "OpenSysMLStack__Component__kind",
         "kind": "attribute",
         "name": "kind",
         "type": "String",
@@ -381,6 +408,7 @@
       },
       {
         "id": "n26",
+        "elementId": "OpenSysMLStack__stack__opensysml__editors__role",
         "kind": "attribute",
         "name": "role",
         "type": "String",
@@ -395,6 +423,7 @@
       },
       {
         "id": "n27",
+        "elementId": "OpenSysMLStack__stack__opensysml__repl",
         "kind": "part",
         "name": "repl",
         "type": "Component",
@@ -409,6 +438,7 @@
       },
       {
         "id": "n28",
+        "elementId": "OpenSysMLStack__stack__opensysml__repl__label",
         "kind": "attribute",
         "name": "label",
         "type": "String",
@@ -423,6 +453,7 @@
       },
       {
         "id": "n29",
+        "elementId": "OpenSysMLStack__Component__kind",
         "kind": "attribute",
         "name": "kind",
         "type": "String",
@@ -438,6 +469,7 @@
       },
       {
         "id": "n30",
+        "elementId": "OpenSysMLStack__stack__opensysml__repl__role",
         "kind": "attribute",
         "name": "role",
         "type": "String",
@@ -452,6 +484,7 @@
       },
       {
         "id": "n31",
+        "elementId": "OpenSysMLStack__stack__opensysml__jupyter",
         "kind": "part",
         "name": "jupyter",
         "type": "Component",
@@ -466,6 +499,7 @@
       },
       {
         "id": "n32",
+        "elementId": "OpenSysMLStack__stack__opensysml__jupyter__label",
         "kind": "attribute",
         "name": "label",
         "type": "String",
@@ -480,6 +514,7 @@
       },
       {
         "id": "n33",
+        "elementId": "OpenSysMLStack__Component__kind",
         "kind": "attribute",
         "name": "kind",
         "type": "String",
@@ -495,6 +530,7 @@
       },
       {
         "id": "n34",
+        "elementId": "OpenSysMLStack__stack__opensysml__jupyter__role",
         "kind": "attribute",
         "name": "role",
         "type": "String",
@@ -509,6 +545,7 @@
       },
       {
         "id": "n35",
+        "elementId": "OpenSysMLStack__stack__opensysml__engine",
         "kind": "part",
         "name": "engine",
         "type": "Component",
@@ -523,6 +560,7 @@
       },
       {
         "id": "n36",
+        "elementId": "OpenSysMLStack__stack__opensysml__engine__label",
         "kind": "attribute",
         "name": "label",
         "type": "String",
@@ -537,6 +575,7 @@
       },
       {
         "id": "n37",
+        "elementId": "OpenSysMLStack__Component__kind",
         "kind": "attribute",
         "name": "kind",
         "type": "String",
@@ -552,6 +591,7 @@
       },
       {
         "id": "n38",
+        "elementId": "OpenSysMLStack__stack__opensysml__engine__role",
         "kind": "attribute",
         "name": "role",
         "type": "String",
@@ -566,6 +606,7 @@
       },
       {
         "id": "n39",
+        "elementId": "OpenSysMLStack__stack__opensysml__solver",
         "kind": "part",
         "name": "solver",
         "type": "Component",
@@ -580,6 +621,7 @@
       },
       {
         "id": "n40",
+        "elementId": "OpenSysMLStack__stack__opensysml__solver__label",
         "kind": "attribute",
         "name": "label",
         "type": "String",
@@ -594,6 +636,7 @@
       },
       {
         "id": "n41",
+        "elementId": "OpenSysMLStack__Component__kind",
         "kind": "attribute",
         "name": "kind",
         "type": "String",
@@ -609,6 +652,7 @@
       },
       {
         "id": "n42",
+        "elementId": "OpenSysMLStack__stack__opensysml__solver__role",
         "kind": "attribute",
         "name": "role",
         "type": "String",
@@ -623,6 +667,7 @@
       },
       {
         "id": "n43",
+        "elementId": "OpenSysMLStack__stack__opensysml__analyzers",
         "kind": "part",
         "name": "analyzers",
         "type": "Component",
@@ -637,6 +682,7 @@
       },
       {
         "id": "n44",
+        "elementId": "OpenSysMLStack__stack__opensysml__analyzers__label",
         "kind": "attribute",
         "name": "label",
         "type": "String",
@@ -651,6 +697,7 @@
       },
       {
         "id": "n45",
+        "elementId": "OpenSysMLStack__Component__kind",
         "kind": "attribute",
         "name": "kind",
         "type": "String",
@@ -666,6 +713,7 @@
       },
       {
         "id": "n46",
+        "elementId": "OpenSysMLStack__stack__opensysml__analyzers__role",
         "kind": "attribute",
         "name": "role",
         "type": "String",
@@ -680,6 +728,7 @@
       },
       {
         "id": "n47",
+        "elementId": "OpenSysMLStack__stack__opensysml__service",
         "kind": "part",
         "name": "service",
         "type": "Component",
@@ -694,6 +743,7 @@
       },
       {
         "id": "n48",
+        "elementId": "OpenSysMLStack__stack__opensysml__service__label",
         "kind": "attribute",
         "name": "label",
         "type": "String",
@@ -708,6 +758,7 @@
       },
       {
         "id": "n49",
+        "elementId": "OpenSysMLStack__Component__kind",
         "kind": "attribute",
         "name": "kind",
         "type": "String",
@@ -723,6 +774,7 @@
       },
       {
         "id": "n50",
+        "elementId": "OpenSysMLStack__stack__opensysml__service__role",
         "kind": "attribute",
         "name": "role",
         "type": "String",
@@ -737,6 +789,7 @@
       },
       {
         "id": "n51",
+        "elementId": "OpenSysMLStack__stack__opensysml__clients",
         "kind": "part",
         "name": "clients",
         "type": "Component",
@@ -751,6 +804,7 @@
       },
       {
         "id": "n52",
+        "elementId": "OpenSysMLStack__stack__opensysml__clients__label",
         "kind": "attribute",
         "name": "label",
         "type": "String",
@@ -765,6 +819,7 @@
       },
       {
         "id": "n53",
+        "elementId": "OpenSysMLStack__Component__kind",
         "kind": "attribute",
         "name": "kind",
         "type": "String",
@@ -780,6 +835,7 @@
       },
       {
         "id": "n54",
+        "elementId": "OpenSysMLStack__stack__opensysml__clients__role",
         "kind": "attribute",
         "name": "role",
         "type": "String",
@@ -794,6 +850,7 @@
       },
       {
         "id": "n55",
+        "elementId": "OpenSysMLStack__stack__opensysml__docgen",
         "kind": "part",
         "name": "docgen",
         "type": "Component",
@@ -808,6 +865,7 @@
       },
       {
         "id": "n56",
+        "elementId": "OpenSysMLStack__stack__opensysml__docgen__label",
         "kind": "attribute",
         "name": "label",
         "type": "String",
@@ -822,6 +880,7 @@
       },
       {
         "id": "n57",
+        "elementId": "OpenSysMLStack__Component__kind",
         "kind": "attribute",
         "name": "kind",
         "type": "String",
@@ -837,6 +896,7 @@
       },
       {
         "id": "n58",
+        "elementId": "OpenSysMLStack__stack__opensysml__docgen__role",
         "kind": "attribute",
         "name": "role",
         "type": "String",
@@ -851,6 +911,7 @@
       },
       {
         "id": "n59",
+        "elementId": "OpenSysMLStack__stack__opensysml__interchange",
         "kind": "part",
         "name": "interchange",
         "type": "Component",
@@ -865,6 +926,7 @@
       },
       {
         "id": "n60",
+        "elementId": "OpenSysMLStack__stack__opensysml__interchange__label",
         "kind": "attribute",
         "name": "label",
         "type": "String",
@@ -879,6 +941,7 @@
       },
       {
         "id": "n61",
+        "elementId": "OpenSysMLStack__Component__kind",
         "kind": "attribute",
         "name": "kind",
         "type": "String",
@@ -894,6 +957,7 @@
       },
       {
         "id": "n62",
+        "elementId": "OpenSysMLStack__stack__opensysml__interchange__role",
         "kind": "attribute",
         "name": "role",
         "type": "String",
@@ -908,6 +972,7 @@
       },
       {
         "id": "n63",
+        "elementId": "OpenSysMLStack__stack__opensysml__migration",
         "kind": "part",
         "name": "migration",
         "type": "Component",
@@ -922,6 +987,7 @@
       },
       {
         "id": "n64",
+        "elementId": "OpenSysMLStack__stack__opensysml__migration__label",
         "kind": "attribute",
         "name": "label",
         "type": "String",
@@ -936,6 +1002,7 @@
       },
       {
         "id": "n65",
+        "elementId": "OpenSysMLStack__Component__kind",
         "kind": "attribute",
         "name": "kind",
         "type": "String",
@@ -951,6 +1018,7 @@
       },
       {
         "id": "n66",
+        "elementId": "OpenSysMLStack__stack__opensysml__migration__role",
         "kind": "attribute",
         "name": "role",
         "type": "String",
@@ -965,6 +1033,7 @@
       },
       {
         "id": "n67",
+        "elementId": "OpenSysMLStack__stack__opensysml__oslc",
         "kind": "part",
         "name": "oslc",
         "type": "Component",
@@ -979,6 +1048,7 @@
       },
       {
         "id": "n68",
+        "elementId": "OpenSysMLStack__stack__opensysml__oslc__label",
         "kind": "attribute",
         "name": "label",
         "type": "String",
@@ -993,6 +1063,7 @@
       },
       {
         "id": "n69",
+        "elementId": "OpenSysMLStack__Component__kind",
         "kind": "attribute",
         "name": "kind",
         "type": "String",
@@ -1008,6 +1079,7 @@
       },
       {
         "id": "n70",
+        "elementId": "OpenSysMLStack__stack__opensysml__oslc__role",
         "kind": "attribute",
         "name": "role",
         "type": "String",
@@ -1022,6 +1094,7 @@
       },
       {
         "id": "n71",
+        "elementId": "OpenSysMLStack__stack__pilot",
         "kind": "part",
         "name": "pilot",
         "type": "Project",
@@ -1029,6 +1102,7 @@
         "ports": [
           {
             "id": "n71.0",
+            "elementId": "OpenSysMLStack__Project__api",
             "name": "api",
             "type": "ModelPort",
             "inherited": true
@@ -1044,6 +1118,7 @@
       },
       {
         "id": "n72",
+        "elementId": "OpenSysMLStack__stack__pilot__label",
         "kind": "attribute",
         "name": "label",
         "type": "String",
@@ -1058,6 +1133,7 @@
       },
       {
         "id": "n73",
+        "elementId": "OpenSysMLStack__stack__pilot__kind",
         "kind": "attribute",
         "name": "kind",
         "type": "String",
@@ -1072,6 +1148,7 @@
       },
       {
         "id": "n74",
+        "elementId": "OpenSysMLStack__stack__pilot__lang",
         "kind": "attribute",
         "name": "lang",
         "type": "String",
@@ -1086,6 +1163,7 @@
       },
       {
         "id": "n75",
+        "elementId": "OpenSysMLStack__stack__pilot__role",
         "kind": "attribute",
         "name": "role",
         "type": "String",
@@ -1100,6 +1178,7 @@
       },
       {
         "id": "n76",
+        "elementId": "OpenSysMLStack__stack__pilot__repo",
         "kind": "attribute",
         "name": "repo",
         "type": "String",
@@ -1114,6 +1193,7 @@
       },
       {
         "id": "n77",
+        "elementId": "OpenSysMLStack__stack__pilot__grammars",
         "kind": "part",
         "name": "grammars",
         "type": "Component",
@@ -1128,6 +1208,7 @@
       },
       {
         "id": "n78",
+        "elementId": "OpenSysMLStack__stack__pilot__grammars__label",
         "kind": "attribute",
         "name": "label",
         "type": "String",
@@ -1142,6 +1223,7 @@
       },
       {
         "id": "n79",
+        "elementId": "OpenSysMLStack__Component__kind",
         "kind": "attribute",
         "name": "kind",
         "type": "String",
@@ -1157,6 +1239,7 @@
       },
       {
         "id": "n80",
+        "elementId": "OpenSysMLStack__stack__pilot__grammars__role",
         "kind": "attribute",
         "name": "role",
         "type": "String",
@@ -1171,6 +1254,7 @@
       },
       {
         "id": "n81",
+        "elementId": "OpenSysMLStack__stack__pilot__validation",
         "kind": "part",
         "name": "validation",
         "type": "Component",
@@ -1185,6 +1269,7 @@
       },
       {
         "id": "n82",
+        "elementId": "OpenSysMLStack__stack__pilot__validation__label",
         "kind": "attribute",
         "name": "label",
         "type": "String",
@@ -1199,6 +1284,7 @@
       },
       {
         "id": "n83",
+        "elementId": "OpenSysMLStack__Component__kind",
         "kind": "attribute",
         "name": "kind",
         "type": "String",
@@ -1214,6 +1300,7 @@
       },
       {
         "id": "n84",
+        "elementId": "OpenSysMLStack__stack__pilot__validation__role",
         "kind": "attribute",
         "name": "role",
         "type": "String",
@@ -1228,6 +1315,7 @@
       },
       {
         "id": "n85",
+        "elementId": "OpenSysMLStack__stack__pilot__evaluator",
         "kind": "part",
         "name": "evaluator",
         "type": "Component",
@@ -1242,6 +1330,7 @@
       },
       {
         "id": "n86",
+        "elementId": "OpenSysMLStack__stack__pilot__evaluator__label",
         "kind": "attribute",
         "name": "label",
         "type": "String",
@@ -1256,6 +1345,7 @@
       },
       {
         "id": "n87",
+        "elementId": "OpenSysMLStack__Component__kind",
         "kind": "attribute",
         "name": "kind",
         "type": "String",
@@ -1271,6 +1361,7 @@
       },
       {
         "id": "n88",
+        "elementId": "OpenSysMLStack__stack__pilot__evaluator__role",
         "kind": "attribute",
         "name": "role",
         "type": "String",
@@ -1285,6 +1376,7 @@
       },
       {
         "id": "n89",
+        "elementId": "OpenSysMLStack__stack__pilot__stdlib",
         "kind": "part",
         "name": "stdlib",
         "type": "Component",
@@ -1299,6 +1391,7 @@
       },
       {
         "id": "n90",
+        "elementId": "OpenSysMLStack__stack__pilot__stdlib__label",
         "kind": "attribute",
         "name": "label",
         "type": "String",
@@ -1313,6 +1406,7 @@
       },
       {
         "id": "n91",
+        "elementId": "OpenSysMLStack__Component__kind",
         "kind": "attribute",
         "name": "kind",
         "type": "String",
@@ -1328,6 +1422,7 @@
       },
       {
         "id": "n92",
+        "elementId": "OpenSysMLStack__stack__pilot__stdlib__role",
         "kind": "attribute",
         "name": "role",
         "type": "String",
@@ -1342,6 +1437,7 @@
       },
       {
         "id": "n93",
+        "elementId": "OpenSysMLStack__stack__pilot__editors",
         "kind": "part",
         "name": "editors",
         "type": "Component",
@@ -1356,6 +1452,7 @@
       },
       {
         "id": "n94",
+        "elementId": "OpenSysMLStack__stack__pilot__editors__label",
         "kind": "attribute",
         "name": "label",
         "type": "String",
@@ -1370,6 +1467,7 @@
       },
       {
         "id": "n95",
+        "elementId": "OpenSysMLStack__Component__kind",
         "kind": "attribute",
         "name": "kind",
         "type": "String",
@@ -1385,6 +1483,7 @@
       },
       {
         "id": "n96",
+        "elementId": "OpenSysMLStack__stack__pilot__editors__role",
         "kind": "attribute",
         "name": "role",
         "type": "String",
@@ -1399,6 +1498,7 @@
       },
       {
         "id": "n97",
+        "elementId": "OpenSysMLStack__stack__pilot__plantuml",
         "kind": "part",
         "name": "plantuml",
         "type": "Component",
@@ -1413,6 +1513,7 @@
       },
       {
         "id": "n98",
+        "elementId": "OpenSysMLStack__stack__pilot__plantuml__label",
         "kind": "attribute",
         "name": "label",
         "type": "String",
@@ -1427,6 +1528,7 @@
       },
       {
         "id": "n99",
+        "elementId": "OpenSysMLStack__Component__kind",
         "kind": "attribute",
         "name": "kind",
         "type": "String",
@@ -1442,6 +1544,7 @@
       },
       {
         "id": "n100",
+        "elementId": "OpenSysMLStack__stack__pilot__plantuml__role",
         "kind": "attribute",
         "name": "role",
         "type": "String",
@@ -1456,6 +1559,7 @@
       },
       {
         "id": "n101",
+        "elementId": "OpenSysMLStack__stack__pilot__jupyter",
         "kind": "part",
         "name": "jupyter",
         "type": "Component",
@@ -1470,6 +1574,7 @@
       },
       {
         "id": "n102",
+        "elementId": "OpenSysMLStack__stack__pilot__jupyter__label",
         "kind": "attribute",
         "name": "label",
         "type": "String",
@@ -1484,6 +1589,7 @@
       },
       {
         "id": "n103",
+        "elementId": "OpenSysMLStack__Component__kind",
         "kind": "attribute",
         "name": "kind",
         "type": "String",
@@ -1499,6 +1605,7 @@
       },
       {
         "id": "n104",
+        "elementId": "OpenSysMLStack__stack__pilot__jupyter__role",
         "kind": "attribute",
         "name": "role",
         "type": "String",
@@ -1513,6 +1620,7 @@
       },
       {
         "id": "n105",
+        "elementId": "OpenSysMLStack__stack__pilot__xmi",
         "kind": "part",
         "name": "xmi",
         "type": "Component",
@@ -1527,6 +1635,7 @@
       },
       {
         "id": "n106",
+        "elementId": "OpenSysMLStack__stack__pilot__xmi__label",
         "kind": "attribute",
         "name": "label",
         "type": "String",
@@ -1541,6 +1650,7 @@
       },
       {
         "id": "n107",
+        "elementId": "OpenSysMLStack__Component__kind",
         "kind": "attribute",
         "name": "kind",
         "type": "String",
@@ -1556,6 +1666,7 @@
       },
       {
         "id": "n108",
+        "elementId": "OpenSysMLStack__stack__pilot__xmi__role",
         "kind": "attribute",
         "name": "role",
         "type": "String",
@@ -1570,6 +1681,7 @@
       },
       {
         "id": "n109",
+        "elementId": "OpenSysMLStack__stack__flexo",
         "kind": "part",
         "name": "flexo",
         "type": "Project",
@@ -1577,6 +1689,7 @@
         "ports": [
           {
             "id": "n109.0",
+            "elementId": "OpenSysMLStack__Project__api",
             "name": "api",
             "type": "ModelPort",
             "inherited": true
@@ -1592,6 +1705,7 @@
       },
       {
         "id": "n110",
+        "elementId": "OpenSysMLStack__stack__flexo__label",
         "kind": "attribute",
         "name": "label",
         "type": "String",
@@ -1606,6 +1720,7 @@
       },
       {
         "id": "n111",
+        "elementId": "OpenSysMLStack__stack__flexo__kind",
         "kind": "attribute",
         "name": "kind",
         "type": "String",
@@ -1620,6 +1735,7 @@
       },
       {
         "id": "n112",
+        "elementId": "OpenSysMLStack__stack__flexo__lang",
         "kind": "attribute",
         "name": "lang",
         "type": "String",
@@ -1634,6 +1750,7 @@
       },
       {
         "id": "n113",
+        "elementId": "OpenSysMLStack__stack__flexo__role",
         "kind": "attribute",
         "name": "role",
         "type": "String",
@@ -1648,6 +1765,7 @@
       },
       {
         "id": "n114",
+        "elementId": "OpenSysMLStack__stack__flexo__repo",
         "kind": "attribute",
         "name": "repo",
         "type": "String",
@@ -1662,6 +1780,7 @@
       },
       {
         "id": "n115",
+        "elementId": "OpenSysMLStack__stack__flexo__layer1",
         "kind": "part",
         "name": "layer1",
         "type": "Component",
@@ -1676,6 +1795,7 @@
       },
       {
         "id": "n116",
+        "elementId": "OpenSysMLStack__stack__flexo__layer1__label",
         "kind": "attribute",
         "name": "label",
         "type": "String",
@@ -1690,6 +1810,7 @@
       },
       {
         "id": "n117",
+        "elementId": "OpenSysMLStack__Component__kind",
         "kind": "attribute",
         "name": "kind",
         "type": "String",
@@ -1705,6 +1826,7 @@
       },
       {
         "id": "n118",
+        "elementId": "OpenSysMLStack__stack__flexo__layer1__role",
         "kind": "attribute",
         "name": "role",
         "type": "String",
@@ -1719,6 +1841,7 @@
       },
       {
         "id": "n119",
+        "elementId": "OpenSysMLStack__stack__flexo__sysmlv2",
         "kind": "part",
         "name": "sysmlv2",
         "type": "Component",
@@ -1733,6 +1856,7 @@
       },
       {
         "id": "n120",
+        "elementId": "OpenSysMLStack__stack__flexo__sysmlv2__label",
         "kind": "attribute",
         "name": "label",
         "type": "String",
@@ -1747,6 +1871,7 @@
       },
       {
         "id": "n121",
+        "elementId": "OpenSysMLStack__Component__kind",
         "kind": "attribute",
         "name": "kind",
         "type": "String",
@@ -1762,6 +1887,7 @@
       },
       {
         "id": "n122",
+        "elementId": "OpenSysMLStack__stack__flexo__sysmlv2__role",
         "kind": "attribute",
         "name": "role",
         "type": "String",
@@ -1776,6 +1902,7 @@
       },
       {
         "id": "n123",
+        "elementId": "OpenSysMLStack__stack__flexo__quadstore",
         "kind": "part",
         "name": "quadstore",
         "type": "Component",
@@ -1790,6 +1917,7 @@
       },
       {
         "id": "n124",
+        "elementId": "OpenSysMLStack__stack__flexo__quadstore__label",
         "kind": "attribute",
         "name": "label",
         "type": "String",
@@ -1804,6 +1932,7 @@
       },
       {
         "id": "n125",
+        "elementId": "OpenSysMLStack__Component__kind",
         "kind": "attribute",
         "name": "kind",
         "type": "String",
@@ -1819,6 +1948,7 @@
       },
       {
         "id": "n126",
+        "elementId": "OpenSysMLStack__stack__flexo__quadstore__role",
         "kind": "attribute",
         "name": "role",
         "type": "String",
@@ -1833,6 +1963,7 @@
       },
       {
         "id": "n127",
+        "elementId": "OpenSysMLStack__stack__flexo__auth",
         "kind": "part",
         "name": "auth",
         "type": "Component",
@@ -1847,6 +1978,7 @@
       },
       {
         "id": "n128",
+        "elementId": "OpenSysMLStack__stack__flexo__auth__label",
         "kind": "attribute",
         "name": "label",
         "type": "String",
@@ -1861,6 +1993,7 @@
       },
       {
         "id": "n129",
+        "elementId": "OpenSysMLStack__Component__kind",
         "kind": "attribute",
         "name": "kind",
         "type": "String",
@@ -1876,6 +2009,7 @@
       },
       {
         "id": "n130",
+        "elementId": "OpenSysMLStack__stack__flexo__auth__role",
         "kind": "attribute",
         "name": "role",
         "type": "String",
@@ -1891,6 +2025,7 @@
     ],
     "edges": [
       {
+        "elementId": "OpenSysMLStack__stack__opensysml_5fflexo",
         "from": "n1",
         "to": "n109",
         "fromPort": "n1.0",
@@ -1906,6 +2041,7 @@
         }
       },
       {
+        "elementId": "OpenSysMLStack__stack__pilot_5fflexo",
         "from": "n71",
         "to": "n109",
         "fromPort": "n71.0",

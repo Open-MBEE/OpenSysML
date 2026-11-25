@@ -1,0 +1,3 @@
+- Query properties read a held object's declaration annotations: `@annotations` and an unshadowed `annotations` report its bindings and filters match them, without per-element symbol lookups.
+- A declared feature named `isActive` no longer makes a text comparison on that bare name fail before rows are read; the explicit `@isActive` spelling still requires a Boolean operand.
+- The `annotations` property reports nested and direct bindings in annotation declaration order, so the first value the Query RPC returns is the binding written first.

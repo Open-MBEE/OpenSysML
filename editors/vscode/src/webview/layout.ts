@@ -46,7 +46,8 @@ import { DEFAULT_ROUTING, type Routing } from "../style";
 
 /** How a node is drawn: the label box of an element, or the symbol of a control node. */
 export type Shape =
-  "box" | "point" | "circle" | "ring" | "cross" | "diamond" | "bar" | "history";
+  | "box" | "point" | "circle" | "ring" | "cross" | "diamond" | "bar" | "history"
+  | "stadium" | "actor";
 
 /** STATEMENT_KINDS are the action node kinds whose «keyword» compartment heads the node even unnamed (§8.2.3.17). */
 export const STATEMENT_KINDS: ReadonlySet<string> = new Set(["send action", "accept action", "assign", "loop", "if"]);
@@ -207,6 +208,8 @@ const POINT_SIZE = 12;
 const SYMBOL_SIZE = 28;
 const BAR_WIDTH = 48;
 const BAR_HEIGHT = 6;
+/** The stick figure an actor node reserves beside its label. */
+export const ACTOR_GLYPH = { width: 18, height: 26 };
 /** How far a self-loop swings out from its node. */
 const LOOP_REACH = 36;
 /** Between the messages of a sequence, and below its last one. */
@@ -243,7 +246,7 @@ export function layoutCanvas(
       node,
       box: { x: 0, y: 0, width: 0, height: 0 },
       lines: labelLines(node, result.shown, names),
-      shape: shapeOf(node.kind),
+      shape: shapeOfNode(node),
       pinned: false,
       collapsed: false,
       clipped: false,
@@ -606,7 +609,7 @@ function placeAcross(
     entry.box.width = stated.width;
     return entry.box.width;
   }
-  let width = (symbolSize(entry.shape) ?? labelSize(entry.lines)).width;
+  let width = (headerSize(entry.shape, entry.lines)).width;
   for (const child of shown) {
     width = Math.max(
       width,
@@ -628,7 +631,7 @@ function placeDown(
   entry.box.y = stated?.y ?? slot;
   const shown = interior(entry, geometry);
   const columns = Math.max(1, Math.ceil(Math.sqrt(shown.length)));
-  const header = symbolSize(entry.shape) ?? labelSize(entry.lines);
+  const header = headerSize(entry.shape, entry.lines);
   spread(
     lanes(shown, columns, false),
     entry.box.y + header.height + (laned(stated, headroom) && shown.length > 0 ? LANE : 0),
@@ -783,7 +786,7 @@ export function headerBox(entry: PlacedNode): Box {
   if (entry.collapsed || drawnUnder(entry).length === 0) {
     return entry.box;
   }
-  const { height } = symbolSize(entry.shape) ?? labelSize(entry.lines);
+  const { height } = headerSize(entry.shape, entry.lines);
   return { x: entry.box.x, y: entry.box.y, width: entry.box.width, height: Math.min(height, entry.box.height) };
 }
 
@@ -850,7 +853,7 @@ export function labelLines(
   shown?: string[],
   names?: ReadonlyMap<string, string>,
 ): string[] {
-  if (symbolSize(shapeOf(node.kind))) {
+  if (symbolSize(shapeOfNode(node))) {
     return [];
   }
   const draws = (element: string): boolean =>
@@ -1858,6 +1861,35 @@ export function shapeOf(kind: string): Shape {
   }
 }
 
+// shapeOfNode prefers the shape the server derived from the node's metaclass, and
+// falls back to the kind-based shape for a server that does not report one.
+export function shapeOfNode(node: RenderNode): Shape {
+  switch (node.shape) {
+    case "stadium":
+    case "actor":
+    case "circle":
+    case "ring":
+    case "cross":
+    case "diamond":
+    case "bar":
+    case "history":
+      return node.shape;
+    default:
+      return shapeOf(node.kind);
+  }
+}
+
+// headerSize is the strip a node's label and glyph take; an actor reserves room
+// beside its name for the stick figure the notation draws.
+export function headerSize(shape: Shape, lines: string[]): { width: number; height: number } {
+  const base = symbolSize(shape) ?? labelSize(lines);
+  if (shape !== "actor") return base;
+  return {
+    width: base.width + ACTOR_GLYPH.width + LABEL_PAD_X,
+    height: Math.max(base.height, ACTOR_GLYPH.height + 2 * LABEL_PAD_Y),
+  };
+}
+
 // symbolSize is a symbol's fixed size; undefined for a label box.
 export function symbolSize(
   shape: Shape,
@@ -1874,6 +1906,8 @@ export function symbolSize(
     case "bar":
       return { width: BAR_WIDTH, height: BAR_HEIGHT };
     case "box":
+    case "stadium":
+    case "actor":
       return undefined;
   }
 }

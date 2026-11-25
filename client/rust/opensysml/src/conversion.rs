@@ -92,6 +92,26 @@ impl fmt::Display for IdForm {
     }
 }
 
+/// The API JSON declarations a caller reads. Selectors are unioned; all empty write the whole model.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Projection {
+    /// Elements whose written qualifiedName is one of these.
+    pub qualified_names: Vec<String>,
+    /// Elements whose written `@type` is one of these.
+    pub metaclasses: Vec<String>,
+    /// Annotations whose annotating element type is named, with what they annotate.
+    pub annotation_types: Vec<String>,
+}
+
+impl Projection {
+    /// Reports whether this projection places no limit on what is written.
+    pub fn is_empty(&self) -> bool {
+        self.qualified_names.is_empty()
+            && self.metaclasses.is_empty()
+            && self.annotation_types.is_empty()
+    }
+}
+
 /// How to convert.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ConvertOptions {
@@ -125,6 +145,9 @@ pub struct ConvertOptions {
     /// output, each with its severity. Notation sources only; needs the
     /// `convert_check_diagnostics` capability.
     pub include_check_diagnostics: bool,
+    /// For API JSON, write only the elements named by projection; needs the
+    /// `convert_projection` capability.
+    pub projection: Option<Projection>,
 }
 
 /// A standard-library element an API JSON conversion references outside its element array,
@@ -200,6 +223,11 @@ pub(crate) fn request_of(
         include_check_diagnostics: options.include_check_diagnostics,
         include_library_stubs: options.include_library_stubs,
         inherited_members: options.inherited_members,
+        projection: options.projection.as_ref().map(|p| wire::ConvertProjection {
+            qualified_names: p.qualified_names.clone(),
+            metaclasses: p.metaclasses.clone(),
+            annotation_types: p.annotation_types.clone(),
+        }),
         source: Some(match source {
             ConvertSource::File(path) => Source::FilePath(path.to_string_lossy().into_owned()),
             ConvertSource::Content(content) => Source::Content(content.clone()),
@@ -321,6 +349,32 @@ mod tests {
         assert!(!defaulted.omit_derived);
         assert!(defaulted.keep_derived.is_empty());
         assert!(!defaulted.include_check_diagnostics);
+    }
+
+    #[test]
+    fn requests_carry_the_projection_asked_for() {
+        let asked = request_of(
+            FORMAT_API_JSON,
+            &ConvertSource::Content("package P;".to_owned()),
+            &ConvertOptions {
+                projection: Some(Projection {
+                    qualified_names: vec!["P::A".to_owned()],
+                    metaclasses: vec!["PartUsage".to_owned()],
+                    annotation_types: vec!["P::Facet".to_owned()],
+                }),
+                ..Default::default()
+            },
+        );
+        let projection = asked.projection.expect("the projection was asked for");
+        assert_eq!(projection.qualified_names, ["P::A"]);
+        assert_eq!(projection.metaclasses, ["PartUsage"]);
+        assert_eq!(projection.annotation_types, ["P::Facet"]);
+        let defaulted = request_of(
+            FORMAT_API_JSON,
+            &ConvertSource::Content("package P;".to_owned()),
+            &ConvertOptions::default(),
+        );
+        assert!(defaulted.projection.is_none());
     }
 
     #[test]

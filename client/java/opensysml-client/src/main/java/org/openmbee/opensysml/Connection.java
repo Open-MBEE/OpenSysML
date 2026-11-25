@@ -7,6 +7,7 @@ import org.openmbee.opensysml.internal.ConnectTransport;
 import org.openmbee.opensysml.internal.PrivateService;
 import org.openmbee.opensysml.internal.Protos;
 import org.openmbee.opensysml.internal.ServiceRegistry;
+import org.openmbee.opensysml.proto.ConvertProjection;
 import org.openmbee.opensysml.proto.ConvertRequest;
 import org.openmbee.opensysml.proto.ConvertResponse;
 import org.openmbee.opensysml.proto.ListEnginesRequest;
@@ -368,8 +369,9 @@ public final class Connection implements AutoCloseable {
    * @throws ServiceException if the request names no documents or two documents by one name
    * @throws CapabilityException if the service does not advertise {@code parse_sources}, an inline
    *     document names a language and it does not advertise {@code inline_language}, strict
-   *     conformance is asked and it does not advertise {@code strict_conformance}, or a base model
-   *     is named and it does not advertise {@code parse_sources_affected}
+   *     conformance is asked and it does not advertise {@code strict_conformance}, a base model
+   *     is named and it does not advertise {@code parse_sources_affected}, or {@code keep} is
+   *     stated and it does not advertise {@code parse_sources_keep}
    */
   public Model parseSources(List<SourceDocument> documents, ParseOptions options) {
     Objects.requireNonNull(documents, "documents");
@@ -386,6 +388,13 @@ public final class Connection implements AutoCloseable {
             base -> {
               capabilities.require(Capabilities.PARSE_SOURCES_AFFECTED);
               request.setBaseModelHash(base);
+            });
+    options
+        .keep()
+        .ifPresent(
+            keep -> {
+              capabilities.require(Capabilities.PARSE_SOURCES_KEEP);
+              request.setKeep(keep);
             });
     List<String> names = new java.util.ArrayList<>(documents.size());
     for (int position = 0; position < documents.size(); position++) {
@@ -652,6 +661,16 @@ public final class Connection implements AutoCloseable {
       capabilities.require(Capabilities.CONVERT_CHECK_DIAGNOSTICS);
       request.setIncludeCheckDiagnostics(true);
     }
+    if (options.projection().filter(p -> !p.isEmpty()).isPresent()) {
+      capabilities.require(Capabilities.CONVERT_PROJECTION);
+      Projection p = options.projection().get();
+      request.setProjection(
+          ConvertProjection.newBuilder()
+              .addAllQualifiedNames(p.qualifiedNames())
+              .addAllMetaclasses(p.metaclasses())
+              .addAllAnnotationTypes(p.annotationTypes())
+              .build());
+    }
     ConvertResponse response =
         call("Convert", request.build(), ConvertResponse.getDefaultInstance());
     List<Diagnostic> diagnostics = Protos.diagnostics(response.getDiagnosticsList());
@@ -725,6 +744,10 @@ public final class Connection implements AutoCloseable {
       throw new IllegalArgumentException(
           "baseModelHash relates a parseSources model to a base; a one-document parse has no"
               + " affected documents to report");
+    }
+    if (options.keep().isPresent()) {
+      throw new IllegalArgumentException(
+          "keep relates a parseSources model to the cache; a one-document parse is always kept");
     }
     return ParseFileRequest.newBuilder()
         .setLanguage(options.language().wireName())

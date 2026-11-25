@@ -1106,6 +1106,10 @@ pub struct ParseSourcesRequest {
     /// is relative to it. Reported as the "parse_sources_affected" capability.
     #[prost(string, tag="3")]
     pub base_model_hash: ::prost::alloc::string::String,
+    /// False answers the parse without keeping the model, so a transient union evicts nothing.
+    /// Absent keeps it; stating the field requires "parse_sources_keep".
+    #[prost(bool, optional, tag="4")]
+    pub keep: ::core::option::Option<bool>,
 }
 /// ParseSourcesResponse contains the parsed model, whose documents are one model
 /// for every later request: a model_hash names all of them together.
@@ -1714,6 +1718,21 @@ pub struct ExecuteStateResponse {
     #[prost(map="string, int32", tag="10")]
     pub order_dependent: ::std::collections::HashMap<::prost::alloc::string::String, i32>,
 }
+/// ConvertProjection names the api-json elements a conversion writes.
+/// Selectors are unioned; all empty writes the model whole.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ConvertProjection {
+    /// Elements whose qualifiedName is one of these, for example "Structure::boiler".
+    #[prost(string, repeated, tag="1")]
+    pub qualified_names: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Elements whose written @type is one of these, for example "PartUsage".
+    #[prost(string, repeated, tag="2")]
+    pub metaclasses: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Annotations named by their annotating element's metaclass or metadata type,
+    /// with the annotation, its annotating element and the element annotated.
+    #[prost(string, repeated, tag="3")]
+    pub annotation_types: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
 /// ConvertRequest asks for a model in another representation. A model_hash
 /// converts the source that parse read, so a file edited since then does not
 /// change the answer; a file_path is read afresh and content is carried inline.
@@ -1792,6 +1811,10 @@ pub struct ConvertRequest {
     /// default false writes owned structure. Capability "convert_inherited_members"; a service without it always writes them.
     #[prost(bool, tag="14")]
     pub inherited_members: bool,
+    /// For api-json, write only the elements named by projection, byte-identical
+    /// to an unprojected conversion. Reported as "convert_projection".
+    #[prost(message, optional, tag="15")]
+    pub projection: ::core::option::Option<ConvertProjection>,
     #[prost(oneof="convert_request::Source", tags="1, 2, 6")]
     pub source: ::core::option::Option<convert_request::Source>,
 }
@@ -4623,6 +4646,14 @@ pub struct RenderNode {
     /// The state's substates run in parallel; a label writes «parallel» under the name.
     #[prost(bool, tag="17")]
     pub parallel: bool,
+    /// The element's EffectiveID, the id a written form's {id} anchor carries.
+    /// Empty when no element declares it; `id` is local to this rendering.
+    #[prost(string, tag="18")]
+    pub element_id: ::prost::alloc::string::String,
+    /// The notation outline derived from the node's metaclass: "rectangle", "rounded",
+    /// "stadium", "actor", "note", "diamond", "circle", "ring", "cross", "bar", "history", "item".
+    #[prost(string, tag="19")]
+    pub shape: ::prost::alloc::string::String,
 }
 /// RenderPort is a feature drawn on a node's border.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -4638,6 +4669,10 @@ pub struct RenderPort {
     /// The node's owner has the port from its type rather than declares it; drawn with a `^` before `name`.
     #[prost(bool, tag="5")]
     pub inherited: bool,
+    /// The feature's EffectiveID, as in a written form's {id} anchor.
+    /// Empty when no element declares the port.
+    #[prost(string, tag="6")]
+    pub element_id: ::prost::alloc::string::String,
 }
 /// RenderEdge joins two rendered nodes and may connect their ports.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -4662,6 +4697,10 @@ pub struct RenderEdge {
     pub route: ::prost::alloc::vec::Vec<RenderPoint>,
     #[prost(message, optional, tag="10")]
     pub style: ::core::option::Option<RenderStyle>,
+    /// The connection's EffectiveID, as in a written form's {id} anchor.
+    /// Empty when no element declares the edge.
+    #[prost(string, tag="11")]
+    pub element_id: ::prost::alloc::string::String,
 }
 /// RenderGeometry locates a node on the rendering's canvas.
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]

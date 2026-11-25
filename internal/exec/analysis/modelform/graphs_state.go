@@ -296,7 +296,7 @@ func (x *graphsExporter) stateForm(sym *symbols.Symbol, graph *lower.StateGraph)
 	if len(ids.order) != vertices {
 		return nil, fmt.Errorf("%w: %s: a vertex is reached only while it is written", ErrGraphsOrder, symbols.FQNOf(sym))
 	}
-	form.Connections = connections(graph.Connections)
+	form.Connections = x.connections(graph.Connections, graph.Scope)
 	return form, nil
 }
 
