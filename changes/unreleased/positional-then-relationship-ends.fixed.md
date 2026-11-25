@@ -1,1 +1,0 @@
-- A `then x;` succession whose source is a nameless member before it — a bare `entry;`, an unnamed action — states that member as its `sourceFeature` and `Relationship::source` in the RDF conversion beside the positional binding, as the pilot derives them and the native walk already answers; a positional target likewise.

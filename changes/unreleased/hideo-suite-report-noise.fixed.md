@@ -1,1 +1,0 @@
-- The cross-MDK conformance suite ratchet (`go run -C tools ./cmd/hideo-suite`) no longer prints the tracebacks of the suite's own version and report stage, which need a pilot checkout: it runs the four readers itself and prints one line per reader and then the verdict (#2243).
