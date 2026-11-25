@@ -817,10 +817,62 @@ func TestGoFlagsWithP(t *testing.T) {
 		{flags: "-mod=readonly -v", p: 2, want: "-mod=readonly -v -p=2"},
 		{flags: "-p 8 -tags sysml_re", p: 3, want: "-tags sysml_re -p=3"},
 		{flags: "-p=16 -trimpath", p: 4, want: "-trimpath -p=4"},
+		// Go accepts both spellings and applies the last setting, so a
+		// rewritten GOFLAGS must only drop actual -p flags, never text inside
+		// another flag's quoted value.
+		{flags: "--p=4", p: 1, want: "-p=1"},
+		{flags: "-p=2 --p=3 -p=4 -mod=readonly", p: 1, want: "-mod=readonly -p=1"},
+		{flags: "--p=2", p: 2, want: "--p=2"}, // already the runner's bound
+		{flags: `'-ldflags=-X "main.note=before -p=2"'`, p: 1, want: `'-ldflags=-X "main.note=before -p=2"' -p=1`},
+		{flags: `-p=4 '-ldflags=-X "note=before -p=2"' -v`, p: 1, want: `'-ldflags=-X "note=before -p=2"' -v -p=1`},
 	} {
 		if got := goFlagsWithP(tc.flags, tc.p); got != tc.want {
 			t.Errorf("goFlagsWithP(%q, %d) = %q, want %q", tc.flags, tc.p, got, tc.want)
 		}
+	}
+}
+
+// TestFlagsPackageParallelMatchesGoSpelling pins the package limit Go will
+// actually apply: quoted tokens, one or two dashes and last-value precedence.
+func TestFlagsPackageParallelMatchesGoSpelling(t *testing.T) {
+	for _, tc := range []struct {
+		flags string
+		want  int
+	}{
+		{"--p=4", 4},
+		{"'-p=3'", 3},
+		{"-p=2 --p=4", 4},
+		{"--p 2 -p 3 -p=4", 4},
+		{"-p=4 -p=bad", 0},
+		{"-p=4 -p", 0},
+		{`'-ldflags=-X "main.note=before -p=2"'`, 0},
+		{"-p=bad -p=3", 3},
+		{"'-p=2", 0}, // Go also rejects an unterminated quote
+	} {
+		if got := flagsPackageParallel(tc.flags); got != tc.want {
+			t.Errorf("flagsPackageParallel(%q) = %d, want %d", tc.flags, got, tc.want)
+		}
+	}
+}
+
+// TestRewrittenGoFlagsAreAcceptedByGo checks the rewritten value reaches a
+// real Go command, not just a string comparison: an unbalanced quote from a
+// byte-unsafe rewrite would make every gate command fail before any test.
+func TestRewrittenGoFlagsAreAcceptedByGo(t *testing.T) {
+	const original = `'-ldflags=-X "main.note=before -p=2"' --p=4`
+	rewritten := goFlagsWithP(original, 1)
+	if rewritten != `'-ldflags=-X "main.note=before -p=2"' -p=1` {
+		t.Fatalf("rewritten GOFLAGS = %q", rewritten)
+	}
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte("module gateflags\n\ngo 1.26\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("go", "list", "-m")
+	cmd.Dir = root
+	cmd.Env = append(os.Environ(), "GOFLAGS="+rewritten)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("go list rejected rewritten GOFLAGS %q: %v\n%s", rewritten, err, out)
 	}
 }
 

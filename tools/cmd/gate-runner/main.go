@@ -457,25 +457,102 @@ func (r *runner) commands() [][]string {
 	return commands
 }
 
-// flagsPackageParallel reads an explicit -p from GOFLAGS, exported or saved
-// with `go env -w`. Zero means the flag is absent or malformed.
-func flagsPackageParallel(flags string) int {
-	fields := strings.Fields(flags)
-	for i, field := range fields {
+// goflag is one GOFLAGS token. raw keeps the caller's bytes, including any
+// quotes wrapping the whole token; value is what Go reads after stripping them.
+type goflag struct {
+	raw   string
+	value string
+}
+
+func isGOFlagSpace(c byte) bool {
+	return c == ' ' || c == '\t' || c == '\n' || c == '\r'
+}
+
+// splitGOFLAGS mirrors cmd/go's quoted.Split: whitespace separates arguments
+// and a leading single or double quote may wrap one whole argument. As in Go,
+// nothing is unescaped inside the quotes.
+func splitGOFLAGS(s string) ([]goflag, error) {
+	var out []goflag
+	for i := 0; i < len(s); {
+		for i < len(s) && isGOFlagSpace(s[i]) {
+			i++
+		}
+		if i == len(s) {
+			break
+		}
+		start := i
 		var value string
-		switch {
-		case field == "-p" && i+1 < len(fields):
-			value = fields[i+1]
-		case strings.HasPrefix(field, "-p="):
-			value = strings.TrimPrefix(field, "-p=")
-		default:
+		if s[i] == '\'' || s[i] == '"' {
+			quote := s[i]
+			i++
+			valueStart := i
+			for i < len(s) && s[i] != quote {
+				i++
+			}
+			if i == len(s) {
+				return nil, fmt.Errorf("unterminated %c string in GOFLAGS", quote)
+			}
+			value = s[valueStart:i]
+			i++
+		} else {
+			valueStart := i
+			for i < len(s) && !isGOFlagSpace(s[i]) {
+				i++
+			}
+			value = s[valueStart:i]
+		}
+		out = append(out, goflag{raw: s[start:i], value: value})
+	}
+	return out, nil
+}
+
+// goflagName splits a GOFLAGS token into its name and value. Go accepts one or
+// two leading dashes and uses -name=value; a bare -name has no attached value.
+func goflagName(token string) (name, value string, hasValue bool) {
+	name = token
+	switch {
+	case strings.HasPrefix(name, "--"):
+		name = name[2:]
+	case strings.HasPrefix(name, "-"):
+		name = name[1:]
+	}
+	if i := strings.IndexByte(name, '='); i >= 0 {
+		value, hasValue, name = name[i+1:], true, name[:i]
+	}
+	return name, value, hasValue
+}
+
+// flagsPackageParallel reads the last -p in GOFLAGS, exported or saved with
+// `go env -w`, because Go applies each setting in order. Zero means the flag is
+// absent or malformed.
+func flagsPackageParallel(flags string) int {
+	tokens, err := splitGOFLAGS(flags)
+	if err != nil {
+		return 0
+	}
+	p := 0
+	for i := 0; i < len(tokens); i++ {
+		name, value, hasValue := goflagName(tokens[i].value)
+		if name != "p" {
 			continue
 		}
+		if !hasValue {
+			// GOFLAGS holds one flag per token. The separate-value spelling is
+			// not valid Go syntax but is common in hand-written settings.
+			if i+1 >= len(tokens) || strings.HasPrefix(tokens[i+1].value, "-") {
+				p = 0
+				continue
+			}
+			i++
+			value = tokens[i].value
+		}
 		if n, err := strconv.Atoi(value); err == nil && n > 0 {
-			return n
+			p = n
+		} else {
+			p = 0
 		}
 	}
-	return 0
+	return p
 }
 
 // effectiveGoFlags returns the flags Go will actually read, including a value
@@ -512,22 +589,35 @@ func perProcessProcs(procs, p int) int {
 	return max(1, procs/p)
 }
 
-// goFlagsWithP replaces any -p in GOFLAGS with the runner's bound.
+// goFlagsWithP bounds package parallelism without rewriting unrelated flags.
+// It removes only -p tokens, keeping every other token's original bytes, and
+// appends an override that Go applies last.
 func goFlagsWithP(flags string, p int) string {
-	fields := strings.Fields(flags)
-	kept := make([]string, 0, len(fields)+1)
-	for i := 0; i < len(fields); {
-		field := fields[i]
-		if field == "-p" {
-			i += 2 // drop its value too, or go would read the next flag's
+	override := "-p=" + strconv.Itoa(p)
+	tokens, err := splitGOFLAGS(flags)
+	if err != nil {
+		// Go reports malformed flags itself; do not corrupt the caller's text.
+		if trimmed := strings.TrimSpace(flags); trimmed != "" {
+			return trimmed + " " + override
+		}
+		return override
+	}
+	if flagsPackageParallel(flags) == p {
+		return strings.TrimSpace(flags)
+	}
+	kept := make([]string, 0, len(tokens)+1)
+	for i := 0; i < len(tokens); i++ {
+		token := tokens[i]
+		name, _, hasValue := goflagName(token.value)
+		if name != "p" {
+			kept = append(kept, token.raw)
 			continue
 		}
-		if !strings.HasPrefix(field, "-p=") {
-			kept = append(kept, field)
+		if !hasValue && i+1 < len(tokens) && !strings.HasPrefix(tokens[i+1].value, "-") {
+			i++ // the separate value is not a flag
 		}
-		i++
 	}
-	return strings.Join(append(kept, "-p="+strconv.Itoa(p)), " ")
+	return strings.Join(append(kept, override), " ")
 }
 
 // childEnv bounds each shard's package processes and per-process CPU demand.
