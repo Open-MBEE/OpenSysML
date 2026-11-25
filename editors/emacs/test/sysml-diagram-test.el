@@ -6,18 +6,20 @@
 ;;; Commentary:
 
 ;; The drawing tests feed the view buffer renderings shaped as
-;; docs/reference/lsp.md documents them.  The live tests drive a real
-;; `sysml-lsp'; they skip without `bin/sysml-lsp', as sysml-lsp-test.el's do.
+;; docs/reference/lsp.md documents them, stubbing the functions that talk
+;; to the server.  The live tests drive a real `sysml-lsp'; see
+;; sysml-test.el.
 
 ;;; Code:
 
 (require 'ert)
 (require 'sysml-diagram)
+(require 'sysml-test)
 (require 'sysml-lsp-test)
 
 (defun sysml-diagram-test--json (text)
-  "Parse TEXT as lsp-mode parses a server's message."
-  (lsp--read-json text))
+  "Parse TEXT as `sysml-diagram' reads a server's message."
+  (json-parse-string text :object-type 'plist :null-object nil :false-object :json-false))
 
 (defun sysml-diagram-test--origin (line start end)
   "Return an origin JSON string declared on LINE, named from START to END."
@@ -118,7 +120,7 @@
                     ((symbol-function 'image-type-available-p) (lambda (&rest _) t))
                     ((symbol-function 'executable-find) (lambda (&rest _) "/bin/mmdc"))
                     ((symbol-function 'sysml-diagram--text-document) #'ignore)
-                    ((symbol-function 'lsp-request)
+                    ((symbol-function 'sysml-diagram--request-sync)
                      (lambda (&rest _) (sysml-diagram-test--json sysml-diagram-test--matrix)))
                     ((symbol-function 'sysml-diagram--mermaid-to-svg)
                      (lambda (&rest _) (ert-fail "a matrix was sent to Mermaid"))))
@@ -135,16 +137,18 @@
         (other (generate-new-buffer " *other model*"))
         requests visited elsewhere)
     (unwind-protect
-        (cl-letf (((symbol-function 'sysml-lsp--workspace)
-                   (lambda () (if (eq (current-buffer) other) 'other-server 'server)))
-                  ((symbol-function 'lsp-request)
-                   (lambda (method params)
-                     (push (list method (plist-get params :uri) (current-buffer)) requests)
-                     (sysml-diagram-test--json
-                      "{\"text\":\"standard library package ScalarValues {\\n\\tdatatype Integer;\\n}\\n\"}"))))
+        (cl-letf (((symbol-function 'sysml-diagram--library-buffer)
+                   (lambda (client uri)
+                     (should (eq client 'lsp-mode))
+                     (sysml-library-buffer
+                      uri (if (eq (current-buffer) other) 'other-server 'server)
+                      (lambda ()
+                        (push (list uri (current-buffer)) requests)
+                        "standard library package ScalarValues {\n\tdatatype Integer;\n}\n")))))
           (with-temp-buffer
             (sysml-diagram-mode)
-            (setq sysml-diagram--source source)
+            (setq sysml-diagram--source source
+                  sysml-diagram--client 'lsp-mode)
             (let ((origin (sysml-diagram-test--json
                            (format "{\"uri\":\"%s\",\"range\":{\"start\":{\"line\":1,\"character\":1},\"end\":{\"line\":2,\"character\":0}},\"selectionRange\":{\"start\":{\"line\":1,\"character\":10},\"end\":{\"line\":1,\"character\":17}}}"
                                    sysml-diagram-test--library-uri)))
@@ -161,8 +165,7 @@
               (with-current-buffer view
                 (sysml-diagram--visit origin))
               (should (eq (current-buffer) visited))
-              (should (equal requests
-                             (list (list "opensysml/stdlibContent" sysml-diagram-test--library-uri source))))
+              (should (equal requests (list (list sysml-diagram-test--library-uri source))))
               ;; Another server's library is its own: its text is asked of it.
               (with-current-buffer view
                 (setq sysml-diagram--source other)
@@ -174,8 +177,7 @@
               (should elsewhere)
               (should-not (eq elsewhere visited))
               (should (= (length requests) 2))
-              (should (equal (car requests)
-                             (list "opensysml/stdlibContent" sysml-diagram-test--library-uri other))))))
+              (should (equal (car requests) (list sysml-diagram-test--library-uri other))))))
       (kill-buffer source)
       (kill-buffer other)
       (dolist (buffer (list visited elsewhere))
@@ -205,9 +207,8 @@
   (should (equal (sysml-diagram--default-view '(("#tree" "t" t nil))) "#tree")))
 
 (ert-deftest sysml-diagram-offers-the-pseudo-views-the-server-lists ()
-  (cl-letf (((symbol-function 'lsp--buffer-uri) (lambda () "file:///m.sysml"))
-            ((symbol-function 'lsp-request)
-             (lambda (_method _params)
+  (cl-letf (((symbol-function 'sysml-diagram--request-sync)
+             (lambda (_source _method _params)
                (sysml-diagram-test--json
                 "{\"views\":[{\"name\":\"V::a\",\"kind\":\"general\",\"supported\":true}],\"pseudoViews\":[\"#matrix\",\"#tree\"]}"))))
     (should (equal (sysml-diagram--views (current-buffer))
@@ -216,9 +217,8 @@
                      ("#tree" "Model tree (no view declared)" t nil))))))
 
 (ert-deftest sysml-diagram-offers-the-historical-pseudo-views-otherwise ()
-  (cl-letf (((symbol-function 'lsp--buffer-uri) (lambda () "file:///m.sysml"))
-            ((symbol-function 'lsp-request)
-             (lambda (_method _params) (sysml-diagram-test--json "{\"views\":[]}"))))
+  (cl-letf (((symbol-function 'sysml-diagram--request-sync)
+             (lambda (_source _method _params) (sysml-diagram-test--json "{\"views\":[]}"))))
     (should (equal (mapcar #'car (sysml-diagram--views (current-buffer)))
                    '("#tree" "#interconnection" "#state" "#action" "#table")))))
 
@@ -244,12 +244,12 @@
   (with-current-buffer source
     (sysml-diagram-show))
   (let ((buffer (buffer-local-value 'sysml-diagram--buffer source)))
-    (sysml-lsp-test--wait (lambda () (buffer-local-value 'sysml-diagram--result buffer)))
+    (sysml-test--wait (lambda () (buffer-local-value 'sysml-diagram--result buffer)))
     buffer))
 
 (ert-deftest sysml-diagram-live-renders-visits-and-follows ()
   (sysml-lsp-test--with-session
-      (sysml-lsp-test--fixture "package P {\n    part def Engine {\n        attribute power;\n    }\n}\n")
+      (sysml-test--fixture "package P {\n    part def Engine {\n        attribute power;\n    }\n}\n")
     (let ((source (current-buffer))
           (buffer (sysml-diagram-test--shown (current-buffer))))
       (unwind-protect
@@ -282,13 +282,13 @@
     (setq sysml-diagram--view view
           sysml-diagram--result nil)
     (sysml-diagram-refresh)
-    (sysml-lsp-test--wait (lambda () (or sysml-diagram--result sysml-diagram--error)))
+    (sysml-test--wait (lambda () (or sysml-diagram--result sysml-diagram--error)))
     (should-not sysml-diagram--error)
     (buffer-substring-no-properties (point-min) (point-max))))
 
 (ert-deftest sysml-diagram-live-renders-an-action-flow ()
   (sysml-lsp-test--with-session
-      (sysml-lsp-test--fixture
+      (sysml-test--fixture
        (concat "action def Drive {\n"
                "    first start;\n"
                "    then action unlock;\n"
@@ -313,7 +313,7 @@
 
 (ert-deftest sysml-diagram-live-renders-a-declared-sequence-view ()
   (sysml-lsp-test--with-session
-      (sysml-lsp-test--fixture
+      (sysml-test--fixture
        (concat "package Talk {\n"
                "    item def Ping;\n"
                "    occurrence def Exchange {\n"
@@ -347,7 +347,7 @@
         (kill-buffer buffer)))))
 
 (ert-deftest sysml-diagram-live-redraws-on-change ()
-  (sysml-lsp-test--with-session (sysml-lsp-test--fixture "package P {\n    part def A;\n}\n")
+  (sysml-lsp-test--with-session (sysml-test--fixture "package P {\n    part def A;\n}\n")
     (let ((source (current-buffer))
           (buffer (sysml-diagram-test--shown (current-buffer))))
       (unwind-protect
@@ -356,18 +356,18 @@
               (goto-char (point-min))
               (search-forward "part def A;")
               (insert "\n    part def Added;"))
-            (sysml-lsp-test--wait
+            (sysml-test--wait
              (lambda () (with-current-buffer buffer (string-match-p "P::Added" (buffer-string))))))
         (kill-buffer buffer)))))
 
 (ert-deftest sysml-diagram-live-reports-a-failed-render ()
-  (sysml-lsp-test--with-session (sysml-lsp-test--fixture "package P {\n    part def A;\n}\n")
+  (sysml-lsp-test--with-session (sysml-test--fixture "package P {\n    part def A;\n}\n")
     (let ((buffer (sysml-diagram-test--shown (current-buffer))))
       (unwind-protect
           (with-current-buffer buffer
             (setq sysml-diagram--view "#nosuch")
             (sysml-diagram-refresh)
-            (sysml-lsp-test--wait (lambda () sysml-diagram--error))
+            (sysml-test--wait (lambda () sysml-diagram--error))
             (should (string-match-p "no pseudo-view" sysml-diagram--error))
             (should (string-match-p "P::A" (buffer-string))))
         (kill-buffer buffer)))))

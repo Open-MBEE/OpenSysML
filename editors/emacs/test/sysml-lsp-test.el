@@ -5,29 +5,14 @@
 
 ;;; Commentary:
 
-;; Needs lsp-mode on `load-path'.  The live tests need `bin/sysml-lsp' (run
-;; `make build'); they skip without it, and fail instead when
-;; OPENSYSML_REQUIRE_EMACS_LSP is set, as CI sets it.
+;; Needs lsp-mode on `load-path'.  The live tests drive `bin/sysml-lsp';
+;; see sysml-test.el.
 
 ;;; Code:
 
 (require 'ert)
 (require 'sysml-lsp)
-
-(defconst sysml-lsp-test--repo
-  (expand-file-name "../../../" (file-name-directory (or load-file-name buffer-file-name)))
-  "Root of the OpenSysML checkout.")
-
-(defconst sysml-lsp-test--server
-  (expand-file-name "bin/sysml-lsp" sysml-lsp-test--repo)
-  "The server `make build' writes.")
-
-(defun sysml-lsp-test--require-server ()
-  "Skip the test unless the built server exists, or fail when it is required."
-  (unless (file-executable-p sysml-lsp-test--server)
-    (if (getenv "OPENSYSML_REQUIRE_EMACS_LSP")
-        (ert-fail (format "%s is missing; run `make build'" sysml-lsp-test--server))
-      (ert-skip (format "%s is missing; run `make build'" sysml-lsp-test--server)))))
+(require 'sysml-test)
 
 ;;;; Server resolution
 
@@ -72,10 +57,10 @@
       (delete-directory dir t))))
 
 (ert-deftest sysml-lsp-passes-server-args ()
-  (let ((sysml-lsp-server-path sysml-lsp-test--server)
+  (let ((sysml-lsp-server-path sysml-test--server)
         (sysml-lsp-server-args '("-strict")))
-    (sysml-lsp-test--require-server)
-    (should (equal (sysml-lsp--server-command) (list sysml-lsp-test--server "-strict")))))
+    (sysml-test--require-server)
+    (should (equal (sysml-lsp--server-command) (list sysml-test--server "-strict")))))
 
 ;;;; Registration
 
@@ -261,7 +246,7 @@ serves no `workspace/executeCommand'."
   "Visit FILE under a live `sysml-lsp' session and run BODY in its buffer."
   (declare (indent 1))
   `(progn
-     (sysml-lsp-test--require-server)
+     (sysml-test--require-server)
      (let* ((file ,file)
             (lsp-session-file (make-temp-file "lsp-session"))
             (lsp-auto-guess-root t)
@@ -275,12 +260,12 @@ serves no `workspace/executeCommand'."
             (lsp-headerline-breadcrumb-enable nil)
             (lsp-ui-sideline-enable nil)
             (lsp-restart 'ignore)
-            (sysml-lsp-server-path sysml-lsp-test--server)
+            (sysml-lsp-server-path sysml-test--server)
             (buffer (find-file-noselect file)))
        (unwind-protect
            (with-current-buffer buffer
              (lsp)
-             (sysml-lsp-test--wait (lambda ()
+             (sysml-test--wait (lambda ()
                                      (when-let* ((ws (car (lsp-workspaces))))
                                        (eq (lsp--workspace-status ws) 'initialized))))
              ,@body)
@@ -292,39 +277,24 @@ serves no `workspace/executeCommand'."
            (kill-buffer buffer)
            (when ws
              (lsp-workspace-shutdown ws)
-             (sysml-lsp-test--wait
+             (sysml-test--wait
               (lambda () (not (process-live-p (lsp--workspace-proc ws)))))))
          (delete-directory (file-name-directory file) t)
          (delete-file lsp-session-file)))))
 
-(defun sysml-lsp-test--wait (pred &optional seconds)
-  "Process input until PRED holds, failing after SECONDS (default 20)."
-  (let ((deadline (+ (float-time) (or seconds 20))))
-    (while (not (funcall pred))
-      (when (> (float-time) deadline)
-        (ert-fail "timed out waiting for the language server"))
-      (accept-process-output nil 0.1))))
-
-(defun sysml-lsp-test--fixture (text)
-  "Write TEXT to a .sysml file in a fresh directory and return its name.
-Each test gets its own directory, so its own workspace."
-  (let ((file (expand-file-name "model.sysml" (make-temp-file "sysml-lsp-test" t))))
-    (write-region text nil file)
-    file))
-
 (ert-deftest sysml-lsp-live-advertises-rendering ()
-  (sysml-lsp-test--with-session (sysml-lsp-test--fixture "part def A;\n")
+  (sysml-lsp-test--with-session (sysml-test--fixture "part def A;\n")
     (should (lsp-get (lsp:server-capabilities-experimental? (lsp--server-capabilities))
                      :openSysmlRender))))
 
 (ert-deftest sysml-lsp-live-publishes-diagnostics ()
-  (sysml-lsp-test--with-session (sysml-lsp-test--fixture "part def A {\n")
-    (sysml-lsp-test--wait (lambda () (gethash (lsp--fix-path-casing (buffer-file-name))
+  (sysml-lsp-test--with-session (sysml-test--fixture "part def A {\n")
+    (sysml-test--wait (lambda () (gethash (lsp--fix-path-casing (buffer-file-name))
                                               (lsp-diagnostics t))))))
 
 (ert-deftest sysml-lsp-live-goes-to-definition ()
   (sysml-lsp-test--with-session
-      (sysml-lsp-test--fixture "package P {\n    part def Engine;\n    part e : Engine;\n}\n")
+      (sysml-test--fixture "package P {\n    part def Engine;\n    part e : Engine;\n}\n")
     (goto-char (point-min))
     (search-forward ": Engine")
     (backward-char 2)
@@ -334,7 +304,7 @@ Each test gets its own directory, so its own workspace."
 
 (ert-deftest sysml-lsp-live-shows-a-library-declaration ()
   (sysml-lsp-test--with-session
-      (sysml-lsp-test--fixture "package P {\n    private import ScalarValues::*;\n    attribute x : Integer;\n}\n")
+      (sysml-test--fixture "package P {\n    private import ScalarValues::*;\n    attribute x : Integer;\n}\n")
     (goto-char (point-min))
     (search-forward ": Integer")
     (backward-char 2)
@@ -363,17 +333,17 @@ Each test gets its own directory, so its own workspace."
                   (apply real-warn format-string args))))
       (let* ((changed nil)
              (sysml-lsp-render-changed-functions (list (lambda (&rest _) (setq changed t)))))
-        (sysml-lsp-test--with-session (sysml-lsp-test--fixture "package P {\n    part def A;\n}\n")
+        (sysml-lsp-test--with-session (sysml-test--fixture "package P {\n    part def A;\n}\n")
           (goto-char (point-max))
           (insert "part def B;\n")
-          (sysml-lsp-test--wait (lambda () changed)))))
+          (sysml-test--wait (lambda () changed)))))
     (should-not (seq-find (lambda (w) (string-match-p "Unknown notification" w)) warnings))))
 
 (ert-deftest sysml-lsp-live-semantic-tokens-keep-keyword-faces ()
   (sysml-lsp-test--with-session
-      (sysml-lsp-test--fixture "package P {\n    part def Engine;\n    part e : Engine;\n}\n")
+      (sysml-test--fixture "package P {\n    part def Engine;\n    part e : Engine;\n}\n")
     (should lsp-semantic-tokens-mode)
-    (sysml-lsp-test--wait (lambda () lsp--semantic-tokens-cache))
+    (sysml-test--wait (lambda () lsp--semantic-tokens-cache))
     (font-lock-ensure)
     (goto-char (point-min))
     (search-forward "part e")

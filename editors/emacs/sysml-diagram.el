@@ -6,7 +6,7 @@
 ;; Author: The OpenSysML Authors
 ;; URL: https://github.com/Open-MBEE/OpenSysML
 ;; Version: 0.1.0
-;; Package-Requires: ((emacs "29.1") (lsp-mode "9.0"))
+;; Package-Requires: ((emacs "29.1"))
 ;; Keywords: languages
 
 ;;; Commentary:
@@ -27,14 +27,24 @@
 ;; - With `mmdc' (the Mermaid CLI) installed and a graphical frame,
 ;;   `sysml-diagram-image' shows the Mermaid artifact as a picture.
 ;;
-;; The methods are documented in docs/reference/lsp.md.  This file reads
-;; their payloads as lsp-mode parses them, with `lsp-get'.
+;; The methods are documented in docs/reference/lsp.md.  They are sent
+;; through the client managing the model buffer: lsp-mode, with
+;; `sysml-lsp'.  This file reads their payloads as plists, whichever
+;; client parsed them.
 
 ;;; Code:
 
-(require 'lsp-mode)
+(require 'cl-lib)
 (require 'sysml-mode)
-(require 'sysml-lsp)
+
+(declare-function lsp--buffer-uri "lsp-mode")
+(declare-function lsp--line-character-to-point "lsp-mode")
+(declare-function lsp--uri-to-path "lsp-mode")
+(declare-function lsp--workspace-server-capabilities "lsp-mode")
+(declare-function lsp-request "lsp-mode")
+(declare-function lsp-request-async "lsp-mode")
+(declare-function sysml-lsp--workspace "sysml-lsp")
+(declare-function sysml-lsp-stdlib-buffer "sysml-lsp")
 
 (defgroup sysml-diagram nil
   "Model views drawn from the OpenSysML language server."
@@ -122,6 +132,9 @@ historical set."
 (defvar-local sysml-diagram--result nil
   "In a view buffer, the last rendering drawn.")
 
+(defvar-local sysml-diagram--client nil
+  "In a view buffer, the client the last rendering came through.")
+
 (defvar-local sysml-diagram--error nil
   "In a view buffer, why the rendering shown is out of date, or nil.")
 
@@ -139,37 +152,93 @@ historical set."
 
 ;;;; Talking to the server
 
-(defun sysml-diagram--workspace (source)
-  "Return the `sysml-lsp' workspace of SOURCE, or nil."
+(defun sysml-diagram--source-client (source)
+  "Return the client managing SOURCE: `lsp-mode', or nil."
   (with-current-buffer source
-    (sysml-lsp--workspace)))
+    (cond ((and (fboundp 'sysml-lsp--workspace) (sysml-lsp--workspace)) 'lsp-mode))))
 
-(defun sysml-diagram--supported-p (workspace)
-  "Return non-nil when WORKSPACE serves the render methods."
-  (let ((experimental (lsp:server-capabilities-experimental?
-                       (lsp--workspace-server-capabilities workspace))))
-    (and experimental (eq (lsp-get experimental sysml-diagram--capability) t))))
+(defun sysml-diagram--plist (value)
+  "Return the lsp-mode payload VALUE with its objects as plists."
+  (cond ((hash-table-p value)
+         (let (plist)
+           (maphash (lambda (key item)
+                      (setq plist (plist-put plist (intern (concat ":" key))
+                                             (sysml-diagram--plist item))))
+                    value)
+           plist))
+        ((vectorp value) (vconcat (mapcar #'sysml-diagram--plist value)))
+        (t value)))
+
+(defun sysml-diagram--supported-p (source)
+  "Return non-nil when SOURCE's server serves the render methods."
+  (with-current-buffer source
+    (eq (pcase (sysml-diagram--source-client source)
+          ('lsp-mode (plist-get (plist-get (sysml-diagram--plist
+                                            (lsp--workspace-server-capabilities
+                                             (sysml-lsp--workspace)))
+                                           :experimental)
+                                sysml-diagram--capability)))
+        t)))
+
+(defun sysml-diagram--request-sync (source method params)
+  "Send METHOD with PARAMS to SOURCE's server and return its result."
+  (with-current-buffer source
+    (pcase (sysml-diagram--source-client source)
+      ('lsp-mode (sysml-diagram--plist (lsp-request method params))))))
+
+(defun sysml-diagram--request-async (source method params on-result on-error)
+  "Send METHOD with PARAMS to SOURCE's server without waiting for it.
+Call ON-RESULT with the result, or ON-ERROR with the error message."
+  (with-current-buffer source
+    (pcase (sysml-diagram--source-client source)
+      ('lsp-mode
+       (lsp-request-async
+        method params
+        (lambda (result) (funcall on-result (sysml-diagram--plist result)))
+        :mode 'detached
+        :error-handler (lambda (err)
+                         (funcall on-error (plist-get (sysml-diagram--plist err) :message))))))))
+
+(defun sysml-diagram--path (client uri)
+  "Return the file name URI names, decoded the way CLIENT decodes it."
+  (pcase client
+    ('lsp-mode (lsp--uri-to-path uri))))
+
+(defun sysml-diagram--region (client range)
+  "Return the (START . END) of RANGE in the current buffer, as CLIENT counts."
+  (pcase client
+    ('lsp-mode
+     (cl-flet ((point-at (position)
+                 (lsp--line-character-to-point (plist-get position :line)
+                                               (plist-get position :character))))
+       (cons (point-at (plist-get range :start)) (point-at (plist-get range :end)))))))
+
+(defun sysml-diagram--library-buffer (client uri)
+  "Return a read-only buffer of the bundled library document URI, from CLIENT.
+Its text is asked of the current buffer's server."
+  (pcase client
+    ('lsp-mode (sysml-lsp-stdlib-buffer uri))))
 
 (defun sysml-diagram--check (source)
   "Signal a `user-error' unless SOURCE's server serves the render methods."
-  (let ((workspace (sysml-diagram--workspace source)))
-    (unless workspace
-      (user-error "No OpenSysML language server is running for %s; start it with M-x lsp"
-                  (buffer-name source)))
-    (unless (sysml-diagram--supported-p workspace)
-      (user-error "This sysml-lsp does not serve diagrams; rebuild it with `make build'"))))
+  (unless (sysml-diagram--source-client source)
+    (user-error "No OpenSysML language server is running for %s; start it with M-x lsp"
+                (buffer-name source)))
+  (unless (sysml-diagram--supported-p source)
+    (user-error "This sysml-lsp does not serve diagrams; rebuild it with `make build'")))
 
 (defun sysml-diagram--text-document (source)
   "Return the TextDocumentIdentifier of SOURCE."
   (with-current-buffer source
-    (list :uri (lsp--buffer-uri))))
+    (list :uri (pcase (sysml-diagram--source-client source)
+                 ('lsp-mode (lsp--buffer-uri))))))
 
 (defun sysml-diagram--views (source)
   "Return the picker entries for SOURCE: (VALUE LABEL SUPPORTED REASON)."
   (let ((listing (condition-case err
-                     (with-current-buffer source
-                       (lsp-request sysml-diagram--views-method
-                                    (list :textDocument (sysml-diagram--text-document source))))
+                     (sysml-diagram--request-sync
+                      source sysml-diagram--views-method
+                      (list :textDocument (sysml-diagram--text-document source)))
                    ;; The listing is the picker's content, not the view: a
                    ;; failure there still leaves the pseudo-views.
                    (error (message "Listing the views of %s failed: %s"
@@ -177,12 +246,12 @@ historical set."
                           nil))))
     (append
      (mapcar (lambda (info)
-               (let ((name (lsp-get info :name)))
-                 (list name (format "%s — %s" name (lsp-get info :kind))
-                       (eq (lsp-get info :supported) t) (lsp-get info :reason))))
-             (and listing (lsp-get listing :views)))
+               (let ((name (plist-get info :name)))
+                 (list name (format "%s — %s" name (plist-get info :kind))
+                       (eq (plist-get info :supported) t) (plist-get info :reason))))
+             (and listing (plist-get listing :views)))
      (sysml-diagram--pseudo-view-entries
-      (and listing (append (lsp-get listing :pseudoViews) nil))))))
+      (and listing (append (plist-get listing :pseudoViews) nil))))))
 
 (defun sysml-diagram--default-view (views)
   "Return the view to show first from the picker entries VIEWS.
@@ -224,22 +293,22 @@ none shows its model tree, as the VS Code panel does."
                           (when sysml-diagram--form
                             (list :form sysml-diagram--form)))))
       (setq sysml-diagram--pending t)
-      (with-current-buffer source
-        (lsp-request-async
-         sysml-diagram--render-method params
-         (lambda (result) (sysml-diagram--settle buffer result nil))
-         :mode 'detached
-         :error-handler (lambda (err)
-                          (sysml-diagram--settle buffer nil (lsp:json-error-message err))))))))
+      (let ((client (sysml-diagram--source-client source)))
+        (sysml-diagram--request-async
+         source sysml-diagram--render-method params
+         (lambda (result) (sysml-diagram--settle buffer result nil client))
+         (lambda (message) (sysml-diagram--settle buffer nil message)))))))
 
-(defun sysml-diagram--settle (buffer result error)
-  "Draw RESULT, or keep the last view and show ERROR, in BUFFER."
+(defun sysml-diagram--settle (buffer result error &optional client)
+  "Draw RESULT in BUFFER, or keep the last view there and show ERROR.
+CLIENT is the client RESULT came through."
   (when (buffer-live-p buffer)
     (with-current-buffer buffer
       (setq sysml-diagram--pending nil)
       (if error
           (setq sysml-diagram--error error)
         (setq sysml-diagram--result result
+              sysml-diagram--client client
               sysml-diagram--error nil))
       (sysml-diagram--draw)
       (when sysml-diagram--again
@@ -260,10 +329,10 @@ none shows its model tree, as the VS Code panel does."
 
 (defun sysml-diagram--node-line (node)
   "Return the text of NODE's line, without indentation."
-  (let ((detail (lsp-get node :detail)))
-    (concat (propertize (lsp-get node :kind) 'face 'sysml-diagram-kind-face)
+  (let ((detail (plist-get node :detail)))
+    (concat (propertize (plist-get node :kind) 'face 'sysml-diagram-kind-face)
             " "
-            (propertize (lsp-get node :name) 'face 'sysml-diagram-name-face)
+            (propertize (plist-get node :name) 'face 'sysml-diagram-name-face)
             (if (or (null detail) (string-empty-p detail))
                 ""
               (concat " " (propertize (format "(%s)" detail) 'face 'sysml-diagram-detail-face))))))
@@ -291,18 +360,18 @@ ID is the node it draws, or nil for a table row."
         (known (make-hash-table :test #'equal))
         roots)
     (seq-doseq (node nodes)
-      (puthash (lsp-get node :id) t known))
+      (puthash (plist-get node :id) t known))
     (seq-doseq (node nodes)
-      (let ((parent (lsp-get node :parent)))
+      (let ((parent (plist-get node :parent)))
         (if (and parent (gethash parent known))
             (push node (gethash parent children))
           (push node roots))))
     (cl-labels ((walk (node depth)
                   (insert (make-string (* 2 depth) ?\s))
                   (sysml-diagram--insert-element (sysml-diagram--node-line node)
-                                                 (lsp-get node :origin)
-                                                 (lsp-get node :id))
-                  (dolist (child (reverse (gethash (lsp-get node :id) children)))
+                                                 (plist-get node :origin)
+                                                 (plist-get node :id))
+                  (dolist (child (reverse (gethash (plist-get node :id) children)))
                     (walk child (1+ depth)))))
       (dolist (root (reverse roots))
         (walk root 0)))))
@@ -311,27 +380,27 @@ ID is the node it draws, or nil for a table row."
   "Insert EDGES between NODES, one per line, grouped by kind."
   (let ((names (make-hash-table :test #'equal)))
     (seq-doseq (node nodes)
-      (puthash (lsp-get node :id) (lsp-get node :name) names))
+      (puthash (plist-get node :id) (plist-get node :name) names))
     (insert "\n" (propertize "Edges" 'face 'sysml-diagram-heading-face) "\n")
     (seq-doseq (edge edges)
-      (let ((label (lsp-get edge :label)))
+      (let ((label (plist-get edge :label)))
         (sysml-diagram--insert-element
          (concat "  "
-                 (propertize (lsp-get edge :kind) 'face 'sysml-diagram-kind-face) " "
-                 (propertize (gethash (lsp-get edge :from) names (lsp-get edge :from))
+                 (propertize (plist-get edge :kind) 'face 'sysml-diagram-kind-face) " "
+                 (propertize (gethash (plist-get edge :from) names (plist-get edge :from))
                              'face 'sysml-diagram-name-face)
                  " → "
-                 (propertize (gethash (lsp-get edge :to) names (lsp-get edge :to))
+                 (propertize (gethash (plist-get edge :to) names (plist-get edge :to))
                              'face 'sysml-diagram-name-face)
                  (if (or (null label) (string-empty-p label))
                      ""
                    (concat " " (propertize (format "[%s]" label) 'face 'sysml-diagram-detail-face))))
-         (lsp-get edge :origin) nil)))))
+         (plist-get edge :origin) nil)))))
 
 (defun sysml-diagram--insert-table (columns rows)
   "Insert ROWS under COLUMNS, aligned."
   (let* ((columns (append columns nil))
-         (cells (mapcar (lambda (row) (append (lsp-get row :cells) nil)) (append rows nil)))
+         (cells (mapcar (lambda (row) (append (plist-get row :cells) nil)) (append rows nil)))
          (widths (seq-map-indexed
                   (lambda (column i)
                     (apply #'max (string-width column)
@@ -349,7 +418,7 @@ ID is the node it draws, or nil for a table row."
     (insert (propertize (funcall format-row columns) 'face 'sysml-diagram-heading-face) "\n")
     (insert (mapconcat (lambda (w) (make-string w ?-)) widths "  ") "\n")
     (seq-mapn (lambda (row line)
-                (sysml-diagram--insert-element line (lsp-get row :origin) nil))
+                (sysml-diagram--insert-element line (plist-get row :origin) nil))
               rows (mapcar format-row cells))))
 
 (defun sysml-diagram--header ()
@@ -358,7 +427,7 @@ ID is the node it draws, or nil for a table row."
     (concat
      (propertize (if (string-empty-p sysml-diagram--view) "(declared view)" sysml-diagram--view)
                  'face 'sysml-diagram-heading-face)
-     (when result (format " — %s" (lsp-get result :kind)))
+     (when result (format " — %s" (plist-get result :kind)))
      (when sysml-diagram--form (format " [%s]" sysml-diagram--form))
      (when sysml-diagram--error
        (concat "  " (propertize (format "stale: %s" sysml-diagram--error) 'face 'error))))))
@@ -380,24 +449,24 @@ ID is the node it draws, or nil for a table row."
                   (format "No rendering yet: %s\n" sysml-diagram--error)
                 "Rendering...\n")))
      (t
-      (let ((stated (lsp-get result :stated)))
+      (let ((stated (plist-get result :stated)))
         (unless (or (null stated) (string-empty-p stated))
           (insert (propertize stated 'face 'shadow) "\n\n")))
       (cond
        ((equal sysml-diagram--form "text")
-        (insert (lsp-get result :artifact)))
-       ((member (lsp-get result :kind) sysml-diagram--tabular-kinds)
-        (sysml-diagram--insert-table (lsp-get result :columns) (lsp-get result :rows)))
+        (insert (plist-get result :artifact)))
+       ((member (plist-get result :kind) sysml-diagram--tabular-kinds)
+        (sysml-diagram--insert-table (plist-get result :columns) (plist-get result :rows)))
        (t
-        (let ((nodes (lsp-get result :nodes))
-              (edges (lsp-get result :edges)))
+        (let ((nodes (plist-get result :nodes))
+              (edges (plist-get result :edges)))
           (if (seq-empty-p nodes)
               (insert (propertize "Nothing this view exposes is shown by this kind of rendering.\n"
                                   'face 'shadow))
             (sysml-diagram--insert-tree nodes))
           (unless (seq-empty-p edges)
             (sysml-diagram--insert-edges nodes edges)))))
-      (let ((notices (lsp-get result :notices)))
+      (let ((notices (plist-get result :notices)))
         (unless (or (equal sysml-diagram--form "text") (seq-empty-p notices))
           (insert "\n" (propertize "Not represented" 'face 'sysml-diagram-heading-face) "\n")
           (seq-doseq (notice notices)
@@ -412,26 +481,27 @@ ID is the node it draws, or nil for a table row."
 
 ;;;; Navigation
 
-(defun sysml-diagram--origin-region (origin)
-  "Return the (START . END) of ORIGIN's selection range in the current buffer."
-  (let ((range (or (lsp-get origin :selectionRange) (lsp-get origin :range))))
-    (cons (lsp--position-to-point (lsp-get range :start))
-          (lsp--position-to-point (lsp-get range :end)))))
+(defun sysml-diagram--origin-region (client origin)
+  "Return the (START . END) of ORIGIN's selection range in the current buffer.
+CLIENT is the client ORIGIN came through."
+  (sysml-diagram--region client (or (plist-get origin :selectionRange)
+                                    (plist-get origin :range))))
 
 (defun sysml-diagram--visit (origin)
   "Visit the declaration ORIGIN locates, selecting its name.
 A declaration in the bundled library is shown read-only, its text asked
 of the server of the view's model buffer."
-  (let* ((uri (lsp-get origin :uri))
+  (let* ((uri (plist-get origin :uri))
          (source sysml-diagram--source)
+         (client sysml-diagram--client)
          (buffer (if (sysml-library-uri-p uri)
                      (if (buffer-live-p source)
-                         (with-current-buffer source (sysml-lsp-stdlib-buffer uri))
+                         (with-current-buffer source (sysml-diagram--library-buffer client uri))
                        (user-error "The model this view shows is no longer visited"))
-                   (let ((file (lsp--uri-to-path uri)))
+                   (let ((file (sysml-diagram--path client uri)))
                      (or (find-buffer-visiting file) (find-file-noselect file))))))
     (pop-to-buffer buffer '((display-buffer-reuse-window display-buffer-use-some-window)))
-    (let ((region (sysml-diagram--origin-region origin)))
+    (let ((region (sysml-diagram--origin-region client origin)))
       (push-mark (point) t)
       (goto-char (car region))
       (pulse-momentary-highlight-region (car region) (cdr region)))))
@@ -451,18 +521,20 @@ of the server of the view's model buffer."
 (defun sysml-diagram--node-at (source pos)
   "Return the id of the innermost node of the current view holding POS in SOURCE."
   (let ((file (buffer-file-name source))
-        (nodes (and sysml-diagram--result (lsp-get sysml-diagram--result :nodes)))
+        (nodes (and sysml-diagram--result (plist-get sysml-diagram--result :nodes)))
+        (client sysml-diagram--client)
         found found-size)
     (with-current-buffer source
       (seq-doseq (node nodes)
-        (when-let* ((origin (lsp-get node :origin))
-                    ((and file (file-equal-p (lsp--uri-to-path (lsp-get origin :uri)) file)))
-                    (range (lsp-get origin :range))
-                    (start (lsp--position-to-point (lsp-get range :start)))
-                    (end (lsp--position-to-point (lsp-get range :end))))
+        (when-let* ((origin (plist-get node :origin))
+                    ((and file (file-equal-p (sysml-diagram--path client (plist-get origin :uri))
+                                             file)))
+                    (region (sysml-diagram--region client (plist-get origin :range)))
+                    (start (car region))
+                    (end (cdr region)))
           (when (and (<= start pos) (< pos end)
                      (or (null found-size) (< (- end start) found-size)))
-            (setq found (lsp-get node :id)
+            (setq found (plist-get node :id)
                   found-size (- end start))))))
     found))
 
@@ -518,7 +590,7 @@ refreshes it."
     (sysml-diagram--draw))
    ((not (get-buffer-window (current-buffer) t)))
    (sysml-diagram--pending (setq sysml-diagram--again t))
-   ((not (sysml-diagram--workspace sysml-diagram--source))
+   ((not (sysml-diagram--source-client sysml-diagram--source))
     (setq sysml-diagram--error "the language server is not running")
     (sysml-diagram--draw))
    (t (sysml-diagram--request (current-buffer)))))
@@ -626,14 +698,14 @@ Needs `sysml-diagram-mmdc-program' and a frame that can display SVG."
                   sysml-diagram-mmdc-program))
     (let* ((source sysml-diagram--source)
            (view sysml-diagram--view)
-           (result (with-current-buffer source
-                     (lsp-request sysml-diagram--render-method
-                                  (append (list :textDocument (sysml-diagram--text-document source))
-                                          (unless (string-empty-p view) (list :view view))))))
-           (kind (lsp-get result :kind)))
+           (result (sysml-diagram--request-sync
+                    source sysml-diagram--render-method
+                    (append (list :textDocument (sysml-diagram--text-document source))
+                            (unless (string-empty-p view) (list :view view)))))
+           (kind (plist-get result :kind)))
       (when (member kind sysml-diagram--tabular-kinds)
         (user-error "A %s is not drawn; it is already shown as one" kind))
-      (let ((svg (sysml-diagram--mermaid-to-svg mmdc (lsp-get result :artifact)))
+      (let ((svg (sysml-diagram--mermaid-to-svg mmdc (plist-get result :artifact)))
             (buffer (get-buffer-create (format "*SysML Image: %s*" (buffer-name source)))))
         (with-current-buffer buffer
           (let ((inhibit-read-only t))
