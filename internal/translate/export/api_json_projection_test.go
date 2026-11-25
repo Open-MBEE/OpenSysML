@@ -330,6 +330,58 @@ func TestAPIJSONProjectionCarriesAnnotationBindings(t *testing.T) {
 	})
 }
 
+// An alias in an annotation's body references its target; the projection must
+// write the alias but not follow that reference into the target's declarations.
+func TestAPIJSONProjectionDoesNotFollowAliasTargets(t *testing.T) {
+	graph := graphOfNotation(t, `package Lib {
+  part def Shared { part def Inner; }
+}
+package P {
+  private import Lib::*;
+  metadata def Facet;
+  part def Vehicle {
+    @Facet {
+      alias shared for Lib::Shared;
+      note = "n";
+    }
+  }
+}
+`)
+	whole := projectionWhole(t, graph)
+	out, err := WriteAPIJSONWithOptions(graph, APIJSONOptions{Projection: &APIJSONProjection{AnnotationTypes: []string{"Facet"}}})
+	if err != nil {
+		t.Fatalf("WriteAPIJSONWithOptions: %v", err)
+	}
+	projected := splitAPIJSONElements(t, out)
+	ids := map[string]bool{}
+	for _, element := range projected {
+		ids[elementField(t, element, "@id")] = true
+	}
+	if !ids["P__Vehicle___400__shared"] {
+		t.Errorf("projection did not write the alias itself: %v", ids)
+	}
+	for _, unrelated := range []string{"Lib", "Lib__Shared", "Lib__Shared__Inner", "Lib__Shared__Inner_om"} {
+		if ids[unrelated] {
+			t.Errorf("projection followed the alias reference and wrote %s", unrelated)
+		}
+	}
+	usage := elementByID(t, projected, "P__Vehicle___400")
+	members := projectionRefs(t, usage, "ownedMember")
+	found := false
+	for _, memberID := range members {
+		values := projectionRefs(t, elementByID(t, projected, memberID), "value")
+		for _, valueID := range values {
+			if got := elementField(t, elementByID(t, projected, valueID), "value"); got == "n" {
+				found = true
+			}
+		}
+	}
+	if !found {
+		t.Errorf("projection lost the binding value while dropping the alias target: %s", out)
+	}
+	assertProjectedAreByteIdentical(t, whole, projected)
+}
+
 // A metadata definition's declared short name is a selector even when it is
 // not the last segment of the definition's qualified name.
 func TestAPIJSONProjectionByAnnotationDeclaredShortName(t *testing.T) {

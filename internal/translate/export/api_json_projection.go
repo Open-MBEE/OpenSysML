@@ -197,8 +197,8 @@ func apiJSONIsAnnotationMember(graph *rdf.Graph, subject rdf.Term) bool {
 	return annotationMemberMetaclasses[metaclass]
 }
 
-// annotationBindingPredicates are the owned edges followed from a matched
-// annotation to its bindings; references outside the annotation are not followed.
+// annotationBindingPredicates are the containment edges followed to a binding.
+// memberElement is absent: an alias states a reference on it, not ownership.
 var annotationBindingPredicates = []string{
 	pOwnedRelationship,
 	pOwnedMembership,
@@ -207,7 +207,6 @@ var annotationBindingPredicates = []string{
 	pOwnedFeatureMembership,
 	pOwnedMemberFeature,
 	pOwnedMemberElement,
-	pMemberElement,
 	pOwnedRelatedElement,
 	pValue,
 }

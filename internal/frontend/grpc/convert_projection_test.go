@@ -207,6 +207,49 @@ func TestConvertProjectionByAnnotationTypeCarriesBindings(t *testing.T) {
 	assertProjectedElementsMatchWhole(t, whole.Content, reply.Content)
 }
 
+// An alias inside a selected annotation names a declaration; the projection
+// must write the alias without following that reference into another package.
+func TestConvertProjectionDoesNotFollowAliasTargets(t *testing.T) {
+	srv := mustNewService(t, 10)
+	defer srv.Close()
+	req := &pb.ConvertRequest{
+		Source: &pb.ConvertRequest_Content{Content: `package Lib {
+  part def Shared { part def Inner; }
+}
+package P {
+  private import Lib::*;
+  metadata def Facet;
+  part def Vehicle {
+    @Facet {
+      alias shared for Lib::Shared;
+      note = "n";
+    }
+  }
+}
+`},
+		FromFormat: "sysml",
+	}
+	whole := convertProjected(t, srv, nil, req)
+	reply := convertProjected(t, srv, &pb.ConvertProjection{AnnotationTypes: []string{"Facet"}}, req)
+	byID := map[string]json.RawMessage{}
+	for _, element := range projectedIDs(t, reply.Content) {
+		byID[rawID(t, element)] = element
+	}
+	if _, ok := byID["P__Vehicle___400__shared"]; !ok {
+		t.Errorf("projection did not write the alias: %v", byID)
+	}
+	for _, unrelated := range []string{"Lib", "Lib__Shared", "Lib__Shared__Inner", "Lib__Shared__Inner_om"} {
+		if _, ok := byID[unrelated]; ok {
+			t.Errorf("projection followed the alias reference and wrote %s", unrelated)
+		}
+	}
+	var bound string
+	if err := json.Unmarshal(rawField(t, byID["P__Vehicle___400__note_pvalue"], "value"), &bound); err != nil || bound != "n" {
+		t.Errorf("bound literal reads %q (%v), want %q", bound, err, "n")
+	}
+	assertProjectedElementsMatchWhole(t, whole.Content, reply.Content)
+}
+
 func TestConvertProjectionUnknownNamesAreInvalidArgument(t *testing.T) {
 	srv := mustNewService(t, 10)
 	defer srv.Close()

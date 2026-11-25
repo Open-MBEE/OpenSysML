@@ -1,0 +1,1 @@
+- A `Convert` annotation projection no longer writes the declaration an alias inside the annotation names. The binding walk follows containment edges only, so the alias itself is emitted with the annotation's bound values while the aliased target and its members stay out of the reply.
