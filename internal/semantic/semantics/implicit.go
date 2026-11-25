@@ -634,6 +634,12 @@ func (m *Model) usageBaseFeatureFQN(sym *symbols.Symbol) (string, bool) {
 		return fqn, ok
 	case *ast.SendStatement:
 		return sendActionsFQN, true
+	case *ast.AssignmentActionNode, *ast.IfActionNode, *ast.WhileLoopActionNode:
+		if IsLoopVariable(sym) {
+			return "", false
+		}
+		fqn := controlBaseFQNs[controlFormOf(d)]
+		return fqn, fqn != ""
 	case *ast.ForkNode:
 		return forksFQN, true
 	case *ast.JoinNode:

@@ -87,6 +87,11 @@ func (m *Model) nestedSubsettingFQN(sym *symbols.Symbol) string {
 		}
 	case *ast.SendStatement:
 		u.Send = true
+	case *ast.AssignmentActionNode, *ast.IfActionNode, *ast.WhileLoopActionNode:
+		if IsLoopVariable(sym) {
+			return ""
+		}
+		u.Control = controlFormOf(d)
 	case *ast.AssumeMember, *ast.RequireMember:
 		// The constraint an `assume`/`require` member owns is composite: its
 		// grammar has no `ref` (SysML.xtext RequirementConstraintUsage).
@@ -576,7 +581,7 @@ func ownerUsageKind(owner *symbols.Symbol) (ast.UsageKind, bool) {
 		if owner.DeclaresTransition() {
 			return ast.UsageTransition, true
 		}
-	case *ast.SendStatement:
+	case *ast.SendStatement, *ast.AssignmentActionNode, *ast.IfActionNode, *ast.WhileLoopActionNode:
 		return ast.UsageAction, true
 	case *ast.AssumeMember, *ast.RequireMember:
 		return ast.UsageConstraint, true
