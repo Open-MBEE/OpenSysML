@@ -349,7 +349,7 @@ release_name="${tag:-the latest release}"
 [ "$version" != nightly ] || release_name="the nightly snapshot"
 
 # earlier_releases <tag>: the stable release tags the releases API lists below
-# <tag>, newest version first. Pre-releases and nightlies are never a fallback.
+# <tag>, newest version first. Pre-releases, drafts and nightlies are never a fallback.
 earlier_releases() {
 	[ -n "$releases_api" ] || return 1
 	case "$1" in v[0-9]*.[0-9]*.[0-9]*) ;; *) return 1 ;; esac
@@ -358,12 +358,20 @@ earlier_releases() {
 	if [ -z "$api_token" ]; then
 		download "$releases_api" "$work/releases.json" 2>/dev/null || return 1
 	elif [ "$downloader" = curl ]; then
-		curl -fsSL --proto =https --proto-redir =https --retry 3 -H "Authorization: Bearer $api_token" \
-			-o "$work/releases.json" "$releases_api" 2>/dev/null || return 1
+		# The token goes to curl on stdin: an argument is readable in the process list.
+		printf 'header = "Authorization: Bearer %s"\n' "$api_token" |
+			curl -fsSL --proto =https --proto-redir =https --retry 3 -K - \
+				-o "$work/releases.json" "$releases_api" 2>/dev/null || return 1
 	else
-		wget -q --header "Authorization: Bearer $api_token" -O "$work/releases.json" "$releases_api" 2>/dev/null || return 1
+		# wget takes a header only as an argument, so it asks without the token.
+		download "$releases_api" "$work/releases.json" 2>/dev/null || return 1
 	fi
 	tr ',{}' '\n' <"$work/releases.json" |
+		awk '
+			# A release object names its tag before its draft and prerelease flags.
+			/^[[:space:]]*"tag_name"[[:space:]]*:/ { if (held != "") print held; held = $0; next }
+			/^[[:space:]]*"(draft|prerelease)"[[:space:]]*:[[:space:]]*true[[:space:]]*$/ { held = "" }
+			END { if (held != "") print held }' |
 		sed -n 's/^[[:space:]]*"tag_name"[[:space:]]*:[[:space:]]*"v\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)"[[:space:]]*$/\1/p' |
 		sort -u -t. -k1,1nr -k2,2nr -k3,3nr |
 		awk -F. -v latest="${1#v}" '

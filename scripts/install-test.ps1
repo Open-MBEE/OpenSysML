@@ -237,6 +237,15 @@ if (Test-Ok 'dry run of latest without assets yet' -BaseUrl $PendingUrl -DryRun)
     Assert-Said 'Installing OpenSysML (v8.1.0)'
     Assert-Said "from:     $PendingUrl/download/v8.1.0/opensysml-$HostPlatform.tar.gz"
 }
+# The same through a script block, as `irm | iex` runs it, where the installer's variables are not script-scoped.
+$script:n++
+$blockDir = Join-Path $work "install-$script:n"
+$blockOut = (& pwsh -NoProfile -Command "& ([scriptblock]::Create((Get-Content -Raw -LiteralPath '$Script'))) -BaseUrl '$PendingUrl' -InstallDir '$blockDir'" 2>&1 | ForEach-Object { "$_" }) -join "`n"
+if ($LASTEXITCODE -eq 0 -and $blockOut.Contains('Installing OpenSysML (v8.1.0)') -and (Test-Path -LiteralPath (Join-Path $blockDir 'sysml'))) {
+    Write-Host 'ok   latest without assets yet, from a script block'
+} else {
+    Write-Failure "latest without assets yet, from a script block: exit $LASTEXITCODE`n$blockOut"
+}
 # Asking for the release by name is not a request for whatever is installable.
 $null = Test-Failure 'a named release without assets' "could not download $PendingUrl/download/v8.3.0/SHA256SUMS.txt" -BaseUrl $PendingUrl -Version v8.3.0
 $env:OPENSYSML_RELEASES_API = "$PendingUrl/list-none.json"

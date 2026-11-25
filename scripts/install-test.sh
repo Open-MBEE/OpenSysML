@@ -141,29 +141,32 @@ cp -R "$work/site/releases/download/$good" "$work/site/mirror/latest/download"
 # A release tree whose latest release, v8.3.0, is published but has no assets yet.
 # The releases list is in GitHub's shape and out of order; the newest earlier
 # release with a manifest is v8.1.0: v8.2.0 has no assets either, v8.2.0-rc.1 and
-# nightly are pre-releases, and v8.0.10 is older.
+# nightly are pre-releases, v8.2.1 is flagged a pre-release, and v8.0.10 is older.
 pending_dir="$work/site/pending/releases"
 mkdir -p "$pending_dir/download"
 release v8.1.0 8.1.0
 mv "$work/site/releases/download/v8.1.0" "$pending_dir/download/v8.1.0"
-for tag in v8.0.10 v8.2.0-rc.1 nightly; do
+for tag in v8.0.10 v8.2.0-rc.1 v8.2.1 nightly; do
 	mkdir -p "$pending_dir/download/$tag"
 	cp "$pending_dir/download/v8.1.0/SHA256SUMS.txt" "$pending_dir/download/$tag/SHA256SUMS.txt"
 done
-# releases_list <file> <tags...>: a releases API answer listing the tags in order.
+# releases_list <file> <tags...>: a releases API answer listing the tags in order;
+# a tag written <tag>+pre is flagged a pre-release.
 releases_list() {
-	local file=$1 tag sep=""
+	local file=$1 tag pre sep=""
 	shift
 	{
 		printf '[\n'
 		for tag in "$@"; do
-			printf '%s  {\n    "url": "https://api.example/releases/1",\n    "tag_name": "%s",\n    "name": "%s",\n    "draft": false,\n    "assets": [],\n    "body": "notes, with \\"tag_name\\": \\"v8.2.5\\" quoted in them"\n  }' "$sep" "$tag" "$tag"
+			pre=false
+			[[ "$tag" != *+pre ]] || { pre=true && tag=${tag%+pre}; }
+			printf '%s  {\n    "url": "https://api.example/releases/1",\n    "tag_name": "%s",\n    "name": "%s",\n    "draft": false,\n    "prerelease": %s,\n    "assets": [],\n    "body": "notes, with \\"tag_name\\": \\"v8.2.5\\" quoted in them"\n  }' "$sep" "$tag" "$tag" "$pre"
 			sep=$',\n'
 		done
 		printf '\n]\n'
 	} >"$file"
 }
-releases_list "$pending_dir/list.json" nightly v8.3.0 v8.0.10 v8.2.0-rc.1 v8.2.0 v8.1.0 v8.10.0
+releases_list "$pending_dir/list.json" nightly+pre v8.3.0 v8.0.10 v8.2.0-rc.1+pre v8.2.1+pre v8.2.0 v8.1.0 v8.10.0
 releases_list "$pending_dir/list-none.json" v8.3.0 v8.2.0
 
 # --- the server: GitHub's /releases/latest redirect over a static tree --------

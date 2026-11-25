@@ -229,6 +229,8 @@ function Get-EarlierRelease([string]$Latest) {
         return $null
     }
     $versions = @(foreach ($release in @($releases)) {
+        if ($release.PSObject.Properties['prerelease'] -and $release.prerelease) { continue }
+        if ($release.PSObject.Properties['draft'] -and $release.draft) { continue }
         if ("$($release.tag_name)" -match '^v(\d+\.\d+\.\d+)$') { [version]$Matches[1] }
     })
     return @($versions | Where-Object { $_ -lt $ceiling } | Sort-Object -Descending -Unique | ForEach-Object { "v$_" })
@@ -237,8 +239,8 @@ function Get-EarlierRelease([string]$Latest) {
 function Select-InstallableRelease {
     # A release is marked latest when it is published, which is before the release
     # pipeline has built and uploaded its assets. Until its manifest is there,
-    # `latest` is the newest earlier release that has one.
-    if (Get-Asset 'SHA256SUMS.txt' -Optional) { return }
+    # `latest` is the newest earlier release that has one: its tag, or $null to keep the latest.
+    if (Get-Asset 'SHA256SUMS.txt' -Optional) { return $null }
     $latest = $Tag
     $missing = "$latest is the latest release, but its assets are not uploaded yet ($(Get-AssetUrl 'SHA256SUMS.txt') is missing)"
     $candidates = Get-EarlierRelease $latest
@@ -246,13 +248,18 @@ function Select-InstallableRelease {
         $from = if ($ReleasesApi) { " from $ReleasesApi" } else { '' }
         Fail "$missing and the earlier releases could not be listed$from; pass -Version <tag> for an earlier release, or retry once $latest has its assets. See $BaseUrl"
     }
+    $manifest = Join-Path $Work 'SHA256SUMS.txt'
     foreach ($candidate in $candidates) {
-        $script:AssetDir = "$BaseUrl/download/$candidate"
-        if (Get-Asset 'SHA256SUMS.txt' -Optional) {
-            $script:Tag = $candidate
-            $script:ReleaseName = $candidate
+        try {
+            Invoke-WebRequest -UseBasicParsing -Uri "$BaseUrl/download/$candidate/SHA256SUMS.txt" -OutFile $manifest
+            $found = $true
+        } catch {
+            if (Test-Path -LiteralPath $manifest) { Remove-Item -LiteralPath $manifest -Force }
+            $found = $false
+        }
+        if ($found) {
             Write-Warning "$latest is the latest release, but its assets are not uploaded yet; installing $candidate, the newest release that has them. Run again later, or pass -Version $latest, for $latest."
-            return
+            return $candidate
         }
     }
     Fail "$missing and no earlier release has a SHA256SUMS.txt; retry once $latest has its assets. See $BaseUrl"
@@ -326,7 +333,12 @@ function Test-Authenticode([string]$Path, [string]$Name) {
 # installation needs anyway), so a dry run previews the same choice.
 New-Item -ItemType Directory -Path $Work -Force | Out-Null
 try {
-    if ($Version -eq 'latest' -and $Tag) { Select-InstallableRelease }
+    $fallback = if ($Version -eq 'latest' -and $Tag) { Select-InstallableRelease } else { $null }
+    if ($fallback) {
+        $Tag = $fallback
+        $AssetDir = "$BaseUrl/download/$Tag"
+        $ReleaseName = $Tag
+    }
     # The release's own manifest lists everything it published; the signed
     # Windows build's manifest covers only the signed subset.
     $ReleaseManifest = 'SHA256SUMS.txt'
