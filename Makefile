@@ -408,6 +408,9 @@ TEST_SHARD_RACE ?= -race
 # SKIP_STDLIB_SNAPSHOT lets the runner write the snapshot once for all shards;
 # it reaches recursive make calls, unlike -o, and the literal prerequisite stays.
 SKIP_STDLIB_SNAPSHOT ?=
+# SKIP_TOOLS_TESTS lets a local all-shards runner give the tools module one
+# owner; CI leaves it unset so every job keeps its own copy of the module.
+SKIP_TOOLS_TESTS ?=
 
 test-shard: $(if $(SKIP_STDLIB_SNAPSHOT),,stdlib-snapshot) ## Run one CI shard of the race suite (SHARD=runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep-committed|corpus-sweep-corpora|export|export-library|export-examples|export-corpus|graph|graph-corpora|codegen|translate|translate-structure|grpc|tools|internal|rest|migrate|cli)
 	@echo "Running Go $(if $(TEST_SHARD_RACE),race ,)tests, shard $(SHARD)$(if $(OPENSYSML_CORPUS_SUBSET), over the $(OPENSYSML_CORPUS_SUBSET) corpus subset,)..."
@@ -416,7 +419,8 @@ test-shard: $(if $(SKIP_STDLIB_SNAPSHOT),,stdlib-snapshot) ## Run one CI shard o
 	pkgs=$$(scripts/race-shard.sh $(SHARD)) && go test $(SHARD_SELECT) -v $(TEST_SHARD_RACE) -pgo=off -timeout 55m $$pkgs
 	@# The tools module runs with tools (tests/wasm) on CircleCI and, as the PR workflow has no
 	@# tools shard (tests/wasm is its WebAssembly gate job there), with rest on GitHub Actions.
-	case "$(SHARD)" in rest|tools) go test -C $(TOOLS_DIR) -skip '$(RACE_SHARD_TOOLS_SKIP)' -v $(TEST_SHARD_RACE) -pgo=off -timeout 55m ./... ;; esac
+	@# A local plan with both shards gives the module one owner; CI jobs keep their own copy.
+	case "$(SHARD)" in rest|tools) $(if $(SKIP_TOOLS_TESTS),printf 'tools module tests owned by the tools shard in this plan\n',go test -C $(TOOLS_DIR) -skip '$(RACE_SHARD_TOOLS_SKIP)' -v $(TEST_SHARD_RACE) -pgo=off -timeout 55m ./...) ;; esac
 
 test-quick: $(if $(SKIP_STDLIB_SNAPSHOT),,stdlib-snapshot) ## Run the race-free quick tier over one or more race shards, in turn (SHARDS="graph" | "export-corpus export-library" | "rest grpc" | ...)
 	@echo "Running Go tests without race detection, shards $(SHARDS)..."
