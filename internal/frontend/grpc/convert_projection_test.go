@@ -242,6 +242,48 @@ func TestConvertProjectionWithDocumentsAndCompact(t *testing.T) {
 	}
 }
 
+// Body annotations are owned members rather than about relationships; their
+// metaclass and metadata-definition names still select them and their owners.
+func TestConvertProjectionBodyAnnotationTypes(t *testing.T) {
+	srv := mustNewService(t, 10)
+	defer srv.Close()
+	source := &pb.ConvertRequest_Content{Content: `package P {
+  metadata def Facet;
+  part def Vehicle {
+    doc /* a vehicle */
+    rep language "markdown" /* body */
+    @Facet { note = "n"; }
+  }
+  #Facet part def Hashed;
+}
+`}
+	request := &pb.ConvertRequest{Source: source, FromFormat: "sysml"}
+	whole := convertProjected(t, srv, nil, request)
+	for _, tc := range []struct {
+		name string
+		ids  []string
+	}{
+		{"Documentation", []string{"P__Vehicle___400", "P__Vehicle"}},
+		{"TextualRepresentation", []string{"P__Vehicle___401", "P__Vehicle"}},
+		{"Facet", []string{"P__Vehicle___402", "P__Hashed___400", "P__Vehicle", "P__Hashed"}},
+		{"P::Facet", []string{"P__Vehicle___402", "P__Hashed___400", "P__Vehicle", "P__Hashed"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			reply := convertProjected(t, srv, &pb.ConvertProjection{AnnotationTypes: []string{tc.name}}, request)
+			ids := map[string]bool{}
+			for _, element := range projectedIDs(t, reply.Content) {
+				ids[rawID(t, element)] = true
+			}
+			for _, want := range tc.ids {
+				if !ids[want] {
+					t.Errorf("projection by %q did not emit %s: %v", tc.name, want, ids)
+				}
+			}
+			assertProjectedElementsMatchWhole(t, whole.Content, reply.Content)
+		})
+	}
+}
+
 // A metadata definition in an excluded document is a bare reference in the
 // document-filtered graph; the selector still resolves against the full model.
 func TestConvertProjectionAnnotationTypeAcrossDocuments(t *testing.T) {

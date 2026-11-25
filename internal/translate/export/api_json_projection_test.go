@@ -279,6 +279,52 @@ func TestAPIJSONProjectionByAnnotationQuotedName(t *testing.T) {
 	}
 }
 
+// A body's doc, rep, @facet and #facet annotations are owned members; their
+// names select them with the declaration that owns them.
+func TestAPIJSONProjectionByBodyAnnotationTypes(t *testing.T) {
+	graph := graphOfNotation(t, `package P {
+  metadata def Facet;
+  part def Vehicle {
+    doc /* a vehicle */
+    rep language "markdown" /* body */
+    @Facet { note = "n"; }
+  }
+  #Facet part def Hashed;
+}
+`)
+	whole := projectionWhole(t, graph)
+	for _, tc := range []struct {
+		name string
+		ids  []string
+	}{
+		{"Documentation", []string{"P__Vehicle___400", "P__Vehicle"}},
+		{"TextualRepresentation", []string{"P__Vehicle___401", "P__Vehicle"}},
+		{"P::Facet", []string{"P__Vehicle___402", "P__Hashed___400", "P__Vehicle", "P__Hashed"}},
+		{"Facet", []string{"P__Vehicle___402", "P__Hashed___400", "P__Vehicle", "P__Hashed"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			out, err := WriteAPIJSONWithOptions(graph, APIJSONOptions{Projection: &APIJSONProjection{AnnotationTypes: []string{tc.name}}})
+			if err != nil {
+				t.Fatalf("WriteAPIJSONWithOptions: %v", err)
+			}
+			projected := splitAPIJSONElements(t, out)
+			ids := map[string]bool{}
+			for _, element := range projected {
+				ids[elementField(t, element, "@id")] = true
+			}
+			for _, want := range tc.ids {
+				if !ids[want] {
+					t.Errorf("projection by %q did not emit %s: %v", tc.name, want, ids)
+				}
+			}
+			if len(projected) >= len(whole) {
+				t.Errorf("projection by %q wrote %d of %d elements, want fewer", tc.name, len(projected), len(whole))
+			}
+			assertProjectedAreByteIdentical(t, whole, projected)
+		})
+	}
+}
+
 func TestAPIJSONProjectionByAnnotationMetaclass(t *testing.T) {
 	graph := projectionGraph(t)
 	whole := projectionWhole(t, graph)

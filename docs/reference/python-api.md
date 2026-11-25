@@ -80,6 +80,10 @@ connecting to models.
     options:
       heading_level: 3
 
+::: opensysml.CAPABILITY_CONVERT_PROJECTION
+    options:
+      heading_level: 3
+
 ::: opensysml.CAPABILITY_PARSE_SOURCES_AFFECTED
     options:
       heading_level: 3
@@ -518,6 +522,10 @@ Decoded value kinds carried by the service wire format.
 ## opensysml.conversion
 
 Format conversion and migration results, including experimental-feature notices.
+
+::: opensysml.Projection
+    options:
+      heading_level: 3
 
 ::: opensysml.Conversion
     options:
