@@ -58,7 +58,10 @@ declaration/annotation projection nor a streaming RPC existed.
 The selectors are unioned. An empty selector contributes nothing; all three empty write the whole
 model, exactly as a request with no projection does. A metadata usage typed by `@Facet` is named
 by `Facet` or by the definition's qualified name, and a comment, documentation or textual
-representation is named by its metaclass. A name no element of the model carries is an
+representation is named by its metaclass. Annotations owned in a body are selected the same way:
+a `doc`, a `rep`, an `@Facet` member or a `#Facet` prefix is named by its metaclass or metadata
+definition, and is written with the declaration that owns it; an `about` annotation is written with
+the annotation element and both of its ends as before. A name no element of the model carries is an
 `INVALID_ARGUMENT`, so a misspelled selector cannot quietly return an empty array. A metaclass the
 metamodel declares is known even when this model holds no element of it; that is a valid, empty
 projection.
@@ -166,6 +169,8 @@ wire message, so a caller changing its `Projection` afterwards cannot change the
 | Projection by metaclass | `TestConvertProjectionByMetaclass`, `TestAPIJSONProjectionByMetaclass`, `TestConvertProjectionWithDocumentsAndCompact`, plus `TestAPIJSONProjectionMatchesWrittenMetaclass` and `TestConvertProjectionMatchesWrittenMetaclassFromTTL` for a legacy type name normalized on the wire |
 | Projection by annotation type | `TestConvertProjectionByAnnotationType`, `TestAPIJSONProjectionByAnnotationType`, `TestAPIJSONProjectionByAnnotationMetaclass`, `TestAPIJSONProjectionByAnnotationDeclaredShortName` and `TestAPIJSONProjectionByAnnotationQuotedName` for a declared short name and a quoted name with an embedded `::` |
 | Annotation type with a document filter | `TestConvertProjectionAnnotationTypeAcrossDocuments` selects by a definition in an excluded document and asserts that only elements of the requested document are written |
+| Annotation types owned in a body | `TestAPIJSONProjectionByBodyAnnotationTypes` and `TestConvertProjectionBodyAnnotationTypes` select a `doc`, a `rep`, an inline `@Facet` and a `#Facet` prefix by metaclass or metadata definition, and check each annotated declaration is written with it |
+| Python API reference lists the new public names | `client/python/tests/test_api_reference.py:test_api_reference_matches_public_exports` compares `opensysml.__all__` with `docs/reference/python-api.md`, which documents `Projection` and `CAPABILITY_CONVERT_PROJECTION` |
 | Refusal of unknown names | `TestConvertProjectionUnknownNamesAreInvalidArgument` (one case per selector, asserting `INVALID_ARGUMENT`) and `TestAPIJSONProjectionUnknownNames` (asserting the typed writer error and the selector it names) |
 | The full element array is not materialized | The standard writer is `export.WriteAPIJSONTo`, which visits one element at a time; `TestAPIJSONProjectionEmptyWritesWhole` and `TestConvertProjectionEmptyIsTheWholeCorpus` pin that an empty projection takes the unchanged streaming path, and `TestConvertProjectionWithDocumentsAndCompact` pins that narrowing reaches the compact form |
 | All surfaces and clients are updated | `client/opensysml/parity_options_internal_test.go` (`TestConvertOptionsAreNotRequestedWithoutTheirCapability`, `TestConvertOptionsReachTheWire`), `client/python/tests/test_conversion.py` (`test_convert_sends_the_projection_asked_for`, `test_projection_requires_its_capability`), `client/node/test/convert-options.test.ts` (the two projection tests), `client/rust/opensysml/src/conversion.rs` (`requests_carry_the_projection_asked_for`), `internal/frontend/mcp/runtimetools/conversion_test.go:TestConvertPassesAProjection` and `info.go` capability mapping, `tests/hygiene/client_capability_exports_test.go:TestClientCapabilityExports` (Node and Julia public capability exports) |
