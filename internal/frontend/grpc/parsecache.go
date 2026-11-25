@@ -197,14 +197,14 @@ func (s *Service) restoreFromDisk(ctx context.Context, inputs []sourceInput, mod
 		return nil, false, err
 	}
 
-	// A restored model is still a usable base: prime the lineage with its trees
-	// before anything is recorded, so a cancelled restore writes no record.
-	analysis := s.restoredAnalysis(ctx, inputs, mode, documents)
-	if analysis == nil && ctx.Err() != nil {
-		return nil, false, ctx.Err()
-	}
-
+	var analysis *analysisSnapshot
 	if clean {
+		// An unclean set publishes no semantic diagnostics: stamps on it would
+		// hide its siblings from a later edit's affected set (lineage.go).
+		analysis = s.restoredAnalysis(ctx, inputs, mode, documents)
+		if analysis == nil && ctx.Err() != nil {
+			return nil, false, ctx.Err()
+		}
 		if !s.analysisFromRecord(modelHash, idx, documents) {
 			names := make([]string, len(inputs))
 			for i, input := range inputs {

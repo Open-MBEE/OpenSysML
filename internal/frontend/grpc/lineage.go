@@ -241,8 +241,12 @@ func (s *Service) bringLineageCurrent(l *lineage, inputs []sourceInput, mode dia
 			if l.held[input.name] == input.content {
 				continue
 			}
+			// An edit goes through the record-aware parser too, so a fresh
+			// process can restore its tree instead of parsing it again.
+			doc, _ := s.parseDocument(input)
 			l.versions++
-			l.ws.Update(input.name, []byte(input.content), l.versions)
+			l.ws.OpenParsed(input.name, []byte(input.content), l.versions, input.kind,
+				doc.Root, doc.ParseDiags, doc.parseWarnings)
 			l.held[input.name] = input.content
 		}
 	}

@@ -53,12 +53,15 @@ The service now keeps two kinds of record in the same user cache directory:
 On a parse request the service first checks its in-process cache, then asks the record cache for
 the exact bytes. If every document has a parse record, the whole model is restored: trees are
 decoded, the symbol index is rebuilt from those trees by the same overlay path a fresh parse
-uses, and the diagnostics come from the analysis record. No document is parsed; validation
-passes do run again over the restored trees, to prime the incremental workspace whose analysis
-stamps make a later edit report only the documents it changed.
+uses, and the diagnostics come from the analysis record. No document is parsed; when every
+document parsed clean, validation passes do run again over the restored trees, to prime the
+incremental workspace whose analysis stamps make a later edit report only the documents it
+changed. A set with a syntax error is answered from its parse diagnostics alone: it primes no
+workspace and carries no stamps, so a later edit reports every document as affected.
 If one document's bytes changed, only its record is missing: the other trees are decoded and just
-the edited document is parsed. A damaged or missing record is always a benign miss — the service
-parses and records again.
+the edited document is parsed. An edit through an active workspace takes the same record-aware
+path, so a fresh process restores its tree too. A damaged or missing record is always a benign
+miss — the service parses and records again.
 
 The record cache is consulted after the in-process lineage so a cold set restored from disk still
 primes the incremental workspace used by the next edit. Building that workspace installs the
@@ -79,11 +82,14 @@ trees the parse cache already holds, so it does not re-parse the unchanged docum
   warm/restore surface keeps every client and capability list unchanged. A dedicated "warm this
   hash" RPC was rejected as wire surface with no extra expressive power: the service decides from
   the bytes it already has. A separate surface adds `ParseSourcesRequest.keep` for a different
-  purpose: a transient parse that neither looks up nor inserts into the in-memory parsed-model
-  LRU. That field does not control restore. With a record cache configured, a `keep=false` parse
-  can still restore trees from disk and write parse and analysis records, because record I/O is
-  independent of the in-memory LRU and leaves its eviction contract intact. A restore still runs
-  validation passes over the restored trees, not parses, to prime incremental `affected`.
+  purpose: a transient parse neither promotes nor inserts into the in-memory parsed-model LRU.
+  It still reads a kept entry for the same bytes, so an undo back to a cached state compares
+  against that answer's own analysis stamps. That field does not control restore. With a record
+  cache configured, a `keep=false` parse can still restore trees from disk and write parse and
+  analysis records, because record I/O is independent of the in-memory LRU and leaves its
+  eviction contract intact. A restore still runs validation passes over the restored trees, not
+  parses, to prime incremental `affected`, but only when every document parsed clean: a set with
+  a syntax error publishes no semantic diagnostics, so it carries no stamps for a later edit.
 - **Parse records in their own directory.** Analysis-record readers list the cache root for
   `*.idx`; mixing the two kinds would make them count parse records as analyses and would let a
   partial parse look like a recorded report. A `parses/` subdirectory keeps the kinds and their
@@ -132,7 +138,9 @@ No RPC, protobuf message, capability flag or client method was added. The observ
 
 | Criterion | Test |
 |---|---|
-| Process A parses a two-document set; process B asks for the same bytes and makes zero parse calls | `internal/frontend/grpc/parsecache_test.go:TestPersistentParseCacheRestoresAcrossProcessesWithNoParses` — two service instances share only the cache directory; the second counts every call to the parser seam and asserts none, and compares the answer with a fresh parse |
+| Process A parses a two-document set, edits it through its active workspace; process B asks for the final bytes and makes zero parse calls | `internal/frontend/grpc/parsecache_test.go:TestPersistentParseCacheRestoresAcrossProcessesWithNoParses` — two service instances share only the cache directory; the second counts every call to the parser seam and asserts none, and compares the answer with a fresh parse |
+| A restored set with a syntax error hides no sibling diagnostics | `parsecache_test.go:TestPersistentParseCacheRestoredSyntaxErrorDoesNotHideSiblingDiagnostics` — after the syntax error is fixed, the sibling whose unresolved type was never published is reported as affected with its diagnostic |
+| A transient undo back to a cached state keeps its stamps and cache order | `internal/frontend/grpc/keep_parity_test.go:TestParseModelKeepingTransientUndoParity` — the lineage advances between the base parse and a same-content request, which reuses the kept answer without promoting or inserting an entry |
 | A one-byte edit re-parses exactly one document | `TestPersistentParseCacheReparsesOnlyTheEditedDocument` — changes one byte of one document and asserts the counted calls are exactly that document |
 | A whole-set restore answers identically to a fresh parse | the same tests and `requireSameAnswers`, which compare the parse response, the diagnostics and the api-json conversion |
 | A real mid-size model restores without a parse | `parsecache_test.go:TestPersistentParseCacheRestoresARealModel` — restores `examples/self-model/pipeline.sysml` through the counting seam; it fails with the old density bound |

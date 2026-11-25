@@ -108,14 +108,21 @@ func hostileNodeStream(t *testing.T) []byte {
 	return w.Bytes()
 }
 
-// A process asking for bytes another process parsed makes zero parse calls,
-// and every answer is what a fresh parse gives.
+// A process restored from another's records makes zero parse calls, including
+// after the writer edited through its active workspace.
 func TestPersistentParseCacheRestoresAcrossProcessesWithNoParses(t *testing.T) {
-	request := twoDocuments(sourcesTop)
+	editedLibrary := sourcesLibrary + "// edited library\n"
+	editedTop := sourcesTop + "// edited top\n"
+	request := &pb.ParseSourcesRequest{Documents: inlineDocuments("lib.sysml", editedLibrary, "top.sysml", editedTop)}
 	want := answersOf(t, mustNewService(t, 10), request)
 
 	cache, _ := recordCacheIn(t)
-	answersOf(t, recordingService(t, cache), request) // process A parses and exits
+	writer := recordingService(t, cache)
+	answersOf(t, writer, twoDocuments(sourcesTop)) // first parse: the set is noted
+	answersOf(t, writer, &pb.ParseSourcesRequest{Documents: inlineDocuments(
+		"lib.sysml", sourcesLibrary, "top.sysml", editedTop,
+	)}) // second: the workspace is built from the records
+	answersOf(t, writer, request) // an active-workspace edit; it must be recorded too
 
 	srv, counter := countingService(t, cache) // process B, cold but for the records
 	got := answersOf(t, srv, request)
@@ -223,6 +230,54 @@ func TestPersistentParseCacheKeepsAffectedAcrossProcesses(t *testing.T) {
 	}
 	if want := []string{"top.sysml"}; !slices.Equal(resp.Affected, want) {
 		t.Fatalf("affected = %q, want %q", resp.Affected, want)
+	}
+}
+
+// A parse-only restore carries no stamps that could hide an unanalyzed sibling:
+// fixing a syntax error must report it as affected, with its fresh diagnostic.
+func TestPersistentParseCacheRestoredSyntaxErrorDoesNotHideSiblingDiagnostics(t *testing.T) {
+	// The missing semicolon is a syntax error, but A::Fixed is declared in
+	// both versions: the sibling's suggestions read the same spellings.
+	broken := "package A {\n\tpart def Fixed\n}\n"
+	fixedText := "package A {\n\tpart def Fixed;\n}\n"
+	unresolved := "package B {\n\tpart x : Missing;\n}\n"
+	request := &pb.ParseSourcesRequest{Documents: inlineDocuments("a.sysml", broken, "b.sysml", unresolved)}
+	cache, _ := recordCacheIn(t)
+	answersOf(t, recordingService(t, cache), request) // process A writes both trees
+
+	srv, counter := countingService(t, cache) // process B restores them
+	base, err := srv.ParseSources(context.Background(), request)
+	if err != nil {
+		t.Fatalf("restored ParseSources: %v", err)
+	}
+	if names := counter.calls(); len(names) != 0 {
+		t.Fatalf("the broken base was not restored: %v", names)
+	}
+	for _, d := range base.Diagnostics {
+		if d.Span.GetFile() == "b.sysml" {
+			t.Fatalf("a parse-only base published b.sysml's semantic diagnostic: %v", d)
+		}
+	}
+
+	fixed := &pb.ParseSourcesRequest{
+		Documents:     inlineDocuments("a.sysml", fixedText, "b.sysml", unresolved),
+		BaseModelHash: base.ModelHash,
+	}
+	resp, err := srv.ParseSources(context.Background(), fixed)
+	if err != nil {
+		t.Fatalf("fixed ParseSources with a base: %v", err)
+	}
+	if !slices.Contains(resp.Affected, "b.sysml") {
+		t.Fatalf("b.sysml was never analyzed in the base, yet is not affected: %v", resp.Affected)
+	}
+	found := false
+	for _, d := range resp.Diagnostics {
+		if d.Span.GetFile() == "b.sysml" && strings.Contains(d.Message, "Missing") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("b.sysml's unresolved type is not reported: %v", resp.Diagnostics)
 	}
 }
 
