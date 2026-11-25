@@ -1718,6 +1718,21 @@ pub struct ExecuteStateResponse {
     #[prost(map="string, int32", tag="10")]
     pub order_dependent: ::std::collections::HashMap<::prost::alloc::string::String, i32>,
 }
+/// ConvertProjection names the api-json elements a conversion writes.
+/// Selectors are unioned; all empty writes the model whole.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ConvertProjection {
+    /// Elements whose qualifiedName is one of these, for example "Structure::boiler".
+    #[prost(string, repeated, tag="1")]
+    pub qualified_names: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Elements whose written @type is one of these, for example "PartUsage".
+    #[prost(string, repeated, tag="2")]
+    pub metaclasses: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Annotations named by their annotating element's metaclass or metadata type,
+    /// with the annotation, its annotating element and the element annotated.
+    #[prost(string, repeated, tag="3")]
+    pub annotation_types: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
 /// ConvertRequest asks for a model in another representation. A model_hash
 /// converts the source that parse read, so a file edited since then does not
 /// change the answer; a file_path is read afresh and content is carried inline.
@@ -1796,6 +1811,10 @@ pub struct ConvertRequest {
     /// default false writes owned structure. Capability "convert_inherited_members"; a service without it always writes them.
     #[prost(bool, tag="14")]
     pub inherited_members: bool,
+    /// For api-json, write only the elements named by projection, byte-identical
+    /// to an unprojected conversion. Reported as "convert_projection".
+    #[prost(message, optional, tag="15")]
+    pub projection: ::core::option::Option<ConvertProjection>,
     #[prost(oneof="convert_request::Source", tags="1, 2, 6")]
     pub source: ::core::option::Option<convert_request::Source>,
 }
