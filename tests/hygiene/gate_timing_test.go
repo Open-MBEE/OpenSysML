@@ -132,25 +132,151 @@ func TestGateTimingWarmsTheExactTimedShardFlags(t *testing.T) {
 		t.Fatalf("timing script lacks a snapshot and warmup before both arms: snapshot=%d warm=%d timed=%d runner=%d", snapshot, warm, timed, runner)
 	}
 	warmup := source[warm:timed]
-	for _, want := range []string{`SHARDS="grpc rest"`, `SKIP_STDLIB_SNAPSHOT=1`, `TEST_SHARD_RUN="-run '^$'"`} {
+	for _, want := range []string{`SHARDS="grpc rest"`, `SKIP_STDLIB_SNAPSHOT=1`, `TEST_SHARD_COMPILE_ONLY=1`} {
 		if !strings.Contains(warmup, want) {
 			t.Errorf("warmup lacks %q:\n%s", want, warmup)
 		}
 	}
 	makefile := readRepoFile(t, "Makefile")
 	recipe := makefile[strings.Index(makefile, "test-shard:"):strings.Index(makefile, "\ntest-quick:")]
-	if got := strings.Count(recipe, "-pgo=off -timeout 55m $(TEST_SHARD_RUN)"); got != 2 {
+	if got := strings.Count(recipe, "-pgo=off -timeout 55m $(COMPILE_ONLY_RUN)"); got != 2 {
 		t.Errorf("%d of the shard's two go test invocations use the exact timed flags", got)
+	}
+	if !strings.Contains(makefile, "COMPILE_ONLY_RUN := $(if $(TEST_SHARD_COMPILE_ONLY),-run '^$$')") {
+		t.Error("the Makefile does not escape the compile-only regex where the recipe expands it")
 	}
 	for _, target := range []string{"test-quick:", "test-queue:"} {
 		section := makefile[strings.Index(makefile, target):]
 		if end := strings.Index(section, "\n\n"); end >= 0 {
 			section = section[:end]
 		}
-		if !strings.Contains(section, `TEST_SHARD_RUN="$(TEST_SHARD_RUN)"`) {
-			t.Errorf("%s does not pass the compile-only flags to its shards", target)
+		if !strings.Contains(section, `TEST_SHARD_COMPILE_ONLY=$(TEST_SHARD_COMPILE_ONLY)`) {
+			t.Errorf("%s does not pass the compile-only switch to its shards", target)
 		}
 	}
+	if strings.Contains(makefile, "TEST_SHARD_RUN") || strings.Contains(source, "TEST_SHARD_RUN") {
+		t.Error("a shell fragment is still passed through recursive Make")
+	}
+}
+
+// warmupCommandFromScript returns the warmup make command as written in the
+// timing script, with its line continuations joined as the shell sees them.
+func warmupCommandFromScript(t *testing.T) string {
+	t.Helper()
+	lines := strings.Split(readRepoFile(t, "scripts/gate-timing.sh"), "\n")
+	for i, line := range lines {
+		if !strings.Contains(line, "make --no-print-directory test-quick SHARDS=") {
+			continue
+		}
+		parts := []string{strings.TrimSpace(line)}
+		for strings.HasSuffix(parts[len(parts)-1], "\\") {
+			parts[len(parts)-1] = strings.TrimSuffix(parts[len(parts)-1], "\\")
+			i++
+			if i >= len(lines) {
+				t.Fatal("warmup command ends in an unfinished line continuation")
+			}
+			parts = append(parts, strings.TrimSpace(lines[i]))
+		}
+		return strings.Join(parts, " ")
+	}
+	t.Fatal("timing script has no warmup make command")
+	return ""
+}
+
+// hasPair reports whether the two adjacent arguments appear in a go call.
+func hasPair(args []string, flag, value string) bool {
+	for i := 0; i+1 < len(args); i++ {
+		if args[i] == flag && args[i+1] == value {
+			return true
+		}
+	}
+	return false
+}
+
+// TestGateTimingWarmupCompilesBothModules executes the script's warmup command
+// against a stubbed checkout: the root-module tests of both shards and the
+// tools module must all receive the complete '^$' regex and the measured flags.
+func TestGateTimingWarmupCompilesBothModules(t *testing.T) {
+	command := warmupCommandFromScript(t)
+	temp := t.TempDir()
+	if err := os.WriteFile(filepath.Join(temp, "Makefile"), []byte(readRepoFile(t, "Makefile")), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	scripts := filepath.Join(temp, "scripts")
+	bin := filepath.Join(temp, "bin")
+	for _, dir := range []string{scripts, bin} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	shard := "#!/usr/bin/env bash\nprintf '%s\\n' ./tests/grpc\n"
+	if err := os.WriteFile(filepath.Join(scripts, "race-shard.sh"), []byte(shard), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	stub := "#!/usr/bin/env bash\nprintf 'CALL\\n' >> \"$GATE_TEST_CALLS\"\nprintf '<%s>\\n' \"$@\" >> \"$GATE_TEST_CALLS\"\n"
+	if err := os.WriteFile(filepath.Join(bin, "go"), []byte(stub), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	calls := filepath.Join(temp, "calls")
+	cmd := exec.Command("bash", "-c", command)
+	cmd.Dir = temp
+	cmd.Env = append(os.Environ(),
+		"PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"),
+		"GATE_TEST_CALLS="+calls, "GOFLAGS=-count=1")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("warmup %q failed: %v\n%s", command, err, out)
+	}
+	data, err := os.ReadFile(calls)
+	if err != nil {
+		t.Fatalf("read recorded go calls: %v\n%s", err, out)
+	}
+	var groups [][]string
+	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
+		if line == "CALL" {
+			groups = append(groups, nil)
+			continue
+		}
+		if len(groups) == 0 || !strings.HasPrefix(line, "<") || !strings.HasSuffix(line, ">") {
+			t.Fatalf("unexpected recorded line %q:\n%s", line, data)
+		}
+		last := len(groups) - 1
+		groups[last] = append(groups[last], line[1:len(line)-1])
+	}
+	var tests [][]string
+	for _, group := range groups {
+		if len(group) > 0 && group[0] == "test" {
+			tests = append(tests, group)
+		}
+	}
+	if len(tests) != 3 {
+		t.Fatalf("got %d go test invocations, want two shards and the tools module:\n%s", len(tests), data)
+	}
+	tools := 0
+	for i, args := range tests {
+		if hasPair(args, "-C", "tools") {
+			tools++
+		}
+		if !hasPair(args, "-run", "^$") {
+			t.Errorf("call %d lacks the complete compile-only regex: %q", i, args)
+		}
+		if !hasPair(args, "-timeout", "55m") || !hasArg(args, "-pgo=off") {
+			t.Errorf("call %d lost the measured flags: %q", i, args)
+		}
+	}
+	if tools != 1 {
+		t.Errorf("%d tools-module invocations, want one:\n%s", tools, data)
+	}
+}
+
+// hasArg reports whether value is one of args.
+func hasArg(args []string, value string) bool {
+	for _, arg := range args {
+		if arg == value {
+			return true
+		}
+	}
+	return false
 }
 
 // cleanupSnippet is the published shell code, extracted so the test executes

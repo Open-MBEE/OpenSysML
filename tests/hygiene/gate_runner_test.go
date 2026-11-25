@@ -178,7 +178,7 @@ func TestToolsShardAttemptsBothSuitesAfterAFailure(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(bin, "go"), []byte(stub), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	content := "TOOLS_DIR := tools\nTEST_SHARD_RACE :=\nRACE_SHARD_TOOLS_SKIP :=\nTEST_SHARD_RUN :=\nSKIP_TOOLS_TESTS :=\nSHARD_SELECT :=\n\ntest-shard:\n" + strings.Join(recipe, "\n") + "\n"
+	content := "TOOLS_DIR := tools\nTEST_SHARD_RACE :=\nRACE_SHARD_TOOLS_SKIP :=\nTEST_SHARD_COMPILE_ONLY :=\nCOMPILE_ONLY_RUN :=\nSKIP_TOOLS_TESTS :=\nSHARD_SELECT :=\n\ntest-shard:\n" + strings.Join(recipe, "\n") + "\n"
 	if err := os.WriteFile(filepath.Join(temp, "Makefile"), []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}

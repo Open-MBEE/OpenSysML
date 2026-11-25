@@ -95,7 +95,7 @@ make --no-print-directory stdlib-snapshot
 # make target keeps -pgo=off, the shard's -run/-skip selection and the timeout
 # identical to the measured runs; -count=1 above still prevents cached replays.
 make --no-print-directory test-quick SHARDS="grpc rest" \
-  SKIP_STDLIB_SNAPSHOT=1 TEST_SHARD_RUN="-run '^$'"
+  SKIP_STDLIB_SNAPSHOT=1 TEST_SHARD_COMPILE_ONLY=1
 
 serial='serial make test-quick SHARDS="grpc rest"'
 runner='runner gate-runner -tier quick -concurrency 2'

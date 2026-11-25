@@ -255,11 +255,14 @@ test-result cache: neither arm can warm a cached replay for the other. The
 shared build cache stays warm for both (it only affects compilation), so the
 figures measure test execution and runner overhead, **not cache hits**. Before
 timing, the script regenerates the embedded-library snapshot and compiles the
-exact test sets of both shards through `make test-quick` with `-run '^$'`, so no
-test runs during warmup. That keeps `-pgo=off`, each shard's `-run`/`-skip`
-selection and the timeout identical to the measured runs, and the snapshot is
-present before anything compiles. The recorded figures below predate those
-changes; re-run the script for a directly comparable current measurement.
+exact test sets of both shards through `make test-quick` with a compile-only
+switch that adds `-run '^$'` in the shard recipe, so no test runs during
+warmup. The regex is escaped there because Make would otherwise consume its
+dollar before the shell received it. That keeps `-pgo=off`, each shard's
+`-run`/`-skip` selection and the timeout identical to the measured runs, and
+the snapshot is present before anything compiles. The recorded figures below
+predate those changes; re-run the script for a directly comparable current
+measurement.
 Replace the shards in the script to measure another pair.
 
 `GATE_TIMING_TMP` may name a relative directory under `$HOME/.cache/opensysml`,
