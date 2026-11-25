@@ -94,7 +94,7 @@ client that accepts parse options refuses `keep` on its one-document calls.
 | --- | --- |
 | RPC | `ParseSources(ParseSourcesRequest)`, new field `optional bool keep = 4` (JSON name `keep`) |
 | Capability | `parse_sources_keep`, advertised by `GetServerInfo` |
-| Go service | `CapabilityParseSourcesKeep`; `Service.ParseSources`; `Service.parseModelKeeping(..., keep bool)` skips the parsed-model LRU lookup and insertion when `keep` is false, and reads a named base with `Cache.Peek` |
+| Go service | `CapabilityParseSourcesKeep`; `Service.ParseSources`; `Service.parseModelKeeping(..., keep bool)` with `keep=false` PEEKS a named base through `Cache.Peek` without promoting it and never inserts into the parsed-model LRU |
 | Go client | `Client.ParseDocuments(..., WithKeep(bool))`; `CapabilityParseSourcesKeep`; `WithKeep` on `ParseFile`/`ParseSource` is an `INVALID_ARGUMENT` |
 | Python client | `Connection.parse_sources(..., keep=True)` and the module-level `opensysml.parse_sources(..., keep=True)`; `CAPABILITY_PARSE_SOURCES_KEEP` |
 | Node client | `ParseSourcesOptions.keep?: boolean`; `CAPABILITY_PARSE_SOURCES_KEEP` |
