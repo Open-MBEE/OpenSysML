@@ -120,7 +120,22 @@ What was still missing at that baseline:
   facts already report every value a reader can use, including values inherited
   from the metadata type. The bulk property needs only body bindings, so each
   fact now records whether the body wrote it. Consumers that read all facts are
-  unchanged.
+  unchanged. Nested bindings have their own facts with their path from the body
+  (`nested.value`); the direct facts keep their old shape.
+- **A model feature wins a shared name in document queries; OSLC names the side
+  explicitly.** The bare property name reads a declared or held feature first,
+  then falls back to the evaluator's property, as `body`, `locale` and `language`
+  already do. `@isActive` and `@annotations` (OSLC `sysx:@isActive`,
+  `sysx:@annotations`) always read the evaluator's property. A translated OSLC
+  request records which side each name came from, so `sysx:isActive` keeps its
+  documented meaning even where the model declares a feature of that name.
+- **One activity index per execution, not one session walk per state.** The
+  first read walks the session once, charges that walk to the visit budget once
+  and merges the active declarations of every machine. Invoked document queries
+  share the index, so a wide projection over a large population stays in budget.
+  Activity aggregates over every graph copy of one declaration, including
+  graph-only parallel region owners and the machine usage; synthetic nodes map
+  to no declaration.
 - **Text values in a row cell, not a new wire message.** The Query result
   element already reports a property's first value as text and document queries
   carry every value in a column. Encoding a binding as
@@ -133,8 +148,8 @@ What was still missing at that baseline:
 
 | Surface | Name | Where |
 |---|---|---|
-| Query property | `isActive` | `query.PropertyIsActive`; selectable in `Query.select`, filterable in `Query.where` and OSLC `sysx:isActive`; `Project` and `WhereFeature` in document queries |
-| Query property | `annotations` | `query.PropertyAnnotations`; the same four surfaces, as `sysx:annotations` in OSLC text |
+| Query property | `isActive` | `query.PropertyIsActive`; selectable in `Query.select`, filterable in `Query.where` and OSLC `sysx:isActive`; `Project` and `WhereFeature` in document queries; `query.PropertyIsActiveBuiltin` spells the evaluator's own property unambiguously |
+| Query property | `annotations` | `query.PropertyAnnotations`; the same four surfaces, as `sysx:annotations` in OSLC text, with `query.PropertyAnnotationsBuiltin` as the unambiguous spelling |
 | Relationship kinds | `dependency`, `allocate`, `allocation` | `RelatedElements`, `RelatedColumn`, `WhereRelated` `relationshipKind` argument; the accepted set is exported as `queryexec.SupportedRelationships()` |
 | Edit operation | `OpSetAnnotationValue`, `edit.SetAnnotationValue(about, metadataType, feature, value)`, `Operation.AnnotationFeature`, `Operation.MetadataName` | `internal/check/edit`; `MetadataName` disambiguates several annotations of one type on one element |
 | Go API | `runtime.StateExecutor.ActivityOf(*symbols.Symbol) (bool, bool)`, `lower.StateGraph.StateSymbol(*ast.StateNode) *symbols.Symbol` | exported from their layers for the query property and to remove a duplicate symbol lookup |
@@ -166,6 +181,10 @@ this change.
 | The annotation read makes zero per-element symbol calls, counted by a client wrapping `GetSymbol` | `internal/frontend/grpc/query_metadata_surfaces_test.go:TestQueryReadsAnnotationsWithNoPerElementSymbolLookups` |
 | The two properties are selectable and filterable through the Query RPC with no schema change | `internal/frontend/grpc/query_metadata_surfaces_test.go:TestQuerySelectsAnnotationAndActivityProperties`, `:TestQueryFiltersByAnnotationAndActivityProperties` |
 | `symbolKind` remains present and is still governed by the same Query surface | `internal/frontend/grpc/query_symbolkind_text_test.go:TestQuerySymbolKindNamesEveryRow`, `:TestQuerySymbolKindSelectsRowsOfThatKind` |
+| A declared or held `isActive`/`annotations` feature is read by its name; the `@` spelling reaches the evaluator's property and OSLC keeps its documented spelling | `internal/doc/queryexec/metadata_feature_shadowing_test.go:TestQueryDeclaredFeaturesShadowBuiltinsByName`, `:TestQueryHeldFeaturesShadowBuiltinsByName`; `internal/frontend/grpc/query_metadata_surfaces_test.go:TestBuiltinSpellingSurvivesAFeatureOfTheSameName`; `internal/doc/querytranslate/oslc_test.go:TestOSLCUnambiguousBuiltinSpelling` |
+| A running exhibit, its parallel region owners and every copy of a duplicated state declaration answer activity | `internal/doc/queryexec/is_active_regressions_test.go:TestQueryActivityOfExhibitAndParallelRegionOwners`, `:TestQueryActivityAggregatesCopiesOfOneDeclaration` |
+| Activity over a large row set and held population stays inside the visit budget, including invoked queries | `internal/doc/queryexec/state_activity_budget_test.go:TestQueryStateActivityStaysWithinTheVisitBudget` |
+| A nested metadata binding is reported with its path by the bulk read | `internal/doc/queryexec/annotations_query_test.go:TestQueryReadsNestedAnnotationBindings` |
 
 The tests execute document queries over real `.sysml` fixtures through the
 shared `queryexec` executor, which is the executor behind the CLI, the REPL, the
@@ -186,6 +205,7 @@ All commands were run from the repository root.
 - `python3 scripts/check-doc-ids.py` — "No internal work-item labels in reader-facing documentation".
 - `python3 scripts/spec_compliance.py check` — "57 sources are well-formed".
 - `go test ./internal/doc/queryexec/... ./internal/doc/querytranslate/... ./internal/check/edit/... -count=1` — passed.
+- `go test ./internal/exec/runtime -run 'TestRuntimeRobustnessStateIsActive|TestState|TestExploreWithIsExplore' -count=1` — passed after the activity aggregation change.
 - `go test ./internal/semantic/query/... ./internal/semantic/semantics/... ./internal/ir/lower/... -count=1` — passed.
 - `go test ./internal/exec/runtime -run 'TestRuntimeRobustnessStateIsActive|TestState|TestExploreWithIsExplore' -timeout 20m -count=1` — passed.
 - `go test ./internal/frontend/grpc -run 'TestQuery' -timeout 15m -count=1` — passed.

@@ -235,18 +235,77 @@ func (ctx *Context) denotedInstance(sym *symbols.Symbol) *Instance {
 	return ctx.instances[val.Instance]
 }
 
-// ActivityOf reports whether sym names a state here and whether it is active;
-// the second result is false only when no such state is declared.
+// ActivityOf reports whether sym names a state or machine here and whether it
+// is active, matching machine usages as an expression read does.
 func (e *StateExecutor) ActivityOf(sym *symbols.Symbol) (bool, bool) {
 	if e == nil || sym == nil || e.graph == nil {
 		return false, false
 	}
-	for _, state := range e.graph.States {
-		if symbols.SameElement(e.graph.StateSymbol(state), sym) {
-			return e.activity(state), true
+	// One declaration may back several copied states. It is active if any
+	// copy is, not only the first one lowering found.
+	performs := e.performs(sym)
+	found := performs
+	active := false
+	for _, state := range e.graph.DeclaredStates() {
+		if !symbols.SameElement(e.graph.StateSymbol(state), sym) {
+			continue
+		}
+		found = true
+		if e.activity(state) {
+			active = true
 		}
 	}
-	return false, false
+	if performs && e.machineActive() {
+		active = true
+	}
+	return active, found
+}
+
+// ActiveSymbols reports the declarations active in this machine: its state
+// copies and the usages performing it, one walk for all of its states.
+func (e *StateExecutor) ActiveSymbols() map[symbols.ElementKey]bool {
+	out := make(map[symbols.ElementKey]bool)
+	if e == nil || e.graph == nil {
+		return out
+	}
+	for _, state := range e.graph.DeclaredStates() {
+		if !e.activity(state) {
+			continue
+		}
+		if sym := e.graph.StateSymbol(state); sym != nil {
+			out[symbols.KeyOf(sym)] = true
+		}
+	}
+	if e.machineActive() {
+		for _, sym := range e.performedSymbols() {
+			out[symbols.KeyOf(sym)] = true
+		}
+	}
+	return out
+}
+
+// performedSymbols lists the declarations a caller can name this machine by.
+func (e *StateExecutor) performedSymbols() []*symbols.Symbol {
+	if e == nil || e.self == nil {
+		return nil
+	}
+	var out []*symbols.Symbol
+	add := func(sym *symbols.Symbol) {
+		if sym != nil {
+			out = append(out, sym)
+		}
+	}
+	add(e.stateMachine)
+	for _, behavior := range e.self.ExhibitedStates() {
+		if behavior.State != e {
+			continue
+		}
+		add(behavior.Symbol)
+		for _, sym := range behavior.Symbols() {
+			add(sym)
+		}
+	}
+	return out
 }
 
 // machineActive reports the machine itself active: started, not ended, and holding

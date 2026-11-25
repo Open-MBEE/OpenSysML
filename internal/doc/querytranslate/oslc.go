@@ -89,6 +89,9 @@ func ParseOSLC(text string, table *Table) (Query, error) {
 	for name := range p.features {
 		q.feature(name)
 	}
+	for name := range p.builtins {
+		q.builtin(name)
+	}
 	return q, nil
 }
 
@@ -125,6 +128,7 @@ func ParseParameters(text string, table *Table) (Query, error) {
 	}
 	q := Query{}
 	features := map[string]bool{}
+	builtins := map[string]bool{}
 	if search, present := values[paramSearch]; present {
 		terms, err := parseSearchTerms(search[0])
 		if err != nil {
@@ -133,7 +137,7 @@ func ParseParameters(text string, table *Table) (Query, error) {
 		q.SearchTerms = terms
 	}
 	if order := values.Get(paramOrderBy); order != "" {
-		terms, err := parseOrder(order, prefixes, table, features)
+		terms, err := parseOrder(order, prefixes, table, features, builtins)
 		if err != nil {
 			return Query{}, err
 		}
@@ -147,6 +151,7 @@ func ParseParameters(text string, table *Table) (Query, error) {
 		}
 		q.Where = parsed
 		maps.Copy(features, p.features)
+		maps.Copy(builtins, p.builtins)
 	}
 	if selectText := values.Get(paramSelect); selectText != "" {
 		p := newParser(selectText, prefixes, table)
@@ -156,9 +161,13 @@ func ParseParameters(text string, table *Table) (Query, error) {
 		}
 		q.Select, q.Spelling = selections, spelling
 		maps.Copy(features, p.features)
+		maps.Copy(builtins, p.builtins)
 	}
 	for name := range features {
 		q.feature(name)
+	}
+	for name := range builtins {
+		q.builtin(name)
 	}
 	return q, nil
 }
@@ -267,7 +276,7 @@ func parseSearchTerms(text string) ([]string, error) {
 
 // parseOrder reads oslc.orderBy as the specification's sort_terms: signed
 // properties, and scoped terms `property{sort_terms}` signed inside the braces.
-func parseOrder(text string, prefixes map[string]string, table *Table, features map[string]bool) ([]OrderTerm, error) {
+func parseOrder(text string, prefixes map[string]string, table *Table, features, builtins map[string]bool) ([]OrderTerm, error) {
 	p := newParser(text, prefixes, table)
 	terms, err := p.sortTerms("", signNone)
 	if err != nil {
@@ -278,6 +287,7 @@ func parseOrder(text string, prefixes map[string]string, table *Table, features 
 		return nil, errorf(ErrMalformed, "%s has trailing text at %q", paramOrderBy, p.s[p.pos:])
 	}
 	maps.Copy(features, p.features)
+	maps.Copy(builtins, p.builtins)
 	return terms, nil
 }
 
@@ -363,10 +373,12 @@ type oslcParser struct {
 	table    *Table
 	// features collects the model features the text names under sysx:.
 	features map[string]bool
+	// builtins collects the evaluator's own properties the text names.
+	builtins map[string]bool
 }
 
 func newParser(text string, prefixes map[string]string, table *Table) oslcParser {
-	return oslcParser{s: text, prefixes: prefixes, table: table, features: map[string]bool{}}
+	return oslcParser{s: text, prefixes: prefixes, table: table, features: map[string]bool{}, builtins: map[string]bool{}}
 }
 
 // parseWhere reads the whole where text as one compound term.
@@ -693,7 +705,7 @@ func (p *oslcParser) identifier() (string, error) {
 		if r == utf8.RuneError && size <= 1 {
 			break
 		}
-		if unicode.IsLetter(r) || unicode.IsDigit(r) || strings.ContainsRune("_-.:", r) {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) || strings.ContainsRune("_-.:@", r) {
 			p.pos += size
 			continue
 		}
@@ -943,9 +955,18 @@ func (p *oslcParser) resolveProperty(name string) (string, error) {
 	}
 	if local, ok := strings.CutPrefix(iri, rdf.OpenSysML); ok && local != "" &&
 		local != query.PropertyID && local != query.PropertyType && !table.Metamodel(local) {
-		// The OpenSysML namespace names what the metamodel does not: the
-		// evaluator's derived properties, and the features of the model itself.
-		if !table.Derived(local) {
+		// The OpenSysML namespace holds the evaluator's properties and the
+		// model's features; the "@" spelling names a built-in unambiguously.
+		if strings.HasPrefix(local, "@") && !query.IsBuiltinAlias(local) {
+			return "", unknownOSLCProperty(name, iri, p.prefixes, table)
+		}
+		if canonical, alias := query.BuiltinProperty(local); alias {
+			p.builtins[canonical] = true
+			return canonical, nil
+		}
+		if table.Derived(local) {
+			p.builtins[local] = true
+		} else {
 			p.features[local] = true
 		}
 		return local, nil
@@ -976,6 +997,10 @@ func PrefixedPropertyNames(prefixes map[string]string, table *Table) (names []st
 		if name != query.PropertyID && name != query.PropertyType {
 			derived = append(derived, name)
 		}
+	}
+	if _, bound := namingPrefix(prefixes, rdf.OpenSysML); bound {
+		// Unambiguous spellings of the derivations a model feature may shadow.
+		derived = append(derived, query.PropertyIsActiveBuiltin, query.PropertyAnnotationsBuiltin)
 	}
 	add(rdf.OpenSysML, derived)
 	sort.Strings(names)

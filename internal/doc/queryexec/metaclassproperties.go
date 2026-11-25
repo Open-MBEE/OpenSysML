@@ -24,6 +24,7 @@ var ownProperties = []string{
 	query.PropertyID, query.PropertyType, query.PropertyElementType, query.PropertyGeneral,
 	query.PropertyMultiplicityLower, query.PropertyMultiplicityUpper, query.PropertySymbolKind,
 	query.PropertyVerifyingCase, query.PropertyIsActive, query.PropertyAnnotations, query.PropertyBoundSubject,
+	query.PropertyIsActiveBuiltin, query.PropertyAnnotationsBuiltin,
 }
 
 // metaclassProperty is a feature the library's metaclass declaration has,

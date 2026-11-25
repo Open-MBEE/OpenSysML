@@ -98,6 +98,9 @@ type Query struct {
 	// Features are the properties the request named as features of the model
 	// itself (OSLC's sysx: namespace), which the evaluator judges on its rows.
 	Features map[string]bool
+	// Builtins are the properties the request named as the evaluator's own,
+	// so a model feature of the same name does not shadow them.
+	Builtins map[string]bool
 }
 
 // feature records a property named as a model feature.
@@ -106,6 +109,14 @@ func (q *Query) feature(name string) {
 		q.Features = make(map[string]bool)
 	}
 	q.Features[name] = true
+}
+
+// builtin records a property named as one of the evaluator's own.
+func (q *Query) builtin(name string) {
+	if q.Builtins == nil {
+		q.Builtins = make(map[string]bool)
+	}
+	q.Builtins[name] = true
 }
 
 // SpellingOf returns the name the request asked for column by, so a frontend

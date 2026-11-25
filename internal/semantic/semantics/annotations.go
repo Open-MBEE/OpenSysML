@@ -165,6 +165,45 @@ func (m *Model) AnnotationFactsOf(sym *symbols.Symbol) []symbols.AnnotationFacts
 	return annotationFacts(m, m.annotationsOf(sym))
 }
 
+// AnnotationNestedFactsOf states bindings nested in an annotation body's own
+// bindings, keyed by their path (`inner.label`), beside the direct ones.
+func (m *Model) AnnotationNestedFactsOf(sym *symbols.Symbol) []symbols.AnnotationFacts {
+	if m == nil || sym == nil {
+		return nil
+	}
+	var out []symbols.AnnotationFacts
+	for _, a := range m.annotationsOf(sym) {
+		if a.typ == nil || a.node == nil {
+			continue
+		}
+		typeFQN := m.fqnOf(a.typ)
+		if typeFQN == "" {
+			continue
+		}
+		facts := symbols.AnnotationFacts{TypeFQN: typeFQN, Span: a.span}
+		var walk func(prefix string, bindings []MetadataBinding)
+		walk = func(prefix string, bindings []MetadataBinding) {
+			for _, binding := range bindings {
+				name := prefix + binding.Feature
+				if prefix != "" && binding.Value != nil {
+					values := m.annotationSequence(binding.Scope, binding.Value)
+					fact := symbols.AnnotationValueFacts{Feature: name, Values: values, Bound: true}
+					if len(values) == 1 {
+						fact.Value = values[0]
+					}
+					facts.Values = append(facts.Values, fact)
+				}
+				walk(name+".", binding.Nested)
+			}
+		}
+		walk("", metadataBindings(valueScope(a.scope, a.node), metadataBody(a.node)))
+		if len(facts.Values) > 0 {
+			out = append(out, facts)
+		}
+	}
+	return out
+}
+
 // annotationFacts states annotations as names and constants. Type is the
 // reference that restores the metadata type, zero when none reaches it.
 func annotationFacts(m *Model, annots []annotation) []symbols.AnnotationFacts {
