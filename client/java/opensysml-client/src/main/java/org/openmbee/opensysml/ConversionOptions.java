@@ -34,6 +34,9 @@ import java.util.Optional;
  *     {@code inheritedMembership}, {@code featureMembership}, {@code feature}, {@code
  *     inheritedFeature}); by default an element carries its owned structure; needs the {@code
  *     convert_inherited_members} capability
+ * @param projection for {@code "api-json"}, only the elements named by qualified name, metaclass
+ *     or annotation type; empty writes the whole model; needs the {@code convert_projection}
+ *     capability
  */
 public record ConversionOptions(
     Optional<String> fromFormat,
@@ -44,7 +47,8 @@ public record ConversionOptions(
     boolean omitDerived,
     List<String> keepDerived,
     boolean includeCheckDiagnostics,
-    boolean inheritedMembers) {
+    boolean inheritedMembers,
+    Optional<Projection> projection) {
 
   /** Qualified-name derived ids, the default. */
   public static final String ID_FORM_QUALIFIED = "qualified";
@@ -69,6 +73,7 @@ public record ConversionOptions(
     Objects.requireNonNull(fromFormat, "fromFormat");
     Objects.requireNonNull(idForm, "idForm");
     keepDerived = List.copyOf(Objects.requireNonNull(keepDerived, "keepDerived"));
+    projection = Objects.requireNonNull(projection, "projection");
   }
 
   /**
@@ -101,7 +106,44 @@ public record ConversionOptions(
         omitDerived,
         keepDerived,
         includeCheckDiagnostics,
-        false);
+        false,
+        Optional.empty());
+  }
+
+  /**
+   * Options with no projection, matching the signature before projection was added.
+   *
+   * @param fromFormat the source format, when named
+   * @param tolerateSyntaxErrors whether unreadable notation is still written back
+   * @param idForm the derived-id form, when named
+   * @param includeLibraryStubs whether library stubs are restored in API JSON
+   * @param compact whether the compact API JSON document is written
+   * @param omitDerived whether derived properties are left out of the compact document
+   * @param keepDerived the derived properties still written when they are left out
+   * @param includeCheckDiagnostics whether the check's diagnostics are reported
+   * @param inheritedMembers whether the inherited member lists are written in API JSON
+   */
+  public ConversionOptions(
+      Optional<String> fromFormat,
+      boolean tolerateSyntaxErrors,
+      Optional<String> idForm,
+      boolean includeLibraryStubs,
+      boolean compact,
+      boolean omitDerived,
+      List<String> keepDerived,
+      boolean includeCheckDiagnostics,
+      boolean inheritedMembers) {
+    this(
+        fromFormat,
+        tolerateSyntaxErrors,
+        idForm,
+        includeLibraryStubs,
+        compact,
+        omitDerived,
+        keepDerived,
+        includeCheckDiagnostics,
+        inheritedMembers,
+        Optional.empty());
   }
 
   /**
@@ -168,7 +210,8 @@ public record ConversionOptions(
         omitDerived,
         keepDerived,
         includeCheckDiagnostics,
-        inheritedMembers);
+        inheritedMembers,
+        projection);
   }
 
   /**
@@ -187,7 +230,8 @@ public record ConversionOptions(
         omitDerived,
         keepDerived,
         includeCheckDiagnostics,
-        inheritedMembers);
+        inheritedMembers,
+        projection);
   }
 
   /**
@@ -206,7 +250,8 @@ public record ConversionOptions(
         omitDerived,
         keepDerived,
         includeCheckDiagnostics,
-        inheritedMembers);
+        inheritedMembers,
+        projection);
   }
 
   /**
@@ -225,7 +270,8 @@ public record ConversionOptions(
         omitDerived,
         keepDerived,
         includeCheckDiagnostics,
-        inheritedMembers);
+        inheritedMembers,
+        projection);
   }
 
   /**
@@ -244,7 +290,8 @@ public record ConversionOptions(
         omitDerived,
         keepDerived,
         includeCheckDiagnostics,
-        inheritedMembers);
+        inheritedMembers,
+        projection);
   }
 
   /**
@@ -263,7 +310,8 @@ public record ConversionOptions(
         omitDerived,
         keepDerived,
         includeCheckDiagnostics,
-        inheritedMembers);
+        inheritedMembers,
+        projection);
   }
 
   /**
@@ -282,7 +330,8 @@ public record ConversionOptions(
         omitDerived,
         keepDerived,
         includeCheckDiagnostics,
-        inheritedMembers);
+        inheritedMembers,
+        projection);
   }
 
   /**
@@ -301,7 +350,8 @@ public record ConversionOptions(
         omitDerived,
         keepDerived,
         includeCheckDiagnostics,
-        inheritedMembers);
+        inheritedMembers,
+        projection);
   }
 
   /**
@@ -320,6 +370,28 @@ public record ConversionOptions(
         omitDerived,
         keepDerived,
         includeCheckDiagnostics,
-        inheritedMembers);
+        inheritedMembers,
+        projection);
+  }
+
+  /**
+   * The same options, writing only the elements named by projection in API JSON, or the whole
+   * model when the projection is empty.
+   *
+   * @param projection the declarations and annotations to write
+   * @return options naming that projection
+   */
+  public ConversionOptions withProjection(Projection projection) {
+    return new ConversionOptions(
+        fromFormat,
+        tolerateSyntaxErrors,
+        idForm,
+        includeLibraryStubs,
+        compact,
+        omitDerived,
+        keepDerived,
+        includeCheckDiagnostics,
+        inheritedMembers,
+        Optional.of(Objects.requireNonNull(projection, "projection")));
   }
 }

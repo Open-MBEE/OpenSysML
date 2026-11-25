@@ -36,6 +36,29 @@ func TestConvertLibraryReferencesAndLegacyStubs(t *testing.T) {
 	}
 }
 
+// TestConvertPassesAProjection narrows the api-json reply to one declaration
+// and checks the written element is unchanged.
+func TestConvertPassesAProjection(t *testing.T) {
+	h := attach(t, newService(t))
+	source := "package P { part def Plain; part def Faceted; }"
+	args := map[string]any{"content": source, "fromFormat": "sysml", "toFormat": "api-json"}
+	var whole pb.ConvertResponse
+	h.ok("convert", args, &whole)
+	args["projection"] = map[string]any{"qualifiedNames": []string{"P::Faceted"}}
+	var narrowed pb.ConvertResponse
+	h.ok("convert", args, &narrowed)
+	if len(narrowed.Content) >= len(whole.Content) {
+		t.Errorf("projected reply is %d bytes, whole is %d", len(narrowed.Content), len(whole.Content))
+	}
+	var elements []json.RawMessage
+	if err := json.Unmarshal([]byte(narrowed.Content), &elements); err != nil {
+		t.Fatal(err)
+	}
+	if len(elements) != 1 || !strings.Contains(string(elements[0]), `"qualifiedName": "P::Faceted"`) {
+		t.Fatalf("projection did not narrow to P::Faceted: %s", narrowed.Content)
+	}
+}
+
 // TestConvertIncludesCheckDiagnostics checks that convert passes
 // includeCheckDiagnostics through, so the check's findings come back with the
 // converted document, and that without it only the document comes back.

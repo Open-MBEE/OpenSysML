@@ -48,6 +48,7 @@ from opensysml.capabilities import (
     CAPABILITY_CONVERT_DOCUMENTS,
     CAPABILITY_CONVERT_COMPACT,
     CAPABILITY_CONVERT_CHECK_DIAGNOSTICS,
+    CAPABILITY_CONVERT_PROJECTION,
     CAPABILITY_PARSE_SOURCES_AFFECTED,
     CAPABILITY_PARSE_SOURCES_KEEP,
     CAPABILITY_RENDER_DOCUMENT_FILE_NAME,
@@ -96,7 +97,7 @@ from opensysml.document import (
 from opensysml.conversion import (
     FORMAT_API_JSON, FORMAT_SYSML, FORMAT_TURTLE, ID_FORM_QUALIFIED, ID_FORM_UUID, Conversion,
     ExperimentalFeatureWarning, LibraryReference, Migration, MigrationEntry, MigrationReport,
-    format_of_path, is_experimental, is_v1,
+    Projection, format_of_path, is_experimental, is_v1,
 )
 from opensysml.edit import AppliedEdit, Body, EditedDocument, EditResult, Editor
 from opensysml.errors import (
@@ -181,6 +182,7 @@ __all__ = [
     "CAPABILITY_CONSTRAINT_BODY_AUTHORING", "CAPABILITY_STATE_ACTION_AUTHORING",
     "CAPABILITY_BIG_INT_VALUES", "CAPABILITY_RATIONAL_VALUES", "CAPABILITY_CONVERT_DOCUMENTS",
     "CAPABILITY_CONVERT_COMPACT", "CAPABILITY_CONVERT_CHECK_DIAGNOSTICS",
+    "CAPABILITY_CONVERT_PROJECTION", "Projection",
     "CAPABILITY_PARSE_SOURCES_AFFECTED", "CAPABILITY_PARSE_SOURCES_KEEP",
     "CAPABILITY_RENDER_DOCUMENT_FILE_NAME",
     "ModelError", "ModelFileNotFoundError", "ModelNotFoundError",
@@ -378,7 +380,7 @@ def convert(to_format, file_path=None, content=None, model_hash=None,
             from_format='', tolerate_syntax_errors=False, host='localhost',
             port=None, id_form='', include_library_stubs=False, compact=False,
             omit_derived=False, keep_derived=(), include_check_diagnostics=False,
-            inherited_members=False):
+            inherited_members=False, projection=None):
     """Write a model out in another format (module-level convenience).
 
     Args:
@@ -422,6 +424,9 @@ def convert(to_format, file_path=None, content=None, model_hash=None,
             diagnostics in the result's ``diagnostics`` alongside the output,
             each with its own severity. Notation sources only. Needs the
             ``convert_check_diagnostics`` capability
+        projection (Projection, optional): For api-json, write only the elements
+            named by qualified name, metaclass or annotation type; needs the
+            ``convert_projection`` capability
 
     Returns:
         Conversion: The converted model; ``str()`` of it is the text
@@ -462,6 +467,7 @@ def convert(to_format, file_path=None, content=None, model_hash=None,
         omit_derived=omit_derived,
         keep_derived=keep_derived,
         include_check_diagnostics=include_check_diagnostics,
+        projection=projection,
     )
 
 

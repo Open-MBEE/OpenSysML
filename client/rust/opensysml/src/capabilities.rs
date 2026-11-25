@@ -179,6 +179,10 @@ pub const CAPABILITY_CONVERT_INHERITED_MEMBERS: &str = "convert_inherited_member
 /// `ConvertRequest.include_check_diagnostics`: the semantic check's diagnostics, each with its
 /// own severity, reported alongside the converted output.
 pub const CAPABILITY_CONVERT_CHECK_DIAGNOSTICS: &str = "convert_check_diagnostics";
+
+/// `ConvertRequest.projection`: api-json written for only the elements named by qualified name,
+/// metaclass or annotation type.
+pub const CAPABILITY_CONVERT_PROJECTION: &str = "convert_projection";
 /// `ParseSourcesRequest.base_model_hash` and `ParseSourcesResponse.affected`: the documents whose
 /// results may differ from the base model's, so a client re-reads only those after an edit.
 pub const CAPABILITY_PARSE_SOURCES_AFFECTED: &str = "parse_sources_affected";
