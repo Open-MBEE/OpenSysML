@@ -366,6 +366,28 @@ func TestChildEnvBoundsProcsAndPackages(t *testing.T) {
 	}
 }
 
+func TestChildEnvKeepsTheTimingScriptsCallerGOMAXPROCS(t *testing.T) {
+	t.Setenv(procsEnv, "")
+	t.Setenv("GOMAXPROCS", "2") // scripts/gate-timing.sh exports this
+	procs, err := goMaxProcs(0)
+	if err != nil || procs != 0 {
+		t.Fatalf("goMaxProcs = %d, %v; want 0 so the caller wins", procs, err)
+	}
+	env := childEnv(0, procs)
+	count := 0
+	for _, entry := range env {
+		if strings.HasPrefix(entry, "GOMAXPROCS=") {
+			count++
+			if entry != "GOMAXPROCS=2" {
+				t.Errorf("child env entry %q, want the caller's 2", entry)
+			}
+		}
+	}
+	if count != 1 {
+		t.Errorf("child env has %d GOMAXPROCS entries, want one", count)
+	}
+}
+
 func TestGoMaxProcsConfiguration(t *testing.T) {
 	t.Setenv("GOMAXPROCS", "")
 	t.Setenv(procsEnv, "")

@@ -195,12 +195,20 @@ Recorded on **one host** (16 CPUs, 31264 MiB RAM, load average 2.40, Go 1.27.4,
 | `go run -C tools ./cmd/gate-runner -tier quick -shards grpc,rest -concurrency 2` | 721.92 s | 8868652 KB |
 
 The bounded runner is **not** a speedup on this two-shard, single-lane
-comparison: with `-concurrency 2` and this host's derived `GOMAXPROCS=1` per
-shard, it links and runs one package per shard while the serial invocation
-carries the caller's `GOMAXPROCS=2` into each of its two shards in turn. Its
-value is bounding total demand when several worktrees run at once, not making
-one quiet run faster. Override `-gomaxprocs` to match a caller's own setting,
-and read the numbers above as one host's measurement rather than a gate.
+comparison. Both sides ran with the caller's exported `GOMAXPROCS=2`: the
+serial invocation carries it into each of its two shards in turn, and the
+runner propagates it to both of its shard children because an explicit
+`GOMAXPROCS` wins over the runner's derived value. The runner's extra process
+and concurrent execution cost is the observable difference here. Its value is
+bounding total demand when several worktrees share a host, not making one
+quiet run faster; read these numbers as one host's measurement, not a gate.
+
+The multi-worktree benefit is an **expected bound from the design**, not a
+measured result: the cgroup-aware CPU limit times the shard count stays within
+the host's CPU budget, and the shared cache removes duplicate compilation. A
+maintainer should measure it by running two worktrees' quick-tier gates
+concurrently against one warm cache and comparing wall time and peak RSS with
+a single-lane run; that two-worktree measurement is not part of this record.
 
 ## Exploration cost investigation
 
