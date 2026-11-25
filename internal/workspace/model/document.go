@@ -81,7 +81,14 @@ func (d *Document) TopMembers() []libs.TopMember {
 func newDocument(name string, content []byte, version int, kind source.Kind) *Document {
 	sf := newDocumentSource(name, content, kind)
 	p := parser.New(sf)
-	root := p.ParseFile()
+	return newParsedDocument(name, content, version, sf.Kind(), p.ParseFile(), p.Diagnostics, p.Warnings)
+}
+
+// newParsedDocument builds the same document from a tree parsed elsewhere, so a
+// consumer that restored a tree from a cache need not parse it again.
+func newParsedDocument(name string, content []byte, version int, kind source.Kind,
+	root *ast.RootNamespace, parseDiags, parseWarnings []parser.Diagnostic) *Document {
+	sf := newDocumentSource(name, content, kind)
 	scope := symbols.Build(root)
 	symbols.SetDocName(scope, name)
 	return &Document{
@@ -89,8 +96,8 @@ func newDocument(name string, content []byte, version int, kind source.Kind) *Do
 		Content:          content,
 		Version:          version,
 		AST:              root,
-		ParseDiagnostics: p.Diagnostics,
-		ParseWarnings:    p.Warnings,
+		ParseDiagnostics: parseDiags,
+		ParseWarnings:    parseWarnings,
 		Scope:            scope,
 		kind:             sf.Kind(),
 		sf:               sf,

@@ -367,6 +367,10 @@ CAPABILITY_CONVERT_INHERITED_MEMBERS = "convert_inherited_members"
 #: whose results may differ from the base model's, so a client re-reads only those after an edit.
 CAPABILITY_PARSE_SOURCES_AFFECTED = "parse_sources_affected"
 
+#: ``ParseSourcesRequest.keep``: a parse can be answered without keeping the model, so a
+#: transient result such as a derived union does not evict a model the caller holds.
+CAPABILITY_PARSE_SOURCES_KEEP = "parse_sources_keep"
+
 #: ``RenderDocumentResponse.file_name``: the file a rendered set writes the document to, which the
 #: other documents' links to it name.
 CAPABILITY_RENDER_DOCUMENT_FILE_NAME = "render_document_file_name"

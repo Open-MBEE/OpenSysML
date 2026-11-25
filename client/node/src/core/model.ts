@@ -119,6 +119,12 @@ export interface ParseSourcesOptions extends ParseOptions {
    * `parse_sources_affected`.
    */
   baseModelHash?: string;
+  /**
+   * Keep the model in the service's cache (the default). `false` answers a
+   * transient parse without evicting or promoting a model the caller holds;
+   * requires `parse_sources_keep`.
+   */
+  keep?: boolean;
 }
 
 /** Where an expression is evaluated. */

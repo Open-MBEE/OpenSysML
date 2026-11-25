@@ -68,9 +68,22 @@ const (
 	// PropertyText is RequirementDefinition::text / RequirementUsage::text: the
 	// body of each `doc` the requirement owns, in order.
 	PropertyText = "text"
+	// PropertyIsActive is StateActivity::isActive: whether the state usage is
+	// part of an active configuration in the query's runtime session.
+	PropertyIsActive = "isActive"
+	// PropertyAnnotations is the metadata annotations of a row: the values each
+	// annotation binds, read for the whole row set in one pass.
+	PropertyAnnotations = "annotations"
+	// PropertyIsActiveBuiltin and PropertyAnnotationsBuiltin spell the
+	// evaluator's properties unambiguously when a model feature shares the name.
+	PropertyIsActiveBuiltin    = "@isActive"
+	PropertyAnnotationsBuiltin = "@annotations"
 	// PropertyElementID is the elementId a conversion of the model writes for
 	// the element, reported only where the reader is given one (WithElementID).
 	PropertyElementID = "elementId"
+	// PropertyBoundSubject is the qualified name of the declaration a case's
+	// subject binds; absent when it binds none.
+	PropertyBoundSubject = "boundSubject"
 )
 
 // propertyNames is the closed set of properties supported by element queries.
@@ -86,6 +99,7 @@ var propertyNames = []string{
 	PropertyPayloadArgument, PropertySenderArgument, PropertyReceiverArgument,
 	PropertyElementID,
 	PropertySymbolKind, PropertyText,
+	PropertyIsActive, PropertyAnnotations, PropertyBoundSubject,
 }
 
 // PropertyNames returns the supported property names in stable order.
@@ -93,4 +107,28 @@ func PropertyNames() []string {
 	out := append([]string(nil), propertyNames...)
 	sort.Strings(out)
 	return out
+}
+
+// BuiltinProperty names the evaluator property a query spelling reads; both
+// the bare name and the "@" spelling name the same property.
+func BuiltinProperty(property string) (canonical string, ok bool) {
+	switch property {
+	case PropertyIsActive, PropertyIsActiveBuiltin:
+		return PropertyIsActive, true
+	case PropertyAnnotations, PropertyAnnotationsBuiltin:
+		return PropertyAnnotations, true
+	default:
+		return "", false
+	}
+}
+
+// IsBuiltinAlias reports whether property is an unambiguous spelling of an
+// evaluator property rather than the bare name a model feature may shadow.
+func IsBuiltinAlias(property string) bool {
+	switch property {
+	case PropertyIsActiveBuiltin, PropertyAnnotationsBuiltin:
+		return true
+	default:
+		return false
+	}
 }

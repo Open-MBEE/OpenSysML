@@ -8,6 +8,7 @@ import (
 	"time"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/testbudget"
 )
 
 // A model of many documents is analyzed as one batch, as a workspace analyzes
@@ -22,7 +23,7 @@ func TestParseSourcesAnalyzesManyDocumentsPromptly(t *testing.T) {
 
 	// Under the race detector a deadline says nothing about the algorithm, so
 	// only the diagnostic is checked, on fewer documents.
-	n, deadline := 800, 10*time.Second
+	n, deadline := 800, testbudget.Deadline(t, 10*time.Second)
 	if raceBuild {
 		n, deadline = 100, time.Hour
 	}

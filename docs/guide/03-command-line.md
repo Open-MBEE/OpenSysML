@@ -238,7 +238,12 @@ to errors, which turns the run into a test of whether the file is conforming Sys
 promotes the one well-formedness warning the default mode keeps a warning: a namespace whose
 memberships are indistinguishable (`Duplicate of other owned member name` and its alias and
 inherited wordings, [Duplicate member names](../reference/diagnostics.md#duplicate-member-names)),
-which KerML's `validateNamespaceDistinguishibility` forbids. The flag
+which KerML's `validateNamespaceDistinguishibility` forbids. It also reports
+[`redefinition-resolves-to-nothing`](../reference/diagnostics.md#redefinition-resolves-to-nothing)
+when a `:>>` clause names a member the declaring type neither owns nor inherits,
+even though the name resolves through an import: that redefinition would otherwise
+be exported with no target. This check is strict-only; the default mode leaves the
+looser name lookup alone. The flag
 applies to `-migrate` too: a strict SysML v1 migration writes no extension notation
 at all and refers to no OpenSysML library — see [Portable output with `-strict`](../reference/sysml-v1-migration.md#portable-output-with--strict); `-portable` instead appends the OpenSysML library packages a default migration refers to, so the one file loads elsewhere unchanged.
 

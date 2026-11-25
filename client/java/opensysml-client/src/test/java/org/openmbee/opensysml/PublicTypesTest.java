@@ -1223,6 +1223,24 @@ class PublicTypesTest {
   }
 
   @Test
+  void aTransientParseNeedsParseSourcesKeepAndSeveralDocuments() {
+    try (Connection limited =
+        new Connection(
+            new ConnectTransport(
+                "127.0.0.1:1", Encoding.PROTOBUF, Duration.ofSeconds(1), Optional.empty()),
+            new Capabilities("dev", java.util.Set.of(Capabilities.PARSE_SOURCES)))) {
+      ParseOptions transientParse = ParseOptions.defaults().withKeep(false);
+      assertEquals(Optional.of(false), transientParse.keep());
+      assertEquals(Optional.empty(), ParseOptions.defaults().keep());
+      List<SourceDocument> documents = List.of(SourceDocument.inline("a.sysml", "package A;"));
+      CapabilityException refused =
+          assertThrows(CapabilityException.class, () -> limited.parseSources(documents, transientParse));
+      assertEquals(Capabilities.PARSE_SOURCES_KEEP, refused.capability());
+      assertThrows(IllegalArgumentException.class, () -> limited.parse("package A;", transientParse));
+    }
+  }
+
+  @Test
   void conversionOptionsDefaultToTheElementArrayWithoutCheckDiagnostics() {
     ConversionOptions defaults = ConversionOptions.defaults();
     assertFalse(defaults.compact());

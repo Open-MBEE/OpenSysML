@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
@@ -126,7 +127,9 @@ func plantRecord(t *testing.T, srv *Service, request *pb.ParseSourcesRequest, na
 	}
 	rec := &libs.ModelRecord{}
 	for _, name := range names {
-		rec.Documents = append(rec.Documents, libs.ModelDocument{Name: name, Kind: source.KindOf(name)})
+		rec.Documents = append(rec.Documents, libs.ModelDocument{
+			Name: name, Kind: source.KindOf(name), Reads: &resolve.Reads{},
+		})
 	}
 	rec.Documents[0].Diagnostics = []diag.Diagnostic{{
 		Severity: diag.SeverityError, Span: source.Span{Offset: 0, Len: 7}, Message: plantedMessage, Source: "planted",

@@ -405,23 +405,30 @@ SHARD_SELECT_translate = -skip '$(RACE_SHARD_SKIP)|$(RACE_TRANSLATE_STRUCTURE)'
 SHARD_SELECT = $(or $(SHARD_SELECT_$(SHARD)),-skip '$(RACE_SHARD_SKIP)')
 # -race for the race suite (test-shard); test-quick runs the same shards with it empty.
 TEST_SHARD_RACE ?= -race
+# SKIP_STDLIB_SNAPSHOT lets the runner write the snapshot once for all shards;
+# it reaches recursive make calls, unlike -o, and the literal prerequisite stays.
+SKIP_STDLIB_SNAPSHOT ?=
+# SKIP_TOOLS_TESTS lets a local all-shards runner give the tools module one
+# owner; CI leaves it unset so every job keeps its own copy of the module.
+SKIP_TOOLS_TESTS ?=
 
-test-shard: stdlib-snapshot ## Run one CI shard of the race suite (SHARD=runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep-committed|corpus-sweep-corpora|export|export-library|export-examples|export-corpus|graph|graph-corpora|codegen|translate|translate-structure|grpc|tools|internal|rest|migrate|cli)
+test-shard: $(if $(SKIP_STDLIB_SNAPSHOT),,stdlib-snapshot) ## Run one CI shard of the race suite (SHARD=runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep-committed|corpus-sweep-corpora|export|export-library|export-examples|export-corpus|graph|graph-corpora|codegen|translate|translate-structure|grpc|tools|internal|rest|migrate|cli)
 	@echo "Running Go $(if $(TEST_SHARD_RACE),race ,)tests, shard $(SHARD)$(if $(OPENSYSML_CORPUS_SUBSET), over the $(OPENSYSML_CORPUS_SUBSET) corpus subset,)..."
 	@# 55m per package; its job's ceiling is 60. internal/exec/runtime (31-57 minutes whole under -race), tests/export
 	@# (past 55; four shards) and tests/corpus (past 55; three) run split by test name above.
 	pkgs=$$(scripts/race-shard.sh $(SHARD)) && go test $(SHARD_SELECT) -v $(TEST_SHARD_RACE) -pgo=off -timeout 55m $$pkgs
 	@# The tools module runs with tools (tests/wasm) on CircleCI and, as the PR workflow has no
 	@# tools shard (tests/wasm is its WebAssembly gate job there), with rest on GitHub Actions.
-	case "$(SHARD)" in rest|tools) go test -C $(TOOLS_DIR) -skip '$(RACE_SHARD_TOOLS_SKIP)' -v $(TEST_SHARD_RACE) -pgo=off -timeout 55m ./... ;; esac
+	@# A local plan with both shards gives the module one owner; CI jobs keep their own copy.
+	case "$(SHARD)" in rest|tools) $(if $(SKIP_TOOLS_TESTS),printf 'tools module tests owned by the tools shard in this plan\n',go test -C $(TOOLS_DIR) -skip '$(RACE_SHARD_TOOLS_SKIP)' -v $(TEST_SHARD_RACE) -pgo=off -timeout 55m ./...) ;; esac
 
-test-quick: stdlib-snapshot ## Run the race-free quick tier over one or more race shards, in turn (SHARDS="graph" | "export-corpus export-library" | "rest grpc" | ...)
+test-quick: $(if $(SKIP_STDLIB_SNAPSHOT),,stdlib-snapshot) ## Run the race-free quick tier over one or more race shards, in turn (SHARDS="graph" | "export-corpus export-library" | "rest grpc" | ...)
 	@echo "Running Go tests without race detection, shards $(SHARDS)..."
 	@# Every pull-request push runs this instead of test-shard: the same shards, selections and skips, no -race.
 	@test -n "$(SHARDS)" || { echo "Error: set SHARDS to one or more of runtime runtime-corpus runtime-exploration model smt corpus corpus-sweep-committed corpus-sweep-corpora export export-library export-examples export-corpus graph graph-corpora codegen translate translate-structure grpc tools internal rest migrate cli"; exit 1; }
 	for shard in $(SHARDS); do $(MAKE) --no-print-directory test-shard SHARD=$$shard TEST_SHARD_RACE= || exit 1; done
 
-test-queue: stdlib-snapshot ## Run the merge queue's tier over one or more race shards, in turn (SHARDS="export-corpus" | "rest grpc" | ...)
+test-queue: $(if $(SKIP_STDLIB_SNAPSHOT),,stdlib-snapshot) ## Run the merge queue's tier over one or more race shards, in turn (SHARDS="export-corpus" | "rest grpc" | ...)
 	@echo "Running the queue tier, shards $(SHARDS)..."
 	@# The merge queue runs this: test-shard with -race on every shard but the examples/ sweeps
 	@# (scripts/race-shard.sh --sweeps), which run without -race over the construct-cover subset.

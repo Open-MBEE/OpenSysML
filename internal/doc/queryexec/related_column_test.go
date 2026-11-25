@@ -248,8 +248,9 @@ func TestExecuteRelatedColumnReportsItsColumnInErrors(t *testing.T) {
 	}{
 		{
 			name: "unknown relationship kind", kind: "ownership", direction: "outgoing", aggregate: "list",
-			want:    ErrorUnknownRelationship,
-			message: `query Observatory::Traced column related does not support relationship kind "ownership"`,
+			want: ErrorUnknownRelationship,
+			message: `query Observatory::Traced column related does not support relationship kind "ownership"; supported kinds are ` +
+				strings.Join(SupportedRelationships(), ", "),
 		},
 		{
 			name: "invalid direction", kind: "specialization", direction: "sideways", aggregate: "list",

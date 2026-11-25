@@ -801,6 +801,75 @@ func (g *StateGraph) DeclOf(state *ast.StateNode) ast.Node {
 	return state
 }
 
+// StateSymbol is the symbol declaring state, nil when it was synthesized
+// without one. A graph-only region owner is declared through its region.
+func (g *StateGraph) StateSymbol(state *ast.StateNode) *symbols.Symbol {
+	if g == nil || state == nil {
+		return nil
+	}
+	id, visible := g.ID[state]
+	if visible && g.Provenance.State(id) == nil {
+		return nil
+	}
+	decl := g.DeclOf(state)
+	if !visible {
+		// A graph-only owner is declared by the substate its region was built from.
+		for region, owner := range g.RegionState {
+			if owner == state {
+				decl = g.RegionDeclOf(region)
+				break
+			}
+		}
+	}
+	scope := g.StateScopes[state]
+	if scope == nil {
+		if declared := g.declaredIn[decl]; declared != nil {
+			scope = declared
+		}
+	}
+	if scope == nil {
+		return nil
+	}
+	if owner := scope.Owner(); owner != nil && owner.Decl == decl {
+		return owner
+	}
+	for s := scope; s != nil; s = s.Parent() {
+		if sym := s.MemberDeclaring(decl); sym != nil {
+			return sym
+		}
+	}
+	return nil
+}
+
+// DeclaredStates lists states a symbol declares, including graph-only region
+// owners and excluding nodes lowering synthesized without a declaration.
+func (g *StateGraph) DeclaredStates() []*ast.StateNode {
+	if g == nil {
+		return nil
+	}
+	out := make([]*ast.StateNode, 0, len(g.States)+len(g.RegionState))
+	seen := make(map[*ast.StateNode]bool, len(g.States)+len(g.RegionState))
+	add := func(state *ast.StateNode) {
+		if state == nil || seen[state] || g.StateSymbol(state) == nil {
+			return
+		}
+		seen[state] = true
+		out = append(out, state)
+	}
+	for _, state := range g.States {
+		add(state)
+	}
+	for _, region := range g.TopRegions {
+		add(g.RegionState[region])
+	}
+	for i := 0; i < len(out); i++ {
+		for _, region := range g.CompositeStates[out[i]] {
+			add(g.RegionState[region])
+		}
+	}
+	return out
+}
+
 // RegionDeclOf is the declaration region was built from: the direct substate of a
 // parallel state or machine that supplies its body, else the region itself.
 func (g *StateGraph) RegionDeclOf(region *ast.StateRegion) ast.Node {

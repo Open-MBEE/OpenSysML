@@ -20,6 +20,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docir"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/testbudget"
 )
 
 // toolchainRequiredEnv is set in CI after the toolchain script has run, so an
@@ -1282,10 +1283,8 @@ func TestRenderTwentyColumnTableWithInstalledEngines(t *testing.T) {
 // TestRenderLongWideTablePromptlyWithInstalledEngines keeps large tables on
 // landscape pages without making selector matching grow with every table row.
 func TestRenderLongWideTablePromptlyWithInstalledEngines(t *testing.T) {
-	const (
-		rows        = 1000
-		renderBound = 60 * time.Second
-	)
+	const rows = 1000
+	renderBound := testbudget.Deadline(t, 60*time.Second)
 	columns := len(longWideColumns) + 1
 	document := longWideTableDocument(t, rows)
 	for _, engine := range Engines() {

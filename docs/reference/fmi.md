@@ -137,7 +137,8 @@ output, nothing else on stdout:
 ```json
 {"protocol":1,"fmu":"/abs/path/model.fmu","interface":"coSimulation",
  "experiment":{"startTime":0.0,"stopTime":3.0,"stepSize":0.01},
- "start":{"g":-9.81,"e":0.7,"u":[1.0,2.0,3.0]},"outputs":["h","v","y"]}
+ "start":{"g":-9.81,"e":0.7,"u":[1.0,2.0,3.0]},"outputs":["h","v","y"],
+ "series":{"samples":5,"outputs":["T"]}}
 ```
 
 - `protocol` is `1`. `fmu` is the archive's absolute path. `interface` is `coSimulation`,
@@ -146,27 +147,39 @@ output, nothing else on stdout:
 - `experiment` carries `startTime` and `stopTime` always, `stepSize` and `tolerance` only when
   the declaration binds them.
 - `start` maps every remaining `in` variable name to the value bound for it; `outputs` lists
-  the `out` variable names in declaration order.
+  the `out` variable names in declaration order; `series`, when present, asks for a
+  trajectory of `samples` points and names the variables to sample. With no `times`, the
+  runner spaces them evenly over recorded *time* from `startTime` to `stopTime`, so extra
+  solver-event rows do not move the instants; with `times`, those exact instants are
+  requested and the runner must honour them. An instant outside the simulated run is an
+  error reply, never the last recorded value relabelled. At a recorded instant the runner
+  answers the last row recorded there, so an event at `stopTime` agrees with the scalar
+  output; between rows it blends only continuous Real/Float variables, holding discrete
+  ones and parameters at a recorded value. A call with no series output omits the member
+  entirely.
 
 The reply is either the result or the error:
 
 ```json
-{"protocol":1,"time":3.0,"outputs":{"h":0.0,"v":-29.43,"y":[2.7,5.4,8.1]}}
+{"protocol":1,"time":3.0,"outputs":{"h":0.0,"v":-29.43,"y":[2.7,5.4,8.1]},
+ "series":{"times":[0.0,0.75,1.5,2.25,3.0],"outputs":{"T":[1.0,2.0,3.0,4.0,5.0]}}}
 {"protocol":1,"error":"the FMU failed to initialize"}
 ```
 
 `time` is the simulated time the outputs were read at — a successful reply must carry a
 finite one; `outputs` maps each requested name to
 its value — a JSON number for `Real`, `Integer` and `Enumeration`, `true`/`false` for
-`Boolean`, a string for `String`. An `error` reply fails the performance as a
-`*fmi.RunnerError`; any other protocol violation — no reply, a wrong protocol version, a value
+`Boolean`, a string for `String`. An `error` reply — including a sample instant beyond
+the run the FMU actually simulated — fails the performance as a `*fmi.RunnerError`; any
+other protocol violation — no reply, a wrong protocol version, a value
 of the wrong shape — fails it as malformed output. A `Real` variable's value is never truncated
 to fit an `Integer` one, and a declared unit on an input is checked: a value measured in
 another unit is refused rather than converted silently.
 
 ### Reserved `fmi:` variables
 
-Four names carry the experiment rather than a model variable:
+The names below carry the experiment or a trajectory rather than a model
+variable; `fmi:stepTime` asks for a session step:
 
 | `ToolVariable` name | Direction | Carries |
 |---|---|---|
@@ -174,7 +187,134 @@ Four names carry the experiment rather than a model variable:
 | `fmi:stopTime` | input | the experiment's stop time, default `1.0` |
 | `fmi:stepSize` | input | the step size — only when `DefaultExperiment` declares one |
 | `fmi:tolerance` | input | the solver tolerance — only when declared |
+| `fmi:stepTime` | input | a session's next time — selects an evaluation session instead of a whole run |
+| `fmi:samples` | input | the number of points in a trajectory — an integer from 2 to 10000, default 11 |
+| `fmi:sampleInterval` | input | an alternative to `fmi:samples`: the spacing in seconds, converted from a measured value and sent as explicit request instants |
 | `fmi:time` | output | the reply's `time` — bound when the FMU declares no output |
+| `fmi:seriesTime` | output | the trajectory's sample times, bound as a sequence measured in seconds |
+| `fmi:series:<name>` | output | the sampled trajectory of the FMU variable `<name>`, bound as a sequence |
+
+These spellings are selectors, but an FMU variable whose archive name is exactly
+one of them is still a model variable: the engine gives the FMU's own names first
+claim, on every surface that routes a call. An input named `fmi:stepTime` on an FMU
+declaring that variable is set on the FMU rather than opening an evaluation
+session; an output named `fmi:series:y` reads its value at `stopTime` rather than
+sampling `y`, as the importer's `ToolVariable` name preserves names verbatim.
+When both `y` and `fmi:series:y` exist in one FMU, that spelling reads the literal,
+so a trajectory of `y` cannot be requested — avoid such names when both are needed.
+A genuine step input combined with a trajectory selector is refused as a typed
+error: a session answers scalars per step, a trajectory answers once per run.
+
+## Trajectory (series) outputs
+
+A tool-computed calc normally binds each output once, at `stopTime`. To decide a
+condition over a whole run — a maximum temperature, a minimum pressure, an area
+under a curve — bind an output whose `ToolVariable` name begins `fmi:series:` to
+a multi-valued parameter and ask for the sample count or spacing with the
+reserved inputs:
+
+```sysml
+package BoilerDrive {
+	private import AnalysisTooling::*;
+	private import ScalarValues::*;
+	private import ControlFunctions::*;
+
+	calc def Trajectory {
+		metadata ToolExecution { toolName = "fmi"; uri = "file:///opt/fmus/boiler.fmu"; }
+		in samples : Integer = 5 { @ToolVariable { name = "fmi:samples"; } }
+		in stopTime : Real = 3.0 { @ToolVariable { name = "fmi:stopTime"; } }
+		return temps : Real[1..*] nonunique { @ToolVariable { name = "fmi:series:T"; } }
+	}
+
+	requirement def PeakTemperature {
+		in temps : Real[1..*] nonunique;
+		in limit : Real;
+		require constraint { temps->maximize { in t; t } <= limit }
+	}
+}
+```
+
+The run answers five samples and binds them as a `Real[1..*]` value; the requirement
+check decides `max(T) <= limit` from that one trajectory. With `fmi:sampleInterval`
+instead of `fmi:samples`, the request carries the exact instants: a 2 s interval over a
+0–3 s run samples 0 s and 2 s, not 0 s and 3 s, and a reply at other times is refused.
+The scalar answer at `stopTime` is never substituted for a series: if the runner omits
+`series`, answers the wrong number of samples or wrong instants, or a caller binds the
+trajectory to a single-valued parameter, the performance fails with a malformed-output
+error. A series variable must name a scalar output of the FMU; arrays cannot be sampled
+into a trajectory.
+
+## Reusable evaluation sessions
+
+A whole-run `tool:fmi` performance starts one runner process, initializes the
+FMU and reads every output at `stopTime`. A check that needs a value in the
+middle of an experiment can ask for it without starting over: a session
+initializes once and then answers "step to `t`" and "read these variables"
+from the state it reached. N intermediate readings cost one runner invocation,
+not N.
+
+Sessions are an additive Go API in `internal/exec/fmi`, not a change to the
+one-shot path. A call that does not bind `fmi:stepTime` still speaks `fmi/1` and
+writes byte-identical requests and replies. A call that does bind it goes
+through a `SessionManager`:
+
+```go
+manager := fmi.NewSessionManager(nil) // nil reads OPENSYSML_FMI_RUNNER
+defer manager.Close()
+session, err := manager.Open(ctx, "caller-A", call) // one init
+session.Step(ctx, 0.5)                             // advance to t
+values, err := session.Read(ctx, []string{"h", "v"}) // read from that state
+```
+
+`SessionManager.ToolRunner(caller, delegate)` wraps an existing
+`runtime.ToolRunner` so a model's annotated `calc def` uses a session whenever
+its tool call binds `fmi:stepTime`, and goes to the delegate unchanged for
+every other tool or call. Several calc usages that bind different step times
+therefore share one session for one caller. A session is keyed by the caller
+and the init request, so two callers driving the same FMU keep separate state
+and re-opening the same session returns the one already initialized. A stepped
+call that reaches the one-shot engine without a session tool runner is refused
+with a named error rather than silently answered at `stopTime`.
+
+A stepped call that also names a series variable (`fmi:samples`,
+`fmi:sampleInterval`, `fmi:seriesTime` or `fmi:series:<name>`) is refused with
+`*fmi.SessionSeriesError`: a session answers scalar outputs at each step, while
+a trajectory is the one-shot runner's answer. The combination is undefined by
+either surface and is never silently accepted.
+
+A runner that serves sessions reads newline-delimited JSON on standard input
+and writes one line per command on standard output (`fmi/2`):
+
+```json
+{"protocol":2,"action":"init","fmu":"/abs/model.fmu","interface":"coSimulation",
+ "experiment":{"startTime":0.0,"stopTime":3.0},"start":{"g":-9.81}}
+{"protocol":2,"action":"step","time":0.5}
+{"protocol":2,"action":"read","outputs":["h","v"]}
+```
+
+The `init` answer carries the start time; `step` answers the time reached;
+`read` answers that time and the outputs:
+
+```json
+{"protocol":2,"action":"init","time":0.0}
+{"protocol":2,"action":"step","time":0.5}
+{"protocol":2,"action":"read","time":0.5,"outputs":{"h":0.95,"v":-4.9}}
+```
+
+A rejected command answers `{"protocol":2,"action":"…","error":"…"}`, which
+fails the performance as a `*fmi.RunnerError`. A wrong protocol version, a
+malformed line, a line over `OPENSYSML_TOOL_MAX_OUTPUT` and a runner that exits
+are typed failures; no value is invented. A step backwards or past
+`fmi:stopTime` is refused locally with a typed `*fmi.StepError`, without asking
+the runner.
+
+Sessions are bounded. A manager holds at most 16 by default
+(`NewSessionManagerWith` overrides it), closes a session idle for 60 seconds or
+open for 10 minutes, and refuses the 100,001st step. A background janitor
+reclaims sessions that pass a bound even when no caller returns; the owner
+calls `Close` to end them all and stop the janitor. Each command answers within
+`OPENSYSML_TOOL_TIMEOUT` and is bounded by `OPENSYSML_TOOL_MAX_OUTPUT`, as a
+one-shot tool is.
 
 ## Reference runner
 
@@ -202,10 +342,14 @@ $ sysml -calc 'BouncingBall::BouncingBall' bouncing.sysml
 - The runner is external and the FMU is never loaded in-process: no FMI calls cross into
   OpenSysML, so a co-simulation runs one `doStep`-style exchange per evaluation through the
   runner you provide.
+- Sessions need a runner that speaks `fmi/2`; the reference runner shipped with the Python
+  client speaks `fmi/1` only. The whole-run path works with every `fmi/1` runner.
 - Structural parameters, multi-dimensional and structurally dimensioned array variables,
   `Binary` and `Clock` values are not imported; `local` and `independent` variables are
   read but not bound.
 - A `Real` variable's unit projects as an ISQ quantity type only when it resolves to
   coherent base exponents; non-coherent units (`km`, `degC`) and array element units stay
   comments, and an input measured in such a unit is refused rather than converted.
+- A trajectory samples scalar variables only; an array variable named by `fmi:series:` is
+  refused, though scalar outputs at `stopTime` still answer arrays as before.
 - `fmu` is an input format only.

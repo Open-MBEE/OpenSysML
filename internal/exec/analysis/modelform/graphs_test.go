@@ -556,6 +556,102 @@ func TestGraphsActionCarriesTheGateOfAFlow(t *testing.T) {
 	}
 }
 
+// A body index has no expression-printer spelling, so its selector must come
+// from where it was written, with an ordered selector even when text is absent.
+func TestGraphsCarriesIndexedEndSelectorsFromTheirExtent(t *testing.T) {
+	const fixture = `package indexed {
+	action run {
+		port p[3];
+		port q;
+		connect p#(1) to q;
+		connect p#({ in i : Integer; i + 1 }) to q;
+		connect q to p#(2);
+	}
+}
+`
+	model, idx := graphsModelOf(t, fixture)
+	g, data := exportGraphs(t, model, idx, "indexed::run")
+	if len(g.Actions) != 1 || g.Actions[0].Error != "" {
+		t.Fatalf("actions %+v, want the subject lowered", g.Actions)
+	}
+	conns := g.Actions[0].Connections
+	if len(conns) != 3 {
+		t.Fatalf("connections = %+v, want the three of the body", conns)
+	}
+	const bodyIndex = "{ in i : Integer; i + 1 }"
+	if got := conns[1].Ends[0]; got != "p#("+bodyIndex+")" {
+		t.Errorf("body-indexed end = %q, want %q", got, "p#("+bodyIndex+")")
+	}
+	if got := conns[0].Ends[0]; got != "p#(1)" {
+		t.Errorf("constant-indexed end = %q, want p#(1)", got)
+	}
+	if got := conns[2].Ends[1]; got != "p#(2)" {
+		t.Errorf("second indexed end = %q, want p#(2)", got)
+	}
+	for _, tc := range []struct {
+		conn int
+		at   int
+		text string
+	}{
+		{0, 0, "1"},
+		{1, 0, bodyIndex},
+		{2, 1, "2"},
+	} {
+		conn := conns[tc.conn]
+		if len(conn.Selectors) != 1 {
+			t.Fatalf("connection %d selectors = %+v, want one", tc.conn, conn.Selectors)
+		}
+		sel := conn.Selectors[0]
+		if sel.At != tc.at || sel.Index == nil || sel.Index.Text != tc.text {
+			t.Errorf("connection %d selector = %+v, want at %d text %q", tc.conn, sel, tc.at, tc.text)
+		}
+		if sel.Index.Span.Document != "graphs.sysml" || sel.Index.Span.Len <= 0 {
+			t.Errorf("connection %d selector span = %+v, want a written extent", tc.conn, sel.Index.Span)
+		}
+		if start := sel.Index.Span.Offset; fixture[start:start+sel.Index.Span.Len] != tc.text {
+			t.Errorf("connection %d selector span names %q, want %q", tc.conn, fixture[start:start+sel.Index.Span.Len], tc.text)
+		}
+	}
+	if !strings.Contains(string(data), `"selectors":[{"at":0,"index":{"text":"{ in i : Integer; i + 1 }"`) {
+		t.Errorf("the marshalled form should state the body selector\n%s", data)
+	}
+}
+
+// A quoted port named `a.b` and the nested port `a.b` flatten to the same
+// routing path, but the analysis form keeps their written names apart.
+func TestGraphsDistinguishesAQuotedIndexedPortFromANestedOne(t *testing.T) {
+	const fixture = `package quoted {
+	action run {
+		part a { port b[3]; }
+		port 'a.b'[3];
+		port q;
+		connect 'a.b'#(1) to q;
+		connect a.b#(1) to q;
+	}
+}
+`
+	model, idx := graphsModelOf(t, fixture)
+	g, _ := exportGraphs(t, model, idx, "quoted::run")
+	conns := g.Actions[0].Connections
+	if len(conns) != 2 {
+		t.Fatalf("connections = %+v, want the quoted and the nested one", conns)
+	}
+	if got := conns[0].Ends[0]; got != "'a.b'#(1)" {
+		t.Errorf("quoted end = %q, want 'a.b'#(1)", got)
+	}
+	if got := conns[1].Ends[0]; got != "a.b#(1)" {
+		t.Errorf("nested end = %q, want a.b#(1)", got)
+	}
+	if conns[0].Ends[0] == conns[1].Ends[0] {
+		t.Error("the two ends should not share a written spelling")
+	}
+	for _, conn := range conns {
+		if len(conn.Selectors) != 1 || conn.Selectors[0].At != 0 || conn.Selectors[0].Index == nil || conn.Selectors[0].Index.Text != "1" {
+			t.Errorf("connection selectors = %+v, want the index at end 0", conn.Selectors)
+		}
+	}
+}
+
 func TestGraphsAreByteStable(t *testing.T) {
 	model, idx := graphsModel(t)
 	for _, subject := range []string{"test::run", "test::Machine"} {

@@ -1423,9 +1423,9 @@ func assertIntOutput(t *testing.T, outputs map[string]Value, name string, want i
 // connection belonging to no variation always routes.
 func TestRoutingHonorsTheSelectedVariantConnection(t *testing.T) {
 	conns := []lower.Connection{
-		{Ends: []string{"outPort", "inPort"}, Variation: "link", Variant: "direct"},
-		{Ends: []string{"outPort", "bypass"}, Variation: "link", Variant: "indirect"},
-		{Ends: []string{"outPort", "always"}},
+		{Ends: []lower.ConnectionEnd{{Path: "outPort"}, {Path: "inPort"}}, Variation: "link", Variant: "direct"},
+		{Ends: []lower.ConnectionEnd{{Path: "outPort"}, {Path: "bypass"}}, Variation: "link", Variant: "indirect"},
+		{Ends: []lower.ConnectionEnd{{Path: "outPort"}, {Path: "always"}}},
 	}
 	for _, tt := range []struct {
 		selected string

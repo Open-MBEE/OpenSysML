@@ -102,7 +102,9 @@ the parse to the previous model and `affected(model)` names, in document order, 
 documents whose analysis, diagnostics or conversion may differ from it, so results
 computed for the others are kept; every document when the service could not
 compare the two, such as for a set it had not seen before (needs the
-`parse_sources_affected` capability).
+`parse_sources_affected` capability). With `keep=false` the model is not kept in the service's
+cache, so a derived union read for its results neither evicts nor promotes a model the caller
+holds; the answer is otherwise the same (needs the `parse_sources_keep` capability).
 
 Model operations include `evaluate(model, expression; context, subject)`,
 `instantiate(model, symbol_id)`, `execute_action(model, symbol_id; inputs,
@@ -224,6 +226,9 @@ besides the ones the view's rendering shows (`"all"` for every one), and the
 `RenderedView`'s `shown` lists the elements drawn. `compartments` says how a
 tree rendering folds owned members into compartment rows (`"positioned"`, the
 default, `"most"` or `"ports"`); a folded `RenderNode` names its `compartment`.
+Julia declares the `render_node_shape` capability, but its typed `RenderNode` does not
+decode the `shape` field a server reports; see
+[the shape design record](../project/structured-render-node-shape.md#known-limitations-and-follow-ups).
 
 Conversion is available through `convert_file(conn, path, to_format; ...)`,
 `convert_source(conn, content, to_format; from_format, ...)`,

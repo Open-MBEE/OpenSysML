@@ -34,11 +34,31 @@ const (
 // is where those paths resolve, which is what routing asks to learn the
 // direction an end's flow features carry.
 type Connection struct {
-	Ends      []string
+	Ends      []ConnectionEnd // port path beside the indexed end's selector
 	Variation string          // variation point the connection is a variant of, empty when it is not
 	Variant   string          // name of the variant declaring it, empty when it is not one
 	Owner     ConnectionOwner // what declares it, whose selection governs a variant's connection
 	Scope     *symbols.Scope  // scope the end paths resolve in, nil when unknown
+}
+
+// ConnectionEnd is a lowered end's routing Path, its Index selecting one
+// element, and the Target node the end attaches to, keeping the written name.
+type ConnectionEnd struct {
+	Path   string
+	Target ast.Node
+	Index  ast.Node
+}
+
+// TargetAt is where the end's attached feature was written, the zero extent
+// for an end that names no feature.
+func (e ConnectionEnd) TargetAt() Extent {
+	return extentOf(e.Target)
+}
+
+// IndexAt is where the selector was written, the zero extent for a whole
+// feature; a body index has no spelling from the expression printer.
+func (e ConnectionEnd) IndexAt() Extent {
+	return extentOf(e.Index)
 }
 
 // ToObjectConnections lowers the connectors declared in the body of a type an
@@ -85,10 +105,10 @@ func lowerConnections(members []ast.Node, owner ConnectionOwner, scope *symbols.
 // lowerConnection extracts the ends of one connector usage. A usage joining
 // fewer than two ends joins nothing and is dropped.
 func lowerConnection(u *ast.Usage, owner ConnectionOwner, scope *symbols.Scope) (Connection, bool) {
-	ends := make([]string, 0, len(u.ConnectorEnds))
+	ends := make([]ConnectionEnd, 0, len(u.ConnectorEnds))
 	for _, end := range u.ConnectorEnds {
-		if name := endName(end); name != "" {
-			ends = append(ends, name)
+		if lowered := lowerEnd(end); lowered.Path != "" {
+			ends = append(ends, lowered)
 		}
 	}
 	if len(ends) < 2 {
@@ -129,17 +149,14 @@ func connectorKind(k ast.UsageKind) bool {
 	return false
 }
 
-// endName names the feature an end attaches to, as the whole path it was written
-// as: a chain (`sensor.out`) keeps every segment, since the port it names is
-// that one and not another named `out`. An end that declares its own name
-// (`bead references t.bead`) attaches to what it reference-subsets, and an indexed
-// end (`s.y#(1)`) to the port it selects from: a message is delivered to a port
-// of an object, so routing addresses the port, not one of its elements.
-func endName(end *ast.ConnectorEnd) string {
+// lowerEnd keeps the whole written path (`sensor.out`) with the index expression
+// that selects one of its elements, so routing addresses the port, not an element.
+func lowerEnd(end *ast.ConnectorEnd) ConnectionEnd {
 	if end == nil {
-		return ""
+		return ConnectionEnd{}
 	}
-	return FeaturePath(end.AttachedTarget())
+	target := end.AttachedTarget()
+	return ConnectionEnd{Path: FeaturePath(target), Target: target, Index: end.AttachedIndex()}
 }
 
 // SendTarget renders a send's target and reports whether it is a feature chain

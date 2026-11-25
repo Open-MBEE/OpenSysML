@@ -180,6 +180,9 @@ pub const CAPABILITY_CONVERT_CHECK_DIAGNOSTICS: &str = "convert_check_diagnostic
 /// `ParseSourcesRequest.base_model_hash` and `ParseSourcesResponse.affected`: the documents whose
 /// results may differ from the base model's, so a client re-reads only those after an edit.
 pub const CAPABILITY_PARSE_SOURCES_AFFECTED: &str = "parse_sources_affected";
+/// `ParseSourcesRequest.keep`: answer a parse without keeping the model, so a transient union
+/// cannot evict one the caller holds.
+pub const CAPABILITY_PARSE_SOURCES_KEEP: &str = "parse_sources_keep";
 /// `RenderDocumentResponse.file_name`: the file a rendered set writes the document to, which the
 /// other documents' links to it name.
 pub const CAPABILITY_RENDER_DOCUMENT_FILE_NAME: &str = "render_document_file_name";

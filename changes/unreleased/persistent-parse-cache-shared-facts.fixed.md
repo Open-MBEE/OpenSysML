@@ -1,0 +1,1 @@
+- Restored analyses rebuild the workspace-wide validation facts their diagnostics read, so an edit that changes a shared fact in another document rechecks and reports the affected verdicts instead of leaving stale diagnostics.

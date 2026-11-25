@@ -14,8 +14,8 @@ import (
 // declares, spelled in the OpenSysML namespace by OSLC query text.
 var derivedProperties = []string{
 	query.PropertyID, query.PropertyType, query.PropertyMultiplicityLower, query.PropertyMultiplicityUpper,
-	query.PropertySymbolKind,
-	query.PropertyVerifyingCase,
+	query.PropertySymbolKind, query.PropertyAnnotations, query.PropertyVerifyingCase,
+	query.PropertyIsActive, query.PropertyBoundSubject,
 }
 
 // objectProjection is what a query over held objects reports when it selects
@@ -54,7 +54,10 @@ type Table struct {
 	derived   map[string]valueKind
 	// features are the metaclass features not yet classified, by name; a
 	// query classifies the ones it names, not the metamodel's thousands.
-	features        map[string][]*symbols.Symbol
+	features map[string][]*symbols.Symbol
+	// shadowed holds evaluator properties whose bare name a model feature
+	// declares: their type is decided by the row that resolves the name.
+	shadowed        map[string]bool
 	model           *semantics.Model
 	number, boolean *symbols.Symbol
 }
@@ -62,7 +65,8 @@ type Table struct {
 // NewTable reads the metaclass declarations of the model's library. A model
 // loaded without the library knows the evaluator's queryable properties alone.
 func NewTable(index *symbols.Index, model *semantics.Model) *Table {
-	t := &Table{metamodel: map[string]valueKind{}, derived: map[string]valueKind{}, features: map[string][]*symbols.Symbol{}}
+	t := &Table{metamodel: map[string]valueKind{}, derived: map[string]valueKind{},
+		features: map[string][]*symbols.Symbol{}, shadowed: map[string]bool{}}
 	for _, name := range query.PropertyNames() {
 		t.metamodel[name] = kindText
 	}
@@ -73,6 +77,8 @@ func NewTable(index *symbols.Index, model *semantics.Model) *Table {
 	t.derived[query.PropertyMultiplicityLower] = kindNumber
 	t.derived[query.PropertyMultiplicityUpper] = kindNumber
 	t.derived[query.PropertyVerifyingCase] = kindElement
+	t.derived[query.PropertyIsActive] = kindBoolean
+	t.derived[query.PropertyBoundSubject] = kindElement
 	t.metamodel[query.PropertyIsAbstract] = kindBoolean
 	t.metamodel[query.PropertyIsIndividual] = kindBoolean
 	for _, name := range []string{query.PropertyOwner, query.PropertyElementType, query.PropertyGeneral,
@@ -86,6 +92,15 @@ func NewTable(index *symbols.Index, model *semantics.Model) *Table {
 	t.number = index.LookupUnique("ScalarValues::Number")
 	t.boolean = index.LookupUnique("ScalarValues::Boolean")
 	t.features = queryexec.DeclaredMetaclassFeatures(index)
+	// The library's own isActive is the built-in, not a feature shadowing it.
+	for _, name := range []string{query.PropertyIsActive, query.PropertyAnnotations} {
+		for _, sym := range index.LookupUniqueCandidates(name) {
+			if sym.IsFeature() && !semantics.IsStateActivity(sym) {
+				t.shadowed[name] = true
+				break
+			}
+		}
+	}
 	return t
 }
 
@@ -145,8 +160,12 @@ func (t *Table) Metamodel(name string) bool {
 	return ok || declared
 }
 
-// Derived reports whether name is a property of the evaluator's own.
+// Derived reports whether name is a property of the evaluator's own, including
+// the unambiguous "@" spelling of one a model feature may shadow.
 func (t *Table) Derived(name string) bool {
+	if _, ok := query.BuiltinProperty(name); ok {
+		return true
+	}
 	_, ok := t.derived[name]
 	return ok
 }
@@ -172,6 +191,12 @@ func (t *Table) Known(name string) bool {
 // kind is what the property's declared types hold, kindUnknown where the
 // table does not know or the metaclasses disagree.
 func (t *Table) kind(name string) valueKind {
+	if canonical, ok := query.BuiltinProperty(name); ok {
+		if !query.IsBuiltinAlias(name) && t.shadowed[canonical] {
+			return kindUnknown
+		}
+		name = canonical
+	}
 	if kind, ok := t.derived[name]; ok {
 		return kind
 	}

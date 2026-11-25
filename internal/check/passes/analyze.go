@@ -35,6 +35,7 @@ func DefaultRegistry() *Registry {
 	reg.Register(RedefinitionDirectionPass{})
 	reg.Register(ElementFilterPass{})
 	reg.Register(ConstraintPass{})
+	reg.Register(StrictRedefinitionPass{})
 	reg.Register(VariantOwnerPass{})
 	reg.Register(VariantKindPass{})
 	reg.Register(document.QueryPass{})
