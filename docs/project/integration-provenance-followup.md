@@ -35,7 +35,9 @@ and no Java, so its expectation is re-recorded here with
 The movement is a larger compared input, not a change in how the two structures
 agree on existing models: no disagreement count fell, and no new disagreeing
 property appeared. The gate passes with the re-recorded expectation; the pilot
-baselines below remain blocked.
+baselines below remain blocked. After the later reviewer fixes were ported into
+this branch, the same test reproduced the re-recorded figures exactly, so the
+expectation needed no second re-record.
 
 Each source change recorded its own follow-up when one fixture was added:
 [the strict redefinition record](strict-redefinition-validation.md) and

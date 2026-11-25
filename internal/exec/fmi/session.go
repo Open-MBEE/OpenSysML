@@ -864,9 +864,8 @@ func (e *SessionRequiredError) Is(target error) bool { return target == ErrSessi
 // ErrSessionSeries is the typed error for a step combined with a trajectory.
 var ErrSessionSeries = errors.New("fmi session does not answer series")
 
-// SessionSeriesError refuses a step combined with fmi:samples,
-// fmi:sampleInterval or fmi:series:* outputs: a session answers scalar outputs
-// at each step, a trajectory is the one-shot runner's answer.
+// SessionSeriesError refuses a step combined with series variables: a session
+// answers scalars per step, a trajectory is the one-shot runner's answer.
 type SessionSeriesError struct{ Tool string }
 
 // Error names the reserved input and the conflicting series variables.
