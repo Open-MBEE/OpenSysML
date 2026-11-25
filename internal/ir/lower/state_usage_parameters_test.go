@@ -132,7 +132,7 @@ func TestToStateGraphUsageRedefinesConnection(t *testing.T) {
 	if len(graph.Connections) != 1 {
 		t.Fatalf("connections = %d, want the redefining one only", len(graph.Connections))
 	}
-	if got := graph.Connections[0].Ends; len(got) != 2 || got[0] != "a" || got[1] != "c" {
+	if got := graph.Connections[0].Ends; len(got) != 2 || got[0].Path != "a" || got[1].Path != "c" {
 		t.Fatalf("ends = %v, want [a c]", got)
 	}
 }
@@ -156,7 +156,7 @@ func TestToStateGraphUsageRedefinesConnectionWithoutEnds(t *testing.T) {
 	if len(graph.Connections) != 1 {
 		t.Fatalf("connections = %d, want the inherited route", len(graph.Connections))
 	}
-	if got := graph.Connections[0].Ends; len(got) != 2 || got[0] != "a" || got[1] != "b" {
+	if got := graph.Connections[0].Ends; len(got) != 2 || got[0].Path != "a" || got[1].Path != "b" {
 		t.Fatalf("ends = %v, want [a b]", got)
 	}
 }

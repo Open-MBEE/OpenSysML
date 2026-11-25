@@ -692,7 +692,7 @@ func TestActionGraphCheckStepRejectsRepeatedPins(t *testing.T) {
 		{
 			name: "connection",
 			configure: func(graph *ActionGraph, _ ast.Node) {
-				graph.Connections = []Connection{{Ends: []string{"a.out", "q.in"}}}
+				graph.Connections = []Connection{{Ends: []ConnectionEnd{{Path: "a.out"}, {Path: "q.in"}}}}
 			},
 		},
 		{
@@ -700,7 +700,7 @@ func TestActionGraphCheckStepRejectsRepeatedPins(t *testing.T) {
 			configure: func(graph *ActionGraph, _ ast.Node) {
 				outer := stepTestNode("outer")
 				graph.Enclosing = &ActionGraph{
-					Connections: []Connection{{Ends: []string{"outer.a.out", "q.in"}}},
+					Connections: []Connection{{Ends: []ConnectionEnd{{Path: "outer.a.out"}, {Path: "q.in"}}}},
 				}
 				graph.EnclosingNode = outer
 			},
