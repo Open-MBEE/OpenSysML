@@ -387,6 +387,7 @@
       },
       {
         "id": "n8",
+        "elementId": "FoldedPorts__Vehicle___403",
         "kind": "connect",
         "name": "",
         "type": "",
@@ -419,6 +420,7 @@
       },
       {
         "id": "n9",
+        "elementId": "FoldedPorts__Vehicle___404",
         "kind": "connect",
         "name": "",
         "type": "",
@@ -451,6 +453,7 @@
       },
       {
         "id": "n10",
+        "elementId": "FoldedPorts__Vehicle___405",
         "kind": "connect",
         "name": "",
         "type": "",
@@ -1223,6 +1226,7 @@
     ],
     "edges": [
       {
+        "elementId": "FoldedPorts__Vehicle___403",
         "from": "n5",
         "to": "n2",
         "label": "",
@@ -1253,6 +1257,7 @@
         }
       },
       {
+        "elementId": "FoldedPorts__Vehicle___404",
         "from": "n3",
         "to": "n7",
         "label": "",
@@ -1283,6 +1288,7 @@
         }
       },
       {
+        "elementId": "FoldedPorts__Vehicle___405",
         "from": "n1",
         "to": "n5",
         "label": "",
