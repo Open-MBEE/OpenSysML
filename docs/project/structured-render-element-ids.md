@@ -72,7 +72,10 @@ has the model and resolver, and stores it on the view model:
   including the clones a compartment fold makes, without touching immutable
   construction sites. The walk deduplicates node pointers: folded rows and
   expanded type trees share nodes between parents, so revisiting them makes
-  the walk exponential on large renderings.
+  the walk exponential on large renderings. Deriving a positional name for an
+  anonymous element uses the renderer's already-resolved resolver and model;
+  re-resolving the document there would change what later renderings draw and
+  break drawn-query parity.
 - **No new capability flag or version gate.** The protobuf field is additive;
   an older server simply omits it and a client sees an empty string. request
   fields, RPC names and written-form bytes are unchanged.
