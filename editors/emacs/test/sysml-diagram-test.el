@@ -12,6 +12,9 @@
 ;;; Code:
 
 (require 'ert)
+;; An Emacs without image support does not preload image.el, which would
+;; otherwise load mid-test and redefine the `create-image' a test stubs.
+(require 'image)
 (require 'sysml-diagram)
 (require 'sysml-lsp-test)
 
@@ -134,7 +137,6 @@ be in `special-mode' by then for a mode-based `display-buffer-alist'
 rule to place it.  The spec is built without librsvg, which a batch
 Emacs may lack."
   (let ((source (generate-new-buffer " *model*"))
-        (max-image-size limit)
         (window-frame (symbol-function 'window-frame))
         (frame-pixel-width (symbol-function 'frame-pixel-width))
         (frame-pixel-height (symbol-function 'frame-pixel-height)))
@@ -169,7 +171,9 @@ Emacs may lack."
                        (if (eq frame 'image-frame) 300 (funcall frame-pixel-height frame))))
                     ((symbol-function 'frame-scale-factor)
                      (lambda (&optional frame) (if (eq frame 'image-frame) 2.0 1.0))))
-            (sysml-diagram-image)
+            ;; An Emacs without image support does not declare it special.
+            (dlet ((max-image-size limit))
+              (sysml-diagram-image))
             (with-current-buffer (format "*SysML Image: %s*" (buffer-name source))
               (prog1 (get-text-property (point-min) 'display)
                 (kill-buffer)))))
