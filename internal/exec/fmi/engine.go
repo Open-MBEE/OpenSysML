@@ -31,6 +31,14 @@ const RunnerEnv = "OPENSYSML_FMI_RUNNER"
 // an engine listing reports it.
 const Exchange = "fmi/1"
 
+// SessionExchange names the fmi/2 session protocol: newline-delimited commands
+// on one process's pipes, additive to the one-shot Exchange.
+const SessionExchange = "fmi/2"
+
+// StepVariable is the reserved input naming a session's next time. Without it
+// a call stays a one-shot fmi/1 evaluation.
+const StepVariable = "fmi:stepTime"
+
 // runnerDescription names the process the engine needs, as Describe reports it.
 const runnerDescription = "the FMI runner OPENSYSML_FMI_RUNNER names"
 
@@ -136,15 +144,20 @@ func (e *VariableError) Is(target error) bool { return target == ErrVariable }
 
 // reservedInputs are the variables a call may name beside the FMU's own inputs.
 var reservedInputs = map[string]bool{
-	"fmi:startTime": true,
-	"fmi:stopTime":  true,
-	"fmi:stepSize":  true,
-	"fmi:tolerance": true,
+	"fmi:startTime":     true,
+	"fmi:stopTime":      true,
+	"fmi:stepSize":      true,
+	"fmi:tolerance":     true,
+	StepVariable:        true,
+	seriesSamplesInput:  true,
+	seriesIntervalInput: true,
 }
 
-// reservedOutputs are the variables a call may name beside the FMU's own outputs.
+// reservedOutputs are the scalar names a call may bind beside FMU outputs.
+// Trajectory names are checked in checkSeriesVariables.
 var reservedOutputs = map[string]bool{
-	"fmi:time": true,
+	"fmi:time":       true,
+	seriesTimeOutput: true,
 }
 
 // Covers takes a Compute question whose call names the fmi tool, the runner is
@@ -160,6 +173,14 @@ func (e *engine) Covers(_ *analysis.Model, q analysis.Question) analysis.Coverag
 	if call.ToolName != "fmi" {
 		return analysis.Coverage{Refusal: &analysis.WrongToolError{Engine: e.Name(), Tool: call.ToolName}}
 	}
+	// The combination is refused by both surfaces, so name it before the
+	// step-only short-circuit chooses the generic session error.
+	if namesStep(call) && namesSeries(call) {
+		return analysis.Coverage{Refusal: &SessionSeriesError{Tool: e.Name()}}
+	}
+	if namesStep(call) {
+		return analysis.Coverage{Refusal: &SessionRequiredError{Tool: e.Name()}}
+	}
 	if _, err := e.Process(); err != nil {
 		return analysis.Coverage{Refusal: err}
 	}
@@ -168,6 +189,9 @@ func (e *engine) Covers(_ *analysis.Model, q analysis.Question) analysis.Coverag
 		return analysis.Coverage{Refusal: err}
 	}
 	if err := checkVariables(call, d); err != nil {
+		return analysis.Coverage{Refusal: err}
+	}
+	if err := checkSeriesVariables(call, d); err != nil {
 		return analysis.Coverage{Refusal: err}
 	}
 	return analysis.Coverage{Covered: true}
@@ -272,7 +296,7 @@ func checkVariables(call *runtime.ToolCall, d *Description) error {
 		}
 	}
 	for _, out := range call.Outputs {
-		if reservedOutputs[out.Variable] {
+		if isSeriesOutput(out.Variable) || reservedOutputs[out.Variable] {
 			continue
 		}
 		v, ok := d.Variable(out.Variable)
@@ -324,6 +348,12 @@ func (e *engine) Run(ctx context.Context, _ *analysis.Model, q analysis.Question
 		return analysis.Result{}, &analysis.MalformedQuestionError{Kind: q.Kind, Missing: "a Compute with a Call"}
 	}
 	call := q.Compute.Call
+	if namesStep(call) && namesSeries(call) {
+		return analysis.Result{}, &SessionSeriesError{Tool: e.Name()}
+	}
+	if namesStep(call) {
+		return analysis.Result{}, &SessionRequiredError{Tool: e.Name()}
+	}
 	path, err := e.look()
 	if err != nil {
 		return analysis.Result{}, &analysis.ProcessAbsentError{Engine: e.Name(), Process: runnerDescription, Err: err}
@@ -335,7 +365,10 @@ func (e *engine) Run(ctx context.Context, _ *analysis.Model, q analysis.Question
 	if err := checkVariables(call, d); err != nil {
 		return analysis.Result{}, err
 	}
-	request, err := requestOf(call, d, fmu)
+	if err := checkSeriesVariables(call, d); err != nil {
+		return analysis.Result{}, err
+	}
+	request, plan, err := requestOf(call, d, fmu)
 	if err != nil {
 		return analysis.Result{}, err
 	}
@@ -351,7 +384,7 @@ func (e *engine) Run(ctx context.Context, _ *analysis.Model, q analysis.Question
 	if err != nil {
 		return failed(err)
 	}
-	reply, err := replyOf(call, d, ex.stdout, ex.stderr)
+	reply, err := replyOf(call, d, plan, ex.stdout, ex.stderr)
 	if err != nil {
 		return failed(err)
 	}
@@ -377,6 +410,22 @@ func (e *engine) Run(ctx context.Context, _ *analysis.Model, q analysis.Question
 	}, nil
 }
 
+// runnerEnv is the minimal environment both the one-shot and the session
+// process get: the names analysis passes through, with the values actually set.
+func runnerEnv() ([]string, error) {
+	env, err := analysis.ToolEnvNames()
+	if err != nil {
+		return nil, err
+	}
+	list := make([]string, 0, len(env))
+	for _, name := range env {
+		if value, set := os.LookupEnv(name); set {
+			list = append(list, name+"="+value)
+		}
+	}
+	return list, nil
+}
+
 // execution is what one run of the runner produced.
 type execution struct {
 	stdout, stderr []byte
@@ -387,15 +436,9 @@ func (e *engine) invoke(ctx context.Context, runner string, request []byte, time
 	tctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	cmd := exec.CommandContext(tctx, runner) // #nosec G204 -- the runner is the operator's grant
-	env, err := analysis.ToolEnvNames()
+	list, err := runnerEnv()
 	if err != nil {
 		return nil, &runtime.ToolError{Tool: "fmi", Kind: runtime.ToolProcessFailed, Detail: err.Error()}
-	}
-	list := make([]string, 0, len(env))
-	for _, name := range env {
-		if value, set := os.LookupEnv(name); set {
-			list = append(list, name+"="+value)
-		}
 	}
 	cmd.Env = list
 	cmd.Stdin = strings.NewReader(string(request))
