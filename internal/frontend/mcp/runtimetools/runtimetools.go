@@ -101,16 +101,17 @@ func (g *group) resolve(ctx context.Context, in ModelInput) (model, error) {
 	case !given:
 		return model{}, argumentError("a model is needed: modelHash, or paths and/or sources to parse")
 	}
-	resp, err := g.parse(ctx, in, "")
+	resp, err := g.parse(ctx, in, "", nil)
 	if err != nil {
 		return model{}, err
 	}
 	return model{hash: resp.GetModelHash(), parsed: resp}, nil
 }
 
-// parse parses in's documents as one model, relative to base when given.
-func (g *group) parse(ctx context.Context, in ModelInput, base string) (*pb.ParseSourcesResponse, error) {
-	req := &pb.ParseSourcesRequest{StrictConformance: in.StrictConformance, BaseModelHash: base}
+// parse parses in's documents as one model, relative to base when given. A
+// stated keep is passed to ParseSources, which refuses it without its capability.
+func (g *group) parse(ctx context.Context, in ModelInput, base string, keep *bool) (*pb.ParseSourcesResponse, error) {
+	req := &pb.ParseSourcesRequest{StrictConformance: in.StrictConformance, BaseModelHash: base, Keep: keep}
 	for _, path := range in.Paths {
 		if strings.TrimSpace(path) == "" {
 			return nil, argumentError("paths must not hold an empty path")
@@ -134,12 +135,14 @@ func (g *group) parse(ctx context.Context, in ModelInput, base string) (*pb.Pars
 			Name:     src.Path,
 		})
 	}
-	if single, ok := singleFileRequest(req); ok && !g.svc.Supports(sysmlgrpc.CapabilityParseSources) {
-		resp, err := g.svc.ParseFile(ctx, single)
-		if err != nil {
-			return nil, toolError(err)
+	if keep == nil {
+		if single, ok := singleFileRequest(req); ok && !g.svc.Supports(sysmlgrpc.CapabilityParseSources) {
+			resp, err := g.svc.ParseFile(ctx, single)
+			if err != nil {
+				return nil, toolError(err)
+			}
+			return parseFileAsSources(resp), nil
 		}
-		return parseFileAsSources(resp), nil
 	}
 	resp, err := g.svc.ParseSources(ctx, req)
 	if err != nil {

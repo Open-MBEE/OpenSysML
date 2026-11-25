@@ -321,6 +321,7 @@ type parseOptions struct {
 	language string
 	strict   bool
 	base     string
+	keep     *bool
 }
 
 // WithBaseModel relates ParseDocuments to a previous model of the same documents, so
@@ -333,6 +334,12 @@ func WithBaseModel(base *Model) ParseOption {
 		}
 		o.base = base.Hash
 	}
+}
+
+// WithKeep(false) answers a transient parse without evicting or promoting a cached
+// model; omitting it keeps the model. Requires parse_sources_keep.
+func WithKeep(keep bool) ParseOption {
+	return func(o *parseOptions) { o.keep = &keep }
 }
 
 // WithLanguage names the notation of inline content: LanguageSysML (the
@@ -496,10 +503,16 @@ func (c *client) ParseDocuments(ctx context.Context, documents []Document, opts 
 			return nil, err
 		}
 	}
+	if options.keep != nil {
+		if err := c.requireCapabilities(ctx, CapabilityParseSourcesKeep); err != nil {
+			return nil, err
+		}
+	}
 	req := &pb.ParseSourcesRequest{
 		Documents:         make([]*pb.SourceDocument, 0, len(documents)),
 		StrictConformance: options.strict,
 		BaseModelHash:     options.base,
+		Keep:              options.keep,
 	}
 	for _, doc := range documents {
 		pbDoc := &pb.SourceDocument{}
@@ -554,6 +567,12 @@ func parseRequest(opts []ParseOption) (*pb.ParseFileRequest, error) {
 		return nil, &StatusError{
 			Code:    CodeInvalidArgument,
 			Message: "WithBaseModel applies to ParseDocuments: a model of one document has no documents to relate",
+		}
+	}
+	if options.keep != nil {
+		return nil, &StatusError{
+			Code:    CodeInvalidArgument,
+			Message: "WithKeep applies to ParseDocuments: a model of one document is always kept",
 		}
 	}
 	return &pb.ParseFileRequest{

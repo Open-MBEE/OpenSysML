@@ -991,6 +991,9 @@ message ParseSourcesRequest {
   // typically the one its previous ParseSources returned. The answer's affected
   // is relative to it. Reported as the "parse_sources_affected" capability.
   string base_model_hash = 3;
+  // False answers the parse without keeping the model, so a transient union evicts nothing.
+  // Absent keeps it; stating the field requires "parse_sources_keep".
+  optional bool keep = 4;
 }
 
 // ParseSourcesResponse contains the parsed model, whose documents are one model

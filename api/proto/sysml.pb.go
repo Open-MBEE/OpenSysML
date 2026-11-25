@@ -4412,6 +4412,9 @@ type ParseSourcesRequest struct {
 	// typically the one its previous ParseSources returned. The answer's affected
 	// is relative to it. Reported as the "parse_sources_affected" capability.
 	BaseModelHash string `protobuf:"bytes,3,opt,name=base_model_hash,json=baseModelHash,proto3" json:"base_model_hash,omitempty"`
+	// False answers the parse without keeping the model, so a transient union evicts nothing.
+	// Absent keeps it; stating the field requires "parse_sources_keep".
+	Keep          *bool `protobuf:"varint,4,opt,name=keep,proto3,oneof" json:"keep,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4465,6 +4468,13 @@ func (x *ParseSourcesRequest) GetBaseModelHash() string {
 		return x.BaseModelHash
 	}
 	return ""
+}
+
+func (x *ParseSourcesRequest) GetKeep() bool {
+	if x != nil && x.Keep != nil {
+		return *x.Keep
+	}
+	return false
 }
 
 // ParseSourcesResponse contains the parsed model, whose documents are one model
@@ -20543,11 +20553,13 @@ const file_sysml_proto_rawDesc = "" +
 	"\acontent\x18\x02 \x01(\tH\x00R\acontent\x12\x1a\n" +
 	"\blanguage\x18\x03 \x01(\tR\blanguage\x12\x12\n" +
 	"\x04name\x18\x04 \x01(\tR\x04nameB\b\n" +
-	"\x06source\"\xa1\x01\n" +
+	"\x06source\"\xc3\x01\n" +
 	"\x13ParseSourcesRequest\x123\n" +
 	"\tdocuments\x18\x01 \x03(\v2\x15.sysml.SourceDocumentR\tdocuments\x12-\n" +
 	"\x12strict_conformance\x18\x02 \x01(\bR\x11strictConformance\x12&\n" +
-	"\x0fbase_model_hash\x18\x03 \x01(\tR\rbaseModelHash\"\xc5\x01\n" +
+	"\x0fbase_model_hash\x18\x03 \x01(\tR\rbaseModelHash\x12\x17\n" +
+	"\x04keep\x18\x04 \x01(\bH\x00R\x04keep\x88\x01\x01B\a\n" +
+	"\x05_keep\"\xc5\x01\n" +
 	"\x14ParseSourcesResponse\x12\x1d\n" +
 	"\n" +
 	"model_hash\x18\x01 \x01(\tR\tmodelHash\x12'\n" +
@@ -22636,6 +22648,7 @@ func file_sysml_proto_init() {
 		(*SourceDocument_FilePath)(nil),
 		(*SourceDocument_Content)(nil),
 	}
+	file_sysml_proto_msgTypes[41].OneofWrappers = []any{}
 	file_sysml_proto_msgTypes[51].OneofWrappers = []any{
 		(*ElementPropertyValue_Element)(nil),
 		(*ElementPropertyValue_StringValue)(nil),

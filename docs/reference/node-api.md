@@ -370,6 +370,14 @@ as for a set it has not seen before; a base the service no longer holds is not a
 Needs the `parse_sources_affected` capability, refused as `MissingCapabilityError` before
 the call.
 
+### Transient parses
+
+`connection.parseSources(documents, { keep: false })` answers the parse without keeping the
+model in the service's cache, so a derived union read for its results neither evicts nor
+promotes a model the caller holds. The answer is otherwise the one a kept parse gives; needs
+the `parse_sources_keep` capability, refused as `MissingCapabilityError` before the call when
+absent.
+
 ## Conformance
 
 `npm run conformance -- --allow-skips --report report.json` runs the

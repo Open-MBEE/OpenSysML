@@ -83,6 +83,7 @@ const CAPABILITY_CONVERT_LIBRARY_STUBS = "convert_library_stubs"
 const CAPABILITY_CONVERT_INHERITED_MEMBERS = "convert_inherited_members"
 const CAPABILITY_CONVERT_CHECK_DIAGNOSTICS = "convert_check_diagnostics"
 const CAPABILITY_PARSE_SOURCES_AFFECTED = "parse_sources_affected"
+const CAPABILITY_PARSE_SOURCES_KEEP = "parse_sources_keep"
 const CAPABILITY_RENDER_DOCUMENT_FILE_NAME = "render_document_file_name"
 
 """The version and advertised capabilities reported by a sysml-grpc service."""

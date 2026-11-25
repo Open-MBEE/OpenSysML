@@ -96,6 +96,9 @@ public final class Capabilities {
   /** A parse names the documents whose results may differ from those of {@code base_model_hash}. */
   public static final String PARSE_SOURCES_AFFECTED = "parse_sources_affected";
 
+  /** A parse can answer without keeping the model, so a transient union evicts nothing. */
+  public static final String PARSE_SOURCES_KEEP = "parse_sources_keep";
+
   /** A rendered document names the file a rendered set writes it to. */
   public static final String RENDER_DOCUMENT_FILE_NAME = "render_document_file_name";
 

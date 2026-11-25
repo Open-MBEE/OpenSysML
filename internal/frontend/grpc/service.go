@@ -288,6 +288,10 @@ const CapabilityConvertCheckDiagnostics = "convert_check_diagnostics"
 // the base model's, so a client re-reads only those after an edit.
 const CapabilityParseSourcesAffected = "parse_sources_affected"
 
+// CapabilityParseSourcesKeep names ParseSourcesRequest.keep: a parse the service
+// answers without keeping the model, so it cannot evict a model the caller holds.
+const CapabilityParseSourcesKeep = "parse_sources_keep"
+
 // CapabilityRenderDocumentFileName names RenderDocumentResponse.file_name:
 // the file a rendered set writes the document to, which the other
 // documents' links to it name. Without it the field is empty.
@@ -460,6 +464,7 @@ var capabilities = []string{
 	CapabilityConvertInheritedMembers,
 	CapabilityConvertCheckDiagnostics,
 	CapabilityParseSourcesAffected,
+	CapabilityParseSourcesKeep,
 	CapabilityRenderDocumentFileName,
 	CapabilityOrderDependence,
 	CapabilityVerdictNotes,
@@ -554,6 +559,9 @@ type Service struct {
 	// records persists what the analysis of a model reported, for the next process
 	// that parses it (modelrecord.go); nil holds nothing across processes.
 	records *libs.Cache
+	// parseSource is the single seam to the parser (parsecache.go). Tests
+	// replace it to count the parses a request makes.
+	parseSource func(*source.SourceFile) parsedSource
 }
 
 // Option adjusts how NewService builds a service.
@@ -565,8 +573,8 @@ type serviceOptions struct {
 	records     *libs.Cache
 }
 
-// WithRecordCache has the service read a parsed model's analysis from cache when one is
-// recorded there, and record what it analyzes itself; a nil cache is none.
+// WithRecordCache has the service restore parsed trees and analysis from cache
+// when recorded there, and record what it parses; a nil cache is none.
 func WithRecordCache(cache *libs.Cache) Option {
 	return func(o *serviceOptions) { o.records = cache }
 }
@@ -669,6 +677,7 @@ func newService(cacheSize int, version string, opts []Option) (*Service, error) 
 		version:        version,
 		capabilities:   availability,
 		records:        options.records,
+		parseSource:    parseSourceFile,
 	}, nil
 }
 
@@ -905,6 +914,13 @@ func (s *Service) ParseSources(ctx context.Context, req *pb.ParseSourcesRequest)
 			return nil, err
 		}
 	}
+	// A service that predates the field would keep the model, which is exactly
+	// what a transient caller asked it not to do: refuse rather than evict.
+	if req.Keep != nil {
+		if err := s.requireCapability(CapabilityParseSourcesKeep); err != nil {
+			return nil, err
+		}
+	}
 
 	inputs := make([]sourceInput, 0, len(req.Documents))
 	named := make(map[string]int, len(req.Documents))
@@ -925,7 +941,8 @@ func (s *Service) ParseSources(ctx context.Context, req *pb.ParseSourcesRequest)
 		inputs = append(inputs, input)
 	}
 
-	modelHash, model, err := s.parseModel(ctx, inputs, diag.ConformanceModeOf(req.StrictConformance), true)
+	modelHash, model, err := s.parseModelKeeping(ctx, inputs, diag.ConformanceModeOf(req.StrictConformance),
+		true, req.Keep == nil || req.GetKeep())
 	if err != nil {
 		return nil, err
 	}
@@ -1027,8 +1044,8 @@ func (s *Service) parseModel(ctx context.Context, inputs []sourceInput, mode dia
 	return s.parseModelKeeping(ctx, inputs, mode, incremental, true)
 }
 
-// parseModelKeeping is parseModel, caching the model only when keep is set: a
-// model staged on the way to another is not kept, so it evicts nothing.
+// parseModelKeeping is parseModel, but when keep is unset it neither inserts
+// into the parsed-model cache nor looks up an entry there.
 func (s *Service) parseModelKeeping(ctx context.Context, inputs []sourceInput, mode diag.ConformanceMode, incremental, keep bool) (string, *CachedModel, error) {
 	store := func(hash string, model *CachedModel) *CachedModel {
 		if !keep {
@@ -1057,8 +1074,10 @@ func (s *Service) parseModelKeeping(ctx context.Context, inputs []sourceInput, m
 		}
 	}
 	modelHash := key.sum()
-	if cached, ok := s.cache.Get(modelHash); ok {
-		return modelHash, cached, nil
+	if keep {
+		if cached, ok := s.cache.Get(modelHash); ok {
+			return modelHash, cached, nil
+		}
 	}
 	// A done ctx stops the parse at its next document or analysis pass, as its
 	// error; what was parsed so far is dropped, never cached.
@@ -1066,8 +1085,8 @@ func (s *Service) parseModelKeeping(ctx context.Context, inputs []sourceInput, m
 		return "", nil, err
 	}
 
-	// A document set parsed before is answered from its lineage: only what
-	// changed is parsed and analyzed again (lineage.go).
+	// A set parsed before is answered from its lineage: only changed documents
+	// are parsed again (lineage.go), which a restored set still primes.
 	if incremental {
 		model, ok, err := s.parseFromLineage(ctx, inputs, mode)
 		if err != nil {
@@ -1076,6 +1095,14 @@ func (s *Service) parseModelKeeping(ctx context.Context, inputs []sourceInput, m
 		if ok {
 			return modelHash, store(modelHash, model), nil
 		}
+	}
+
+	// Records another process wrote answer a set the lineage did not, without a
+	// parse and without running the passes; a miss falls through.
+	if model, ok, err := s.restoreFromDisk(ctx, inputs, mode, modelHash); err != nil {
+		return "", nil, err
+	} else if ok {
+		return modelHash, store(modelHash, model), nil
 	}
 
 	// Take an index carrying the standard library, which type resolution needs:
@@ -1090,15 +1117,14 @@ func (s *Service) parseModelKeeping(ctx context.Context, inputs []sourceInput, m
 		if err := ctx.Err(); err != nil {
 			return "", nil, err
 		}
-		srcFile := source.NewWithKind(input.name, []byte(input.content), input.kind)
-		p := parser.New(srcFile)
-		root := p.ParseFile()
-		idx.AddDocumentWithKind(input.name, root, input.kind)
-		if len(p.Diagnostics) > 0 {
+		// A document whose bytes a record holds is decoded here, so an edit
+		// to one document in a set parses only that one (parsecache.go).
+		doc, _ := s.parseDocument(input)
+		idx.AddDocumentWithKind(input.name, doc.Root, input.kind)
+		if len(doc.ParseDiags) > 0 {
 			parsedClean = false
 		}
-		documents = append(documents, newCachedDocument(root, srcFile, p.Diagnostics,
-			parser.AsDiagnostics(p.Diagnostics, p.Warnings), input.warnings))
+		documents = append(documents, doc)
 	}
 
 	// Registers what a wildcard import re-exports, so a qualified name reaches a

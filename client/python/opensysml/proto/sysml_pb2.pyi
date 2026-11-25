@@ -823,14 +823,16 @@ class SourceDocument(_message.Message):
     def __init__(self, file_path: _Optional[str] = ..., content: _Optional[str] = ..., language: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...
 
 class ParseSourcesRequest(_message.Message):
-    __slots__ = ("documents", "strict_conformance", "base_model_hash")
+    __slots__ = ("documents", "strict_conformance", "base_model_hash", "keep")
     DOCUMENTS_FIELD_NUMBER: _ClassVar[int]
     STRICT_CONFORMANCE_FIELD_NUMBER: _ClassVar[int]
     BASE_MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
+    KEEP_FIELD_NUMBER: _ClassVar[int]
     documents: _containers.RepeatedCompositeFieldContainer[SourceDocument]
     strict_conformance: bool
     base_model_hash: str
-    def __init__(self, documents: _Optional[_Iterable[_Union[SourceDocument, _Mapping]]] = ..., strict_conformance: _Optional[bool] = ..., base_model_hash: _Optional[str] = ...) -> None: ...
+    keep: bool
+    def __init__(self, documents: _Optional[_Iterable[_Union[SourceDocument, _Mapping]]] = ..., strict_conformance: _Optional[bool] = ..., base_model_hash: _Optional[str] = ..., keep: _Optional[bool] = ...) -> None: ...
 
 class ParseSourcesResponse(_message.Message):
     __slots__ = ("model_hash", "roots", "diagnostics", "error", "affected")

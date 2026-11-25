@@ -186,3 +186,33 @@ fn a_base_model_names_the_documents_an_edit_reaches() {
         ["affected-lib.sysml", "affected-top.sysml"]
     );
 }
+
+#[test]
+fn a_transient_parse_answers_the_same_model_without_keeping_it() {
+    let Some(connection) = service_or_skip() else {
+        return;
+    };
+    let documents = vec![SourceDocument::inline("a.sysml", SOURCE)];
+    let kept = connection
+        .parse_sources(&documents, &SourcesOptions::default())
+        .unwrap();
+    let transient = connection
+        .parse_sources(
+            &documents,
+            &SourcesOptions {
+                keep: Some(false),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert_eq!(transient.hash(), kept.hash());
+    let messages = |model: &opensysml::Model| {
+        model
+            .diagnostics()
+            .iter()
+            .map(|d| (d.severity.clone(), d.message.clone(), d.code.clone()))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(messages(&transient), messages(&kept));
+    assert!(transient.ok());
+}
