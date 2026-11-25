@@ -80,6 +80,10 @@ const RenderDepthCapability = "openSysmlRenderDepth"
 // each node drawn that way `included`.
 const RenderIncludeCapability = "openSysmlRenderInclude"
 
+// RenderNodeShapeCapability is advertised when the render result carries each
+// node's notation shape, so a canvas needs no written form to draw its glyph.
+const RenderNodeShapeCapability = "openSysmlRenderNodeShape"
+
 // renderElementNames lists the optional notation elements, then "all".
 func renderElementNames() []string {
 	names := make([]string, 0, len(view.Elements())+1)
@@ -226,6 +230,7 @@ type RenderNode struct {
 	Arrow           string          `json:"arrow,omitempty"`
 	Parent          string          `json:"parent,omitempty"`
 	Compartment     string          `json:"compartment,omitempty"`
+	Shape           string          `json:"shape,omitempty"`
 	Fill            string          `json:"fill,omitempty"`
 	Border          string          `json:"border,omitempty"`
 	Style           *RenderStyle    `json:"style,omitzero"`
@@ -585,6 +590,7 @@ func (s *Server) renderNodes(out *RenderResult, snapshot *model.Snapshot, nodes 
 			Arrow:           node.Arrow,
 			Parent:          node.Parent,
 			Compartment:     node.Compartment,
+			Shape:           string(node.Shape),
 			Fill:            fills[node.ID].Fill,
 			Border:          fills[node.ID].Border,
 			Style:           wireStyle(node.Style),

@@ -17885,7 +17885,10 @@ type RenderNode struct {
 	Parallel bool `protobuf:"varint,17,opt,name=parallel,proto3" json:"parallel,omitempty"`
 	// The element's EffectiveID, the id a written form's {id} anchor carries.
 	// Empty when no element declares it; `id` is local to this rendering.
-	ElementId     string `protobuf:"bytes,18,opt,name=element_id,json=elementId,proto3" json:"element_id,omitempty"`
+	ElementId string `protobuf:"bytes,18,opt,name=element_id,json=elementId,proto3" json:"element_id,omitempty"`
+	// The notation outline derived from the node's metaclass: "rectangle", "rounded",
+	// "stadium", "actor", "note", "diamond", "circle", "ring", "cross", "bar", "history", "item".
+	Shape         string `protobuf:"bytes,19,opt,name=shape,proto3" json:"shape,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -18042,6 +18045,13 @@ func (x *RenderNode) GetParallel() bool {
 func (x *RenderNode) GetElementId() string {
 	if x != nil {
 		return x.ElementId
+	}
+	return ""
+}
+
+func (x *RenderNode) GetShape() string {
+	if x != nil {
+		return x.Shape
 	}
 	return ""
 }
@@ -21701,7 +21711,7 @@ const file_sysml_proto_rawDesc = "" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12\x18\n" +
 	"\aexposes\x18\x03 \x03(\tR\aexposes\x12\x18\n" +
 	"\afilters\x18\x04 \x03(\tR\afilters\x12 \n" +
-	"\vannotations\x18\x05 \x03(\tR\vannotations\"\x9e\x04\n" +
+	"\vannotations\x18\x05 \x03(\tR\vannotations\"\xb4\x04\n" +
 	"\n" +
 	"RenderNode\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
@@ -21723,7 +21733,8 @@ const file_sysml_proto_rawDesc = "" +
 	"\x05arrow\x18\x10 \x01(\tR\x05arrow\x12\x1a\n" +
 	"\bparallel\x18\x11 \x01(\bR\bparallel\x12\x1d\n" +
 	"\n" +
-	"element_id\x18\x12 \x01(\tR\telementId\"\x9f\x01\n" +
+	"element_id\x18\x12 \x01(\tR\telementId\x12\x14\n" +
+	"\x05shape\x18\x13 \x01(\tR\x05shape\"\x9f\x01\n" +
 	"\n" +
 	"RenderPort\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +

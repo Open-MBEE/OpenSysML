@@ -58,6 +58,35 @@ test("drawCanvas draws every node as a group carrying its rendering id, movable 
   assert.equal(svg.querySelector('g[data-opensysml-id="d"] text'), null);
 });
 
+// The structured shape drives the glyph: a use case is a stadium and an
+// actor is the UML stick figure, without reading the node's written form.
+test("drawCanvas draws the notation glyphs the server reports", () => {
+  const shaped: RenderResult = {
+    ...result,
+    nodes: [
+      node("uc", "Inspection", { kind: "case def", shape: "stadium" }),
+      node("driver", "driver", { kind: "actor", shape: "actor" }),
+      node("req", "Ready", { kind: "requirement def", shape: "rectangle" }),
+    ],
+    edges: [],
+  };
+  const svg = drawCanvas(layoutCanvas(shaped));
+  const outline = (id: string): Element => svg.querySelector(`g[data-opensysml-id="${id}"] > .shape`)!;
+  const stadium = outline("uc");
+  assert.equal(stadium.tagName.toLowerCase(), "rect");
+  assert.equal(stadium.classList.contains("stadium"), true);
+  assert.equal(Number(stadium.getAttribute("rx")), Number(stadium.getAttribute("height")) / 2);
+  const actor = outline("driver");
+  assert.equal(actor.tagName.toLowerCase(), "g");
+  assert.equal(actor.classList.contains("actor"), true);
+  assert.equal(actor.querySelectorAll("circle.shape").length, 1);
+  assert.equal(actor.querySelectorAll("line.shape").length, 4);
+  const requirement = outline("req");
+  assert.equal(requirement.tagName.toLowerCase(), "rect");
+  assert.equal(requirement.classList.contains("definition"), true);
+  assert.equal(requirement.hasAttribute("rx"), false);
+});
+
 test("liftNode floats the dragged subtree over a canvas that stays put, drawn last", () => {
   const layout = layoutCanvas(result);
   const svg = drawCanvas(layout);

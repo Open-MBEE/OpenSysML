@@ -57,6 +57,11 @@ func (s *Service) RenderView(ctx context.Context, req *pb.RenderViewRequest) (*p
 	if !s.capabilities.has(CapabilityQueryResultView) {
 		response.Header = nil
 	}
+	if !s.capabilities.has(CapabilityRenderNodeShape) {
+		for _, node := range response.Nodes {
+			node.Shape = ""
+		}
+	}
 	if documentAsked && len(rendering.Header) > 0 {
 		if err := s.requireCapability(CapabilityQueryResultView); err != nil {
 			return nil, err
@@ -159,7 +164,7 @@ func renderViewData(model *CachedModel, data view.Data) *pb.RenderViewResponse {
 			Id: node.ID, ElementId: node.ElementID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
 			Type: node.Type, Detail: node.Detail, Text: node.Text, StandIn: node.StandIn,
 			Parent: node.Parent, Compartment: node.Compartment, Origin: origins.span(node.Origin), Inherited: node.Inherited,
-			Arrow: node.Arrow, Parallel: node.Parallel,
+			Arrow: node.Arrow, Parallel: node.Parallel, Shape: string(node.Shape),
 		}
 		for _, port := range node.Ports {
 			item.Ports = append(item.Ports, &pb.RenderPort{

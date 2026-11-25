@@ -88,6 +88,10 @@ CAPABILITY_RENDER_VIEW = "render_view"
 #: ``RenderViewResponse.text``. Without it the service drops them unanswered.
 CAPABILITY_RENDER_VIEW_FORM = "render_view_form"
 
+#: ``RenderNode.shape`` carries the notation outline of a rendered node, so a
+#: canvas draws case, requirement and actor glyphs without parsing a form.
+CAPABILITY_RENDER_NODE_SHAPE = "render_node_shape"
+
 #: The ``ExportGraphs`` RPC, which exports the lowered graph of an action or
 #: state machine as the canonical ``graphs:1`` JSON an external engine is sent.
 CAPABILITY_EXPORT_GRAPHS = "export_graphs"

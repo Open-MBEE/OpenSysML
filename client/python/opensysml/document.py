@@ -290,6 +290,9 @@ class RenderNode:
     #: The declared element's EffectiveID, the id a written form's ``{id}`` link
     #: anchor carries; empty when no element declares the node.
     element_id: str = ""
+    #: The notation outline derived from the node's metaclass, empty when the
+    #: server withholds the render_node_shape capability.
+    shape: str = ""
 
 
 @dataclass(frozen=True)
@@ -433,6 +436,7 @@ def render_view_result(response):
             inherited=node.inherited,
             parallel=node.parallel,
             element_id=node.element_id,
+            shape=node.shape,
         )
         for node in response.nodes
     )

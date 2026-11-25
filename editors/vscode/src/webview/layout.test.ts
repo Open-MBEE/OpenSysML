@@ -57,6 +57,7 @@ import {
   reattachRoute,
   removedWaypoint,
   shapeOf,
+  shapeOfNode,
   steerable,
   type Box,
   type Side,
@@ -1096,6 +1097,9 @@ test("labelLines and shapeOf follow the graphical notation", () => {
   assert.equal(shapeOf("decision"), "diamond");
   assert.equal(shapeOf("deep history"), "history");
   assert.equal(shapeOf("start"), "point");
+  // A server reporting a shape wins; one that does not falls back to the kind.
+  assert.equal(shapeOfNode({ id: "a", kind: "case def", shape: "stadium", name: "", type: "", detail: "", ports: [] }), "stadium");
+  assert.equal(shapeOfNode({ id: "a", kind: "fork", shape: "", name: "", type: "", detail: "", ports: [] }), "bar");
 });
 
 test("anchor leaves a box on the border toward the point", () => {
