@@ -1,0 +1,48 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="ModelicaMapping" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ScalarValues" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="metadata" abstract=false variation=false name="EquationMapping"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="body" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=String
+                (*ast.QualifiedName))))))))
+  (Membership visibility="default"
+    (Package name="Steam" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ScalarValues" filtered=false)
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ModelicaMapping" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="SteamGenerator"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="state_a" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="m_flow" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))
+              (LiteralReal value="2.0")))
+          (Membership visibility="default"
+            (Usage kind="port" name="port_a" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))
+          (Membership visibility="default"
+            (Usage kind="port" name="port_b" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))
+          (Membership visibility="default"
+            (Usage kind="constraint" name="steamEquations" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Membership visibility="default"
+                (PrefixMetadata type="EquationMapping"
+                  (Membership visibility="default"
+                    (Usage kind="attribute" name="body" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                      (LiteralString value="\"Medium.temperature(state_a)\"")))))
+              (Membership visibility="default"
+                (PrefixMetadata type="EquationMapping"
+                  (Membership visibility="default"
+                    (Usage kind="attribute" name="body" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                      (LiteralString value="\"inStream(port_a.h_outflow)\"")))))
+              (Membership visibility="default"
+                (PrefixMetadata type="EquationMapping"
+                  (Membership visibility="default"
+                    (Usage kind="attribute" name="body" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                      (LiteralString value="\"noEvent(if abs(m_flow) > 1.0 then m_flow else 1.0)\"")))))
+              (ConstraintMember assert=true negated=false
+                (OperatorExpr operator=">"
+                  (FeatureReference name="m_flow")
+                  (LiteralReal value="0.0"))))))))))
