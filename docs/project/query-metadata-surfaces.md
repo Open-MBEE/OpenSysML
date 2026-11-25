@@ -139,10 +139,16 @@ What was still missing at that baseline:
   under a bare built-in name, the translator defers type validation for that
   name to the row reader, so a filter on the feature is not judged by the
   built-in's type. An explicit built-in spelling keeps Boolean validation even
-  when the bare name is shadowed. A filter defers only where a row reads the
-  feature: it skips a built-in row whose value cannot take the operand instead
-  of failing the whole query, but reports an invalid operand where no row
-  shadows the name.
+  when the bare name is shadowed. A filter defers only the values the evaluator
+  itself read, and it decides whether the name is shadowed from the rows the
+  query started with, so reversing the terms of an `and` cannot change the
+  verdict. It skips an incompatible built-in row instead of failing the whole
+  query, including when the shadow is declared by a state, verdict, event or
+  object row's declaration. A computed column named like a built-in is compared
+  from its cells: an incompatible cell does not hide a matching one, and a
+  column with no comparable cell reports the operator error. A value read from
+  a declared feature and an explicitly selected `@` built-in always report an
+  invalid operand rather than being silently skipped.
 - **One activity index per execution, not one session walk per state.** The
   first read walks the session once, charges that walk to the visit budget once
   and merges the active declarations of every machine. Invoked document queries
@@ -206,6 +212,10 @@ this change.
 | A bare `isActive` filter matches a row's string feature while skipping a state's Boolean activity row, and an explicit built-in spelling still refuses a text operand | `internal/frontend/grpc/query_mixed_activity_filter_test.go:TestQueryFiltersShadowedActivityAcrossMixedRows`; `internal/doc/querytranslate/oslc_builtin_validation_test.go:TestOSLCExplicitActivityBuiltinRejectsTextOperand` |
 | A scoped filter compares the path's final property and skips an owner's annotation text beside another owner's numeric feature | `internal/frontend/grpc/query_scoped_mixed_builtin_test.go:TestOSLCScopedFilterSkipsIncompatibleBuiltinRows` |
 | A native filter on unshadowed `isActive` with a text operand reports an invalid value | `internal/doc/queryexec/bare_builtin_operand_test.go:TestQueryRejectsInvalidBareActivityOperandWithoutAShadow` |
+| A computed column named like a built-in is compared from its cells: an incompatible text cell does not inherit a shadow from the unused model path, while a heterogeneous column keeps its matching cell | `internal/doc/queryexec/shadow_deferral_regressions_test.go:TestQueryComputedColumnDoesNotInheritAModelShadow`, `:TestQueryFilterSkipsIncompatibleComputedCells` |
+| A state row's text `isActive` feature shadows activity in a filter, while `@isActive` still rejects a text operand | `internal/doc/queryexec/shadow_deferral_regressions_test.go:TestQueryStateDeclarationShadowsActivityInAFilter` |
+| A scoped filter on a text feature named like a built-in rejects an ordering operand | `internal/frontend/grpc/query_shadow_deferral_regressions_test.go:TestOSLCScopedTextFeatureRejectsOrderingOperand` |
+| Reversing the terms of an `and` does not change whether a shadowed operand is accepted | `internal/frontend/grpc/query_shadow_deferral_regressions_test.go:TestQueryConjunctionOrderDoesNotChangeShadowDeferral` |
 
 The tests execute document queries over real `.sysml` fixtures through the
 shared `queryexec` executor, which is the executor behind the CLI, the REPL, the
