@@ -2,6 +2,7 @@ package passes
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -295,5 +296,93 @@ func TestStrictRedefinitionLeavesUnresolvedNamesToNameResolution(t *testing.T) {
 	got := StrictRedefinitionPass{}.Run(ctx, "model.sysml", root)
 	if len(got) != 0 {
 		t.Fatalf("got %+v, want the unresolved name left to name resolution", got)
+	}
+}
+
+// A `featured by` clause names the feature that supplies the redefinition's
+// target, even when that feature is declared inside the featuring member.
+func TestStrictRedefinitionAcceptsFeaturedByTarget(t *testing.T) {
+	const src = `package F {
+		class CC1 {
+			member feature x featured by CC1_snapshots {
+				member feature CC1_snapshots :>> Occurrences::Occurrence::snapshots featured by CC1;
+			}
+		}
+	}`
+	got := strictRedefinitionDiags(t, "model.kerml", src, diag.ConformanceStrict)
+	for _, d := range got {
+		if d.Code == CodeRedefinitionResolvesToNothing {
+			t.Errorf("unexpected %s: %s", d.Code, d.Message)
+		}
+	}
+}
+
+// An untyped usage has no declaring type of its own, so its redefinition
+// target is read from the enclosing namespace, private imports included.
+func TestStrictRedefinitionAcceptsImportedTargetInUntypedUsage(t *testing.T) {
+	const src = `package Q {
+		private import ISQ::*;
+		item def Disc { attribute :>> radius [1]; }
+		item disc { attribute :>> radius [1]; }
+	}`
+	got := strictRedefinitionDiags(t, "model.sysml", src, diag.ConformanceStrict)
+	for _, d := range got {
+		if d.Code == CodeRedefinitionResolvesToNothing {
+			t.Errorf("unexpected %s: %s", d.Code, d.Message)
+		}
+	}
+}
+
+// TestStrictRedefinitionOMGClasses pins the corpus forms that need the
+// downloaded corpora; it runs only when those files are present.
+func TestStrictRedefinitionOMGClasses(t *testing.T) {
+	const examples = "../../../examples/"
+	for _, tc := range []struct{ name, path string }{
+		{"featured by target", "pilot-corpora/kerml-examples/Variable Feature Examples/TimeVaryingFeatures.kerml"},
+		{"typed redefining usage", "pilot-corpora/sysml-examples/Geometry Examples/CarWithShapeAndCSG.sysml"},
+		{"variant usage", "pilot-corpora/sysml-validation/07-Variant Configuration/7a1-Variant Configuration - General Concept-a.sysml"},
+		{"renamed imported target", "pilot-corpora/sysml-examples/Geometry Examples/VehicleGeometryAndCoordinateFrames.sysml"},
+		{"training interaction realization", "sysml-v2-training/27. Occurrences/Interaction Realization-1.sysml"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			data, err := os.ReadFile(examples + tc.path)
+			if os.IsNotExist(err) {
+				t.Skip("OMG corpus not downloaded")
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			name := filepath.ToSlash(examples + tc.path)
+			root := parser.New(source.New(name, data)).ParseFile()
+			idx := newTestIndexFromDoc(name, root)
+			idx.ExpandWildcardImports()
+			ctx := NewContextWithOptions(name, source.KindOf(name), idx, nil, Options{Conformance: diag.ConformanceStrict})
+			got := (StrictRedefinitionPass{}).Run(ctx, name, root)
+			for _, d := range got {
+				if d.Code == CodeRedefinitionResolvesToNothing {
+					t.Errorf("unexpected %s: %s", d.Code, d.Message)
+				}
+			}
+		})
+	}
+}
+
+// A plain typed usage may redefine a feature declared in the namespace that
+// encloses it; a name reached only through an import is still out of reach.
+func TestStrictRedefinitionAcceptsFeatureOfEnclosingNamespace(t *testing.T) {
+	const src = `package V {
+		part def Axle { part axle; }
+		part narrowWheel;
+		part vehicle {
+			part axleAssembly : Axle {
+				part wheel redefines narrowWheel;
+			}
+		}
+	}`
+	got := strictRedefinitionDiags(t, "model.sysml", src, diag.ConformanceStrict)
+	for _, d := range got {
+		if d.Code == CodeRedefinitionResolvesToNothing {
+			t.Errorf("unexpected %s: %s", d.Code, d.Message)
+		}
 	}
 }

@@ -1,0 +1,1 @@
+- Strict conformance no longer reports `redefinition-resolves-to-nothing` for conforming OMG corpus forms: a redefinition target supplied by a `featured by` feature, a package-level target reached from an untyped usage or a variant, a member of a type reached through a redefining usage, or an imported target whose written name differs from the target's own name.

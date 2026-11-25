@@ -131,6 +131,24 @@ func (c *strictRedefinitionChecker) contextTypes(sym *symbols.Symbol) ([]*symbol
 				named = typ
 			}
 		}
+		for _, ft := range c.model.FeaturingTypes(owner) {
+			if ft != nil && !seen[ft] {
+				seen[ft] = true
+				types = append(types, ft)
+			}
+		}
+		// A `featured by` clause can name a nested member whose symbol is still
+		// being resolved; match it by name so its own view joins the context.
+		for _, rel := range semantics.RelationshipsOf(owner) {
+			if rel == nil || rel.Kind != ast.RelFeaturedBy || rel.Target == nil {
+				continue
+			}
+			written, _ := ast.TargetName(rel.Target)
+			if written != "" && (written == sym.Name || written == sym.ShortName) && !seen[sym] {
+				seen[sym] = true
+				types = append(types, sym)
+			}
+		}
 		// A typed usage that redefines or subsets a usage inherits that usage's
 		// members, so its own declaring view joins the declared type's.
 		if redefinesOrSubsets(owner) && !seen[owner] {
@@ -161,6 +179,9 @@ func (c *strictRedefinitionChecker) declaringScopeProvides(sym, owner *symbols.S
 	if owner == nil || target == nil || target.OwnerScope == nil {
 		return false
 	}
+	if slices.Contains(types, sym) && slices.Contains(c.model.AllRedefinedFeatures(sym), target) {
+		return true
+	}
 	// A type that contributes members to the context also supplies the target's.
 	targetOwner := target.OwnerScope.Owner()
 	for _, typ := range types {
@@ -174,17 +195,31 @@ func (c *strictRedefinitionChecker) declaringScopeProvides(sym, owner *symbols.S
 	if !owner.IsFeature() {
 		// A redefinition in a definition may name its enclosing namespace's
 		// features, including ones reached by an import (KerML 8.2.3.5.2).
-		if target.OwnerScope == owner.OwnerScope {
+		if c.namespaceProvides(owner.OwnerScope, target, member) {
 			return true
 		}
-		return c.resolver != nil && owner.OwnerScope != nil &&
-			func() bool {
-				found, ok := c.resolver.LookupName(owner.OwnerScope, member)
-				return ok && found == target
-			}()
+		return target.OwnerScope.Owner() != nil && target.OwnerScope.Owner().Kind == symbols.SymbolPackage
+	}
+	if variantUsage(owner) {
+		if c.namespaceProvides(owner.OwnerScope, target, member) {
+			return true
+		}
+	}
+	if !portionUsage(owner) && (len(c.model.DeclaredTypes(owner)) == 0 || redefinesOrSubsets(owner)) {
+		// A usage with no declared typing reads names from its enclosing
+		// namespace; one that redefines or subsets stands in for the original.
+		if c.namespaceProvides(owner.OwnerScope, target, member) {
+			return true
+		}
 	}
 	if !redefinesOrSubsets(owner) {
-		// A plain typed usage cannot borrow an enclosing or imported name.
+		// A plain typed usage cannot borrow an imported name, but a feature
+		// declared in the enclosing namespace is a legitimate target.
+		for s := owner.OwnerScope; s != nil; s = s.Parent() {
+			if s == target.OwnerScope && isNamespace(s.Owner()) {
+				return true
+			}
+		}
 		return false
 	}
 	// A usage that redefines or subsets stands in for the original feature,
@@ -202,6 +237,41 @@ func (c *strictRedefinitionChecker) declaringScopeProvides(sym, owner *symbols.S
 			break
 		}
 		enc = enc.OwnerScope.Owner()
+	}
+	return false
+}
+
+// isNamespace reports whether sym is a package or namespace rather than a type.
+func isNamespace(sym *symbols.Symbol) bool {
+	return sym != nil && (sym.Kind == symbols.SymbolPackage || sym.Kind == symbols.SymbolNamespace)
+}
+
+// variantUsage reports whether a usage is a variant of an enclosing variation;
+// a variant inherits the variation's naming context.
+func variantUsage(sym *symbols.Symbol) bool {
+	if sym == nil {
+		return false
+	}
+	if sym.Recorded() && sym.Facts != nil {
+		return sym.Facts.Modifiers.Has(symbols.ModVariant)
+	}
+	u, ok := sym.Decl.(*ast.Usage)
+	return ok && u.IsVariant
+}
+
+// namespaceProvides reports whether target is the name member in a scope or
+// one of its ancestors, including a feature reached by an import.
+func (c *strictRedefinitionChecker) namespaceProvides(scope *symbols.Scope, target *symbols.Symbol, member string) bool {
+	for scope != nil {
+		if target.OwnerScope == scope {
+			return true
+		}
+		if c.resolver != nil {
+			if found, ok := c.resolver.LookupName(scope, member); ok && found == target {
+				return true
+			}
+		}
+		scope = scope.Parent()
 	}
 	return false
 }
