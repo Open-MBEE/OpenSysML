@@ -44,9 +44,8 @@ func (r *Renderer) identityOf(origin Origin) (name, id string) {
 	return name, id
 }
 
-// ownerNamedOnly reports whether sym has no name of its own that the identity
-// builder derived. Such a symbol's EffectiveID falls back to the index's name,
-// which ends at its owner and so names every unnamed member underneath it alike.
+// ownerNamedOnly reports whether the identity builder derived no name of its
+// own, leaving the index's owner-only fallback id.
 func ownerNamedOnly(index *symbols.Index, sym *symbols.Symbol, info *identity.Info) bool {
 	if sym == nil || sym.Named() || index == nil {
 		return false

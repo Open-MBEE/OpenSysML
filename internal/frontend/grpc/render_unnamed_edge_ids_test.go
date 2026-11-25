@@ -29,11 +29,8 @@ const unnamedEdgeIDsModel = `package Beh {
 }
 `
 
-// TestRenderViewUnnamedEdgesHaveDistinctResolvableIDs pins that every unnamed
-// edge of an action or state rendering carries its own durable id and that a
-// property lookup resolves that id back to a declaration. Sharing the owner's
-// id made a canvas unable to tell the edges apart and GetElementProperties
-// answered "element not found" for it.
+// TestRenderViewUnnamedEdgesHaveDistinctResolvableIDs pins a resolvable id per
+// unnamed edge, which a shared owner id could not give a canvas or lookup.
 func TestRenderViewUnnamedEdgesHaveDistinctResolvableIDs(t *testing.T) {
 	srv := mustNewService(t, 10)
 	t.Cleanup(srv.Close)
