@@ -3,6 +3,9 @@ package passes
 import (
 	"fmt"
 
+	"slices"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -27,15 +30,16 @@ func (StrictRedefinitionPass) Run(ctx *Context, name string, root *ast.RootNames
 	if rootScope == nil {
 		return nil
 	}
-	c := &strictRedefinitionChecker{model: ctx.Model(), seen: make(map[*symbols.Symbol]bool)}
+	c := &strictRedefinitionChecker{model: ctx.Model(), resolver: ctx.Resolver(), seen: make(map[*symbols.Symbol]bool)}
 	c.walk(rootScope)
 	return c.diags
 }
 
 type strictRedefinitionChecker struct {
-	model *semantics.Model
-	seen  map[*symbols.Symbol]bool
-	diags []diag.Diagnostic
+	model    *semantics.Model
+	resolver *resolve.Resolver
+	seen     map[*symbols.Symbol]bool
+	diags    []diag.Diagnostic
 }
 
 // walk visits each symbol once, deduping the two keys of a short/primary-name declaration.
@@ -58,7 +62,7 @@ func (c *strictRedefinitionChecker) check(sym *symbols.Symbol) {
 	if !sym.IsFeature() {
 		return
 	}
-	types, named := c.contextTypes(sym)
+	types, named, owner := c.contextTypes(sym)
 	if len(types) == 0 {
 		return
 	}
@@ -72,7 +76,8 @@ func (c *strictRedefinitionChecker) check(sym *symbols.Symbol) {
 			continue
 		}
 		member, _ := ast.TargetName(rel.Target)
-		if member == "" || c.inaccessible(sym, rel, target) || c.resolvesIn(types, sym, member) {
+		if member == "" || c.inaccessible(sym, rel, target) || c.resolvesIn(types, sym, member) ||
+			c.declaringScopeProvides(sym, owner, types, target, member) || c.chainedBaseFeature(types, target) {
 			continue
 		}
 		typ := types[0]
@@ -103,7 +108,7 @@ func (c *strictRedefinitionChecker) inaccessible(sym *symbols.Symbol, rel *ast.R
 
 // contextTypes lists the declaring type's members and, for a portion, its occurrence's.
 // Only snapshot and timeslice owners contribute an enclosing occurrence's declared type.
-func (c *strictRedefinitionChecker) contextTypes(sym *symbols.Symbol) ([]*symbols.Symbol, *symbols.Symbol) {
+func (c *strictRedefinitionChecker) contextTypes(sym *symbols.Symbol) ([]*symbols.Symbol, *symbols.Symbol, *symbols.Symbol) {
 	var types []*symbols.Symbol
 	var named *symbols.Symbol
 	seen := map[*symbols.Symbol]bool{}
@@ -137,6 +142,7 @@ func (c *strictRedefinitionChecker) contextTypes(sym *symbols.Symbol) ([]*symbol
 	if owner == nil && sym.OwnerScope != nil {
 		owner = sym.OwnerScope.Owner()
 	}
+	declaring := owner
 	add(owner)
 	for portionUsage(owner) {
 		parent := owner.OwnerScope
@@ -146,7 +152,95 @@ func (c *strictRedefinitionChecker) contextTypes(sym *symbols.Symbol) ([]*symbol
 		owner = parent.Owner()
 		add(owner)
 	}
-	return types, named
+	return types, named, declaring
+}
+
+// declaringScopeProvides reports whether the clause's target is a name the
+// declaration's scope legitimately supplies, beyond the declaring type's members.
+func (c *strictRedefinitionChecker) declaringScopeProvides(sym, owner *symbols.Symbol, types []*symbols.Symbol, target *symbols.Symbol, member string) bool {
+	if owner == nil || target == nil || target.OwnerScope == nil {
+		return false
+	}
+	// A type that contributes members to the context also supplies the target's.
+	targetOwner := target.OwnerScope.Owner()
+	for _, typ := range types {
+		if slices.Contains(c.model.MemberSources(typ), targetOwner) {
+			return true
+		}
+	}
+	if slices.Contains(c.model.MemberSources(owner), targetOwner) {
+		return true
+	}
+	if !owner.IsFeature() {
+		// A redefinition in a definition may name its enclosing namespace's
+		// features, including ones reached by an import (KerML 8.2.3.5.2).
+		if target.OwnerScope == owner.OwnerScope {
+			return true
+		}
+		return c.resolver != nil && owner.OwnerScope != nil &&
+			func() bool {
+				found, ok := c.resolver.LookupName(owner.OwnerScope, member)
+				return ok && found == target
+			}()
+	}
+	if !redefinesOrSubsets(owner) {
+		// A plain typed usage cannot borrow an enclosing or imported name.
+		return false
+	}
+	// A usage that redefines or subsets stands in for the original feature,
+	// so the names of the types that enclose it are in its declaration's scope.
+	for enc := owner.OwnerScope.Owner(); enc != nil; {
+		if c.resolvesIn([]*symbols.Symbol{enc}, sym, member) {
+			return true
+		}
+		for _, typ := range c.model.DeclaredTypes(enc) {
+			if c.resolvesIn([]*symbols.Symbol{typ}, sym, member) {
+				return true
+			}
+		}
+		if enc.OwnerScope == nil {
+			break
+		}
+		enc = enc.OwnerScope.Owner()
+	}
+	return false
+}
+
+// chainedBaseFeature reports whether target is a chain leaf declared by the
+// hierarchy: `Anything::self` chains `things.that`.
+func (c *strictRedefinitionChecker) chainedBaseFeature(types []*symbols.Symbol, target *symbols.Symbol) bool {
+	var found bool
+	visit := func(src *symbols.Symbol) {
+		if found || src == nil || src.Scope == nil {
+			return
+		}
+		src.Scope.ForEachMember(func(feature *symbols.Symbol) bool {
+			if feature == nil {
+				return true
+			}
+			for _, rel := range semantics.RelationshipsOf(feature) {
+				if rel == nil || rel.Kind != ast.RelChains || rel.Target == nil {
+					continue
+				}
+				if _, ok := rel.Target.(*ast.FeatureChainExpr); !ok {
+					continue
+				}
+				path := c.model.ChainTargetPath(feature, rel.Kind, rel.Target)
+				if len(path) > 1 && path[len(path)-1] == target {
+					found = true
+					return false
+				}
+			}
+			return true
+		})
+	}
+	for _, typ := range types {
+		visit(typ)
+		for _, src := range c.model.MemberSources(typ) {
+			visit(src)
+		}
+	}
+	return found
 }
 
 // resolvesIn checks the declaring member view, which suspends the mask the clause itself causes.
