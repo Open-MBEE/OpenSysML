@@ -147,8 +147,12 @@ func (t *Table) Metamodel(name string) bool {
 	return ok || declared
 }
 
-// Derived reports whether name is a property of the evaluator's own.
+// Derived reports whether name is a property of the evaluator's own, including
+// the unambiguous "@" spelling of one a model feature may shadow.
 func (t *Table) Derived(name string) bool {
+	if _, ok := query.BuiltinProperty(name); ok {
+		return true
+	}
 	_, ok := t.derived[name]
 	return ok
 }
@@ -174,6 +178,9 @@ func (t *Table) Known(name string) bool {
 // kind is what the property's declared types hold, kindUnknown where the
 // table does not know or the metaclasses disagree.
 func (t *Table) kind(name string) valueKind {
+	if canonical, ok := query.BuiltinProperty(name); ok {
+		name = canonical
+	}
 	if kind, ok := t.derived[name]; ok {
 		return kind
 	}

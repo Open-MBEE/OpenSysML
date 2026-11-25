@@ -86,6 +86,50 @@ func TestQueryReadsAnnotationsWithNoPerElementSymbolLookups(t *testing.T) {
 	}
 }
 
+const builtinFeatureCollisionModel = `package Demo {
+	private import ScalarValues::*;
+	part a { attribute isActive : Boolean = true; }
+	state def M { entry; then ready; state ready; }
+}`
+
+// The OSLC spelling of a built-in stays the built-in even where the model
+// declares that feature; the API Query's bare name reads the feature.
+func TestBuiltinSpellingSurvivesAFeatureOfTheSameName(t *testing.T) {
+	srv := mustNewService(t, 10)
+	parsed, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
+		Source: &pb.ParseFileRequest_Content{Content: builtinFeatureCollisionModel},
+	})
+	if err != nil {
+		t.Fatalf("ParseFile: %v", err)
+	}
+	resp := oslcQuery(t, srv, parsed.ModelHash, `oslc.where=sysml:name="a"&oslc.select=sysx:isActive`)
+	if len(resp.Elements) != 1 {
+		t.Fatalf("rows = %v, want Demo::a alone", resp.Elements)
+	}
+	if _, found := resp.Elements[0].Properties[QueryPropIsActive]; found {
+		t.Fatalf("sysx:isActive read the declared feature on a part = %q", resp.Elements[0].Properties[QueryPropIsActive])
+	}
+	_, _, resp = runQueryOnSource(t, builtinFeatureCollisionModel, &pb.Query{
+		Scope:  []string{"Demo::a"},
+		Select: []string{QueryPropIsActive},
+	})
+	found := false
+	for _, row := range resp.Elements {
+		if row.Id == "Demo::a" && row.Properties[QueryPropIsActive] == "true" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("bare isActive on Demo::a = %v, want the declared feature true", resp.Elements)
+	}
+	_, err = srv.Query(context.Background(), &pb.QueryRequest{
+		ModelHash: parsed.ModelHash, OslcQuery: `sysx:@missing="x"`,
+	})
+	if err == nil {
+		t.Fatal("an OSLC property outside the closed set was accepted")
+	}
+}
+
 // Both properties filter rows as they project them.
 func TestQueryFiltersByAnnotationAndActivityProperties(t *testing.T) {
 	_, _, resp := runQueryOnSource(t, metadataSurfacesModel, &pb.Query{

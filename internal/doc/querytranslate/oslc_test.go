@@ -240,6 +240,28 @@ func TestOSLCPropertyNamespacesFollowTheMetamodel(t *testing.T) {
 	}
 }
 
+func TestOSLCUnambiguousBuiltinSpelling(t *testing.T) {
+	for _, text := range []string{`oslc.select=sysx:isActive`, `oslc.select=sysx:@isActive`} {
+		q, err := ParseOSLC(text, nil)
+		if err != nil {
+			t.Fatalf("ParseOSLC(%q): %v", text, err)
+		}
+		if !q.Builtins[query.PropertyIsActive] {
+			t.Fatalf("ParseOSLC(%q) builtins = %v, want isActive", text, q.Builtins)
+		}
+		if len(q.Select) != 1 || q.Select[0].Property != query.PropertyIsActive {
+			t.Fatalf("ParseOSLC(%q) select = %v", text, q.Select)
+		}
+	}
+	q, err := ParseOSLC(`oslc.select=sysx:@annotations`, nil)
+	if err != nil || !q.Builtins[query.PropertyAnnotations] {
+		t.Fatalf("ParseOSLC annotations alias = %#v, %v", q, err)
+	}
+	if _, err := ParseOSLC(`oslc.select=sysx:@nope`, nil); err == nil {
+		t.Fatal("an unknown OSLC property was accepted")
+	}
+}
+
 func TestParseOSLCReducesURIAndPrefixedValuesAlike(t *testing.T) {
 	for _, text := range []string{`sysml:type=sysml:PartUsage`, `sysml:type=<https://www.omg.org/spec/SysML#PartUsage>`} {
 		if c := mustParse(t, text).Where.(Comparison); c.Values[0] != "PartUsage" {

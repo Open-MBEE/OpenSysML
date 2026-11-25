@@ -174,6 +174,8 @@ func (s *Service) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryRes
 		}
 		bindings[querytranslate.SourceParameter] = values
 	}
+	qctx.Features = plan.Features
+	qctx.Builtins = plan.Builtins
 	result, err := queryexec.Execute(plan.Program, qctx, bindings, queryexec.Options{})
 	if err != nil {
 		status := held.queryExecStatus(err)

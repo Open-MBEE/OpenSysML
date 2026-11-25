@@ -115,42 +115,51 @@ func (e *executor) evaluateInState(expression queryplan.Expression) (sequence, e
 	return result, nil
 }
 
+// stateActivityIndex answers isActive for every state from one walk of the
+// session, charged once and shared by every executor of one execution.
+type stateActivityIndex struct {
+	built  bool
+	active map[symbols.ElementKey]bool
+}
+
+// build walks the session on first read and records every active declaration.
+func (idx *stateActivityIndex) build(e *executor, expression queryplan.Expression) error {
+	if idx == nil || idx.built {
+		return nil
+	}
+	idx.built = true
+	idx.active = make(map[symbols.ElementKey]bool)
+	if e.context.Runtime == nil {
+		return nil
+	}
+	return e.eachSessionObject(expression, func(row Value) {
+		inst, _, _ := row.Object()
+		if _, gone := e.context.Runtime.Destroyed(inst); gone {
+			return
+		}
+		for _, machine := range stateMachinesOf(inst) {
+			for key, active := range machine.State.ActiveSymbols() {
+				if active {
+					idx.active[key] = true
+				}
+			}
+		}
+	})
+}
+
 // stateActivityValues answers isActive for a state usage from the session's
 // machines; it is absent on rows that are not state usages.
 func (e *executor) stateActivityValues(sym *symbols.Symbol) ([]Value, bool, error) {
 	if sym == nil || sym.Kind != symbols.SymbolStateUsage {
 		return nil, false, nil
 	}
-	key := symbols.KeyOf(sym)
-	if active, seen := e.stateActivity[key]; seen {
-		return []Value{BooleanValue(active)}, true, nil
-	}
-	active := false
-	if e.context.Runtime != nil {
-		err := e.eachSessionObject(queryplan.Expression{}, func(row Value) {
-			if active {
-				return
-			}
-			inst, _, _ := row.Object()
-			if _, gone := e.context.Runtime.Destroyed(inst); gone {
-				return
-			}
-			for _, machine := range stateMachinesOf(inst) {
-				if value, ok := machine.State.ActivityOf(sym); ok && value {
-					active = true
-					return
-				}
-			}
-		})
-		if err != nil {
-			return nil, false, err
-		}
-	}
 	if e.stateActivity == nil {
-		e.stateActivity = make(map[symbols.ElementKey]bool)
+		e.stateActivity = &stateActivityIndex{}
 	}
-	e.stateActivity[key] = active
-	return []Value{BooleanValue(active)}, true, nil
+	if err := e.stateActivity.build(e, queryplan.Expression{}); err != nil {
+		return nil, false, err
+	}
+	return []Value{BooleanValue(e.stateActivity.active[symbols.KeyOf(sym)])}, true, nil
 }
 
 // objectArgument evaluates an argument whose rows must denote session objects:

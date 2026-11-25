@@ -76,6 +76,8 @@ func (s *Session) query(text string) ([]string, string, error) {
 		}
 		bindings[querytranslate.SourceParameter] = values
 	}
+	context.Features = plan.Features
+	context.Builtins = plan.Builtins
 	result, err := queryexec.Execute(plan.Program, context, bindings, queryexec.Options{})
 	written := s.resultView(queryexec.DefaultResultViewName, text, context, result, err)
 	if err != nil {

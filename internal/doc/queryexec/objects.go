@@ -231,6 +231,17 @@ func splitLabel(label string) (before, sep, segment string) {
 // objectPropertyValues reads a property of an object row: identity, naming and
 // `type` from the session, other metadata from its declaration, else a feature.
 func (e *executor) objectPropertyValues(row Value, property string) ([]Value, bool, error) {
+	builtin, isBuiltin := query.BuiltinProperty(property)
+	if isBuiltin && query.IsBuiltinAlias(property) && e.context.Features[property] {
+		return e.objectFeatureValues(row, builtin)
+	}
+	if isBuiltin && !query.IsBuiltinAlias(property) && !e.context.Builtins[property] && !e.context.Features[property] {
+		// The bare name reads a feature the object holds before the evaluator's
+		// own property of that name.
+		if values, present, err := e.objectFeatureValues(row, builtin); present || err != nil {
+			return values, present, err
+		}
+	}
 	inst, label, _ := row.Object()
 	origin := row.Origin()
 	text := func(values ...string) []Value {
