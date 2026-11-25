@@ -281,7 +281,7 @@ func (p *parser) readIRIRef() (string, error) {
 	}
 	iri := b.String()
 	if p.base != "" && !strings.Contains(iri, ":") {
-		iri = p.base + iri
+		iri = resolveIRI(p.base, iri)
 	}
 	return iri, nil
 }
@@ -452,4 +452,80 @@ func (p *parser) readWhile(keep func(rune) bool) string {
 		p.next()
 	}
 	return p.src[start:p.pos]
+}
+
+// resolveIRI resolves a relative reference against base as RFC 3986 section 5.2
+// does, on the text as written; a base with no hierarchy has it appended.
+func resolveIRI(base, ref string) string {
+	scheme := strings.IndexAny(base, ":/?#")
+	if scheme <= 0 || base[scheme] != ':' || !strings.HasPrefix(base[scheme+1:], "/") {
+		return base + ref
+	}
+	base, _, _ = strings.Cut(base, "#")
+	stem, baseQuery, _ := strings.Cut(base, "?")
+	root := scheme + 1
+	if strings.HasPrefix(stem[root:], "//") {
+		if slash := strings.Index(stem[root+2:], "/"); slash >= 0 {
+			root += 2 + slash
+		} else {
+			root = len(stem)
+		}
+	}
+	rest, fragment, hasFragment := strings.Cut(ref, "#")
+	path, query, hasQuery := strings.Cut(rest, "?")
+	out := stem[:root]
+	switch {
+	case path == "":
+		out = stem
+		if !hasQuery && baseQuery != "" {
+			query, hasQuery = baseQuery, true
+		}
+	case strings.HasPrefix(path, "//"):
+		authority, rooted, hasPath := strings.Cut(path[2:], "/")
+		out = stem[:scheme+1] + "//" + authority
+		if hasPath {
+			out += removeDotSegments("/" + rooted)
+		}
+	case strings.HasPrefix(path, "/"):
+		out += removeDotSegments(path)
+	case root == len(stem):
+		out += removeDotSegments("/" + path)
+	default:
+		out += removeDotSegments(stem[root:strings.LastIndex(stem, "/")+1] + path)
+	}
+	if hasQuery {
+		out += "?" + query
+	}
+	if hasFragment {
+		out += "#" + fragment
+	}
+	return out
+}
+
+// removeDotSegments drops the "." and ".." segments of a path (RFC 3986 section 5.2.4).
+func removeDotSegments(path string) string {
+	var kept []string
+	segments := strings.Split(path, "/")
+	for i, segment := range segments {
+		last := i == len(segments)-1
+		switch segment {
+		case ".":
+			if last {
+				kept = append(kept, "")
+			}
+		case "..":
+			if len(kept) > 1 {
+				kept = kept[:len(kept)-1]
+			}
+			if last {
+				kept = append(kept, "")
+			}
+		default:
+			kept = append(kept, segment)
+		}
+	}
+	if len(kept) == 1 && kept[0] == "" && strings.HasPrefix(path, "/") {
+		return "/"
+	}
+	return strings.Join(kept, "/")
 }
