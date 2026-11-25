@@ -14,9 +14,8 @@ import (
 // declares, spelled in the OpenSysML namespace by OSLC query text.
 var derivedProperties = []string{
 	query.PropertyID, query.PropertyType, query.PropertyMultiplicityLower, query.PropertyMultiplicityUpper,
-	query.PropertySymbolKind, query.PropertyAnnotations,
-	query.PropertyVerifyingCase,
-	query.PropertyIsActive,
+	query.PropertySymbolKind, query.PropertyAnnotations, query.PropertyVerifyingCase,
+	query.PropertyIsActive, query.PropertyBoundSubject,
 }
 
 // objectProjection is what a query over held objects reports when it selects
@@ -75,6 +74,7 @@ func NewTable(index *symbols.Index, model *semantics.Model) *Table {
 	t.derived[query.PropertyMultiplicityUpper] = kindNumber
 	t.derived[query.PropertyVerifyingCase] = kindElement
 	t.derived[query.PropertyIsActive] = kindBoolean
+	t.derived[query.PropertyBoundSubject] = kindElement
 	t.metamodel[query.PropertyIsAbstract] = kindBoolean
 	t.metamodel[query.PropertyIsIndividual] = kindBoolean
 	for _, name := range []string{query.PropertyOwner, query.PropertyElementType, query.PropertyGeneral,

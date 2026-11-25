@@ -77,6 +77,9 @@ const (
 	// PropertyElementID is the elementId a conversion of the model writes for
 	// the element, reported only where the reader is given one (WithElementID).
 	PropertyElementID = "elementId"
+	// PropertyBoundSubject is the qualified name of the declaration a case's
+	// subject binds; absent when it binds none.
+	PropertyBoundSubject = "boundSubject"
 )
 
 // propertyNames is the closed set of properties supported by element queries.
@@ -92,7 +95,7 @@ var propertyNames = []string{
 	PropertyPayloadArgument, PropertySenderArgument, PropertyReceiverArgument,
 	PropertyElementID,
 	PropertySymbolKind, PropertyText,
-	PropertyIsActive, PropertyAnnotations,
+	PropertyIsActive, PropertyAnnotations, PropertyBoundSubject,
 }
 
 // PropertyNames returns the supported property names in stable order.
