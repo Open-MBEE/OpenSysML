@@ -1,0 +1,1 @@
+- Restoring a document set that contains a copy of a bundled library file no longer primes an incremental workspace indexed at the library's tier. The service answers from the fresh path's restored trees and diagnostics instead of writing into the lineage's cleared state.
