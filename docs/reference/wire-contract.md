@@ -308,16 +308,18 @@ and a new model arrives, or until the process exits. Every call that names a has
 use, so a model in active use is not evicted. Re-parsing a model the cache still holds returns
 the same hash and does not re-parse.
 
-What a process restart keeps is the model's analysis, not the model: a parse whose documents all
-parse clean files the diagnostics its validation passes reported in the record cache (the
-`sysml-ls/libs` directory under `XDG_CACHE_HOME` or the user cache directory), under the model
-hash, the standard library's identity and the build. The next process to parse the same documents
-at the same strictness parses and indexes them, reads the diagnostics from the record instead of
-running the passes, and answers exactly what a first parse answers. A record that is missing,
-unreadable or of another model is a miss, and the model is analyzed. The model records of a cache
-directory are held to 64 MiB together, the least recently used going first, and a record no parse
-has read for 30 days is removed. `sysml-grpc -no-record-cache`, or `OPENSYSML_RECORD_CACHE=0`,
-reads and writes none.
+What a process restart keeps is each document's parse and the model's analysis: a parse whose
+documents all parse clean files the diagnostics its validation passes reported in the record
+cache (the `sysml-ls/libs` directory under `XDG_CACHE_HOME` or the user cache directory), under
+the model hash, the standard library's identity and the build, beside a tree record for each
+document. The next process to parse the same documents at the same strictness restores those
+trees and reads the diagnostics from the analysis record; it still runs the validation passes
+over the restored trees to prime the incremental workspace that makes `affected` exact, and
+answers exactly what a first parse answers. A record that is missing, unreadable or of another
+model is a miss, and the model is parsed and analyzed. The model records and the tree records of
+a cache directory are each held to 64 MiB, the least recently used going first; model records no
+parse has read for 30 days are removed. `sysml-grpc -no-record-cache`, or
+`OPENSYSML_RECORD_CACHE=0`, reads and writes none.
 
 The consequence for a client: a hash is a **cache key, not a durable identifier**. Store the
 documents, not the hash; recompute by re-parsing whenever the service says the hash is gone.
@@ -352,6 +354,27 @@ answer changes. The model, its hash, its diagnostics and every later call on it 
 parse of the same documents gives; only the time differs. A set is keyed by its documents' names
 and languages and the conformance mode, and the service keeps the four most recently used.
 `ParseFile` parses its one document whole.
+
+### Restoring a model another process parsed
+
+When the service is run with a record cache (the default), the cache is also shared across
+processes: `ParseSources` and `ParseFile` are the warm/restore surface. Each document's parse is
+filed under its name, language and bytes together with the build that produced it. Asking a fresh
+service for the same document set restores those trees from disk and rebuilds the symbol index
+from them, so no document is parsed at all; its analysis is restored from the analysis record the
+writer left, but validation passes run again over the restored trees to prime the incremental
+workspace, so a model restored here is still a base whose `affected` answer names only the
+documents a later edit changed. The answer, its model hash and every later call on
+it are what a first parse of the same bytes gives. The hash a response returns is thus a base-model
+handle a later process can send back as `base_model_hash`. An edit to one document misses only that
+document's record: the unchanged documents' trees are restored and just the edited one is parsed.
+
+The cache is bounded and keyed by content and build, so an edited document leaves its old record
+behind until it is evicted, and a different binary never restores another one's trees. A damaged
+or missing record is a miss, not an error: the service parses the document and records it again.
+A restored model is a usable base: after an edit, `affected` still names only the documents whose
+results changed. A service run without a record cache parses every document afresh, which is
+otherwise identical to the cached path.
 
 Under the `parse_sources_affected` capability a client can also ask which documents an edit
 reached. It sends the hash it was answered last as `base_model_hash`, and the answer's `affected`

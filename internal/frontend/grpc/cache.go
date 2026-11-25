@@ -44,6 +44,9 @@ type CachedDocument struct {
 	// answered from it; nil when the document was not analyzed.
 	Unfiltered []diag.Diagnostic
 	Warnings   []string
+	// parseWarnings are the parser's warnings, kept on documents parsed here
+	// so the parse can be stored losslessly.
+	parseWarnings []parser.Diagnostic
 	// proto is Diagnostics and Warnings converted to protobuf, once per document;
 	// a lineage hands the same cell to the next model when neither changed.
 	proto *protoDiagnostics
