@@ -501,6 +501,16 @@ func (s *Service) convertModelOfDocuments(ctx context.Context, req *pb.ConvertRe
 		return nil, true, err
 	}
 	graph, err := toGraph(ctx, req.Documents, opts.ID)
+	if err == nil && len(req.Documents) > 0 && len(req.Documents) < len(cached.Documents) && !opts.Projection.Empty() {
+		// Resolve against the whole model with this request's id form; the
+		// document-filtered output still decides what is written.
+		full, fullErr := cached.exportModel.ElementGraph(ctx, nil, opts.ID)
+		if fullErr != nil {
+			err = fullErr
+		} else {
+			opts.ProjectionGraph = full
+		}
+	}
 	if gone := callerGone(ctx, err); gone != nil {
 		return nil, true, gone
 	}

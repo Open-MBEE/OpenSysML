@@ -38,6 +38,8 @@ type CompactAPIJSONOptions struct {
 	InheritedMembers bool
 	// Projection writes only the elements the caller names.
 	Projection *APIJSONProjection
+	// ProjectionGraph is the full model a document-filtered graph selects against.
+	ProjectionGraph *rdf.Graph
 }
 
 // WriteAPIJSONCompact writes the elements WriteAPIJSON writes in a form built
@@ -65,6 +67,7 @@ func WriteAPIJSONCompact(graph *rdf.Graph, opts CompactAPIJSONOptions) ([]byte, 
 		Omitted: opts.Omitted, Diagnostic: opts.Diagnostic,
 		IncludeLibraryStubs: opts.IncludeLibraryStubs, InheritedMembers: opts.InheritedMembers,
 		Projection:        opts.Projection,
+		ProjectionGraph:   opts.ProjectionGraph,
 		LibraryReferences: func(refs []APIJSONLibraryReference) { libraryReferences = refs },
 	})
 	if err != nil {

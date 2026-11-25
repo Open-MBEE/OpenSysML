@@ -214,6 +214,71 @@ func TestAPIJSONProjectionByAnnotationType(t *testing.T) {
 	}
 }
 
+// A metadata definition's declared short name is a selector even when it is
+// not the last segment of the definition's qualified name.
+func TestAPIJSONProjectionByAnnotationDeclaredShortName(t *testing.T) {
+	graph := graphOfNotation(t, `package P {
+  metadata def <facet> QualityFacet;
+  part def Faceted;
+  metadata tag : QualityFacet about Faceted { note = "n"; }
+}
+`)
+	whole := projectionWhole(t, graph)
+	for _, name := range []string{"facet", "P::QualityFacet", "QualityFacet"} {
+		t.Run(name, func(t *testing.T) {
+			out, err := WriteAPIJSONWithOptions(graph, APIJSONOptions{Projection: &APIJSONProjection{AnnotationTypes: []string{name}}})
+			if err != nil {
+				t.Fatalf("WriteAPIJSONWithOptions: %v", err)
+			}
+			projected := splitAPIJSONElements(t, out)
+			byType := map[string]bool{}
+			for _, element := range projected {
+				byType[elementField(t, element, "@type")] = true
+			}
+			for _, want := range []string{"MetadataUsage", "Annotation", "PartDefinition"} {
+				if !byType[want] {
+					t.Errorf("projection by %q did not emit a %s: %v", name, want, byType)
+				}
+			}
+			assertProjectedAreByteIdentical(t, whole, projected)
+		})
+	}
+}
+
+// A quoted name holds its own "::" inside one segment; a selector must split
+// qualified names at segment boundaries, not at the last "::" in the string.
+func TestAPIJSONProjectionByAnnotationQuotedName(t *testing.T) {
+	graph := graphOfNotation(t, `package P {
+  metadata def 'safety::limit';
+  part def Faceted;
+  metadata tag : 'safety::limit' about Faceted { note = "n"; }
+}
+`)
+	whole := projectionWhole(t, graph)
+	for _, name := range []string{"P::'safety::limit'", "'safety::limit'", "safety::limit"} {
+		t.Run(name, func(t *testing.T) {
+			out, err := WriteAPIJSONWithOptions(graph, APIJSONOptions{Projection: &APIJSONProjection{AnnotationTypes: []string{name}}})
+			if err != nil {
+				t.Fatalf("WriteAPIJSONWithOptions: %v", err)
+			}
+			projected := splitAPIJSONElements(t, out)
+			byType := map[string]bool{}
+			for _, element := range projected {
+				byType[elementField(t, element, "@type")] = true
+			}
+			for _, want := range []string{"MetadataUsage", "Annotation", "PartDefinition"} {
+				if !byType[want] {
+					t.Errorf("projection by %q did not emit a %s: %v", name, want, byType)
+				}
+			}
+			assertProjectedAreByteIdentical(t, whole, projected)
+		})
+	}
+	if _, err := WriteAPIJSONWithOptions(graph, APIJSONOptions{Projection: &APIJSONProjection{AnnotationTypes: []string{"limit'"}}}); err == nil {
+		t.Error("a truncated quoted segment must be refused")
+	}
+}
+
 func TestAPIJSONProjectionByAnnotationMetaclass(t *testing.T) {
 	graph := projectionGraph(t)
 	whole := projectionWhole(t, graph)
