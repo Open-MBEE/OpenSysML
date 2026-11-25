@@ -158,7 +158,7 @@ func namedElements(path string) []string {
 
 // pathElements splits a path at its separators, dropping the empty elements.
 func pathElements(path string) []string {
-	return strings.FieldsFunc(path, func(c rune) bool { return c < 0x80 && os.IsPathSeparator(uint8(c)) })
+	return strings.FieldsFunc(path, func(c rune) bool { return c == '/' || c == filepath.Separator })
 }
 
 var errOutsideFileRoot = errors.New("outside the file root")
