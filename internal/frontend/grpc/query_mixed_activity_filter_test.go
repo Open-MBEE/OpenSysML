@@ -15,9 +15,8 @@ const mixedActivityFilterModel = `package Demo {
 	}
 }`
 
-// The bare name reads a declared string feature on one row and the evaluator's
-// Boolean activity on another; the state row cannot take the text operand and
-// must be skipped rather than failing the whole request.
+// A bare name reads a string feature on one row and Boolean activity on
+// another; the state row is skipped rather than failing the request.
 func TestQueryFiltersShadowedActivityAcrossMixedRows(t *testing.T) {
 	_, _, resp := runQueryOnSource(t, mixedActivityFilterModel, &pb.Query{
 		Where:  primitive(QueryPropIsActive, opEqual, false, "ready"),

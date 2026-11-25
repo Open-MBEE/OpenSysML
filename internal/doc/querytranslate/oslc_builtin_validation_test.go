@@ -7,9 +7,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 )
 
-// An explicit built-in spelling keeps the evaluator's Boolean kind even where
-// the model declares a feature of the same name: the string operand is a
-// malformed filter, not a search over the shadowing feature.
+// An explicit built-in spelling keeps its Boolean kind under a shadowing
+// feature, so a text operand is a malformed filter.
 func TestOSLCExplicitActivityBuiltinRejectsTextOperand(t *testing.T) {
 	table, index, model := shadowFixtureTable(t)
 	q, err := ParseParameters(`oslc.where=sysx:@isActive=%22ready%22&oslc.select=sysx:@isActive`, table)

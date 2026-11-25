@@ -488,6 +488,7 @@ func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequen
 	var missing []*Error
 	seen := newCandidates()
 	columnIndex := projectedColumn(source, property)
+	var shadowed, shadowedChecked bool
 	for i := range source.values {
 		e.note(seen, source.values[i])
 		values, reach, valueErr := e.featureValues(expression, source, i, property, columnIndex)
@@ -507,10 +508,12 @@ func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequen
 		for _, actual := range values {
 			match, compareErr := e.compareValue(actual, comparison)
 			if compareErr != nil {
-				if e.deferredBuiltinComparison(property) {
-					// One row resolves the shared name to a built-in whose kind
-					// cannot take this operand; another may still match by its
-					// feature. Skip this value, not the whole filter.
+				if !shadowedChecked {
+					shadowed, shadowedChecked = e.shadowedBuiltinRead(source, property), true
+				}
+				if e.deferredBuiltinComparison(property, shadowed) {
+					// A mixed row set may hold a built-in that cannot take this
+					// operand; skip it so a feature row can still match.
 					continue
 				}
 				if compareErr != errComparison {
@@ -535,16 +538,63 @@ func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequen
 	return result, nil
 }
 
-// deferredBuiltinComparison reports whether a bare built-in name was left to
-// the row to resolve: the query did not ask for the evaluator's property by its
-// unambiguous spelling. Only then may a row whose value cannot take the
-// operand be skipped; an explicitly selected built-in keeps strict errors.
-func (e *executor) deferredBuiltinComparison(property string) bool {
-	canonical, ok := query.BuiltinProperty(property)
-	if !ok || query.IsBuiltinAlias(property) || e.context.Builtins[property] {
+// terminalProperty is the name a dotted read finally resolves: the property
+// whose evaluator kind a comparison may defer to the row.
+func terminalProperty(property string) string {
+	if i := strings.LastIndexByte(property, '.'); i >= 0 {
+		return property[i+1:]
+	}
+	return property
+}
+
+// shadowedBuiltinRead reports whether a row reads a bare built-in's terminal
+// property from a declared or held feature, including through a dotted prefix.
+func (e *executor) shadowedBuiltinRead(source sequence, property string) bool {
+	canonical, ok := e.deferredBuiltin(terminalProperty(property))
+	if !ok {
 		return false
 	}
-	return canonical == property
+	segments := strings.Split(property, ".")
+	for i := range source.values {
+		targets := []Value{source.values[i]}
+		if len(segments) > 1 {
+			related, reached, err := e.relatedElements(source.values[i], segments[:len(segments)-1])
+			if err != nil || !reached {
+				continue
+			}
+			targets = related
+		}
+		for _, target := range targets {
+			if sym, ok := target.Element(); ok {
+				if _, present, err := e.shadowingFeatureValues(sym, canonical); err == nil && present {
+					return true
+				}
+			}
+			if _, _, isObject := target.Object(); isObject {
+				if _, present, err := e.objectFeatureValues(target, canonical); err == nil && present {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// deferredBuiltin names the evaluator property a terminal spelling leaves to
+// the row: only an unqualified name the request did not select as a built-in.
+func (e *executor) deferredBuiltin(segment string) (string, bool) {
+	canonical, ok := query.BuiltinProperty(segment)
+	if !ok || query.IsBuiltinAlias(segment) || e.context.Builtins[segment] || e.context.Builtins[canonical] {
+		return "", false
+	}
+	return canonical, true
+}
+
+// deferredBuiltinComparison defers a bare built-in's kind only where a row
+// resolves it to a feature; explicit built-ins keep strict operand errors.
+func (e *executor) deferredBuiltinComparison(property string, shadowed bool) bool {
+	_, ok := e.deferredBuiltin(terminalProperty(property))
+	return ok && shadowed
 }
 
 func (e *executor) evaluateOrderBy(expression queryplan.Expression) (sequence, error) {

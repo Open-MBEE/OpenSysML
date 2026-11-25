@@ -141,10 +141,8 @@ type translator struct {
 	objects  bool
 }
 
-// kind is the type of a property as the request named it. An explicitly
-// selected evaluator property keeps its own kind even where a model feature
-// shadows its bare name; otherwise the table decides, deferring a shadowable
-// name to the row that resolves it.
+// kind is the type of a property as named. An explicit evaluator property
+// keeps its kind; a bare name a feature shadows defers to the row.
 func (t *translator) kind(name string) valueKind {
 	segment := name
 	if i := strings.LastIndexByte(name, '.'); i >= 0 {

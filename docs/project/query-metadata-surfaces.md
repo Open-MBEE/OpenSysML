@@ -139,8 +139,10 @@ What was still missing at that baseline:
   under a bare built-in name, the translator defers type validation for that
   name to the row reader, so a filter on the feature is not judged by the
   built-in's type. An explicit built-in spelling keeps Boolean validation even
-  when the bare name is shadowed, and a deferred filter skips a row whose own
-  value cannot take the operand instead of failing the whole query.
+  when the bare name is shadowed. A filter defers only where a row reads the
+  feature: it skips a built-in row whose value cannot take the operand instead
+  of failing the whole query, but reports an invalid operand where no row
+  shadows the name.
 - **One activity index per execution, not one session walk per state.** The
   first read walks the session once, charges that walk to the visit budget once
   and merges the active declarations of every machine. Invoked document queries
@@ -202,6 +204,8 @@ this change.
 | A nested binding of an earlier annotation precedes a later direct binding in the bulk read and in the Query RPC | `internal/doc/queryexec/annotation_order_query_test.go:TestQueryOrdersNestedAndDirectAnnotationBindings`; `internal/frontend/grpc/query_annotation_order_test.go:TestQueryRPCReportsFirstAnnotationInDeclarationOrder` |
 | An `about` site before or after an inline site, in one document or across documents, decides the first value; equal source offsets are broken by document order | `internal/frontend/grpc/query_annotation_site_order_test.go:TestQueryRPCOrdersAnnotationsBySiteInOneDocument`, `:TestQueryRPCOrdersAnnotationsByDocumentAndSpan` |
 | A bare `isActive` filter matches a row's string feature while skipping a state's Boolean activity row, and an explicit built-in spelling still refuses a text operand | `internal/frontend/grpc/query_mixed_activity_filter_test.go:TestQueryFiltersShadowedActivityAcrossMixedRows`; `internal/doc/querytranslate/oslc_builtin_validation_test.go:TestOSLCExplicitActivityBuiltinRejectsTextOperand` |
+| A scoped filter compares the path's final property and skips an owner's annotation text beside another owner's numeric feature | `internal/frontend/grpc/query_scoped_mixed_builtin_test.go:TestOSLCScopedFilterSkipsIncompatibleBuiltinRows` |
+| A native filter on unshadowed `isActive` with a text operand reports an invalid value | `internal/doc/queryexec/bare_builtin_operand_test.go:TestQueryRejectsInvalidBareActivityOperandWithoutAShadow` |
 
 The tests execute document queries over real `.sysml` fixtures through the
 shared `queryexec` executor, which is the executor behind the CLI, the REPL, the

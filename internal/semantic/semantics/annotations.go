@@ -165,9 +165,8 @@ func (m *Model) AnnotationFactsOf(sym *symbols.Symbol) []symbols.AnnotationFacts
 	return annotationFacts(m, m.annotationsOf(sym))
 }
 
-// AnnotationValueSite is one annotation's direct and nested bindings, kept
-// together so a consumer reading only the first value sees them in the order
-// the annotation was written.
+// AnnotationValueSite is one annotation's direct and nested bindings in the
+// order they were written.
 type AnnotationValueSite struct {
 	TypeFQN string
 	// Doc is the document stating the annotation, which for an `about` site
@@ -178,10 +177,8 @@ type AnnotationValueSite struct {
 	Nested []symbols.AnnotationValueFacts
 }
 
-// AnnotationValueSitesOf returns the annotations of sym in the order their
-// sites are written: by document, then by source position. An annotation stated
-// in another document with `about` takes its place among the inline ones there;
-// a value recorded without a tree keeps the span its record carries.
+// AnnotationValueSitesOf returns sym's annotations in document and source
+// order, including `about` sites and recorded values without a tree.
 func (m *Model) AnnotationValueSitesOf(sym *symbols.Symbol) []AnnotationValueSite {
 	if m == nil || sym == nil {
 		return nil

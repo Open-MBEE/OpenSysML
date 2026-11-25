@@ -87,9 +87,8 @@ func TestQueryRPCOrdersAnnotationsBySiteInOneDocument(t *testing.T) {
 	}
 }
 
-// Across documents, the document order decides which site's binding comes
-// first. Both sites are padded to the same source offset, so only the document
-// can break the tie.
+// Across documents, document order decides which site binds first. Both
+// sites share a source offset, so only the document can break the tie.
 func TestQueryRPCOrdersAnnotationsByDocumentAndSpan(t *testing.T) {
 	inlinePrefix := "package Demo {\n" + annotationSiteDeclarations + "\npart a { "
 	aboutPrefix := "package Annotations {\n\tprivate import Demo::*;\n"

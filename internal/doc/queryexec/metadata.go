@@ -53,10 +53,8 @@ func (e *executor) annotationFeatureValues(sym *symbols.Symbol, declaring, featu
 	return result, present, nil
 }
 
-// annotationValues reports a row's bound values as
-// `<metadata>::<feature>=<value>` strings, in the order the annotations were
-// written. Direct and nested bindings stay with their site: a caller reading
-// only the first value sees the binding of the earliest annotation.
+// annotationValues reports bound values as `<metadata>::<feature>=<value>`
+// strings, ordered by annotation site and then by binding.
 func (e *executor) annotationValues(sym *symbols.Symbol) ([]Value, bool, error) {
 	if sym == nil {
 		return nil, false, nil
