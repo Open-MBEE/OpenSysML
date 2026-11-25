@@ -1,0 +1,1 @@
+- Strict conformance no longer reports `redefinition-resolves-to-nothing` for a nested redefinition of a member inherited through a typed usage's own redefinition or subsetting, such as `part :>> wheel : Wheel { attribute :>> pressure; }` where the redefined `wheel` declares `pressure`.
