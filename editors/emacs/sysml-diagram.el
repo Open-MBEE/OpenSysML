@@ -644,6 +644,9 @@ Needs `sysml-diagram-mmdc-program' and a frame that can display SVG."
             (insert-image (create-image svg 'svg t :max-width (car limit) :max-height (cdr limit)))
             (special-mode)))))))
 
+;; Defined only in an Emacs built with image support.
+(defvar max-image-size)
+
 (defun sysml-diagram--image-size-limit (frame)
   "Return the largest (WIDTH . HEIGHT) image that FRAME can display.
 The size is in logical pixels, while `max-image-size' counts them at
