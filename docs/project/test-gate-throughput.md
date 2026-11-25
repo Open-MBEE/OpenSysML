@@ -56,17 +56,22 @@ Flags:
 | `-list`, `-plan` | off | print discovery or the planned commands and exit |
 | `-root` | walk up from the working directory | repository root |
 
-**Derivation rule.** The runner first reads the effective CPU limit (cgroup
-quota when present, otherwise `runtime.NumCPU`) and available memory (cgroup
-memory or `MemAvailable`). The default shard count is the smaller of the CPU
-count and `available memory / 2 GiB`, at least one; the default `GOMAXPROCS`
-per shard is `CPUs / shards`, at least one. Both products therefore stay within
-the host's CPU budget: a 16-CPU, 16-GiB machine gets eight shards with
-`GOMAXPROCS=2`, while a 2-CPU, 2-GiB machine gets one shard with `GOMAXPROCS=2`.
-The number of shards is also capped by the shard list itself. Explicit flags
-and environment variables override any derived value, so CI and developers
-keep control; the runner never imposes this host's settings on another one.
-`-p` stays unset by default because Go already derives `-p` from `GOMAXPROCS`.
+**Derivation rule.** The runner first reads the effective CPU limit and
+available memory from the process's own cgroup *and every ancestor*: a quota
+or memory limit on a parent in a systemd slice bounds the process just as its
+own cgroup does, and the walk takes the tightest CPU quota and the smallest
+finite memory headroom. Where no controller limit is found it falls back to
+`runtime.NumCPU` and `MemAvailable` (itself a cap on a finite cgroup headroom).
+The default shard count is the smaller of the CPU count and `available memory /
+2 GiB`, at least one. The `GOMAXPROCS` per shard is then `CPUs / workers`, where
+`workers` is the number of shards that will actually be in flight after the
+`-shards` subset and `-concurrency` cap are applied — not the default shard
+count. A 16-CPU, 16-GiB machine gets eight shards with `GOMAXPROCS=2`; asking
+that machine for four shards in flight gives each `GOMAXPROCS=4`, and a
+two-shard subset gives each `GOMAXPROCS=8`. Explicit flags and environment
+variables override any derived value, so CI and developers keep control; the
+runner never imposes this host's settings on another one. `-p` stays unset by
+default because Go already derives `-p` from `GOMAXPROCS`.
 
 The runner covers the Go test shards — the units the Makefile and the CI Go
 matrix call shards. CI's standalone gates (the corpus, solver and differential
@@ -82,16 +87,24 @@ targets take that as a guard on the snapshot prerequisite, and the variable
 reaches the recursive `make` calls inside `test-quick` and `test-queue`, so
 concurrent shards do not each remove and regenerate the embedded snapshot
 source under the tree. Each shard is reported in shard order with its wall
-time; failing shards print their captured output. The process exits non-zero
-when any shard fails, and it attempts every shard even after one fails,
-matching CI's `fail-fast: false`.
+time; failing shards print their captured output. A shard that exits zero but
+prints a `GATE NOT RUN` banner — the corpus it was asked to check is absent —
+is reported as `WARN`, not `PASS`, and the closing line counts the incomplete
+shards. The banners are counted from the whole stream, so they survive a
+successful shard and `-v` output even though the rolling log tail is kept only
+for failures. This is a status, not a new failure mode: a required corpus
+still fails its shard and exits non-zero through the existing require
+variables. The process exits non-zero when any shard fails, and it attempts
+every shard even after one fails, matching CI's `fail-fast: false`.
 
 A shard's output is never held in full: it is streamed to the terminal with
 `-v`, and otherwise only the last `-log-tail` bytes are kept for a failing
 shard's diagnostic. The runner handles `SIGINT` and `SIGTERM` by signalling
 each shard's whole process group, so an interrupted run does not leave `go
 test` descendants behind. Unit tests cover large-log truncation, verbose
-streaming, bounded concurrency, the snapshot-once guard and descendant cleanup.
+streaming, bounded concurrency, the snapshot-once guard, descendant cleanup,
+skip-banner status and the cgroup hierarchy with fixture trees for a limit at
+the process cgroup and one inherited from a parent.
 
 ## One warm shared cache
 

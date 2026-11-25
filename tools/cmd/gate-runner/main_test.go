@@ -272,6 +272,132 @@ func TestVerboseStreamsPassingOutput(t *testing.T) {
 	}
 }
 
+func TestSkipBannerMakesASuccessfulShardIncomplete(t *testing.T) {
+	root := fakeRoot(t, allShardsScript())
+	var stdout bytes.Buffer
+	r := &runner{
+		root: root, tier: "quick", concurrency: 1,
+		shards: []string{"cli"}, stdout: &stdout,
+	}
+	r.exec = func(_ context.Context, command []string, out io.Writer) error {
+		if !slices.Contains(command, "test-quick") {
+			return nil
+		}
+		_, _ = io.WriteString(out, "!!! GATE NOT RUN: the corpus is absent.\n")
+		return nil
+	}
+	results, err := r.run(context.Background(), r.commands())
+	if err != nil {
+		t.Fatalf("a skip banner must not fail a shard: %v", err)
+	}
+	if got := results[0].warnings; got != 1 {
+		t.Errorf("captured %d warnings, want 1", got)
+	}
+	printSummary(r, results)
+	summary := stdout.String()
+	for _, want := range []string{"[WARN] cli", "1 gate(s) not run (coverage incomplete)", "all 1 shards exited zero, 1 incomplete (gate skipped)"} {
+		if !strings.Contains(summary, want) {
+			t.Errorf("summary %q lacks %q", summary, want)
+		}
+	}
+	if strings.Contains(summary, "all 1 shards passed") {
+		t.Errorf("summary %q reports an unqualified pass", summary)
+	}
+}
+
+func TestSkipBannerSurvivesVerboseStreamingAndLaterOutput(t *testing.T) {
+	root := fakeRoot(t, allShardsScript())
+	var stdout bytes.Buffer
+	r := &runner{
+		root: root, tier: "quick", concurrency: 1, verbose: true,
+		shards: []string{"cli"}, stdout: &stdout,
+	}
+	r.exec = func(_ context.Context, command []string, out io.Writer) error {
+		if !slices.Contains(command, "test-quick") {
+			return nil
+		}
+		_, _ = io.WriteString(out, "!!! GATE NOT RUN: the corpus is absent.\n")
+		_, _ = io.WriteString(out, "later verbose output\n")
+		return nil
+	}
+	results, err := r.run(context.Background(), r.commands())
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if got := results[0].warnings; got != 1 {
+		t.Errorf("captured %d warnings after verbose output, want 1", got)
+	}
+	if results[0].output != "" {
+		t.Errorf("a passing shard retained %d bytes", len(results[0].output))
+	}
+	for _, want := range []string{"GATE NOT RUN", "later verbose output"} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Errorf("streamed output lacks %q", want)
+		}
+	}
+}
+
+func TestRequiredCorpusFailureStillExitsNonZero(t *testing.T) {
+	root := fakeRoot(t, allShardsScript())
+	var stdout bytes.Buffer
+	r := &runner{
+		root: root, tier: "quick", concurrency: 2,
+		shards: []string{"cli", "rest"}, stdout: &stdout,
+	}
+	r.exec = func(_ context.Context, command []string, out io.Writer) error {
+		if !slices.Contains(command, "test-quick") {
+			return nil
+		}
+		_, _ = io.WriteString(out, "!!! GATE NOT RUN: corpus absent.\n")
+		if slices.Contains(command, "SHARDS=cli") {
+			return errors.New("required corpus failed")
+		}
+		return nil
+	}
+	results, err := r.run(context.Background(), r.commands())
+	var failed *FailureError
+	if !errors.As(err, &failed) || !slices.Equal(failed.Shards, []string{"cli"}) {
+		t.Fatalf("run error = %v, want only cli to fail", err)
+	}
+	for _, res := range results {
+		if res.warnings != 1 {
+			t.Errorf("%s: captured %d warnings, want 1", res.shard, res.warnings)
+		}
+	}
+	printSummary(r, results)
+	summary := stdout.String()
+	for _, want := range []string{"[FAIL] cli", "[WARN] rest", "1 of 2 shards failed", ", 1 incomplete (gate skipped)"} {
+		if !strings.Contains(summary, want) {
+			t.Errorf("summary %q lacks %q", summary, want)
+		}
+	}
+}
+
+func TestWarningCounterCountsBannersSplitAcrossWrites(t *testing.T) {
+	var counter warningCounter
+	for _, chunk := range []string{"prefix GATE NO", "T RUN: absent\nlate GATE NOT RUN: skip\n"} {
+		counter.scan([]byte(chunk))
+	}
+	if got := counter.count; got != 2 {
+		t.Errorf("count = %d, want 2 split banners", got)
+	}
+}
+
+// TestWarningCounterMatchesAWholeStream checks the streamed counter against
+// a direct count, including a banner split at every possible byte boundary.
+func TestWarningCounterMatchesAWholeStream(t *testing.T) {
+	const stream = "start GATE NOT RUN: one\nmiddle\nGATE NOT RUN: two\nend"
+	want := strings.Count(stream, skipBanner)
+	for split := 0; split <= len(stream); split++ {
+		var counter warningCounter
+		counter.scan([]byte(stream[:split]))
+		counter.scan([]byte(stream[split:]))
+		if counter.count != want {
+			t.Fatalf("split at %d counted %d, want %d", split, counter.count, want)
+		}
+	}
+}
+
 func TestCancellationKillsShardDescendants(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("process groups are a POSIX facility")
@@ -358,7 +484,7 @@ func TestChildEnvBoundsProcsAndPackages(t *testing.T) {
 		}
 	}
 	t.Setenv("GOMAXPROCS", "9")
-	if got, err := goMaxProcs(0); err != nil || got != 0 {
+	if got, err := goMaxProcs(0, 1, 16); err != nil || got != 0 {
 		t.Errorf("explicit GOMAXPROCS: goMaxProcs = %d, %v; want 0, nil", got, err)
 	}
 	if got := childEnv(0, 0); slices.Contains(got, "GOMAXPROCS=2") {
@@ -369,7 +495,7 @@ func TestChildEnvBoundsProcsAndPackages(t *testing.T) {
 func TestChildEnvKeepsTheTimingScriptsCallerGOMAXPROCS(t *testing.T) {
 	t.Setenv(procsEnv, "")
 	t.Setenv("GOMAXPROCS", "2") // scripts/gate-timing.sh exports this
-	procs, err := goMaxProcs(0)
+	procs, err := goMaxProcs(0, 2, 16)
 	if err != nil || procs != 0 {
 		t.Fatalf("goMaxProcs = %d, %v; want 0 so the caller wins", procs, err)
 	}
@@ -391,20 +517,56 @@ func TestChildEnvKeepsTheTimingScriptsCallerGOMAXPROCS(t *testing.T) {
 func TestGoMaxProcsConfiguration(t *testing.T) {
 	t.Setenv("GOMAXPROCS", "")
 	t.Setenv(procsEnv, "")
-	_, derived := deriveDefaults()
-	if got, err := goMaxProcs(0); err != nil || got != derived {
+	cpus, mem := hostCapacity()
+	shards := defaultShards(cpus, mem)
+	derived := procsForWorkers(cpus, shards)
+	if got, err := goMaxProcs(0, shards, cpus); err != nil || got != derived {
 		t.Errorf("default = %d, %v; want the derived %d", got, err, derived)
 	}
 	t.Setenv(procsEnv, " 5 ")
-	if got, err := goMaxProcs(0); err != nil || got != 5 {
+	if got, err := goMaxProcs(0, 2, 16); err != nil || got != 5 {
 		t.Errorf("env = %d, %v; want 5", got, err)
 	}
-	if got, err := goMaxProcs(7); err != nil || got != 7 {
+	if got, err := goMaxProcs(7, 2, 16); err != nil || got != 7 {
 		t.Errorf("flag = %d, %v; want 7", got, err)
 	}
 	t.Setenv(procsEnv, "nope")
-	if _, err := goMaxProcs(0); err == nil {
+	if _, err := goMaxProcs(0, 2, 16); err == nil {
 		t.Error("accepted an invalid procs value")
+	}
+}
+
+// TestGoMaxProcsFollowsEffectiveWorkers pins the CPU sizing when the fleet is
+// overridden: a 16-CPU host with four workers in flight gives each four CPUs,
+// not the two-shard default's eight, and a two-shard subset gets eight.
+func TestGoMaxProcsFollowsEffectiveWorkers(t *testing.T) {
+	t.Setenv("GOMAXPROCS", "")
+	t.Setenv(procsEnv, "")
+	for _, tc := range []struct {
+		name    string
+		workers int
+		want    int
+	}{
+		{name: "default two shards", workers: 2, want: 8},
+		{name: "concurrency override", workers: 4, want: 4},
+		{name: "shard subset", workers: 1, want: 16},
+		{name: "more workers than CPUs", workers: 32, want: 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := goMaxProcs(0, tc.workers, 16)
+			if err != nil || got != tc.want {
+				t.Errorf("goMaxProcs(0, %d, 16) = %d, %v; want %d", tc.workers, got, err, tc.want)
+			}
+		})
+	}
+}
+
+func TestProcsForWorkersGuardsEmptyFleet(t *testing.T) {
+	if got := procsForWorkers(16, 0); got != 16 {
+		t.Errorf("procsForWorkers(16, 0) = %d, want 16", got)
+	}
+	if got := procsForWorkers(16, 3); got != 5 {
+		t.Errorf("procsForWorkers(16, 3) = %d, want 5", got)
 	}
 }
 
@@ -430,8 +592,9 @@ func TestLogTailBytes(t *testing.T) {
 }
 
 func TestDerivedDefaultsStayWithinTheHost(t *testing.T) {
-	cpus, _ := hostCapacity()
-	concurrency, procs := deriveDefaults()
+	cpus, mem := hostCapacity()
+	concurrency := defaultShards(cpus, mem)
+	procs := procsForWorkers(cpus, concurrency)
 	if concurrency < 1 || procs < 1 {
 		t.Fatalf("derived %d shards and %d procs", concurrency, procs)
 	}
@@ -459,17 +622,21 @@ func TestGoFlagsWithP(t *testing.T) {
 
 func TestEnvLimit(t *testing.T) {
 	t.Setenv(concurrencyEnv, "")
-	derived, _ := deriveDefaults()
-	if got, err := envLimit(); err != nil || got != derived {
+	cpus, mem := hostCapacity()
+	derived := defaultShards(cpus, mem)
+	if got, err := envLimit(cpus, mem); err != nil || got != derived {
 		t.Errorf("unset limit = %d, %v; want the derived %d", got, err, derived)
 	}
+	if got, err := envLimit(16, 4<<30); err != nil || got != 2 {
+		t.Errorf("16 CPUs and 4 GiB = %d shards, want 2", got)
+	}
 	t.Setenv(concurrencyEnv, " 7 ")
-	if got, err := envLimit(); err != nil || got != 7 {
+	if got, err := envLimit(16, 4<<30); err != nil || got != 7 {
 		t.Errorf("set limit = %d, %v; want 7", got, err)
 	}
 	for _, value := range []string{"0", "-1", "two"} {
 		t.Setenv(concurrencyEnv, value)
-		if _, err := envLimit(); err == nil {
+		if _, err := envLimit(16, 4<<30); err == nil {
 			t.Errorf("accepted %s=%q", concurrencyEnv, value)
 		}
 	}
