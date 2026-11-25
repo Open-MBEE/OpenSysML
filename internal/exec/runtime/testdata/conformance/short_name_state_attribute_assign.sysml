@@ -5,11 +5,13 @@ package test {
 
 	state def Gauge {
 		attribute <r> reading : Real = 0.0;
+		attribute raw;
 
 		entry; then go;
 		state go {
 			entry action set {
-				assign r := "not a number";
+				assign raw := "not a number";
+				then assign r := raw;
 			}
 		}
 	}
