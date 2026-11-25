@@ -3,6 +3,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"flag"
@@ -29,6 +30,7 @@ const (
 	procsEnv        = "OPENSYSML_GATE_GOMAXPROCS"
 	logTailEnv      = "OPENSYSML_GATE_LOG_TAIL"
 	defaultLogTail  = 64 << 10
+	skipBanner      = "GATE NOT RUN"
 )
 
 // tierTarget maps each tier to the Makefile target CI invokes for it.
@@ -44,6 +46,7 @@ type result struct {
 	command   string
 	output    string
 	truncated bool
+	warnings  int
 	err       error
 	elapsed   time.Duration
 }
@@ -60,6 +63,59 @@ func (e *FailureError) Error() string {
 // executor streams a child's combined output to out and returns its error.
 type executor func(ctx context.Context, command []string, out io.Writer) error
 
+// warningCounter finds skip banners in a stream, including ones split across writes.
+// Its carry is bounded to the marker width, independent of the log tail.
+type warningCounter struct {
+	carry []byte
+	count int
+}
+
+func (c *warningCounter) scan(p []byte) {
+	if len(p) == 0 {
+		return
+	}
+	marker := []byte(skipBanner)
+	width := len(marker)
+	// Banners starting in this write: count each non-overlapping occurrence.
+	for offset := 0; offset+width <= len(p); {
+		found := bytes.Index(p[offset:], marker)
+		if found < 0 {
+			break
+		}
+		c.count++
+		offset += found + width
+	}
+	// A banner starting in carry ends in this write; carry holds fewer than
+	// width bytes, so it cannot hold a banner already counted on an earlier write.
+	keep := width - 1
+	head := keep
+	if head > len(p) {
+		head = len(p)
+	}
+	boundary := append(append([]byte(nil), c.carry...), p[:head]...)
+	for offset := 0; offset < len(c.carry) && offset+width <= len(boundary); {
+		found := bytes.Index(boundary[offset:], marker)
+		if found < 0 {
+			break
+		}
+		start := offset + found
+		if start >= len(c.carry) {
+			break
+		}
+		c.count++
+		offset = start + width
+	}
+	if len(p) < keep {
+		combined := append(append([]byte(nil), c.carry...), p...)
+		if len(combined) > keep {
+			combined = combined[len(combined)-keep:]
+		}
+		c.carry = combined
+		return
+	}
+	c.carry = append(c.carry[:0], p[len(p)-keep:]...)
+}
+
 // tailBuffer keeps only the last limit bytes, streaming to w when set.
 type tailBuffer struct {
 	mu        sync.Mutex
@@ -67,6 +123,7 @@ type tailBuffer struct {
 	w         io.Writer
 	limit     int
 	truncated bool
+	warnings  warningCounter
 }
 
 func (t *tailBuffer) Write(p []byte) (int, error) {
@@ -77,6 +134,7 @@ func (t *tailBuffer) Write(p []byte) (int, error) {
 	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
+	t.warnings.scan(p)
 	if len(p) >= t.limit {
 		t.buf = append(t.buf[:0], p[len(p)-t.limit:]...)
 		t.truncated = true
@@ -101,6 +159,12 @@ func (t *tailBuffer) wasTruncated() bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	return t.truncated
+}
+
+func (t *tailBuffer) warningCount() int {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.warnings.count
 }
 
 type runner struct {
@@ -173,28 +237,6 @@ func runCtx(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 	if _, ok := tierTarget[*tier]; !ok {
 		return fmt.Errorf("unknown tier %q: want quick, queue or full", *tier)
 	}
-	concurrency := *limit
-	if concurrency == 0 {
-		concurrency, err = envLimit()
-		if err != nil {
-			return err
-		}
-	}
-	if concurrency < 1 {
-		return fmt.Errorf("-concurrency must be at least 1, got %d", concurrency)
-	}
-	if *parallel < 0 {
-		return fmt.Errorf("-p must not be negative, got %d", *parallel)
-	}
-	procsPerShard, err := goMaxProcs(*procs)
-	if err != nil {
-		return err
-	}
-	tail, err := logTailBytes(*logTail)
-	if err != nil {
-		return err
-	}
-
 	shards := discovered
 	if fields := strings.FieldsFunc(*subset, func(r rune) bool { return r == ',' || r == ' ' || r == '\n' }); len(fields) > 0 {
 		known := make(map[string]bool, len(discovered))
@@ -212,6 +254,33 @@ func runCtx(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 			seen[shard] = true
 		}
 		shards = fields
+	}
+
+	cpus, mem := hostCapacity()
+	concurrency := *limit
+	if concurrency == 0 {
+		concurrency, err = envLimit(cpus, mem)
+		if err != nil {
+			return err
+		}
+	}
+	if concurrency < 1 {
+		return fmt.Errorf("-concurrency must be at least 1, got %d", concurrency)
+	}
+	if *parallel < 0 {
+		return fmt.Errorf("-p must not be negative, got %d", *parallel)
+	}
+	// The fleet is resolved before sizing shards: an override to the shard
+	// subset or the concurrency must change the CPU budget per shard, not add
+	// workers with the default fleet's GOMAXPROCS.
+	workers := min(concurrency, len(shards))
+	procsPerShard, err := goMaxProcs(*procs, workers, cpus)
+	if err != nil {
+		return err
+	}
+	tail, err := logTailBytes(*logTail)
+	if err != nil {
+		return err
 	}
 
 	r := &runner{
@@ -289,11 +358,10 @@ func discover(root string) ([]string, error) {
 	return shards, nil
 }
 
-func envLimit() (int, error) {
+func envLimit(cpus int, mem uint64) (int, error) {
 	value := os.Getenv(concurrencyEnv)
 	if strings.TrimSpace(value) == "" {
-		concurrency, _ := deriveDefaults()
-		return concurrency, nil
+		return defaultShards(cpus, mem), nil
 	}
 	n, err := strconv.Atoi(strings.TrimSpace(value))
 	if err != nil || n < 1 {
@@ -302,8 +370,10 @@ func envLimit() (int, error) {
 	return n, nil
 }
 
-// goMaxProcs returns 0 when the caller explicitly set GOMAXPROCS.
-func goMaxProcs(explicit int) (int, error) {
+// goMaxProcs returns 0 when the caller explicitly set GOMAXPROCS, leaving the
+// caller's value untouched in the child environment. Otherwise it divides the
+// host's CPU budget over the workers that will actually run.
+func goMaxProcs(explicit, workers, cpus int) (int, error) {
 	if explicit < 0 {
 		return 0, fmt.Errorf("-gomaxprocs must not be negative, got %d", explicit)
 	}
@@ -320,8 +390,7 @@ func goMaxProcs(explicit int) (int, error) {
 	if os.Getenv("GOMAXPROCS") != "" {
 		return 0, nil
 	}
-	_, procs := deriveDefaults()
-	return procs, nil
+	return procsForWorkers(cpus, workers), nil
 }
 
 func logTailBytes(value string) (int, error) {
@@ -454,6 +523,7 @@ func (r *runner) run(ctx context.Context, commands [][]string) ([]result, error)
 					command:   strings.Join(commands[i], " "),
 					output:    output,
 					truncated: truncated,
+					warnings:  sink.warningCount(),
 					err:       err,
 					elapsed:   time.Since(started),
 				}
@@ -479,10 +549,16 @@ func (r *runner) run(ctx context.Context, commands [][]string) ([]result, error)
 }
 
 func printSummary(r *runner, results []result) {
+	failed, warned := 0, 0
 	for _, res := range results {
 		status := "PASS"
-		if res.err != nil {
+		switch {
+		case res.err != nil:
 			status = "FAIL"
+			failed++
+		case res.warnings > 0:
+			status = "WARN"
+			warned++
 		}
 		fmt.Fprintf(r.stdout, "[%s] %-24s %s\n", status, res.shard, res.elapsed.Round(time.Millisecond))
 		if res.err != nil {
@@ -492,16 +568,21 @@ func printSummary(r *runner, results []result) {
 			}
 			fmt.Fprintf(r.stdout, "----- %s: %v -----\n", res.shard, res.err)
 		}
-	}
-	failed := 0
-	for _, res := range results {
-		if res.err != nil {
-			failed++
+		if res.warnings > 0 {
+			fmt.Fprintf(r.stdout, "----- %s: %d gate(s) not run (coverage incomplete) -----\n", res.shard, res.warnings)
 		}
 	}
-	if failed == 0 {
+	if failed == 0 && warned == 0 {
 		fmt.Fprintf(r.stdout, "gate runner: all %d shards passed\n", len(results))
 		return
 	}
-	fmt.Fprintf(r.stdout, "gate runner: %d of %d shards failed\n", failed, len(results))
+	if failed == 0 {
+		fmt.Fprintf(r.stdout, "gate runner: all %d shards exited zero, %d incomplete (gate skipped)\n", len(results), warned)
+		return
+	}
+	fmt.Fprintf(r.stdout, "gate runner: %d of %d shards failed", failed, len(results))
+	if warned > 0 {
+		fmt.Fprintf(r.stdout, ", %d incomplete (gate skipped)", warned)
+	}
+	fmt.Fprintln(r.stdout)
 }
