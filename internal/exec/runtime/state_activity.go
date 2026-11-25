@@ -235,6 +235,20 @@ func (ctx *Context) denotedInstance(sym *symbols.Symbol) *Instance {
 	return ctx.instances[val.Instance]
 }
 
+// ActivityOf reports whether sym names a state here and whether it is active;
+// the second result is false only when no such state is declared.
+func (e *StateExecutor) ActivityOf(sym *symbols.Symbol) (bool, bool) {
+	if e == nil || sym == nil || e.graph == nil {
+		return false, false
+	}
+	for _, state := range e.graph.States {
+		if symbols.SameElement(e.graph.StateSymbol(state), sym) {
+			return e.activity(state), true
+		}
+	}
+	return false, false
+}
+
 // machineActive reports the machine itself active: started, not ended, and holding
 // an active configuration unless it declares no substate to hold one of.
 func (e *StateExecutor) machineActive() bool {

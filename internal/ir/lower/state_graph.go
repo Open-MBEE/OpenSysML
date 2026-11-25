@@ -801,6 +801,35 @@ func (g *StateGraph) DeclOf(state *ast.StateNode) ast.Node {
 	return state
 }
 
+// StateSymbol is the symbol declaring state, found through the graph's
+// provenance; nil for a state lowered without a declaration.
+func (g *StateGraph) StateSymbol(state *ast.StateNode) *symbols.Symbol {
+	if g == nil || state == nil {
+		return nil
+	}
+	id, ok := g.ID[state]
+	if !ok {
+		return nil
+	}
+	if g.Provenance.State(id) == nil {
+		return nil
+	}
+	decl := g.DeclOf(state)
+	scope := g.StateScopes[state]
+	if scope == nil {
+		return nil
+	}
+	if owner := scope.Owner(); owner != nil && owner.Decl == decl {
+		return owner
+	}
+	for s := scope; s != nil; s = s.Parent() {
+		if sym := s.MemberDeclaring(decl); sym != nil {
+			return sym
+		}
+	}
+	return nil
+}
+
 // RegionDeclOf is the declaration region was built from: the direct substate of a
 // parallel state or machine that supplies its body, else the region itself.
 func (g *StateGraph) RegionDeclOf(region *ast.StateRegion) ast.Node {

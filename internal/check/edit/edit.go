@@ -62,6 +62,9 @@ const (
 	OpAddComment
 	// OpAddNote writes a `//` line note above Target's declaration.
 	OpAddNote
+	// OpSetAnnotationValue rewrites the value an annotation usage binds to one
+	// of its metadata features, leaving the metadata definition's default intact.
+	OpSetAnnotationValue
 )
 
 // Operation is one change to make to a model's source.
@@ -131,6 +134,9 @@ type Operation struct {
 	About          []string
 	MetadataValues []MetadataValue
 	Shorthand      bool
+	// AnnotationFeature names the metadata feature an annotation edit rewrites.
+	// MetadataName disambiguates several usages of one type on one element.
+	AnnotationFeature string
 	// SequenceKeyword ("first" or "then"), SequenceRef (the node a bare
 	// `then`/`first` names) and After (the member an OpAddSequence follows)
 	// describe an OpAddSequence; a `then` declaring a member reuses MemberKind,
@@ -263,6 +269,15 @@ func AddMetadata(owner, metadataType, name string, about []string, values []Meta
 // AddMetadataPrefix annotates an existing declaration with a metadata prefix.
 func AddMetadataPrefix(target, metadataType string) Operation {
 	return Operation{Kind: OpAddMetadataPrefix, Target: target, MetadataType: metadataType}
+}
+
+// SetAnnotationValue rewrites the value bound to feature in the annotation of
+// type metadataType on about, rather than the metadata definition's default.
+func SetAnnotationValue(about, metadataType, feature, value string) Operation {
+	return Operation{
+		Kind: OpSetAnnotationValue, About: []string{about}, MetadataType: metadataType,
+		AnnotationFeature: feature, Value: value,
+	}
 }
 
 // AddFirst inserts `first <ref>;` into an action body (SysML.xtext:1384 InitialNodeMember; formal/2026-03-02).
@@ -877,6 +892,13 @@ func (m Model) splicesFor(i int, op Operation) ([]splice, error) {
 	}
 	if op.Kind == OpAddMetadata {
 		sp, err := m.addMetadataSplice(i, op)
+		if err != nil {
+			return nil, err
+		}
+		return []splice{sp}, nil
+	}
+	if op.Kind == OpSetAnnotationValue {
+		sp, err := m.setAnnotationValueSplice(i, op)
 		if err != nil {
 			return nil, err
 		}
