@@ -157,6 +157,13 @@ func (e *encoder) expressionStructure(subject rdf.Term, owner string, node ast.N
 	}
 	if resultBearing[expressionMetaclass(node)] {
 		result := e.resultParameter(subject)
+		if typeResult := ast.ExpressionTypeResult(node); typeResult != nil {
+			// A cast or extent types its result by the type it names (KerML.xtext TypeResultMember).
+			if target := e.reference(typeResult); target.IsIRI() {
+				spec, _ := e.relationshipSpec(result, ast.RelTyping, 1, 0)
+				e.emitRelationship(result, target, spec)
+			}
+		}
 		if n, ok := node.(*ast.ConstructorExpr); ok {
 			if err := e.constructorArguments(subject, result, owner, n); err != nil {
 				return err
@@ -259,10 +266,18 @@ func (e *encoder) expressionOperands(subject rdf.Term, owner string, node ast.No
 
 	case *ast.OperatorExpr:
 		e.graph.Add(subject, e.sysml(pOperator), rdf.String(n.Operator.String()))
-		if err := e.arguments(subject, owner, n.Operands, true); err != nil {
+		operands := n.Operands
+		typeResult := ast.ExpressionTypeResult(n)
+		if typeResult != nil && n.Operator == ast.OpAll {
+			// `all T` has no operand: T types its result (KerML.xtext ExtentExpression).
+			operands = nil
+		}
+		if err := e.arguments(subject, owner, operands, true); err != nil {
 			return err
 		}
-		if n.TypeRef != nil {
+		if typeResult != nil {
+			e.graph.Add(subject, e.sysx(xTypeArgument), e.reference(typeResult))
+		} else if n.TypeRef != nil {
 			e.typeArgument(subject, n.TypeRef, len(n.Operands))
 		}
 
@@ -270,7 +285,7 @@ func (e *encoder) expressionOperands(subject rdf.Term, owner string, node ast.No
 		// `(as T[m])` is the classification operator with a type argument only,
 		// its multiplicity written as bounds the way a usage's is.
 		e.graph.Add(subject, e.sysml(pOperator), rdf.String(ast.OpAs.String()))
-		e.typeArgument(subject, n.TargetType, 0)
+		e.graph.Add(subject, e.sysx(xTypeArgument), e.reference(n.TargetType))
 		return e.multiplicity(subject, owner, n.Multiplicity)
 
 	case *ast.FeatureChainExpr:
@@ -643,9 +658,9 @@ func (e *encoder) argumentsFrom(subject rdf.Term, owner string, args []ast.Node,
 	return nil
 }
 
-// typeArgument states the type a classification operator tests or casts to:
-// collapsed as sysx:typeArgument and, as the pilot writes it (SysML.xtext
-// TypeReferenceMember), as an in parameter typed by that type with no value.
+// typeArgument states the type a classification operator tests: collapsed as
+// sysx:typeArgument and, as the pilot writes it (SysML.xtext TypeReferenceMember),
+// as an in parameter typed by that type with no value.
 func (e *encoder) typeArgument(subject rdf.Term, typeRef *ast.QualifiedName, index int) {
 	target := e.reference(typeRef)
 	e.graph.Add(subject, e.sysx(xTypeArgument), target)
@@ -2107,6 +2122,8 @@ func (d *decoder) operatorForm(node rdf.Term, in *element) (operand, error) {
 		return primary(args[0].at(bindPrimary) + "#(" + indexText(args[1]) + ")")
 	case hasType && len(args) == 1 && isInfix:
 		return operand{text: args[0].at(infix) + " " + operator + " " + typeArgument, binding: infix}, nil
+	case hasType && len(args) == 0 && operator == "all":
+		return operand{text: "all " + typeArgument, binding: bindUnary}, nil
 	case hasType && len(args) == 0 && operator == "@":
 		// `@T` alone tests the implicit self, as a filter condition writes it.
 		return operand{text: "@" + typeArgument, binding: bindUnary}, nil
@@ -2649,6 +2666,9 @@ func (d *decoder) expressionMultiplicityText(node rdf.Term, in *element) (string
 	return d.multiplicityText(el), nil
 }
 
+// typeResultOperators are the operators whose type is their result's (KerML.xtext TypeResultMember).
+var typeResultOperators = map[string]bool{"as": true, "meta": true, "all": true}
+
 // typeArgumentParameter reports whether an in parameter is a classification
 // operator's type argument: typed, and with no value bound to it.
 func (d *decoder) typeArgumentParameter(parameter rdf.Term) bool {
@@ -2670,13 +2690,16 @@ func (d *decoder) typeArgumentOf(parameter rdf.Term) (rdf.Term, bool) {
 }
 
 // expressionTypeArgument names the type a classification operator applies:
-// the collapsed sysx:typeArgument, the typed in parameter that states it, or
+// the collapsed sysx:typeArgument, the typed parameter that states it, or
 // both when they agree.
 func (d *decoder) expressionTypeArgument(node rdf.Term, in *element) (string, bool, error) {
 	collapsed, hasCollapsed := d.graph.Object(node, rdf.OpenSysML+xTypeArgument)
 	var typed []rdf.Term
+	operator, _ := d.graph.Lexical(node, rdf.SysML+pOperator)
 	for _, membership := range d.graph.Objects(node, rdf.SysML+pOwnedFeatureMembership) {
-		if d.metaclass(membership) != mParameterMembership {
+		// A cast or extent states its type on its result; a test, on an in parameter.
+		if metaclass := d.metaclass(membership); metaclass != mParameterMembership &&
+			(metaclass != mReturnParameterMembership || !typeResultOperators[operator]) {
 			continue
 		}
 		parameter, ok := d.graph.Object(membership, rdf.SysML+pOwnedMemberParameter)
