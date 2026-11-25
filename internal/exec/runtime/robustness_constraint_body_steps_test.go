@@ -306,4 +306,26 @@ func TestRuntimeRobustnessConstraintBodySteps(t *testing.T) {
 			t.Fatalf("err = %v, want errConstraintExternalAssignment: a nested constraint is its own performance", err)
 		}
 	})
+
+	t.Run("a nested body's write of an outer local by its short name is refused", func(t *testing.T) {
+		src := `package test {
+			private import ScalarValues::*;
+			part def Rig {
+				constraint outerWrite {
+					attribute <s> x : Integer = 0;
+					assert constraint { attribute x : Integer = 1; assign s := 9; x == 1 }
+				}
+			}
+		}`
+		ctx, idx := contextForSource(t, src)
+		rig := lookupOne(t, idx, "test::Rig")
+		feat := featureNamed(ctx, rig, "outerWrite")
+		if feat == nil || feat.Symbol == nil {
+			t.Fatal("constraint outerWrite not found")
+		}
+		_, err := ctx.EvaluateConstraintOn(feat.Symbol, feat.DeclScope(), nil)
+		if !errors.Is(err, errConstraintExternalAssignment) {
+			t.Fatalf("err = %v, want errConstraintExternalAssignment: s names the outer body's x, not the nested one's", err)
+		}
+	})
 }

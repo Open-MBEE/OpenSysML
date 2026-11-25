@@ -1820,9 +1820,11 @@ func (e *stmtEngine) assign(s lower.Assign) (value Value, err error) {
 	if !resolved {
 		depth, local = e.env.namedLocal(target, feature)
 	}
-	if !resolved && !local && target != s.Target && e.redeclares(target, feature) {
-		// A nearer declaration takes the feature's name, so the run around this one
-		// that holds the feature is written.
+	// A constraint's performance writes no run around it, so its host refuses the name.
+	_, verdict := e.host.(*constraintStmtHost)
+	if !resolved && !local && target != s.Target && !verdict {
+		// A declaration between this run and the one holding the feature may take its
+		// name, so that run is written as holding the feature, not by the name.
 		if written, err := e.evalIn(s.Scope).writeHeld(feature, value); written || err != nil {
 			return value, err
 		}
@@ -1847,19 +1849,6 @@ func (e *stmtEngine) assign(s lower.Assign) (value Value, err error) {
 		}
 	}
 	return value, e.host.assignOuter(e.env, target, value, s)
-}
-
-// redeclares reports whether this run binds name as a feature other than feature.
-func (e *stmtEngine) redeclares(name string, feature *symbols.Symbol) bool {
-	if e.env.data.has(name) && e.env.data.holdsAnother(name, feature) {
-		return true
-	}
-	for i := range e.env.frames {
-		if e.env.frameDeclares(i, name) && holdsAnother(e.env.held[i], name, feature) {
-			return true
-		}
-	}
-	return e.env.rootDeclares(name) && holdsAnother(e.env.localHeld, name, feature)
 }
 
 // targetFeature is the feature a plain assignment's target resolves to where it was
