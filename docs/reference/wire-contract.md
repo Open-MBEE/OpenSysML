@@ -379,8 +379,6 @@ A restored model is a usable base: after an edit, `affected` still names only th
 results changed. A service run without a record cache parses every document afresh, which is
 otherwise identical to the cached path.
 
-<<<<<<< HEAD
-=======
 ### Transient parses
 
 The design and its baseline are recorded in [the non-keeping parse record](../project/nonkeeping-parse.md).
@@ -400,7 +398,6 @@ keeping a model the caller asked it not to keep; `TestParseSourcesKeepNeedsTheCa
 both refusals.
 
 
->>>>>>> 68a767405c (fix(grpc): keep restored diagnostics, record workspace edits and transient undo stamps)
 Under the `parse_sources_affected` capability a client can also ask which documents an edit
 reached. It sends the hash it was answered last as `base_model_hash`, and the answer's `affected`
 names, in the request's document order, every document whose results may differ from the base
