@@ -215,6 +215,9 @@ type Options struct {
 	InheritedMembers bool
 	// Projection writes only the api-json elements the caller names; nil writes the whole model.
 	Projection *export.APIJSONProjection
+	// ProjectionGraph is the full model the projection selects against when the
+	// written graph is document-filtered.
+	ProjectionGraph *rdf.Graph
 	// KeepLineBreaks keeps the input's line breaks on notation → notation (a
 	// save or echo); otherwise each statement of a body gets its own line.
 	KeepLineBreaks bool
@@ -500,6 +503,7 @@ func FromGraphTo(out io.Writer, graph *rdf.Graph, to Format, opts Options) error
 		compact.IncludeLibraryStubs = compact.IncludeLibraryStubs || opts.IncludeLibraryStubs
 		compact.InheritedMembers = compact.InheritedMembers || opts.InheritedMembers
 		compact.Projection = opts.Projection
+		compact.ProjectionGraph = opts.ProjectionGraph
 		if opts.LibraryReferences != nil {
 			inner := compact.LibraryReferences
 			compact.LibraryReferences = func(refs []export.APIJSONLibraryReference) {
@@ -514,6 +518,7 @@ func FromGraphTo(out io.Writer, graph *rdf.Graph, to Format, opts Options) error
 		return export.WriteAPIJSONTo(out, graph, export.APIJSONOptions{
 			IncludeLibraryStubs: opts.IncludeLibraryStubs, LibraryReferences: opts.LibraryReferences,
 			InheritedMembers: opts.InheritedMembers, Projection: opts.Projection,
+			ProjectionGraph: opts.ProjectionGraph,
 		})
 	default:
 		return &NotWritableError{Format: to}

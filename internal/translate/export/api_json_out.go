@@ -27,6 +27,9 @@ type APIJSONOptions struct {
 	InheritedMembers bool
 	// Projection writes only the elements the caller names. Nil or empty writes the whole model.
 	Projection *APIJSONProjection
+	// ProjectionGraph supplies names missing from a document-filtered graph;
+	// the output graph still decides which selected subjects are emitted.
+	ProjectionGraph *rdf.Graph
 }
 
 const (
@@ -118,12 +121,12 @@ func apiJSONElementsWithOptions(graph *rdf.Graph, options APIJSONOptions) ([]api
 	return elements, nil
 }
 
-// apiJSONEachElement hands visit the element object of every subject in order;
-// the object is visit's to keep, and nothing here holds it afterwards.
-func apiJSONEachElement(graph *rdf.Graph, options APIJSONOptions, visit func(apiJSONObject) error) error {
+// apiJSONSettledWriter settles a graph for the element writer and returns both:
+// the collections the writer reads and the indexes it derives names with.
+func apiJSONSettledWriter(graph *rdf.Graph, options APIJSONOptions) (*rdf.Graph, *apiJSONElementWriter, error) {
 	wrapped, err := withRootNamespace(graph)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 	settled, err := rdf.ReconcileCollectionsWithPolicy(wrapped, func(subject rdf.Term, key string) bool {
 		metaclass := apiJSONOntologyMetaclass(strings.TrimPrefix(wrapped.Type(subject), rdf.SysML))
@@ -131,12 +134,7 @@ func apiJSONEachElement(graph *rdf.Graph, options APIJSONOptions, visit func(api
 		return ok && property.Nonunique
 	})
 	if err != nil {
-		return err
-	}
-	subjects := settled.SubjectsView()
-	var referenced map[string]bool
-	if options.LibraryReferences != nil {
-		referenced = map[string]bool{}
+		return nil, nil, err
 	}
 	index := newAPIJSONWriteIndex(settled)
 	evaluation := newAPIJSONEvaluationWithIndex(index)
@@ -152,10 +150,33 @@ func apiJSONEachElement(graph *rdf.Graph, options APIJSONOptions, visit func(api
 		options:            options,
 		scratch:            &apiJSONWriteScratch{},
 	}
-	// Project over the writer's own names, so selectors match written elements.
+	return settled, writer, nil
+}
+
+// apiJSONEachElement hands visit the element object of every subject in order;
+// the object is visit's to keep, and nothing here holds it afterwards.
+func apiJSONEachElement(graph *rdf.Graph, options APIJSONOptions, visit func(apiJSONObject) error) error {
+	settled, writer, err := apiJSONSettledWriter(graph, options)
+	if err != nil {
+		return err
+	}
+	subjects := settled.SubjectsView()
+	var referenced map[string]bool
+	if options.LibraryReferences != nil {
+		referenced = map[string]bool{}
+	}
+	// Project over written names; the full graph supplies names a document
+	// filter omitted, and the output graph limits which subjects are written.
 	var projection *apiJSONProjectionIndex
 	if !options.Projection.Empty() {
-		projection, err = newAPIJSONProjectionIndex(settled, writer, options.Projection)
+		projectionGraph, projectionWriter := settled, writer
+		if options.ProjectionGraph != nil {
+			projectionGraph, projectionWriter, err = apiJSONSettledWriter(options.ProjectionGraph, options)
+			if err != nil {
+				return err
+			}
+		}
+		projection, err = newAPIJSONProjectionIndex(projectionGraph, projectionWriter, options.Projection)
 		if err != nil {
 			return err
 		}

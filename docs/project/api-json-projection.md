@@ -74,6 +74,13 @@ bare `@id` references. The standard array remains streamed one element at a time
 index holds names and term sets, never element objects. The compact document is supported by the
 same path.
 
+With a `documents` filter the written graph holds bare references to declarations of the other
+documents: a metadata definition that types a written annotation has no name triples there.
+Selectors resolve against the full model's settled graph instead, and the selected subjects are
+intersected with the document-filtered graph when the writer visits them. A selector therefore
+still names a definition in an excluded document, while the reply writes only elements of the
+documents the caller asked for.
+
 Projection composes with `documents`, `idForm`, `compact`, `includeLibraryStubs` and
 `inheritedMembers`. It applies to `api-json` only; any other target is `INVALID_ARGUMENT`.
 
@@ -157,7 +164,8 @@ wire message, so a caller changing its `Projection` afterwards cannot change the
 | Emitted elements are byte-identical to the whole-corpus run | `assertProjectedElementsMatchWhole` in `convert_projection_test.go` and `assertProjectedAreByteIdentical` in `api_json_projection_test.go` compare each emitted element's raw JSON bytes against the unprojected element with the same `@id`; both run for all three selectors and for a several-document model |
 | Projection by qualified name | `TestConvertProjectionByQualifiedName`, `TestAPIJSONProjectionByQualifiedName`, `:TestConvertProjectionOfSeveralDocuments`, plus `TestAPIJSONProjectionMatchesDerivedQualifiedName` and `TestConvertProjectionMatchesDerivedQualifiedNameFromAPIJSON` for a name the writer derives rather than the graph stating |
 | Projection by metaclass | `TestConvertProjectionByMetaclass`, `TestAPIJSONProjectionByMetaclass`, `TestConvertProjectionWithDocumentsAndCompact`, plus `TestAPIJSONProjectionMatchesWrittenMetaclass` and `TestConvertProjectionMatchesWrittenMetaclassFromTTL` for a legacy type name normalized on the wire |
-| Projection by annotation type | `TestConvertProjectionByAnnotationType`, `TestAPIJSONProjectionByAnnotationType`, `TestAPIJSONProjectionByAnnotationMetaclass` |
+| Projection by annotation type | `TestConvertProjectionByAnnotationType`, `TestAPIJSONProjectionByAnnotationType`, `TestAPIJSONProjectionByAnnotationMetaclass`, `TestAPIJSONProjectionByAnnotationDeclaredShortName` and `TestAPIJSONProjectionByAnnotationQuotedName` for a declared short name and a quoted name with an embedded `::` |
+| Annotation type with a document filter | `TestConvertProjectionAnnotationTypeAcrossDocuments` selects by a definition in an excluded document and asserts that only elements of the requested document are written |
 | Refusal of unknown names | `TestConvertProjectionUnknownNamesAreInvalidArgument` (one case per selector, asserting `INVALID_ARGUMENT`) and `TestAPIJSONProjectionUnknownNames` (asserting the typed writer error and the selector it names) |
 | The full element array is not materialized | The standard writer is `export.WriteAPIJSONTo`, which visits one element at a time; `TestAPIJSONProjectionEmptyWritesWhole` and `TestConvertProjectionEmptyIsTheWholeCorpus` pin that an empty projection takes the unchanged streaming path, and `TestConvertProjectionWithDocumentsAndCompact` pins that narrowing reaches the compact form |
 | All surfaces and clients are updated | `client/opensysml/parity_options_internal_test.go` (`TestConvertOptionsAreNotRequestedWithoutTheirCapability`, `TestConvertOptionsReachTheWire`), `client/python/tests/test_conversion.py` (`test_convert_sends_the_projection_asked_for`, `test_projection_requires_its_capability`), `client/node/test/convert-options.test.ts` (the two projection tests), `client/rust/opensysml/src/conversion.rs` (`requests_carry_the_projection_asked_for`), `internal/frontend/mcp/runtimetools/conversion_test.go:TestConvertPassesAProjection` and `info.go` capability mapping, `tests/hygiene/client_capability_exports_test.go:TestClientCapabilityExports` (Node and Julia public capability exports) |

@@ -242,6 +242,38 @@ func TestConvertProjectionWithDocumentsAndCompact(t *testing.T) {
 	}
 }
 
+// A metadata definition in an excluded document is a bare reference in the
+// document-filtered graph; the selector still resolves against the full model.
+func TestConvertProjectionAnnotationTypeAcrossDocuments(t *testing.T) {
+	srv := mustNewService(t, 10)
+	defer srv.Close()
+	parsed, err := srv.ParseSources(context.Background(), &pb.ParseSourcesRequest{
+		Documents: inlineDocuments(
+			"defs.sysml", "package Defs { metadata def Facet; }\n",
+			"app.sysml", "package App { private import Defs::*; part def Faceted; metadata facet : Facet about Faceted { note = \"n\"; } }\n",
+		),
+	})
+	if err != nil {
+		t.Fatalf("ParseSources: %v", err)
+	}
+	source := &pb.ConvertRequest_ModelHash{ModelHash: parsed.ModelHash}
+	whole := convertProjected(t, srv, nil, &pb.ConvertRequest{Source: source, Documents: []string{"app.sysml"}})
+	reply := convertProjected(t, srv, &pb.ConvertProjection{AnnotationTypes: []string{"Defs::Facet"}}, &pb.ConvertRequest{Source: source, Documents: []string{"app.sysml"}})
+	ids := map[string]bool{}
+	for _, element := range projectedIDs(t, reply.Content) {
+		ids[rawID(t, element)] = true
+	}
+	for _, want := range []string{"App__facet", "App__facet_an0"} {
+		if !ids[want] {
+			t.Errorf("projection across documents did not emit %s: %v", want, ids)
+		}
+	}
+	if ids["Defs__Facet"] {
+		t.Errorf("projection wrote %s from the excluded document", "Defs__Facet")
+	}
+	assertProjectedElementsMatchWhole(t, whole.Content, reply.Content)
+}
+
 // A graph that types a declaration with a legacy KerML name is written as its
 // normalized metaclass; the selector matches the @type the reply carries.
 func TestConvertProjectionMatchesWrittenMetaclassFromTTL(t *testing.T) {

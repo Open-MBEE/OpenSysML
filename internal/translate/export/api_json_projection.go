@@ -2,8 +2,8 @@ package export
 
 import (
 	"fmt"
-	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
 )
@@ -148,8 +148,8 @@ func apiJSONProjectionMetaclass(graph *rdf.Graph, subject rdf.Term) string {
 	return typeName
 }
 
-// apiJSONAnnotationTypeNames names an annotating element by metaclass
-// and by the qualified name of the definition that types it.
+// apiJSONAnnotationTypeNames names an annotating element by metaclass and by
+// its definitions' qualified names, last segments and declared short names.
 func apiJSONAnnotationTypeNames(graph *rdf.Graph, annotating rdf.Term) []string {
 	names := []string{apiJSONProjectionMetaclass(graph, annotating)}
 	for _, relationship := range graph.ObjectsView(annotating, rdf.SysML+pOwnedRelationship) {
@@ -159,9 +159,12 @@ func apiJSONAnnotationTypeNames(graph *rdf.Graph, annotating rdf.Term) []string 
 		for _, typed := range graph.ObjectsView(relationship, rdf.SysML+"type") {
 			if name, ok := graph.Lexical(typed, rdf.SysML+pQualifiedName); ok {
 				names = append(names, name)
-				if i := strings.LastIndex(name, "::"); i >= 0 {
-					names = append(names, name[i+2:])
-				}
+				segments := naming.Segments(name)
+				last := segments[len(segments)-1]
+				names = append(names, last, naming.Unquote(last))
+			}
+			if short, ok := graph.Lexical(typed, rdf.SysML+pDeclaredShortName); ok {
+				names = append(names, short)
 			}
 		}
 	}
