@@ -634,24 +634,25 @@ Needs `sysml-diagram-mmdc-program' and a frame that can display SVG."
       (when (member kind sysml-diagram--tabular-kinds)
         (user-error "A %s is not drawn; it is already shown as one" kind))
       (let ((svg (sysml-diagram--mermaid-to-svg mmdc (lsp-get result :artifact)))
-            (limit (sysml-diagram--image-size-limit))
             (buffer (get-buffer-create (format "*SysML Image: %s*" (buffer-name source)))))
+        (pop-to-buffer buffer)
         (with-current-buffer buffer
-          (let ((inhibit-read-only t))
+          (let ((limit (sysml-diagram--image-size-limit
+                        (window-frame (get-buffer-window buffer t))))
+                (inhibit-read-only t))
             (erase-buffer)
             (insert-image (create-image svg 'svg t :max-width (car limit) :max-height (cdr limit)))
-            (special-mode)))
-        (pop-to-buffer buffer)))))
+            (special-mode)))))))
 
-(defun sysml-diagram--image-size-limit ()
-  "Return the largest (WIDTH . HEIGHT) image the selected frame loads.
+(defun sysml-diagram--image-size-limit (frame)
+  "Return the largest (WIDTH . HEIGHT) image that FRAME can display.
 The size is in logical pixels, while `max-image-size' counts them at
 the frame's scale factor.  Return nil when `max-image-size' sets no
 limit."
-  (let ((scale (frame-scale-factor)))
+  (let ((scale (frame-scale-factor frame)))
     (cond ((floatp max-image-size)
-           (cons (floor (* max-image-size (frame-pixel-width)) scale)
-                 (floor (* max-image-size (frame-pixel-height)) scale)))
+           (cons (floor (* max-image-size (frame-pixel-width frame)) scale)
+                 (floor (* max-image-size (frame-pixel-height frame)) scale)))
           ((integerp max-image-size)
            (let ((side (floor max-image-size scale)))
              (cons side side))))))

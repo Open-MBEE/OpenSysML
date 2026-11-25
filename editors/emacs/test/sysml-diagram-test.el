@@ -128,10 +128,14 @@
 
 (defun sysml-diagram-test--image-spec (limit)
   "Return the image spec `sysml-diagram-image' inserts with `max-image-size' LIMIT.
-The frame is drawn at a scale factor of 2, as at a HiDPI output scale.
-The spec is built without librsvg, which a batch Emacs may lack."
+The image buffer is shown on a 400x300 frame other than the selected
+one, drawn at a scale factor of 2 as at a HiDPI output scale.  The spec
+is built without librsvg, which a batch Emacs may lack."
   (let ((source (generate-new-buffer " *model*"))
-        (max-image-size limit))
+        (max-image-size limit)
+        (window-frame (symbol-function 'window-frame))
+        (frame-pixel-width (symbol-function 'frame-pixel-width))
+        (frame-pixel-height (symbol-function 'frame-pixel-height)))
     (unwind-protect
         (with-temp-buffer
           (sysml-diagram-mode)
@@ -148,8 +152,19 @@ The spec is built without librsvg, which a batch Emacs may lack."
                     ((symbol-function 'create-image)
                      (lambda (data type _data-p &rest props)
                        `(image :type ,type :data ,data ,@props)))
-                    ((symbol-function 'frame-scale-factor) (lambda (&rest _) 2.0))
-                    ((symbol-function 'pop-to-buffer) #'ignore))
+                    ((symbol-function 'pop-to-buffer) #'ignore)
+                    ((symbol-function 'get-buffer-window) (lambda (&rest _) 'image-window))
+                    ((symbol-function 'window-frame)
+                     (lambda (&optional window)
+                       (if (eq window 'image-window) 'image-frame (funcall window-frame window))))
+                    ((symbol-function 'frame-pixel-width)
+                     (lambda (&optional frame)
+                       (if (eq frame 'image-frame) 400 (funcall frame-pixel-width frame))))
+                    ((symbol-function 'frame-pixel-height)
+                     (lambda (&optional frame)
+                       (if (eq frame 'image-frame) 300 (funcall frame-pixel-height frame))))
+                    ((symbol-function 'frame-scale-factor)
+                     (lambda (&optional frame) (if (eq frame 'image-frame) 2.0 1.0))))
             (sysml-diagram-image)
             (with-current-buffer (format "*SysML Image: %s*" (buffer-name source))
               (prog1 (get-text-property (point-min) 'display)
@@ -161,8 +176,8 @@ The spec is built without librsvg, which a batch Emacs may lack."
     (should (equal (image-property spec :max-width) 500))
     (should (equal (image-property spec :max-height) 500)))
   (let ((spec (sysml-diagram-test--image-spec 10.0)))
-    (should (equal (image-property spec :max-width) (floor (* 10 (frame-pixel-width)) 2)))
-    (should (equal (image-property spec :max-height) (floor (* 10 (frame-pixel-height)) 2))))
+    (should (equal (image-property spec :max-width) 2000))
+    (should (equal (image-property spec :max-height) 1500)))
   (should-not (image-property (sysml-diagram-test--image-spec t) :max-width)))
 
 (ert-deftest sysml-diagram-asks-mermaid-for-an-svg-librsvg-draws ()
