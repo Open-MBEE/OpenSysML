@@ -69,9 +69,8 @@ func requestOf(call *runtime.ToolCall, d *Description, fmu string) ([]byte, seri
 	return encoded, plan, err
 }
 
-// requestFields composes a call's request before encoding. A session reuses it
-// for init, clearing the outputs a whole run reads at stopTime; the plan
-// validates a trajectory the one-shot runner answers.
+// requestFields composes a call's request and its series plan before encoding;
+// a session reuses it for init, clearing the stopTime outputs.
 func requestFields(call *runtime.ToolCall, d *Description, fmu string) (runnerRequest, seriesPlan, error) {
 	var iface string
 	switch {

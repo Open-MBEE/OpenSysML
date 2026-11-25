@@ -106,6 +106,19 @@ not_in_nav: |
   project/bitwise-complement.md
   project/constraint-body-steps.md
   project/constraint-body-metadata-equations.md
+  project/api-json-projection.md
+  project/case-bound-subject-query.md
+  project/fmi-evaluation-sessions.md
+  project/fmi-series-outputs.md
+  project/indexed-connection-ends.md
+  project/integration-provenance-followup.md
+  project/nonkeeping-parse.md
+  project/persistent-parse-cache.md
+  project/query-metadata-surfaces.md
+  project/strict-redefinition-validation.md
+  project/structured-render-element-ids.md
+  project/structured-render-node-shape.md
+  project/test-gate-throughput.md
   project/exception-handlers.md
   project/pilot-differential.md
   project/api-json-differential.md
