@@ -30,6 +30,27 @@ def _error(message: str) -> dict[str, Any]:
     return {"protocol": PROTOCOL, "error": message}
 
 
+class SeriesRangeError(ValueError):
+    """A requested instant lies outside the instants the simulation recorded."""
+
+    def __init__(self, time: float, first: float, last: float) -> None:
+        super().__init__(f"sample instant {time} lies outside the simulated run {first} to {last}")
+
+
+def _time_close(a: float, b: float) -> bool:
+    return abs(a - b) <= 64 * max(math.ulp(a), math.ulp(b), 1e-12)
+
+
+def _row_window(recorded: list[float], time: float) -> tuple[int, int]:
+    """Equal indices for a recorded instant, else the two rows bracketing it."""
+    high = bisect.bisect_left(recorded, time)
+    if high < len(recorded) and _time_close(recorded[high], time):
+        return high, high
+    if high > 0 and _time_close(recorded[high - 1], time):
+        return high - 1, high - 1
+    return max(0, high - 1), min(len(recorded) - 1, high)
+
+
 def _variable_types(fmpy: Any, fmu: str) -> dict[str, tuple[str, bool]]:
     """Each model variable's declared type and whether it is an array variable."""
     description = fmpy.read_model_description(fmu)
@@ -116,7 +137,10 @@ def run(request: dict[str, Any]) -> dict[str, Any]:
         else:
             reply["outputs"][name] = _convert(column, fmi_type)
     if series is not None:
-        reply["series"] = _series(result, series, series_outputs, types)
+        try:
+            reply["series"] = _series(result, series, series_outputs, types)
+        except SeriesRangeError as e:
+            return _error(str(e))
     return reply
 
 
@@ -159,11 +183,9 @@ def _series(result: Any, series: dict[str, Any], names: list[str],
     samples = series["samples"]
     wanted = series.get("times")
     if wanted is None:
-        sampled = _sample_rows(result, samples)
-        times = [float(row["time"]) for row in sampled]
-    else:
-        times = [float(value) for value in wanted]
-        sampled = _interpolate(result, times, types)
+        wanted = _even_times(result, samples)
+    times = [float(value) for value in wanted]
+    sampled = _interpolate(result, times, types)
     answer: dict[str, Any] = {"times": times, "outputs": {}}
     for name in names:
         fmi_type, is_array = types.get(name, ("", False))
@@ -176,11 +198,10 @@ def _series(result: Any, series: dict[str, Any], names: list[str],
     return answer
 
 
-def _sample_rows(result: Any, samples: int) -> list[Any]:
-    """The recorded rows nearest to each of `samples` evenly spaced instants."""
-    rows = len(result)
-    return [result[min(round(i * (rows - 1) / (samples - 1)), rows - 1)]
-            for i in range(samples)]
+def _even_times(result: Any, samples: int) -> list[float]:
+    """`samples` instants spread over recorded time, never over recorded row index."""
+    first, last = float(result[0]["time"]), float(result[-1]["time"])
+    return [first + i * (last - first) / (samples - 1) for i in range(samples)]
 
 
 def _continuous(fmi_type: str) -> bool:
@@ -202,20 +223,21 @@ def _interpolate_value(before: Any, after: Any, fraction: float, fmi_type: str,
 
 def _interpolate(result: Any, times: list[float],
                  types: dict[str, tuple[str, bool]]) -> list[Any]:
-    """Rows at the requested instants; exact rows pass through, interior ones use named fields."""
+    """Rows at the requested instants; an unobserved instant is refused, not fabricated."""
     recorded = [float(row["time"]) for row in result]
     fields = _fields(result)
+    first, last = recorded[0], recorded[-1]
     sampled = []
     for time in times:
-        if time <= recorded[0]:
-            sampled.append(result[0])
+        if ((time < first and not _time_close(time, first))
+                or (time > last and not _time_close(time, last))):
+            raise SeriesRangeError(time, first, last)
+        low, high = _row_window(recorded, time)
+        if low == high:
+            sampled.append(result[low])
             continue
-        if time >= recorded[-1]:
-            sampled.append(result[-1])
-            continue
-        high = bisect.bisect_left(recorded, time)
-        before, after = result[high - 1], result[high]
-        fraction = (time - recorded[high - 1]) / (recorded[high] - recorded[high - 1])
+        before, after = result[low], result[high]
+        fraction = (time - recorded[low]) / (recorded[high] - recorded[low])
         row = {"time": time}
         for name in fields:
             if name == "time":

@@ -149,8 +149,10 @@ output, nothing else on stdout:
 - `start` maps every remaining `in` variable name to the value bound for it; `outputs` lists
   the `out` variable names in declaration order; `series`, when present, asks for a
   trajectory of `samples` points and names the variables to sample. With no `times`, the
-  runner spaces them evenly from `startTime` to `stopTime`; with `times`, those exact
-  instants are requested and the runner must honour them. A call with no series output
+  runner spaces them evenly over recorded *time* from `startTime` to `stopTime`, so extra
+  solver-event rows do not move the instants; with `times`, those exact instants are
+  requested and the runner must honour them. An instant outside the simulated run is an
+  error reply, never the last recorded value relabelled. A call with no series output
   omits the member entirely.
 
 The reply is either the result or the error:
@@ -164,8 +166,9 @@ The reply is either the result or the error:
 `time` is the simulated time the outputs were read at — a successful reply must carry a
 finite one; `outputs` maps each requested name to
 its value — a JSON number for `Real`, `Integer` and `Enumeration`, `true`/`false` for
-`Boolean`, a string for `String`. An `error` reply fails the performance as a
-`*fmi.RunnerError`; any other protocol violation — no reply, a wrong protocol version, a value
+`Boolean`, a string for `String`. An `error` reply — including a sample instant beyond
+the run the FMU actually simulated — fails the performance as a `*fmi.RunnerError`; any
+other protocol violation — no reply, a wrong protocol version, a value
 of the wrong shape — fails it as malformed output. A `Real` variable's value is never truncated
 to fit an `Integer` one, and a declared unit on an input is checked: a value measured in
 another unit is refused rather than converted silently.
