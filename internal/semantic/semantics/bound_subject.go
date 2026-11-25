@@ -65,6 +65,11 @@ func (m *Model) boundSubjectOf(sym *symbols.Symbol) boundSubjectResult {
 		if !ok || isDefault || isInitial {
 			continue
 		}
+		// A cast keeps the declaration of the value it applies to, not its type.
+		binding = boundValueOf(binding)
+		if binding == nil {
+			continue
+		}
 		target, ok := m.resolver.ResolveTarget(declared.OwnerScope, binding)
 		if !ok || target == nil {
 			continue
@@ -79,4 +84,22 @@ func (m *Model) boundSubjectOf(sym *symbols.Symbol) boundSubjectResult {
 		return boundSubjectResult{target: target, ok: true}
 	}
 	return boundSubjectResult{}
+}
+
+// boundValueOf peels casts off a binding expression: `boiler as Boiler` names
+// boiler, not Boiler. `(as T)` alone names T for member lookup, so it binds nothing.
+func boundValueOf(node ast.Node) ast.Node {
+	for {
+		switch n := node.(type) {
+		case *ast.OperatorExpr:
+			if n.Operator != ast.OpAs || len(n.Operands) == 0 || n.Operands[0] == nil {
+				return node
+			}
+			node = n.Operands[0]
+		case *ast.CastExpr:
+			return nil
+		default:
+			return node
+		}
+	}
 }

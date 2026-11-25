@@ -119,6 +119,7 @@ is no versioned format to bump.
 | A query on a case whose subject is redefined/bound to a declaration answers that FQN | `internal/frontend/grpc/query_boundsubject_test.go:TestQueryBoundSubjectNamesTheBoundDeclaration` (pins `Structure::boilerAsMaintained` and `Structure::spareBoiler` from `tests/testdata/bound-subject/verification_subjects.sysml`) |
 | A case binding nothing answers an explicit absence, never another element | the same test (`Verification::unboundSizing` has no property; the `s` parameter never appears as a value) and `internal/semantic/semantics/bound_subject_test.go:TestBoundSubjectOfNamesTheBoundDeclaration` |
 | Both binding forms, a feature chain, a default, an initial value and an inherited binding are read | `TestBoundSubjectOfNamesTheBoundDeclaration` (`:>> s = …`, `s = …`, absence) and `TestBoundSubjectOfReadsChainsDefaultsInitialAndInheritedBindings` (chain FQN, absent default and initial value, redefining subject with no value inheriting the general's binding) |
+| A cast binding answers the value's declaration, never the cast type | `TestBoundSubjectOfNamesTheBoundDeclaration` (`subject s = boiler as Boiler` answers the value's FQN; a standalone `(as T)` binds nothing) |
 | The property constrains rows as well as projecting them | `query_boundsubject_test.go:TestQueryBoundSubjectSelectsCasesByTheirBinding` and `:TestQueryOSLCBoundSubject` |
 | An undeclared name near the new one is still refused | `query_boundsubject_test.go:TestQueryStillRefusesAPropertyNextToBoundSubject` |
 | No per-row re-resolution explosion | `internal/semantic/semantics/bound_subject_test.go:TestBoundSubjectOfResolvesEachBindingOnce` (the resolver memo does not grow on a second read) and `client/opensysml/bound_subject_internal_test.go:TestQueryBoundSubjectNeedsNoPerRowLookup` (one `Query` RPC, zero `GetSymbol` RPCs for a listing) |
@@ -126,9 +127,8 @@ is no versioned format to bump.
 
 ## Verification
 
-Gates run on this head, with `GOMAXPROCS=2`, `-p 2` for builds and targeted
-tests, `-p 1` for the hygiene suite, and the Go temp directory on the home
-filesystem:
+Gates run on this head, with `GOMAXPROCS=2` and `-p 2` for builds, tests and
+the hygiene suite, and the Go temp directory on the home filesystem:
 
 - `gofmt -l .` — no output.
 - `go build -p 2 ./...` — success.
@@ -137,14 +137,17 @@ filesystem:
 - `python3 scripts/check-doc-ids.py` — no work-item labels in reader-facing text.
 - The added-comment gate over `git diff --merge-base origin/develop -- '*.go'` —
   no output.
-- `go test -count=1 -p 1 ./tests/hygiene` — `ok`.
+- `go test -count=1 -p 2 ./tests/hygiene` — `ok`.
+- `sysml -validate tests/testdata/bound-subject/verification_subjects.sysml` —
+  no errors; the `ScalarValues` import is in the package that uses `Real`.
 - Targeted tests, all `ok`: the `TestBoundSubjectOf*` tests in
   `internal/semantic/semantics`; `TestQueryBoundSubject*`,
   `TestQueryOSLCBoundSubject` and
   `TestQueryStillRefusesAPropertyNextToBoundSubject` in `internal/frontend/grpc`;
   `TestQueryBoundSubjectNeedsNoPerRowLookup` in `client/opensysml`; and the full
-  packages `internal/semantic/query`, `internal/doc/querytranslate` and
-  `internal/doc/queryexec`.
+  packages `internal/semantic/semantics`, `internal/semantic/query`,
+  `internal/doc/querytranslate`, `internal/doc/queryexec`,
+  `internal/frontend/grpc` and `client/opensysml`.
 
 The whole-tree `go test ./...` is left to CI; it was not completed here. The
 optional corpus and toolchain gates — the OMG training, pilot and
