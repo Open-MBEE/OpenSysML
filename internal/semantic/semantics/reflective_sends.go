@@ -73,10 +73,11 @@ func (m *Model) sendPartsOf(sym *symbols.Symbol) *sendParts {
 }
 
 // bindArgumentReference binds the name an argument expression writes, as the accept's
-// receiver is bound, so its referent reads where no document walk ran.
+// receiver is bound, so its referent reads where no document walk ran. A chain's target
+// is a member of its operand, no name of scope, and is read on demand (referencedSymbol).
 func (m *Model) bindArgumentReference(scope *symbols.Scope, argument ast.Node) {
-	slot, name, _ := expressionReference(argument)
-	if name == nil || scope == nil || m.resolver == nil {
+	slot, name, leads := expressionReference(argument)
+	if name == nil || !leads || scope == nil || m.resolver == nil {
 		return
 	}
 	if slot == "function" {
