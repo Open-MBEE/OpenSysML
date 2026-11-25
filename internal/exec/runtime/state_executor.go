@@ -609,9 +609,13 @@ func (e *StateExecutor) stateAttributeContext(state *ast.StateNode, scope *symbo
 // initializeStateAttributes gives every state that owns attributes its own
 // values, so two usages of one state definition never share them.
 func (e *StateExecutor) initializeStateAttributes() error {
-	// The defaults are evaluated in the order of the states' ids, the same every run.
+	// A state's defaults are evaluated after those of the states around it, which they
+	// may read, and otherwise in the order of the states' ids, the same every run.
 	states := slices.SortedFunc(maps.Keys(e.graph.StateAttributes), func(a, b *ast.StateNode) int {
-		return cmp.Compare(e.stateID(a), e.stateID(b))
+		return cmp.Or(
+			cmp.Compare(len(e.getParentChain(a)), len(e.getParentChain(b))),
+			cmp.Compare(e.stateID(a), e.stateID(b)),
+		)
 	})
 	for _, state := range states {
 		attrs := e.graph.StateAttributes[state]
