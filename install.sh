@@ -295,6 +295,19 @@ download() { # <url> <destination>
 	fi
 }
 
+# probe <url> <destination>: downloads like `download` and prints the HTTP status
+# of the final answer, 000 when there was none; the file is kept only on 200.
+probe() {
+	if [ "$downloader" = curl ]; then
+		# shellcheck disable=SC2086  # curl_proto is a list of options
+		probe_status=$(curl -sSL $curl_proto --retry 3 -o "$2" -w '%{http_code}' "$1" 2>/dev/null) || probe_status=000
+	else
+		probe_status=$(wget -S -q -O "$2" "$1" 2>&1 | sed -n 's/^[[:space:]]*HTTP\/[0-9.]*[[:space:]][[:space:]]*\([0-9][0-9][0-9]\).*/\1/p' | tail -n 1)
+	fi
+	[ "$probe_status" = 200 ] || rm -f "$2"
+	printf '%s\n' "${probe_status:-000}"
+}
+
 sha256_of() { # <file>: the hex digest
 	if have sha256sum; then
 		sha256sum "$1" | cut -d' ' -f1
@@ -366,6 +379,8 @@ earlier_releases() {
 		# wget takes a header only as an argument, so it asks without the token.
 		download "$releases_api" "$work/releases.json" 2>/dev/null || return 1
 	fi
+	# An answer that is not a list, such as an error object, lists no releases.
+	case "$(tr -d '[:space:]' <"$work/releases.json" | cut -c1)" in "[") ;; *) return 1 ;; esac
 	tr ',{}' '\n' <"$work/releases.json" |
 		awk '
 			# A release object names its tag before its draft and prerelease flags.
@@ -385,19 +400,23 @@ earlier_releases() {
 use_release_with_assets() {
 	latest_tag=$tag
 	manifest="$work/SHA256SUMS.txt"
-	! download "$(asset_url SHA256SUMS.txt)" "$manifest" 2>/dev/null || return 0
-	rm -f "$manifest"
+	# Only a manifest the server says is not there means the assets are not
+	# uploaded; any other failure is reported by the fetch that follows.
+	[ "$(probe "$(asset_url SHA256SUMS.txt)" "$manifest")" = 404 ] || return 0
 	candidates=$(earlier_releases "$latest_tag") ||
 		fail "$latest_tag is the latest release, but its assets are not uploaded yet ($(asset_url SHA256SUMS.txt) is missing) and the earlier releases could not be listed${releases_api:+ from $releases_api}; pass --version <tag> for an earlier release, or retry once $latest_tag has its assets. See $base_url"
 	for candidate in $candidates; do
-		if download "$base_url/download/$candidate/SHA256SUMS.txt" "$manifest" 2>/dev/null; then
+		case "$(probe "$base_url/download/$candidate/SHA256SUMS.txt" "$manifest")" in
+		200)
 			tag=$candidate
 			asset_dir="$base_url/download/$tag"
 			release_name=$tag
 			warn "$latest_tag is the latest release, but its assets are not uploaded yet; installing $tag, the newest release that has them. Run again later, or pass --version $latest_tag, for $latest_tag."
 			return 0
-		fi
-		rm -f "$manifest"
+			;;
+		404) ;;
+		*) fail "$latest_tag is the latest release, but its assets are not uploaded yet ($(asset_url SHA256SUMS.txt) is missing) and $base_url/download/$candidate/SHA256SUMS.txt could not be downloaded; retry, or pass --version <tag> for an earlier release. See $base_url" ;;
+		esac
 	done
 	fail "$latest_tag is the latest release, but its assets are not uploaded yet ($(asset_url SHA256SUMS.txt) is missing) and no earlier release has a SHA256SUMS.txt; retry once $latest_tag has its assets. See $base_url"
 }

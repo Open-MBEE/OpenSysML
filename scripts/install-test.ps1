@@ -12,6 +12,7 @@ param(
     [Parameter(Mandatory)][string]$BaseUrl,
     [Parameter(Mandatory)][string]$MirrorUrl,
     [Parameter(Mandatory)][string]$PendingUrl,
+    [Parameter(Mandatory)][string]$FailingUrl,
     [Parameter(Mandatory)][string]$HostPlatform,
     [Parameter(Mandatory)][string]$Good,
     [Parameter(Mandatory)][string]$Signed,
@@ -252,6 +253,17 @@ $env:OPENSYSML_RELEASES_API = "$PendingUrl/list-none.json"
 $null = Test-Failure 'latest without assets and no earlier release with them' "v8.3.0 is the latest release, but its assets are not uploaded yet ($PendingUrl/download/v8.3.0/SHA256SUMS.txt is missing) and no earlier release has a SHA256SUMS.txt" -BaseUrl $PendingUrl
 $env:OPENSYSML_RELEASES_API = "$PendingUrl/missing.json"
 $null = Test-Failure 'latest without assets and an unreachable releases list' "the earlier releases could not be listed from $PendingUrl/missing.json; pass -Version <tag>" -BaseUrl $PendingUrl
+$env:OPENSYSML_RELEASES_API = "$PendingUrl/list-object.json"
+$null = Test-Failure 'latest without assets and a releases answer that is not a list' "the earlier releases could not be listed from $PendingUrl/list-object.json; pass -Version <tag>" -BaseUrl $PendingUrl
+# Only a manifest that is not there is a release without assets: a server error is a failure.
+$env:OPENSYSML_RELEASES_API = "$PendingUrl/list.json"
+if (Test-Failure 'latest whose manifest the server fails on' "could not download $FailingUrl/download/v8.3.0/SHA256SUMS.txt" -BaseUrl $FailingUrl) {
+    Assert-Unsaid 'not uploaded yet'
+}
+$env:OPENSYSML_RELEASES_API = "$PendingUrl/list-failing.json"
+if (Test-Failure 'latest without assets and an earlier manifest the server fails on' "$PendingUrl/download/v8.2.2/SHA256SUMS.txt could not be downloaded" -BaseUrl $PendingUrl) {
+    Assert-Unsaid 'installing v8.1.0'
+}
 $env:OPENSYSML_RELEASES_API = $null
 $null = Test-Failure 'latest without assets on a mirror that lists no releases' 'the earlier releases could not be listed; pass -Version <tag>' -BaseUrl $PendingUrl
 
