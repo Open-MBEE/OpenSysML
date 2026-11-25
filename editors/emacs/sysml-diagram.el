@@ -635,14 +635,15 @@ Needs `sysml-diagram-mmdc-program' and a frame that can display SVG."
         (user-error "A %s is not drawn; it is already shown as one" kind))
       (let ((svg (sysml-diagram--mermaid-to-svg mmdc (lsp-get result :artifact)))
             (buffer (get-buffer-create (format "*SysML Image: %s*" (buffer-name source)))))
+        (with-current-buffer buffer
+          (special-mode))
         (pop-to-buffer buffer)
         (with-current-buffer buffer
           (let ((limit (sysml-diagram--image-size-limit
                         (window-frame (get-buffer-window buffer t))))
                 (inhibit-read-only t))
             (erase-buffer)
-            (insert-image (create-image svg 'svg t :max-width (car limit) :max-height (cdr limit)))
-            (special-mode)))))))
+            (insert-image (create-image svg 'svg t :max-width (car limit) :max-height (cdr limit)))))))))
 
 ;; Defined only in an Emacs built with image support.
 (defvar max-image-size)

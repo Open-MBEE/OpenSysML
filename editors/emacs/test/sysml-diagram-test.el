@@ -129,8 +129,10 @@
 (defun sysml-diagram-test--image-spec (limit)
   "Return the image spec `sysml-diagram-image' inserts with `max-image-size' LIMIT.
 The image buffer is shown on a 400x300 frame other than the selected
-one, drawn at a scale factor of 2 as at a HiDPI output scale.  The spec
-is built without librsvg, which a batch Emacs may lack."
+one, drawn at a scale factor of 2 as at a HiDPI output scale, and must
+be in `special-mode' by then for a mode-based `display-buffer-alist'
+rule to place it.  The spec is built without librsvg, which a batch
+Emacs may lack."
   (let ((source (generate-new-buffer " *model*"))
         (max-image-size limit)
         (window-frame (symbol-function 'window-frame))
@@ -152,7 +154,9 @@ is built without librsvg, which a batch Emacs may lack."
                     ((symbol-function 'create-image)
                      (lambda (data type _data-p &rest props)
                        `(image :type ,type :data ,data ,@props)))
-                    ((symbol-function 'pop-to-buffer) #'ignore)
+                    ((symbol-function 'pop-to-buffer)
+                     (lambda (buffer &rest _)
+                       (should (buffer-match-p '(major-mode . special-mode) buffer))))
                     ((symbol-function 'get-buffer-window) (lambda (&rest _) 'image-window))
                     ((symbol-function 'window-frame)
                      (lambda (&optional window)
