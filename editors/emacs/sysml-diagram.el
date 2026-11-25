@@ -634,15 +634,27 @@ Needs `sysml-diagram-mmdc-program' and a frame that can display SVG."
       (when (member kind sysml-diagram--tabular-kinds)
         (user-error "A %s is not drawn; it is already shown as one" kind))
       (let ((svg (sysml-diagram--mermaid-to-svg mmdc (lsp-get result :artifact)))
+            (limit (sysml-diagram--image-size-limit))
             (buffer (get-buffer-create (format "*SysML Image: %s*" (buffer-name source)))))
         (with-current-buffer buffer
           (let ((inhibit-read-only t))
             (erase-buffer)
-            (insert-image (create-image svg 'svg t))
-            (special-mode)
-            ;; A view spans many frame widths, more so at a HiDPI output scale.
-            (setq-local max-image-size t)))
+            (insert-image (create-image svg 'svg t :max-width (car limit) :max-height (cdr limit)))
+            (special-mode)))
         (pop-to-buffer buffer)))))
+
+(defun sysml-diagram--image-size-limit ()
+  "Return the largest (WIDTH . HEIGHT) image the selected frame loads.
+The size is in logical pixels, while `max-image-size' counts them at
+the frame's scale factor.  Return nil when `max-image-size' sets no
+limit."
+  (let ((scale (frame-scale-factor)))
+    (cond ((floatp max-image-size)
+           (cons (floor (* max-image-size (frame-pixel-width)) scale)
+                 (floor (* max-image-size (frame-pixel-height)) scale)))
+          ((integerp max-image-size)
+           (let ((side (floor max-image-size scale)))
+             (cons side side))))))
 
 (defconst sysml-diagram--mmdc-config
   "{\"look\": \"classic\", \"htmlLabels\": false, \"flowchart\": {\"wrappingWidth\": 400}}"

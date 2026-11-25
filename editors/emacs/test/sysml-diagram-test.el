@@ -126,8 +126,11 @@
               (should (string-match-p "matrix" (cadr err))))))
       (kill-buffer source))))
 
-(ert-deftest sysml-diagram-image-lifts-the-image-size-limit ()
-  (let ((source (generate-new-buffer " *model*")))
+(defun sysml-diagram-test--image-spec (limit)
+  "Return the image spec `sysml-diagram-image' inserts with `max-image-size' LIMIT.
+The frame is drawn at a scale factor of 2, as at a HiDPI output scale."
+  (let ((source (generate-new-buffer " *model*"))
+        (max-image-size limit))
     (unwind-protect
         (with-temp-buffer
           (sysml-diagram-mode)
@@ -141,13 +144,22 @@
                      (lambda (&rest _) (sysml-diagram-test--json sysml-diagram-test--tree)))
                     ((symbol-function 'sysml-diagram--mermaid-to-svg)
                      (lambda (&rest _) "<svg width=\"1\" height=\"1\"/>"))
+                    ((symbol-function 'frame-scale-factor) (lambda (&rest _) 2.0))
                     ((symbol-function 'pop-to-buffer) #'ignore))
             (sysml-diagram-image)
             (with-current-buffer (format "*SysML Image: %s*" (buffer-name source))
-              (unwind-protect
-                  (should (eq max-image-size t))
+              (prog1 (get-text-property (point-min) 'display)
                 (kill-buffer)))))
       (kill-buffer source))))
+
+(ert-deftest sysml-diagram-image-fits-within-the-image-size-limit ()
+  (let ((spec (sysml-diagram-test--image-spec 1000)))
+    (should (equal (image-property spec :max-width) 500))
+    (should (equal (image-property spec :max-height) 500)))
+  (let ((spec (sysml-diagram-test--image-spec 10.0)))
+    (should (equal (image-property spec :max-width) (floor (* 10 (frame-pixel-width)) 2)))
+    (should (equal (image-property spec :max-height) (floor (* 10 (frame-pixel-height)) 2))))
+  (should-not (image-property (sysml-diagram-test--image-spec t) :max-width)))
 
 (ert-deftest sysml-diagram-asks-mermaid-for-an-svg-librsvg-draws ()
   (let* ((args (make-temp-file "sysml-mmdc-args"))
