@@ -105,6 +105,7 @@ not_in_nav: |
   project/expansion-regions.md
   project/bitwise-complement.md
   project/constraint-body-steps.md
+  project/constraint-body-metadata-equations.md
   project/exception-handlers.md
   project/pilot-differential.md
   project/api-json-differential.md
