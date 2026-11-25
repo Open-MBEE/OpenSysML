@@ -175,7 +175,8 @@ func (ctx *Context) ownerDeliveries(
 			if !ctx.joinsAnyTarget(conn, sendingPaths, targetSyms) {
 				continue
 			}
-			for _, end := range conn.Ends {
+			for _, connEnd := range conn.Ends {
+				end := connEnd.Path
 				if slices.Contains(sendingPaths, end) {
 					continue
 				}
@@ -527,7 +528,8 @@ func (ctx *Context) receivingEnds(conns []lower.Connection, sendingPort string, 
 		if !ctx.joinsTarget(conn, sendingPort, target) {
 			continue
 		}
-		for _, end := range conn.Ends {
+		for _, connEnd := range conn.Ends {
+			end := connEnd.Path
 			if seen[end] {
 				continue
 			}
@@ -555,7 +557,8 @@ func (ctx *Context) receivingEndsForMessage(
 		if !ctx.joinsTarget(conn, sendingPort, target) {
 			continue
 		}
-		for _, end := range conn.Ends {
+		for _, connEnd := range conn.Ends {
+			end := connEnd.Path
 			if seen[end] {
 				continue
 			}
@@ -704,7 +707,7 @@ func (ctx *Context) pathSymbol(scope *symbols.Scope, segments []string) (*symbol
 // the route away from the connector. An end or a target this run does not
 // resolve is matched by its written path alone.
 func (ctx *Context) joinsTarget(conn lower.Connection, want string, target *symbols.Symbol) bool {
-	if !slices.Contains(conn.Ends, want) {
+	if !hasConnectionEnd(conn, want) {
 		return false
 	}
 	if target == nil {
@@ -715,4 +718,15 @@ func (ctx *Context) joinsTarget(conn lower.Connection, want string, target *symb
 		return true
 	}
 	return sym == target || ctx.modelConforms(sym, target) || ctx.modelConforms(target, sym)
+}
+
+// hasConnectionEnd matches a send target against ends' Path: an indexed end's
+// selector names one element of the port, not a different delivery port.
+func hasConnectionEnd(conn lower.Connection, want string) bool {
+	for _, end := range conn.Ends {
+		if end.Path == want {
+			return true
+		}
+	}
+	return false
 }
