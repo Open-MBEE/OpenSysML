@@ -13,7 +13,10 @@ import {
   connect,
   save,
 } from "../src/node/index.js";
-import { CAPABILITY_PARSE_SOURCES_AFFECTED } from "../src/core/capabilities.js";
+import {
+  CAPABILITY_PARSE_SOURCES_AFFECTED,
+  CAPABILITY_PARSE_SOURCES_KEEP,
+} from "../src/core/capabilities.js";
 import { ALL_CAPABILITIES, fakeConnection } from "./support/fake.js";
 import { useServiceBinary } from "./support/service.js";
 
@@ -115,6 +118,29 @@ test("baseModelHash reaches the wire and the affected documents come back", asyn
   );
   assert.deepEqual(related.affected, ["top"]);
   assert.deepEqual(fresh.affected, []);
+});
+
+test("keep:false reaches the wire only when asked", async () => {
+  const { requests, answer } = recordingParseSources();
+  await using connection = await fakeConnection(ALL_CAPABILITIES, answer);
+  await connection.parseSources([["a", "package A;"]], { keep: false });
+  await connection.parseSources([["a", "package A;"]], { keep: true });
+  await connection.parseSources([["a", "package A;"]]);
+  assert.deepEqual(
+    requests.map((request) => request.keep),
+    [false, undefined, undefined],
+  );
+});
+
+test("keep:false is refused before the call when parse_sources_keep is absent", async () => {
+  const { requests, answer } = recordingParseSources();
+  await using connection = await fakeConnection(ALL_CAPABILITIES.filter((name) => name !== CAPABILITY_PARSE_SOURCES_KEEP), answer);
+  await assert.rejects(
+    connection.parseSources([["a", "package A;"]], { keep: false }),
+    (error: unknown) =>
+      error instanceof MissingCapabilityError && error.capability === CAPABILITY_PARSE_SOURCES_KEEP,
+  );
+  assert.equal(requests.length, 0, "the request was sent to a service that would keep the model");
 });
 
 test("baseModelHash is refused before the call when parse_sources_affected is absent", async () => {

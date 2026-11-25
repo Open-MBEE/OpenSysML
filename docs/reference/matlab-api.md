@@ -64,7 +64,9 @@ the parse to a previous model of the same documents and the new model's `affecte
 names, in document order, the documents whose analysis, diagnostics or conversion may differ from
 it, so results computed for the others are kept; every document when the service could not
 compare the two, such as for a set it had not seen before (needs the `parse_sources_affected`
-capability; empty for a parse without a base).
+capability; empty for a parse without a base). `parseSources(conn, docs, 'keep', false)` answers a
+transient parse without evicting or promoting a model the caller holds; the answer is otherwise
+the same (needs the `parse_sources_keep` capability).
 
 A `Model` carries `connection`, `hash`, `diagnostics`, `roots`, `root`, `documents`, and
 `sourcePath`. Its `errors()` method returns error-severity diagnostics, `ok()` indicates whether

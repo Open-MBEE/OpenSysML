@@ -47,6 +47,7 @@ from opensysml.capabilities import (
     CAPABILITY_INLINE_LANGUAGE,
     CAPABILITY_PARSE_SOURCES,
     CAPABILITY_PARSE_SOURCES_AFFECTED,
+    CAPABILITY_PARSE_SOURCES_KEEP,
     CAPABILITY_STRICT_CONFORMANCE,
     CAPABILITY_COMPLEX_VALUES,
     CAPABILITY_CONVERT,
@@ -1470,7 +1471,7 @@ class Connection:
         return model
 
     def parse_sources(self, documents, strict=False, strict_conformance=False,
-                      base_model_hash=''):
+                      base_model_hash='', keep=True):
         """Parse several documents together as one model.
 
         An import from one document into another resolves, and each
@@ -1503,6 +1504,11 @@ class Connection:
                 service cannot compare, such as for a set it has not seen
                 before; a base it no longer holds is not an error. Needs the
                 ``parse_sources_affected`` capability.
+            keep (bool): Keep the parsed model in the service's cache, as by
+                default. ``False`` answers a transient model, such as a derived
+                union read for its results, without evicting or promoting a
+                model the caller holds; needs the ``parse_sources_keep``
+                capability.
 
         Returns:
             Model: The model of all the documents, with one root per document
@@ -1515,7 +1521,7 @@ class Connection:
                 of none of the accepted forms
             MissingCapabilityError: If the service predates ``parse_sources``,
                 or ``strict_conformance``/``inline_language``/
-                ``parse_sources_affected`` when asked for
+                ``parse_sources_affected``/``parse_sources_keep`` when asked for
             ModelFileNotFoundError: If the service cannot read a file
             InvalidRequestError: If the service refuses the documents
             ModelError: If the service could not parse the documents as a
@@ -1562,6 +1568,14 @@ class Connection:
             strict_conformance=strict_conformance,
             base_model_hash=base_model_hash,
         )
+        if not keep:
+            require(
+                info,
+                CAPABILITY_PARSE_SOURCES_KEEP,
+                upgrade_remedy(CAPABILITY_PARSE_SOURCES_KEEP),
+            )
+            capabilities.append(CAPABILITY_PARSE_SOURCES_KEEP)
+            request.keep = False
         with translate_rpc_errors(
             not_found=ModelFileNotFoundError,
             unimplemented=self._capability_refusal(capabilities),

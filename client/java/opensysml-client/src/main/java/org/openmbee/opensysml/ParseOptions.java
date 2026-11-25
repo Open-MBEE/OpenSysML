@@ -14,9 +14,16 @@ import java.util.Optional;
  *     the previous answer: the new model's {@link Model#affected()} then names the documents whose
  *     results may differ from it; needs the {@code parse_sources_affected} capability, and a
  *     one-document parse refuses it
+ * @param keep for {@link Connection#parseSources(java.util.List, ParseOptions)}, whether the model
+ *     is inserted into the service's cache; {@code false} answers a transient model, such as a
+ *     derived union read for its results, without evicting or promoting one the caller holds;
+ *     needs the {@code parse_sources_keep} capability, and a one-document parse refuses it
  */
 public record ParseOptions(
-    Language language, boolean strictConformance, Optional<String> baseModelHash) {
+    Language language,
+    boolean strictConformance,
+    Optional<String> baseModelHash,
+    Optional<Boolean> keep) {
 
   /**
    * Validates the options.
@@ -24,10 +31,12 @@ public record ParseOptions(
    * @param language the notation
    * @param strictConformance whether to judge conformance strictly
    * @param baseModelHash the base model's hash, when the affected documents are wanted
+   * @param keep whether the service keeps the parsed model
    */
   public ParseOptions {
     Objects.requireNonNull(language, "language");
     Objects.requireNonNull(baseModelHash, "baseModelHash");
+    Objects.requireNonNull(keep, "keep");
     baseModelHash.ifPresent(
         hash -> {
           if (hash.isEmpty()) {
@@ -43,7 +52,7 @@ public record ParseOptions(
    * @param strictConformance whether to judge conformance strictly
    */
   public ParseOptions(Language language, boolean strictConformance) {
-    this(language, strictConformance, Optional.empty());
+    this(language, strictConformance, Optional.empty(), Optional.empty());
   }
 
   /**
@@ -62,7 +71,7 @@ public record ParseOptions(
    * @return options naming that notation
    */
   public ParseOptions withLanguage(Language language) {
-    return new ParseOptions(language, strictConformance, baseModelHash);
+    return new ParseOptions(language, strictConformance, baseModelHash, keep);
   }
 
   /**
@@ -72,7 +81,7 @@ public record ParseOptions(
    * @return options with that judgement
    */
   public ParseOptions withStrictConformance(boolean strictConformance) {
-    return new ParseOptions(language, strictConformance, baseModelHash);
+    return new ParseOptions(language, strictConformance, baseModelHash, keep);
   }
 
   /**
@@ -84,6 +93,19 @@ public record ParseOptions(
    */
   public ParseOptions withBaseModelHash(String baseModelHash) {
     return new ParseOptions(
-        language, strictConformance, Optional.of(Objects.requireNonNull(baseModelHash, "baseModelHash")));
+        language,
+        strictConformance,
+        Optional.of(Objects.requireNonNull(baseModelHash, "baseModelHash")),
+        keep);
+  }
+
+  /**
+   * The same options, deciding whether the service keeps the parsed model.
+   *
+   * @param keep whether to keep it; {@code false} makes the parse transient
+   * @return options naming that choice
+   */
+  public ParseOptions withKeep(boolean keep) {
+    return new ParseOptions(language, strictConformance, baseModelHash, Optional.of(keep));
   }
 }

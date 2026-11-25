@@ -49,6 +49,7 @@ from opensysml.capabilities import (
     CAPABILITY_CONVERT_COMPACT,
     CAPABILITY_CONVERT_CHECK_DIAGNOSTICS,
     CAPABILITY_PARSE_SOURCES_AFFECTED,
+    CAPABILITY_PARSE_SOURCES_KEEP,
     CAPABILITY_RENDER_DOCUMENT_FILE_NAME,
     MissingCapabilityError,
     ServerInfo,
@@ -179,7 +180,7 @@ __all__ = [
     "CAPABILITY_CONSTRAINT_BODY_AUTHORING", "CAPABILITY_STATE_ACTION_AUTHORING",
     "CAPABILITY_BIG_INT_VALUES", "CAPABILITY_RATIONAL_VALUES", "CAPABILITY_CONVERT_DOCUMENTS",
     "CAPABILITY_CONVERT_COMPACT", "CAPABILITY_CONVERT_CHECK_DIAGNOSTICS",
-    "CAPABILITY_PARSE_SOURCES_AFFECTED",
+    "CAPABILITY_PARSE_SOURCES_AFFECTED", "CAPABILITY_PARSE_SOURCES_KEEP",
     "CAPABILITY_RENDER_DOCUMENT_FILE_NAME",
     "ModelError", "ModelFileNotFoundError", "ModelNotFoundError",
     "ServiceError", "ServiceTimeoutError", "SigstoreUnavailableError", "StaleServiceError",
@@ -254,7 +255,7 @@ def loads(content, host='localhost', port=None, language=None, strict=False,
 
 
 def parse_sources(documents, host='localhost', port=None, strict=False,
-                  strict_conformance=False, base_model_hash=''):
+                  strict_conformance=False, base_model_hash='', keep=True):
     """Parse several documents as one model using the default connection.
 
     Each document is a path, a ``(name, content)`` pair of inline source, or a
@@ -273,6 +274,8 @@ def parse_sources(documents, host='localhost', port=None, strict=False,
         base_model_hash (str): The hash of a model of the same documents the
             caller holds results of; the new model's :attr:`Model.affected`
             then names the documents whose results may differ from it
+        keep (bool): ``False`` answers a transient model without evicting or
+            promoting one the caller holds; needs ``parse_sources_keep``
 
     Returns:
         Model: The model of all the documents
@@ -280,7 +283,8 @@ def parse_sources(documents, host='localhost', port=None, strict=False,
     Raises:
         ValueError: If there are no documents or two share a name
         MissingCapabilityError: If the service predates ``parse_sources``, or
-            ``parse_sources_affected`` when a base is given
+            ``parse_sources_affected`` when a base is given, or
+            ``parse_sources_keep`` when ``keep`` is false
         ModelFileNotFoundError: If the service cannot read a file
         ModelError: If the documents could not be parsed as a model, or if
             strict and the model has error diagnostics
@@ -293,7 +297,7 @@ def parse_sources(documents, host='localhost', port=None, strict=False,
     )
     return connection.parse_sources(
         documents, strict=strict, strict_conformance=strict_conformance,
-        base_model_hash=base_model_hash,
+        base_model_hash=base_model_hash, keep=keep,
     )
 
 

@@ -1,9 +1,11 @@
 package runtimetools
 
 import (
+	"context"
 	"strings"
 	"testing"
 
+	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
 )
@@ -38,11 +40,27 @@ func TestParseOfOneDocumentWithoutParseSources(t *testing.T) {
 		"a base hash":       {"paths": []string{"demo.sysml"}, "baseModelHash": "h0"},
 		"a named source":    {"sources": []map[string]any{{"path": "p.sysml", "text": "package P;"}}},
 		"an unnamed source": {"sources": []map[string]any{{"path": "", "text": "package P;"}}},
+		"a keep option":     {"paths": []string{"demo.sysml"}, "keep": false},
 	} {
 		res := h.call("parse", args)
 		if !res.IsError || !strings.HasPrefix(text(res), "UNIMPLEMENTED: ") {
 			t.Errorf("%s: %v %q, want the service's UNIMPLEMENTED", name, res.IsError, text(res))
 		}
+	}
+}
+
+// The parse tool's keep argument reaches ParseSources, so the model it answers
+// is not left in the cache under that hash.
+func TestParseKeepFalseAnswersWithoutKeepingTheModel(t *testing.T) {
+	svc := newService(t)
+	h := attach(t, svc)
+	var resp pb.ParseSourcesResponse
+	h.ok("parse", map[string]any{"paths": []string{"demo.sysml"}, "keep": false}, &resp)
+	if resp.GetModelHash() == "" {
+		t.Fatal("the transient parse answered no model hash")
+	}
+	if _, err := svc.GetDiagnostics(context.Background(), &pb.DiagnosticsRequest{ModelHash: resp.GetModelHash()}); connect.CodeOf(err) != connect.CodeNotFound {
+		t.Errorf("GetDiagnostics on the transient hash: error %v, want NOT_FOUND", err)
 	}
 }
 

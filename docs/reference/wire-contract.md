@@ -376,6 +376,24 @@ A restored model is a usable base: after an edit, `affected` still names only th
 results changed. A service run without a record cache parses every document afresh, which is
 otherwise identical to the cached path.
 
+### Transient parses
+
+The design and its baseline are recorded in [the non-keeping parse record](../project/nonkeeping-parse.md).
+
+Under the `parse_sources_keep` capability a client can set `keep: false` on a `ParseSources`
+request. The answer — hash, roots, diagnostics and, with `base_model_hash`, `affected` — is what
+the same parse with `keep: true` gives, but the service neither inserts the model into its
+parsed-model LRU nor looks up an entry already under that hash there: the transient parse evicts
+nothing and promotes nothing in that LRU. Disk parse records, when a record cache is configured,
+are a separate store that this option does not govern: a transient parse may read and write them. A client that parses a derived union for its results can answer it
+and drop it without displacing the model it has open; a hash the service did not already hold is
+`NOT_FOUND` on every later request. The field has presence: only an absent field needs no
+capability and gives the ordinary kept parse. A service without `parse_sources_keep` refuses any
+request that states the field, including `keep: true`, with `UNIMPLEMENTED` rather than silently
+keeping a model the caller asked it not to keep; `TestParseSourcesKeepNeedsTheCapability` locks
+both refusals.
+
+
 Under the `parse_sources_affected` capability a client can also ask which documents an edit
 reached. It sends the hash it was answered last as `base_model_hash`, and the answer's `affected`
 names, in the request's document order, every document whose results may differ from the base

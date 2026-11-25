@@ -13,6 +13,7 @@ export interface FakeInfo {
 
 export const ALL_CAPABILITIES = [
   "parse_sources",
+  "parse_sources_keep",
   "inline_language",
   "strict_conformance",
   "convert",

@@ -215,9 +215,10 @@ end
 
 function _parse_sources(conn::Connection, docs::Vector{SourceDocument};
                         strict::Bool=false, strict_conformance::Bool=false,
-                        base_model_hash::AbstractString="")
+                        base_model_hash::AbstractString="", keep::Bool=true)
     require_capability(conn, CAPABILITY_PARSE_SOURCES)
     isempty(base_model_hash) || require_capability(conn, CAPABILITY_PARSE_SOURCES_AFFECTED)
+    keep || require_capability(conn, CAPABILITY_PARSE_SOURCES_KEEP)
     any(doc -> doc.language !== nothing, docs) &&
         require_capability(conn, CAPABILITY_INLINE_LANGUAGE)
     if strict_conformance
@@ -238,11 +239,13 @@ function _parse_sources(conn::Connection, docs::Vector{SourceDocument};
     request = Dict{String,Any}("documents" => request_docs)
     strict_conformance && (request["strictConformance"] = true)
     isempty(base_model_hash) || (request["baseModelHash"] = String(base_model_hash))
+    keep || (request["keep"] = false)
     needed = any(doc -> doc.language !== nothing, docs) ?
              (CAPABILITY_PARSE_SOURCES, CAPABILITY_INLINE_LANGUAGE) :
              (CAPABILITY_PARSE_SOURCES,)
     strict_conformance && (needed = (needed..., CAPABILITY_STRICT_CONFORMANCE))
     isempty(base_model_hash) || (needed = (needed..., CAPABILITY_PARSE_SOURCES_AFFECTED))
+    keep || (needed = (needed..., CAPABILITY_PARSE_SOURCES_KEEP))
     answer = _translate(; not_found=ModelFileNotFoundError, capabilities=needed,
                         connection=conn) do
         call(conn, "ParseSources", request)
@@ -255,11 +258,12 @@ end
 Parse multiple file-backed or inline source documents together. Given `base_model_hash`, the
 hash of a model of the same documents the caller holds results of, the new model's
 `affected(model)` names the documents whose results may differ from it (needs the
-`parse_sources_affected` capability).
+`parse_sources_affected` capability). With `keep=false` the answer is transient: it does not
+evict or promote a model the caller holds (needs the `parse_sources_keep` capability).
 """
 function parse_sources(conn::Connection, documents; language::AbstractString="",
                        strict::Bool=false, strict_conformance::Bool=false,
-                       base_model_hash::AbstractString="")
+                       base_model_hash::AbstractString="", keep::Bool=true)
     docs = source_documents(documents)
     if !isempty(language)
         docs = SourceDocument[doc.path === nothing && doc.language === nothing ?
@@ -267,7 +271,7 @@ function parse_sources(conn::Connection, documents; language::AbstractString="",
                               for doc in docs]
     end
     return _parse_sources(conn, docs; strict=strict, strict_conformance=strict_conformance,
-                          base_model_hash=base_model_hash)
+                          base_model_hash=base_model_hash, keep=keep)
 end
 
 """Return the diagnostics reported while parsing `model`."""
