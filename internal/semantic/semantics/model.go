@@ -96,6 +96,11 @@ type Model struct {
 	valueGenerals map[*symbols.Symbol]*symbols.Symbol
 	// allDeclaredSupers memoizes AllDeclaredSupertypes, which every variation-point query at run time reads.
 	allDeclaredSupers map[*symbols.Symbol][]*symbols.Symbol
+	// boundSubjects memoizes the declaration a case's subject binds, so a query
+	// projecting it over many rows resolves each binding once (see bound_subject.go).
+	boundSubjects map[*symbols.Symbol]boundSubjectResult
+	// computingBoundSubjects guards a binding whose resolution reaches its own case.
+	computingBoundSubjects map[*symbols.Symbol]bool
 	// implicitSubsettings memoizes the owner feature each nested usage implicitly
 	// subsets (see nested.go).
 	implicitSubsettings map[*symbols.Symbol][]*symbols.Symbol
@@ -276,6 +281,8 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		impliedSpecializations: make(map[*symbols.Symbol][]*symbols.Symbol),
 		valueGenerals:          make(map[*symbols.Symbol]*symbols.Symbol),
 		allDeclaredSupers:      make(map[*symbols.Symbol][]*symbols.Symbol),
+		boundSubjects:          make(map[*symbols.Symbol]boundSubjectResult),
+		computingBoundSubjects: make(map[*symbols.Symbol]bool),
 		implicitSubsettings:    make(map[*symbols.Symbol][]*symbols.Symbol),
 		usageBase:              make(map[*symbols.Symbol]*symbols.Symbol),
 		kermlBase:              make(map[*symbols.Symbol]*symbols.Symbol),
