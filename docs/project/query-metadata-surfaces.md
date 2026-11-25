@@ -95,7 +95,10 @@ What was still missing at that baseline:
    `<metadata def>::<feature>=<value>` strings. It is readable by `Project`,
    `Column(path)`, `OrderBy` and `WhereFeature`, so one query answers the
    metadata of every row. Type defaults are not reported, only values the body
-   writes.
+   writes. A held object reads the annotations of the declaration it stands
+   for. Direct and nested bindings are emitted per annotation in declaration
+   order, so the first value a single-valued surface reports is the first
+   binding written.
 
 ## Design decisions and alternatives rejected
 
@@ -129,6 +132,9 @@ What was still missing at that baseline:
   `sysx:@annotations`) always read the evaluator's property. A translated OSLC
   request records which side each name came from, so `sysx:isActive` keeps its
   documented meaning even where the model declares a feature of that name.
+  When a model declares a feature under a bare built-in name, the translator
+  defers type validation for that name to the row reader, so a filter on the
+  feature is not judged by the built-in's type.
 - **One activity index per execution, not one session walk per state.** The
   first read walks the session once, charges that walk to the visit budget once
   and merges the active declarations of every machine. Invoked document queries
@@ -185,6 +191,9 @@ this change.
 | A running exhibit, its parallel region owners and every copy of a duplicated state declaration answer activity | `internal/doc/queryexec/is_active_regressions_test.go:TestQueryActivityOfExhibitAndParallelRegionOwners`, `:TestQueryActivityAggregatesCopiesOfOneDeclaration` |
 | Activity over a large row set and held population stays inside the visit budget, including invoked queries | `internal/doc/queryexec/state_activity_budget_test.go:TestQueryStateActivityStaysWithinTheVisitBudget` |
 | A nested metadata binding is reported with its path by the bulk read | `internal/doc/queryexec/annotations_query_test.go:TestQueryReadsNestedAnnotationBindings` |
+| A held object projects and filters its declaration's annotations, with its held feature still owning the bare name | `internal/doc/queryexec/object_annotations_query_test.go:TestQueryObjectRowsReadDeclarationAnnotations`, `:TestQueryFiltersObjectRowsByDeclarationAnnotations`; `internal/frontend/grpc/query_metadata_regressions_test.go:TestQueryRPCReadsAnnotationsOfAHeldObject` |
+| A declared string `isActive` projects and filters as text, while `@isActive` keeps Boolean validation | `internal/doc/querytranslate/shadowed_builtin_kind_test.go:TestTableDefersKindOfAShadowedBuiltin`; `internal/frontend/grpc/query_metadata_regressions_test.go:TestQueryFiltersAndProjectsAStringShadowingIsActive` |
+| A nested binding of an earlier annotation precedes a later direct binding in the bulk read and in the Query RPC | `internal/doc/queryexec/annotation_order_query_test.go:TestQueryOrdersNestedAndDirectAnnotationBindings`; `internal/frontend/grpc/query_metadata_regressions_test.go:TestQueryRPCReportsFirstAnnotationInDeclarationOrder` |
 
 The tests execute document queries over real `.sysml` fixtures through the
 shared `queryexec` executor, which is the executor behind the CLI, the REPL, the

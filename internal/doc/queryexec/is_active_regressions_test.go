@@ -94,8 +94,7 @@ calc def Q :> Query {
 `
 
 // Two usages of one state definition are two graph copies of one declaration.
-// An event leaves the first copy and enters the second; the declaration is
-// active if either copy is, not only the first one lowering found.
+// Once an event enters the second, the declaration is active in either copy.
 func TestQueryActivityAggregatesCopiesOfOneDeclaration(t *testing.T) {
 	fixture := loadExecutionFixture(t, copiedActivityFixture)
 	ctx := runtime.NewContext(runtime.NewModel(fixture.model, fixture.resolver), runtime.DefaultMaxSteps)
