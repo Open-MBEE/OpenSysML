@@ -214,6 +214,122 @@ func TestAPIJSONProjectionByAnnotationType(t *testing.T) {
 	}
 }
 
+func projectionRefs(t *testing.T, element json.RawMessage, key string) []string {
+	t.Helper()
+	raw := elementField(t, element, key)
+	if raw == "" {
+		return nil
+	}
+	var refs []APIJSONReference
+	if err := json.Unmarshal([]byte(raw), &refs); err == nil {
+		ids := make([]string, 0, len(refs))
+		for _, ref := range refs {
+			ids = append(ids, ref.ID)
+		}
+		return ids
+	}
+	var one APIJSONReference
+	if err := json.Unmarshal([]byte(raw), &one); err != nil {
+		t.Fatalf("%s is not a reference or array of references: %s", key, raw)
+	}
+	return []string{one.ID}
+}
+
+// A selected annotation must carry the elements that hold its bindings, so a
+// reader can follow the projected usage to the literal a metadata feature binds.
+func TestAPIJSONProjectionCarriesAnnotationBindings(t *testing.T) {
+	t.Run("about", func(t *testing.T) {
+		graph := projectionGraph(t)
+		whole := projectionWhole(t, graph)
+		out, err := WriteAPIJSONWithOptions(graph, APIJSONOptions{Projection: &APIJSONProjection{AnnotationTypes: []string{"P::Facet"}}})
+		if err != nil {
+			t.Fatalf("WriteAPIJSONWithOptions: %v", err)
+		}
+		projected := splitAPIJSONElements(t, out)
+
+		usage := elementByID(t, projected, "P__facet")
+		members := projectionRefs(t, usage, "ownedMember")
+		if len(members) != 1 || members[0] != "P__facet__note" {
+			t.Fatalf("projected usage owns %v, want [P__facet__note]", members)
+		}
+		member := elementByID(t, projected, members[0])
+		values := projectionRefs(t, member, "value")
+		if len(values) != 1 || values[0] != "P__facet__note_pvalue" {
+			t.Fatalf("projected member's value is %v, want [P__facet__note_pvalue]", values)
+		}
+		literal := elementByID(t, projected, values[0])
+		if got := elementField(t, literal, "value"); got != "a facet" {
+			t.Errorf("bound literal reads %q, want %q", got, "a facet")
+		}
+		if got := elementField(t, elementByID(t, projected, "P__facet__note_pvalue_om"), "@type"); got != "FeatureValue" {
+			t.Errorf("the binding's FeatureValue is absent or written as %q", got)
+		}
+		for _, element := range projected {
+			if id := elementField(t, element, "@id"); id == "P__Facet" {
+				t.Error("the projection followed the annotating element's type reference to its definition")
+			}
+		}
+		assertProjectedAreByteIdentical(t, whole, projected)
+	})
+
+	t.Run("body", func(t *testing.T) {
+		graph := graphOfNotation(t, `package P {
+  metadata def Facet;
+  part def Vehicle {
+    @Facet { note = "n"; }
+  }
+}
+`)
+		whole := projectionWhole(t, graph)
+		out, err := WriteAPIJSONWithOptions(graph, APIJSONOptions{Projection: &APIJSONProjection{AnnotationTypes: []string{"Facet"}}})
+		if err != nil {
+			t.Fatalf("WriteAPIJSONWithOptions: %v", err)
+		}
+		projected := splitAPIJSONElements(t, out)
+
+		var usage json.RawMessage
+		var featureValues int
+		for _, element := range projected {
+			switch elementField(t, element, "@type") {
+			case "MetadataUsage":
+				usage = element
+			case "FeatureValue":
+				featureValues++
+			}
+		}
+		if usage == nil {
+			t.Fatalf("projection emitted no metadata usage: %s", out)
+		}
+		if featureValues == 0 {
+			t.Fatalf("projection emitted no FeatureValue holding a binding: %s", out)
+		}
+		members := projectionRefs(t, usage, "ownedMember")
+		if len(members) == 0 {
+			t.Fatalf("projected usage owns no members: %s", out)
+		}
+		followed := false
+		for _, memberID := range members {
+			member := elementByID(t, projected, memberID)
+			values := projectionRefs(t, member, "value")
+			for _, valueID := range values {
+				literal := elementByID(t, projected, valueID)
+				if got := elementField(t, literal, "value"); got == "n" {
+					followed = true
+				}
+			}
+		}
+		if !followed {
+			t.Errorf("no projected member's value resolves to the bound literal %q: %s", "n", out)
+		}
+		for _, element := range projected {
+			if id := elementField(t, element, "@id"); id == "P__Facet" {
+				t.Error("the projection followed the annotating element's type reference to its definition")
+			}
+		}
+		assertProjectedAreByteIdentical(t, whole, projected)
+	})
+}
+
 // A metadata definition's declared short name is a selector even when it is
 // not the last segment of the definition's qualified name.
 func TestAPIJSONProjectionByAnnotationDeclaredShortName(t *testing.T) {

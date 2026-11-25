@@ -103,6 +103,9 @@ func newAPIJSONProjectionIndex(graph *rdf.Graph, writer *apiJSONElementWriter, p
 				for _, end := range annotated {
 					annotationTypes.add(name, end)
 				}
+				// A binding body is held by owned members and their value
+				// expressions, not by the annotating element itself.
+				apiJSONAddAnnotationBinding(graph, annotationTypes, name, element)
 			}
 		}
 	}
@@ -120,6 +123,7 @@ func newAPIJSONProjectionIndex(graph *rdf.Graph, writer *apiJSONElementWriter, p
 			for _, owner := range graph.ObjectsView(subject, rdf.SysML+pOwner) {
 				annotationTypes.add(name, owner)
 			}
+			apiJSONAddAnnotationBinding(graph, annotationTypes, name, subject)
 		}
 	}
 
@@ -191,6 +195,42 @@ var annotationMemberMetaclasses = func() map[string]bool {
 func apiJSONIsAnnotationMember(graph *rdf.Graph, subject rdf.Term) bool {
 	metaclass, _, _ := apiJSONMetaclassNames(graph, subject, rdf.IRI(graph.Type(subject)))
 	return annotationMemberMetaclasses[metaclass]
+}
+
+// annotationBindingPredicates are the owned edges followed from a matched
+// annotation to its bindings; references outside the annotation are not followed.
+var annotationBindingPredicates = []string{
+	pOwnedRelationship,
+	pOwnedMembership,
+	pOwnedMember,
+	pOwnedFeature,
+	pOwnedFeatureMembership,
+	pOwnedMemberFeature,
+	pOwnedMemberElement,
+	pMemberElement,
+	pOwnedRelatedElement,
+	pValue,
+}
+
+// apiJSONAddAnnotationBinding selects the owned members and value expressions
+// needed to read an annotation's bindings from its usage.
+func apiJSONAddAnnotationBinding(graph *rdf.Graph, names *projectionNames, name string, annotating rdf.Term) {
+	seen := map[rdf.Term]bool{annotating: true}
+	pending := []rdf.Term{annotating}
+	for len(pending) > 0 {
+		current := pending[len(pending)-1]
+		pending = pending[:len(pending)-1]
+		for _, predicate := range annotationBindingPredicates {
+			for _, object := range graph.ObjectsView(current, rdf.SysML+predicate) {
+				if !object.IsIRI() || seen[object] {
+					continue
+				}
+				seen[object] = true
+				names.add(name, object)
+				pending = append(pending, object)
+			}
+		}
+	}
 }
 
 // apiJSONAnnotationTypeNames names an annotating element by metaclass and by

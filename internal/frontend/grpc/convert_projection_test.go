@@ -153,6 +153,60 @@ func TestConvertProjectionByAnnotationType(t *testing.T) {
 	}
 }
 
+// A selected annotation must carry the owned members and value expressions
+// that let a caller follow its usage to the literal a metadata feature binds.
+func TestConvertProjectionByAnnotationTypeCarriesBindings(t *testing.T) {
+	srv := mustNewService(t, 10)
+	defer srv.Close()
+	whole := convertProjected(t, srv, nil, nil)
+	reply := convertProjected(t, srv, &pb.ConvertProjection{AnnotationTypes: []string{"Facet"}}, nil)
+	byID := map[string]json.RawMessage{}
+	for _, element := range projectedIDs(t, reply.Content) {
+		byID[rawID(t, element)] = element
+	}
+	for _, want := range []string{
+		"P__facet", "P__facet_an0", "P__Faceted",
+		"P__facet__note", "P__facet__note_om", "P__facet__note_pvalue", "P__facet__note_pvalue_om",
+	} {
+		if _, ok := byID[want]; !ok {
+			t.Errorf("projection by Facet did not emit the binding element %s: %v", want, byID)
+		}
+	}
+	reference := func(element json.RawMessage, key string) string {
+		t.Helper()
+		raw := rawField(t, element, key)
+		var refs []struct {
+			ID string `json:"@id"`
+		}
+		if err := json.Unmarshal(raw, &refs); err == nil {
+			if len(refs) != 1 {
+				t.Fatalf("%s holds %d references, want one: %s", key, len(refs), raw)
+			}
+			return refs[0].ID
+		}
+		var one struct {
+			ID string `json:"@id"`
+		}
+		if err := json.Unmarshal(raw, &one); err != nil {
+			t.Fatalf("%s is not an @id reference: %v", key, err)
+		}
+		return one.ID
+	}
+	memberID := reference(byID["P__facet"], "ownedMember")
+	if memberID != "P__facet__note" {
+		t.Fatalf("usage owns %q, want P__facet__note", memberID)
+	}
+	literalID := reference(byID[memberID], "value")
+	if literalID != "P__facet__note_pvalue" {
+		t.Fatalf("member's value is %q, want P__facet__note_pvalue", literalID)
+	}
+	var bound string
+	if err := json.Unmarshal(rawField(t, byID[literalID], "value"), &bound); err != nil || bound != "n" {
+		t.Errorf("bound literal reads %q (%v), want %q", bound, err, "n")
+	}
+	assertProjectedElementsMatchWhole(t, whole.Content, reply.Content)
+}
+
 func TestConvertProjectionUnknownNamesAreInvalidArgument(t *testing.T) {
 	srv := mustNewService(t, 10)
 	defer srv.Close()
