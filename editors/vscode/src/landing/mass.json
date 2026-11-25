@@ -6,6 +6,7 @@
     "nodes": [
       {
         "id": "n0",
+        "elementId": "MassRollup__saturnV",
         "kind": "part",
         "name": "MassRollup::saturnV",
         "type": "LaunchVehicle",
@@ -19,6 +20,7 @@
       },
       {
         "id": "n1",
+        "elementId": "MassRollup__LaunchVehicle__mass",
         "kind": "attribute",
         "name": "mass",
         "parent": "n0",
@@ -33,6 +35,7 @@
       },
       {
         "id": "n2",
+        "elementId": "MassRollup__LaunchVehicle__stage1",
         "kind": "part",
         "name": "stage1",
         "type": "'S-IC'",
@@ -48,6 +51,7 @@
       },
       {
         "id": "n3",
+        "elementId": "MassRollup__S-IC__mass",
         "kind": "attribute",
         "name": "mass",
         "parent": "n2",
@@ -62,6 +66,7 @@
       },
       {
         "id": "n4",
+        "elementId": "MassRollup__S-IC__propellantMass",
         "kind": "attribute",
         "name": "propellantMass",
         "parent": "n2",
@@ -76,6 +81,7 @@
       },
       {
         "id": "n5",
+        "elementId": "MassRollup__S-IC__engine1",
         "kind": "part",
         "name": "engine1",
         "type": "'F-1'",
@@ -91,6 +97,7 @@
       },
       {
         "id": "n6",
+        "elementId": "MassRollup__F-1__mass",
         "kind": "attribute",
         "name": "mass",
         "parent": "n5",
@@ -105,6 +112,7 @@
       },
       {
         "id": "n7",
+        "elementId": "MassRollup__F-1__thrust",
         "kind": "attribute",
         "name": "thrust",
         "parent": "n5",
@@ -119,6 +127,7 @@
       },
       {
         "id": "n8",
+        "elementId": "MassRollup__F-1__specificImpulse",
         "kind": "attribute",
         "name": "specificImpulse",
         "parent": "n5",
@@ -133,6 +142,7 @@
       },
       {
         "id": "n9",
+        "elementId": "MassRollup__Component__subcomponents",
         "kind": "part",
         "name": "subcomponents",
         "type": "Component",
@@ -149,6 +159,7 @@
       },
       {
         "id": "n10",
+        "elementId": "MassRollup__Component__totalMass",
         "kind": "attribute",
         "name": "totalMass",
         "parent": "n5",
@@ -163,6 +174,7 @@
       },
       {
         "id": "n11",
+        "elementId": "MassRollup__S-IC__engine2",
         "kind": "part",
         "name": "engine2",
         "type": "'F-1'",
@@ -178,6 +190,7 @@
       },
       {
         "id": "n12",
+        "elementId": "MassRollup__F-1__mass",
         "kind": "attribute",
         "name": "mass",
         "parent": "n11",
@@ -192,6 +205,7 @@
       },
       {
         "id": "n13",
+        "elementId": "MassRollup__F-1__thrust",
         "kind": "attribute",
         "name": "thrust",
         "parent": "n11",
@@ -206,6 +220,7 @@
       },
       {
         "id": "n14",
+        "elementId": "MassRollup__F-1__specificImpulse",
         "kind": "attribute",
         "name": "specificImpulse",
         "parent": "n11",
@@ -220,6 +235,7 @@
       },
       {
         "id": "n15",
+        "elementId": "MassRollup__Component__subcomponents",
         "kind": "part",
         "name": "subcomponents",
         "type": "Component",
@@ -236,6 +252,7 @@
       },
       {
         "id": "n16",
+        "elementId": "MassRollup__Component__totalMass",
         "kind": "attribute",
         "name": "totalMass",
         "parent": "n11",
@@ -250,6 +267,7 @@
       },
       {
         "id": "n17",
+        "elementId": "MassRollup__S-IC__engine3",
         "kind": "part",
         "name": "engine3",
         "type": "'F-1'",
@@ -265,6 +283,7 @@
       },
       {
         "id": "n18",
+        "elementId": "MassRollup__F-1__mass",
         "kind": "attribute",
         "name": "mass",
         "parent": "n17",
@@ -279,6 +298,7 @@
       },
       {
         "id": "n19",
+        "elementId": "MassRollup__F-1__thrust",
         "kind": "attribute",
         "name": "thrust",
         "parent": "n17",
@@ -293,6 +313,7 @@
       },
       {
         "id": "n20",
+        "elementId": "MassRollup__F-1__specificImpulse",
         "kind": "attribute",
         "name": "specificImpulse",
         "parent": "n17",
@@ -307,6 +328,7 @@
       },
       {
         "id": "n21",
+        "elementId": "MassRollup__Component__subcomponents",
         "kind": "part",
         "name": "subcomponents",
         "type": "Component",
@@ -323,6 +345,7 @@
       },
       {
         "id": "n22",
+        "elementId": "MassRollup__Component__totalMass",
         "kind": "attribute",
         "name": "totalMass",
         "parent": "n17",
@@ -337,6 +360,7 @@
       },
       {
         "id": "n23",
+        "elementId": "MassRollup__S-IC__engine4",
         "kind": "part",
         "name": "engine4",
         "type": "'F-1'",
@@ -352,6 +376,7 @@
       },
       {
         "id": "n24",
+        "elementId": "MassRollup__F-1__mass",
         "kind": "attribute",
         "name": "mass",
         "parent": "n23",
@@ -366,6 +391,7 @@
       },
       {
         "id": "n25",
+        "elementId": "MassRollup__F-1__thrust",
         "kind": "attribute",
         "name": "thrust",
         "parent": "n23",
@@ -380,6 +406,7 @@
       },
       {
         "id": "n26",
+        "elementId": "MassRollup__F-1__specificImpulse",
         "kind": "attribute",
         "name": "specificImpulse",
         "parent": "n23",
@@ -394,6 +421,7 @@
       },
       {
         "id": "n27",
+        "elementId": "MassRollup__Component__subcomponents",
         "kind": "part",
         "name": "subcomponents",
         "type": "Component",
@@ -410,6 +438,7 @@
       },
       {
         "id": "n28",
+        "elementId": "MassRollup__Component__totalMass",
         "kind": "attribute",
         "name": "totalMass",
         "parent": "n23",
@@ -424,6 +453,7 @@
       },
       {
         "id": "n29",
+        "elementId": "MassRollup__S-IC__engine5",
         "kind": "part",
         "name": "engine5",
         "type": "'F-1'",
@@ -439,6 +469,7 @@
       },
       {
         "id": "n30",
+        "elementId": "MassRollup__F-1__mass",
         "kind": "attribute",
         "name": "mass",
         "parent": "n29",
@@ -453,6 +484,7 @@
       },
       {
         "id": "n31",
+        "elementId": "MassRollup__F-1__thrust",
         "kind": "attribute",
         "name": "thrust",
         "parent": "n29",
@@ -467,6 +499,7 @@
       },
       {
         "id": "n32",
+        "elementId": "MassRollup__F-1__specificImpulse",
         "kind": "attribute",
         "name": "specificImpulse",
         "parent": "n29",
@@ -481,6 +514,7 @@
       },
       {
         "id": "n33",
+        "elementId": "MassRollup__Component__subcomponents",
         "kind": "part",
         "name": "subcomponents",
         "type": "Component",
@@ -497,6 +531,7 @@
       },
       {
         "id": "n34",
+        "elementId": "MassRollup__Component__totalMass",
         "kind": "attribute",
         "name": "totalMass",
         "parent": "n29",
@@ -511,6 +546,7 @@
       },
       {
         "id": "n35",
+        "elementId": "MassRollup__S-IC__engines",
         "kind": "part",
         "name": "engines",
         "type": "Engine",
@@ -526,6 +562,7 @@
       },
       {
         "id": "n36",
+        "elementId": "MassRollup__Engine__thrust",
         "kind": "attribute",
         "name": "thrust",
         "parent": "n35",
@@ -540,6 +577,7 @@
       },
       {
         "id": "n37",
+        "elementId": "MassRollup__Engine__specificImpulse",
         "kind": "attribute",
         "name": "specificImpulse",
         "parent": "n35",
@@ -554,6 +592,7 @@
       },
       {
         "id": "n38",
+        "elementId": "MassRollup__Component__subcomponents",
         "kind": "part",
         "name": "subcomponents",
         "type": "Component",
@@ -570,6 +609,7 @@
       },
       {
         "id": "n39",
+        "elementId": "MassRollup__Component__mass",
         "kind": "attribute",
         "name": "mass",
         "parent": "n35",
@@ -584,6 +624,7 @@
       },
       {
         "id": "n40",
+        "elementId": "MassRollup__Component__totalMass",
         "kind": "attribute",
         "name": "totalMass",
         "parent": "n35",
@@ -598,6 +639,7 @@
       },
       {
         "id": "n41",
+        "elementId": "MassRollup__Stage__totalMass",
         "kind": "attribute",
         "name": "totalMass",
         "parent": "n2",
@@ -612,6 +654,7 @@
       },
       {
         "id": "n42",
+        "elementId": "MassRollup__Stage__subcomponents",
         "kind": "part",
         "name": "subcomponents",
         "type": "Component",
@@ -627,6 +670,7 @@
       },
       {
         "id": "n43",
+        "elementId": "MassRollup__Component__subcomponents",
         "kind": "part",
         "name": "subcomponents",
         "type": "Component",
@@ -643,6 +687,7 @@
       },
       {
         "id": "n44",
+        "elementId": "MassRollup__Component__mass",
         "kind": "attribute",
         "name": "mass",
         "parent": "n42",
@@ -657,6 +702,7 @@
       },
       {
         "id": "n45",
+        "elementId": "MassRollup__Component__totalMass",
         "kind": "attribute",
         "name": "totalMass",
         "parent": "n42",
@@ -671,6 +717,7 @@
       },
       {
         "id": "n46",
+        "elementId": "MassRollup__LaunchVehicle__stage2",
         "kind": "part",
         "name": "stage2",
         "type": "'S-II'",
@@ -686,6 +733,7 @@
       },
       {
         "id": "n47",
+        "elementId": "MassRollup__S-II__mass",
         "kind": "attribute",
         "name": "mass",
         "parent": "n46",
@@ -700,6 +748,7 @@
       },
       {
         "id": "n48",
+        "elementId": "MassRollup__S-II__propellantMass",
         "kind": "attribute",
         "name": "propellantMass",
         "parent": "n46",
@@ -714,6 +763,7 @@
       },
       {
         "id": "n49",
+        "elementId": "MassRollup__S-II__engine1",
         "kind": "part",
         "name": "engine1",
         "type": "'J-2'",
@@ -729,6 +779,7 @@
       },
       {
         "id": "n50",
+        "elementId": "MassRollup__J-2__mass",
         "kind": "attribute",
         "name": "mass",
         "parent": "n49",
@@ -743,6 +794,7 @@
       },
       {
         "id": "n51",
+        "elementId": "MassRollup__J-2__thrust",
         "kind": "attribute",
         "name": "thrust",
         "parent": "n49",
@@ -757,6 +809,7 @@
       },
       {
         "id": "n52",
+        "elementId": "MassRollup__J-2__specificImpulse",
         "kind": "attribute",
         "name": "specificImpulse",
         "parent": "n49",
@@ -771,6 +824,7 @@
       },
       {
         "id": "n53",
+        "elementId": "MassRollup__Component__subcomponents",
         "kind": "part",
         "name": "subcomponents",
         "type": "Component",
@@ -787,6 +841,7 @@
       },
       {
         "id": "n54",
+        "elementId": "MassRollup__Component__totalMass",
         "kind": "attribute",
         "name": "totalMass",
         "parent": "n49",
@@ -801,6 +856,7 @@
       },
       {
         "id": "n55",
+        "elementId": "MassRollup__S-II__engine2",
         "kind": "part",
         "name": "engine2",
         "type": "'J-2'",
@@ -816,6 +872,7 @@
       },
       {
         "id": "n56",
+        "elementId": "MassRollup__J-2__mass",
         "kind": "attribute",
         "name": "mass",
         "parent": "n55",
@@ -830,6 +887,7 @@
       },
       {
         "id": "n57",
+        "elementId": "MassRollup__J-2__thrust",
         "kind": "attribute",
         "name": "thrust",
         "parent": "n55",
@@ -844,6 +902,7 @@
       },
       {
         "id": "n58",
+        "elementId": "MassRollup__J-2__specificImpulse",
         "kind": "attribute",
         "name": "specificImpulse",
         "parent": "n55",
@@ -858,6 +917,7 @@
       },
       {
         "id": "n59",
+        "elementId": "MassRollup__Component__subcomponents",
         "kind": "part",
         "name": "subcomponents",
         "type": "Component",
@@ -874,6 +934,7 @@
       },
       {
         "id": "n60",
+        "elementId": "MassRollup__Component__totalMass",
         "kind": "attribute",
         "name": "totalMass",
         "parent": "n55",
@@ -888,6 +949,7 @@
       },
       {
         "id": "n61",
+        "elementId": "MassRollup__S-II__engine3",
         "kind": "part",
         "name": "engine3",
         "type": "'J-2'",
@@ -903,6 +965,7 @@
       },
       {
         "id": "n62",
+        "elementId": "MassRollup__J-2__mass",
         "kind": "attribute",
         "name": "mass",
         "parent": "n61",
@@ -917,6 +980,7 @@
       },
       {
         "id": "n63",
+        "elementId": "MassRollup__J-2__thrust",
         "kind": "attribute",
         "name": "thrust",
         "parent": "n61",
@@ -931,6 +995,7 @@
       },
       {
         "id": "n64",
+        "elementId": "MassRollup__J-2__specificImpulse",
         "kind": "attribute",
         "name": "specificImpulse",
         "parent": "n61",
@@ -945,6 +1010,7 @@
       },
       {
         "id": "n65",
+        "elementId": "MassRollup__Component__subcomponents",
         "kind": "part",
         "name": "subcomponents",
         "type": "Component",
@@ -961,6 +1027,7 @@
       },
       {
         "id": "n66",
+        "elementId": "MassRollup__Component__totalMass",
         "kind": "attribute",
         "name": "totalMass",
         "parent": "n61",
@@ -975,6 +1042,7 @@
       },
       {
         "id": "n67",
+        "elementId": "MassRollup__S-II__engine4",
         "kind": "part",
         "name": "engine4",
         "type": "'J-2'",
@@ -990,6 +1058,7 @@
       },
       {
         "id": "n68",
+        "elementId": "MassRollup__J-2__mass",
         "kind": "attribute",
         "name": "mass",
         "parent": "n67",
@@ -1004,6 +1073,7 @@
       },
       {
         "id": "n69",
+        "elementId": "MassRollup__J-2__thrust",
         "kind": "attribute",
         "name": "thrust",
         "parent": "n67",
@@ -1018,6 +1088,7 @@
       },
       {
         "id": "n70",
+        "elementId": "MassRollup__J-2__specificImpulse",
         "kind": "attribute",
         "name": "specificImpulse",
         "parent": "n67",
@@ -1032,6 +1103,7 @@
       },
       {
         "id": "n71",
+        "elementId": "MassRollup__Component__subcomponents",
         "kind": "part",
         "name": "subcomponents",
         "type": "Component",
@@ -1048,6 +1120,7 @@
       },
       {
         "id": "n72",
+        "elementId": "MassRollup__Component__totalMass",
         "kind": "attribute",
         "name": "totalMass",
         "parent": "n67",
@@ -1062,6 +1135,7 @@
       },
       {
         "id": "n73",
+        "elementId": "MassRollup__S-II__engine5",
         "kind": "part",
         "name": "engine5",
         "type": "'J-2'",
@@ -1077,6 +1151,7 @@
       },
       {
         "id": "n74",
+        "elementId": "MassRollup__J-2__mass",
         "kind": "attribute",
         "name": "mass",
         "parent": "n73",
@@ -1091,6 +1166,7 @@
       },
       {
         "id": "n75",
+        "elementId": "MassRollup__J-2__thrust",
         "kind": "attribute",
         "name": "thrust",
         "parent": "n73",
@@ -1105,6 +1181,7 @@
       },
       {
         "id": "n76",
+        "elementId": "MassRollup__J-2__specificImpulse",
         "kind": "attribute",
         "name": "specificImpulse",
         "parent": "n73",
@@ -1119,6 +1196,7 @@
       },
       {
         "id": "n77",
+        "elementId": "MassRollup__Component__subcomponents",
         "kind": "part",
         "name": "subcomponents",
         "type": "Component",
@@ -1135,6 +1213,7 @@
       },
       {
         "id": "n78",
+        "elementId": "MassRollup__Component__totalMass",
         "kind": "attribute",
         "name": "totalMass",
         "parent": "n73",
@@ -1149,6 +1228,7 @@
       },
       {
         "id": "n79",
+        "elementId": "MassRollup__S-II__engines",
         "kind": "part",
         "name": "engines",
         "type": "Engine",
@@ -1164,6 +1244,7 @@
       },
       {
         "id": "n80",
+        "elementId": "MassRollup__Engine__thrust",
         "kind": "attribute",
         "name": "thrust",
         "parent": "n79",
@@ -1178,6 +1259,7 @@
       },
       {
         "id": "n81",
+        "elementId": "MassRollup__Engine__specificImpulse",
         "kind": "attribute",
         "name": "specificImpulse",
         "parent": "n79",
@@ -1192,6 +1274,7 @@
       },
       {
         "id": "n82",
+        "elementId": "MassRollup__Component__subcomponents",
         "kind": "part",
         "name": "subcomponents",
         "type": "Component",
@@ -1208,6 +1291,7 @@
       },
       {
         "id": "n83",
+        "elementId": "MassRollup__Component__mass",
         "kind": "attribute",
         "name": "mass",
         "parent": "n79",
@@ -1222,6 +1306,7 @@
       },
       {
         "id": "n84",
+        "elementId": "MassRollup__Component__totalMass",
         "kind": "attribute",
         "name": "totalMass",
         "parent": "n79",
@@ -1236,6 +1321,7 @@
       },
       {
         "id": "n85",
+        "elementId": "MassRollup__Stage__totalMass",
         "kind": "attribute",
         "name": "totalMass",
         "parent": "n46",
@@ -1250,6 +1336,7 @@
       },
       {
         "id": "n86",
+        "elementId": "MassRollup__Stage__subcomponents",
         "kind": "part",
         "name": "subcomponents",
         "type": "Component",
@@ -1265,6 +1352,7 @@
       },
       {
         "id": "n87",
+        "elementId": "MassRollup__Component__subcomponents",
         "kind": "part",
         "name": "subcomponents",
         "type": "Component",
@@ -1281,6 +1369,7 @@
       },
       {
         "id": "n88",
+        "elementId": "MassRollup__Component__mass",
         "kind": "attribute",
         "name": "mass",
         "parent": "n86",
@@ -1295,6 +1384,7 @@
       },
       {
         "id": "n89",
+        "elementId": "MassRollup__Component__totalMass",
         "kind": "attribute",
         "name": "totalMass",
         "parent": "n86",
@@ -1309,6 +1399,7 @@
       },
       {
         "id": "n90",
+        "elementId": "MassRollup__LaunchVehicle__stage3",
         "kind": "part",
         "name": "stage3",
         "type": "'S-IVB'",
@@ -1324,6 +1415,7 @@
       },
       {
         "id": "n91",
+        "elementId": "MassRollup__S-IVB__mass",
         "kind": "attribute",
         "name": "mass",
         "parent": "n90",
@@ -1338,6 +1430,7 @@
       },
       {
         "id": "n92",
+        "elementId": "MassRollup__S-IVB__propellantMass",
         "kind": "attribute",
         "name": "propellantMass",
         "parent": "n90",
@@ -1352,6 +1445,7 @@
       },
       {
         "id": "n93",
+        "elementId": "MassRollup__S-IVB__engine1",
         "kind": "part",
         "name": "engine1",
         "type": "'J-2'",
@@ -1367,6 +1461,7 @@
       },
       {
         "id": "n94",
+        "elementId": "MassRollup__J-2__mass",
         "kind": "attribute",
         "name": "mass",
         "parent": "n93",
@@ -1381,6 +1476,7 @@
       },
       {
         "id": "n95",
+        "elementId": "MassRollup__J-2__thrust",
         "kind": "attribute",
         "name": "thrust",
         "parent": "n93",
@@ -1395,6 +1491,7 @@
       },
       {
         "id": "n96",
+        "elementId": "MassRollup__J-2__specificImpulse",
         "kind": "attribute",
         "name": "specificImpulse",
         "parent": "n93",
@@ -1409,6 +1506,7 @@
       },
       {
         "id": "n97",
+        "elementId": "MassRollup__Component__subcomponents",
         "kind": "part",
         "name": "subcomponents",
         "type": "Component",
@@ -1425,6 +1523,7 @@
       },
       {
         "id": "n98",
+        "elementId": "MassRollup__Component__totalMass",
         "kind": "attribute",
         "name": "totalMass",
         "parent": "n93",
@@ -1439,6 +1538,7 @@
       },
       {
         "id": "n99",
+        "elementId": "MassRollup__S-IVB__engines",
         "kind": "part",
         "name": "engines",
         "type": "Engine",
@@ -1454,6 +1554,7 @@
       },
       {
         "id": "n100",
+        "elementId": "MassRollup__Engine__thrust",
         "kind": "attribute",
         "name": "thrust",
         "parent": "n99",
@@ -1468,6 +1569,7 @@
       },
       {
         "id": "n101",
+        "elementId": "MassRollup__Engine__specificImpulse",
         "kind": "attribute",
         "name": "specificImpulse",
         "parent": "n99",
@@ -1482,6 +1584,7 @@
       },
       {
         "id": "n102",
+        "elementId": "MassRollup__Component__subcomponents",
         "kind": "part",
         "name": "subcomponents",
         "type": "Component",
@@ -1498,6 +1601,7 @@
       },
       {
         "id": "n103",
+        "elementId": "MassRollup__Component__mass",
         "kind": "attribute",
         "name": "mass",
         "parent": "n99",
@@ -1512,6 +1616,7 @@
       },
       {
         "id": "n104",
+        "elementId": "MassRollup__Component__totalMass",
         "kind": "attribute",
         "name": "totalMass",
         "parent": "n99",
@@ -1526,6 +1631,7 @@
       },
       {
         "id": "n105",
+        "elementId": "MassRollup__Stage__totalMass",
         "kind": "attribute",
         "name": "totalMass",
         "parent": "n90",
@@ -1540,6 +1646,7 @@
       },
       {
         "id": "n106",
+        "elementId": "MassRollup__Stage__subcomponents",
         "kind": "part",
         "name": "subcomponents",
         "type": "Component",
@@ -1555,6 +1662,7 @@
       },
       {
         "id": "n107",
+        "elementId": "MassRollup__Component__subcomponents",
         "kind": "part",
         "name": "subcomponents",
         "type": "Component",
@@ -1571,6 +1679,7 @@
       },
       {
         "id": "n108",
+        "elementId": "MassRollup__Component__mass",
         "kind": "attribute",
         "name": "mass",
         "parent": "n106",
@@ -1585,6 +1694,7 @@
       },
       {
         "id": "n109",
+        "elementId": "MassRollup__Component__totalMass",
         "kind": "attribute",
         "name": "totalMass",
         "parent": "n106",
@@ -1599,6 +1709,7 @@
       },
       {
         "id": "n110",
+        "elementId": "MassRollup__LaunchVehicle__subcomponents",
         "kind": "part",
         "name": "subcomponents",
         "type": "Component",
@@ -1614,6 +1725,7 @@
       },
       {
         "id": "n111",
+        "elementId": "MassRollup__Component__subcomponents",
         "kind": "part",
         "name": "subcomponents",
         "type": "Component",
@@ -1629,6 +1741,7 @@
       },
       {
         "id": "n112",
+        "elementId": "MassRollup__Component__mass",
         "kind": "attribute",
         "name": "mass",
         "parent": "n111",
@@ -1643,6 +1756,7 @@
       },
       {
         "id": "n113",
+        "elementId": "MassRollup__Component__totalMass",
         "kind": "attribute",
         "name": "totalMass",
         "parent": "n111",
@@ -1657,6 +1771,7 @@
       },
       {
         "id": "n114",
+        "elementId": "MassRollup__Component__mass",
         "kind": "attribute",
         "name": "mass",
         "parent": "n110",
@@ -1671,6 +1786,7 @@
       },
       {
         "id": "n115",
+        "elementId": "MassRollup__Component__totalMass",
         "kind": "attribute",
         "name": "totalMass",
         "parent": "n110",
@@ -1685,6 +1801,7 @@
       },
       {
         "id": "n116",
+        "elementId": "MassRollup__Component__totalMass",
         "kind": "attribute",
         "name": "totalMass",
         "parent": "n0",
@@ -1700,6 +1817,7 @@
     ],
     "edges": [
       {
+        "elementId": "MassRollup__Stage__subcomponents",
         "from": "n42",
         "to": "n35",
         "label": "=",
@@ -1713,6 +1831,7 @@
         }
       },
       {
+        "elementId": "MassRollup__Stage__subcomponents",
         "from": "n86",
         "to": "n79",
         "label": "=",
@@ -1726,6 +1845,7 @@
         }
       },
       {
+        "elementId": "MassRollup__S-IVB__engines",
         "from": "n99",
         "to": "n93",
         "label": "=",
@@ -1739,6 +1859,7 @@
         }
       },
       {
+        "elementId": "MassRollup__Stage__subcomponents",
         "from": "n106",
         "to": "n99",
         "label": "=",

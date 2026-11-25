@@ -6,6 +6,7 @@
     "nodes": [
       {
         "id": "n0",
+        "elementId": "MissionSequence__MissionPhases",
         "kind": "state def",
         "name": "MissionSequence::MissionPhases",
         "origin": {
@@ -23,6 +24,7 @@
       },
       {
         "id": "n1",
+        "elementId": "MissionSequence__MissionPhases__prelaunch",
         "kind": "state",
         "name": "prelaunch",
         "detail": "initial",
@@ -37,6 +39,7 @@
       },
       {
         "id": "n2",
+        "elementId": "MissionSequence__MissionPhases__translunarCoast",
         "kind": "state",
         "name": "translunarCoast",
         "parent": "n0",
@@ -50,6 +53,7 @@
       },
       {
         "id": "n3",
+        "elementId": "MissionSequence__MissionPhases__lunarOrbit",
         "kind": "state",
         "name": "lunarOrbit",
         "parent": "n0",
@@ -63,6 +67,7 @@
       },
       {
         "id": "n4",
+        "elementId": "MissionSequence__MissionPhases__onSurface",
         "kind": "state",
         "name": "onSurface",
         "parent": "n0",
@@ -76,6 +81,7 @@
       },
       {
         "id": "n5",
+        "elementId": "MissionSequence__MissionPhases__transEarthCoast",
         "kind": "state",
         "name": "transEarthCoast",
         "parent": "n0",
@@ -89,6 +95,7 @@
       },
       {
         "id": "n6",
+        "elementId": "MissionSequence__MissionPhases__recovered",
         "kind": "state",
         "name": "recovered",
         "parent": "n0",
@@ -117,6 +124,7 @@
     ],
     "edges": [
       {
+        "elementId": "MissionSequence__MissionPhases___401",
         "from": "n8",
         "to": "n1",
         "kind": "transition",
@@ -129,6 +137,7 @@
         }
       },
       {
+        "elementId": "MissionSequence__MissionPhases___408",
         "from": "n1",
         "to": "n2",
         "label": "after 9000 [s]",
@@ -142,6 +151,7 @@
         }
       },
       {
+        "elementId": "MissionSequence__MissionPhases___409",
         "from": "n2",
         "to": "n3",
         "label": "after 270000 [s]",
@@ -155,6 +165,7 @@
         }
       },
       {
+        "elementId": "MissionSequence__MissionPhases___4010",
         "from": "n3",
         "to": "n4",
         "label": "after 100000 [s]",
@@ -168,6 +179,7 @@
         }
       },
       {
+        "elementId": "MissionSequence__MissionPhases___4011",
         "from": "n4",
         "to": "n5",
         "label": "after 78000 [s]",
@@ -181,6 +193,7 @@
         }
       },
       {
+        "elementId": "MissionSequence__MissionPhases___4012",
         "from": "n5",
         "to": "n6",
         "label": "after 245000 [s]",
@@ -194,6 +207,7 @@
         }
       },
       {
+        "elementId": "MissionSequence__MissionPhases___4013",
         "from": "n6",
         "to": "n7",
         "kind": "transition",

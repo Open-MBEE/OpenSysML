@@ -8,11 +8,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
-// identityOf reads the declared element's EffectiveID, the id a written form's {id} fills.
-// An unnamed connector the index names only by its owner falls back to the positional
-// identity the element form gives the declaration, so distinct anonymous connectors
-// under one owner keep distinct ids. Both are empty when no identified declaration sits
-// at the origin.
+// identityOf reads the declared element's EffectiveID, falling back to the
+// positional identity of an unnamed declaration the index names by its owner.
 func (r *Renderer) identityOf(origin Origin) (name, id string) {
 	if r == nil || !origin.Located() || r.model == nil || r.resolver == nil {
 		return "", ""
@@ -37,10 +34,9 @@ func (r *Renderer) identityOf(origin Origin) (name, id string) {
 		info = found
 		id = info.EffectiveID
 	}
-	if anonymousConnector(sym) && (info == nil || info.Source == identity.SourceDerived) {
-		// The derived id encodes the index's name, which every unnamed member of
-		// one owner shares. Name the declaration by its position instead, as the
-		// element form does, so a canvas can tell the connectors apart.
+	if ownerNamedOnly(index, sym, info) {
+		// The derived id names every unnamed member of one owner alike; use the
+		// declaration's position so a property lookup resolves the id.
 		if positional := r.positionalOf(origin.Doc, sym); positional != "" {
 			id = identity.DerivedElementID(positional)
 		}
@@ -48,20 +44,17 @@ func (r *Renderer) identityOf(origin Origin) (name, id string) {
 	return name, id
 }
 
-// anonymousConnector reports whether sym is an unnamed connector usage whose id
-// would otherwise derive from its owner's name alone.
-func anonymousConnector(sym *symbols.Symbol) bool {
-	if sym == nil || sym.Named() {
+// ownerNamedOnly reports whether sym has no name of its own that the identity
+// builder derived. Such a symbol's EffectiveID falls back to the index's name,
+// which ends at its owner and so names every unnamed member underneath it alike.
+func ownerNamedOnly(index *symbols.Index, sym *symbols.Symbol, info *identity.Info) bool {
+	if sym == nil || sym.Named() || index == nil {
 		return false
 	}
-	switch sym.Kind {
-	case symbols.SymbolConnectionUsage, symbols.SymbolBindingUsage,
-		symbols.SymbolSuccessionUsage, symbols.SymbolFlowUsage,
-		symbols.SymbolSuccessionFlowUsage, symbols.SymbolInterfaceUsage,
-		symbols.SymbolAllocationUsage:
+	if info == nil {
 		return true
 	}
-	return false
+	return info.Source == identity.SourceDerived && info.FQN == index.GetFQN(sym)
 }
 
 // positionalOf names sym by its position in doc, the way the element form does.
