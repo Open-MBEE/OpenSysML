@@ -1061,7 +1061,17 @@ func (s *Service) parseModelKeeping(ctx context.Context, inputs []sourceInput, m
 		}
 	}
 	modelHash := key.sum()
+<<<<<<< HEAD
 	if cached, ok := s.cache.Get(modelHash); ok {
+=======
+	// A transient undo compares against the kept answer's analysis stamps;
+	// Peek reuses it without promoting the entry or inserting a new one.
+	lookup := s.cache.Get
+	if !keep {
+		lookup = s.cache.Peek
+	}
+	if cached, ok := lookup(modelHash); ok {
+>>>>>>> 68a767405c (fix(grpc): keep restored diagnostics, record workspace edits and transient undo stamps)
 		return modelHash, cached, nil
 	}
 	// A done ctx stops the parse at its next document or analysis pass, as its

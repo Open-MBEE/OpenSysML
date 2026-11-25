@@ -364,7 +364,9 @@ service for the same document set restores those trees from disk and rebuilds th
 from them, so no document is parsed at all; its analysis is restored from the analysis record the
 writer left, but validation passes run again over the restored trees to prime the incremental
 workspace, so a model restored here is still a base whose `affected` answer names only the
-documents a later edit changed. The answer, its model hash and every later call on
+documents a later edit changed. A set with a syntax error is answered from parse diagnostics
+alone: no semantic analysis is published for it, and a later edit reports every document as
+affected. The answer, its model hash and every later call on
 it are what a first parse of the same bytes gives. The hash a response returns is thus a base-model
 handle a later process can send back as `base_model_hash`. An edit to one document misses only that
 document's record: the unchanged documents' trees are restored and just the edited one is parsed.
@@ -376,6 +378,28 @@ A restored model is a usable base: after an edit, `affected` still names only th
 results changed. A service run without a record cache parses every document afresh, which is
 otherwise identical to the cached path.
 
+<<<<<<< HEAD
+=======
+### Transient parses
+
+The design and its baseline are recorded in [the non-keeping parse record](../project/nonkeeping-parse.md).
+
+Under the `parse_sources_keep` capability a client can set `keep: false` on a `ParseSources`
+request. The answer — hash, roots, diagnostics and, with `base_model_hash`, `affected` — is what
+the same parse with `keep: true` gives, but the service neither inserts the model into its
+parsed-model LRU nor promotes an entry already under that hash there: it peeks a kept answer
+non-promoting so an undo back to cached content still compares against its own analysis stamps.
+The transient parse evicts nothing and promotes nothing in that LRU. Disk parse records, when a record cache is configured,
+are a separate store that this option does not govern: a transient parse may read and write them. A client that parses a derived union for its results can answer it
+and drop it without displacing the model it has open; a hash the service did not already hold is
+`NOT_FOUND` on every later request. The field has presence: only an absent field needs no
+capability and gives the ordinary kept parse. A service without `parse_sources_keep` refuses any
+request that states the field, including `keep: true`, with `UNIMPLEMENTED` rather than silently
+keeping a model the caller asked it not to keep; `TestParseSourcesKeepNeedsTheCapability` locks
+both refusals.
+
+
+>>>>>>> 68a767405c (fix(grpc): keep restored diagnostics, record workspace edits and transient undo stamps)
 Under the `parse_sources_affected` capability a client can also ask which documents an edit
 reached. It sends the hash it was answered last as `base_model_hash`, and the answer's `affected`
 names, in the request's document order, every document whose results may differ from the base
