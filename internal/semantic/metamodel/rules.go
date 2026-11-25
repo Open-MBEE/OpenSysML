@@ -85,6 +85,7 @@ var servedRules = []Rule{
 	{DefiningClass: "AcceptActionUsage", Property: "payloadArgument", Constraint: "deriveAcceptActionUsagePayloadArgument"},
 	{DefiningClass: "AcceptActionUsage", Property: "payloadParameter", Constraint: "deriveAcceptActionUsagePayloadParameter"},
 	{DefiningClass: "AcceptActionUsage", Property: "receiverArgument", Constraint: "deriveAcceptActionUsageReceiverArgument"},
+	{DefiningClass: "ForLoopActionUsage", Property: "loopVariable", Constraint: "deriveForLoopActionUsageLoopVariable"},
 	{DefiningClass: "SendActionUsage", Property: "payloadArgument", Constraint: "deriveSendActionUsagePayloadArgument"},
 	{DefiningClass: "SendActionUsage", Property: "senderArgument", Constraint: "deriveSendActionUsageSenderArgument"},
 	{DefiningClass: "SendActionUsage", Property: "receiverArgument", Constraint: "deriveSendActionUsageReceiverArgument"},
@@ -404,7 +405,6 @@ Flow::sourceOutputFeature
 Flow::targetInputFeature
 FlowDefinition::flowEnd
 FlowUsage::flowDefinition
-ForLoopActionUsage::loopVariable
 ForLoopActionUsage::seqArgument
 FramedConcernMembership::ownedConcern
 FramedConcernMembership::referencedConcern

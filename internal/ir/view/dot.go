@@ -2147,11 +2147,11 @@ func (w *dotWriter) dotPin(centre Point) string {
 
 // dotAnchorAttributes is a cluster's anchor node: invisible and sizeless, the
 // node an edge to or from the cluster names. A placed cluster pins it at the
-// centre of its box, or at its corner while the box has no extent.
+// centre of its box, or at its corner while the box has no extent (anchorPoint).
 func (w *dotWriter) dotAnchorAttributes(node *Node) []string {
 	attrs := slices.Clone(dotInvisibleAttributes)
 	if box, ok := w.boxes[node.ID]; ok {
-		attrs = append(attrs, w.dotPin(box.centre()))
+		attrs = append(attrs, w.dotPin(w.anchorPoint(node, box)))
 	}
 	return attrs
 }

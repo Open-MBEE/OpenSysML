@@ -151,6 +151,9 @@ func (m *Model) DeclaredSuccessions(scope *symbols.Scope, owner *symbols.Symbol,
 			var source ActionSuccessionEnd
 			if n.Source != nil {
 				source = m.referenceEnd(scope, owner, n.Source)
+			} else if before := ast.ImplicitTransitionSource(members, n); ast.LeavableByTransition(before) {
+				// A sourceless transition leaves the closest state usage before it (SysML v2 §7.18.3).
+				source = ActionSuccessionEnd{Node: before}
 			}
 			target := m.referenceEnd(scope, owner, n.Target)
 			target.Multiplicity = n.TargetMultiplicity

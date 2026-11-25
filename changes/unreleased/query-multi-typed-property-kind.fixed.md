@@ -1,1 +1,0 @@
-- OSLC queries: a metaclass property whose declaration has several types that disagree on what its values are (text, number, boolean, element) is compared as each row's value is, where its last type alone used to decide. No property of the bundled metamodel is declared that way, so no query over it changes.

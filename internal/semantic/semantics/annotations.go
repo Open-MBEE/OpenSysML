@@ -1304,7 +1304,7 @@ func declaredMetaclassName(sym *symbols.Symbol) string {
 	case *ast.IfBranchNode:
 		return "ActionUsage"
 	case *ast.WhileLoopActionNode:
-		if sym.Kind == symbols.SymbolReferenceUsage {
+		if IsLoopVariable(sym) {
 			// The loop variable shares the loop's node (SysML 8.3.16.7 loopVariable).
 			return "ReferenceUsage"
 		}
@@ -2340,6 +2340,7 @@ func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 		members = append(members, value)
 	}
 	members = append(members, m.expressionOwnedElements(sym)...)
+	members = append(members, m.constructorResultFeatures(sym)...)
 	members = append(members, m.nodeParameters(sym)...)
 	members = leadWithPrefixMetadata(sym, append(members, m.withSynthesizedMembers(sym, m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, ownedMembersOf(sym)))))...))
 	seen := make(map[*symbols.Symbol]bool, len(members))
@@ -2572,7 +2573,14 @@ func (m *Model) successionEndsOf(sym, owner *symbols.Symbol) []ActionSuccessionE
 			return []ActionSuccessionEnd{succession.Source, succession.Target}
 		}
 	}
-	for _, succession := range m.DeclaredSuccessions(sym.OwnerScope, owner, []ast.Node{sym.Decl}) {
+	members := []ast.Node{sym.Decl}
+	if trans, ok := sym.Decl.(*ast.TransitionMember); ok && trans.Source == nil && owner.Decl == sym.Decl {
+		// A sourceless transition's succession leaves a member of the body declaring the transition.
+		if body := m.ownerOf(owner); body != nil {
+			members = bodyMembers(body)
+		}
+	}
+	for _, succession := range m.DeclaredSuccessions(sym.OwnerScope, owner, members) {
 		if succession.Decl == sym.Decl {
 			return []ActionSuccessionEnd{succession.Source, succession.Target}
 		}

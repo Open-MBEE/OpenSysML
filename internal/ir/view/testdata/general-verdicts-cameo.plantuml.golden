@@ -60,6 +60,8 @@ class "<size:10>//«verification»//</size>\n**lightMassTest**" as n11 <<verific
 class "<size:10>//«verification»//</size>\n**heavyMassTest**" as n12 <<verification>> <<usage>>
 class "<size:10>//«verification def»//</size>\n**StopTest**" as n13 <<verification def>>
 class "<size:10>//«verification»//</size>\n**stopTest**" as n14 <<verification>> <<usage>>
+class "<size:10>//«part def»//</size>\n**Vehicle**" as n15 <<part def>>
+n0 o-- "vehicle" n15 : «subject»
 n2 --|> n1
 n3 --:|> n0
 n4 --:|> n0

@@ -110,21 +110,15 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 // withBodyMemberships appends the membership of each member sym's body declares that is not yet in
 // seen, numbered from ordinal.
 func (m *Model) withBodyMemberships(sym *symbols.Symbol, out []*symbols.Symbol, ordinal int, seen map[*symbols.Symbol]bool) []*symbols.Symbol {
-	scope, written := sym.Scope, sym.Decl
+	scope := sym.Scope
 	if statement := nodeStatementOf(sym.Decl); statement != nil {
 		// A node written as its statement (`action a while c { … }`) owns the
 		// members its statement's body declares.
-		written = statement
 		if child := scope.ChildFor(statement); child != nil {
 			scope = child
 		}
 	}
 	scope.ForEachMember(func(member *symbols.Symbol) bool {
-		if member.Decl == written && IsStatementNode(written) {
-			// A `for` variable is a body-local name, not an element the
-			// conversion writes (sysx:loopVariable is a string).
-			return true
-		}
 		if member == nil || seen[member] || member.Chain != nil || ownedThroughAnnotation(sym, member) || m.isTriggerPayload(sym, member) {
 			return true
 		}
@@ -574,6 +568,10 @@ func relationshipBodyOwner(sym *symbols.Symbol) bool {
 func (m *Model) OwningMembership(sym *symbols.Symbol) *symbols.Symbol {
 	if m == nil || sym == nil || sym.Implicit != nil || sym.Chain != nil || sym.Kind == symbols.SymbolAlias {
 		return nil
+	}
+	if sym.Expr != nil && IsFilterMembership(sym.Expr.Owner) && sym.Expr.Owner.Implicit.Member == sym {
+		// A filter package's condition is held by the package's filter membership.
+		return sym.Expr.Owner
 	}
 	owner := m.ownerOf(sym)
 	if owner == nil {

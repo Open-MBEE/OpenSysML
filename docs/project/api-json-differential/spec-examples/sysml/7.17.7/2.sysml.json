@@ -11,8 +11,8 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 1055,
-      "presentDifferent": 110,
+      "presentEqual": 1056,
+      "presentDifferent": 109,
       "oursMissing": 95,
       "pilotMissing": 35,
       "absentBoth": 1236,
@@ -20,7 +20,7 @@
       "pilotNondeterministic": 0
     },
     "unkeyedReferences": 111,
-    "extensionProperties": 165,
+    "extensionProperties": 167,
     "duplicateElements": {
       "ours": 0,
       "pilot": 0
@@ -773,7 +773,7 @@
     "SendActionUsage.importedMembership": [0,0,0,0,2,0,0],
     "SendActionUsage.inheritedFeature": [0,2,0,0,0,0,0],
     "SendActionUsage.inheritedMembership": [0,2,0,0,0,0,0],
-    "SendActionUsage.input": [0,2,0,0,0,0,0],
+    "SendActionUsage.input": [1,1,0,0,0,0,0],
     "SendActionUsage.intersectingType": [0,0,0,0,2,0,0],
     "SendActionUsage.isAbstract": [2,0,0,0,0,0,0],
     "SendActionUsage.isComposite": [2,0,0,0,0,0,0],

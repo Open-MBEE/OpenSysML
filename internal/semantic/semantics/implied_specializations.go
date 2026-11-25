@@ -134,5 +134,6 @@ func (m *Model) impliedFeatureGenerals(sym *symbols.Symbol) []*symbols.Symbol {
 	redefines := len(m.implicitEndRedefinitions(sym)) > 0 || declaresRedefinition(sym)
 	out := []*symbols.Symbol{m.implicitEndParticipant(sym, redefines)}
 	out = append(out, m.implicitCrossFeatureGenerals(sym)...)
-	return append(out, m.FeatureValueGeneral(sym), m.VariationPointOwning(sym))
+	out = append(out, m.FeatureValueGeneral(sym), m.VariationPointOwning(sym))
+	return append(out, m.expressionElementGenerals(sym)...)
 }

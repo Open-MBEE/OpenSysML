@@ -63,6 +63,9 @@ var impliedRelationshipMetaclasses = map[string]bool{
 	mUnioning:             true,
 	mIntersecting:         true,
 	mDifferencing:         true,
+	mDisjoining:           true,
+	mFeatureInverting:     true,
+	mTypeFeaturing:        true,
 	mAnnotation:           true,
 }
 
@@ -87,6 +90,9 @@ var derivedSatelliteMetaclasses = map[string]bool{
 	mUnioning:                 true,
 	mIntersecting:             true,
 	mDifferencing:             true,
+	mDisjoining:               true,
+	mFeatureInverting:         true,
+	mTypeFeaturing:            true,
 	mPortConjugation:          true,
 	mConjugatedPortDefinition: true,
 	mMultiplicityRange:        true,
@@ -103,6 +109,7 @@ var relationshipSourceEnds = []string{
 	pReferencingFeature, pSpecific, pSource, pOwningFeature, "owningClassifier",
 	pOwningType, pOwningRelatedElement,
 	"crossingFeature", "typeUnioned", "typeIntersected", "typeDifferenced",
+	"typeDisjoined", "featureInverted", "featureOfType",
 }
 
 // relationshipTargetEnds are the properties naming the relationship's target.
@@ -110,6 +117,7 @@ var relationshipTargetEnds = []string{
 	"type", "superclassifier", pSubsettedFeature, pReferencedFeature,
 	"redefinedFeature", pGeneral, pTarget,
 	"crossedFeature", "unioningType", "intersectingType", "differencingType",
+	"disjoiningType", "invertingFeature", "featuringType",
 }
 
 // normativeImplied reports whether el is one of the materialized elements a
@@ -493,7 +501,7 @@ func (d *decoder) statedIRITargets(owner *element) map[ast.RelationshipKind]map[
 			continue
 		}
 		switch child.metaclass {
-		case mCrossSubsetting, mUnioning, mIntersecting, mDifferencing:
+		case mCrossSubsetting, mUnioning, mIntersecting, mDifferencing, mDisjoining, mFeatureInverting, mTypeFeaturing:
 			if kind := collapsedKindsOf[child.metaclass][0]; !slices.Contains(kinds, kind) {
 				kinds = append(kinds, kind)
 			}

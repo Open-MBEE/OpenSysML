@@ -181,9 +181,10 @@ func (e *encoder) constructorArguments(subject, result rdf.Term, owner string, n
 		if err := e.expressionNode(child, owner, arg); err != nil {
 			return err
 		}
-		e.constructorArgumentOwnership(subject, result, child, index)
+		e.constructorArgumentOwnership(subject, result, child, index, nil)
 		index++
 	}
+	instantiated := e.invokedBehavior(owner, n)
 	for i, arg := range n.NamedArgs {
 		if arg.Value == nil {
 			continue
@@ -193,15 +194,15 @@ func (e *encoder) constructorArguments(subject, result rdf.Term, owner string, n
 		if err := e.expressionNode(child, owner, arg.Value); err != nil {
 			return err
 		}
-		e.constructorArgumentOwnership(subject, result, child, len(n.Args)+i)
+		e.constructorArgumentOwnership(subject, result, child, len(n.Args)+i, e.ids.model.ConstructorNamedFeature(instantiated, arg.Name))
 		e.graph.Add(child, e.sysx(xArgumentName), rdf.String(qualifiedText(arg.Name)))
 	}
 	return nil
 }
 
-// constructorArgumentOwnership owns one argument feature of a constructor's result through a
-// FeatureMembership, the feature valued by the argument (ArgumentMember, ArgumentValue).
-func (e *encoder) constructorArgumentOwnership(node, result, argument rdf.Term, index int) {
+// constructorArgumentOwnership owns one result feature of a constructor, valued by its argument; a
+// named one redefines the feature it names (checkConstructorExpressionResultFeatureRedefinition).
+func (e *encoder) constructorArgumentOwnership(node, result, argument rdf.Term, index int, redefined *symbols.Symbol) {
 	feature := e.ids.mintedNode(rdf.ExpressionIRI(node, fmt.Sprintf("in%d", index)), node, fmt.Sprintf("in%d", index))
 	membership := e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix)
 	valueMembership := e.ids.minted(rdf.OwningMembershipIRIOf(argument), argument, rdf.OwningMembershipSuffix)
@@ -214,6 +215,12 @@ func (e *encoder) constructorArgumentOwnership(node, result, argument rdf.Term, 
 	e.graph.Add(result, e.sysml(pOwnedFeatureMembership), membership)
 	e.graph.Add(result, e.sysml(pOwnedFeature), feature)
 	e.graph.Add(membership, e.sysml(pOwnedMemberFeature), feature)
+	if redefined != nil {
+		if target := e.symbolTerm(redefined); target.IsIRI() {
+			spec, _ := e.relationshipSpec(feature, ast.RelRedefines, 1, 0)
+			e.emitRelationship(feature, target, spec)
+		}
+	}
 	e.graph.Add(feature, e.sysml(pOwnedRelationship), valueMembership)
 	e.graph.Add(feature, e.sysml(pOwnedMembership), valueMembership)
 	e.emitMembershipCore(valueMembership, argument, feature, mFeatureValue, true)
@@ -562,6 +569,10 @@ func (e *encoder) bodyParameter(subject, base rdf.Term, owner string, body *ast.
 	e.flags(node, []boolProperty{{"isReference", param.IsReference}, {"isVariable", variable}, {"mayTimeVary", timeVarying}})
 	if param.Type != nil {
 		e.headRelationship(node, ast.RelTyping, e.reference(param.Type), param.Type)
+	}
+	// `in p : A, ~B` types the parameter by B's conjugate, as a usage's `: ~B` does.
+	if slices.ContainsFunc(param.Relationships, func(rel *ast.Relationship) bool { return rel.Kind == ast.RelTyping && rel.Conjugated }) {
+		e.graph.Add(node, e.sysx(xConjugatedTyping), rdf.Bool(true))
 	}
 	e.relationships(node, owner, param.Relationships)
 	// Both notations override KerMLExpressions' ExpressionBody with a type
@@ -1239,6 +1250,10 @@ func (d *decoder) resolveExpression(triple rdf.Triple, parents map[string][]rdf.
 	if d.derivedConnectorFeature(triple) {
 		return nil
 	}
+	if triple.Predicate.Value == rdf.SysML+pLoopVariable {
+		// A `for` loop's variable is the feature its head declares, not an expression.
+		return nil
+	}
 	if !d.isExpressionNode(triple.Object) {
 		return nil
 	}
@@ -1345,6 +1360,11 @@ func (d *decoder) noteSegment(node rdf.Term, parents map[string][]rdf.Term) erro
 			operand = ""
 			continue
 		}
+		if local, ok := d.bodyLocalName(segment); ok {
+			// A feature a body or loop head declares is written by its name alone.
+			operand = local
+			continue
+		}
 		target, name, err := d.namedMember(segment)
 		if err != nil {
 			return err
@@ -1374,6 +1394,11 @@ func (d *decoder) noteFlowEnd(end rdf.Term) error {
 	for _, segment := range segments {
 		if segment.IsLiteral() {
 			operand = ""
+			continue
+		}
+		if local, ok := d.bodyLocalName(segment); ok {
+			// A feature a body or loop head declares is written by its name alone.
+			operand = local
 			continue
 		}
 		target, name, err := d.namedMember(segment)
@@ -1481,6 +1506,9 @@ func (d *decoder) operandElement(chain rdf.Term) string {
 	}
 	if !object.IsIRI() {
 		return ""
+	}
+	if local, ok := d.bodyLocalName(object); ok {
+		return local
 	}
 	el, err := d.referencedElement(object.Value)
 	if err != nil {

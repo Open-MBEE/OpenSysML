@@ -228,3 +228,13 @@ func TestTakeChangesNamesAReexportWhoseRouteMoved(t *testing.T) {
 		t.Errorf("a re-export now reached through M2 is not a change: %v", keys(ch.Names))
 	}
 }
+
+// A change to the registered spellings alone is still a change.
+func TestChangesWithOnlySpellingsIsNotEmpty(t *testing.T) {
+	if (Changes{Spellings: true}).Empty() {
+		t.Fatal("Changes{Spellings: true} reported itself empty")
+	}
+	if !(Changes{}).Empty() {
+		t.Fatal("the zero Changes is not empty")
+	}
+}

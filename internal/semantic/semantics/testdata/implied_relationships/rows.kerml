@@ -19,4 +19,20 @@ package K {
 	connector top : A from p1 to p2;
 	connector within : A from Owner::oc to Owner::occ;
 	flow fl of D from Owner::od to Owner::valued;
+	function G { in a : D; in b : D; return r : D; }
+	struct P { feature px : D; feature py : D; }
+	class E {
+		feature d1 : D; feature d2 : D; feature ps : P;
+		feature eop : D = d1 + d2;
+		feature einv : D = G(d1, d2);
+		feature enew : P = new P(d1, d2);
+		feature echain : D = (ps).px;
+		feature elit = 1;
+		feature eidx = d1#(1);
+		feature esel = d1.?{in v : D; true};
+		feature ecol = d1.{in v : D; v};
+		feature enull = null;
+		feature econd = if true ? d1 else d2;
+		feature enest : D = G(d1 + d2, G(d1, d2));
+	}
 }

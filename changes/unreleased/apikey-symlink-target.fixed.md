@@ -1,1 +1,0 @@
-- `sysml-mcp -revoke-api-key` and `-mint-api-key` edit the file a symlinked `-api-keys` path names rather than replacing the link: a revoke through a link used to leave the key live in the file the server reads.

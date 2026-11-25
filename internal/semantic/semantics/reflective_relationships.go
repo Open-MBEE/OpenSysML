@@ -83,9 +83,9 @@ func (m *Model) implicitRelationshipsOf(owner *symbols.Symbol) []*symbols.Symbol
 		})
 		ordinal++
 	}
-	// A constructor's named argument feature redefines the feature of the
-	// instantiated type it names (KerML 8.3.4.8.3 ConstructorExpression).
-	if formal, named := m.constructorArgumentFormal(owner); named && formal != nil {
+	// A named argument's feature redefines the feature it names: of the instantiated type
+	// (KerML 8.3.4.8.3 ConstructorExpression) or of what is invoked (8.3.4.8.5).
+	for _, formal := range m.namedArgumentRedefinitions(owner) {
 		out = append(out, &symbols.Symbol{
 			Kind:     symbols.SymbolRelationship,
 			DocName:  owner.DocName,
