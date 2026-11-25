@@ -125,16 +125,17 @@ What was still missing at that baseline:
   fact now records whether the body wrote it. Consumers that read all facts are
   unchanged. Nested bindings have their own facts with their path from the body
   (`nested.value`); the direct facts keep their old shape.
-- **A model feature wins a shared name in document queries; OSLC names the side
-  explicitly.** The bare property name reads a declared or held feature first,
-  then falls back to the evaluator's property, as `body`, `locale` and `language`
-  already do. `@isActive` and `@annotations` (OSLC `sysx:@isActive`,
-  `sysx:@annotations`) always read the evaluator's property. A translated OSLC
-  request records which side each name came from, so `sysx:isActive` keeps its
-  documented meaning even where the model declares a feature of that name.
-  When a model declares a feature under a bare built-in name, the translator
-  defers type validation for that name to the row reader, so a filter on the
-  feature is not judged by the built-in's type.
+- **A model feature wins a shared name on every query surface.** The bare
+  property name reads a declared or held feature first, then falls back to the
+  evaluator's property, as `body`, `locale` and `language` already do. OSLC's
+  `sysx:isActive` and `sysx:annotations` name that feature in filters and
+  projections too when the model declares one. `@isActive` and `@annotations`
+  (OSLC `sysx:@isActive`, `sysx:@annotations`) always read the evaluator's
+  property. A translated OSLC request records which side each name came from,
+  so the two sides stay separate on a row. When a model declares a feature
+  under a bare built-in name, the translator defers type validation for that
+  name to the row reader, so a filter on the feature is not judged by the
+  built-in's type.
 - **One activity index per execution, not one session walk per state.** The
   first read walks the session once, charges that walk to the visit budget once
   and merges the active declarations of every machine. Invoked document queries
@@ -187,7 +188,7 @@ this change.
 | The annotation read makes zero per-element symbol calls, counted by a client wrapping `GetSymbol` | `internal/frontend/grpc/query_metadata_surfaces_test.go:TestQueryReadsAnnotationsWithNoPerElementSymbolLookups` |
 | The two properties are selectable and filterable through the Query RPC with no schema change | `internal/frontend/grpc/query_metadata_surfaces_test.go:TestQuerySelectsAnnotationAndActivityProperties`, `:TestQueryFiltersByAnnotationAndActivityProperties` |
 | `symbolKind` remains present and is still governed by the same Query surface | `internal/frontend/grpc/query_symbolkind_text_test.go:TestQuerySymbolKindNamesEveryRow`, `:TestQuerySymbolKindSelectsRowsOfThatKind` |
-| A declared or held `isActive`/`annotations` feature is read by its name; the `@` spelling reaches the evaluator's property and OSLC keeps its documented spelling | `internal/doc/queryexec/metadata_feature_shadowing_test.go:TestQueryDeclaredFeaturesShadowBuiltinsByName`, `:TestQueryHeldFeaturesShadowBuiltinsByName`; `internal/frontend/grpc/query_metadata_surfaces_test.go:TestBuiltinSpellingSurvivesAFeatureOfTheSameName`; `internal/doc/querytranslate/oslc_test.go:TestOSLCUnambiguousBuiltinSpelling` |
+| A declared or held `isActive`/`annotations` feature is read by its name on every surface, including OSLC filters and projections; the `@` spelling reaches the evaluator's property | `internal/doc/queryexec/metadata_feature_shadowing_test.go:TestQueryDeclaredFeaturesShadowBuiltinsByName`, `:TestQueryHeldFeaturesShadowBuiltinsByName`; `internal/frontend/grpc/query_metadata_surfaces_test.go:TestBuiltinSpellingSurvivesAFeatureOfTheSameName`, `internal/frontend/grpc/query_oslc_shadowed_features_test.go:TestOSLCQueriesReadFeaturesShadowingBuiltinNames`; `internal/doc/querytranslate/oslc_test.go:TestOSLCUnambiguousBuiltinSpelling`, `:TestOSLCShadowedBuiltinNamesReadTheModelFeature` |
 | A running exhibit, its parallel region owners and every copy of a duplicated state declaration answer activity | `internal/doc/queryexec/is_active_regressions_test.go:TestQueryActivityOfExhibitAndParallelRegionOwners`, `:TestQueryActivityAggregatesCopiesOfOneDeclaration` |
 | Activity over a large row set and held population stays inside the visit budget, including invoked queries | `internal/doc/queryexec/state_activity_budget_test.go:TestQueryStateActivityStaysWithinTheVisitBudget` |
 | A nested metadata binding is reported with its path by the bulk read | `internal/doc/queryexec/annotations_query_test.go:TestQueryReadsNestedAnnotationBindings` |

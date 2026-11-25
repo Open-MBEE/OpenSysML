@@ -241,24 +241,96 @@ func TestOSLCPropertyNamespacesFollowTheMetamodel(t *testing.T) {
 }
 
 func TestOSLCUnambiguousBuiltinSpelling(t *testing.T) {
-	for _, text := range []string{`oslc.select=sysx:isActive`, `oslc.select=sysx:@isActive`} {
-		q, err := ParseOSLC(text, nil)
+	for _, tc := range []struct{ text, property string }{
+		{`oslc.select=sysx:isActive`, query.PropertyIsActive},
+		{`oslc.select=sysx:@isActive`, query.PropertyIsActiveBuiltin},
+	} {
+		q, err := ParseOSLC(tc.text, nil)
 		if err != nil {
-			t.Fatalf("ParseOSLC(%q): %v", text, err)
+			t.Fatalf("ParseOSLC(%q): %v", tc.text, err)
 		}
-		if !q.Builtins[query.PropertyIsActive] {
-			t.Fatalf("ParseOSLC(%q) builtins = %v, want isActive", text, q.Builtins)
-		}
-		if len(q.Select) != 1 || q.Select[0].Property != query.PropertyIsActive {
-			t.Fatalf("ParseOSLC(%q) select = %v", text, q.Select)
+		if len(q.Select) != 1 || q.Select[0].Property != tc.property {
+			t.Fatalf("ParseOSLC(%q) select = %v", tc.text, q.Select)
 		}
 	}
 	q, err := ParseOSLC(`oslc.select=sysx:@annotations`, nil)
-	if err != nil || !q.Builtins[query.PropertyAnnotations] {
-		t.Fatalf("ParseOSLC annotations alias = %#v, %v", q, err)
+	if err != nil {
+		t.Fatalf("ParseOSLC annotations alias: %v", err)
+	}
+	if len(q.Select) != 1 || q.Select[0].Property != query.PropertyAnnotationsBuiltin {
+		t.Fatalf("annotations alias column = %v", q.Select)
+	}
+	if q.Features[query.PropertyAnnotations] || q.Builtins[query.PropertyAnnotations] {
+		t.Fatalf("annotations alias flags = %v/%v, want none beside the spelling", q.Features, q.Builtins)
 	}
 	if _, err := ParseOSLC(`oslc.select=sysx:@nope`, nil); err == nil {
 		t.Fatal("an unknown OSLC property was accepted")
+	}
+}
+
+// A model feature named like a built-in owns the bare sysx: name in OSLC
+// filters and projections; the "@" spelling still asks for the evaluator's own.
+func TestOSLCShadowedBuiltinNamesReadTheModelFeature(t *testing.T) {
+	table, index, model := shadowFixtureTable(t)
+	for _, tc := range []struct{ name, value string }{
+		{query.PropertyIsActive, "ready"},
+		{query.PropertyAnnotations, "mine"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			q, err := ParseParameters("oslc.where=sysx:"+tc.name+"=%22"+tc.value+
+				"%22&oslc.select=sysx:"+tc.name, table)
+			if err != nil {
+				t.Fatalf("ParseParameters: %v", err)
+			}
+			if q.Features[tc.name] || q.Builtins[tc.name] {
+				t.Fatalf("features = %v, builtins = %v, want a per-row read", q.Features, q.Builtins)
+			}
+			c, ok := q.Where.(Comparison)
+			if !ok || c.Property != tc.name || len(c.Values) != 1 || c.Values[0] != tc.value {
+				t.Fatalf("where = %#v, want a comparison with %q", q.Where, tc.value)
+			}
+			if cols := q.Columns(); len(cols) != 1 || cols[0] != tc.name {
+				t.Fatalf("columns = %v, want %s", cols, tc.name)
+			}
+			plan, err := Translate(q, Context{Index: index, Model: model, Table: table}, "ShadowQuery")
+			if err != nil {
+				t.Fatalf("Translate: %v", err)
+			}
+			if plan.Features[tc.name] || plan.Builtins[tc.name] {
+				t.Fatalf("plan features = %v, builtins = %v, want a per-row read", plan.Features, plan.Builtins)
+			}
+			q, err = ParseOSLC("oslc.select=sysx:@"+tc.name, table)
+			if err != nil {
+				t.Fatalf("ParseOSLC @ spelling: %v", err)
+			}
+			if q.Features[tc.name] || q.Builtins[tc.name] {
+				t.Fatalf("@ features = %v, builtins = %v, want no flag beside the spelling", q.Features, q.Builtins)
+			}
+			if cols := q.Columns(); len(cols) != 1 || cols[0] != "@"+tc.name {
+				t.Fatalf("@ columns = %v, want @%s", cols, tc.name)
+			}
+			mixed, err := ParseParameters("oslc.where=sysx:"+tc.name+"=%22"+tc.value+
+				"%22&oslc.select=sysx:@"+tc.name, table)
+			if err != nil {
+				t.Fatalf("ParseParameters mixed spellings: %v", err)
+			}
+			if cols := mixed.Columns(); len(cols) != 1 || cols[0] != "@"+tc.name {
+				t.Fatalf("mixed columns = %v, want @%s", cols, tc.name)
+			}
+			if c := mixed.Where.(Comparison); c.Property != tc.name {
+				t.Fatalf("mixed where = %#v, want the bare name", mixed.Where)
+			}
+		})
+	}
+	// Without a declaring model the per-row read falls back to the evaluator.
+	for _, name := range []string{query.PropertyIsActive, query.PropertyAnnotations} {
+		q, err := ParseOSLC("oslc.select=sysx:"+name, NewTable(nil, nil))
+		if err != nil {
+			t.Fatalf("ParseOSLC(%s): %v", name, err)
+		}
+		if q.Features[name] || q.Builtins[name] {
+			t.Fatalf("%s without a shadow = %v/%v, want a per-row read", name, q.Features, q.Builtins)
+		}
 	}
 }
 

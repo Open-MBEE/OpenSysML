@@ -92,8 +92,8 @@ const builtinFeatureCollisionModel = `package Demo {
 	state def M { entry; then ready; state ready; }
 }`
 
-// The OSLC spelling of a built-in stays the built-in even where the model
-// declares that feature; the API Query's bare name reads the feature.
+// The bare name reads the declared feature on every surface; the "@" spelling
+// of a built-in stays the built-in even where the model declares that feature.
 func TestBuiltinSpellingSurvivesAFeatureOfTheSameName(t *testing.T) {
 	srv := mustNewService(t, 10)
 	parsed, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
@@ -106,8 +106,22 @@ func TestBuiltinSpellingSurvivesAFeatureOfTheSameName(t *testing.T) {
 	if len(resp.Elements) != 1 {
 		t.Fatalf("rows = %v, want Demo::a alone", resp.Elements)
 	}
-	if _, found := resp.Elements[0].Properties[QueryPropIsActive]; found {
-		t.Fatalf("sysx:isActive read the declared feature on a part = %q", resp.Elements[0].Properties[QueryPropIsActive])
+	if got := resp.Elements[0].Properties[QueryPropIsActive]; got != "true" {
+		t.Fatalf("sysx:isActive = %q, want the declared feature true", got)
+	}
+	resp = oslcQuery(t, srv, parsed.ModelHash, `oslc.where=sysml:name="a"&oslc.select=sysx:@isActive`)
+	if len(resp.Elements) != 1 {
+		t.Fatalf("rows = %v, want Demo::a alone", resp.Elements)
+	}
+	if _, found := resp.Elements[0].Properties["@isActive"]; found {
+		t.Fatalf("sysx:@isActive read the declared feature on a part = %q", resp.Elements[0].Properties["@isActive"])
+	}
+	resp = oslcQuery(t, srv, parsed.ModelHash, `oslc.where=sysml:name="ready"&oslc.select=sysx:@isActive`)
+	if len(resp.Elements) != 1 || resp.Elements[0].Id != "Demo::M::ready" {
+		t.Fatalf("rows = %v, want Demo::M::ready alone", resp.Elements)
+	}
+	if got := resp.Elements[0].Properties["@isActive"]; got != "false" {
+		t.Fatalf("sysx:@isActive on a state = %q, want false", got)
 	}
 	_, _, resp = runQueryOnSource(t, builtinFeatureCollisionModel, &pb.Query{
 		Scope:  []string{"Demo::a"},

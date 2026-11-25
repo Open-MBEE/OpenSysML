@@ -1,0 +1,1 @@
+- OSLC queries over a model feature named `isActive` or `annotations` again read that feature: `sysx:isActive` and `sysx:annotations` filter and project the declared value on every surface, while `sysx:@isActive` and `sysx:@annotations` still reach the evaluator's own properties.

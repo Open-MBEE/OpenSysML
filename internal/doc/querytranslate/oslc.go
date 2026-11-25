@@ -961,8 +961,12 @@ func (p *oslcParser) resolveProperty(name string) (string, error) {
 			return "", unknownOSLCProperty(name, iri, p.prefixes, table)
 		}
 		if canonical, alias := query.BuiltinProperty(local); alias {
-			p.builtins[canonical] = true
-			return canonical, nil
+			// The bare name is judged per row; "@" is unambiguous and keeps
+			// its own column name, so one query can ask for both.
+			if !query.IsBuiltinAlias(local) {
+				return canonical, nil
+			}
+			return local, nil
 		}
 		if table.Derived(local) {
 			p.builtins[local] = true

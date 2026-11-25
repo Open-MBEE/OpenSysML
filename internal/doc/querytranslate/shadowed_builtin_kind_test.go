@@ -16,6 +16,7 @@ const shadowedBuiltinFixture = `package Shadow {
 	private import ScalarValues::*;
 	part def Device {
 		attribute isActive : String = "ready";
+		attribute annotations : String = "mine";
 	}
 }`
 
