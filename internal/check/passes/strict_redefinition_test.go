@@ -99,6 +99,32 @@ func TestStrictRedefinitionAcceptsDeclaredAndInheritedMembers(t *testing.T) {
 	}
 }
 
+// A typed usage that redefines or subsets a usage carries that usage's
+// members, so nested redefinitions of them are legal.
+func TestStrictRedefinitionAcceptsMembersOfRedefinedTyping(t *testing.T) {
+	for _, tc := range []struct{ name, src string }{
+		{"redefines", `package C {
+			part def Wheel { attribute radius; }
+			part def Car { part wheel : Wheel { attribute pressure; } }
+			part def SportsCar :> Car { part :>> wheel : Wheel { attribute :>> pressure; } }
+		}`},
+		{"subsets", `package C {
+			part def Wheel { attribute radius; }
+			part def Car { part wheel : Wheel { attribute pressure; } }
+			part def SportsCar :> Car { part spare subsets Car::wheel : Wheel { attribute :>> pressure; } }
+		}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := strictRedefinitionDiags(t, "model.sysml", tc.src, diag.ConformanceStrict)
+			for _, d := range got {
+				if d.Code == CodeRedefinitionResolvesToNothing {
+					t.Errorf("unexpected %s: %s", d.Code, d.Message)
+				}
+			}
+		})
+	}
+}
+
 // A body nested in an occurrence (a snapshot or timeslice) redefines features
 // of the type that occurrence instantiates, not of the snapshot itself.
 func TestStrictRedefinitionAcceptsSnapshotOfEnclosingType(t *testing.T) {

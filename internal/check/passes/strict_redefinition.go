@@ -126,6 +126,12 @@ func (c *strictRedefinitionChecker) contextTypes(sym *symbols.Symbol) ([]*symbol
 				named = typ
 			}
 		}
+		// A typed usage that redefines or subsets a usage inherits that usage's
+		// members, so its own declaring view joins the declared type's.
+		if redefinesOrSubsets(owner) && !seen[owner] {
+			seen[owner] = true
+			types = append(types, owner)
+		}
 	}
 	owner := c.model.OwningType(sym)
 	if owner == nil && sym.OwnerScope != nil {
@@ -168,6 +174,34 @@ func portionUsage(sym *symbols.Symbol) bool {
 	}
 	u, ok := sym.Decl.(*ast.Usage)
 	return ok && u.Portion != ast.PortionNone
+}
+
+// redefinesOrSubsets reports whether a usage redefines or subsets: both make
+// the target's features members of the usage.
+func redefinesOrSubsets(sym *symbols.Symbol) bool {
+	if sym == nil || !sym.IsFeature() {
+		return false
+	}
+	if sym.Recorded() {
+		if len(sym.Facts.Redefines) > 0 || !sym.Facts.References.IsZero() {
+			return true
+		}
+		for _, rel := range sym.Facts.Relationships {
+			if rel.Kind == ast.RelRedefines || rel.Kind == ast.RelSubsets || rel.Kind.ReferenceSubsets() {
+				return true
+			}
+		}
+		return false
+	}
+	for _, rel := range semantics.RelationshipsOf(sym) {
+		if rel == nil {
+			continue
+		}
+		if rel.Kind == ast.RelRedefines || rel.Kind == ast.RelSubsets || rel.Kind.ReferenceSubsets() {
+			return true
+		}
+	}
+	return false
 }
 
 // chainTarget reports a chain target, unwrapping a feature reference to its name.
