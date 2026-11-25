@@ -79,9 +79,8 @@ pub struct SourcesOptions {
     /// names the documents whose results may differ from it. Empty asks for nothing. Needs the
     /// `parse_sources_affected` capability.
     pub base_model_hash: String,
-    /// Whether the service keeps the model in its cache; `false` answers a
-    /// transient parse without evicting or promoting a model the caller holds.
-    /// `None` keeps the model as before. Needs the `parse_sources_keep` capability.
+    /// Whether the service keeps the model; `false` answers a transient parse.
+    /// `None` keeps it; needs `parse_sources_keep`.
     pub keep: Option<bool>,
 }
 
