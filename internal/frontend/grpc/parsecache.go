@@ -285,6 +285,15 @@ func (s *Service) restoredAnalysis(ctx context.Context, inputs []sourceInput, mo
 		l.fresh, l.standIns, l.ws, l.held, l.answered = true, standIns, nil, nil, nil
 		return nil
 	}
+	// Rebuild the shared facts the recorded verdicts read, so a later edit can
+	// tell a reader of a moving union from one that did not read it.
+	facts := make([]string, 0, len(inputs))
+	for _, input := range inputs {
+		if rd := reads[input.name]; rd != nil {
+			facts = append(facts, rd.Names...)
+		}
+	}
+	l.ws.RestoreSharedFacts(facts)
 	stamps := make(map[string]uint64, len(inputs))
 	for i, input := range inputs {
 		if err := ctx.Err(); err != nil {
