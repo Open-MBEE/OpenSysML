@@ -141,7 +141,7 @@ var Tools = []Entry{
 		Summary: "Apply workspace edits to a parsed model and answer the edited documents."},
 	{Name: "compare_results", Group: GroupRuntime, Scope: ScopeExecute, RPCs: []string{"CompareResults"}, Flags: []string{"compare-results"},
 		Summary: "Run the configurations a SysML v1 tool's results index and table the tool's distributions beside the runs'."},
-	{Name: "convert", Group: GroupRuntime, Scope: ScopeRead, RPCs: []string{"Convert"}, Flags: []string{"convert", "from", "id", "include-library-stubs", "inherited-members"},
+	{Name: "convert", Group: GroupRuntime, Scope: ScopeRead, RPCs: []string{"Convert"}, Flags: []string{"convert", "from", "id", "include-library-stubs", "inherited-members", "interchange"},
 		Summary: "Convert a model between the textual notation, JSON, RDF and XMI."},
 	{Name: "diagnostics", Group: GroupRuntime, Scope: ScopeRead, RPCs: []string{"GetDiagnostics"}, Flags: []string{"validate", "disable-lint", "enable-lint"},
 		Summary: "Report every diagnostic of a parsed model, as sysml -validate does."},

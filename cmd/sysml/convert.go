@@ -399,11 +399,12 @@ func convertOptions(from, to convert.Format) (convert.Options, error) {
 	opts := convert.Options{Warn: func(message string) {
 		fmt.Fprintf(os.Stderr, "warning: %s\n", message)
 	}}
-	if (libraryReferencesPath != "" || includeLibraryStubs || inheritedMembers) && to != convert.FormatAPIJSON {
-		return opts, errors.New("-library-references, -include-library-stubs and -inherited-members require -convert api-json")
+	if (libraryReferencesPath != "" || includeLibraryStubs || inheritedMembers || interchangeForm) && to != convert.FormatAPIJSON {
+		return opts, errors.New("-library-references, -include-library-stubs, -inherited-members and -interchange require -convert api-json")
 	}
 	opts.IncludeLibraryStubs = includeLibraryStubs
 	opts.InheritedMembers = inheritedMembers
+	opts.Interchange = interchangeForm
 	if keepLineBreaks && (from != convert.FormatSysML || to != convert.FormatSysML) {
 		return opts, errors.New("-keep-line-breaks applies to -convert sysml or kerml of a model in that notation")
 	}
@@ -413,6 +414,10 @@ func convertOptions(from, to convert.Format) (convert.Options, error) {
 		opts.LibraryReferences = func(refs []export.APIJSONLibraryReference) { conversionLibraryReferences = refs }
 	}
 	if idForm == "" {
+		// The normative schema's "@id" is a uuid.
+		if interchangeForm && from == convert.FormatSysML {
+			opts.ID = export.IDUUID
+		}
 		return opts, nil
 	}
 	if from != convert.FormatSysML || (to != convert.FormatTurtle && to != convert.FormatAPIJSON) {
