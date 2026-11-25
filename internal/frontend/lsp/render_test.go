@@ -1544,7 +1544,7 @@ func assertEngineRenderMatchesLSP(t *testing.T, src string, lspResult *RenderRes
 	nodes := make([]engine.JRenderNode, 0, len(lspResult.Nodes))
 	for _, node := range lspResult.Nodes {
 		converted := engine.JRenderNode{
-			ID: node.ID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
+			ID: node.ID, ElementID: node.ElementID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
 			Type: node.Type, Detail: node.Detail, Parent: node.Parent, Inherited: node.Inherited,
 			Shape: node.Shape,
 		}
@@ -1562,7 +1562,7 @@ func assertEngineRenderMatchesLSP(t *testing.T, src string, lspResult *RenderRes
 		}
 		for _, port := range node.Ports {
 			converted.Ports = append(converted.Ports, engine.JRenderPort{
-				ID: port.ID, Name: port.Name, Type: port.Type, Direction: port.Direction, Inherited: port.Inherited,
+				ID: port.ID, ElementID: port.ElementID, Name: port.Name, Type: port.Type, Direction: port.Direction, Inherited: port.Inherited,
 			})
 		}
 		nodes = append(nodes, converted)
@@ -1576,7 +1576,7 @@ func assertEngineRenderMatchesLSP(t *testing.T, src string, lspResult *RenderRes
 	edges := make([]engine.JRenderEdge, 0, len(lspResult.Edges))
 	for _, edge := range lspResult.Edges {
 		converted := engine.JRenderEdge{
-			From: edge.From, To: edge.To, FromPort: edge.FromPort, ToPort: edge.ToPort,
+			From: edge.From, To: edge.To, FromPort: edge.FromPort, ToPort: edge.ToPort, ElementID: edge.ElementID,
 			Label: edge.Label, Kind: edge.Kind,
 		}
 		if edge.Style != nil {

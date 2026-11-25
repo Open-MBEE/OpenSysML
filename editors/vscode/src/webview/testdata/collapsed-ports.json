@@ -15,6 +15,7 @@
     "nodes": [
       {
         "id": "n0",
+        "elementId": "FoldedPorts__Vehicle",
         "kind": "part def",
         "name": "FoldedPorts::Vehicle",
         "type": "",
@@ -56,6 +57,7 @@
       },
       {
         "id": "n1",
+        "elementId": "FoldedPorts__Vehicle__engine",
         "kind": "part",
         "name": "engine",
         "type": "",
@@ -103,6 +105,7 @@
       },
       {
         "id": "n2",
+        "elementId": "FoldedPorts__Vehicle__engine__fuelIn",
         "kind": "port",
         "name": "fuelIn",
         "type": "",
@@ -153,6 +156,7 @@
       },
       {
         "id": "n3",
+        "elementId": "FoldedPorts__Vehicle__engine__shaftOut",
         "kind": "port",
         "name": "shaftOut",
         "type": "",
@@ -203,6 +207,7 @@
       },
       {
         "id": "n4",
+        "elementId": "FoldedPorts__Vehicle__tank",
         "kind": "part",
         "name": "tank",
         "type": "",
@@ -249,6 +254,7 @@
       },
       {
         "id": "n5",
+        "elementId": "FoldedPorts__Vehicle__tank__fuelOut",
         "kind": "port",
         "name": "fuelOut",
         "type": "",
@@ -299,6 +305,7 @@
       },
       {
         "id": "n6",
+        "elementId": "FoldedPorts__Vehicle__wheel",
         "kind": "part",
         "name": "wheel",
         "type": "",
@@ -345,6 +352,7 @@
       },
       {
         "id": "n7",
+        "elementId": "FoldedPorts__Vehicle__wheel__hub",
         "kind": "port",
         "name": "hub",
         "type": "",
@@ -395,6 +403,7 @@
       },
       {
         "id": "n8",
+        "elementId": "FoldedPorts__Vehicle__",
         "kind": "connect",
         "name": "",
         "type": "",
@@ -428,6 +437,7 @@
       },
       {
         "id": "n9",
+        "elementId": "FoldedPorts__Vehicle__",
         "kind": "connect",
         "name": "",
         "type": "",
@@ -461,6 +471,7 @@
       },
       {
         "id": "n10",
+        "elementId": "FoldedPorts__Vehicle__",
         "kind": "connect",
         "name": "",
         "type": "",
@@ -495,6 +506,7 @@
     ],
     "edges": [
       {
+        "elementId": "FoldedPorts__Vehicle__engine",
         "from": "n0",
         "to": "n1",
         "label": "",
@@ -526,6 +538,7 @@
         }
       },
       {
+        "elementId": "FoldedPorts__Vehicle__tank",
         "from": "n0",
         "to": "n4",
         "label": "",
@@ -557,6 +570,7 @@
         }
       },
       {
+        "elementId": "FoldedPorts__Vehicle__wheel",
         "from": "n0",
         "to": "n6",
         "label": "",
@@ -588,6 +602,7 @@
         }
       },
       {
+        "elementId": "FoldedPorts__Vehicle__engine__fuelIn",
         "from": "n1",
         "to": "n2",
         "label": "",
@@ -619,6 +634,7 @@
         }
       },
       {
+        "elementId": "FoldedPorts__Vehicle__engine__shaftOut",
         "from": "n1",
         "to": "n3",
         "label": "",
@@ -650,6 +666,7 @@
         }
       },
       {
+        "elementId": "FoldedPorts__Vehicle__tank__fuelOut",
         "from": "n4",
         "to": "n5",
         "label": "",
@@ -681,6 +698,7 @@
         }
       },
       {
+        "elementId": "FoldedPorts__Vehicle__wheel__hub",
         "from": "n6",
         "to": "n7",
         "label": "",
@@ -861,6 +879,7 @@
     "nodes": [
       {
         "id": "n0",
+        "elementId": "FoldedPorts__Vehicle",
         "kind": "part def",
         "name": "FoldedPorts::Vehicle",
         "type": "",
@@ -902,6 +921,7 @@
       },
       {
         "id": "n1",
+        "elementId": "FoldedPorts__Vehicle__engine",
         "kind": "part",
         "name": "engine",
         "type": "",
@@ -949,6 +969,7 @@
       },
       {
         "id": "n2",
+        "elementId": "FoldedPorts__Vehicle__engine__fuelIn",
         "kind": "port",
         "name": "fuelIn",
         "type": "",
@@ -999,6 +1020,7 @@
       },
       {
         "id": "n3",
+        "elementId": "FoldedPorts__Vehicle__engine__shaftOut",
         "kind": "port",
         "name": "shaftOut",
         "type": "",
@@ -1049,6 +1071,7 @@
       },
       {
         "id": "n4",
+        "elementId": "FoldedPorts__Vehicle__tank",
         "kind": "part",
         "name": "tank",
         "type": "",
@@ -1095,6 +1118,7 @@
       },
       {
         "id": "n5",
+        "elementId": "FoldedPorts__Vehicle__tank__fuelOut",
         "kind": "port",
         "name": "fuelOut",
         "type": "",
@@ -1145,6 +1169,7 @@
       },
       {
         "id": "n6",
+        "elementId": "FoldedPorts__Vehicle__wheel",
         "kind": "part",
         "name": "wheel",
         "type": "",
@@ -1191,6 +1216,7 @@
       },
       {
         "id": "n7",
+        "elementId": "FoldedPorts__Vehicle__wheel__hub",
         "kind": "port",
         "name": "hub",
         "type": "",
@@ -1242,6 +1268,7 @@
     ],
     "edges": [
       {
+        "elementId": "FoldedPorts__Vehicle__",
         "from": "n5",
         "to": "n2",
         "label": "",
@@ -1272,6 +1299,7 @@
         }
       },
       {
+        "elementId": "FoldedPorts__Vehicle__",
         "from": "n3",
         "to": "n7",
         "label": "",
@@ -1302,6 +1330,7 @@
         }
       },
       {
+        "elementId": "FoldedPorts__Vehicle__",
         "from": "n1",
         "to": "n5",
         "label": "",

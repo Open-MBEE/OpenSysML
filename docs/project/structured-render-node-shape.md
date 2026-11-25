@@ -61,10 +61,11 @@ detail, stereotype and parent, but no shape.
   DOT, draw.io and PlantUML writers to call the new function would have risked changing their
   byte output — the opposite of the additive contract here — and duplicated the derivation in
   each backend.
-- **An additive field plus a capability, not a required field.** Field 18 is a proto3 string,
+- **An additive field plus a capability, not a required field.** Field 19 is a proto3 string,
   so an older client ignores it and an older server leaves it empty. Because a server predating
   the field cannot be distinguished from one that simply omits it, the capability makes the
   distinction explicit and the gRPC service clears the field when a client does not advertise it.
+  Field 18 on `RenderNode` is the durable `element_id`; the two additions occupy separate numbers.
 - **Rendering kind participates in the derivation.** A case's stadium and the actor, subject and
   objective glyphs belong to a case or mixed rendering; the same roles in a tree or interconnection
   are ordinary rounded usages, as the written forms draw them. Ignoring the rendering kind would
@@ -76,7 +77,7 @@ detail, stereotype and parent, but no shape.
 
 | Surface | Name | Notes |
 |---|---|---|
-| Protobuf | `RenderNode.shape` (field 18, `string`) | One of `rectangle`, `rounded`, `stadium`, `actor`, `note`, `diamond`, `circle`, `ring`, `cross`, `bar`, `history`, `item`; empty when withheld |
+| Protobuf | `RenderNode.shape` (field 19, `string`) | One of `rectangle`, `rounded`, `stadium`, `actor`, `note`, `diamond`, `circle`, `ring`, `cross`, `bar`, `history`, `item`; empty when withheld. `RenderNode.element_id` remains field 18 |
 | gRPC capability | `render_node_shape` | Response-populating capability; a service without it leaves `shape` empty on every node |
 | Language server | `RenderNode.shape` in `opensysml/render`; experimental capability `openSysmlRenderNodeShape` | Same values as the wire field |
 | JSON-RPC engine | `shape` on a `RenderViewResponse` node | protojson-compatible field name, no capability negotiation |
@@ -85,11 +86,17 @@ detail, stereotype and parent, but no shape.
 | Node client | `RenderNode.shape`, `CAPABILITY_RENDER_NODE_SHAPE` | Generated TypeScript stub regenerated |
 | Java client | `RenderedView.Node.shape()`, `Capabilities.RENDER_NODE_SHAPE` | Generated Java messages come from the schema at build time |
 | Rust client | `opensysml::RenderNode.shape`, `CAPABILITY_RENDER_NODE_SHAPE` | Generated prost message and descriptor regenerated |
-| Julia and MATLAB clients | `CAPABILITY_RENDER_NODE_SHAPE` | Capability declaration; no typed node struct in these clients |
+| Julia and MATLAB clients | `CAPABILITY_RENDER_NODE_SHAPE` | Capability declaration; their typed render records carry the durable `elementId` but no shape field |
 
 No written-form field, file format or golden changes: Mermaid, DOT, draw.io, PlantUML and the
 text form are byte-for-byte what they were. The protobuf addition is wire-compatible; regenerated
 stubs are committed for Go, Python, Node and Rust.
+
+A maintainer merging this tree with the other wire additions must regenerate the stubs **once**
+from the single merged `api/proto/sysml.proto` — with the durable render ids, the document
+projection and streaming additions, and the non-keeping parse option — rather than taking either
+branch's generated files. Field numbers are assigned in that merged schema: `RenderNode.element_id`
+is 18 and `RenderNode.shape` is 19.
 
 ## How the acceptance criteria are locked
 
@@ -101,14 +108,15 @@ stubs are committed for Go, Python, Node and Rust.
 | Written-form byte identity is unchanged | `internal/ir/view/render_test.go` `TestGoldenRenderings` runs against the unchanged goldens; `shape_test.go` `TestNodeShapeMatchesWrittenNotation` pins the correspondence between the derived shape and the Mermaid writer's shape for the same nodes |
 | Capability gating and client parity | `TestRenderViewWithholdsNodeShapeWithoutCapability`, `TestRenderNodeShapeCapabilityIsTheNewest`, `tests/hygiene/client_capabilities_test.go` `TestClientCapabilityChecklist` and `TestCapabilityDecodesAreRead` |
 | Every transport and client decodes the field | `client/opensysml/render_view_internal_test.go`, `client/python/tests/test_document.py`, `client/node/test/render-view-wasm.test.ts`, `client/rust/opensysml/src/document.rs` render-view tests |
-| The Go conformance wrapper does not drop the field | language-independent scenario `render_view/a_node_reports_its_notation_shape` in `conformance/scenarios/17-render-view.json` with fixture `conformance/fixtures/render_node_shape.sysml`, run by `tools/cmd/conformance` over gRPC, Connect, Connect-JSON and the Go package client |
+| The Go conformance wrapper preserves both additions | scenarios `render_view/a_node_reports_its_notation_shape` and `render_view/nodes_ports_and_edges_carry_durable_element_ids` in `conformance/scenarios/17-render-view.json`, run by `tools/cmd/conformance` over gRPC, Connect, Connect-JSON and the Go package client; the first pins shape, the second pins `element_id` on node, port and edge |
 
 ## Verification
 
 The checks recorded for this tree:
 
-- `gofmt -l .` is empty; `go build ./...` and `go vet ./...` pass; the Go comment-length gate over
-  the diff prints nothing.
+- `gofmt -l .` is empty; `go build ./...` and `go vet ./...` pass; the Go and TypeScript
+  comment-length gates over the diff print nothing. All stubs are regenerated from one schema in
+  which `RenderNode.element_id` is field 18 and `RenderNode.shape` is field 19.
 - `make proto-buf`, `make python-proto`, `make proto-ts`, `make proto-rust`, `make proto-lint` and
   `make proto-breaking` pass; the last reports no breaking schema change against the develop
   baseline. `make spec-compliance-check` passes (16 harness tests, 57 sources well-formed).
@@ -127,14 +135,17 @@ The checks recorded for this tree:
 - Language server: `TestRenderNodesCarryNotationShape`,
   `TestInitializeAdvertisesTheRenderNodeShapeCapability`, `TestRenderCollapsedKeepsBoundaryPorts`,
   `TestRenderMixedCarriesConnectorPortData` and `TestRenderTakesAPortDisplay` pass. The recorded
-  `collapsed-ports.json` carries only added `shape` lines, one per node. The full LSP suite passes
+  `collapsed-ports.json` carries only added `shape` and `elementId` lines, one per node. The full LSP suite passes
   in 242 seconds.
-- WebAssembly: `TestEngineRenderView` passes with the expected-node decoder copying the field.
+- WebAssembly: `TestEngineRenderView` passes with the parity helper copying both `Shape` and
+  `ElementID` on nodes, ports and edges.
   MCP: `go test ./internal/frontend/mcp/runtimetools` passes with the capability mapped to
   `render_model_view`. Go client: proto-decode and capability-parity tests pass.
-- Conformance: the new scenario passes over gRPC, Connect, Connect-JSON, the Go package client and
-  MCP. With the wrapper's `Shape` copy removed it fails with an empty shape list, so the assertion
-  is load-bearing; `go test -C tools ./cmd/conformance` passes. `tests/grpc` passes in 321 seconds.
+- Conformance: both render-view scenarios pass over gRPC, Connect, Connect-JSON and the Go
+  package client — one pins shape, the other pins `element_id` on node, port and edge. With the
+  wrapper's `Shape` copy removed the shape scenario fails with an empty shape list, so the
+  assertion is load-bearing; `go test -C tools ./cmd/conformance` passes. `tests/grpc` passes in
+  321 seconds.
 - VS Code: typecheck passes and `npm test` reports 473 passed, 0 failed. The Node client's
   `render-view-wasm.test.js` reports 3 passed; the Python client's render-decode test reports 1
   passed. `tests/hygiene` passes in 43 seconds and `client/opensysml` passes in 425 seconds.

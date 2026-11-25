@@ -117,6 +117,30 @@
           ]
         }
       }
+    },
+    {
+      "id": "render_view/nodes_ports_and_edges_carry_durable_element_ids",
+      "description": "The structured render carries the declared element's durable id on nodes, ports and edges, separate from the render-local id.",
+      "rpc": "RenderView",
+      "requires_capabilities": [
+        "render_view"
+      ],
+      "model": {
+        "fixture": "views.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "view": "RenderViewDemo::connections",
+        "ports": "full"
+      },
+      "expect": {
+        "non_empty": [
+          "nodes.0.element_id",
+          "nodes.1.element_id",
+          "nodes.1.ports.0.element_id",
+          "edges.0.element_id"
+        ]
+      }
     }
   ]
 }

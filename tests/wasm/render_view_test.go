@@ -188,7 +188,7 @@ func assertRenderDataParity(t *testing.T, got engine.JRenderViewResponse, want v
 	var nodes []engine.JRenderNode
 	for _, node := range want.Nodes {
 		item := engine.JRenderNode{
-			ID: node.ID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
+			ID: node.ID, ElementID: node.ElementID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
 			Type: node.Type, Detail: node.Detail, Text: node.Text, StandIn: node.StandIn, Parent: node.Parent,
 			Shape: string(node.Shape), Style: renderStyleJSON(node.Style), Inherited: node.Inherited,
 		}
@@ -200,7 +200,7 @@ func assertRenderDataParity(t *testing.T, got engine.JRenderViewResponse, want v
 		}
 		for _, port := range node.Ports {
 			item.Ports = append(item.Ports, engine.JRenderPort{
-				ID: port.ID, Name: port.Name, Type: port.Type, Direction: port.Direction.String(), Inherited: port.Inherited,
+				ID: port.ID, ElementID: port.ElementID, Name: port.Name, Type: port.Type, Direction: port.Direction.String(), Inherited: port.Inherited,
 			})
 		}
 		nodes = append(nodes, item)
@@ -215,7 +215,7 @@ func assertRenderDataParity(t *testing.T, got engine.JRenderViewResponse, want v
 	for _, edge := range want.Edges {
 		item := engine.JRenderEdge{
 			From: edge.From, To: edge.To, FromPort: edge.FromPort, ToPort: edge.ToPort,
-			Label: edge.Text(), Name: edge.Name, Kind: edge.Kind.String(), Style: renderStyleJSON(edge.Style),
+			Label: edge.Text(), Name: edge.Name, Kind: edge.Kind.String(), ElementID: edge.ElementID, Style: renderStyleJSON(edge.Style),
 		}
 		for _, point := range edge.Route {
 			item.Route = append(item.Route, engine.JRenderPoint{X: point.X, Y: point.Y})

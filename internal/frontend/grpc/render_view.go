@@ -161,14 +161,14 @@ func renderViewData(model *CachedModel, data view.Data) *pb.RenderViewResponse {
 	}
 	for _, node := range data.Nodes {
 		item := &pb.RenderNode{
-			Id: node.ID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
+			Id: node.ID, ElementId: node.ElementID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
 			Type: node.Type, Detail: node.Detail, Text: node.Text, StandIn: node.StandIn,
 			Parent: node.Parent, Compartment: node.Compartment, Origin: origins.span(node.Origin), Inherited: node.Inherited,
 			Arrow: node.Arrow, Parallel: node.Parallel, Shape: string(node.Shape),
 		}
 		for _, port := range node.Ports {
 			item.Ports = append(item.Ports, &pb.RenderPort{
-				Id: port.ID, Name: port.Name, Type: port.Type, Direction: port.Direction.String(), Inherited: port.Inherited,
+				Id: port.ID, ElementId: port.ElementID, Name: port.Name, Type: port.Type, Direction: port.Direction.String(), Inherited: port.Inherited,
 			})
 		}
 		if node.Geometry != nil {
@@ -185,7 +185,7 @@ func renderViewData(model *CachedModel, data view.Data) *pb.RenderViewResponse {
 	for _, edge := range data.Edges {
 		item := &pb.RenderEdge{
 			From: edge.From, To: edge.To, FromPort: edge.FromPort, ToPort: edge.ToPort,
-			Label: edge.Text(), Name: edge.Name, Kind: edge.Kind.String(), Origin: origins.span(edge.Origin),
+			Label: edge.Text(), Name: edge.Name, Kind: edge.Kind.String(), Origin: origins.span(edge.Origin), ElementId: edge.ElementID,
 		}
 		for _, point := range edge.Route {
 			item.Route = append(item.Route, &pb.RenderPoint{X: point.X, Y: point.Y})

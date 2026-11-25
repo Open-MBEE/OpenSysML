@@ -429,11 +429,11 @@ def test_render_view_decodes_all_fields_and_optional_messages():
     response.canvas.height = 400
     response.canvas.has_size = True
     node = response.nodes.add(
-        id="n0", kind="part", name="root", name_synthesized=True, type="Demo::Part",
+        id="n0", element_id="Demo__root", kind="part", name="root", name_synthesized=True, type="Demo::Part",
         detail="detail", text="text", stand_in=True, parent="", inherited=True, parallel=True,
         shape="stadium",
     )
-    node.ports.add(id="n0.0", name="api", type="Demo::API", direction="inout", inherited=True)
+    node.ports.add(id="n0.0", element_id="Demo__API__api", name="api", type="Demo::API", direction="inout", inherited=True)
     node.origin.file = "views.sysml"
     node.origin.start_line = 4
     node.geometry.x = 10
@@ -452,7 +452,7 @@ def test_render_view_decodes_all_fields_and_optional_messages():
     node.style.italic = True
     edge = response.edges.add(
         to="n0", from_port="n0.0", to_port="n1.0", label="wire",
-        name="wire", kind="connection",
+        name="wire", kind="connection", element_id="Demo__link",
     )
     setattr(edge, "from", "n1")
     edge.route.add(x=1, y=2)
@@ -473,6 +473,9 @@ def test_render_view_decodes_all_fields_and_optional_messages():
     assert (rendered.view, rendered.kind, rendered.stated) == (
         "Demo::view", "interconnection", "rendered",
     )
+    assert rendered.nodes[0].element_id == "Demo__root"
+    assert rendered.nodes[0].ports[0].element_id == "Demo__API__api"
+    assert rendered.edges[0].element_id == "Demo__link"
     assert rendered.nodes[0].ports[0].direction == "inout"
     assert rendered.nodes[0].parallel
     assert rendered.nodes[0].shape == "stadium"

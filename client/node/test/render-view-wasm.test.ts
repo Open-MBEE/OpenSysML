@@ -61,7 +61,7 @@ test("renderView reads a module's protojson rendering through the typed connecti
   assert.equal(view.nodes[0].shape, "stadium");
   assert.equal(view.nodes[0].geometry, undefined);
   assert.deepEqual(view.nodes[1].geometry, { x: 10, y: 20, width: 100, height: 40, hasSize: true, collapsed: false, unplaced: false });
-  assert.deepEqual(view.nodes[1].ports, [{ id: "n1.0", name: "p", type: "", direction: "in", inherited: false }]);
+  assert.deepEqual(view.nodes[1].ports, [{ id: "n1.0", elementId: "", name: "p", type: "", direction: "in", inherited: false }]);
   assert.equal(view.nodes[1].style?.bold, true);
   assert.deepEqual(view.edges[0], {
     from: "n1",
@@ -71,6 +71,7 @@ test("renderView reads a module's protojson rendering through the typed connecti
     label: "flow",
     name: "",
     kind: "connection",
+    elementId: "",
     route: [],
   });
   await connection.close();

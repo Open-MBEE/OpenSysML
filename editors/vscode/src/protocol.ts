@@ -90,6 +90,8 @@ export interface RenderOrigin {
 
 export interface RenderNode {
   id: string;
+  /** The declared element's EffectiveID, the id a written form's `{id}` link anchor carries; absent for one drawn from no element. */
+  elementId?: string;
   kind: string;
   name: string;
   type: string;
@@ -137,6 +139,8 @@ export interface RenderNode {
 
 export interface RenderPort {
   id: string;
+  /** The declared feature's EffectiveID; absent when no element declares the port. */
+  elementId?: string;
   name: string;
   type?: string;
   direction?: string;
@@ -188,6 +192,8 @@ export interface RenderOwner {
 }
 
 export interface RenderEdge {
+  /** The connection's EffectiveID; absent when no element declares the edge. */
+  elementId?: string;
   from: string;
   to: string;
   label: string;
