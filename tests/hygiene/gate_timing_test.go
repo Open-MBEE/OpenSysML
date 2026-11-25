@@ -119,9 +119,8 @@ func TestGateTimingForcesUncachedRuns(t *testing.T) {
 	}
 }
 
-// TestGateTimingWarmsTheExactTimedShardFlags pins that neither arm pays a cold
-// compilation the other reuses, and that the warmup sees the generated snapshot
-// and the same Go flags as the timed shards.
+// TestGateTimingWarmsTheExactTimedShardFlags pins that the warmup sees the
+// generated snapshot and the timed shards' flags.
 func TestGateTimingWarmsTheExactTimedShardFlags(t *testing.T) {
 	source := readRepoFile(t, "scripts/gate-timing.sh")
 	snapshot := strings.Index(source, "make --no-print-directory stdlib-snapshot")

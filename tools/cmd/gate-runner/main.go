@@ -465,9 +465,8 @@ func isGOFlagSpace(c byte) bool {
 	return c == ' ' || c == '\t' || c == '\n' || c == '\r'
 }
 
-// splitGOFLAGS mirrors cmd/go's quoted.Split: whitespace separates arguments
-// and a leading single or double quote may wrap one whole argument. As in Go,
-// nothing is unescaped inside the quotes.
+// splitGOFLAGS mirrors cmd/go's quoted.Split: whitespace separates arguments and
+// a leading quote may wrap one whole argument.
 func splitGOFLAGS(s string) ([]goflag, error) {
 	var out []goflag
 	for i := 0; i < len(s); {
@@ -519,9 +518,7 @@ func goflagName(token string) (name, value string, hasValue bool) {
 	return name, value, hasValue
 }
 
-// flagsPackageParallel reads the last -p in GOFLAGS, exported or saved with
-// `go env -w`, because Go applies each setting in order. Zero means the flag is
-// absent or malformed.
+// flagsPackageParallel reads the last -p in GOFLAGS; zero means absent or malformed.
 func flagsPackageParallel(flags string) int {
 	tokens, err := splitGOFLAGS(flags)
 	if err != nil {
@@ -586,9 +583,8 @@ func perProcessProcs(procs, p int) int {
 	return max(1, procs/p)
 }
 
-// goFlagsWithP bounds package parallelism without rewriting unrelated flags.
-// It removes only -p tokens, keeping every other token's original bytes, and
-// appends an override that Go applies last.
+// goFlagsWithP bounds package parallelism by replacing only -p tokens and
+// appending an override that Go applies last.
 func goFlagsWithP(flags string, p int) string {
 	override := "-p=" + strconv.Itoa(p)
 	tokens, err := splitGOFLAGS(flags)

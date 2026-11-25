@@ -39,9 +39,8 @@ for part in "${parts[@]}"; do
   base="$base/$part"
 done
 
-# Check every component of the paths we will actually create before mkdir can
-# follow a symlink, then check again after mkdir and confirm the real path is
-# still inside the approved root.
+# Check every path component for symlinks before mkdir and confirm the real path
+# stays inside the approved root.
 check_no_symlinks() {
   local path=$1 walked=''
   local components=()
@@ -90,10 +89,8 @@ echo "GOMAXPROCS=$GOMAXPROCS GOCACHE=$GOCACHE GOTMPDIR=$GOTMPDIR TMPDIR=$TMPDIR 
 # snapshot prerequisite, which adds a generated Go file to the packages below.
 make --no-print-directory stdlib-snapshot
 
-# Compile the exact test sets and flags of both timed arms, including the tools
-# module the rest shard owns, without running any test. Going through the same
-# make target keeps -pgo=off, the shard's -run/-skip selection and the timeout
-# identical to the measured runs; -count=1 above still prevents cached replays.
+# Compile both timed arms' exact test sets via the make target, with -pgo=off and
+# the same shard flags as the measured runs.
 make --no-print-directory test-quick SHARDS="grpc rest" \
   SKIP_STDLIB_SNAPSHOT=1 TEST_SHARD_COMPILE_ONLY=1
 

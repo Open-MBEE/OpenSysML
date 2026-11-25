@@ -141,8 +141,13 @@ type translator struct {
 	objects  bool
 }
 
+<<<<<<< HEAD
+// kind is a property's type as named: an explicit built-in keeps its own kind,
+// otherwise a shadowable name is deferred to the row.
+=======
 // kind is the type of a property as named. An explicit evaluator property
 // keeps its kind; a bare name a feature shadows defers to the row.
+>>>>>>> 9b6b9d8457 (fix(query): scope built-in deferral to the terminal property and its shadow)
 func (t *translator) kind(name string) valueKind {
 	segment := name
 	if i := strings.LastIndexByte(name, '.'); i >= 0 {

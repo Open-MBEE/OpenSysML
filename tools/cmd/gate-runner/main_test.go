@@ -815,9 +815,7 @@ func TestGoFlagsWithP(t *testing.T) {
 		{flags: "-mod=readonly -v", p: 2, want: "-mod=readonly -v -p=2"},
 		{flags: "-p 8 -tags sysml_re", p: 3, want: "-tags sysml_re -p=3"},
 		{flags: "-p=16 -trimpath", p: 4, want: "-trimpath -p=4"},
-		// Go accepts both spellings and applies the last setting, so a
-		// rewritten GOFLAGS must only drop actual -p flags, never text inside
-		// another flag's quoted value.
+		// A rewrite must drop only actual -p flags, never text in a quoted value.
 		{flags: "--p=4", p: 1, want: "-p=1"},
 		{flags: "-p=2 --p=3 -p=4 -mod=readonly", p: 1, want: "-mod=readonly -p=1"},
 		{flags: "--p=2", p: 2, want: "--p=2"}, // already the runner's bound
@@ -853,9 +851,8 @@ func TestFlagsPackageParallelMatchesGoSpelling(t *testing.T) {
 	}
 }
 
-// TestRewrittenGoFlagsAreAcceptedByGo checks the rewritten value reaches a
-// real Go command, not just a string comparison: an unbalanced quote from a
-// byte-unsafe rewrite would make every gate command fail before any test.
+// TestRewrittenGoFlagsAreAcceptedByGo checks a real Go command accepts the
+// rewritten flags, not just a string comparison.
 func TestRewrittenGoFlagsAreAcceptedByGo(t *testing.T) {
 	const original = `'-ldflags=-X "main.note=before -p=2"' --p=4`
 	rewritten := goFlagsWithP(original, 1)

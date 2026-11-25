@@ -87,8 +87,13 @@ func TestQueryRPCOrdersAnnotationsBySiteInOneDocument(t *testing.T) {
 	}
 }
 
+<<<<<<< HEAD
+// Across documents, document order decides which site's binding comes first;
+// both sites share a source offset, so only the document breaks the tie.
+=======
 // Across documents, document order decides which site binds first. Both
 // sites share a source offset, so only the document can break the tie.
+>>>>>>> 9b6b9d8457 (fix(query): scope built-in deferral to the terminal property and its shadow)
 func TestQueryRPCOrdersAnnotationsByDocumentAndSpan(t *testing.T) {
 	inlinePrefix := "package Demo {\n" + annotationSiteDeclarations + "\npart a { "
 	aboutPrefix := "package Annotations {\n\tprivate import Demo::*;\n"

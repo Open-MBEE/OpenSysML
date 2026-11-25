@@ -141,9 +141,8 @@ func TestShardRecipeHonoursTheRunnerToolsOwner(t *testing.T) {
 	t.Fatal("Makefile has no tools module recipe")
 }
 
-// TestToolsShardAttemptsBothSuitesAfterAFailure executes the published recipe
-// with a failing WebAssembly suite: the tools module must still be tested and
-// the shard must still fail.
+// TestToolsShardAttemptsBothSuitesAfterAFailure pins that a failing WASM suite
+// does not skip the tools module or the shard's failure.
 func TestToolsShardAttemptsBothSuitesAfterAFailure(t *testing.T) {
 	makefile := readRepoFile(t, "Makefile")
 	var recipe []string

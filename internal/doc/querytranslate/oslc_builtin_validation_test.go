@@ -7,8 +7,13 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 )
 
+<<<<<<< HEAD
+// An explicit built-in keeps its Boolean kind despite a shadowing model feature,
+// so a string operand is a malformed filter.
+=======
 // An explicit built-in spelling keeps its Boolean kind under a shadowing
 // feature, so a text operand is a malformed filter.
+>>>>>>> 9b6b9d8457 (fix(query): scope built-in deferral to the terminal property and its shadow)
 func TestOSLCExplicitActivityBuiltinRejectsTextOperand(t *testing.T) {
 	table, index, model := shadowFixtureTable(t)
 	q, err := ParseParameters(`oslc.where=sysx:@isActive=%22ready%22&oslc.select=sysx:@isActive`, table)
