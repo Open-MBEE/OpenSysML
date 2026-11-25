@@ -131,6 +131,7 @@ substituted for a trajectory.
 | FMPy structured records sample at exact and interpolated instants, and discrete values stay recorded | `test_structured_fmpy_records_sample_exact_and_interior_instants`, `test_structured_array_column_interpolates_elements`, `test_discrete_variables_are_not_interpolated` |
 | A declared discrete Real and a Real parameter hold recorded values while a continuous Float blends | `test_declared_discrete_real_holds_a_recorded_value`, `test_real_parameter_is_not_interpolated` |
 | An event at stop time reads the last recorded row, matching the scalar output | `test_final_event_is_the_last_row_at_stop_time`, `test_near_event_sample_within_tolerance_reads_the_last_row` |
+| Close but distinct solver events are not grouped by the rounding tolerance | `test_close_distinct_events_are_not_grouped` |
 | Even samples follow recorded time, not row index | `test_even_samples_follow_time_not_row_index` |
 | An unobserved instant is refused, never relabelled | `test_requested_instant_past_the_simulated_run_is_refused`, `test_requested_instant_before_the_simulated_run_is_refused`, `TestOutOfRangeSampleIsATypedRunnerError` |
 | A decimal interval keeps its endpoint | `TestSampleCountKeepsTheDecimalEndpoint`, `TestDecimalIntervalRequestCarriesTheEndpoint` |
@@ -151,7 +152,7 @@ Run in the isolated worktree:
 - `python3 scripts/changelog.py check` — exit 0, no output.
 - Python runner tests: `pytest` 9.2.0 is present. Without `pytest-mock` the module reported
   `2 passed, 2 skipped, 13 errors`; after installing `pytest-mock` into a temporary directory
-  on `PYTHONPATH`, `25 passed, 2 skipped`. The two skips are the Reference-FMU tests whose
+  on `PYTHONPATH`, `26 passed, 2 skipped`. The two skips are the Reference-FMU tests whose
   FMU corpus and `fmpy` are absent in this environment.
 
 A full-suite re-run reproduced a pre-existing nested-divergence timeout in `cmd/sysml` (a test
@@ -166,9 +167,11 @@ twenty-second silence; those were environment failures in untouched packages.
 - The reference runner reads recorded time, not row index, when spacing samples: extra
   solver-event rows stay in the trajectory but never move an instant. At a recorded instant
   it answers the last row recorded there, so both sides of an event at `stopTime` resolve to
-  the post-event value; between rows it blends continuous Real/Float variables only and holds
-  discrete values and parameters at a recorded step. An instant past the run the FMU actually
-  simulated is refused with an error reply rather than answered with the last recorded value.
+  the post-event value; a rounding tolerance selects one recorded timestamp, never grouping
+  distinct steps that happen to be close. Between rows it blends continuous Real/Float variables
+  only and holds discrete values and parameters at a recorded step. An instant past the run the
+  FMU actually simulated is refused with an error reply rather than answered with the last
+  recorded value.
   A runner with a different simulator may sample more precisely, as long as it answers the
   requested count in order and at the requested instants when they were given.
 - Producing a series still requires a runner that understands the optional request member;

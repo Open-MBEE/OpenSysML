@@ -57,9 +57,8 @@ def _row_window(recorded: list[float], time: float) -> tuple[int, int]:
         return last, last
     first = bisect.bisect_left(recorded, time)
     if first < len(recorded) and _time_close(recorded[first], time):
-        # A request just below an event still reads the row recorded after it.
-        while first + 1 < len(recorded) and _time_close(recorded[first + 1], time):
-            first += 1
+        # Tolerance selects the timestamp; group only rows recorded at that instant.
+        first = bisect.bisect_right(recorded, recorded[first], lo=first) - 1
         return first, first
     return max(0, first - 1), min(len(recorded) - 1, first)
 

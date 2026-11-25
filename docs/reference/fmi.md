@@ -154,9 +154,9 @@ output, nothing else on stdout:
   requested and the runner must honour them. An instant outside the simulated run is an
   error reply, never the last recorded value relabelled. At a recorded instant the runner
   answers the last row recorded there, so an event at `stopTime` agrees with the scalar
-  output; between rows it blends only continuous Real/Float variables, holding discrete
-  ones and parameters at a recorded value. A call with no series output omits the member
-  entirely.
+  output; a rounding tolerance selects one timestamp, never nearby distinct steps. Between
+  rows it blends only continuous Real/Float variables, holding discrete ones and parameters
+  at a recorded value. A call with no series output omits the member entirely.
 
 The reply is either the result or the error:
 

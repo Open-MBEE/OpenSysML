@@ -364,6 +364,25 @@ def test_near_event_sample_within_tolerance_reads_the_last_row(mocker):
     assert reply["series"]["outputs"]["y"] == [9.0, 9.0]
 
 
+def test_close_distinct_events_are_not_grouped(mocker):
+    """A request just below one event must not read a later event inside the tolerance."""
+    event, later = 1e-9, 1.05e-9
+    rows = [
+        {"time": 0.0, "y": 0.0},
+        {"time": event, "y": 1.0},
+        {"time": event, "y": 4.0},
+        {"time": later, "y": 9.0},
+    ]
+    mocker.patch.dict(sys.modules, {"fmpy": fake_fmpy(rows, {"y": "Real"})})
+    reply = fmi_runner.run(request(
+        experiment={"startTime": 0.0, "stopTime": later},
+        outputs=[],
+        series={"samples": 2, "times": [event - 1e-15, later], "outputs": ["y"]},
+    ))
+    assert "error" not in reply
+    assert reply["series"]["outputs"]["y"] == [4.0, 9.0]
+
+
 def test_bad_series_requests_are_error_replies(mocker):
     """A sample count that is not an integer of at least two is refused."""
     rows = [{"time": 0.0}]
