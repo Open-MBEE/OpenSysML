@@ -13,7 +13,7 @@ import bisect
 import json
 import math
 import sys
-from typing import Any
+from typing import Any, NamedTuple
 
 PROTOCOL = 1
 MAX_SERIES_SAMPLES = 10000
@@ -37,27 +37,50 @@ class SeriesRangeError(ValueError):
         super().__init__(f"sample instant {time} lies outside the simulated run {first} to {last}")
 
 
+class _Variable(NamedTuple):
+    """The declared facts a variable brings to sampling."""
+
+    fmi_type: str = ""
+    is_array: bool = False
+    continuous: bool = False
+
+
 def _time_close(a: float, b: float) -> bool:
     return abs(a - b) <= 64 * max(math.ulp(a), math.ulp(b), 1e-12)
 
 
 def _row_window(recorded: list[float], time: float) -> tuple[int, int]:
-    """Equal indices for a recorded instant, else the two rows bracketing it."""
-    high = bisect.bisect_left(recorded, time)
-    if high < len(recorded) and _time_close(recorded[high], time):
-        return high, high
-    if high > 0 and _time_close(recorded[high - 1], time):
-        return high - 1, high - 1
-    return max(0, high - 1), min(len(recorded) - 1, high)
+    """The last row at a recorded instant, else the two rows bracketing it."""
+    end = bisect.bisect_right(recorded, time)
+    last = end - 1
+    if last >= 0 and _time_close(recorded[last], time):
+        return last, last
+    first = bisect.bisect_left(recorded, time)
+    if first < len(recorded) and _time_close(recorded[first], time):
+        # A request just below an event still reads the row recorded after it.
+        while first + 1 < len(recorded) and _time_close(recorded[first + 1], time):
+            first += 1
+        return first, first
+    return max(0, first - 1), min(len(recorded) - 1, first)
 
 
-def _variable_types(fmpy: Any, fmu: str) -> dict[str, tuple[str, bool]]:
-    """Each model variable's declared type and whether it is an array variable."""
+def _variable_types(fmpy: Any, fmu: str) -> dict[str, _Variable]:
+    """Each variable's type, shape and whether its value varies between recorded steps."""
     description = fmpy.read_model_description(fmu)
-    return {
-        v.name: (v.type, bool(getattr(v, "dimensions", None)))
-        for v in description.modelVariables
-    }
+    variables = {}
+    for v in description.modelVariables:
+        fmi_type = str(getattr(v, "type", "") or "")
+        numeric = fmi_type == "Real" or fmi_type.startswith("Float")
+        variability = str(getattr(v, "variability", "") or "").lower()
+        causality = str(getattr(v, "causality", "") or "").lower()
+        if variability:
+            continuous = numeric and variability in ("continuous", "dependent")
+        else:
+            continuous = numeric and causality not in ("parameter", "calculatedparameter")
+        variables[v.name] = _Variable(
+            fmi_type, bool(getattr(v, "dimensions", None)), continuous
+        )
+    return variables
 
 
 def _convert(value: Any, fmi_type: str) -> Any:
@@ -128,14 +151,14 @@ def run(request: dict[str, Any]) -> dict[str, Any]:
         "outputs": {},
     }
     for name in outputs:
-        fmi_type, is_array = types.get(name, ("", False))
+        variable = types.get(name, _Variable())
         column = last[name]
-        if is_array:
+        if variable.is_array:
             # fmpy answers an array variable as one structured column whose
             # each entry is the element list, in declaration order.
-            reply["outputs"][name] = [_convert(v, fmi_type) for v in column]
+            reply["outputs"][name] = [_convert(v, variable.fmi_type) for v in column]
         else:
-            reply["outputs"][name] = _convert(column, fmi_type)
+            reply["outputs"][name] = _convert(column, variable.fmi_type)
     if series is not None:
         try:
             reply["series"] = _series(result, series, series_outputs, types)
@@ -178,7 +201,7 @@ def _series_problem(series: dict[str, Any]) -> str:
 
 
 def _series(result: Any, series: dict[str, Any], names: list[str],
-            types: dict[str, tuple[str, bool]]) -> dict[str, Any]:
+            types: dict[str, _Variable]) -> dict[str, Any]:
     """Sample the result at requested instants, or evenly spaced ones."""
     samples = series["samples"]
     wanted = series.get("times")
@@ -188,13 +211,15 @@ def _series(result: Any, series: dict[str, Any], names: list[str],
     sampled = _interpolate(result, times, types)
     answer: dict[str, Any] = {"times": times, "outputs": {}}
     for name in names:
-        fmi_type, is_array = types.get(name, ("", False))
-        if is_array:
+        variable = types.get(name, _Variable())
+        if variable.is_array:
             answer["outputs"][name] = [
-                [_convert(v, fmi_type) for v in row[name]] for row in sampled
+                [_convert(v, variable.fmi_type) for v in row[name]] for row in sampled
             ]
         else:
-            answer["outputs"][name] = [_convert(row[name], fmi_type) for row in sampled]
+            answer["outputs"][name] = [
+                _convert(row[name], variable.fmi_type) for row in sampled
+            ]
     return answer
 
 
@@ -204,25 +229,18 @@ def _even_times(result: Any, samples: int) -> list[float]:
     return [first + i * (last - first) / (samples - 1) for i in range(samples)]
 
 
-def _continuous(fmi_type: str) -> bool:
-    """Whether an FMI type is a continuous number, the only kind worth interpolating."""
-    return fmi_type == "Real" or fmi_type.startswith("Float")
-
-
-def _interpolate_value(before: Any, after: Any, fraction: float, fmi_type: str,
-                       is_array: bool) -> Any:
-    """One field between two recorded steps: continuous numbers blend, the rest stay recorded."""
-    if is_array:
-        if _continuous(fmi_type):
-            return [v + (w - v) * fraction for v, w in zip(before, after)]
+def _interpolate_value(before: Any, after: Any, fraction: float,
+                       variable: _Variable) -> Any:
+    """One field between two recorded steps: continuous numbers blend, the rest hold."""
+    if not variable.continuous:
         return before if fraction < 0.5 else after
-    if _continuous(fmi_type):
-        return before + (after - before) * fraction
-    return after if fraction >= 0.5 else before
+    if variable.is_array:
+        return [v + (w - v) * fraction for v, w in zip(before, after)]
+    return before + (after - before) * fraction
 
 
 def _interpolate(result: Any, times: list[float],
-                 types: dict[str, tuple[str, bool]]) -> list[Any]:
+                 types: dict[str, _Variable]) -> list[Any]:
     """Rows at the requested instants; an unobserved instant is refused, not fabricated."""
     recorded = [float(row["time"]) for row in result]
     fields = _fields(result)
@@ -242,8 +260,9 @@ def _interpolate(result: Any, times: list[float],
         for name in fields:
             if name == "time":
                 continue
-            fmi_type, is_array = types.get(name, ("", False))
-            row[name] = _interpolate_value(before[name], after[name], fraction, fmi_type, is_array)
+            row[name] = _interpolate_value(
+                before[name], after[name], fraction, types.get(name, _Variable())
+            )
         sampled.append(row)
     return sampled
 
