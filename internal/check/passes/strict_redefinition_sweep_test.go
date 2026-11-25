@@ -17,6 +17,7 @@ func TestStrictRedefinitionCommittedModelSweep(t *testing.T) {
 	roots := []string{
 		filepath.Join("..", "..", "..", "examples"),
 		filepath.Join("..", "..", "..", "tests", "testdata"),
+		filepath.Join("..", "..", "..", "internal", "workspace", "libs", "stdlib"),
 	}
 	wantFile := filepath.Join("..", "..", "..", "tests", "testdata", "passes", "strict_redefinition_resolves_to_nothing.sysml")
 	checked := 0

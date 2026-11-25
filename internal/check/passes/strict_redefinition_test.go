@@ -125,6 +125,41 @@ func TestStrictRedefinitionAcceptsMembersOfRedefinedTyping(t *testing.T) {
 	}
 }
 
+// A redefinition in a definition may name an enclosing-namespace feature,
+// including one reached by a private import in that namespace.
+func TestStrictRedefinitionAcceptsImportedTargetInDefinition(t *testing.T) {
+	const src = `package P {
+		private import ISQBase::*;
+		item def Curve { attribute radius; }
+		item def PlanarCurve :> Curve { attribute :>> length [1]; }
+	}`
+	got := strictRedefinitionDiags(t, "model.sysml", src, diag.ConformanceStrict)
+	for _, d := range got {
+		if d.Code == CodeRedefinitionResolvesToNothing {
+			t.Errorf("unexpected %s: %s", d.Code, d.Message)
+		}
+	}
+}
+
+// A usage that subsets a feature of an enclosing type stands in for the
+// original feature, so its nested redefinitions may name that feature's kin.
+func TestStrictRedefinitionAcceptsTargetOfSubsettedType(t *testing.T) {
+	const src = `package P {
+		part def Base { part source; }
+		part def Derived :> Base { part thisThing :>> source; }
+		part holders : Derived [0..*];
+		part holder : Derived subsets holders {
+			part thisThing :>> Derived::thisThing, Base::source;
+		}
+	}`
+	got := strictRedefinitionDiags(t, "model.sysml", src, diag.ConformanceStrict)
+	for _, d := range got {
+		if d.Code == CodeRedefinitionResolvesToNothing {
+			t.Errorf("unexpected %s: %s", d.Code, d.Message)
+		}
+	}
+}
+
 // A body nested in an occurrence (a snapshot or timeslice) redefines features
 // of the type that occurrence instantiates, not of the snapshot itself.
 func TestStrictRedefinitionAcceptsSnapshotOfEnclosingType(t *testing.T) {
