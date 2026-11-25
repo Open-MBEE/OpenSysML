@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"testing"
 
@@ -59,7 +60,7 @@ func TestParseSourcesKeepFalseLeavesTheOpenModelCached(t *testing.T) {
 	if got := len(srv.cache.items); got != 3 {
 		t.Errorf("cached models after the transient reads = %d, want 3", got)
 	}
-	for _, hash := range []string{a.ModelHash, b.ModelHash} {
+	for _, hash := range []string{a.ModelHash, b.ModelHash, c.ModelHash} {
 		if _, ok := srv.cache.items[hash]; !ok {
 			t.Errorf("model %s was displaced by a transient parse", hash)
 		}
@@ -76,8 +77,8 @@ func TestParseSourcesKeepFalseLeavesTheOpenModelCached(t *testing.T) {
 		t.Errorf("GetDiagnostics on the open model after the transient reads: %v", err)
 	}
 
-	// A kept parse of the same union does evict one of the three, so the test
-	// above is about the transient option and not about a cache that never fills.
+	// A kept parse of the union evicts the least recently used kept model, b:
+	// the transient reads above did not promote it. The check is not vacuous.
 	kept := parseSourcesWithKeep(t, srv, &keepTrue, a.ModelHash, union)
 	if kept.ModelHash != transient.ModelHash {
 		t.Errorf("transient hash %s, kept hash %s; want the same model", transient.ModelHash, kept.ModelHash)
@@ -85,8 +86,39 @@ func TestParseSourcesKeepFalseLeavesTheOpenModelCached(t *testing.T) {
 	if _, ok := srv.cache.items[transient.ModelHash]; !ok {
 		t.Error("a kept parse of the union did not insert it")
 	}
-	if _, ok := srv.cache.items[c.ModelHash]; ok {
+	if _, ok := srv.cache.items[b.ModelHash]; ok {
 		t.Error("a kept parse of the union evicted no model: the no-eviction check was vacuous")
+	}
+}
+
+// A transient parse resolves its base without refreshing that base's place in
+// the LRU: the next kept parse still evicts the base, not a newer model.
+func TestParseSourcesKeepFalseDoesNotPromoteTheBase(t *testing.T) {
+	srv := mustNewService(t, 3)
+	defer srv.Close()
+	keepFalse, keepTrue := false, true
+
+	// The base is cached first, so it is the least recently used of the three.
+	base := parseSourcesWithKeep(t, srv, nil, "", inlineDocuments("base.sysml", nonKeepingA))
+	shield := parseSourcesWithKeep(t, srv, nil, "", inlineDocuments("shield.sysml", nonKeepingB))
+	newer := parseSourcesWithKeep(t, srv, nil, "", inlineDocuments("newer.sysml", nonKeepingC))
+
+	transient := parseSourcesWithKeep(t, srv, &keepFalse, base.ModelHash,
+		inlineDocuments("view.sysml", "package View { attribute v = 9; }"))
+	if want := []string{"view.sysml"}; !slices.Equal(transient.Affected, want) {
+		t.Errorf("transient affected = %v, want %v", transient.Affected, want)
+	}
+
+	// Inserting a fourth model evicts the base only if its read above did not
+	// promote it; a promoted base would displace shield or newer instead.
+	parseSourcesWithKeep(t, srv, &keepTrue, "", inlineDocuments("fourth.sysml", "package Fourth { attribute f = 4; }"))
+	if _, ok := srv.cache.items[base.ModelHash]; ok {
+		t.Error("the transient parse promoted its cached base, so the kept parse evicted another model")
+	}
+	for _, hash := range []string{shield.ModelHash, newer.ModelHash} {
+		if _, ok := srv.cache.items[hash]; !ok {
+			t.Errorf("model %s was evicted ahead of the base", hash)
+		}
 	}
 }
 
