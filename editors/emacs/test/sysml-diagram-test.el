@@ -128,7 +128,8 @@
 
 (defun sysml-diagram-test--image-spec (limit)
   "Return the image spec `sysml-diagram-image' inserts with `max-image-size' LIMIT.
-The frame is drawn at a scale factor of 2, as at a HiDPI output scale."
+The frame is drawn at a scale factor of 2, as at a HiDPI output scale.
+The spec is built without librsvg, which a batch Emacs may lack."
   (let ((source (generate-new-buffer " *model*"))
         (max-image-size limit))
     (unwind-protect
@@ -144,6 +145,9 @@ The frame is drawn at a scale factor of 2, as at a HiDPI output scale."
                      (lambda (&rest _) (sysml-diagram-test--json sysml-diagram-test--tree)))
                     ((symbol-function 'sysml-diagram--mermaid-to-svg)
                      (lambda (&rest _) "<svg width=\"1\" height=\"1\"/>"))
+                    ((symbol-function 'create-image)
+                     (lambda (data type _data-p &rest props)
+                       `(image :type ,type :data ,data ,@props)))
                     ((symbol-function 'frame-scale-factor) (lambda (&rest _) 2.0))
                     ((symbol-function 'pop-to-buffer) #'ignore))
             (sysml-diagram-image)
