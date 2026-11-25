@@ -554,6 +554,9 @@ type Service struct {
 	// records persists what the analysis of a model reported, for the next process
 	// that parses it (modelrecord.go); nil holds nothing across processes.
 	records *libs.Cache
+	// parseSource is the single seam to the parser (parsecache.go). Tests
+	// replace it to count the parses a request makes.
+	parseSource func(*source.SourceFile) parsedSource
 }
 
 // Option adjusts how NewService builds a service.
@@ -565,8 +568,8 @@ type serviceOptions struct {
 	records     *libs.Cache
 }
 
-// WithRecordCache has the service read a parsed model's analysis from cache when one is
-// recorded there, and record what it analyzes itself; a nil cache is none.
+// WithRecordCache has the service restore parsed trees and analysis from cache
+// when recorded there, and record what it parses; a nil cache is none.
 func WithRecordCache(cache *libs.Cache) Option {
 	return func(o *serviceOptions) { o.records = cache }
 }
@@ -669,6 +672,7 @@ func newService(cacheSize int, version string, opts []Option) (*Service, error) 
 		version:        version,
 		capabilities:   availability,
 		records:        options.records,
+		parseSource:    parseSourceFile,
 	}, nil
 }
 
@@ -1066,8 +1070,8 @@ func (s *Service) parseModelKeeping(ctx context.Context, inputs []sourceInput, m
 		return "", nil, err
 	}
 
-	// A document set parsed before is answered from its lineage: only what
-	// changed is parsed and analyzed again (lineage.go).
+	// A set parsed before is answered from its lineage: only changed documents
+	// are parsed again (lineage.go), which a restored set still primes.
 	if incremental {
 		model, ok, err := s.parseFromLineage(ctx, inputs, mode)
 		if err != nil {
@@ -1076,6 +1080,14 @@ func (s *Service) parseModelKeeping(ctx context.Context, inputs []sourceInput, m
 		if ok {
 			return modelHash, store(modelHash, model), nil
 		}
+	}
+
+	// Records another process wrote answer a set the lineage did not, without a
+	// parse and without running the passes; a miss falls through.
+	if model, ok, err := s.restoreFromDisk(ctx, inputs, mode, modelHash); err != nil {
+		return "", nil, err
+	} else if ok {
+		return modelHash, store(modelHash, model), nil
 	}
 
 	// Take an index carrying the standard library, which type resolution needs:
@@ -1090,15 +1102,14 @@ func (s *Service) parseModelKeeping(ctx context.Context, inputs []sourceInput, m
 		if err := ctx.Err(); err != nil {
 			return "", nil, err
 		}
-		srcFile := source.NewWithKind(input.name, []byte(input.content), input.kind)
-		p := parser.New(srcFile)
-		root := p.ParseFile()
-		idx.AddDocumentWithKind(input.name, root, input.kind)
-		if len(p.Diagnostics) > 0 {
+		// A document whose bytes a record holds is decoded here, so an edit
+		// to one document in a set parses only that one (parsecache.go).
+		doc, _ := s.parseDocument(input)
+		idx.AddDocumentWithKind(input.name, doc.Root, input.kind)
+		if len(doc.ParseDiags) > 0 {
 			parsedClean = false
 		}
-		documents = append(documents, newCachedDocument(root, srcFile, p.Diagnostics,
-			parser.AsDiagnostics(p.Diagnostics, p.Warnings), input.warnings))
+		documents = append(documents, doc)
 	}
 
 	// Registers what a wildcard import re-exports, so a qualified name reaches a
