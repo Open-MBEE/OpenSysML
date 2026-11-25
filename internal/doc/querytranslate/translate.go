@@ -51,7 +51,7 @@ func Translate(q Query, ctx Context, name string) (*Plan, error) {
 	if table == nil {
 		table = NewTable(ctx.Index, ctx.Model)
 	}
-	t := &translator{ctx: ctx, table: table, features: q.Features}
+	t := &translator{ctx: ctx, table: table, features: q.Features, builtins: q.Builtins}
 	root, where, objects, err := t.root(q.Where)
 	if err != nil {
 		return nil, err
@@ -137,7 +137,24 @@ type translator struct {
 	ctx      Context
 	table    *Table
 	features map[string]bool
+	builtins map[string]bool
 	objects  bool
+}
+
+// kind is the type of a property as the request named it. An explicitly
+// selected evaluator property keeps its own kind even where a model feature
+// shadows its bare name; otherwise the table decides, deferring a shadowable
+// name to the row that resolves it.
+func (t *translator) kind(name string) valueKind {
+	segment := name
+	if i := strings.LastIndexByte(name, '.'); i >= 0 {
+		segment = name[i+1:]
+	}
+	if canonical, ok := query.BuiltinProperty(segment); ok &&
+		!query.IsBuiltinAlias(segment) && t.builtins[canonical] && !t.features[canonical] {
+		return t.table.builtinKind(canonical)
+	}
+	return t.table.kind(name)
 }
 
 // columns expands the selection to the properties to project: dotted paths
@@ -166,7 +183,7 @@ func (t *translator) columns(selections []Selection) ([]string, error) {
 				return err
 			}
 			if len(selection.Nested) > 0 {
-				if t.table.kind(selection.Property) != kindElement && t.table.kind(selection.Property) != kindUnknown {
+				if kind := t.kind(selection.Property); kind != kindElement && kind != kindUnknown {
 					return errorf(ErrUnorderedProperty,
 						"%s holds no elements: only an element-valued property can be selected into", prefix+selection.Property)
 				}
@@ -287,7 +304,7 @@ func (t *translator) validate(c Constraint, prefix string) error {
 		if err := t.knownProperty(prefix+c.Property, "a scoped term"); err != nil {
 			return err
 		}
-		if kind := t.table.kind(c.Property); kind != kindElement && kind != kindUnknown {
+		if kind := t.kind(c.Property); kind != kindElement && kind != kindUnknown {
 			return errorf(ErrUnorderedProperty,
 				"%s holds no elements: only an element-valued property can scope a term", prefix+c.Property)
 		}
@@ -329,7 +346,7 @@ func (t *translator) validateComparison(c Comparison, prefix string) error {
 	if err := t.knownProperty(property, "a comparison"); err != nil {
 		return err
 	}
-	kind := t.table.kind(property)
+	kind := t.kind(property)
 	switch c.Operator {
 	case Equal, NotEqual, In:
 		if len(c.Values) == 0 {

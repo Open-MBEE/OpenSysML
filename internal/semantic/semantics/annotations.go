@@ -165,41 +165,74 @@ func (m *Model) AnnotationFactsOf(sym *symbols.Symbol) []symbols.AnnotationFacts
 	return annotationFacts(m, m.annotationsOf(sym))
 }
 
-// AnnotationNestedFactsOf states bindings nested in an annotation body's own
-// bindings, keyed by their path (`inner.label`), beside the direct ones.
-func (m *Model) AnnotationNestedFactsOf(sym *symbols.Symbol) []symbols.AnnotationFacts {
+// AnnotationValueSite is one annotation's direct and nested bindings, kept
+// together so a consumer reading only the first value sees them in the order
+// the annotation was written.
+type AnnotationValueSite struct {
+	TypeFQN string
+	// Doc is the document stating the annotation, which for an `about` site
+	// need not be the annotated element's document.
+	Doc    string
+	Span   source.Span
+	Values []symbols.AnnotationValueFacts
+	Nested []symbols.AnnotationValueFacts
+}
+
+// AnnotationValueSitesOf returns the annotations of sym in the order their
+// sites are written: by document, then by source position. An annotation stated
+// in another document with `about` takes its place among the inline ones there;
+// a value recorded without a tree keeps the span its record carries.
+func (m *Model) AnnotationValueSitesOf(sym *symbols.Symbol) []AnnotationValueSite {
 	if m == nil || sym == nil {
 		return nil
 	}
-	var out []symbols.AnnotationFacts
+	var out []AnnotationValueSite
 	for _, a := range m.annotationsOf(sym) {
-		if a.typ == nil || a.node == nil {
+		if a.typ == nil {
 			continue
 		}
 		typeFQN := m.fqnOf(a.typ)
 		if typeFQN == "" {
 			continue
 		}
-		facts := symbols.AnnotationFacts{TypeFQN: typeFQN, Span: a.span}
-		var walk func(prefix string, bindings []MetadataBinding)
-		walk = func(prefix string, bindings []MetadataBinding) {
-			for _, binding := range bindings {
-				name := prefix + binding.Feature
-				if prefix != "" && binding.Value != nil {
-					values := m.annotationSequence(binding.Scope, binding.Value)
-					fact := symbols.AnnotationValueFacts{Feature: name, Values: values, Bound: true}
-					if len(values) == 1 {
-						fact.Value = values[0]
-					}
-					facts.Values = append(facts.Values, fact)
-				}
-				walk(name+".", binding.Nested)
+		site := AnnotationValueSite{TypeFQN: typeFQN, Doc: symbols.DocNameOf(a.scope), Span: a.span}
+		for _, feature := range a.featureNames() {
+			_, bound := a.bound[feature]
+			site.Values = append(site.Values, a.valueFacts(feature, bound))
+		}
+		if a.node != nil {
+			site.Nested = nestedAnnotationValues(m, "", metadataBindings(valueScope(a.scope, a.node), metadataBody(a.node)))
+		}
+		out = append(out, site)
+	}
+	if len(out) < 2 {
+		return out
+	}
+	rank := m.documentRanks()
+	sort.SliceStable(out, func(i, j int) bool {
+		if ri, rj := rank[out[i].Doc], rank[out[j].Doc]; ri != rj {
+			return ri < rj
+		}
+		return out[i].Span.Offset < out[j].Span.Offset
+	})
+	return out
+}
+
+// nestedAnnotationValues states the bindings nested under an annotation body's
+// own bindings, keyed by their path (`inner.label`).
+func nestedAnnotationValues(m *Model, prefix string, bindings []MetadataBinding) []symbols.AnnotationValueFacts {
+	var out []symbols.AnnotationValueFacts
+	for _, binding := range bindings {
+		name := prefix + binding.Feature
+		if prefix != "" && binding.Value != nil {
+			values := m.annotationSequence(binding.Scope, binding.Value)
+			fact := symbols.AnnotationValueFacts{Feature: name, Values: values, Bound: true}
+			if len(values) == 1 {
+				fact.Value = values[0]
 			}
+			out = append(out, fact)
 		}
-		walk("", metadataBindings(valueScope(a.scope, a.node), metadataBody(a.node)))
-		if len(facts.Values) > 0 {
-			out = append(out, facts)
-		}
+		out = append(out, nestedAnnotationValues(m, name+".", binding.Nested)...)
 	}
 	return out
 }

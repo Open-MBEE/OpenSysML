@@ -53,23 +53,18 @@ func (e *executor) annotationFeatureValues(sym *symbols.Symbol, declaring, featu
 	return result, present, nil
 }
 
-// annotationSite identifies an annotation's facts across the direct and
-// nested reads, so their values can be emitted in the annotation's place.
-type annotationSite struct {
-	typeFQN string
-	span    source.Span
-}
-
 // annotationValues reports a row's bound values as
-// `<metadata>::<feature>=<value>` strings, in annotation declaration order.
+// `<metadata>::<feature>=<value>` strings, in the order the annotations were
+// written. Direct and nested bindings stay with their site: a caller reading
+// only the first value sees the binding of the earliest annotation.
 func (e *executor) annotationValues(sym *symbols.Symbol) ([]Value, bool, error) {
 	if sym == nil {
 		return nil, false, nil
 	}
 	origin := ElementValue(sym).Origin()
 	var out []Value
-	emit := func(annotation symbols.AnnotationFacts) {
-		for _, bound := range annotation.Values {
+	emit := func(typeFQN string, bounds []symbols.AnnotationValueFacts) {
+		for _, bound := range bounds {
 			if !bound.Bound {
 				continue
 			}
@@ -84,35 +79,13 @@ func (e *executor) annotationValues(sym *symbols.Symbol) ([]Value, bool, error) 
 				if !ok {
 					continue
 				}
-				out = append(out, valueAt(StringValue(annotation.TypeFQN+"::"+bound.Feature+"="+text), origin))
+				out = append(out, valueAt(StringValue(typeFQN+"::"+bound.Feature+"="+text), origin))
 			}
 		}
 	}
-	// Pair nested facts with their site: an earlier annotation's nested binding
-	// must precede a later one's direct binding, since a caller may read only the first value.
-	nestedFacts := e.context.Model.AnnotationNestedFactsOf(sym)
-	nested := make(map[annotationSite][]symbols.AnnotationFacts, len(nestedFacts))
-	for _, facts := range nestedFacts {
-		site := annotationSite{facts.TypeFQN, facts.Span}
-		nested[site] = append(nested[site], facts)
-	}
-	used := make(map[annotationSite]int, len(nested))
-	emitNested := func(site annotationSite) {
-		for i := used[site]; i < len(nested[site]); i++ {
-			emit(nested[site][i])
-		}
-		used[site] = len(nested[site])
-	}
-	for _, facts := range e.context.Model.AnnotationFactsOf(sym) {
-		emit(facts)
-		emitNested(annotationSite{facts.TypeFQN, facts.Span})
-	}
-	// A nested site no direct fact reported still belongs on the row.
-	for _, facts := range nestedFacts {
-		site := annotationSite{facts.TypeFQN, facts.Span}
-		if used[site] < len(nested[site]) {
-			emitNested(site)
-		}
+	for _, site := range e.context.Model.AnnotationValueSitesOf(sym) {
+		emit(site.TypeFQN, site.Values)
+		emit(site.TypeFQN, site.Nested)
 	}
 	return out, len(out) > 0, nil
 }

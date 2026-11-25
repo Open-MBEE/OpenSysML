@@ -124,7 +124,10 @@ What was still missing at that baseline:
   from the metadata type. The bulk property needs only body bindings, so each
   fact now records whether the body wrote it. Consumers that read all facts are
   unchanged. Nested bindings have their own facts with their path from the body
-  (`nested.value`); the direct facts keep their old shape.
+  (`nested.value`); the direct facts keep their old shape. Inline and `about`
+  sites are ordered by document and source position with their nested bindings
+  kept beside them, so the first value is the one written first even when the
+  annotation is stated in another document.
 - **A model feature wins a shared name on every query surface.** The bare
   property name reads a declared or held feature first, then falls back to the
   evaluator's property, as `body`, `locale` and `language` already do. OSLC's
@@ -135,7 +138,9 @@ What was still missing at that baseline:
   so the two sides stay separate on a row. When a model declares a feature
   under a bare built-in name, the translator defers type validation for that
   name to the row reader, so a filter on the feature is not judged by the
-  built-in's type.
+  built-in's type. An explicit built-in spelling keeps Boolean validation even
+  when the bare name is shadowed, and a deferred filter skips a row whose own
+  value cannot take the operand instead of failing the whole query.
 - **One activity index per execution, not one session walk per state.** The
   first read walks the session once, charges that walk to the visit budget once
   and merges the active declarations of every machine. Invoked document queries
@@ -192,9 +197,11 @@ this change.
 | A running exhibit, its parallel region owners and every copy of a duplicated state declaration answer activity | `internal/doc/queryexec/is_active_regressions_test.go:TestQueryActivityOfExhibitAndParallelRegionOwners`, `:TestQueryActivityAggregatesCopiesOfOneDeclaration` |
 | Activity over a large row set and held population stays inside the visit budget, including invoked queries | `internal/doc/queryexec/state_activity_budget_test.go:TestQueryStateActivityStaysWithinTheVisitBudget` |
 | A nested metadata binding is reported with its path by the bulk read | `internal/doc/queryexec/annotations_query_test.go:TestQueryReadsNestedAnnotationBindings` |
-| A held object projects and filters its declaration's annotations, with its held feature still owning the bare name | `internal/doc/queryexec/object_annotations_query_test.go:TestQueryObjectRowsReadDeclarationAnnotations`, `:TestQueryFiltersObjectRowsByDeclarationAnnotations`; `internal/frontend/grpc/query_metadata_regressions_test.go:TestQueryRPCReadsAnnotationsOfAHeldObject` |
-| A declared string `isActive` projects and filters as text, while `@isActive` keeps Boolean validation | `internal/doc/querytranslate/shadowed_builtin_kind_test.go:TestTableDefersKindOfAShadowedBuiltin`; `internal/frontend/grpc/query_metadata_regressions_test.go:TestQueryFiltersAndProjectsAStringShadowingIsActive` |
-| A nested binding of an earlier annotation precedes a later direct binding in the bulk read and in the Query RPC | `internal/doc/queryexec/annotation_order_query_test.go:TestQueryOrdersNestedAndDirectAnnotationBindings`; `internal/frontend/grpc/query_metadata_regressions_test.go:TestQueryRPCReportsFirstAnnotationInDeclarationOrder` |
+| A held object projects and filters its declaration's annotations, with its held feature still owning the bare name | `internal/doc/queryexec/object_annotations_query_test.go:TestQueryObjectRowsReadDeclarationAnnotations`, `:TestQueryFiltersObjectRowsByDeclarationAnnotations`; `internal/frontend/grpc/query_held_object_annotations_test.go:TestQueryRPCReadsAnnotationsOfAHeldObject` |
+| A declared string `isActive` projects and filters as text, while `@isActive` keeps Boolean validation | `internal/doc/querytranslate/shadowed_builtin_kind_test.go:TestTableDefersKindOfAShadowedBuiltin`; `internal/frontend/grpc/query_shadowed_is_active_test.go:TestQueryFiltersAndProjectsAStringShadowingIsActive` |
+| A nested binding of an earlier annotation precedes a later direct binding in the bulk read and in the Query RPC | `internal/doc/queryexec/annotation_order_query_test.go:TestQueryOrdersNestedAndDirectAnnotationBindings`; `internal/frontend/grpc/query_annotation_order_test.go:TestQueryRPCReportsFirstAnnotationInDeclarationOrder` |
+| An `about` site before or after an inline site, in one document or across documents, decides the first value; equal source offsets are broken by document order | `internal/frontend/grpc/query_annotation_site_order_test.go:TestQueryRPCOrdersAnnotationsBySiteInOneDocument`, `:TestQueryRPCOrdersAnnotationsByDocumentAndSpan` |
+| A bare `isActive` filter matches a row's string feature while skipping a state's Boolean activity row, and an explicit built-in spelling still refuses a text operand | `internal/frontend/grpc/query_mixed_activity_filter_test.go:TestQueryFiltersShadowedActivityAcrossMixedRows`; `internal/doc/querytranslate/oslc_builtin_validation_test.go:TestOSLCExplicitActivityBuiltinRejectsTextOperand` |
 
 The tests execute document queries over real `.sysml` fixtures through the
 shared `queryexec` executor, which is the executor behind the CLI, the REPL, the

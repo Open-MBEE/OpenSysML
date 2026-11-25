@@ -188,6 +188,15 @@ func (t *Table) Known(name string) bool {
 	return true
 }
 
+// builtinKind is what an evaluator property holds by its canonical name,
+// whether or not a model feature declares that name.
+func (t *Table) builtinKind(canonical string) valueKind {
+	if kind, ok := t.derived[canonical]; ok {
+		return kind
+	}
+	return kindUnknown
+}
+
 // kind is what the property's declared types hold, kindUnknown where the
 // table does not know or the metaclasses disagree.
 func (t *Table) kind(name string) valueKind {

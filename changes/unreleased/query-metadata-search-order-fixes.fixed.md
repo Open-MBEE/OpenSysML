@@ -1,0 +1,2 @@
+- Annotation values are reported in source order across inline and `about` sites, so the first value the Query RPC returns is the binding written first even when the annotation is stated in another document.
+- A filter on a name shared by a model feature and a built-in skips rows whose value cannot take the operand; an explicit built-in spelling still refuses a non-Boolean operand.

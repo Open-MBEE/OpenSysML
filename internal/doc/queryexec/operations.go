@@ -507,6 +507,12 @@ func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequen
 		for _, actual := range values {
 			match, compareErr := e.compareValue(actual, comparison)
 			if compareErr != nil {
+				if e.deferredBuiltinComparison(property) {
+					// One row resolves the shared name to a built-in whose kind
+					// cannot take this operand; another may still match by its
+					// feature. Skip this value, not the whole filter.
+					continue
+				}
 				if compareErr != errComparison {
 					return sequence{}, e.invalidArgument(expression, "value", expected)
 				}
@@ -527,6 +533,18 @@ func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequen
 		return sequence{}, err
 	}
 	return result, nil
+}
+
+// deferredBuiltinComparison reports whether a bare built-in name was left to
+// the row to resolve: the query did not ask for the evaluator's property by its
+// unambiguous spelling. Only then may a row whose value cannot take the
+// operand be skipped; an explicitly selected built-in keeps strict errors.
+func (e *executor) deferredBuiltinComparison(property string) bool {
+	canonical, ok := query.BuiltinProperty(property)
+	if !ok || query.IsBuiltinAlias(property) || e.context.Builtins[property] {
+		return false
+	}
+	return canonical == property
 }
 
 func (e *executor) evaluateOrderBy(expression queryplan.Expression) (sequence, error) {
