@@ -397,6 +397,12 @@ func RelationshipsOf(sym *symbols.Symbol) []*ast.Relationship {
 		return bodyParamRelationships(d, sym.Name)
 	case *ast.SubjectMember:
 		return subjectRelationships(d)
+	case *ast.WhileLoopActionNode:
+		// A `for` variable shares its loop's node, which states the variable's head.
+		if IsLoopVariable(sym) {
+			return d.VariableRelationships
+		}
+		return nil
 	case *ast.AssumeMember:
 		return d.Relationships
 	case *ast.RequireMember:
@@ -553,6 +559,12 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 		out = append(out, redefined)
 	}
 
+	// A constructor's named argument feature redefines the instantiated type's feature it names (KerML 8.3.4.8.3).
+	if formal, named := m.constructorArgumentFormal(sym); named && formal != nil && !seen[formal] {
+		seen[formal] = true
+		out = append(out, formal)
+	}
+
 	// An untyped parameter of a body a collection function applies is bound to each
 	// element of the collection, so it takes the elements' types (see bodyparam.go).
 	for _, typ := range m.BodyParameterElementTypes(sym) {
@@ -615,6 +627,17 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 		}
 		seen[redefined] = true
 		out = append(out, redefined)
+	}
+
+	// A type argument's parameter is typed by the type written. An expression is typed by its function,
+	// its parameters redefine that function's, and its result specializes what it evaluates to.
+	for _, general := range slices.Concat([]*symbols.Symbol{m.typeArgumentType(sym)}, m.expressionElementGenerals(sym),
+		m.namedArgumentRedefinitions(sym), m.expressionParameterRedefinitions(sym)) {
+		if general == nil || general == sym || seen[general] {
+			continue
+		}
+		seen[general] = true
+		out = append(out, general)
 	}
 
 	// What the declaration's kind implies comes last: the one derivation that resolution,

@@ -1,1 +1,0 @@
-- The gRPC service hashes a model's cache key as it reads the documents, rather than joining every document's text into one string and copying that again to hash it. The hashes are unchanged.

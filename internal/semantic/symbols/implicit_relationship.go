@@ -40,8 +40,8 @@ const (
 	// ImplicitTypeArgumentTyping reflects the FeatureTyping a classification or cast expression's
 	// type-argument parameter Owner has to the type Member it names (SysML.xtext TypeReferenceMember).
 	ImplicitTypeArgumentTyping
-	// ImplicitParameterRedefinition reflects the Redefinition a constructor's named argument feature
-	// Owner has to the instantiated type's feature Member it names (KerML 8.3.4.8.3 ConstructorExpression).
+	// ImplicitParameterRedefinition reflects the Redefinition a named argument's feature Owner has to
+	// the Member it names: a feature of the instantiated type or a parameter of what is invoked.
 	ImplicitParameterRedefinition
 	// ImplicitSuccessionEndReference reflects the ReferenceSubsetting the target end Owner of a
 	// `then x;` succession holds to the Member it reaches, as the conversion mints it (end1's `rs`).

@@ -4,8 +4,10 @@ requirement def LevelReq
 requirement levelReq
 requirement capacity
 concern safety (“Nothing overflows.”)
+part def Plant
 
 relationships:
+  LevelReq o-- Plant: «subject» plant
   LevelReq -> safety: frame
   levelReq --:|> LevelReq
   capacity -> levelReq: require

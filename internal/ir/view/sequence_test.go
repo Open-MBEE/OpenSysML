@@ -4,6 +4,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // The occurrences an interaction declares are its lifelines, flat and in
@@ -422,4 +424,191 @@ func lifelineName(rendering *Rendering, id string) string {
 		}
 	}
 	return ""
+}
+
+// An action exposed beside an interaction — as rendering a whole document does —
+// is behavior, not a participant: it is no lifeline, its control flow is not
+// drawn as successions on one, and it is reported rather than dropped.
+func TestSequenceRenderingReportsExposedBehavior(t *testing.T) {
+	const text = `package Demo {
+	item def Start;
+	action def Drive {
+		first start;
+		then action unlock;
+		then fork f;
+		then action startEngine;
+		first startEngine then done;
+	}
+	part scenario {
+		part driver {
+			event occurrence sendStart;
+		}
+		part car {
+			event occurrence recvStart;
+		}
+		message startMsg of Start from driver.sendStart to car.recvStart;
+	}
+}
+`
+	r, idx := loadSources(t, []string{"inline.sysml"}, [][]byte{[]byte(text)})
+	exposed := []*symbols.Symbol{lookup(t, idx, "Demo::Drive"), lookup(t, idx, "Demo::scenario")}
+	rendering, err := r.RenderExposed(exposed, KindSequence, "#sequence")
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	if got := lifelineNames(rendering); !slices.Equal(got, []string{"driver", "car"}) {
+		t.Errorf("lifelines = %v, want the parts of the interaction only", got)
+	}
+	if got := messageLabels(rendering); !slices.Equal(got, []string{"startMsg of Start"}) {
+		t.Errorf("messages = %v, want the one message", got)
+	}
+	for _, edge := range rendering.Edges {
+		if edge.Kind == EdgeSuccession {
+			t.Errorf("succession %s -> %s is drawn; the action's control flow is no order of the interaction", edge.From, edge.To)
+		}
+	}
+	if len(rendering.Notices) != 1 || !strings.Contains(rendering.Notices[0], "action def Drive is behavior, not a participant") {
+		t.Errorf("notices = %v, want the exposed action reported", rendering.Notices)
+	}
+}
+
+// An exposed action a message reaches stays a lifeline carrying that message,
+// without its control flow drawn on it.
+func TestSequenceRenderingKeepsBehaviorAMessageReaches(t *testing.T) {
+	const text = `package Demo {
+	item def Ping;
+	action def Run {
+		event occurrence sent;
+		first start;
+		then action step;
+	}
+	part server {
+		event occurrence got;
+	}
+	message ping of Ping from Run.sent to server.got;
+}
+`
+	r, idx := loadSources(t, []string{"inline.sysml"}, [][]byte{[]byte(text)})
+	exposed := []*symbols.Symbol{lookup(t, idx, "Demo::Run"), lookup(t, idx, "Demo::server"), lookup(t, idx, "Demo::ping")}
+	rendering, err := r.RenderExposed(exposed, KindSequence, "#sequence")
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	if len(rendering.Roots) != 2 || rendering.Roots[0].Kind != "action def" {
+		t.Fatalf("lifelines = %v, want the action a message reaches and the part's event", lifelineNames(rendering))
+	}
+	if len(rendering.Edges) != 1 || rendering.Edges[0].Label != "ping of Ping" {
+		t.Errorf("edges = %v, want the one message and no control flow", rendering.Edges)
+	}
+	if len(rendering.Notices) != 0 {
+		t.Errorf("notices = %v, want none", rendering.Notices)
+	}
+}
+
+// A succession stated in full between two events of an exposed action is an
+// order on its lifeline, as the member-attached form is.
+func TestSequenceRenderingOrdersEventsOfExposedBehavior(t *testing.T) {
+	const text = `package Demo {
+	action def Run {
+		event occurrence ready;
+		event occurrence sent;
+		succession first ready then sent;
+		action step;
+		succession first start then step;
+	}
+}
+`
+	r, idx := loadSources(t, []string{"inline.sysml"}, [][]byte{[]byte(text)})
+	rendering, err := r.RenderExposed([]*symbols.Symbol{lookup(t, idx, "Demo::Run")}, KindSequence, "#sequence")
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	if len(rendering.Roots) != 1 || len(rendering.Roots[0].Children) != 2 {
+		t.Fatalf("lifelines = %v, want the action with its two events", lifelineNames(rendering))
+	}
+	if len(rendering.Edges) != 1 || rendering.Edges[0].Kind != EdgeSuccession {
+		t.Errorf("edges = %v, want the one order between the events", rendering.Edges)
+	}
+}
+
+// A layout note about an exposed action that is not shown goes with its lifeline.
+func TestSequenceRenderingDropsNotesOfBehaviorNotShown(t *testing.T) {
+	const text = `package Demo {
+	private import DiagramLayout::*;
+	private import Views::*;
+	private import StandardViewDefinitions::*;
+	action def Run {
+		first start;
+		then action step;
+	}
+	part server;
+	metadata Note about Run { text = "runs once"; x = 40; y = 120; }
+	metadata Note about server { text = "listens"; x = 40; y = 20; }
+	view calls : SequenceView { expose Run; expose server; }
+}
+`
+	r, idx := loadSources(t, []string{"inline.sysml"}, [][]byte{[]byte(text)})
+	rendering, err := r.Render(lookup(t, idx, "Demo::calls"))
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	if got := lifelineNames(rendering); !slices.Equal(got, []string{"Demo::server"}) {
+		t.Fatalf("lifelines = %v, want the part only", got)
+	}
+	if len(rendering.Notes) != 1 || rendering.Notes[0].Text != "listens" || rendering.Notes[0].Anchor != rendering.Roots[0].ID {
+		t.Errorf("notes = %+v, want the one on the part's lifeline", rendering.Notes)
+	}
+}
+
+// A control-flow succession a view exposes by name is drawn whether the view
+// exposes it before or after the action that owns it.
+func TestSequenceRenderingOfAnExposedSuccessionIgnoresExposeOrder(t *testing.T) {
+	const text = `package Demo {
+	action def Run {
+		event occurrence ready;
+		action step;
+		succession toStep first ready then step;
+	}
+}
+`
+	r, idx := loadSources(t, []string{"inline.sysml"}, [][]byte{[]byte(text)})
+	run, flow := lookup(t, idx, "Demo::Run"), lookup(t, idx, "Demo::Run::toStep")
+	var counts []int
+	for _, exposed := range [][]*symbols.Symbol{{run, flow}, {flow, run}} {
+		rendering, err := r.RenderExposed(exposed, KindSequence, "#sequence")
+		if err != nil {
+			t.Fatalf("render: %v", err)
+		}
+		counts = append(counts, len(rendering.Edges))
+	}
+	if counts[0] != 1 || counts[1] != 1 {
+		t.Errorf("edges = %v, want the exposed succession drawn in either order", counts)
+	}
+}
+
+// A behavior left out takes the notes on its events with it: an event a message
+// that could not be drawn had put on its lifeline is gone as the lifeline is.
+func TestSequenceRenderingDropsNotesOnEventsOfBehaviorNotShown(t *testing.T) {
+	const text = `package Demo {
+	private import DiagramLayout::*;
+	private import Views::*;
+	private import StandardViewDefinitions::*;
+	item def Ping;
+	action def Run {
+		event occurrence sent;
+	}
+	part hidden {
+		event occurrence got;
+	}
+	message ping of Ping from Run.sent to hidden.got;
+	metadata Note about Run::sent { text = "sends once"; x = 40; y = 120; }
+	view calls : SequenceView { expose Run; expose ping; }
+}`
+	rendering := renderSource(t, "Demo::calls", text)
+	if len(rendering.Notes) != 0 {
+		t.Errorf("notes = %+v, want none: the event they are about is not shown", rendering.Notes)
+	}
+	if len(rendering.Roots) != 0 || len(rendering.Edges) != 0 {
+		t.Errorf("roots %v edges %v, want neither: the message has no receiver shown", lifelineNames(rendering), rendering.Edges)
+	}
 }

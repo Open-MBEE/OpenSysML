@@ -125,9 +125,10 @@ renderings the REPL's `%view` prints and the VS Code diagram panel shows:
 
 - **What it shows.** The one view the document declares, or the document itself
   as a model tree. `C-u M-x sysml-diagram-show`, or `v` in the view buffer, picks
-  another: a declared view, or the document as a tree, interconnection diagram,
-  state machine, action flow, table or matrix. A view whose rendering is not supported
-  (`sequence`, `geometry`, `textual`) is listed with the reason and refused.
+  another: a declared view, or the document as any rendering the server lists: a
+  tree, interconnection diagram, state machine, action flow, message sequence,
+  table or matrix among them. A view whose rendering is not supported
+  (`geometry`, `textual`) is listed with the reason and refused.
 - **Navigation.** `RET` or a click on an element visits its declaration, with its
   name selected. Moving point in the model highlights the innermost element
   declared around it. A standard library declaration opens read-only, its text

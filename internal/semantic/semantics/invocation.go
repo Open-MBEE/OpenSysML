@@ -539,13 +539,24 @@ type signatureParameter struct {
 	optional bool // may go without an argument: a default, or a multiplicity admitting none
 }
 
-// signatureOf returns sym's effective input parameters, in signature order: the
-// subject of a requirement or case first, being its first input parameter (SysML
-// v2 §7.19.1, §7.20.1), then its directed `in` and `inout` parameters.
+// signatureOf returns sym's effective input parameters, in signature order, each described
+// as a call binds it.
 func (m *Model) signatureOf(sym *symbols.Symbol) invocationSignature {
+	sig := m.signatureInputsOf(sym)
+	for i, p := range sig.params {
+		sig.params[i] = m.signatureParameterOf(p.sym, p.name)
+	}
+	// A parameterless declaration with supertypes may inherit an unseen signature.
+	sig.known = len(sig.params) > 0 || (sym.Decl != nil && len(m.DirectSupertypes(sym)) == 0)
+	return sig
+}
+
+// signatureInputsOf returns sym's input parameters by symbol and name only, in signature order:
+// the subject of a requirement or case first (SysML v2 §7.19.1, §7.20.1), then `in` and `inout`.
+func (m *Model) signatureInputsOf(sym *symbols.Symbol) invocationSignature {
 	sig := invocationSignature{owner: sym}
 	if subject := m.SubjectParameterOf(sym); subject != nil {
-		sig.params = append(sig.params, m.signatureParameterOf(subject, m.EffectiveNameOf(subject)))
+		sig.params = append(sig.params, signatureParameter{sym: subject, name: m.EffectiveNameOf(subject)})
 	}
 	for _, p := range m.BehaviorParametersOf(sym) {
 		if p.IsResult || (p.Direction != ast.DirIn && p.Direction != ast.DirInOut) {
@@ -558,10 +569,8 @@ func (m *Model) signatureOf(sym *symbols.Symbol) invocationSignature {
 				name = effective
 			}
 		}
-		sig.params = append(sig.params, m.signatureParameterOf(p.Symbol, name))
+		sig.params = append(sig.params, signatureParameter{sym: p.Symbol, name: name})
 	}
-	// A parameterless declaration with supertypes may inherit an unseen signature.
-	sig.known = len(sig.params) > 0 || (sym.Decl != nil && len(m.DirectSupertypes(sym)) == 0)
 	return sig
 }
 

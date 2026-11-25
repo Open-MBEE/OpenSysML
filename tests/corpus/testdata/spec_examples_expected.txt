@@ -311,7 +311,7 @@
 5	sysml/8.4.12.3/2.sysml
 2	sysml/8.4.13.10/1.sysml
 2	sysml/8.4.13.10/2.sysml
-1	sysml/8.4.13.10/3.sysml
+2	sysml/8.4.13.10/3.sysml
 3	sysml/8.4.13.10/4.sysml
 1	sysml/8.4.13.11/2.sysml
 1	sysml/8.4.13.11/3.sysml
