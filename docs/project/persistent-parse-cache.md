@@ -53,11 +53,12 @@ The service now keeps two kinds of record in the same user cache directory:
 On a parse request the service first checks its in-process cache, then asks the record cache for
 the exact bytes. If every document has a parse record, the whole model is restored: trees are
 decoded, the symbol index is rebuilt from those trees by the same overlay path a fresh parse
-uses, and the diagnostics come from the analysis record. No document is parsed; when every
-document parsed clean, validation passes do run again over the restored trees, to prime the
-incremental workspace whose analysis stamps make a later edit report only the documents it
-changed. A set with a syntax error is answered from its parse diagnostics alone: it primes no
-workspace and carries no stamps, so a later edit reports every document as affected.
+uses, and the diagnostics come from the analysis record. No document is parsed, and no pass
+runs again: the record also holds what each analysis read of the index, so the incremental
+workspace can prime its stamps from the recorded answers and a later edit still reports only
+the documents it changed. A set with a syntax error is answered from its parse diagnostics
+alone: it primes no workspace and carries no stamps, so a later edit reports every document
+as affected.
 If one document's bytes changed, only its record is missing: the other trees are decoded and just
 the edited document is parsed. An edit through an active workspace takes the same record-aware
 path, so a fresh process restores its tree too. A damaged or missing record is always a benign
@@ -125,14 +126,18 @@ No RPC, protobuf message, capability flag or client method was added. The observ
 - Two internal helpers were added so the workspace can accept a tree parsed elsewhere: the
   unexported `workspace/model.newParsedDocument` builds the document and its scope tree from a
   tree the caller already has, and the exported `Workspace.OpenParsed` installs it as an open
-  buffer without parsing.
+  buffer without parsing. `Workspace.RestoreAnalyzed` installs recorded diagnostics and reads
+  without analyzing, and `Resolver.RestoreReads` gives the restored answer a frame whose
+  invalidation on a later edit is the one the original passes recorded.
 - `docs/reference/wire-contract.md`, "Restoring a model another process parsed", documents the
   client-visible behaviour.
 - On-disk format: `<user cache>/sysml-ls/libs/parses/<hex sha256>-b<build id>-p1.idx`, a gob
   record of name, language, kind, the `astcodec` tree stream and root id, parse errors, parse
-  warnings and file warnings. `parseFormatVersion` is `1`; a change to the record or the AST
-  stream bumps the `-p` suffix. Analysis records keep their existing `-m1` format at the cache
-  root.
+  warnings, file warnings and a SHA-256 digest of all of those. `parseFormatVersion` is `1`; a
+  change to the record or the AST stream bumps the `-p` suffix. Analysis records are `-m2` at
+  the cache root: each document carries its diagnostics and the reads its analysis made, so a
+  restored process primes `affected` without running the passes. A record whose digest fails
+  is deleted and answered by a fresh parse.
 
 ## Acceptance criteria and the tests that lock them
 
@@ -145,7 +150,8 @@ No RPC, protobuf message, capability flag or client method was added. The observ
 | A whole-set restore answers identically to a fresh parse | the same tests and `requireSameAnswers`, which compare the parse response, the diagnostics and the api-json conversion |
 | A real mid-size model restores without a parse | `parsecache_test.go:TestPersistentParseCacheRestoresARealModel` — restores `examples/self-model/pipeline.sysml` through the counting seam; it fails with the old density bound |
 | Document order and re-reading do not change the answer | `TestPersistentParseCacheRestoresDocumentsInAnyOrder`, `TestPersistentParseCacheRestoresParseFile` |
-| Damaged, missing or implausible records are benign misses and are re-recorded | `TestPersistentParseCacheRecoversFromADamagedRecord`, `TestPersistentParseCacheRefusesAnImplausibleTree`, and `libs/parserecord_test.go:TestParseRecordMissesAreBenign` |
+| Damaged, missing or implausible records are benign misses and are re-recorded | `TestPersistentParseCacheRecoversFromADamagedRecord`, `TestPersistentParseCacheRefusesAnImplausibleTree`, `TestPersistentParseCacheBitFlipIsABenignMiss`, and `libs/parserecord_test.go:TestParseRecordMissesAreBenign`, `TestParseRecordBitFlipsAreTypedMisses` — every single-bit flip of a record is checked; a changed payload is a typed miss, never a wrong answer or invalid UTF-8 |
+| Restoring a large real-model set does not re-analyze it | `BenchmarkPersistentParseCacheRestoreRealModel` — 60 documents built from `examples/self-model/pipeline.sysml`; the restored sub-benchmark reports about 0.6 s against about 10 s cold |
 | The cache is keyed by content, name, language, kind, build and format | `libs/parserecord_test.go:TestParseKeyIsContentAddressed`, `TestParseAndModelRecordsCoexist` |
 | A service without a record cache is unaffected | `TestPersistentParseCacheIsOptIn` |
 | Incremental `affected` semantics survive a warm record cache | `client/opensysml/parity_options_test.go:TestParseDocumentsRelatesAModelToItsBase` — against a shared cache, only the edited document is reported as affected |
@@ -168,6 +174,10 @@ Run in the isolated development worktree on this branch:
   `TestPersistentParseCacheKeepsAffectedAcrossProcesses` and
   `TestPersistentParseCacheRestoresAcrossProcessesWithNoParses` after the final hardening —
   passed.
+- `GOMAXPROCS=2 go test -p 2 -count=1 -bench BenchmarkPersistentParseCacheRestoreRealModel
+  -benchtime=1x ./internal/frontend/grpc`: cold 10.47 s, restored 0.57 s over the 60-document
+  set. Before recording the analysis reads, the same restored path took 7.6–7.9 s because
+  every document's passes ran again to prime `affected`.
 - `GOMAXPROCS=2 go test -p 2 -count=1 ./tests/hygiene` — passed (20 s).
 - `python3 scripts/check-doc-ids.py`, `python3 scripts/changelog.py check`, and
   `python3 scripts/spec_compliance.py check` — passed. The comment gate printed nothing and

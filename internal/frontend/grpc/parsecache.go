@@ -6,6 +6,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	checkws "github.com/Open-MBEE/OpenSysML/internal/check/workspace"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast/astcodec"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
@@ -201,31 +202,41 @@ func (s *Service) restoreFromDisk(ctx context.Context, inputs []sourceInput, mod
 	if clean {
 		// An unclean set publishes no semantic diagnostics: stamps on it would
 		// hide its siblings from a later edit's affected set (lineage.go).
-		analysis = s.restoredAnalysis(ctx, inputs, mode, documents)
-		if analysis == nil && ctx.Err() != nil {
-			return nil, false, ctx.Err()
-		}
-		if !s.analysisFromRecord(modelHash, idx, documents) {
+		reads, ok := s.analysisFromRecord(modelHash, idx, documents)
+		var pendingRecord func()
+		if !ok {
 			names := make([]string, len(inputs))
 			for i, input := range inputs {
 				names[i] = input.name
 			}
-			batch := &passes.Batch{Documents: names, Gathers: passes.NewGathers()}
+			batch := &passes.Batch{Documents: names, Gathers: passes.NewGathers(), Record: s.records != nil}
 			passes.PrepareBatch(idx, batch)
+			reads = make(map[string]*resolve.Reads, len(documents))
 			for i, doc := range documents {
 				if err := ctx.Err(); err != nil {
 					return nil, false, err
 				}
-				doc.Unfiltered, _ = passes.AnalyzeInBatch(inputs[i].name, inputs[i].kind, doc.Root,
+				var runReads *resolve.Reads
+				doc.Unfiltered, runReads = passes.AnalyzeInBatch(inputs[i].name, inputs[i].kind, doc.Root,
 					doc.Diagnostics, idx, passes.Options{Conformance: mode, Context: ctx}, batch)
+				reads[inputs[i].name] = runReads
 			}
 			if err := ctx.Err(); err != nil {
 				return nil, false, err
 			}
-			s.recordAnalysis(modelHash, idx, documents)
+			// Record only once the lineage is primed: a cancelled prime writes
+			// no partial analysis, as on the fresh path.
+			pendingRecord = func() { s.recordAnalysis(modelHash, idx, documents, reads) }
 		}
 		for _, doc := range documents {
 			doc.Diagnostics = passes.WithoutLints(doc.Unfiltered, nil, nil)
+		}
+		analysis = s.restoredAnalysis(ctx, inputs, mode, documents, reads)
+		if analysis == nil && ctx.Err() != nil {
+			return nil, false, ctx.Err()
+		}
+		if pendingRecord != nil {
+			pendingRecord()
 		}
 	}
 	// A document that did not parse clean is never analyzed, exactly as on the
@@ -238,9 +249,9 @@ func (s *Service) restoreFromDisk(ctx context.Context, inputs []sourceInput, mod
 	return model, true, nil
 }
 
-// restoredAnalysis installs the restored trees in the set's lineage workspace
-// and returns its analysis stamps, so a later edit reports exact affected docs.
-func (s *Service) restoredAnalysis(ctx context.Context, inputs []sourceInput, mode diag.ConformanceMode, documents []*CachedDocument) *analysisSnapshot {
+// restoredAnalysis primes the lineage workspace from the analysis record's
+// diagnostics and reads, so a later edit reports exact affected docs.
+func (s *Service) restoredAnalysis(ctx context.Context, inputs []sourceInput, mode diag.ConformanceMode, documents []*CachedDocument, reads map[string]*resolve.Reads) *analysisSnapshot {
 	key := lineageKey(inputs, mode)
 	l, _ := s.lineages.get(key, func() *lineage { return &lineage{held: map[string]string{}} })
 	l.mu.Lock()
@@ -260,11 +271,13 @@ func (s *Service) restoredAnalysis(ctx context.Context, inputs []sourceInput, mo
 		l.held[input.name] = input.content
 	}
 	stamps := make(map[string]uint64, len(inputs))
-	for _, input := range inputs {
+	for i, input := range inputs {
 		if err := ctx.Err(); err != nil {
 			return nil
 		}
-		_ = l.ws.Diagnostics(input.name)
+		if !l.ws.RestoreAnalyzed(input.name, documents[i].Unfiltered, reads[input.name]) {
+			_ = l.ws.Diagnostics(input.name)
+		}
 		stamps[input.name] = l.ws.AnalysisStamp(input.name)
 	}
 	if err := ctx.Err(); err != nil {

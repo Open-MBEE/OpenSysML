@@ -362,9 +362,9 @@ processes: `ParseSources` and `ParseFile` are the warm/restore surface. Each doc
 filed under its name, language and bytes together with the build that produced it. Asking a fresh
 service for the same document set restores those trees from disk and rebuilds the symbol index
 from them, so no document is parsed at all; its analysis is restored from the analysis record the
-writer left, but validation passes run again over the restored trees to prime the incremental
-workspace, so a model restored here is still a base whose `affected` answer names only the
-documents a later edit changed. A set with a syntax error is answered from parse diagnostics
+writer left, including what that analysis read of the index, so the incremental workspace primes
+its stamps without running the passes again and a model restored here is still a base whose
+`affected` answer names only the documents a later edit changed. A set with a syntax error is answered from parse diagnostics
 alone: no semantic analysis is published for it, and a later edit reports every document as
 affected. The answer, its model hash and every later call on
 it are what a first parse of the same bytes gives. The hash a response returns is thus a base-model
@@ -372,8 +372,9 @@ handle a later process can send back as `base_model_hash`. An edit to one docume
 document's record: the unchanged documents' trees are restored and just the edited one is parsed.
 
 The cache is bounded and keyed by content and build, so an edited document leaves its old record
-behind until it is evicted, and a different binary never restores another one's trees. A damaged
-or missing record is a miss, not an error: the service parses the document and records it again.
+behind until it is evicted, and a different binary never restores another one's trees. A record
+carries a digest of its payload: a damaged one is a miss, not an error, and is removed so the
+service parses the document and rewrites its record instead of answering from it again.
 A restored model is a usable base: after an edit, `affected` still names only the documents whose
 results changed. A service run without a record cache parses every document afresh, which is
 otherwise identical to the cached path.
