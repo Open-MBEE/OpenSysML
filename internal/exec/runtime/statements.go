@@ -296,6 +296,14 @@ func (env *stmtEnv) constraintResult(ctx *Context) (frame, error) {
 		cells = &localCells
 	}
 	result.vars, result.cells, result.ensureCells = values, cells, nil
+	if len(env.localHeld) > 0 {
+		// The conditions read a local as the feature it is, under either of its names.
+		result.held = maps.Clone(env.data.held)
+		if result.held == nil {
+			result.held = make(map[*symbols.Symbol]string, len(env.localHeld))
+		}
+		maps.Copy(result.held, env.localHeld)
+	}
 	return result, nil
 }
 
@@ -995,6 +1003,7 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 				}
 				return flowNext, fmt.Errorf("eval declaration %s: %w", s.Name, err)
 			}
+			e.env.hold(e.ctx, s.Symbol, s.Name)
 			return flowNext, nil
 		}
 		if s.BodyData {
