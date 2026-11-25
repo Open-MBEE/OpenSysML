@@ -69,7 +69,7 @@ func (m *Model) controlPartsOf(sym *symbols.Symbol) *controlParts {
 		parts.names[param] = name
 		parts.params = append(parts.params, param)
 		if value != nil {
-			m.bindArgumentReference(m.statementScope(sym), value)
+			m.bindArgumentReference(operandScope(sym), value)
 			expr := transitionPart(sym, value, value.Span(), symbols.SymbolExpression, param, symbols.ExpressionValue)
 			expr.Expr.Slot = slot
 			parts.values[param] = expr
@@ -171,6 +171,15 @@ func terminateStatementOf(decl ast.Node) ast.Node {
 		}
 	}
 	return nil
+}
+
+// operandScope is the scope enclosing the control action sym, where the operands evaluated before its
+// body is entered resolve (resolve/document.go): an assignment's, a `for` loop's collection.
+func operandScope(sym *symbols.Symbol) *symbols.Scope {
+	if _, usage := sym.Decl.(*ast.Usage); usage && sym.Scope != nil {
+		return sym.Scope
+	}
+	return sym.OwnerScope
 }
 
 // statementScope is the scope the expressions of the control action sym are written in.
