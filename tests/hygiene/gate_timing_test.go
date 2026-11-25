@@ -192,9 +192,8 @@ func hasPair(args []string, flag, value string) bool {
 	return false
 }
 
-// TestGateTimingWarmupCompilesBothModules executes the script's warmup command
-// against a stubbed checkout: the root-module tests of both shards and the
-// tools module must all receive the complete '^$' regex and the measured flags.
+// TestGateTimingWarmupCompilesBothModules pins that both shards' warmups get
+// the complete '^$' regex and the measured flags.
 func TestGateTimingWarmupCompilesBothModules(t *testing.T) {
 	command := warmupCommandFromScript(t)
 	temp := t.TempDir()
