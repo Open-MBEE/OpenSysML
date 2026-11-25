@@ -1,1 +1,0 @@
-- `$OPENSYSML_MMDC_PUPPETEER` is now checked to name a file and passed to `mmdc` as an absolute path joined to its flag; before, a value opening with a dash was read by `mmdc` as a flag of its own, and a relative one was resolved against the render directory, not the directory `sysml` was run in. A value naming no file is reported as the missing configuration it is.

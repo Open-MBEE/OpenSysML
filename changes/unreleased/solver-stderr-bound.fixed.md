@@ -1,1 +1,0 @@
-- A solver that keeps writing to standard error no longer grows the process without limit: the first 64 KiB are kept for error messages, which say when more was dropped. A plan that calls a tool many times now remembers a fixed-size digest per distinct request rather than the request and reply themselves.
