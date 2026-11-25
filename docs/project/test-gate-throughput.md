@@ -76,6 +76,9 @@ allowance. An explicit `-p` or one already in `GOFLAGS` is preserved and divides
 that allowance among the concurrent package processes, so their product stays
 within the budget. `GOFLAGS` is read through `go env`, so a value saved with
 `go env -w` but not exported is kept instead of being replaced by `-p` alone.
+It is tokenized the way Go does — quoted arguments stay whole, both `-p` and
+`--p` are recognized, and the last setting wins — so an embedded `-p=` inside
+another flag's quoted value is never mistaken for a package limit.
 
 The runner covers the Go test shards — the units the Makefile and the CI Go
 matrix call shards. CI's standalone gates (the corpus, solver and differential
@@ -104,9 +107,11 @@ every shard even after one fails, matching CI's `fail-fast: false`.
 The tools module runs with `tools` and `rest` in CI's separate jobs. When a
 local plan contains both, the runner passes `SKIP_TOOLS_TESTS=1` to `rest` so
 the module and its snapshot generator test run once; a plan with only `rest`
-keeps that coverage. The generator's default-path test writes its snapshot into
-a fixture checkout, so its own execution cannot truncate a snapshot another
-shard is embedding.
+keeps that coverage. The owning shard attempts the WebAssembly package tests
+and the tools module tests independently and fails if either fails, so a
+WebAssembly failure no longer suppresses the module's tests. The generator's
+default-path test writes its snapshot into a fixture checkout, so its own
+execution cannot truncate a snapshot another shard is embedding.
 
 A shard's output is never held in full: it is streamed to the terminal with
 `-v`, and otherwise only the last `-log-tail` bytes are kept for a failing
@@ -155,12 +160,39 @@ go clean -cache
 # turn the glob into a deletion against the filesystem root.
 : "${HOME:?HOME must be set to resolve the approved cache root}"
 : "${GOTMPDIR:?set GOTMPDIR to the shared cache directory before removing it}"
+cache_root="$HOME/.cache/opensysml"
 case "$GOTMPDIR" in
-  "$HOME"/.cache/opensysml/*) ;;
-  *) printf 'refusing to remove outside %s\n' "$HOME/.cache/opensysml" >&2; exit 1 ;;
+  "$cache_root"/*) ;;
+  *) printf 'refusing to remove outside %s\n' "$cache_root" >&2; exit 1 ;;
 esac
-rm -rf -- "$GOTMPDIR"/*
+# Resolve both paths before deleting: a textual prefix alone accepts parent
+# components and symlinks whose targets lie outside the approved root.
+approved=$(realpath -m -- "$cache_root") || exit 1
+resolved=$(realpath -e -- "$GOTMPDIR") || { printf 'GOTMPDIR does not resolve\n' >&2; exit 1; }
+case "$resolved" in
+  "$approved"/*) ;;
+  *) printf 'refusing to remove outside %s\n' "$approved" >&2; exit 1 ;;
+esac
+# Reject symlinks on every component below HOME before removing anything.
+walked=$HOME
+IFS='/' read -r -a parts <<< "${GOTMPDIR#"$HOME"/}"
+for part in "${parts[@]}"; do
+  case "$part" in
+    ''|.) continue ;;
+    ..) printf 'refusing a parent component in %s\n' "$GOTMPDIR" >&2; exit 1 ;;
+  esac
+  walked+="/$part"
+  if [[ -L "$walked" ]]; then
+    printf 'refusing a symlinked cache path: %s\n' "$walked" >&2
+    exit 1
+  fi
+done
+rm -rf -- "$resolved"/*
 ```
+
+Both paths are resolved and symlinks on every component below `HOME` are
+rejected before deletion, so neither a `..` component nor a link to another
+directory can widen the approved root.
 
 **Trade-off with CI.** Each CI shard runs in its own job with its own restored
 cache, so an entry written by one job cannot be observed by another and a
@@ -222,20 +254,21 @@ Both use `GOMAXPROCS=2` and the home-filesystem `GOCACHE`, `GOTMPDIR` and
 test-result cache: neither arm can warm a cached replay for the other. The
 shared build cache stays warm for both (it only affects compilation), so the
 figures measure test execution and runner overhead, **not cache hits**. Before
-timing, the script compiles the test binaries of both shards — every package
-selected for `grpc` and `rest` by `scripts/race-shard.sh`, plus the tools module
-`rest` owns — so a cold cache cannot charge the serial arm for compilation the
-bounded arm would reuse. The recorded figures below predate those changes;
-re-run the script for a directly comparable current measurement. Replace the
-shards in the script to measure another pair.
+timing, the script regenerates the embedded-library snapshot and compiles the
+exact test sets of both shards through `make test-quick` with `-run '^$'`, so no
+test runs during warmup. That keeps `-pgo=off`, each shard's `-run`/`-skip`
+selection and the timeout identical to the measured runs, and the snapshot is
+present before anything compiles. The recorded figures below predate those
+changes; re-run the script for a directly comparable current measurement.
+Replace the shards in the script to measure another pair.
 
 `GATE_TIMING_TMP` may name a relative directory under `$HOME/.cache/opensysml`,
 where the script puts its temporary directories. The entire value is checked:
 an absolute path, a `..` component, an unsupported character (including any
-control character) or a symlinked path component is rejected before anything
-is created or written, and the directory is rebuilt from the validated
-components. With the variable unset the script uses
-`$HOME/.cache/opensysml/gate-timing`.
+control character) or a symlinked path component is rejected before `mkdir`
+runs, the directory is rebuilt from the validated components, and its resolved
+path must still be inside the approved root. With the variable unset the script
+uses `$HOME/.cache/opensysml/gate-timing`.
 
 Recorded on **one host** (16 CPUs, 31264 MiB RAM, load average 2.40, Go 1.27.4,
 `GOMAXPROCS=2`, warm home-filesystem cache; both runs exited zero):

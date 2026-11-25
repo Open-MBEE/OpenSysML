@@ -39,7 +39,9 @@ for part in "${parts[@]}"; do
   base="$base/$part"
 done
 
-# Check symlinks before creating or writing, then again after mkdir closes the gap.
+# Check every component of the paths we will actually create before mkdir can
+# follow a symlink, then check again after mkdir and confirm the real path is
+# still inside the approved root.
 check_no_symlinks() {
   local path=$1 walked=''
   local components=()
@@ -53,8 +55,15 @@ check_no_symlinks() {
   done
 }
 
-check_no_symlinks "$base"
+approved_real=$(realpath -m -- "$approved_root") || die 'cannot resolve the approved root'
+check_no_symlinks "$base/tmp"
+check_no_symlinks "$base/temp"
 mkdir -p "$base/tmp" "$base/temp"
+resolved_base=$(realpath -e -- "$base") || die 'cannot resolve the temporary directory'
+case "$resolved_base" in
+  "$approved_real"/*) ;;
+  *) die "temporary directory resolved outside $approved_root: $resolved_base" ;;
+esac
 check_no_symlinks "$base/tmp"
 check_no_symlinks "$base/temp"
 
@@ -77,14 +86,16 @@ echo "load: $(cat /proc/loadavg)"
 echo "go: $(go version)"
 echo "GOMAXPROCS=$GOMAXPROCS GOCACHE=$GOCACHE GOTMPDIR=$GOTMPDIR TMPDIR=$TMPDIR GOFLAGS=$GOFLAGS"
 
-# Compile every package both timed arms will test, including the tools module
-# the rest shard owns, so a cold cache cannot charge one arm for compilation
-# the other then reuses.
-mapfile -t timed_packages < <(scripts/race-shard.sh grpc; scripts/race-shard.sh rest)
-(( ${#timed_packages[@]} > 0 )) || die 'no packages selected for the timed shards'
-go build ./...
-go test -run '^$' -count=1 "${timed_packages[@]}"
-go test -C tools -run '^$' -count=1 ./...
+# Regenerate the embedded-library snapshot first: each timed shard runs make's
+# snapshot prerequisite, which adds a generated Go file to the packages below.
+make --no-print-directory stdlib-snapshot
+
+# Compile the exact test sets and flags of both timed arms, including the tools
+# module the rest shard owns, without running any test. Going through the same
+# make target keeps -pgo=off, the shard's -run/-skip selection and the timeout
+# identical to the measured runs; -count=1 above still prevents cached replays.
+make --no-print-directory test-quick SHARDS="grpc rest" \
+  SKIP_STDLIB_SNAPSHOT=1 TEST_SHARD_RUN="-run '^$'"
 
 serial='serial make test-quick SHARDS="grpc rest"'
 runner='runner gate-runner -tier quick -concurrency 2'

@@ -1,7 +1,9 @@
 package hygiene
 
 import (
+	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -137,6 +139,68 @@ func TestShardRecipeHonoursTheRunnerToolsOwner(t *testing.T) {
 		return
 	}
 	t.Fatal("Makefile has no tools module recipe")
+}
+
+// TestToolsShardAttemptsBothSuitesAfterAFailure executes the published recipe
+// with a failing WebAssembly suite: the tools module must still be tested and
+// the shard must still fail.
+func TestToolsShardAttemptsBothSuitesAfterAFailure(t *testing.T) {
+	makefile := readRepoFile(t, "Makefile")
+	var recipe []string
+	for _, line := range strings.Split(makefile, "\n") {
+		if strings.HasPrefix(line, "\t@status=0; \\") {
+			recipe = append(recipe, line)
+			continue
+		}
+		if len(recipe) > 0 {
+			recipe = append(recipe, line)
+			if strings.Contains(line, "exit $$status") {
+				break
+			}
+		}
+	}
+	if len(recipe) == 0 {
+		t.Fatal("Makefile has no aggregated shard recipe")
+	}
+
+	temp := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(temp, "scripts"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(temp, "scripts", "race-shard.sh"), []byte("#!/usr/bin/env bash\nprintf '%s\\n' ./tests/wasm\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	bin := filepath.Join(temp, "bin")
+	if err := os.MkdirAll(bin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	stub := "#!/usr/bin/env bash\nprintf '%s\\n' \"$*\" >> \"$GATE_TEST_CALLS\"\ncase \"$*\" in *\"-C tools\"*) exit 0 ;; *) exit 1 ;; esac\n"
+	if err := os.WriteFile(filepath.Join(bin, "go"), []byte(stub), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	content := "TOOLS_DIR := tools\nTEST_SHARD_RACE :=\nRACE_SHARD_TOOLS_SKIP :=\nTEST_SHARD_RUN :=\nSKIP_TOOLS_TESTS :=\nSHARD_SELECT :=\n\ntest-shard:\n" + strings.Join(recipe, "\n") + "\n"
+	if err := os.WriteFile(filepath.Join(temp, "Makefile"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	calls := filepath.Join(temp, "calls")
+	cmd := exec.Command("make", "--no-print-directory", "test-shard", "SHARD=tools")
+	cmd.Dir = temp
+	cmd.Env = append(os.Environ(), "PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"), "GATE_TEST_CALLS="+calls)
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("shard succeeded although the WebAssembly suite failed:\n%s", out)
+	}
+	data, err := os.ReadFile(calls)
+	if err != nil {
+		t.Fatalf("read recorded go calls: %v\n%s", err, out)
+	}
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("got %d go invocations, want the root modules' two suites:\n%s\n%s", len(lines), string(data), out)
+	}
+	if strings.Contains(lines[0], "-C tools") || !strings.Contains(lines[1], "-C tools") {
+		t.Errorf("tools module was not attempted after the failure:\n%s", string(data))
+	}
 }
 
 // TestShardScriptAllListsEveryDeclaredShard pins the discovery surface the
