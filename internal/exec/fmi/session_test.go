@@ -447,6 +447,72 @@ func TestSessionRunnerFaults(t *testing.T) {
 	}
 }
 
+// A runner that exits successfully before answering fails with a typed error,
+// not a panic on the nil wait error of a clean exit.
+func TestSessionCleanExitIsTyped(t *testing.T) {
+	fmu := decayFMU(t)
+	uri := fileURI(fmu)
+	p := parseProbe(t, fmt.Sprintf(decayDriver, uri))
+	resetModes(t, "session-exit-clean")
+	m := testManager(t, SessionConfig{})
+
+	_, err := m.Open(context.Background(), "alice", decayCall(t, p, uri, 3))
+	if err == nil {
+		t.Fatal("Open accepted a runner that exited without answering")
+	}
+	var sessionErr *SessionError
+	var toolErr *runtime.ToolError
+	if !errors.As(err, &sessionErr) || !errors.As(err, &toolErr) {
+		t.Fatalf("Open = %v, want a SessionError wrapping a ToolError", err)
+	}
+	if !errors.Is(err, ErrSession) || !errors.Is(err, runtime.ErrTool) {
+		t.Fatalf("Open = %v, want it to match the session and tool sentinels", err)
+	}
+	if toolErr.Kind != runtime.ToolProcessFailed {
+		t.Fatalf("Open = %v, want a ToolError of kind process failed", err)
+	}
+	if !strings.Contains(err.Error(), "the session runner exited before answering") {
+		t.Fatalf("Open = %v, want it to name the clean exit", err)
+	}
+}
+
+// An init bigger than a pipe's capacity still misses its deadline when the
+// runner never reads stdin: the write and answer share one cancellation.
+func TestInitDeadlineWithBlockedWrite(t *testing.T) {
+	fmu := writeFMU(t, "payload.fmu", `<?xml version="1.0" encoding="UTF-8"?>
+<fmiModelDescription fmiVersion="2.0" modelName="Payload" guid="{payload}">
+  <CoSimulation modelIdentifier="Payload"/>
+  <ModelVariables>
+    <ScalarVariable name="payload" valueReference="1" causality="input"><String/></ScalarVariable>
+    <ScalarVariable name="y" valueReference="2" causality="output"><Real/></ScalarVariable>
+  </ModelVariables>
+</fmiModelDescription>`, "x86_64-linux")
+	uri := fileURI(fmu)
+	resetModes(t, "session-deaf")
+	m := newSessionManager(func() (string, error) { return runner(t), nil },
+		func() time.Duration { return 250 * time.Millisecond }, func() int { return 1 << 20 }, SessionConfig{})
+	t.Cleanup(func() { _ = m.Close() })
+	call := &runtime.ToolCall{ToolName: "fmi", URI: uri, Inputs: []runtime.ToolInput{
+		{Variable: "payload", Parameter: "payload", Value: runtime.ToolValue{Text: strings.Repeat("x", 2<<20)}},
+		{Variable: "fmi:startTime", Parameter: "startTime", Value: real(0)},
+		{Variable: "fmi:stopTime", Parameter: "stopTime", Value: real(3)},
+	}, Outputs: []runtime.ToolOutput{{Variable: "y", Parameter: "y"}}}
+
+	result := make(chan error, 1)
+	go func() { _, err := m.Open(context.Background(), "alice", call); result <- err }()
+	select {
+	case err := <-result:
+		if err == nil {
+			t.Fatal("Open initialized a runner that never read stdin")
+		}
+		if !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("Open = %v, want a deadline error", err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("the blocked init missed its deadline")
+	}
+}
+
 // TestSessionStepFaultIsTyped drives a failure after a successful init through
 // the fault file, so the step's error is distinguished from an init failure.
 func TestSessionStepFaultIsTyped(t *testing.T) {

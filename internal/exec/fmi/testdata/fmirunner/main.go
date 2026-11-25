@@ -190,6 +190,17 @@ func sessionHang() {
 	time.Sleep(time.Hour)
 }
 
+// sessionExitClean reads one command and exits successfully without answering.
+func sessionExitClean() {
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Scan()
+}
+
+// sessionDeaf never reads stdin, so a large command blocks the runner's pipe.
+func sessionDeaf() {
+	time.Sleep(time.Hour)
+}
+
 // ode answers one whole fmi/1 run at the request's stop time.
 func ode(request []byte) string {
 	var cmd command
@@ -223,6 +234,14 @@ func main() {
 	}
 	if text == "session-hang" {
 		sessionHang()
+		return
+	}
+	if text == "session-exit-clean" {
+		sessionExitClean()
+		return
+	}
+	if text == "session-deaf" {
+		sessionDeaf()
 		return
 	}
 	request, err := io.ReadAll(os.Stdin)
