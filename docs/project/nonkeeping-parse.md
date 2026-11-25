@@ -7,8 +7,9 @@ gates that make those names contracts. It is written for a reader who has only t
 ## Why the capability is missing
 
 `ParseSources` answers a model and inserts it into the service's parsed-model cache. The cache is
-a least-recently-used set: `Cache.Get` promotes the model it returns and `Cache.Add` evicts the
-least recently used entry at capacity. The production service runs with three entries.
+a least-recently-used set: `Cache.Get` promotes the model it returns, `Cache.Peek` reads one without
+changing its recency, and `Cache.Add` evicts the least recently used entry at capacity. The
+production service runs with three entries.
 
 That is the right default for a caller opening a model it will keep querying. It is the wrong
 default for a caller that parses a *derived* model only to read an answer from it. A consumer
@@ -46,12 +47,9 @@ At the pinned baseline and at the v0.12.1 release:
 present and true, the request is the old parse and the response is byte-identical to before. When
 it is false, and the service advertises `parse_sources_keep`, the service builds the same
 `model_hash`, roots, diagnostics and affected set, and then drops the model from the in-memory
-<<<<<<< HEAD
-parsed-model LRU: it neither adds an entry there nor promotes one already under that hash — a
-non-promoting peek lets an undo back to cached content compare against its own analysis stamps.
-=======
-parsed-model LRU: it neither adds an entry there nor looks up an entry already under that hash.
->>>>>>> a248ae4f51 (chore(integration): merge feat/u12b-nonkeeping-parse (docs union))
+parsed-model LRU: it neither adds an entry there nor promotes one already under that hash. A
+non-promoting peek lets an undo back to cached content compare against its own analysis stamps,
+and a base hash named for `affected` is read with `Cache.Peek` as well, so its recency is unchanged.
 A caller can therefore read a derived union, use the answer, and leave its own cached models
 exactly as they were. Whether the trees come from parsing or from disk parse records is a
 separate matter: with a record cache configured, a transient parse may restore trees from disk
@@ -72,13 +70,12 @@ client that accepts parse options refuses `keep` on its one-document calls.
 - **`keep` rather than an inverted flag.** A `transient` flag would have kept the wire default
   but would have named the opposite of the service's existing `keep` parameter. The field names
   the one concept already in `parseModelKeeping`, and clients spell it the same way.
-- **No parsed-model LRU read on a transient parse.** Looking up the hash of the model being
-  parsed would promote an entry that belongs to another caller. A transient parse computes its
-  own hash from its inputs and returns its own model, so it touches neither the LRU's contents
-  nor its recency. Disk parse records are not that LRU: with a record cache configured, the
-  transient parse may read them and write parse and analysis records. The caller's
-  `base_model_hash`, when given, is still read from the LRU to compute `affected`; that is the
-  model the caller explicitly named.
+- **No promoting parsed-model LRU read on a transient parse.** Looking up the hash of the model
+  being parsed would promote an entry that belongs to another caller, and reading the caller's
+  `base_model_hash` with `Cache.Get` would do the same to the model it named. A transient parse
+  computes its own hash from its inputs and reads a named base with `Cache.Peek`, so it changes
+  neither the LRU's contents nor its recency. Disk parse records are not that LRU: with a record
+  cache configured, the transient parse may read them and write parse and analysis records.
 - **Lineage and records are unchanged.** The incremental workspace and the on-disk record store
   are separate from the parsed-model LRU and evict no entry from it, so keeping their use leaves
   the internal staging callers' behavior intact. A record cache can restore trees from disk in a
@@ -97,7 +94,7 @@ client that accepts parse options refuses `keep` on its one-document calls.
 | --- | --- |
 | RPC | `ParseSources(ParseSourcesRequest)`, new field `optional bool keep = 4` (JSON name `keep`) |
 | Capability | `parse_sources_keep`, advertised by `GetServerInfo` |
-| Go service | `CapabilityParseSourcesKeep`; `Service.ParseSources`; `Service.parseModelKeeping(..., keep bool)` skips the parsed-model LRU lookup and insertion when `keep` is false |
+| Go service | `CapabilityParseSourcesKeep`; `Service.ParseSources`; `Service.parseModelKeeping(..., keep bool)` skips the parsed-model LRU lookup and insertion when `keep` is false, and reads a named base with `Cache.Peek` |
 | Go client | `Client.ParseDocuments(..., WithKeep(bool))`; `CapabilityParseSourcesKeep`; `WithKeep` on `ParseFile`/`ParseSource` is an `INVALID_ARGUMENT` |
 | Python client | `Connection.parse_sources(..., keep=True)` and the module-level `opensysml.parse_sources(..., keep=True)`; `CAPABILITY_PARSE_SOURCES_KEEP` |
 | Node client | `ParseSourcesOptions.keep?: boolean`; `CAPABILITY_PARSE_SOURCES_KEEP` |
@@ -118,6 +115,7 @@ by the repository's existing field-number and breaking-change gates.
 | --- | --- |
 | Two-model fixture, a cache of three, a transient union read twice with a read of the other model in between, and the open model still usable | `internal/frontend/grpc/nonkeeping_test.go` → `TestParseSourcesKeepFalseLeavesTheOpenModelCached` |
 | The transient model is not retained, and an inserted parse would have evicted one of the three (so the no-eviction check is not vacuous) | the same test: it counts `srv.cache.items`, checks the union's hash is absent, and then parses the same union with `keep=true` and observes an eviction |
+| A transient read of a cached base does not refresh that base's LRU position | `nonkeeping_test.go` → `TestParseSourcesKeepFalseDoesNotPromoteTheBase` fills a three-entry cache with the base oldest, reads it transiently, then keeps a fourth model and asserts the base was the victim; `cache_test.go` → `TestCachePeekDoesNotPromote` checks the lookup alone |
 | The transient answer is identical to a kept answer | `nonkeeping_test.go` → `TestParseSourcesKeepFalseAnswersWhatAKeptParseAnswers` |
 | A service without the capability refuses a stated field; an ordinary parse is unaffected | `nonkeeping_test.go` → `TestParseSourcesKeepNeedsTheCapability` and `internal/frontend/grpc/capability_test.go` |
 | A transient parse stopped at any cancellation point leaves nothing cached | `nonkeeping_test.go` → `TestParseSourcesKeepFalseCancelledParseKeepsNothing` |
@@ -137,6 +135,9 @@ Results recorded on this branch with the pinned toolchain versions in the reposi
 - Targeted: `go test ./internal/frontend/grpc -run 'TestParseSourcesKeep|TestCapability'` — pass;
   `go test ./client/opensysml -run 'TestWithKeep|TestCallsAreNotSentWithoutTheirCapability|TestCapabilityConstantsCoverTheService|TestABaseModel'` — pass;
   `go test ./tests/hygiene -count=1` — pass (295.978s).
+- Non-promoting base lookup: `GOMAXPROCS=2 GOFLAGS=-p=2 go test -count=1 ./internal/frontend/grpc
+  ./client/opensysml` — pass; restoring the base read to `Cache.Get` fails
+  `TestParseSourcesKeepFalseDoesNotPromoteTheBase`, so the new regression is load-bearing.
 - Python: `pytest tests/test_parse_sources.py tests/test_wire_compat.py -q` — 59 passed, 10 skipped
   (the skips are service-backed cases without a running `sysml-grpc`).
 - Node: `node --test build/test/sources.test.js` — 16 passed, 0 failed.

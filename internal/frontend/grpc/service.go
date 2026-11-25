@@ -942,8 +942,9 @@ func (s *Service) ParseSources(ctx context.Context, req *pb.ParseSourcesRequest)
 		inputs = append(inputs, input)
 	}
 
+	keep := req.Keep == nil || req.GetKeep()
 	modelHash, model, err := s.parseModelKeeping(ctx, inputs, diag.ConformanceModeOf(req.StrictConformance),
-		true, req.Keep == nil || req.GetKeep())
+		true, keep)
 	if err != nil {
 		return nil, err
 	}
@@ -953,7 +954,11 @@ func (s *Service) ParseSources(ctx context.Context, req *pb.ParseSourcesRequest)
 	}
 	var base *CachedModel
 	if req.BaseModelHash != "" {
-		base, _ = s.cache.Get(req.BaseModelHash)
+		if keep {
+			base, _ = s.cache.Get(req.BaseModelHash)
+		} else {
+			base, _ = s.cache.Peek(req.BaseModelHash)
+		}
 	}
 	resp := &pb.ParseSourcesResponse{
 		ModelHash:   modelHash,

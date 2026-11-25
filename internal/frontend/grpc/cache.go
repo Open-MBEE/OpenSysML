@@ -380,8 +380,8 @@ func (c *Cache) Get(hash string) (*CachedModel, bool) {
 	return entry.value, true
 }
 
-// Peek retrieves a model from cache without promoting it, so a transient parse
-// can answer from the kept snapshot without changing which model the cache evicts.
+// Peek retrieves a model without refreshing its LRU position: a transient parse
+// reuses a kept answer and resolves a base hash without changing eviction.
 func (c *Cache) Peek(hash string) (*CachedModel, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
