@@ -3,16 +3,20 @@
 The runner is what `OPENSYSML_FMI_RUNNER` names — the `tool:fmi` engine starts one
 per evaluation and speaks the protocol of docs/reference/fmi.md: a request object
 carries the FMU's path, the interface to run, the experiment, the start values and
-the outputs to read; the reply is `{"protocol": 1, "time": …, "outputs": {…}}` or
-`{"protocol": 1, "error": "…"}`. FMPy does the simulation; it is an optional
-dependency, installed by `pip install opensysml[fmi]`.
+the outputs to read; a `series` member asks for a sampled trajectory. The reply is
+`{"protocol": 1, "time": …, "outputs": {…}}`, with a `series` member of sample
+times and values when asked, or `{"protocol": 1, "error": "…"}`. FMPy does the
+simulation; it is an optional dependency, installed by `pip install opensysml[fmi]`.
 """
 
+import bisect
 import json
+import math
 import sys
 from typing import Any
 
 PROTOCOL = 1
+MAX_SERIES_SAMPLES = 10000
 
 # The tool:fmi request's interface name, as the fmi/1 protocol spells it, to the
 # fmpy.simulate_fmu fmi_type argument.
@@ -72,6 +76,10 @@ def run(request: dict[str, Any]) -> dict[str, Any]:
         )
     experiment = request.get("experiment") or {}
     outputs = request.get("outputs") or []
+    series = request.get("series")
+    series_outputs = list(dict.fromkeys((series or {}).get("outputs") or []))
+    # A variable sampled only into a trajectory still needs an fmpy column.
+    requested = list(dict.fromkeys(outputs + series_outputs))
     fmu = request.get("fmu") or ""
     try:
         result = fmpy.simulate_fmu(
@@ -82,11 +90,15 @@ def run(request: dict[str, Any]) -> dict[str, Any]:
             step_size=experiment.get("stepSize") or None,
             relative_tolerance=experiment.get("tolerance") or None,
             start_values=request.get("start") or {},
-            output=outputs or None,
+            output=requested or None,
             fmi_type=fmi_type,
         )
     except Exception as e:  # noqa: BLE001  # every fmpy failure is a reply, not a crash
         return _error(str(e))
+    if series is not None:
+        problem = _series_problem(series)
+        if problem:
+            return _error(problem)
     types = _variable_types(fmpy, fmu)
     last = result[-1]
     reply: dict[str, Any] = {
@@ -103,7 +115,92 @@ def run(request: dict[str, Any]) -> dict[str, Any]:
             reply["outputs"][name] = [_convert(v, fmi_type) for v in column]
         else:
             reply["outputs"][name] = _convert(column, fmi_type)
+    if series is not None:
+        reply["series"] = _series(result, series, series_outputs, types)
     return reply
+
+
+def _series_problem(series: dict[str, Any]) -> str:
+    """A bad series request, or the empty string when it can be answered."""
+    if not isinstance(series, dict):
+        return "series must be an object"
+    samples = series.get("samples")
+    if not isinstance(samples, int) or isinstance(samples, bool) or samples < 2:
+        return f"series samples must be an integer of at least 2, got {samples!r}"
+    if samples > MAX_SERIES_SAMPLES:
+        return f"series samples exceed the limit of {MAX_SERIES_SAMPLES}"
+    if not isinstance(series.get("outputs"), list):
+        return "series outputs must be a list"
+    times = series.get("times")
+    if times is not None:
+        if not isinstance(times, list) or len(times) != samples:
+            return "series times must list one instant per sample"
+        previous = None
+        for value in times:
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+                return "series times must be finite numbers"
+            if previous is not None and value < previous:
+                return "series times must be ordered"
+            previous = value
+    return ""
+
+
+def _series(result: Any, series: dict[str, Any], names: list[str],
+            types: dict[str, tuple[str, bool]]) -> dict[str, Any]:
+    """Sample the result at requested instants, or evenly spaced ones."""
+    samples = series["samples"]
+    wanted = series.get("times")
+    if wanted is None:
+        sampled = _sample_rows(result, samples)
+        times = [float(row["time"]) for row in sampled]
+    else:
+        times = [float(value) for value in wanted]
+        sampled = _interpolate(result, times)
+    answer: dict[str, Any] = {"times": times, "outputs": {}}
+    for name in names:
+        fmi_type, is_array = types.get(name, ("", False))
+        if is_array:
+            answer["outputs"][name] = [
+                [_convert(v, fmi_type) for v in row[name]] for row in sampled
+            ]
+        else:
+            answer["outputs"][name] = [_convert(row[name], fmi_type) for row in sampled]
+    return answer
+
+
+def _sample_rows(result: Any, samples: int) -> list[Any]:
+    """The recorded rows nearest to each of `samples` evenly spaced instants."""
+    rows = len(result)
+    return [result[min(round(i * (rows - 1) / (samples - 1)), rows - 1)]
+            for i in range(samples)]
+
+
+def _interpolate(result: Any, times: list[float]) -> list[dict[str, Any]]:
+    """Rows interpolating every variable of result at the requested instants."""
+    recorded = [float(row["time"]) for row in result]
+    sampled = []
+    for time in times:
+        if time <= recorded[0]:
+            sampled.append(result[0])
+            continue
+        if time >= recorded[-1]:
+            sampled.append(result[-1])
+            continue
+        high = bisect.bisect_left(recorded, time)
+        before, after = result[high - 1], result[high]
+        fraction = (time - recorded[high - 1]) / (recorded[high] - recorded[high - 1])
+        row = {"time": time}
+        for name, value in before.items():
+            other = after[name]
+            if (not isinstance(value, bool) and not isinstance(other, bool)
+                    and isinstance(value, (int, float)) and isinstance(other, (int, float))):
+                row[name] = value + (other - value) * fraction
+            elif isinstance(value, list) and isinstance(other, list):
+                row[name] = [v + (w - v) * fraction for v, w in zip(value, other)]
+            else:
+                row[name] = other if fraction >= 0.5 else value
+        sampled.append(row)
+    return sampled
 
 
 def main() -> int:

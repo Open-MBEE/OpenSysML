@@ -1,0 +1,1 @@
+- **Added sampled trajectory outputs to `tool:fmi`.** Bind `fmi:series:<variable>` to a multi-valued parameter (with `fmi:samples`, `fmi:sampleInterval` and `fmi:seriesTime`) so a max- or min-over-trajectory requirement is decidable in one run; scalar outputs keep their existing wire shape and a series is never collapsed to the value at `stopTime`.

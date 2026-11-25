@@ -340,7 +340,7 @@ func (m *SessionManager) Open(ctx context.Context, caller string, call *runtime.
 	if err := checkVariables(call, d); err != nil {
 		return nil, err
 	}
-	fields, err := requestFields(call, d, fmu)
+	fields, _, err := requestFields(call, d, fmu)
 	if err != nil {
 		return nil, err
 	}
@@ -846,6 +846,43 @@ func namesStep(call *runtime.ToolCall) bool {
 	}
 	for _, in := range call.Inputs {
 		if in.Variable == StepVariable {
+			return true
+		}
+	}
+	return false
+}
+
+// ErrSessionSeries is the typed error for a stepped call that also asks for a
+// trajectory.
+var ErrSessionSeries = errors.New("fmi session does not answer series")
+
+// SessionSeriesError refuses a step combined with fmi:samples,
+// fmi:sampleInterval or fmi:series:* outputs: a session answers scalar outputs
+// at each step, a trajectory is the one-shot runner's answer.
+type SessionSeriesError struct{ Tool string }
+
+// Error names the reserved input and the conflicting series variables.
+func (e *SessionSeriesError) Error() string {
+	return fmt.Sprintf("%s: %s cannot be combined with fmi:samples, fmi:sampleInterval or fmi:series:* outputs", e.Tool, StepVariable)
+}
+
+// Is matches ErrSessionSeries and ErrSession.
+func (e *SessionSeriesError) Is(target error) bool {
+	return target == ErrSessionSeries || target == ErrSession
+}
+
+// namesSeries reports whether a call asks for any trajectory input or output.
+func namesSeries(call *runtime.ToolCall) bool {
+	if call == nil {
+		return false
+	}
+	for _, in := range call.Inputs {
+		if in.Variable == seriesSamplesInput || in.Variable == seriesIntervalInput {
+			return true
+		}
+	}
+	for _, out := range call.Outputs {
+		if isSeriesOutput(out.Variable) {
 			return true
 		}
 	}
