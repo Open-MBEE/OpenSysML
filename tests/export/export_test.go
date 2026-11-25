@@ -230,10 +230,25 @@ func TestCastAndExtentTypeTheirResult(t *testing.T) {
 			t.Errorf("graph states the parameter %s for a result type", parameter)
 		}
 	}
+	wants := []string{"ref part n = o as T;", "ref part e = all T;", "attribute m = o meta T;", "attribute i = o istype T;"}
 	notation := structuralRoundTrip(t, "cast_extent", graph)
-	for _, want := range []string{"ref part n = o as T;", "ref part e = all T;", "attribute m = o meta T;", "attribute i = o istype T;"} {
+	for _, want := range wants {
 		if !strings.Contains(string(notation), want) {
 			t.Errorf("notation does not write %q\n%s", want, notation)
+		}
+	}
+	// The core ownership links alone name the type: no collapsed argument, no derived membership or typing.
+	core := withoutTriples(t, graph, "sysx:sourceText")
+	for _, property := range []string{"sysx:typeArgument", "sysml:ownedFeatureMembership", "sysml:ownedTyping"} {
+		core = withoutTriples(t, core, property)
+	}
+	fromCore, err := convert.Convert("cast_extent.ttl", core, convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation from the ownership links alone: %v", err)
+	}
+	for _, want := range wants {
+		if !strings.Contains(string(fromCore), want) {
+			t.Errorf("notation from the ownership links alone does not write %q\n%s", want, fromCore)
 		}
 	}
 }

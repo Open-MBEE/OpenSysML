@@ -2681,7 +2681,7 @@ func (d *decoder) typeArgumentParameter(parameter rdf.Term) bool {
 
 // typeArgumentOf is the type a type-argument parameter is typed by.
 func (d *decoder) typeArgumentOf(parameter rdf.Term) (rdf.Term, bool) {
-	for _, typing := range d.graph.Objects(parameter, rdf.SysML+"ownedTyping") {
+	for _, typing := range d.graph.Objects(parameter, rdf.SysML+pOwnedRelationship) {
 		if d.metaclass(typing) == mFeatureTyping {
 			return d.graph.Object(typing, rdf.SysML+"type")
 		}
@@ -2696,7 +2696,7 @@ func (d *decoder) expressionTypeArgument(node rdf.Term, in *element) (string, bo
 	collapsed, hasCollapsed := d.graph.Object(node, rdf.OpenSysML+xTypeArgument)
 	var typed []rdf.Term
 	operator, _ := d.graph.Lexical(node, rdf.SysML+pOperator)
-	for _, membership := range d.graph.Objects(node, rdf.SysML+pOwnedFeatureMembership) {
+	for _, membership := range d.graph.Objects(node, rdf.SysML+pOwnedRelationship) {
 		// A cast or extent states its type on its result; a test, on an in parameter.
 		if metaclass := d.metaclass(membership); metaclass != mParameterMembership &&
 			(metaclass != mReturnParameterMembership || !typeResultOperators[operator]) {
