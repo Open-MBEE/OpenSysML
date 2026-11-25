@@ -232,10 +232,12 @@ func splitLabel(label string) (before, sep, segment string) {
 // `type` from the session, other metadata from its declaration, else a feature.
 func (e *executor) objectPropertyValues(row Value, property string) ([]Value, bool, error) {
 	builtin, isBuiltin := query.BuiltinProperty(property)
-	if isBuiltin && query.IsBuiltinAlias(property) && e.context.Features[property] {
+	if isBuiltin && e.context.Features[property] {
+		// An explicit model feature reads the object's held value, under either
+		// spelling of the name.
 		return e.objectFeatureValues(row, builtin)
 	}
-	if isBuiltin && !query.IsBuiltinAlias(property) && !e.context.Builtins[property] && !e.context.Features[property] {
+	if isBuiltin && !query.IsBuiltinAlias(property) && !e.context.Builtins[property] {
 		// The bare name reads a feature the object holds before the evaluator's
 		// own property of that name.
 		if values, present, err := e.objectFeatureValues(row, builtin); present || err != nil {
@@ -243,6 +245,20 @@ func (e *executor) objectPropertyValues(row Value, property string) ([]Value, bo
 		}
 	}
 	inst, label, _ := row.Object()
+	if isBuiltin && builtin == query.PropertyAnnotations {
+		// The declaration's metadata is a bulk read, as on an element row; the
+		// object's identity is the row, not the symbol the binding came from.
+		values, _, err := e.annotationValues(objectDeclaration(inst))
+		if err != nil {
+			return nil, true, err
+		}
+		origin := row.Origin()
+		out := make([]Value, len(values))
+		for i, value := range values {
+			out[i] = valueAt(value, origin)
+		}
+		return out, true, nil
+	}
 	origin := row.Origin()
 	text := func(values ...string) []Value {
 		out := make([]Value, 0, len(values))
