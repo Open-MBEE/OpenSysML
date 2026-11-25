@@ -8,3 +8,6 @@
   them, and a referencing feature still does not acquire the referenced feature's type.
   A succession written there that reverses an order the referenced feature declares is reported as
   `succession-order-cycle`, as it is under an ordinary subsetting.
+  A `::>` target that the referencing feature cannot itself access (`part def B { ref part observer ::> A::source; }`,
+  where `source` is a feature of `A`) is now reported as `subsetting-featuring-types`, as a `:>` target already was and
+  as the pilot reports it; the dot form `::> host.source` and a target the owner inherits stay clean.

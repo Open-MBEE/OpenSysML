@@ -46,6 +46,14 @@ func TestFeaturesHeldByReferenceSubsettingAreAccessible(t *testing.T) {
 	part source { attribute a = 1; }
 	ref part observer ::> source { attribute c = a; }
 }`,
+		"a nested referenced feature reached by dot notation": `package P {
+	part host { part source { part a; part b; } }
+	part elsewhere { ref part observer ::> host.source { connect a to b; } }
+}`,
+		"a referenced feature the owner inherits": `package P {
+	part def A { part source { part a; part b; } }
+	part def B :> A { ref part observer ::> A::source { connect a to b; } }
+}`,
 	}
 	for name, src := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -88,13 +96,38 @@ func TestFeaturesNotHeldByReferenceSubsettingStayInaccessible(t *testing.T) {
 	part source { event occurrence sent; event occurrence got; }
 	ref part observer ::> source { part inner { succession first sent then got; } }
 }`, []string{"3:63", "3:73"}},
+		"a referenced feature of another definition, connection": {`package P {
+	part def A { part source { part a; part b; } }
+	part def B { ref part observer ::> A::source { connect a to b; } }
+}`, []string{"3:37"}},
+		"a referenced feature of another definition, feature value": {`package P {
+	part def A { part source { attribute a = 1; } }
+	part def B { ref part observer ::> A::source { attribute c = a; } }
+}`, []string{"3:37"}},
+		"a referenced feature of another definition, succession": {`package P {
+	part def A { part source { event occurrence sent; event occurrence got; } }
+	part def B { ref part observer ::> A::source { succession first sent then got; } }
+}`, []string{"3:37"}},
+		"a referenced action of another definition": {`package P {
+	action def A { action source { action a; action b; } }
+	action def B { action observer ::> A::source { first a then b; } }
+}`, []string{"3:37"}},
+		"a referenced feature of another usage": {`package P {
+	part host { part source { part a; part b; } }
+	part elsewhere { ref part observer ::> host::source { connect a to b; } }
+}`, []string{"3:41"}},
+		"a referenced feature of another definition, no body": {`package P {
+	part def A { part source; }
+	part def B { ref part observer ::> A::source; }
+}`, []string{"3:37"}},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			var got []string
 			for _, d := range analyzeAll(t, "inaccessible.sysml", tc.src) {
 				if d.Severity == diag.SeverityError && d.Message == msgConnectorTypeFeaturing &&
-					(d.Code == "feature-reference-featuring-types" || d.Code == "connector-type-featuring") {
+					(d.Code == "feature-reference-featuring-types" || d.Code == "connector-type-featuring" ||
+						d.Code == "subsetting-featuring-types") {
 					got = append(got, locationOf(tc.src, d.Span.Offset))
 				}
 			}
