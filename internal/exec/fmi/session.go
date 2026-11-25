@@ -790,10 +790,28 @@ type sessionToolRunner struct {
 	delegate runtime.ToolRunner
 }
 
+// stepDescription reads the FMU only when a call spells the step name: a
+// one-shot call keeps its single process, and a bad uri is the delegate's error.
+func stepDescription(call *runtime.ToolCall) *Description {
+	if call != nil {
+		for _, in := range call.Inputs {
+			if in.Variable == StepVariable {
+				if fmu, err := resolveURI(call); err == nil {
+					if d, err := Read(fmu); err == nil {
+						return d
+					}
+				}
+				return &Description{}
+			}
+		}
+	}
+	return &Description{}
+}
+
 // RunTool steps the caller's session to the call's time and binds the values
-// read there. Calls without StepVariable keep the delegate's behavior.
+// read there. Calls without a reserved step input keep the delegate's behavior.
 func (r *sessionToolRunner) RunTool(call *runtime.ToolCall) (runtime.ToolAnswer, error) {
-	t, stepped, err := stepTimeOf(call)
+	t, stepped, err := stepTimeOf(call, stepDescription(call))
 	if err != nil {
 		return runtime.ToolAnswer{}, err
 	}
@@ -839,21 +857,7 @@ func (e *SessionRequiredError) Error() string {
 // Is matches ErrSession.
 func (e *SessionRequiredError) Is(target error) bool { return target == ErrSession }
 
-// namesStep reports whether a call asks for a session step.
-func namesStep(call *runtime.ToolCall) bool {
-	if call == nil {
-		return false
-	}
-	for _, in := range call.Inputs {
-		if in.Variable == StepVariable {
-			return true
-		}
-	}
-	return false
-}
-
-// ErrSessionSeries is the typed error for a stepped call that also asks for a
-// trajectory.
+// ErrSessionSeries is the typed error for a step combined with a trajectory.
 var ErrSessionSeries = errors.New("fmi session does not answer series")
 
 // SessionSeriesError refuses a step combined with fmi:samples,
@@ -871,31 +875,49 @@ func (e *SessionSeriesError) Is(target error) bool {
 	return target == ErrSessionSeries || target == ErrSession
 }
 
-// namesSeries reports whether a call asks for any trajectory input or output.
-func namesSeries(call *runtime.ToolCall) bool {
-	if call == nil {
+// namesStep reports whether a call asks for a session step rather than setting
+// an FMU variable whose archive name is exactly the step spelling.
+func namesStep(call *runtime.ToolCall, d *Description) bool {
+	if call == nil || d == nil {
 		return false
 	}
 	for _, in := range call.Inputs {
-		if in.Variable == seriesSamplesInput || in.Variable == seriesIntervalInput {
-			return true
-		}
-	}
-	for _, out := range call.Outputs {
-		if isSeriesOutput(out.Variable) {
+		if in.Variable == StepVariable && inputIsReserved(in, d) {
 			return true
 		}
 	}
 	return false
 }
 
-// stepTimeOf finds the reserved step time of a call, if it names one.
-func stepTimeOf(call *runtime.ToolCall) (float64, bool, error) {
-	if call == nil {
+// namesSeries reports whether a call asks for a trajectory, using the same
+// classification so a literal fmi:series:y output is not a series request.
+func namesSeries(call *runtime.ToolCall, d *Description) bool {
+	if call == nil || d == nil {
+		return false
+	}
+	for _, in := range call.Inputs {
+		if (in.Variable == seriesSamplesInput || in.Variable == seriesIntervalInput) &&
+			inputIsReserved(in, d) {
+			return true
+		}
+	}
+	for _, out := range call.Outputs {
+		kind, _, _ := classifyOutput(out.Variable, d)
+		if kind == sampleTimes || kind == sampleSeries {
+			return true
+		}
+	}
+	return false
+}
+
+// stepTimeOf finds the reserved step time of a call, if it names one. A literal
+// FMU input of that name is a start value, so no step is found for it.
+func stepTimeOf(call *runtime.ToolCall, d *Description) (float64, bool, error) {
+	if call == nil || d == nil {
 		return 0, false, nil
 	}
 	for _, in := range call.Inputs {
-		if in.Variable == StepVariable {
+		if in.Variable == StepVariable && inputIsReserved(in, d) {
 			n, err := reservedNumber(call, in, "s")
 			return n, true, err
 		}

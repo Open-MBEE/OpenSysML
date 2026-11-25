@@ -123,6 +123,8 @@ substituted for a trajectory.
 | A non-dividing interval is sampled at the requested instants, and a respaced reply is refused | `TestSeriesIntervalSpacingIsHonoured` |
 | Invalid series variables are refused | `TestSeriesVariableErrors` |
 | A literal imported name colliding with a selector reads the scalar at `stopTime` | `TestLiteralNameCollidingWithSeriesSelectorBindsAtStopTime`, `TestClassifyGivesFMUNamesFirstClaim` |
+| A literal `fmi:stepTime` FMU input is set as a variable, not routed to a session | `TestLiteralStepInputIsSetAsAVariable` |
+| A genuine step plus trajectory selector is refused on every surface | `TestRealStepAndSeriesAreRefusedTogether` |
 | The reference runner samples a trajectory and honours requested instants | `test_series_answers_evenly_spaced_samples`, `test_series_only_variables_are_requested_from_fmpy`, `test_requested_sample_instants_are_honoured`, `test_requested_instants_interpolate_between_steps`, `test_bad_series_requests_are_error_replies` (`client/python/tests/test_fmi_runner.py`) |
 | FMPy structured records sample at exact and interpolated instants, and discrete values stay recorded | `test_structured_fmpy_records_sample_exact_and_interior_instants`, `test_structured_array_column_interpolates_elements`, `test_discrete_variables_are_not_interpolated` |
 | Even samples follow recorded time, not row index | `test_even_samples_follow_time_not_row_index` |

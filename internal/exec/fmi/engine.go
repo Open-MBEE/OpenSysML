@@ -166,19 +166,17 @@ func (e *engine) Covers(_ *analysis.Model, q analysis.Question) analysis.Coverag
 	if call.ToolName != "fmi" {
 		return analysis.Coverage{Refusal: &analysis.WrongToolError{Engine: e.Name(), Tool: call.ToolName}}
 	}
-	// The combination is refused by both surfaces, so name it before the
-	// step-only short-circuit chooses the generic session error.
-	if namesStep(call) && namesSeries(call) {
+	d, _, err := e.resolve(call)
+	if err != nil {
+		return analysis.Coverage{Refusal: err}
+	}
+	if namesStep(call, d) && namesSeries(call, d) {
 		return analysis.Coverage{Refusal: &SessionSeriesError{Tool: e.Name()}}
 	}
-	if namesStep(call) {
+	if namesStep(call, d) {
 		return analysis.Coverage{Refusal: &SessionRequiredError{Tool: e.Name()}}
 	}
 	if _, err := e.Process(); err != nil {
-		return analysis.Coverage{Refusal: err}
-	}
-	d, _, err := e.resolve(call)
-	if err != nil {
 		return analysis.Coverage{Refusal: err}
 	}
 	if err := checkVariables(call, d); err != nil {
@@ -341,19 +339,19 @@ func (e *engine) Run(ctx context.Context, _ *analysis.Model, q analysis.Question
 		return analysis.Result{}, &analysis.MalformedQuestionError{Kind: q.Kind, Missing: "a Compute with a Call"}
 	}
 	call := q.Compute.Call
-	if namesStep(call) && namesSeries(call) {
+	d, fmu, err := e.resolve(call)
+	if err != nil {
+		return analysis.Result{}, err
+	}
+	if namesStep(call, d) && namesSeries(call, d) {
 		return analysis.Result{}, &SessionSeriesError{Tool: e.Name()}
 	}
-	if namesStep(call) {
+	if namesStep(call, d) {
 		return analysis.Result{}, &SessionRequiredError{Tool: e.Name()}
 	}
 	path, err := e.look()
 	if err != nil {
 		return analysis.Result{}, &analysis.ProcessAbsentError{Engine: e.Name(), Process: runnerDescription, Err: err}
-	}
-	d, fmu, err := e.resolve(call)
-	if err != nil {
-		return analysis.Result{}, err
 	}
 	if err := checkVariables(call, d); err != nil {
 		return analysis.Result{}, err

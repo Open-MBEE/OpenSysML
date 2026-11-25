@@ -193,10 +193,14 @@ variable; `fmi:stepTime` asks for a session step:
 
 These spellings are selectors, but an FMU variable whose archive name is exactly
 one of them is still a model variable: the engine gives the FMU's own names first
-claim. An output named `fmi:series:y` on an FMU declaring that variable reads its
-value at `stopTime`, as the importer's `ToolVariable` name preserves it verbatim.
+claim, on every surface that routes a call. An input named `fmi:stepTime` on an FMU
+declaring that variable is set on the FMU rather than opening an evaluation
+session; an output named `fmi:series:y` reads its value at `stopTime` rather than
+sampling `y`, as the importer's `ToolVariable` name preserves names verbatim.
 When both `y` and `fmi:series:y` exist in one FMU, that spelling reads the literal,
 so a trajectory of `y` cannot be requested — avoid such names when both are needed.
+A genuine step input combined with a trajectory selector is refused as a typed
+error: a session answers scalars per step, a trajectory answers once per run.
 
 ## Trajectory (series) outputs
 

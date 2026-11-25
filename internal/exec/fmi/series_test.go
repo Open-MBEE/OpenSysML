@@ -1,6 +1,7 @@
 package fmi
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -449,6 +450,90 @@ func TestSampleCountValidatesTheRequest(t *testing.T) {
 				t.Fatalf("sampleCount = %v, want a ToolError of kind unsent input", err)
 			}
 		})
+	}
+}
+
+// recordingToolRunner forwards nothing; it only proves which surface a call reached.
+type recordingToolRunner struct{ calls []*runtime.ToolCall }
+
+func (r *recordingToolRunner) RunTool(call *runtime.ToolCall) (runtime.ToolAnswer, error) {
+	r.calls = append(r.calls, call)
+	return runtime.ToolAnswer{}, nil
+}
+
+// TestLiteralStepInputIsSetAsAVariable proves an FMU input actually named
+// fmi:stepTime is set on the FMU, not routed to a session as a step control.
+func TestLiteralStepInputIsSetAsAVariable(t *testing.T) {
+	fmu := writeFMU(t, "literal-step.fmu", `<?xml version="1.0" encoding="UTF-8"?>
+<fmiModelDescription fmiVersion="2.0" modelName="LiteralStep" guid="{literal-step}">
+  <CoSimulation modelIdentifier="LiteralStep"/>
+  <ModelVariables>
+    <ScalarVariable name="fmi:stepTime" valueReference="1" causality="input"><Real/></ScalarVariable>
+    <ScalarVariable name="y" valueReference="2" causality="output"><Real/></ScalarVariable>
+  </ModelVariables>
+</fmiModelDescription>`, "x86_64-linux")
+	uri := fileURI(fmu)
+	d, err := Read(fmu)
+	if err != nil {
+		t.Fatal(err)
+	}
+	call := &runtime.ToolCall{ToolName: "fmi", URI: uri,
+		Inputs:  []runtime.ToolInput{{Variable: StepVariable, Parameter: "stepTime", Value: real(0.7)}},
+		Outputs: []runtime.ToolOutput{{Variable: "y", Parameter: "y"}}}
+	if namesStep(call, d) {
+		t.Fatal("an FMU-declared fmi:stepTime must not be a session step")
+	}
+	if _, stepped, err := stepTimeOf(call, d); err != nil || stepped {
+		t.Fatalf("stepTimeOf = %v, %v; want no step", stepped, err)
+	}
+	fields, _, err := requestFields(call, d, fmu)
+	if err != nil {
+		t.Fatalf("requestFields: %v", err)
+	}
+	if got := fields.Start[StepVariable]; got != 0.7 {
+		t.Fatalf("start[%s] = %v, want the literal value 0.7", StepVariable, got)
+	}
+	e := engineFor(t)
+	q := analysis.Question{Kind: analysis.Compute, Compute: &analysis.ComputeAsk{Call: call}}
+	if cov := e.Covers(nil, q); !cov.Covered {
+		t.Fatalf("Covers refused a literal step input: %v", cov.Refusal)
+	}
+
+	delegate := &recordingToolRunner{}
+	m := testManager(t, SessionConfig{})
+	if _, err := m.ToolRunner("alice", delegate).RunTool(call); err != nil {
+		t.Fatalf("RunTool: %v", err)
+	}
+	if len(delegate.calls) != 1 {
+		t.Fatalf("the session runner forwarded %d calls, want the one-shot delegate", len(delegate.calls))
+	}
+}
+
+// TestRealStepAndSeriesAreRefusedTogether keeps the typed refusal for a genuine
+// step control combined with a trajectory selector on all three surfaces.
+func TestRealStepAndSeriesAreRefusedTogether(t *testing.T) {
+	fmu := writeFMU(t, "series.fmu", seriesFMU, "x86_64-linux")
+	d, err := Read(fmu)
+	if err != nil {
+		t.Fatal(err)
+	}
+	call := &runtime.ToolCall{ToolName: "fmi", URI: fileURI(fmu),
+		Inputs:  []runtime.ToolInput{{Variable: StepVariable, Parameter: "t", Value: real(0.5)}},
+		Outputs: []runtime.ToolOutput{{Variable: seriesOutputPrefix + "T", Parameter: "temps"}}}
+	if !namesStep(call, d) || !namesSeries(call, d) {
+		t.Fatal("a genuine step and series selector must both be detected")
+	}
+	if _, _, err := requestFields(call, d, fmu); !errors.Is(err, ErrSessionSeries) {
+		t.Fatalf("requestFields = %v, want a typed step+series refusal", err)
+	}
+	e := engineFor(t)
+	q := analysis.Question{Kind: analysis.Compute, Compute: &analysis.ComputeAsk{Call: call}}
+	var refusal *SessionSeriesError
+	if cov := e.Covers(nil, q); cov.Covered || !errors.As(cov.Refusal, &refusal) {
+		t.Fatalf("Covers = %+v, want *SessionSeriesError", cov)
+	}
+	if _, err := e.Run(context.Background(), nil, q, analysis.Budget{}); !errors.As(err, &refusal) {
+		t.Fatalf("Run = %v, want *SessionSeriesError", err)
 	}
 }
 
