@@ -12,7 +12,8 @@ import (
 // the metadata annotating the element ref names, as a sequence of objects of the
 // annotating metadata types, in the order the annotations are stated. An element
 // no metadata annotates reads as the empty sequence.
-func (ec *EvalContext) evalMetadataAccess(n *ast.MetadataAccessExpr) (Value, error) {
+func (ec *EvalContext) evalMetadataAccess(x lowered) (Value, error) {
+	n, _ := x.tree().(*ast.MetadataAccessExpr)
 	sym, err := ec.metadataSubject(n)
 	if err != nil {
 		return Value{}, err
@@ -191,4 +192,53 @@ func (ec *EvalContext) metadataNestedObject(typ *symbols.Symbol, inst *Instance,
 			ErrTypeMismatch, name, feature)
 	}
 	return nested, nil
+}
+
+// AnnotationObject is one annotation of an element and the object it denotes:
+// Err says why the object could not be made, and Object is then nil.
+type AnnotationObject struct {
+	Annotation semantics.ElementMetadata
+	Object     *Instance
+	Err        error
+}
+
+// AnnotationObjectsOf answers the annotations of an element as `.metadata`
+// reads them, one whose values cannot be evaluated reported in its place.
+func (ctx *Context) AnnotationObjectsOf(sym *symbols.Symbol) []AnnotationObject {
+	if ctx.model.semantics == nil || sym == nil {
+		return nil
+	}
+	annotations := ctx.model.semantics.ElementMetadataOf(sym)
+	out := make([]AnnotationObject, 0, len(annotations))
+	ec := newEvalContext(ctx, sym.OwnerScope)
+	for i, annotation := range annotations {
+		commit, rollback := ctx.beginJournal()
+		val, err := ec.metadataInstance(metadataAnnotation{element: sym, index: i}, annotation)
+		if err != nil {
+			rollback()
+			out = append(out, AnnotationObject{Annotation: annotation, Err: err})
+			continue
+		}
+		commit()
+		out = append(out, AnnotationObject{Annotation: annotation, Object: ctx.instances[val.Instance]})
+	}
+	return out
+}
+
+// AnnotatedElement answers the element `sym.metadata` reads the metadata of:
+// the one an alias names, and any other symbol itself.
+func (ctx *Context) AnnotatedElement(sym *symbols.Symbol) *symbols.Symbol {
+	if sym == nil || ctx.model.resolver == nil {
+		return sym
+	}
+	if target, aliased := ctx.resolveAliasTarget(sym); aliased && target != nil {
+		return target
+	}
+	return sym
+}
+
+// TypesOfObject answers the model elements an object is of: the usage or
+// definition it was made from, then each feature that classified it since.
+func (ctx *Context) TypesOfObject(inst *Instance) []*symbols.Symbol {
+	return inst.types()
 }

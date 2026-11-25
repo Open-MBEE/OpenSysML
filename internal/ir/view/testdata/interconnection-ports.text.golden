@@ -6,7 +6,8 @@ part def Toaster
   part control
     port ^durationOut
   part chassis
+  flow
 
 connections:
-  control.durationOut -- heating.durationIn
-  control.durationOut => heating.durationIn
+  control.durationOut -- flow n4
+  flow n4 -- heating.durationIn

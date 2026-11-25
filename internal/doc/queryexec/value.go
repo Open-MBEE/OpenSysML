@@ -2,10 +2,14 @@
 package queryexec
 
 import (
+	"math"
+	"strconv"
+	"strings"
+
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"strings"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // ValueKind classifies one scalar query value.
@@ -52,6 +56,7 @@ type Value struct {
 	real     float64
 	boolean  bool
 	quantity *semantics.Quantity
+	heldAs   *symbols.Symbol
 	origin   symbols.Origin
 }
 
@@ -127,6 +132,10 @@ func constantValue(constant semantics.Value) (Value, bool) {
 	case semantics.ValBool:
 		return BooleanValue(constant.Bool), true
 	case semantics.ValInfinity:
+		// ValueInfinity is the unbounded `*`; `-*` is the Real below every other.
+		if constant.IsNegativeInfinity() {
+			return RealValue(math.Inf(-1)), true
+		}
 		return Value{kind: ValueInfinity}, true
 	default:
 		return Value{}, false
@@ -214,6 +223,55 @@ func (v Value) Integer() (int64, bool) {
 // integer value.
 func (v Value) IntegerConst() (semantics.Value, bool) { return v.integer, v.kind == ValueInteger }
 
+// ValueText renders one typed value as plain, unescaped text: an element by the name
+// names gives it, by its qualified name when names is nil.
+func ValueText(value Value, names func(*symbols.Symbol) string) string {
+	if element, ok := value.Element(); ok {
+		if names == nil {
+			return symbols.FQNOf(element)
+		}
+		return names(element)
+	}
+	if _, label, ok := value.Object(); ok {
+		return label
+	}
+	if _, _, ok := value.ConnectorEnd(); ok {
+		return value.Label()
+	}
+	if verdict, ok := value.Verdict(); ok {
+		return verdict.Summary()
+	}
+	if state, ok := value.State(); ok {
+		return state.Label()
+	}
+	if event, ok := value.Event(); ok {
+		return event.Summary()
+	}
+	if text, ok := value.String(); ok {
+		return text
+	}
+	if integer, ok := value.IntegerConst(); ok {
+		return integer.FormatInt()
+	}
+	if rational, ok := value.Rational(); ok {
+		return RationalText(rational)
+	}
+	if realVal, ok := value.Real(); ok {
+		return strconv.FormatFloat(realVal, 'g', -1, 64)
+	}
+	if boolean, ok := value.Boolean(); ok {
+		return strconv.FormatBool(boolean)
+	}
+	if value.Kind() == ValueInfinity {
+		return "*"
+	}
+	if quantity, ok := value.Quantity(); ok {
+		magnitude, _ := value.Magnitude()
+		return quantity.TextWithMagnitude(ValueText(magnitude, names))
+	}
+	return ""
+}
+
 // RationalText spells an exact Rational as a document spells a number: a terminating
 // one in decimal, as strconv's shortest 'g' form spells a Real, else `numer/denom`.
 func RationalText(value semantics.Value) string {
@@ -222,6 +280,53 @@ func RationalText(value semantics.Value) string {
 
 // Rational returns the value's exact Rational and whether it is a rational value.
 func (v Value) Rational() (semantics.Value, bool) { return v.integer, v.kind == ValueRational }
+
+// Text is the value as a property's text: an element by identity (its qualified
+// name when identity is nil), an object by its path, a scalar as written. A
+// verdict, state or event row has no such text.
+func (v Value) Text(identity func(*symbols.Symbol) string) (string, bool) {
+	switch v.kind {
+	case ValueElement:
+		if identity != nil {
+			return identity(v.element), true
+		}
+		return symbols.FQNOf(v.element), true
+	case ValueObject:
+		return v.text, true
+	case ValueString:
+		return v.text, true
+	case ValueInteger:
+		return v.integer.FormatInt(), true
+	case ValueRational:
+		return RationalText(v.integer), true
+	case ValueReal:
+		if math.IsInf(v.real, 0) {
+			return semantics.FormatConst(semantics.ExtendedReal(v.real)), true
+		}
+		return strconv.FormatFloat(v.real, 'g', -1, 64), true
+	case ValueBoolean:
+		return strconv.FormatBool(v.boolean), true
+	case ValueInfinity:
+		return "*", true
+	case ValueQuantity:
+		if v.quantity == nil {
+			return "", false
+		}
+		return v.quantity.String(), true
+	default:
+		return "", false
+	}
+}
+
+// QuantityHeldAs is the quantity as a feature of the quantity value type kind holds it; nil is none.
+func QuantityHeldAs(quantity semantics.Quantity, kind *symbols.Symbol) Value {
+	value := QuantityValue(quantity)
+	value.heldAs = kind
+	return value
+}
+
+// QuantityKind is the quantity value type a quantity read off a feature is held as, nil for none.
+func (v Value) QuantityKind() *symbols.Symbol { return v.heldAs }
 
 // Real returns the value's real and whether it is a real value.
 func (v Value) Real() (float64, bool) { return v.real, v.kind == ValueReal }
@@ -405,4 +510,62 @@ func StaticRow(cells []string, origin symbols.Origin) Row {
 		row.cells[i] = Cell{values: []Value{StringValue(text)}, origin: origin}
 	}
 	return row
+}
+
+// WrittenExpression is the text an element the model synthesizes — a send's
+// argument, a feature's value, the chain Feature a chained end references (`a.p`) —
+// was written as. Such an element has no name, scope or identity of its own, so a
+// surface that names elements by identity reports it this way; ok is false for any other.
+func (c Context) WrittenExpression(sym *symbols.Symbol) (string, bool) {
+	if sym == nil {
+		return "", false
+	}
+	if sym.Chain != nil {
+		return c.writtenChain(sym)
+	}
+	if sym.Expr == nil || sym.Decl == nil {
+		return "", false
+	}
+	if lookup := c.Model.SourceText(); lookup != nil {
+		if text := strings.TrimSpace(lookup(sym.DocName, sym.DeclSpan)); text != "" {
+			return text, true
+		}
+	}
+	return ast.QualifiedText(sym.Decl), true
+}
+
+// PropertyText is a value as a property's text on a surface that names elements
+// by Identity: Value.Text, an expression element — which has no identity —
+// reported as written. ok is false for a value the surface has no text for, an
+// element it cannot name included.
+func (c Context) PropertyText(v Value) (string, bool) {
+	text, ok := v.Text(c.Identity)
+	if sym, isElement := v.Element(); isElement && text == "" {
+		return c.WrittenExpression(sym)
+	}
+	return text, ok
+}
+
+// elementText is what an element compares and orders as: its qualified name,
+// or the written text of an expression element, which has none.
+func (e *executor) elementText(sym *symbols.Symbol) string {
+	if name := symbols.FQNOf(sym); name != "" {
+		return name
+	}
+	text, _ := e.context.WrittenExpression(sym)
+	return text
+}
+
+// writtenChain is the chain a chain Feature denotes as its source writes it; false for one
+// of a recorded owner, which keeps no source.
+func (c Context) writtenChain(sym *symbols.Symbol) (string, bool) {
+	if sym.Chain.Node == nil {
+		return "", false
+	}
+	lookup := c.Model.SourceText()
+	if lookup == nil {
+		return "", false
+	}
+	text := strings.TrimSpace(lookup(sym.DocName, sym.Chain.Node.Span()))
+	return text, text != ""
 }

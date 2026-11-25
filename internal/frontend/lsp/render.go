@@ -193,6 +193,7 @@ type RenderResult struct {
 	Columns  []string      `json:"columns,omitempty"`
 	Notices  []string      `json:"notices"`
 	Canvas   *RenderCanvas `json:"canvas,omitzero"`
+	Frame    *RenderFrame  `json:"frame,omitzero"`
 	Palette  *EditPalette  `json:"palette,omitzero"`
 	Version  int           `json:"version"`
 }
@@ -215,8 +216,11 @@ type RenderNode struct {
 	Name            string          `json:"name"`
 	NameSynthesized bool            `json:"nameSynthesized,omitzero"`
 	Inherited       bool            `json:"inherited,omitzero"`
+	Parallel        bool            `json:"parallel,omitzero"`
 	Type            string          `json:"type"`
 	Detail          string          `json:"detail"`
+	Text            string          `json:"text,omitempty"`
+	Arrow           string          `json:"arrow,omitempty"`
 	Parent          string          `json:"parent,omitempty"`
 	Compartment     string          `json:"compartment,omitempty"`
 	Fill            string          `json:"fill,omitempty"`
@@ -279,6 +283,16 @@ type RenderPoint struct {
 }
 
 // RenderCanvas is the drawing surface the view states with a Canvas annotation.
+// RenderFrame is the view frame drawn round a diagram (§8.2.3.26): its name
+// compartment and the info compartments at its corners.
+type RenderFrame struct {
+	Name        string   `json:"name"`
+	Type        string   `json:"type,omitempty"`
+	Exposes     []string `json:"exposes,omitempty"`
+	Filters     []string `json:"filters,omitempty"`
+	Annotations []string `json:"annotations,omitempty"`
+}
+
 type RenderCanvas struct {
 	Unit   string   `json:"unit,omitempty"`
 	Width  *float64 `json:"width,omitzero"`
@@ -509,6 +523,9 @@ func (s *Server) Render(params *RenderParams) (*RenderResult, error) {
 			out.Canvas.Width, out.Canvas.Height = &w, &h
 		}
 	}
+	if f := data.Frame; f != nil {
+		out.Frame = &RenderFrame{Name: f.Name, Type: f.Type, Exposes: f.Exposes, Filters: f.Filters, Annotations: f.Annotations}
+	}
 	s.renderNodes(out, snapshot, data.Nodes, fills, rendering.Included)
 	s.renderEdges(out, snapshot, data.Edges)
 	for _, row := range data.Rows {
@@ -535,7 +552,7 @@ func firstBlocking(diagnostics []diag.Diagnostic) *diag.Diagnostic {
 // since an element the parser could not read is an element no view exposes.
 // The diagnostic and doc are of one reading, so the position is of the text rendered.
 func analysisNotice(name string, doc *model.Document, d diag.Diagnostic) string {
-	at := spanToRange(doc.Content, d.Span).Start
+	at := positionsOf(doc).position(d.Span.Offset)
 	return fmt.Sprintf("%s did not analyse cleanly; nothing was rendered: %d:%d: %s",
 		filepath.Base(name), at.Line+1, at.Character+1, d.Message)
 }
@@ -554,7 +571,10 @@ func (s *Server) renderNodes(out *RenderResult, snapshot *model.Snapshot, nodes 
 			NameSynthesized: node.NameSynthesized,
 			Inherited:       node.Inherited,
 			Type:            node.Type,
+			Parallel:        node.Parallel,
 			Detail:          node.Detail,
+			Text:            view.DisplayText(node.Text),
+			Arrow:           node.Arrow,
 			Parent:          node.Parent,
 			Compartment:     node.Compartment,
 			Fill:            fills[node.ID].Fill,

@@ -3,7 +3,7 @@ classes: {
   definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
   usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
   pin: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 10 } }
-  edge: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+  item: { shape: text; style: { font-size: 14; font-color: black } }
   connection: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 3 } }
 }
 n0: "«part def»\nToaster" {
@@ -17,6 +17,9 @@ n0: "«part def»\nToaster" {
     "n2.0": "^durationOut" { class: pin }
   }
   n3: "«part»\nchassis" { class: usage }
+  n4: "«flow»\n—▶" { class: item }
 }
-n0.n2."n2.0" -- n0.n1."n1.0": { class: connection }
-n0.n2."n2.0" -> n0.n1."n1.0": { class: edge }
+n0.n2."n2.0" -- n0.n4: { class: connection }
+n0.n4 -- n0.n1."n1.0": { class: connection }
+frame_name: "«view» ToasterViews::toasterView" { shape: text; near: top-left }
+frame_tr: "expose ToasterDemo::Toaster" { shape: text; near: top-right }

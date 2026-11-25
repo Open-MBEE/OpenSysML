@@ -1,13 +1,16 @@
 MachineViews::thermostat - state rendering (view def StateTransitionView)
 
 state def Thermostat
+  state transition
   start
   state heating
   state idle
+    state transition
     start
     state drying
     state resting
-  state monitoring
+  state monitoring parallel
+    state transition
     region lights
       start
       state lit

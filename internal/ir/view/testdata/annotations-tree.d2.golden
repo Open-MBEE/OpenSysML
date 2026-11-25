@@ -1,0 +1,26 @@
+# AnnotationViews::tree — tree rendering (render asTreeDiagram)
+classes: {
+  definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
+  usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
+  annotation: { shape: page; style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
+  edge: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+  reference: { source-arrowhead: { shape: diamond; style: { filled: false } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+}
+n0: "«part def»\nPump" { class: definition }
+n1: "«attribute»\nrate" { class: usage }
+n2: "«doc»\nMoves fluid from the tank to the loop." { class: annotation }
+n3: "Sized for the nominal flow." { class: annotation }
+n4: "«comment»\nSafety\nlocale \"en\"\nBoth are rated for the loop pressure." { class: annotation }
+n5: "«rep»\ninline\nlanguage \"plantuml\"\ncomponent Pump" { class: annotation }
+n6: "«part def»\nTank" { class: definition }
+n7: "«doc»\nCapacity\nlocale \"en\"\nHolds the working fluid." { class: annotation }
+n0 <- n1: { class: reference }
+n2 -> n0: { class: edge }
+n3 -> n0: { class: edge }
+n4 -> n0: { class: edge }
+n4 -> n6: { class: edge }
+n5 -> n0: { class: edge }
+n7 -> n6: { class: edge }
+frame_name: "«view» AnnotationViews::tree" { shape: text; near: top-left }
+frame_tr: "expose Annotated::Pump\nexpose Annotated::Tank" { shape: text; near: top-right }
+frame_br: "The structure of the loop, annotated." { shape: text; near: bottom-right }

@@ -3,7 +3,6 @@ package export_test
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -13,51 +12,14 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 )
 
-func TestAPIJSONDeclaredQualifiedNamesMatchOwningNamespace(t *testing.T) {
-	paths, exampleRoot := apiJSONQualifiedNamePaths(t)
-	conversions := corpusConversions(t)
+func declaredQualifiedNamesMatchOwningNamespace() corpusCheck {
 	var countsMu sync.Mutex
-	fixtures, examples, skippedExamples, kindQualifiedNames := 0, 0, 0, 0
+	fixtures, examples, kindQualifiedNames := 0, 0, 0
 	var offenders []string
-	t.Cleanup(func() {
-		countsMu.Lock()
-		defer countsMu.Unlock()
-		sort.Strings(offenders)
-		t.Logf("qualified-name invariant inputs: %d convert fixtures, %d converting examples, %d skipped examples; %d qualifiedNames end in ::kind",
-			fixtures, examples, skippedExamples, kindQualifiedNames)
-		if len(offenders) > 0 {
-			const limit = 20
-			if len(offenders) > limit {
-				t.Errorf("%d declared qualifiedNames differ from their owning namespace; first %d:\n%s",
-					len(offenders), limit, strings.Join(offenders[:limit], "\n"))
-				return
-			}
-			t.Errorf("%d declared qualifiedNames differ from their owning namespace:\n%s",
-				len(offenders), strings.Join(offenders, "\n"))
-		}
-	})
-
-	for _, path := range paths {
-		path := path
-		isExample := strings.HasPrefix(path, exampleRoot+string(filepath.Separator))
-		t.Run(filepath.ToSlash(path), func(t *testing.T) {
-			t.Parallel()
-			defer conversions.release(path)
-			source, err := os.ReadFile(path)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if _, err := conversions.sysMLToRDF(path, source); err != nil {
-				if isExample {
-					countsMu.Lock()
-					skippedExamples++
-					countsMu.Unlock()
-					t.Logf("skipping non-converting example: %v", err)
-					return
-				}
-				t.Fatalf("convert fixture: %v", err)
-			}
-			document, err := conversions.apiJSON(path, source, "standard", "graph")
+	return corpusCheck{
+		name: "declared_qualified_names_match_owning_namespace",
+		check: func(t *testing.T, file corpusFile) {
+			document, err := file.conversions.apiJSON(file.path, file.source, "standard", "graph")
 			if err != nil {
 				t.Fatalf("WriteAPIJSON: %v", err)
 			}
@@ -95,7 +57,7 @@ func TestAPIJSONDeclaredQualifiedNamesMatchOwningNamespace(t *testing.T) {
 						if hasQualifiedName {
 							localOffenders = append(localOffenders, fmt.Sprintf(
 								"%s @id=%q declaredName=%q qualifiedName=%q: later duplicate member must not have qualifiedName",
-								filepath.ToSlash(path), id, declaredName, qualifiedName,
+								filepath.ToSlash(file.path), id, declaredName, qualifiedName,
 							))
 						}
 						continue
@@ -108,14 +70,14 @@ func TestAPIJSONDeclaredQualifiedNamesMatchOwningNamespace(t *testing.T) {
 				if reason != "" {
 					localOffenders = append(localOffenders, fmt.Sprintf(
 						"%s @id=%q declaredName=%q qualifiedName=%q: %s",
-						filepath.ToSlash(path), id, declaredName, qualifiedName, reason,
+						filepath.ToSlash(file.path), id, declaredName, qualifiedName, reason,
 					))
 					continue
 				}
 				if hasNamespaceQualifiedName && !hasQualifiedName {
 					localOffenders = append(localOffenders, fmt.Sprintf(
 						"%s @id=%q declaredName=%q qualifiedName is missing; want=%q",
-						filepath.ToSlash(path), id, declaredName, expected,
+						filepath.ToSlash(file.path), id, declaredName, expected,
 					))
 					continue
 				}
@@ -125,21 +87,38 @@ func TestAPIJSONDeclaredQualifiedNamesMatchOwningNamespace(t *testing.T) {
 				if qualifiedName != expected {
 					localOffenders = append(localOffenders, fmt.Sprintf(
 						"%s @id=%q declaredName=%q qualifiedName=%q want=%q",
-						filepath.ToSlash(path), id, declaredName, qualifiedName, expected,
+						filepath.ToSlash(file.path), id, declaredName, qualifiedName, expected,
 					))
 				}
 			}
 
 			countsMu.Lock()
 			defer countsMu.Unlock()
-			if isExample {
+			if file.isExample {
 				examples++
 			} else {
 				fixtures++
 			}
 			kindQualifiedNames += localKindQualifiedNames
 			offenders = append(offenders, localOffenders...)
-		})
+		},
+		summarize: func(t *testing.T) {
+			countsMu.Lock()
+			defer countsMu.Unlock()
+			sort.Strings(offenders)
+			t.Logf("qualified-name invariant: %d convert fixtures, %d converting examples; %d qualifiedNames end in ::kind",
+				fixtures, examples, kindQualifiedNames)
+			if len(offenders) > 0 {
+				const limit = 20
+				if len(offenders) > limit {
+					t.Errorf("%d declared qualifiedNames differ from their owning namespace; first %d:\n%s",
+						len(offenders), limit, strings.Join(offenders[:limit], "\n"))
+					return
+				}
+				t.Errorf("%d declared qualifiedNames differ from their owning namespace:\n%s",
+					len(offenders), strings.Join(offenders, "\n"))
+			}
+		},
 	}
 }
 

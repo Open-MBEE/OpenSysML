@@ -1,0 +1,51 @@
+@startuml
+' AnnotationViews::definitions — definition rendering (view def GeneralView, filter @PartDefinition; @Definition)
+mainframe <size:10>//«view»//</size> **AnnotationViews::definitions** : GeneralView\n<size:10>expose Annotated*[@SysML::Definition]</size>\n<size:10>filter @SysML::PartDefinition</size>
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+hide circle
+hide empty members
+class "<size:10>//«part def»//</size>\n**Pump**" as n0 <<part def>>
+class "<size:10>//«part def»//</size>\n**Tank**" as n1 <<part def>>
+class "<size:10>//«part def»//</size>\n**Valve**" as n2 <<part def>>
+class "<size:10>//«part def»//</size>\n**Seat**" as n3 <<part def>>
+n2 *-- "seat" n3
+@enduml

@@ -1,5 +1,6 @@
 // An objective's `assume` and `require` constraints both hold over the case's
-// result: the verdict is satisfied, reported beside the return value.
+// named result (inside a constraint, `result` is the constraint's own, as the
+// pilot resolves it): the verdict is satisfied, reported beside the return value.
 package test {
 	private import ScalarValues::*;
 
@@ -14,9 +15,9 @@ package test {
 		in limit : Real;
 		objective affordable {
 			assume constraint { limit > 0.0 }
-			require constraint { result <= limit }
+			require constraint { total <= limit }
 		}
-		return : Real = s.cost + s.other;
+		return total : Real = s.cost + s.other;
 	}
 
 	analysis shipCost : CostAnalysis { subject s = ship; in limit = 20.0; }

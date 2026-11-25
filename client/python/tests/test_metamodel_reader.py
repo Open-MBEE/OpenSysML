@@ -366,18 +366,35 @@ def test_reads_api_json_from_the_open_sysml_service(real_service):
         with pytest.warns(ExperimentalFeatureWarning):
             exported = model.to_api_json()
 
-    graph = read_json(json.loads(str(exported)))
+    document = json.loads(str(exported))
+    graph = read_json(document)
     usage = next(part for part in graph.all(PartUsage) if part.declared_name == "engine")
     assert usage.declared_name == "engine"
-    for name in ("feature", "inherited_feature", "definition"):
-        with pytest.raises(NotSupplied) as excinfo:
-            getattr(usage, name)
-        assert excinfo.value.derived is True
-
     definition = next(
         item for item in graph.all(PartDefinition) if item.declared_name == "Engine"
     )
     assert usage.type == (definition,)
+    assert usage.definition == (definition,)
+
+    # The service completes the derived properties it can and names them; the
+    # ones it leaves out of the element are not supplied, whichever they are.
+    elements = document["elements"] if isinstance(document, dict) else document
+    raw = next(item for item in elements if item["@id"] == usage.json_id)
+    completed = set(raw.get("sysx:completedProperties", []))
+    assert "definition" in completed
+    for key in completed:
+        usage.json_value(key)
+    unsupplied = [
+        (key, name)
+        for key, name in PartUsage.JSON_KEYS.items()
+        if getattr(PartUsage, name).derived and key not in raw
+    ]
+    assert unsupplied
+    for key, name in unsupplied:
+        with pytest.raises(NotSupplied) as excinfo:
+            getattr(usage, name)
+        assert excinfo.value.key == key
+        assert excinfo.value.derived is True
     assert definition.owned_feature
     assert all(isinstance(feature, Element) for feature in definition.owned_feature)
     assert all(feature in graph.all() for feature in definition.owned_feature)

@@ -7,6 +7,7 @@ package export
 import (
 	"errors"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"math"
 	"math/big"
 	"slices"
@@ -14,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -128,7 +130,7 @@ var resultBearing = map[string]bool{
 }
 
 // resultParameter emits the `out` Feature an expression's ReturnParameterMembership owns.
-func (e *encoder) resultParameter(node rdf.Term) {
+func (e *encoder) resultParameter(node rdf.Term) rdf.Term {
 	result := e.ids.mintedNode(rdf.ExpressionIRI(node, "out"), node, "out")
 	membership := e.ids.minted(rdf.OwningMembershipIRIOf(result), result, rdf.OwningMembershipSuffix)
 	e.typed(result, mFeature)
@@ -143,6 +145,7 @@ func (e *encoder) resultParameter(node rdf.Term) {
 	e.graph.Add(node, e.sysml(pOwnedFeature), result)
 	e.graph.Add(node, e.sysml(pParameter), result)
 	e.graph.Add(node, e.sysml(pResult), result)
+	return result
 }
 
 // expressionStructure emits an expression's type and operands; an Expression
@@ -153,9 +156,79 @@ func (e *encoder) expressionStructure(subject rdf.Term, owner string, node ast.N
 		return err
 	}
 	if resultBearing[expressionMetaclass(node)] {
-		e.resultParameter(subject)
+		result := e.resultParameter(subject)
+		if n, ok := node.(*ast.ConstructorExpr); ok {
+			if err := e.constructorArguments(subject, result, owner, n); err != nil {
+				return err
+			}
+		}
+	}
+	e.unboundParameters(subject, owner, node)
+	return nil
+}
+
+// constructorArguments emits a constructor's arguments as the features its result owns
+// (KerML 8.3.4.8.3, KerML.xtext ConstructorResultMember → ArgumentMember), each valued by
+// its argument; the parts keep the ids minted off the constructor.
+func (e *encoder) constructorArguments(subject, result rdf.Term, owner string, n *ast.ConstructorExpr) error {
+	index := 0
+	for _, arg := range n.Args {
+		if arg == nil {
+			continue
+		}
+		child := e.ids.mintedNode(rdf.ExpressionIRI(subject, fmt.Sprintf("a%d", index)), subject, fmt.Sprintf("a%d", index))
+		e.graph.Add(subject, e.sysml(pArgument), child)
+		if err := e.expressionNode(child, owner, arg); err != nil {
+			return err
+		}
+		e.constructorArgumentOwnership(subject, result, child, index, nil)
+		index++
+	}
+	instantiated := e.invokedBehavior(owner, n)
+	for i, arg := range n.NamedArgs {
+		if arg.Value == nil {
+			continue
+		}
+		child := e.ids.mintedNode(rdf.ExpressionIRI(subject, fmt.Sprintf("n%d", i)), subject, fmt.Sprintf("n%d", i))
+		e.graph.Add(subject, e.sysml(pArgument), child)
+		if err := e.expressionNode(child, owner, arg.Value); err != nil {
+			return err
+		}
+		e.constructorArgumentOwnership(subject, result, child, len(n.Args)+i, e.ids.model.ConstructorNamedFeature(instantiated, arg.Name))
+		e.graph.Add(child, e.sysx(xArgumentName), rdf.String(qualifiedText(arg.Name)))
 	}
 	return nil
+}
+
+// constructorArgumentOwnership owns one result feature of a constructor, valued by its argument; a
+// named one redefines the feature it names (checkConstructorExpressionResultFeatureRedefinition).
+func (e *encoder) constructorArgumentOwnership(node, result, argument rdf.Term, index int, redefined *symbols.Symbol) {
+	feature := e.ids.mintedNode(rdf.ExpressionIRI(node, fmt.Sprintf("in%d", index)), node, fmt.Sprintf("in%d", index))
+	membership := e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix)
+	valueMembership := e.ids.minted(rdf.OwningMembershipIRIOf(argument), argument, rdf.OwningMembershipSuffix)
+	e.typed(feature, mFeature)
+	e.graph.Add(feature, e.sysml(pElementID), rdf.String(rdf.LocalName(feature.Value)))
+	e.graph.Add(feature, e.sysml(pDirection), rdf.String("in"))
+	e.emitMembershipCore(membership, feature, result, mFeatureMembership, true)
+	e.graph.Add(result, e.sysml(pOwnedRelationship), membership)
+	e.graph.Add(result, e.sysml(pOwnedMembership), membership)
+	e.graph.Add(result, e.sysml(pOwnedFeatureMembership), membership)
+	e.graph.Add(result, e.sysml(pOwnedFeature), feature)
+	e.graph.Add(membership, e.sysml(pOwnedMemberFeature), feature)
+	if redefined != nil {
+		if target := e.symbolTerm(redefined); target.IsIRI() {
+			spec, _ := e.relationshipSpec(feature, ast.RelRedefines, 1, 0)
+			e.emitRelationship(feature, target, spec)
+		}
+	}
+	e.graph.Add(feature, e.sysml(pOwnedRelationship), valueMembership)
+	e.graph.Add(feature, e.sysml(pOwnedMembership), valueMembership)
+	e.emitMembershipCore(valueMembership, argument, feature, mFeatureValue, true)
+	e.graph.Add(valueMembership, e.sysml(pFeatureWithValue), feature)
+	e.graph.Add(valueMembership, e.sysml(pValue), argument)
+	e.graph.Add(argument, e.sysml(pOwner), feature)
+	e.graph.Add(argument, e.sysml(pOwningRelationship), valueMembership)
+	e.graph.Add(argument, e.sysml(pOwningMembership), valueMembership)
 }
 
 // expressionOperands emits the operands and stored properties of one expression node.
@@ -186,7 +259,7 @@ func (e *encoder) expressionOperands(subject rdf.Term, owner string, node ast.No
 
 	case *ast.OperatorExpr:
 		e.graph.Add(subject, e.sysml(pOperator), rdf.String(n.Operator.String()))
-		if err := e.arguments(subject, owner, n.Operands); err != nil {
+		if err := e.arguments(subject, owner, n.Operands, true); err != nil {
 			return err
 		}
 		if n.TypeRef != nil {
@@ -201,7 +274,9 @@ func (e *encoder) expressionOperands(subject rdf.Term, owner string, node ast.No
 		return e.multiplicity(subject, owner, n.Multiplicity)
 
 	case *ast.FeatureChainExpr:
-		if err := e.arguments(subject, owner, []ast.Node{n.Operand}); err != nil {
+		// A feature chain expression is the `.` operator applied (KerML 1.0 § 8.3.4.8.4).
+		e.graph.Add(subject, e.sysml(pOperator), rdf.String("."))
+		if err := e.arguments(subject, owner, []ast.Node{n.Operand}, true); err != nil {
 			return err
 		}
 		if qualifiedNameHasChain(n.Member) {
@@ -230,23 +305,24 @@ func (e *encoder) expressionOperands(subject rdf.Term, owner string, node ast.No
 			operator = opIndex
 		}
 		e.graph.Add(subject, e.sysml(pOperator), rdf.String(operator))
-		return e.arguments(subject, owner, []ast.Node{n.Operand, n.Index})
+		return e.arguments(subject, owner, []ast.Node{n.Operand, n.Index}, true)
 
 	case *ast.InvocationExpr:
-		return e.invocation(subject, owner, n.Type, n.Operand, n.Args, n.NamedArgs)
+		return e.invocation(subject, owner, n.Type, n.Operand, n.Args, n.NamedArgs, n.BareArgument)
 
 	case *ast.ConstructorExpr:
-		return e.invocation(subject, owner, n.Type, nil, n.Args, n.NamedArgs)
+		// The arguments are the features its result owns, written after it (constructorArguments).
+		return e.invocation(subject, owner, n.Type, nil, nil, nil, false)
 
 	case *ast.CollectExpr:
-		return e.arguments(subject, owner, []ast.Node{n.Operand, n.Body})
+		return e.arguments(subject, owner, []ast.Node{n.Operand, n.Body}, true)
 
 	case *ast.SelectExpr:
-		return e.arguments(subject, owner, []ast.Node{n.Operand, n.Body})
+		return e.arguments(subject, owner, []ast.Node{n.Operand, n.Body}, true)
 
 	case *ast.SequenceExpr:
 		e.graph.Add(subject, e.sysml(pOperator), rdf.String(opSequence))
-		return e.arguments(subject, owner, n.Elements)
+		return e.arguments(subject, owner, n.Elements, true)
 
 	case *ast.MetadataAccessExpr:
 		// The element read is the memberElement of a Membership the expression owns
@@ -265,7 +341,7 @@ func (e *encoder) expressionOperands(subject rdf.Term, owner string, node ast.No
 			kind = "at"
 		}
 		e.graph.Add(subject, e.sysml(pKind), rdf.String(kind))
-		return e.arguments(subject, owner, []ast.Node{n.Duration})
+		return e.arguments(subject, owner, []ast.Node{n.Duration}, false)
 
 	case *ast.ChangeEvent:
 		e.graph.Add(subject, e.sysml(pKind), rdf.String("when"))
@@ -293,7 +369,7 @@ func (e *encoder) changeArgument(subject rdf.Term, owner string, condition ast.N
 	e.bodyMembership(argument, target, mFeatureMembership)
 	e.resultParameter(argument)
 	e.graph.Add(subject, e.sysml(pArgument), argument)
-	return e.expressionOperandOwnership(subject, argument, 0)
+	return e.expressionOperandOwnership(subject, argument, 0, false)
 }
 
 // bodyExpression emits `{ in x; ... result }` as the pilot does (KerMLExpressions
@@ -390,7 +466,7 @@ func decimalText(r *big.Rat, places int) string {
 // exact decimal of the binary value (`"0.1"^^xsd:float` is 0.100000001490116119384765625).
 func binaryLiteralText(term rdf.Term) string {
 	bits := 64
-	switch term.Datatype {
+	switch term.Datatype() {
 	case rdf.XSD + "double":
 	case rdf.XSD + "float":
 		bits = 32
@@ -483,7 +559,7 @@ func (e *encoder) bodyParameter(subject, base rdf.Term, owner string, body *ast.
 	e.graph.Add(node, e.sysml(pElementID), rdf.String(rdf.LocalName(node.Value)))
 	e.graph.Add(node, e.sysx(xMemberIndex), rdf.Int(index))
 	e.graph.Add(node, e.sysml(pDirection), rdf.String(directionKeyword(ast.DirIn)))
-	e.name(node, param.Name)
+	e.name(node, param.Name, source.Span{})
 	// The parameter's symbol derives its variability; a body it declares as its
 	// node is looked up by the parameter's name (deriveUsageMayTimeVary).
 	var variable, timeVarying bool
@@ -493,6 +569,10 @@ func (e *encoder) bodyParameter(subject, base rdf.Term, owner string, body *ast.
 	e.flags(node, []boolProperty{{"isReference", param.IsReference}, {"isVariable", variable}, {"mayTimeVary", timeVarying}})
 	if param.Type != nil {
 		e.headRelationship(node, ast.RelTyping, e.reference(param.Type), param.Type)
+	}
+	// `in p : A, ~B` types the parameter by B's conjugate, as a usage's `: ~B` does.
+	if slices.ContainsFunc(param.Relationships, func(rel *ast.Relationship) bool { return rel.Kind == ast.RelTyping && rel.Conjugated }) {
+		e.graph.Add(node, e.sysx(xConjugatedTyping), rdf.Bool(true))
 	}
 	e.relationships(node, owner, param.Relationships)
 	// Both notations override KerMLExpressions' ExpressionBody with a type
@@ -511,7 +591,7 @@ func (e *encoder) bodyParameter(subject, base rdf.Term, owner string, body *ast.
 // bodyMember emits one declaration of an expression body as the member it is:
 // positioned by the body, with no qualified name or namespace of its own.
 func (e *encoder) bodyMember(subject, base rdf.Term, owner string, index int, member ast.Node) error {
-	node, visibility := unwrapMember(member)
+	node, visibility := naming.UnwrapMember(member)
 	if node == nil {
 		return &UnsupportedError{
 			What: fmt.Sprintf("the empty member at %s", e.where(member)),
@@ -538,13 +618,15 @@ func (e *encoder) bodyMember(subject, base rdf.Term, owner string, index int, me
 }
 
 // arguments emits the operands of an expression, each carrying the position it
-// was written in: RDF states no order between the objects of one property.
-func (e *encoder) arguments(subject rdf.Term, owner string, args []ast.Node) error {
-	return e.argumentsFrom(subject, owner, args, 0)
+// was written in: RDF states no order between the objects of one property. An
+// operator's operand is a private parameter, an invocation's argument a public one
+// (the pilot's OperandEList states the first; its ArgumentMember leaves the second).
+func (e *encoder) arguments(subject rdf.Term, owner string, args []ast.Node, private bool) error {
+	return e.argumentsFrom(subject, owner, args, 0, private)
 }
 
 // argumentsFrom emits args as the operands numbered from first onwards.
-func (e *encoder) argumentsFrom(subject rdf.Term, owner string, args []ast.Node, first int) error {
+func (e *encoder) argumentsFrom(subject rdf.Term, owner string, args []ast.Node, first int, private bool) error {
 	for i, arg := range args {
 		if arg == nil {
 			continue
@@ -554,7 +636,7 @@ func (e *encoder) argumentsFrom(subject rdf.Term, owner string, args []ast.Node,
 		if err := e.expressionNode(child, owner, arg); err != nil {
 			return err
 		}
-		if err := e.expressionOperandOwnership(subject, child, first+i); err != nil {
+		if err := e.expressionOperandOwnership(subject, child, first+i, private); err != nil {
 			return err
 		}
 	}
@@ -592,7 +674,7 @@ func (e *encoder) typeArgument(subject rdf.Term, typeRef *ast.QualifiedName, ind
 // invoked, the receiver of a `->` form, and the arguments. The receiver is the
 // first argument (KerML 8.2.5.8.4: `x->f(a)` is `f(x, a)`), kept apart as
 // sysml:operand so the arrow spelling survives.
-func (e *encoder) invocation(subject rdf.Term, owner string, function *ast.QualifiedName, operand ast.Node, args []ast.Node, named []ast.NamedArg) error {
+func (e *encoder) invocation(subject rdf.Term, owner string, function *ast.QualifiedName, operand ast.Node, args []ast.Node, named []ast.NamedArg, bare bool) error {
 	if function != nil {
 		e.graph.Add(subject, e.sysml(pFunction), e.calleeReference(function))
 		e.calleeMembership(subject, function)
@@ -610,13 +692,15 @@ func (e *encoder) invocation(subject rdf.Term, owner string, function *ast.Quali
 			return err
 		}
 		if function != nil {
-			if err := e.expressionOperandOwnership(subject, receiver, 0); err != nil {
+			// The receiver of `x->f(…)` is an operand (KerMLExpressions.xtext
+			// `InvocationExpression.operand += current`), private like an operator's.
+			if err := e.expressionOperandOwnership(subject, receiver, 0, true); err != nil {
 				return err
 			}
 			first = 1
 		}
 	}
-	if err := e.argumentsFrom(subject, owner, args, first); err != nil {
+	if err := e.argumentsFrom(subject, owner, args, first, bare); err != nil {
 		return err
 	}
 	first += len(args)
@@ -629,10 +713,132 @@ func (e *encoder) invocation(subject rdf.Term, owner string, function *ast.Quali
 		if err := e.expressionNode(child, owner, arg.Value); err != nil {
 			return err
 		}
-		if err := e.expressionOperandOwnership(subject, child, first+i); err != nil {
+		if err := e.expressionOperandOwnership(subject, child, first+i, false); err != nil {
 			return err
 		}
 		e.graph.Add(child, e.sysx(xArgumentName), rdf.String(qualifiedText(arg.Name)))
+	}
+	return nil
+}
+
+// unboundParameters lists under parameter the callee's parameters no argument binds and
+// no owned feature redefines, the `in` ones under input too (KerML 8.3.4.8.8), after the result as the pilot orders them.
+func (e *encoder) unboundParameters(subject rdf.Term, owner string, node ast.Node) {
+	var (
+		operand ast.Node
+		args    []ast.Node
+		named   []ast.NamedArg
+	)
+	switch n := node.(type) {
+	case *ast.InvocationExpr:
+		operand, args, named = n.Operand, n.Args, n.NamedArgs
+		if n.Type == nil {
+			operand = nil
+		}
+	case *ast.ConstructorExpr:
+		args, named = n.Args, n.NamedArgs
+	default:
+		return
+	}
+	callee := e.invokedBehavior(owner, node)
+	if callee == nil {
+		return
+	}
+	positional := len(args)
+	if operand != nil {
+		positional++
+	}
+	bound := make(map[string]bool, len(named))
+	for _, arg := range named {
+		if name, ok := e.ids.model.BoundParameter(callee.Scope, callee, arg.Name); ok {
+			bound[name] = true
+		}
+	}
+	boundSymbols := make(map[*symbols.Symbol]bool, positional+len(bound))
+	for i, p := range e.ids.model.SignatureParametersOf(callee) {
+		if i < positional || bound[p.Name] {
+			boundSymbols[p.Symbol] = true
+		}
+	}
+	emit := func(sym *symbols.Symbol, input bool) {
+		if sym == nil || boundSymbols[sym] {
+			return
+		}
+		term := e.symbolTerm(sym)
+		if !term.IsIRI() {
+			return
+		}
+		e.graph.Add(subject, e.sysml(pParameter), term)
+		if input {
+			e.graph.Add(subject, e.sysml(pInput), term)
+		}
+	}
+	// A requirement's or case's subject is its first input parameter (SysML v2 §7.19.1, §7.20.1).
+	emit(e.ids.model.SubjectParameterOf(callee), true)
+	for _, p := range e.ids.model.BehaviorParametersOf(callee) {
+		if !p.IsResult {
+			emit(p.Symbol, p.Direction == ast.DirIn || p.Direction == ast.DirInOut)
+		}
+	}
+}
+
+// invokedBehavior is the behavior an invocation calls: the overload the checker selects by its arguments
+// among those its name denotes from the owner's scope, or the one Function typing a receiver chain's final link.
+func (e *encoder) invokedBehavior(owner string, node ast.Node) *symbols.Symbol {
+	if e.ids.model == nil {
+		return nil
+	}
+	switch n := node.(type) {
+	case *ast.InvocationExpr:
+		if n.Type == nil {
+			return e.receiverChainFunction(ast.ReceiverChain(n.Operand))
+		}
+		scope := e.callSiteScope(owner, n.Type)
+		if scope == nil {
+			return nil
+		}
+		return passes.SelectInvocation(e.res, e.ids.model, scope, n, semantics.PerformsBehavior).Selected
+	case *ast.ConstructorExpr:
+		if n.Type == nil {
+			return nil
+		}
+		if callee, ok := e.res.PartSymbol(n.Type, len(n.Type.Parts)-1); ok {
+			return callee
+		}
+	}
+	return nil
+}
+
+// callSiteScope is the scope the walk read an invocation's name in; before any walk, the owner's
+// declaring scope (a value resolves there, not among the owner's members), else the first referent's.
+func (e *encoder) callSiteScope(owner string, function *ast.QualifiedName) *symbols.Scope {
+	if scope, ok := e.res.InvocationScope(function); ok {
+		return scope
+	}
+	if sym := e.ids.symByFQN[owner]; sym != nil && sym.OwnerScope != nil {
+		return sym.OwnerScope
+	}
+	if sym, ok := e.res.PartSymbol(function, len(function.Parts)-1); ok && sym != nil {
+		return sym.OwnerScope
+	}
+	return nil
+}
+
+// receiverChainFunction is the Function a receiver chain's final link is or is typed by, when it is one.
+func (e *encoder) receiverChainFunction(links []*ast.QualifiedName) *symbols.Symbol {
+	if len(links) == 0 {
+		return nil
+	}
+	last := links[len(links)-1]
+	final, ok := e.res.PartSymbol(last, len(last.Parts)-1)
+	if !ok || final == nil {
+		return nil
+	}
+	if ontology.IsAncestorOrSelf(declaredMetaclass(final.Decl), "Function") {
+		return final
+	}
+	if functions := e.ids.model.FunctionTypes(final); len(functions) == 1 {
+		return functions[0]
 	}
 	return nil
 }
@@ -823,7 +1029,7 @@ func (e *encoder) expressionOwnership(node, owner rdf.Term, metaclass string) er
 }
 
 // expressionOperandOwnership models an operand as an input parameter and value.
-func (e *encoder) expressionOperandOwnership(node, operand rdf.Term, index int) error {
+func (e *encoder) expressionOperandOwnership(node, operand rdf.Term, index int, private bool) error {
 	parameter := e.ids.mintedNode(rdf.ExpressionIRI(node, fmt.Sprintf("in%d", index)), node, fmt.Sprintf("in%d", index))
 	membership := e.ids.minted(rdf.OwningMembershipIRIOf(parameter), parameter, rdf.OwningMembershipSuffix)
 	valueMembership := e.ids.minted(rdf.OwningMembershipIRIOf(operand), operand, rdf.OwningMembershipSuffix)
@@ -831,6 +1037,9 @@ func (e *encoder) expressionOperandOwnership(node, operand rdf.Term, index int) 
 	e.graph.Add(parameter, e.sysml(pElementID), rdf.String(rdf.LocalName(parameter.Value)))
 	e.graph.Add(parameter, e.sysml(pDirection), rdf.String("in"))
 	e.emitMembershipCore(membership, parameter, node, mParameterMembership, true)
+	if private {
+		e.graph.Add(membership, e.sysml(pVisibility), rdf.String("private"))
+	}
 	e.graph.Add(node, e.sysml(pOwnedRelationship), membership)
 	e.graph.Add(node, e.sysml(pOwnedMembership), membership)
 	e.graph.Add(node, e.sysml(pOwnedFeatureMembership), membership)
@@ -862,7 +1071,7 @@ var expressionMetaclasses = map[string]bool{
 	// A MultiplicityRange is a part of the feature's declaration, and a
 	// Membership relates an expression to its referent: both are minted in the
 	// expression namespace under the element they belong to.
-	mMultiplicityRange: true, mMembership: true,
+	mMultiplicityRange: true, mMultiplicityClass: true, mMembership: true,
 }
 
 // isExpressionRoot reports whether the encoder mints an expr: node of this
@@ -879,7 +1088,7 @@ func isExpressionRoot(metaclass string) bool {
 // isExpressionNode reports whether a subject is part of a declaration (an expression
 // node or a body declaration): unowned, in the expression namespace or an unnamed expression class.
 func (d *decoder) isExpressionNode(subject rdf.Term) bool {
-	if !subject.IsIRI() {
+	if !subject.IsIRI() || d.isNote(subject) {
 		return false
 	}
 	if mappingExpressionBodyMemberSubject(d.graph, subject) {
@@ -896,7 +1105,7 @@ func (d *decoder) isExpressionNode(subject rdf.Term) bool {
 	known := strings.HasPrefix(subject.Value, rdf.Expression) ||
 		d.nodeMemberships[subject.Value].member == subject.Value ||
 		expressionMetaclasses[d.metaclass(subject)] && !hasAddress(d.graph, subject) &&
-			!d.declaredMembership(subject) ||
+			!d.declaredMembership(subject) && !LibraryReference(d.graph, subject) ||
 		d.nodeRelationship(subject)
 	d.expressionNodes[subject.Value] = known
 	return known
@@ -1008,6 +1217,17 @@ func (d *decoder) valueOwner(triple rdf.Triple, valueTargets map[string]string, 
 	return feature, false, nil
 }
 
+// derivedConnectorFeature reports a connector's relatedFeature, sourceFeature, targetFeature and the
+// relatedElement, source, target they redefine, which restate what its ends reference and carry no notation.
+func (d *decoder) derivedConnectorFeature(triple rdf.Triple) bool {
+	switch triple.Predicate.Value {
+	case rdf.SysML + pRelatedFeature, rdf.SysML + pSourceFeature, rdf.SysML + pTargetFeature,
+		rdf.SysML + pRelatedElement, rdf.SysML + pSource, rdf.SysML + pTarget:
+		return ontology.IsAncestorOrSelf(d.metaclass(triple.Subject), "Connector")
+	}
+	return false
+}
+
 // resolveExpression renders one triple's expression-valued property as notation
 // on the element it belongs to.
 func (d *decoder) resolveExpression(triple rdf.Triple, parents map[string][]rdf.Term, valueTargets map[string]string, directValues map[string]rdf.Term) error {
@@ -1025,6 +1245,13 @@ func (d *decoder) resolveExpression(triple rdf.Triple, parents map[string][]rdf.
 	}
 	if triple.Predicate.Value == rdf.SysML+pReferences &&
 		d.graph.BoolValue(triple.Subject, rdf.SysML+pIsEnd) {
+		return nil
+	}
+	if d.derivedConnectorFeature(triple) {
+		return nil
+	}
+	if triple.Predicate.Value == rdf.SysML+pLoopVariable {
+		// A `for` loop's variable is the feature its head declares, not an expression.
 		return nil
 	}
 	if !d.isExpressionNode(triple.Object) {
@@ -1133,6 +1360,11 @@ func (d *decoder) noteSegment(node rdf.Term, parents map[string][]rdf.Term) erro
 			operand = ""
 			continue
 		}
+		if local, ok := d.bodyLocalName(segment); ok {
+			// A feature a body or loop head declares is written by its name alone.
+			operand = local
+			continue
+		}
 		target, name, err := d.namedMember(segment)
 		if err != nil {
 			return err
@@ -1162,6 +1394,11 @@ func (d *decoder) noteFlowEnd(end rdf.Term) error {
 	for _, segment := range segments {
 		if segment.IsLiteral() {
 			operand = ""
+			continue
+		}
+		if local, ok := d.bodyLocalName(segment); ok {
+			// A feature a body or loop head declares is written by its name alone.
+			operand = local
 			continue
 		}
 		target, name, err := d.namedMember(segment)
@@ -1225,7 +1462,7 @@ func realValueText(lexical string) (string, bool) {
 // where that name alone reads as another element after the operand.
 func (d *decoder) segmentName(chain, term rdf.Term, in *element) (string, error) {
 	if term.IsLiteral() {
-		if term.Datatype == rdf.OpenSysML+dtExpression {
+		if term.Datatype() == rdf.OpenSysML+dtExpression {
 			return term.Value, nil
 		}
 		return qualifiedNameText(term.Value), nil
@@ -1269,6 +1506,9 @@ func (d *decoder) operandElement(chain rdf.Term) string {
 	}
 	if !object.IsIRI() {
 		return ""
+	}
+	if local, ok := d.bodyLocalName(object); ok {
+		return local
 	}
 	el, err := d.referencedElement(object.Value)
 	if err != nil {
@@ -1673,7 +1913,7 @@ func (d *decoder) bodyParameterText(param rdf.Term, in *element) (string, error)
 			Note: fmt.Sprintf("a parameter of an expression body is written `in`, and its sysml:direction is %q", direction),
 		}
 	}
-	name, ok := d.stringOf(el, rdf.SysML+pDeclaredName)
+	name, ok := d.nameOf(el, rdf.SysML+pDeclaredName)
 	if !ok {
 		return "", &UnsupportedError{
 			What: what,
@@ -1932,6 +2172,11 @@ func (d *decoder) invocationText(node rdf.Term, in *element) (string, error) {
 		return "", err
 	}
 	arguments := "(" + joinOperands(operands, bindConditional) + ")"
+	if hasFunction && len(terms) == 1 && terms[0].private && terms[0].name == "" {
+		// `xs->forAll {…}`, `xs->reduce '+'`, `F {…}`: the one operand written
+		// without parentheses is private, unlike an argument list's.
+		arguments = " " + operands[0].text
+	}
 	if !hasFunction {
 		// `chain(args)`: the invoked type is the feature chain the operand reaches.
 		if !hasReceiver || d.metaclass(receiver) != mFeatureChain || constructor {
@@ -2019,7 +2264,7 @@ func (d *decoder) metadataAccessReference(node rdf.Term, in *element) (string, e
 // reference (noteSegment records it as a segment). It returns the element reached.
 func (d *decoder) chainLinkName(term rdf.Term, operand string, in *element) (string, string, error) {
 	if term.IsLiteral() {
-		if term.Datatype == rdf.OpenSysML+dtExpression {
+		if term.Datatype() == rdf.OpenSysML+dtExpression {
 			return term.Value, "", nil
 		}
 		return qualifiedNameText(term.Value), "", nil
@@ -2215,10 +2460,12 @@ func (d *decoder) expressionOperandTerms(node rdf.Term) ([]expressionOperandTerm
 	return standard, true, nil
 }
 
-// expressionOperandTerm identifies an operand and its optional named binding.
+// expressionOperandTerm identifies an operand, its optional named binding, and
+// whether its ParameterMembership is private (an operand, not an argument list's).
 type expressionOperandTerm struct {
-	term rdf.Term
-	name string
+	term    rdf.Term
+	name    string
+	private bool
 }
 
 // standardExpressionOperandTerms reads operand identities through parameter memberships.
@@ -2269,7 +2516,8 @@ func (d *decoder) standardExpressionOperandTerms(node rdf.Term) ([]expressionOpe
 			}
 		}
 		name, _ := d.graph.Lexical(value, rdf.OpenSysML+xArgumentName)
-		out = append(out, expressionOperandTerm{term: value, name: name})
+		visibility, _ := d.graph.Lexical(membership, rdf.SysML+pVisibility)
+		out = append(out, expressionOperandTerm{term: value, name: name, private: visibility == "private"})
 	}
 	return out, true, nil
 }

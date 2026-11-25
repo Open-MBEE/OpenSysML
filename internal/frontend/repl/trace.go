@@ -68,28 +68,91 @@ func (s *Session) SetTracing(on bool) {
 	s.setTracing(on)
 }
 
-// SetRecording records typed execution events without printing trace lines.
+// SetRecording records typed execution events without printing trace lines; a
+// session already tracing keeps printing them.
 func (s *Session) SetRecording(on bool) {
 	defer s.enter()()
-	switch {
-	case on && s.trace == nil:
-		s.trace = runtime.NewEventRecorder(0)
-		s.traceSilent = true
-	case !on:
-		s.trace = nil
-		s.traceSilent = false
+	if on && s.trace != nil {
+		return
 	}
-	s.attachTrace()
+	s.setTraceMode(traceModeIf(on, traceRecord))
+}
+
+// traceMode is how a session traces: not at all, recording and printing each
+// step, or recording alone, for %render-run and the Events query to read.
+type traceMode int
+
+const (
+	traceOff traceMode = iota
+	traceOn
+	traceRecord
+)
+
+// traceModeIf is mode when on, else traceOff.
+func traceModeIf(on bool, mode traceMode) traceMode {
+	if on {
+		return mode
+	}
+	return traceOff
+}
+
+// parseTraceMode reads a %trace argument.
+func parseTraceMode(text string) (traceMode, bool) {
+	switch text {
+	case "on":
+		return traceOn, true
+	case "off":
+		return traceOff, true
+	case "record":
+		return traceRecord, true
+	}
+	return traceOff, false
+}
+
+func (m traceMode) String() string {
+	switch m {
+	case traceOn:
+		return "on"
+	case traceRecord:
+		return "record"
+	}
+	return "off"
+}
+
+// tracingMode is the mode the session traces in.
+func (s *Session) tracingMode() traceMode {
+	switch {
+	case s.trace == nil:
+		return traceOff
+	case s.traceSilent:
+		return traceRecord
+	}
+	return traceOn
 }
 
 func (s *Session) setTracing(on bool) {
-	switch {
-	case on && (s.trace == nil || s.traceSilent):
-		s.trace = runtime.NewTraceRecorder()
-		s.traceSilent = false
-	case !on:
+	s.setTraceMode(traceModeIf(on, traceOn))
+}
+
+// setTraceMode moves the session between trace modes. Between on and record the
+// recorder stays, so a run stays renderable; lines recorded before the switch never print.
+func (s *Session) setTraceMode(mode traceMode) {
+	switch mode {
+	case traceOff:
 		s.trace = nil
 		s.traceSilent = false
+	default:
+		silent := mode == traceRecord
+		switch {
+		case s.trace == nil && silent:
+			s.trace = runtime.NewEventRecorder(0)
+		case s.trace == nil:
+			s.trace = runtime.NewTraceRecorder()
+		case s.traceSilent != silent:
+			s.trace.Clear()
+			s.trace.SetQueryOnly(silent)
+		}
+		s.traceSilent = silent
 	}
 	s.attachTrace()
 }

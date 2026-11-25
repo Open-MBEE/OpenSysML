@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» UseCaseViews::caseDefinitionView : GeneralView"
 ---
 %% UseCaseViews::caseDefinitionView — case rendering (view def GeneralView, filter @CaseDefinition)
 flowchart LR

@@ -21,6 +21,9 @@ type EndpointResolver interface {
 	// Endpoint returns the declaration an endpoint names, written in scope, and
 	// whether it names a vertex at all. target is a name or a feature chain (`c.c1`).
 	Endpoint(scope *symbols.Scope, target ast.Node) (decl ast.Node, ok bool)
+	// EndpointNames reports whether an endpoint written in scope names any element at
+	// all, a vertex or not: one that does not is a name-resolution error.
+	EndpointNames(scope *symbols.Scope, target ast.Node) bool
 }
 
 // machineEndpoints resolves the endpoints of one machine through a resolver over
@@ -37,7 +40,14 @@ func (m machineEndpoints) Endpoint(scope *symbols.Scope, target ast.Node) (ast.N
 	return m.resolver.Endpoint(scope, target)
 }
 
-func (m machineEndpoints) RedefinitionTarget(scope *symbols.Scope, decl ast.Node, target ast.Node) (*symbols.Symbol, bool) {
+func (m machineEndpoints) EndpointNames(scope *symbols.Scope, target ast.Node) bool {
+	if scope == nil {
+		scope = m.scope
+	}
+	return m.resolver.EndpointNames(scope, target)
+}
+
+func (m machineEndpoints) RedefinitionTarget(scope *symbols.Scope, decl, target ast.Node) (*symbols.Symbol, bool) {
 	if scope == nil {
 		scope = m.scope
 	}
@@ -80,6 +90,13 @@ func (s scopeEndpoints) Endpoint(scope *symbols.Scope, target ast.Node) (ast.Nod
 		scope = s.machine
 	}
 	return resolve.VertexInScope(scope, target)
+}
+
+func (s scopeEndpoints) EndpointNames(scope *symbols.Scope, target ast.Node) bool {
+	if scope == nil {
+		scope = s.machine
+	}
+	return resolve.NamedInScope(scope, target)
 }
 
 // nameResolver is the resolver the endpoints are resolved through.

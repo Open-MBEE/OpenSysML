@@ -26,7 +26,8 @@ var invalidFixtures = map[string]bool{
 // pinnedErrors names the one deliberate error a gated fixture carries, documented at its top; the
 // fixture is held to exactly one error of that code and zero others.
 var pinnedErrors = map[string]string{
-	"regions.sysml": "no-outgoing-transition",
+	"notation.sysml": "kerml-notation",
+	"regions.sysml":  "no-outgoing-transition",
 }
 
 // siblingSets lists the fixtures the view tests load together; a fixture in no set is loaded alone.
@@ -57,22 +58,7 @@ func TestFixturesHaveNoErrorDiagnostics(t *testing.T) {
 			t.Errorf("pinnedErrors names %s, which is not under testdata", name)
 		}
 	}
-	grouped := make(map[string]bool)
-	sets := [][]string{}
-	for _, set := range siblingSets {
-		for _, name := range set {
-			if !exists[name] {
-				t.Errorf("siblingSets names %s, which is not under testdata", name)
-			}
-			grouped[name] = true
-		}
-		sets = append(sets, set)
-	}
-	for _, path := range paths {
-		if name := filepath.Base(path); !grouped[name] {
-			sets = append(sets, []string{name})
-		}
-	}
+	sets := fixtureSets(t, paths, exists)
 
 	for _, files := range sets {
 		idx := libs.NewModelIndex()
@@ -112,4 +98,27 @@ func TestFixturesHaveNoErrorDiagnostics(t *testing.T) {
 			}
 		}
 	}
+}
+
+// fixtureSets groups the fixtures at paths the way the view tests load them: each sibling set
+// together, every other fixture alone.
+func fixtureSets(t *testing.T, paths []string, exists map[string]bool) [][]string {
+	t.Helper()
+	grouped := make(map[string]bool)
+	sets := [][]string{}
+	for _, set := range siblingSets {
+		for _, name := range set {
+			if !exists[name] {
+				t.Errorf("siblingSets names %s, which is not under testdata", name)
+			}
+			grouped[name] = true
+		}
+		sets = append(sets, set)
+	}
+	for _, path := range paths {
+		if name := filepath.Base(path); !grouped[name] {
+			sets = append(sets, []string{name})
+		}
+	}
+	return sets
 }

@@ -12,6 +12,8 @@ import (
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/exporter"
 )
 
 // pilotExport is one corpus root exported through the pinned pilot.
@@ -22,6 +24,9 @@ type pilotExport struct {
 	// Library counts the standard-library elements the pilot wrote, which this
 	// repository's writer never does; each file that refers to one writes it again.
 	Library int
+	// LibraryKeys maps those elements' normative ids to the bridge's keys, so a
+	// reference of ours to a library element by the same id is keyed alike.
+	LibraryKeys idKeys
 	// Duplicates counts the identical copies dropped; Ambiguous the elements two
 	// of which share a key but differ; Shared names the first such keys.
 	Duplicates int
@@ -31,8 +36,24 @@ type pilotExport struct {
 	// Unkeyed per metaclass.
 	Unkeyable int
 	Unkeyed   map[string]int
+	// Files keeps the pilot's share of each file's summary: its failure, library
+	// elements and diagnostics.
+	Files map[string]*FileSummary
 	// Log keeps the launcher's diagnostics for the text report.
 	Log string
+}
+
+// file is the pilot's share of one source file's summary.
+func (p *pilotExport) file(name string) *FileSummary {
+	if p.Files == nil {
+		p.Files = make(map[string]*FileSummary)
+	}
+	summary := p.Files[name]
+	if summary == nil {
+		summary = &FileSummary{}
+		p.Files[name] = summary
+	}
+	return summary
 }
 
 // pilotDocument is what the bridge writes per input file.
@@ -80,6 +101,21 @@ func runPilot(launcher, dir string, libraries, files []string, timeout time.Dura
 		return nil, fmt.Errorf("create pilot output: %w", err)
 	}
 	defer os.RemoveAll(out)
+	run, err := launchPilot(launcher, dir, out, libraries, files, timeout)
+	if err != nil {
+		return nil, err
+	}
+	return readPilot(dir, out, files, run)
+}
+
+// pilotRun is what one launcher run left beside the documents it wrote.
+type pilotRun struct {
+	Status int    `json:"status"`
+	Stderr string `json:"stderr"`
+}
+
+// launchPilot runs the launcher over dir's files, writing the bridge's documents under out.
+func launchPilot(launcher, dir, out string, libraries, files []string, timeout time.Duration) (pilotRun, error) {
 	args := pilotArgs(dir, out, libraries, files)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -89,19 +125,27 @@ func runPilot(launcher, dir string, libraries, files []string, timeout time.Dura
 	command.Stdout, command.Stderr = os.Stdout, &stderr
 	runErr := command.Run()
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-		return nil, fmt.Errorf("pilot export of %s exceeded %s", dir, timeout)
+		return pilotRun{}, fmt.Errorf("pilot export of %s exceeded %s", dir, timeout)
 	}
-	var exit *exec.ExitError
-	if runErr != nil && (!errors.As(runErr, &exit) || exit.ExitCode() != 1) {
-		return nil, fmt.Errorf("pilot export of %s: %w\n%s", dir, runErr, strings.TrimSpace(stderr.String()))
+	status, err := exporter.Status(dir, runErr, stderr.String())
+	if err != nil {
+		return pilotRun{}, err
 	}
-	result := &pilotExport{Log: pilotLog(stderr.String()), Unkeyed: make(map[string]int)}
+	return pilotRun{Status: status, Stderr: stderr.String()}, nil
+}
+
+// readPilot keys the documents a run wrote under out for dir's files.
+func readPilot(dir, out string, files []string, run pilotRun) (*pilotExport, error) {
+	status := run.Status
+	result := &pilotExport{Log: pilotLog(run.Stderr), Unkeyed: make(map[string]int)}
+	written := 0
 	for _, rel := range files {
 		path := filepath.Join(out, filepath.FromSlash(rel)+".json")
-		content, err := os.ReadFile(path) // #nosec G304 -- the bridge wrote it under our temporary directory
+		content, err := os.ReadFile(path) // #nosec G304 -- the bridge wrote it under the output directory we named
 		if err != nil {
 			if os.IsNotExist(err) {
 				result.Failed = append(result.Failed, rel)
+				result.file(rel).PilotFailed = true
 				continue
 			}
 			return nil, fmt.Errorf("read pilot export %s: %w", rel, err)
@@ -110,9 +154,22 @@ func runPilot(launcher, dir string, libraries, files []string, timeout time.Dura
 		if err != nil {
 			return nil, fmt.Errorf("parse pilot export %s: %w", rel, err)
 		}
+		written++
 		result.Elements = append(result.Elements, keyPilot(document, result)...)
 	}
-	result.Elements, result.Duplicates, result.Ambiguous, result.Shared = dropAmbiguous(result.Elements)
+	if err := exporter.Wrote(dir, status, written, len(files)); err != nil {
+		return nil, err
+	}
+	var duplicates, ambiguous map[string]int
+	result.Elements, duplicates, ambiguous, result.Shared = dropAmbiguous(result.Elements)
+	for file, count := range duplicates {
+		result.Duplicates += count
+		result.file(file).DuplicateElements.Pilot += count
+	}
+	for file, count := range ambiguous {
+		result.Ambiguous += count
+		result.file(file).AmbiguousKeys.Pilot += count
+	}
 	return result, nil
 }
 
@@ -132,6 +189,22 @@ func pilotLog(stderr string) string {
 // table addresses every element and reference it wrote, library ones included.
 func keyPilot(document pilotDocument, result *pilotExport) []*element {
 	elements := make([]*element, 0, len(document.Elements))
+	written := make(map[string]bool, len(document.Elements))
+	for _, item := range document.Elements {
+		if id, _ := item.Payload["@id"].(string); item.Payload["isLibraryElement"] != true {
+			written[id] = true
+		}
+	}
+	// The bridge's table keys every element a file refers to, library elements it
+	// does not write included; those keys serve our references to the same ids.
+	for id, key := range document.Keys {
+		if !written[id] && key != "" {
+			if result.LibraryKeys == nil {
+				result.LibraryKeys = make(idKeys)
+			}
+			result.LibraryKeys[id] = key
+		}
+	}
 	for _, item := range document.Elements {
 		payload := item.Payload
 		id, _ := payload["@id"].(string)
@@ -139,10 +212,12 @@ func keyPilot(document pilotDocument, result *pilotExport) []*element {
 		typ, _ := payload["@type"].(string)
 		if payload["isLibraryElement"] == true {
 			result.Library++
+			result.file(document.File).PilotLibraryElements++
 			continue
 		}
 		if key == "" {
 			result.Unkeyable++
+			result.file(document.File).UnkeyableElements.Pilot++
 			result.Unkeyed[typ]++
 			continue
 		}
@@ -161,11 +236,10 @@ func keyPilot(document pilotDocument, result *pilotExport) []*element {
 // ambiguousSamples is how many shared keys a side's report names.
 const ambiguousSamples = 8
 
-// dropAmbiguous keeps one of several identical copies of an element (the pilot
-// writes an element in every file whose traversal reaches it) and removes every
-// element whose key another, different element shares, since neither could be
-// matched with confidence; it counts both and names the first shared keys.
-func dropAmbiguous(elements []*element) (kept []*element, duplicates, ambiguous int, shared []string) {
+// dropAmbiguous keeps one of identical copies of an element and removes elements sharing a
+// key with a different one; both are counted in their own files, the first shared keys named.
+func dropAmbiguous(elements []*element) (kept []*element, duplicates, ambiguous map[string]int, shared []string) {
+	duplicates, ambiguous = make(map[string]int), make(map[string]int)
 	byKey := make(map[string][]*element, len(elements))
 	for _, e := range elements {
 		byKey[e.Key] = append(byKey[e.Key], e)
@@ -190,11 +264,15 @@ func dropAmbiguous(elements []*element) (kept []*element, duplicates, ambiguous 
 			}
 		}
 		if identical {
-			duplicates += len(copies) - 1
+			for _, other := range copies[1:] {
+				duplicates[other.File]++
+			}
 			kept = append(kept, e)
 			continue
 		}
-		ambiguous += len(copies)
+		for _, other := range copies {
+			ambiguous[other.File]++
+		}
 		if len(shared) < ambiguousSamples {
 			shared = append(shared, e.Key+" ("+e.File+")")
 		}

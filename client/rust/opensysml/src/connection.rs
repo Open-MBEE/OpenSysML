@@ -10,10 +10,12 @@ use std::time::{Duration, Instant};
 use prost::Message;
 
 use crate::binary;
-use crate::capabilities::{upgrade_remedy, CAPABILITY_EDIT_DOCUMENTS, CAPABILITY_FEATURE_VALUES};
+use crate::capabilities::{
+    upgrade_remedy, CAPABILITY_EDIT_DOCUMENTS, CAPABILITY_FEATURE_VALUES, CAPABILITY_SYMBOL_MEMBERS,
+};
 use crate::domain::{
-    Capabilities, EvalOptions, Evaluation, Instantiation, Language, Model, ParseOptions,
-    ServerInfo, Symbol,
+    Capabilities, EvalOptions, Evaluation, Instantiation, Language, Lookup, Model, ParseOptions,
+    ServerInfo, Symbol, SymbolOptions,
 };
 use crate::edit::{edit_result_of, EditCapabilities, EditResult};
 use crate::error::{Error, Status};
@@ -282,12 +284,47 @@ impl Connection {
         self.rpc(method, request)
     }
 
-    pub(crate) fn get_symbol(&self, model_hash: &str, symbol_id: &str) -> Result<Symbol, Error> {
+    /// The kind a request states: none to a service without `symbol_lookup_kind`, which
+    /// reads the string as either.
+    pub(crate) fn lookup_kind(&self, lookup: Lookup) -> i32 {
+        if self
+            .capabilities()
+            .has(crate::capabilities::CAPABILITY_SYMBOL_LOOKUP_KIND)
+        {
+            lookup.wire() as i32
+        } else {
+            wire::LookupKind::Unspecified as i32
+        }
+    }
+
+    pub(crate) fn get_symbol(
+        &self,
+        model_hash: &str,
+        symbol_id: &str,
+        options: &SymbolOptions,
+    ) -> Result<Symbol, Error> {
+        if options.include_library_members {
+            self.capabilities().require(
+                CAPABILITY_SYMBOL_MEMBERS,
+                upgrade_remedy(CAPABILITY_SYMBOL_MEMBERS),
+            )?;
+        }
         let response: wire::SymbolResponse = self.rpc(
             "GetSymbol",
             wire::GetSymbolRequest {
                 model_hash: model_hash.to_owned(),
                 symbol_id: symbol_id.to_owned(),
+                include_library_members: options.include_library_members,
+                // The legacy form of a stated kind, which is all an older service reads.
+                resolve_name: match options.lookup {
+                    Lookup::Either => !options.by_reported_id,
+                    Lookup::QualifiedName => true,
+                    Lookup::ElementId => false,
+                } && self
+                    .capabilities()
+                    .has(crate::capabilities::CAPABILITY_SYMBOL_NAME_RESOLUTION),
+                lookup: self.lookup_kind(options.lookup),
+                member_of: String::new(),
             },
         )?;
         if !response.error.is_empty() {

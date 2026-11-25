@@ -31,14 +31,19 @@ func modelWithLibrary(t *testing.T, text string) (*symbols.Index, *Context) {
 	t.Helper()
 	base, _ := libs.SharedLibrary()
 	idx := symbols.NewOverlay(base)
-	p := parser.New(source.New("model.sysml", []byte(text)))
+	file := source.New("model.sysml", []byte(text))
+	p := parser.New(file)
 	root := p.ParseFile()
 	if len(p.Diagnostics) > 0 {
 		t.Fatalf("fixture does not parse: %v", p.Diagnostics)
 	}
 	idx.AddDocument("model.sysml", root)
 	idx.ExpandWildcardImports()
-	return idx, NewContext(idx)
+	sc := NewContext(idx)
+	sc.Positional = NewPositional(idx, func() []PositionalDocument {
+		return []PositionalDocument{{File: file, Root: root, Scope: idx.DocumentRoot("model.sysml")}}
+	})
+	return idx, sc
 }
 
 func TestMemberChainPrefersTheModelOverALibraryHomonym(t *testing.T) {
@@ -101,5 +106,19 @@ package Demo {
 	// either Part for it.
 	if sym, fqn := MemberChain(idx, sc.Semantics, "Demo::Part::run"); sym != nil {
 		t.Errorf("MemberChain resolved Demo::Part::run through the package to %q", fqn)
+	}
+}
+
+// A return named by the parameter its position redefines is looked up under its
+// qualified name in either spelling: the unquoted one Identity answers or the quoted one.
+func TestLookupFindsAPositionallyNamedReturnInEitherSpelling(t *testing.T) {
+	_, sc := modelWithLibrary(t, "package M;")
+	plain := sc.Lookup("BaseFunctions::@::result")
+	if len(plain) != 1 || sc.Identity(plain[0]) != "BaseFunctions::@::result" {
+		t.Fatalf("Lookup(BaseFunctions::@::result) = %v, want the return of @", plain)
+	}
+	quoted := sc.Lookup("BaseFunctions::'@'::result")
+	if len(quoted) != 1 || quoted[0] != plain[0] {
+		t.Fatalf("Lookup(BaseFunctions::'@'::result) = %v, want the same return", quoted)
 	}
 }

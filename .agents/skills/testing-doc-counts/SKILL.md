@@ -38,7 +38,7 @@ lexical scope, so a table rebound after the loop or shadowed by a `:=` in an inn
 clause does not leak into it). The test and subtest total of a run is **not** generated — only a
 run can state it, so the prose does not quote one.
 
-A third consumer, `<!-- doc-counts:begin analysis-libraries -->` in `docs/project/spec-compliance.md`,
+A third consumer, `<!-- doc-counts:begin analysis-libraries -->` in the compliance map (a source under `docs/project/spec-compliance/`; the combined `docs/project/spec-compliance.md` is built from the sources and not committed on `develop`),
 renders the per-library table from `docs/project/analysis-library-census.json`, which
 `TestAnalysisLibraryCensus` (`internal/exec/runtime/library_census_test.go`) writes under
 `-update-library-census` and otherwise asserts. Its inputs are `doccounts.ReadFigures`
@@ -48,7 +48,7 @@ and a census JSON mutated by hand (a declaration dropped from `evaluated`) must 
 
 The compliance map's own row census (`The map below tracks N semantic rules: …`) is **not** committed
 anywhere: `scripts/mkdocs_census.py` counts it from the rows and fills the
-`<!-- doc-counts:begin census -->` block in `docs/project/spec-compliance.md` while the site builds
+`<!-- doc-counts:begin census -->` block in the compliance map (`docs/project/spec-compliance/01-current-implementation-status.md`) while the site builds
 (`make docs`). A row's status is the one marker in its table's `Status` column; `doc-counts`, the
 `tools/referee/diff` guard and the hook refuse a `🚧` row, a row whose `Status` cell names no status or
 two, a row a blank line separates from its table, and a marker in a table without a `Status` column. Test the hook with
@@ -77,7 +77,7 @@ so it never sees `overrides/*.html`; the hook is the only guard, and both of its
 
 Inputs to the refereed figures are the three committed baselines
 `docs/project/pilot-{differential,xpect,rejection}-baseline.json` (`doccounts.ReadRefereedCounts`);
-`docs/project/spec-compliance.md` is read to refuse a `🚧` row and, since it carries the inventory
+the sources under `docs/project/spec-compliance/` are read to refuse a `🚧` row and, since they carry the inventory
 blocks, is also a consumer.
 
 `make docs-counts` = generate → `go run -C tools ./cmd/doc-counts -check` → `go run -C tools ./cmd/validation-census

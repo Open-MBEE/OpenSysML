@@ -299,14 +299,14 @@ func TestActionTextOfAnonymousActions(t *testing.T) {
 	rendering := render(t, "anonymous-actions.sysml", "AnonymousViews::countedView")
 	texts := map[string]string{}
 	for _, node := range allNodes(rendering.Roots) {
-		if node.Kind == "action" {
+		if node.Kind == "action" || statementKind(node.Kind) {
 			if node.NameSynthesized {
 				t.Errorf("%s %q is taken for named by a migration", node.ID, node.Name)
 			}
 			texts[node.ID] = node.Name + "|" + node.Text
 		}
 	}
-	want := map[string]string{"n1": "tally|", "n2": "|n := n + 1", "n3": "|Go", "n4": "|true", "n5": "|Go", "n6": "|"}
+	want := map[string]string{"n1": "tally|", "n2": "|n := n + 1", "n3": "|Go via inPort", "n4": "|true", "n5": "|Go via inPort", "n6": "|"}
 	for id, text := range want {
 		if texts[id] != text {
 			t.Errorf("%s name|text = %q, want %q", id, texts[id], text)

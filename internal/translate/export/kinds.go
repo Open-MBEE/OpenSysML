@@ -1,6 +1,7 @@
 package export
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
 )
@@ -17,7 +18,7 @@ var definitionMetaclass = map[ast.DefinitionKind]string{
 	ast.DefAttribute:        "AttributeDefinition",
 	ast.DefItem:             "ItemDefinition",
 	ast.DefOccurrence:       "OccurrenceDefinition",
-	ast.DefIndividual:       "IndividualDefinition",
+	ast.DefIndividual:       "OccurrenceDefinition",
 	ast.DefMetaclass:        "Metaclass",
 	ast.DefMetadata:         "MetadataDefinition",
 	ast.DefEnumeration:      "EnumerationDefinition",
@@ -54,7 +55,7 @@ var usageMetaclass = map[ast.UsageKind]string{
 	ast.UsageAttribute:     "AttributeUsage",
 	ast.UsageItem:          "ItemUsage",
 	ast.UsageOccurrence:    "OccurrenceUsage",
-	ast.UsageIndividual:    "IndividualUsage",
+	ast.UsageIndividual:    "OccurrenceUsage",
 	ast.UsageMetadata:      "MetadataUsage",
 	ast.UsageEnumeration:   "EnumerationUsage",
 	ast.UsageView:          "ViewUsage",
@@ -115,6 +116,93 @@ var kermlTypeUsage = map[ast.UsageKind]bool{
 // isType reports whether a metaclass is a Type, by the ontology or by kermlTypeUsage.
 func isType(metaclass string) bool {
 	return ontology.IsAncestorOrSelf(metaclass, "Type") || kermlTypeUsage[metaclassUsage[metaclass]]
+}
+
+// kermlTypeMetaclass names the KerML metaclass a type declaration recorded under a
+// kermlTypeUsage kind builds, by its keyword (KerML.xtext Type, Class, Structure, …).
+var kermlTypeMetaclass = map[string]string{
+	"type":         "Type",
+	"class":        "Class",
+	"struct":       "Structure",
+	"assoc":        "Association",
+	"assoc struct": "AssociationStructure",
+	"behavior":     "Behavior",
+	"predicate":    "Predicate",
+	"interaction":  "Interaction",
+}
+
+// kermlTypeMetaclassUsage reads kermlTypeMetaclass back to the kind the parser records.
+var kermlTypeMetaclassUsage = map[string]ast.UsageKind{
+	"Type":                 ast.UsageClass,
+	"Class":                ast.UsageClass,
+	"Structure":            ast.UsageStruct,
+	"Association":          ast.UsageAssoc,
+	"AssociationStructure": ast.UsageAssoc,
+	"Behavior":             ast.UsageBehavior,
+	"Predicate":            ast.UsagePredicate,
+	"Interaction":          ast.UsageInteraction,
+}
+
+// kermlTypeKeyword reads kermlTypeMetaclass back to the keyword, for a graph that states none;
+// `datatype` and `function` are read the same way from the metaclass only they build.
+var kermlTypeKeyword = func() map[string]string {
+	out := map[string]string{}
+	for keyword, metaclass := range kermlTypeMetaclass {
+		out[metaclass] = keyword
+	}
+	for _, keyword := range []string{"datatype", "function"} {
+		out[keywordMetaclass[keyword]] = keyword
+	}
+	return out
+}()
+
+// legacyKerMLTypeMetaclasses maps the names earlier releases typed a KerML type
+// declaration with, which the metamodel does not declare, to the metaclass each meant.
+var legacyKerMLTypeMetaclasses = map[string]string{
+	"AssociationUsage": "Association",
+	"BehaviorUsage":    "Behavior",
+	"ClassUsage":       "Class",
+	"InteractionUsage": "Interaction",
+	"PredicateUsage":   "Predicate",
+	"StructureUsage":   "Structure",
+}
+
+// legacyKerMLTypeMetaclass gives the metaclass a legacy-typed declaration builds: the one
+// its recorded keyword states (`type`, `assoc struct`), else the one its legacy name meant.
+func legacyKerMLTypeMetaclass(legacy, keyword string) string {
+	if declared, ok := kermlTypeMetaclass[keyword]; ok {
+		return declared
+	}
+	return legacyKerMLTypeMetaclasses[legacy]
+}
+
+// defFormSuffix ends the sysx:declaredKeyword of a `class def`: its metaclass is the one
+// the def-less `class` builds, which a graph stating no keyword reads back as.
+const defFormSuffix = " def"
+
+// defFormKeyword gives the keyword a definition sharing its metaclass with a def-less KerML
+// type declaration records, or "" for a definition its metaclass alone tells from one.
+func defFormKeyword(n *ast.Definition, metaclass string) string {
+	if !n.HasDefKeyword || n.Keyword == "" {
+		return ""
+	}
+	if _, shared := kermlTypeMetaclassUsage[metaclass]; !shared && metaclass != mClassifier {
+		return ""
+	}
+	return n.Keyword + defFormSuffix
+}
+
+// mClassifier is what `classifier` builds; the parser records it under DefClass.
+const mClassifier = "Classifier"
+
+// definitionMetaclassOf gives the metaclass a definition builds, reading the
+// keyword where the kind does not decide it.
+func definitionMetaclassOf(n *ast.Definition) (string, bool) {
+	if n.Kind == ast.DefClass && n.Keyword == "classifier" {
+		return mClassifier, true
+	}
+	m, ok := definitionMetaclass[n.Kind]
+	return m, ok
 }
 
 // keywordMetaclass names the metaclass a keyword builds where several spellings
@@ -178,7 +266,8 @@ func declaredMetaclass(decl ast.Node) string {
 		}
 		return mPackage
 	case *ast.Definition:
-		return definitionMetaclass[n.Kind]
+		m, _ := definitionMetaclassOf(n)
+		return m
 	case *ast.Usage:
 		m, _ := usageMetaclassOf(n, false)
 		return m
@@ -191,6 +280,9 @@ func declaredMetaclass(decl ast.Node) string {
 // a kindless `name = value;` in a metadata body (SysML.xtext MetadataBodyUsage).
 func usageMetaclassOf(n *ast.Usage, inMetadataBody bool) (string, bool) {
 	if m, ok := keywordMetaclass[n.Keyword]; ok {
+		return m, true
+	}
+	if m, ok := kermlTypeMetaclass[n.Keyword]; ok && kermlTypeUsage[n.Kind] {
 		return m, true
 	}
 	switch {
@@ -209,16 +301,30 @@ func usageMetaclassOf(n *ast.Usage, inMetadataBody bool) (string, bool) {
 	case acceptPayload(n) != nil:
 		return mAcceptAction, true
 	}
-	switch nodeStatement(n).(type) {
+	switch s := naming.NodeStatement(n).(type) {
 	case *ast.SendStatement:
 		return mSend, true
 	case *ast.AssignmentActionNode:
 		return mAssignment, true
+	case *ast.IfActionNode:
+		return mIfAction, true
+	case *ast.WhileLoopActionNode:
+		if s.Kind == ast.LoopFor {
+			return mForLoop, true
+		}
+		return mWhileLoop, true
 	}
-	if n.Keyword == "" && (n.Kind == ast.UsageAttribute || inMetadataBody && n.Kind == ast.UsageEnumeration || n.Ident.Name == "" && n.Kind < ast.UsageConnection) {
-		// A kindless usage is a DefaultReferenceUsage; an unnamed one is too,
-		// the name it would take being what a reference lacks (SysML.xtext
-		// MemberElement `isReference ?= 'ref'` defaulted for the unnamed).
+	if n.IsSuccessionFlow() {
+		return mSuccessionFlowUsage, true
+	}
+	if n.IsExtendedUsage() {
+		// Prefix metadata in place of a kind keyword declares a plain Usage
+		// (SysML.xtext ExtendedUsage), not a reference (SysML v2 8.3.6.10).
+		return mUsage, true
+	}
+	if n.Keyword == "" && (n.Kind == ast.UsageAttribute || inMetadataBody && n.Kind == ast.UsageEnumeration) {
+		// A kindless usage is a DefaultReferenceUsage; a name decides nothing, the
+		// prefix does (SysML.xtext IndividualUsage, PortionUsage, EnumeratedValue).
 		return "ReferenceUsage", true
 	}
 	m, ok := usageMetaclass[n.Kind]
@@ -240,43 +346,6 @@ func acceptPayload(n *ast.Usage) *ast.Usage {
 		return payload
 	}
 	return nil
-}
-
-// nodeStatement is the statement an action node is written as, which the node
-// is (`action s send x to r;` is one SendActionUsage named s, SysML.xtext
-// SendNode; `action a assign x := y;` one AssignmentActionUsage,
-// AssignmentNode), or nil for any other usage: a node chaining further
-// statements with `then`, or one whose declaration says more than its
-// visibility and name (`#M action a : A assign …`), which the statement's
-// notation cannot write back and so keeps the action it is declared as.
-func nodeStatement(n *ast.Usage) ast.Node {
-	if n.Kind != ast.UsageAction || !n.IsActionNode || len(n.Members) != 1 || !plainNodeHead(n) {
-		return nil
-	}
-	statement := n.Members[0]
-	if m, ok := statement.(*ast.Membership); ok {
-		statement = m.Member
-	}
-	switch s := statement.(type) {
-	case *ast.SendStatement:
-		if !s.HasBody {
-			return s
-		}
-	case *ast.AssignmentActionNode:
-		return s
-	}
-	return nil
-}
-
-// plainNodeHead reports whether an action node declares nothing but its
-// visibility and name: no prefix, modifier, specialization, multiplicity or
-// value.
-func plainNodeHead(n *ast.Usage) bool {
-	return len(n.Prefixes) == 0 && n.PrefixKeyword == "" && len(n.Relationships) == 0 &&
-		n.Multiplicity == nil && n.CrossFeature == nil && n.Value == nil &&
-		!n.IsAbstract && !n.IsVariation && !n.IsVariant && !n.IsReference && !n.IsVariable &&
-		!n.IsIndividual && n.Portion == ast.PortionNone && !n.IsPortion && n.Direction == ast.DirNone &&
-		!n.IsEnd && !n.IsConstant && !n.IsDerived && !n.IsOrdered && !n.IsNonunique && !n.IsParallel
 }
 
 // eventOccurrence reports an occurrence declared with `event`, whether as its
@@ -313,11 +382,13 @@ var metaclassKeywordUsage = map[string]ast.UsageKind{
 	"DataType":             ast.UsageAttribute,
 	"Function":             ast.UsageCalc,
 	"ReferenceUsage":       ast.UsageAttribute,
+	mUsage:                 ast.UsageAttribute,
 	mEventOccurrenceUsage:  ast.UsageOccurrence,
 	mAssertConstraintUsage: ast.UsageConstraint,
 	mTerminate:             ast.UsageAction,
 	mPerform:               ast.UsageAction,
 	mAcceptAction:          ast.UsageAction, // an accept node, its payload the accept parameter
+	mSuccessionFlowUsage:   ast.UsageFlow,
 	mExhibitStateUsage:     ast.UsageState,
 	mIncludeUseCaseUsage:   ast.UsageUseCase,
 	// PartUsage types actor and stakeholder members too, RequirementUsage an
@@ -351,6 +422,23 @@ func definitionKeyword(kind ast.DefinitionKind) string {
 		return "verification"
 	}
 	return kind.String()
+}
+
+// metaclassDefinitionKeyword is the keyword the decoder writes for kind's metaclass:
+// `individual def` is an OccurrenceDefinition, so its own keyword is a written one.
+func metaclassDefinitionKeyword(kind ast.DefinitionKind) string {
+	if kind == ast.DefIndividual {
+		return definitionKeyword(ast.DefOccurrence)
+	}
+	return definitionKeyword(kind)
+}
+
+// metaclassUsageKeyword is metaclassDefinitionKeyword for a usage kind.
+func metaclassUsageKeyword(kind ast.UsageKind) string {
+	if kind == ast.UsageIndividual {
+		return usageKeyword(ast.UsageOccurrence)
+	}
+	return usageKeyword(kind)
 }
 
 func usageKeyword(kind ast.UsageKind) string {
@@ -470,15 +558,32 @@ var (
 )
 
 func init() {
+	// `individual` is an OccurrenceDefinition/OccurrenceUsage with isIndividual (SysML.xtext
+	// IndividualDefinition, IndividualUsage); the metaclass reads back as the occurrence kind.
 	for kind, name := range definitionMetaclass {
-		metaclassDefinition[name] = kind
+		if kind != ast.DefIndividual {
+			metaclassDefinition[name] = kind
+		}
 	}
 	for kind, name := range usageMetaclass {
-		metaclassUsage[name] = kind
+		if kind != ast.UsageIndividual {
+			metaclassUsage[name] = kind
+		}
 	}
 	for name, kind := range metaclassKeywordUsage {
 		metaclassUsage[name] = kind
 	}
+	// Turtle this conversion wrote before it typed them so.
+	metaclassDefinition["IndividualDefinition"] = ast.DefIndividual
+	metaclassDefinition[mClassifier] = ast.DefClass
+	metaclassUsage["IndividualUsage"] = ast.UsageIndividual
+}
+
+// legacyMetaclasses maps the metaclass names earlier releases wrote for an `individual`
+// to the standard ones; a graph typed so is read as the standard metaclass with isIndividual.
+var legacyMetaclasses = map[string]string{
+	"IndividualDefinition": "OccurrenceDefinition",
+	"IndividualUsage":      "OccurrenceUsage",
 }
 
 // relationshipOrder is the canonical order of a head's relationships, in the

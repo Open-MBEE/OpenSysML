@@ -33,6 +33,13 @@ var syntaxCodes = []Entry{
 		Spec: "SysML v2 §8.2.2.4 ImportPrefix",
 	},
 	{
+		Code: "expose-visibility", Tier: TierSyntax, Severity: "error",
+		Summary: "an `expose` written with `public`, `private` or `protected`",
+		Meaning: "An expose always has protected visibility (SysML v2 validateExposeVisibility), so the grammar admits no visibility indicator before `expose`; the pilot rejects the file. " +
+			"Drop the indicator: `expose P::*;`.",
+		Spec: "SysML v2 §8.2.2.26 Expose and §8.3.26.2 validateExposeVisibility",
+	},
+	{
 		Code: "enumeration-body-member", Tier: TierSyntax, Severity: "error",
 		Summary: "a member an enumeration definition body does not admit",
 		Meaning: "The body of an enumeration definition holds enumerated values, annotations and imports only; a part, attribute or other usage declared there is not admitted by the grammar. " +
@@ -43,16 +50,27 @@ var syntaxCodes = []Entry{
 		Code: "nonstandard-notation", Tier: TierSyntax, Severity: "warning",
 		Summary: "notation OpenSysML reads that no production of the SysML v2 grammar admits",
 		Meaning: "The text is an OpenSysML extension: the parser reads it and the model is analyzed, but the pinned SysML v2 and KerML grammars have no production for it, so another tool will reject the file. " +
-			"The message states the standard form to write instead. `-strict` promotes this finding to an error.",
-		Spec: "the pinned SysML v2 and KerML Xtext grammars",
+			"The message states the standard form to write instead. `-strict` promotes this finding to an error. " +
+			"An escape sequence in a string or an unrestricted name that KerML §8.2.2.3 Table 4 does not list is reported the same way: `\\r`, which the pilot grammar alone adds, " +
+			"is read as a carriage return, but a tool built from the specification's table has no such escape.",
+		Spec: "the pinned SysML v2 and KerML Xtext grammars; KerML §8.2.2.3 Table 4 (Escape Sequences)",
 	},
 	{
-		Code: "kerml-notation", Tier: TierSyntax, Severity: "warning",
+		Code: "kerml-notation", Tier: TierSyntax, Severity: "error",
 		Summary: "KerML notation in a SysML file",
-		Meaning: "A `.sysml` file uses a KerML production (`namespace`, `featured by`, `class` …) or a KerML spelling " +
-			"(`typed by` for a typing, which SysML spells `:` or `defined by`) that the SysML v2 grammar does not admit. " +
-			"Move the declaration to a `.kerml` file, or write the SysML form the message names. `-strict` promotes this finding to an error.",
+		Meaning: "A `.sysml` file uses a KerML production (`namespace`, `featured by`, `class` …) " +
+			"that the SysML v2 grammar does not admit. " +
+			"Move the declaration to a `.kerml` file, or write the SysML form the message names. A `namespace` declaration and a declaration keyword only KerML spells (`class`, `feature`, `connector` …) are errors in either mode; " +
+			"`-strict` promotes the other findings to errors.",
 		Spec: "the pinned SysML v2 Xtext grammar",
+	},
+	{
+		Code: "typing-keyword", Tier: TierSyntax, Severity: "error",
+		Summary: "a typing spelled `typed by` in a SysML file",
+		Meaning: "SysML v2 spells a usage's typing `:` or `defined by`; `typed by` is the KerML spelling of the same relationship, and `typed` is not a SysML keyword, " +
+			"so a `.sysml` file that writes it is rejected in every conformance mode. The typing is still read as written, so the rest of the model is analyzed. " +
+			"Write `defined by` (the editor quick fix rewrites the keyword), or move the declaration to a `.kerml` file.",
+		Spec: "SysML v2 §8.2.2.1.2 Lexical Structure (DEFINED_BY), §8.2.2.6.5 Specialization (TypedBy), §7.6.3 Usages, §7.27.2 Metadata Definitions and Usages",
 	},
 	{
 		Code: "sysml-notation", Tier: TierSyntax, Severity: "error",
@@ -141,7 +159,7 @@ var syntaxCodes = []Entry{
 	{
 		Code: "expose-owning-namespace", Tier: TierSyntax, Severity: "error",
 		Summary: "`expose` outside a view body",
-		Meaning: "An expose is an import a view usage owns: `expose` is admitted in the body of a view usage (and, as an OpenSysML extension the notation rules report, a view definition) only. " +
+		Meaning: "An expose is an import a view usage owns: `expose` is admitted in the body of a view usage only (SysML v2 8.2.2.26.2 ViewBodyItem); a view definition body states what it renders and filters and admits none. " +
 			"Move the expose into the view that shows the exposed elements, or write an `import` where a plain import is meant.",
 		Spec: "SysML v2 validateExposeOwningNamespace",
 	},

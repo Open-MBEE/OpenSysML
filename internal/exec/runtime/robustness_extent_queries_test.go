@@ -11,6 +11,7 @@ import (
 // TestRuntimeRobustnessExtentQueries covers extent and namespace-collection queries over
 // types, parts and connectors that cannot be answered.
 func TestRuntimeRobustnessExtentQueries(t *testing.T) {
+	t.Parallel()
 	t.Run("extent_of_an_unresolved_or_unbounded_type", testExtentOfAnUnresolvedOrUnboundedType)
 	t.Run("extent_reaching_a_namespace_collection", testExtentReachingANamespaceCollection)
 	t.Run("namespace_collection_that_cannot_be_constructed", testNamespaceCollectionThatCannotBeConstructed)

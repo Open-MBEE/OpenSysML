@@ -1,0 +1,26 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="ChainedThen" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="state" abstract=false variation=false name="Machine"
+          (EntryMember)
+          (SuccessionEdge source="@entry" target="init")
+          (SubstateMember name="init")
+          (SuccessionEdge source="init" target="work.right.idle")
+          (Membership visibility="default"
+            (Usage kind="state" name="work" ref=false direction="none" composite=false derived=false ordered=false nonunique=false parallel=true
+              (Membership visibility="default"
+                (Usage kind="state" name="left" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (EntryMember)
+                  (SuccessionEdge source="@entry" target="idle")
+                  (SubstateMember name="idle")
+                  (SubstateMember name="busy")
+                  (SuccessionEdge source="busy" target="left.idle")))
+              (Membership visibility="default"
+                (Usage kind="state" name="right" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (EntryMember)
+                  (SuccessionEdge source="@entry" target="idle")
+                  (SubstateMember name="idle")
+                  (SubstateMember name="busy")
+                  (TransitionMember source="idle" target="busy")))))
+          (TransitionMember source="work.right.busy" target="done"))))))

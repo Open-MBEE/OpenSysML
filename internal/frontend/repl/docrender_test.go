@@ -166,7 +166,7 @@ func TestRenderDocumentDiagramForm(t *testing.T) {
 	if strings.Contains(dot, "```mermaid") {
 		t.Errorf("a diagram is still Mermaid under dot:\n%s", dot)
 	}
-	if strings.Contains(dot, "cluster_frame") {
+	if strings.Contains(dot, `color="#5B5B59";`) {
 		t.Errorf("the default style frames the diagram as Cameo does:\n%s", dot)
 	}
 	wants(t, run(t, s, "%render-document Imaging::ChainReport dot cameo"), "```dot\n", `subgraph "cluster_frame"`, `fontname="Arial"`)

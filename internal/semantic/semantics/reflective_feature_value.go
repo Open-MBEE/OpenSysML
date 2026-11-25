@@ -42,8 +42,14 @@ func (m *Model) ValueExpression(sym *symbols.Symbol) *symbols.Symbol {
 		return nil
 	}
 	if sym.Expr != nil {
-		// A synthesized `in` parameter binds its operand; no other
-		// expression part declares a value.
+		// A synthesized `in` parameter binds its operand and a trigger's payload its event;
+		// no other expression part declares a value.
+		if sym.Expr.Role == symbols.ExpressionPayload {
+			if parts := m.acceptParts(sym); parts != nil {
+				return parts.parameterValue(sym)
+			}
+			return m.sendParameterValue(sym)
+		}
 		return m.expressionParameterValue(sym)
 	}
 	if cached, ok := m.valueExpressions[sym]; ok {
@@ -76,7 +82,10 @@ func isValueExpressionSymbol(sym *symbols.Symbol) bool {
 		return false
 	}
 	switch sym.Expr.Role {
-	case symbols.ExpressionChangeCondition, symbols.ExpressionBody, symbols.ExpressionBodyResult:
+	case symbols.ExpressionOperand:
+		return sym.Expr.Slot == "value"
+	case symbols.ExpressionChangeCondition, symbols.ExpressionBody, symbols.ExpressionBodyResult, symbols.ExpressionGuard,
+		symbols.ExpressionBound, symbols.ExpressionFilterCondition:
 		// Owned through a FeatureMembership or ResultExpressionMembership,
 		// not bound as a value (changeArgument, bodyExpression).
 		return false
@@ -173,16 +182,24 @@ func expressionValue(sym *symbols.Symbol, feature string) (symbols.FilterValue, 
 		}
 	case *ast.IndexExpr:
 		if feature == "operator" {
-			operator := "#"
-			if n.Bracket {
-				operator = "["
-			}
-			return symbols.FilterValue{Kind: symbols.FilterValueString, Str: operator}, true
+			return symbols.FilterValue{Kind: symbols.FilterValueString, Str: n.OperatorSpelling()}, true
 		}
 	case *ast.SequenceExpr:
 		if feature == "operator" {
 			return symbols.FilterValue{Kind: symbols.FilterValueString, Str: ","}, true
 		}
+	case *ast.FeatureChainExpr, *ast.CollectExpr, *ast.SelectExpr:
+		if operator, ok := fixedExpressionOperators[expressionElementMetaclassName(sym)]; ok && feature == "operator" {
+			return symbols.FilterValue{Kind: symbols.FilterValueString, Str: operator}, true
+		}
 	}
 	return symbols.FilterValue{}, false
+}
+
+// fixedExpressionOperators are the operators the specification fixes for an OperatorExpression
+// by its metaclass (KerML 8.3.4.8.2 CollectExpression, 8.3.4.8.4 FeatureChainExpression, 8.3.4.8.18 SelectExpression).
+var fixedExpressionOperators = map[string]string{
+	"FeatureChainExpression": ".",
+	"CollectExpression":      "collect",
+	"SelectExpression":       "select",
 }

@@ -125,9 +125,9 @@ func TestCoverageTalliesTheDocumentsConstraints(t *testing.T) {
 	}
 	rendered := m.RenderCoverage()
 	for _, want := range []string{
-		"| KerML 1.0 (`formal/26-03-01`) | 1 | 1 | 1 | 3 | 1 | 2 | 1 | 1 |",
-		"| SysML 2.0 (`formal/26-03-02`) | 0 | 0 | 1 | 1 | 1 | 0 | 0 | 0 |",
-		"state 4 constraints in the Constraints subsections of their abstract-syntax clauses — 1 `check*`, 1 `derive*` and 2 `validate*`. 2 of them are named by a pilot validator and counted in the census above; 2 are recorded from the documents alone, outside the census, of which 1 are implemented and 1 remain ❔ unknown.",
+		"| KerML 1.0 (`formal/26-03-01`) | 1 | 1 | 1 | 3 | 1 | 2 | 1 | 0 | 0 | 1 |",
+		"| SysML 2.0 (`formal/26-03-02`) | 0 | 0 | 1 | 1 | 1 | 0 | 0 | 0 | 0 | 0 |",
+		"state 4 constraints in the Constraints subsections of their abstract-syntax clauses — 1 `check*`, 1 `derive*` and 2 `validate*`. 2 of them are named by a pilot validator and counted in the census above; 2 are recorded from the documents alone, outside the census, of which 1 are implemented, 0 are ❌ not implemented, 0 are ⛔ deliberate and 1 remain ❔ unknown.",
 	} {
 		if !strings.Contains(rendered, want) {
 			t.Fatalf("rendered coverage lacks %q:\n%s", want, rendered)

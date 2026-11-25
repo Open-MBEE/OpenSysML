@@ -8,6 +8,8 @@ import org.openmbee.opensysml.Capabilities;
 import org.openmbee.opensysml.CaseEvaluation;
 import org.openmbee.opensysml.Condition;
 import org.openmbee.opensysml.Conversion;
+import org.openmbee.opensysml.CoordinateFrame;
+import org.openmbee.opensysml.CoordinateTransformation;
 import org.openmbee.opensysml.CheckResult;
 import org.openmbee.opensysml.Diagnostic;
 import org.openmbee.opensysml.LibraryReference;
@@ -15,16 +17,21 @@ import org.openmbee.opensysml.DocumentQueryResult;
 import org.openmbee.opensysml.DocumentRow;
 import org.openmbee.opensysml.DocumentValue;
 import org.openmbee.opensysml.Edit;
+import org.openmbee.opensysml.ElementProperties;
+import org.openmbee.opensysml.ElementRef;
 import org.openmbee.opensysml.EditFailure;
 import org.openmbee.opensysml.EditResult;
 import org.openmbee.opensysml.EditedDocument;
 import org.openmbee.opensysml.EngineInfo;
 import org.openmbee.opensysml.EnumLiteral;
+import org.openmbee.opensysml.Coverage;
 import org.openmbee.opensysml.Exploration;
 import org.openmbee.opensysml.FailureReason;
 import org.openmbee.opensysml.Instance;
+import org.openmbee.opensysml.InstancePaths;
 import org.openmbee.opensysml.Instantiation;
 import org.openmbee.opensysml.Migration;
+import org.openmbee.opensysml.QueryOutcome;
 import org.openmbee.opensysml.MigrationEntry;
 import org.openmbee.opensysml.MigrationReport;
 import org.openmbee.opensysml.Outcome;
@@ -87,7 +94,15 @@ import org.openmbee.opensysml.ImportedValue;
 import org.openmbee.opensysml.ObservableComparison;
 import org.openmbee.opensysml.StatisticDifference;
 import org.openmbee.opensysml.proto.CompareResultsResponse;
+import org.openmbee.opensysml.proto.ElementProperty;
+import org.openmbee.opensysml.proto.ElementPropertyValue;
+import org.openmbee.opensysml.proto.GetElementPropertiesResponse;
 import org.openmbee.opensysml.proto.ImportDataResponse;
+import org.openmbee.opensysml.proto.InstancePath;
+import org.openmbee.opensysml.proto.InstancePathStep;
+import org.openmbee.opensysml.proto.InstancePathsResponse;
+import org.openmbee.opensysml.proto.InstanceReach;
+import org.openmbee.opensysml.proto.MemberInfo;
 import java.util.OptionalLong;
 import org.openmbee.opensysml.proto.RunSweepResponse;
 import org.openmbee.opensysml.proto.SelfCheckResponse;
@@ -157,7 +172,114 @@ public final class Protos {
       case SET -> Optional.of(set(value.getSet()));
       case TENSOR_QUANTITY -> Optional.of(tensorQuantity(value.getTensorQuantity()));
       case METAOBJECT -> Optional.of(metaobject(value.getMetaobject()));
+      case COORDINATE_FRAME ->
+          Optional.of(new Value.CoordinateFrameValue(frame(value.getCoordinateFrame())));
+      case COORDINATE_TRANSFORMATION ->
+          Optional.of(
+              new Value.CoordinateTransformationValue(
+                  transformation(value.getCoordinateTransformation())));
       case KIND_NOT_SET -> Optional.empty();
+    };
+  }
+
+  private static Optional<Long> presentId(long id) {
+    return id == 0 ? Optional.empty() : Optional.of(id);
+  }
+
+  private static Value required(org.openmbee.opensysml.proto.Value value, String what) {
+    return value(value)
+        .orElseThrow(
+            () ->
+                new TransportException(
+                    "the service answered a malformed coordinate transformation: " + what, null));
+  }
+
+  private static CoordinateFrame frame(org.openmbee.opensysml.proto.CoordinateFrame frame) {
+    Optional<CoordinateFrame.Scale> scale = Optional.empty();
+    if (frame.hasScale()) {
+      org.openmbee.opensysml.proto.MeasurementScale wire = frame.getScale();
+      Optional<CoordinateFrame.Mapping> mapping = Optional.empty();
+      if (wire.hasMapping()) {
+        mapping =
+            Optional.of(
+                new CoordinateFrame.Mapping(
+                    quantity(wire.getMapping().getMapped()),
+                    quantity(wire.getMapping().getReference())));
+      }
+      scale =
+          Optional.of(
+              new CoordinateFrame.Scale(
+                  (Value.MeasurementRefValue) measurementRef(wire.getUnit()), mapping));
+    }
+    return new CoordinateFrame(
+        frame.getName(),
+        present(frame.getFrameId()),
+        present(frame.getTypeId()),
+        presentId(frame.getInstanceId()),
+        frame.getDimensionsList(),
+        frame.getAxesList().stream()
+            .map(axis -> (Value.MeasurementRefValue) measurementRef(axis))
+            .toList(),
+        frame.hasTransformation()
+            ? Optional.of(transformation(frame.getTransformation()))
+            : Optional.empty(),
+        scale);
+  }
+
+  private static CoordinateTransformation transformation(
+      org.openmbee.opensysml.proto.CoordinateTransformation t) {
+    Optional<CoordinateTransformation.Shape> shape =
+        switch (t.getShapeCase()) {
+          case PLACEMENT ->
+              Optional.of(
+                  new CoordinateTransformation.Placement(
+                      required(t.getPlacement().getOrigin(), "a placement states no origin"),
+                      t.getPlacement().getBasisDirectionsList().stream()
+                          .map(d -> required(d, "a basis direction holds no value"))
+                          .toList()));
+          case SEQUENCE ->
+              Optional.of(
+                  new CoordinateTransformation.Sequence(
+                      t.getSequence().getStepsList().stream().map(Protos::frameStep).toList()));
+          case AFFINE ->
+              Optional.of(
+                  new CoordinateTransformation.Affine(
+                      t.getAffine().getRotationList(), t.getAffine().getTranslationList()));
+          case SHAPE_NOT_SET -> Optional.empty();
+        };
+    return new CoordinateTransformation(
+        t.getName(),
+        present(t.getTransformationId()),
+        present(t.getTypeId()),
+        presentId(t.getInstanceId()),
+        t.hasSource() ? Optional.of(frame(t.getSource())) : Optional.empty(),
+        t.hasTarget() ? Optional.of(frame(t.getTarget())) : Optional.empty(),
+        shape,
+        t.hasPose()
+            ? Optional.of(
+                new CoordinateTransformation.Pose(
+                    t.getPose().getOriginList(), t.getPose().getBasisList()))
+            : Optional.empty());
+  }
+
+  private static CoordinateTransformation.Step frameStep(
+      org.openmbee.opensysml.proto.FrameStep step) {
+    Optional<Long> id = presentId(step.getInstanceId());
+    return switch (step.getStepCase()) {
+      case TRANSLATION ->
+          new CoordinateTransformation.Translation(
+              required(step.getTranslation(), "a translation holds no value"), id);
+      case ROTATION ->
+          new CoordinateTransformation.Rotation(
+              required(step.getRotation().getAxisDirection(), "a rotation states no axis"),
+              quantity(step.getRotation().getAngle()),
+              step.getRotation().getIsIntrinsic(),
+              id);
+      case STEP_NOT_SET ->
+          throw new TransportException(
+              "the service answered a malformed coordinate transformation: a step is neither a"
+                  + " translation nor a rotation",
+              null);
     };
   }
 
@@ -397,7 +519,8 @@ public final class Protos {
         };
     Optional<Quantity.UnitTerm> reduction =
         quantity.hasUnitTerm() ? Optional.of(unitTerm(quantity.getUnitTerm())) : Optional.empty();
-    return new Quantity(magnitude, present(quantity.getUnit()), reduction);
+    return new Quantity(
+        magnitude, present(quantity.getUnit()), reduction, present(quantity.getValueType()));
   }
 
   private static Quantity.UnitTerm unitTerm(UnitTerm term) {
@@ -476,7 +599,19 @@ public final class Protos {
               specialization.getKind(),
               specialization.getDeclared(),
               present(specialization.getTargetId()),
-              present(specialization.getTargetKind())));
+              present(specialization.getTargetKind()),
+              present(specialization.getTargetQualifiedName())));
+    }
+    List<Symbol.Member> members = new ArrayList<>(symbol.getMembersCount());
+    for (MemberInfo member : symbol.getMembersList()) {
+      members.add(
+          new Symbol.Member(
+              member.getId(),
+              member.getName(),
+              member.getKind(),
+              member.getInherited(),
+              present(member.getInheritedFrom()),
+              member.getLibrary()));
     }
     return new Symbol(
         symbol.getId(),
@@ -490,7 +625,87 @@ public final class Protos {
             ? Optional.of(multiplicity(symbol.getMultiplicity()))
             : Optional.empty(),
         specializations,
-        symbol.getWithheldLibraryAttributes());
+        symbol.getWithheldLibraryAttributes(),
+        members,
+        symbol.getWithheldLibraryMembers(),
+        symbol.getAnnotatingMetadataIdsList());
+  }
+
+  /**
+   * An element's metamodel properties.
+   *
+   * @param response the generated answer
+   * @return the immutable read
+   */
+  public static ElementProperties elementProperties(GetElementPropertiesResponse response) {
+    List<ElementProperties.Property> properties = new ArrayList<>(response.getPropertiesCount());
+    for (ElementProperty property : response.getPropertiesList()) {
+      List<ElementProperties.PropertyValue> values = new ArrayList<>(property.getValuesCount());
+      for (ElementPropertyValue value : property.getValuesList()) {
+        values.add(propertyValue(value));
+      }
+      properties.add(
+          new ElementProperties.Property(
+              property.getName(),
+              property.getDefiningClass(),
+              property.getMany(),
+              property.getDerived(),
+              values,
+              present(property.getUnsupported())));
+    }
+    List<ElementProperties.ExcludedDocument> excluded =
+        new ArrayList<>(response.getExcludedDocumentsCount());
+    for (org.openmbee.opensysml.proto.ExcludedDocument document :
+        response.getExcludedDocumentsList()) {
+      excluded.add(
+          new ElementProperties.ExcludedDocument(document.getDocument(), document.getError()));
+    }
+    return new ElementProperties(elementRef(response.getElement()), properties, excluded);
+  }
+
+  private static ElementRef elementRef(org.openmbee.opensysml.proto.ElementRef reference) {
+    return new ElementRef(reference.getId(), reference.getQualifiedName(), reference.getMetaclass());
+  }
+
+  private static ElementProperties.PropertyValue propertyValue(ElementPropertyValue value) {
+    return switch (value.getValueCase()) {
+      case ELEMENT -> new ElementProperties.PropertyValue.Element(elementRef(value.getElement()));
+      case STRING_VALUE -> new ElementProperties.PropertyValue.Text(value.getStringValue());
+      case BOOL_VALUE -> new ElementProperties.PropertyValue.Bool(value.getBoolValue());
+      case INT_VALUE -> new ElementProperties.PropertyValue.Integer(value.getIntValue());
+      case REAL_VALUE -> new ElementProperties.PropertyValue.Real(value.getRealValue());
+      case NUMBER -> new ElementProperties.PropertyValue.Number(value.getNumber());
+      case VALUE_NOT_SET ->
+          throw new IllegalArgumentException("an ElementPropertyValue with no value");
+    };
+  }
+
+  /**
+   * Every path to one object.
+   *
+   * @param response the generated answer
+   * @return the immutable paths
+   */
+  public static InstancePaths instancePaths(InstancePathsResponse response) {
+    List<InstancePaths.Path> paths = new ArrayList<>(response.getPathsCount());
+    for (InstancePath path : response.getPathsList()) {
+      List<InstancePaths.Step> steps = new ArrayList<>(path.getStepsCount());
+      for (InstancePathStep step : path.getStepsList()) {
+        steps.add(
+            new InstancePaths.Step(
+                step.getFeatureName(),
+                step.getFeatureSymbolId(),
+                step.getIndex(),
+                step.getInstanceId()));
+      }
+      paths.add(
+          new InstancePaths.Path(
+              path.getRoot().getInstanceId(),
+              present(path.getRoot().getSymbolId()),
+              path.getPath(),
+              steps));
+    }
+    return new InstancePaths(paths, response.getTruncated());
   }
 
   private static Symbol.TypeFacts typeFacts(TypeInfo typeInfo) {
@@ -501,7 +716,11 @@ public final class Protos {
         present(typeInfo.getPrimitive()),
         present(typeInfo.getPrimitiveSource()),
         typeInfo.getQuantity(),
-        present(typeInfo.getUnit()));
+        present(typeInfo.getUnit()),
+        typeInfo.getTypesList().stream()
+            .map(ref -> new Symbol.TypeRef(ref.getId(), present(ref.getKind())))
+            .toList(),
+        present(typeInfo.getResolvedQualifiedName()));
   }
 
   private static Symbol.Multiplicity multiplicity(MultiplicityInfo multiplicity) {
@@ -534,7 +753,19 @@ public final class Protos {
               featureValue.getMaterialized(),
               present(featureValue.getError())));
     }
-    return new Instance(instance.getId(), instance.getTypeSymbolId(), featureValues);
+    Optional<Instance.Reach> reachedBy = Optional.empty();
+    if (instance.hasReachedBy()) {
+      InstanceReach reach = instance.getReachedBy();
+      reachedBy =
+          Optional.of(
+              new Instance.Reach(
+                  reach.getInstanceId(),
+                  reach.getFeatureName(),
+                  reach.getFeatureSymbolId(),
+                  reach.getIndex(),
+                  reach.getPath()));
+    }
+    return new Instance(instance.getId(), instance.getTypeSymbolId(), featureValues, reachedBy);
   }
 
   /**
@@ -653,10 +884,103 @@ public final class Protos {
           org.openmbee.opensysml.proto.Metaobject.newBuilder()
               .setElementId(metaobject.elementId())
               .setMetaclassId(metaobject.metaclassId()));
+    } else if (value instanceof Value.CoordinateFrameValue frame) {
+      builder.setCoordinateFrame(proto(frame.frame()));
+    } else if (value instanceof Value.CoordinateTransformationValue transformation) {
+      builder.setCoordinateTransformation(proto(transformation.transformation()));
     } else {
       throw new IllegalArgumentException("no wire form for " + value.getClass().getName());
     }
     return builder.build();
+  }
+
+  private static org.openmbee.opensysml.proto.MeasurementRef proto(Value.MeasurementRefValue ref) {
+    return proto((Value) ref).getMeasurementRef();
+  }
+
+  private static org.openmbee.opensysml.proto.CoordinateFrame proto(CoordinateFrame frame) {
+    org.openmbee.opensysml.proto.CoordinateFrame.Builder out =
+        org.openmbee.opensysml.proto.CoordinateFrame.newBuilder()
+            .setName(frame.name())
+            .setFrameId(frame.frameId().orElse(""))
+            .setTypeId(frame.typeId().orElse(""))
+            .setInstanceId(frame.instanceId().orElse(0L))
+            .addAllDimensions(frame.dimensions());
+    frame.axes().forEach(axis -> out.addAxes(proto(axis)));
+    frame.transformation().ifPresent(t -> out.setTransformation(proto(t)));
+    frame
+        .scale()
+        .ifPresent(
+            scale -> {
+              org.openmbee.opensysml.proto.MeasurementScale.Builder wire =
+                  org.openmbee.opensysml.proto.MeasurementScale.newBuilder()
+                      .setUnit(proto(scale.unit()));
+              scale
+                  .mapping()
+                  .ifPresent(
+                      mapping ->
+                          wire.setMapping(
+                              org.openmbee.opensysml.proto.QuantityValueMapping.newBuilder()
+                                  .setMapped(proto(mapping.mapped()))
+                                  .setReference(proto(mapping.reference()))));
+              out.setScale(wire);
+            });
+    return out.build();
+  }
+
+  private static org.openmbee.opensysml.proto.CoordinateTransformation proto(
+      CoordinateTransformation t) {
+    org.openmbee.opensysml.proto.CoordinateTransformation.Builder out =
+        org.openmbee.opensysml.proto.CoordinateTransformation.newBuilder()
+            .setName(t.name())
+            .setTransformationId(t.transformationId().orElse(""))
+            .setTypeId(t.typeId().orElse(""))
+            .setInstanceId(t.instanceId().orElse(0L));
+    t.source().ifPresent(frame -> out.setSource(proto(frame)));
+    t.target().ifPresent(frame -> out.setTarget(proto(frame)));
+    t.pose()
+        .ifPresent(
+            pose ->
+                out.setPose(
+                    org.openmbee.opensysml.proto.FramePose.newBuilder()
+                        .addAllOrigin(pose.origin())
+                        .addAllBasis(pose.basis())));
+    if (t.shape().isEmpty()) {
+      return out.build();
+    }
+    CoordinateTransformation.Shape shape = t.shape().get();
+    if (shape instanceof CoordinateTransformation.Placement placement) {
+      org.openmbee.opensysml.proto.FramePlacement.Builder wire =
+          org.openmbee.opensysml.proto.FramePlacement.newBuilder()
+              .setOrigin(proto(placement.origin()));
+      placement.basisDirections().forEach(direction -> wire.addBasisDirections(proto(direction)));
+      out.setPlacement(wire);
+    } else if (shape instanceof CoordinateTransformation.Sequence sequence) {
+      org.openmbee.opensysml.proto.TranslationRotationSequence.Builder wire =
+          org.openmbee.opensysml.proto.TranslationRotationSequence.newBuilder();
+      for (CoordinateTransformation.Step step : sequence.steps()) {
+        org.openmbee.opensysml.proto.FrameStep.Builder entry =
+            org.openmbee.opensysml.proto.FrameStep.newBuilder()
+                .setInstanceId(step.instanceId().orElse(0L));
+        if (step instanceof CoordinateTransformation.Translation shift) {
+          entry.setTranslation(proto(shift.translation()));
+        } else if (step instanceof CoordinateTransformation.Rotation turn) {
+          entry.setRotation(
+              org.openmbee.opensysml.proto.FrameRotation.newBuilder()
+                  .setAxisDirection(proto(turn.axisDirection()))
+                  .setAngle(proto(turn.angle()))
+                  .setIsIntrinsic(turn.intrinsic()));
+        }
+        wire.addSteps(entry);
+      }
+      out.setSequence(wire);
+    } else if (shape instanceof CoordinateTransformation.Affine affine) {
+      out.setAffine(
+          org.openmbee.opensysml.proto.AffineTransformation3d.newBuilder()
+              .addAllRotation(affine.rotation())
+              .addAllTranslation(affine.translation()));
+    }
+    return out.build();
   }
 
   /**
@@ -709,7 +1033,36 @@ public final class Protos {
 
   private static org.openmbee.opensysml.proto.Value fitted(
       org.openmbee.opensysml.proto.Value value, Capabilities capabilities) {
+    suppliable(value);
     return capabilities.has(Capabilities.RATIONAL_VALUES) ? value : rationalsAsReals(value);
+  }
+
+  /** Refuses a value holding, at any depth, a coordinate frame or transformation: answers only. */
+  private static org.openmbee.opensysml.proto.Value suppliable(
+      org.openmbee.opensysml.proto.Value value) {
+    refuseCoordinates(value);
+    return value;
+  }
+
+  private static void refuseCoordinates(com.google.protobuf.Message message) {
+    if (message instanceof org.openmbee.opensysml.proto.Value value) {
+      switch (value.getKindCase()) {
+        case COORDINATE_FRAME ->
+            throw new IllegalArgumentException(
+                "a coordinate frame is not a value a caller can supply");
+        case COORDINATE_TRANSFORMATION ->
+            throw new IllegalArgumentException(
+                "a coordinate transformation is not a value a caller can supply");
+        default -> {}
+      }
+    }
+    for (Object field : message.getAllFields().values()) {
+      for (Object item : field instanceof List<?> items ? items : List.of(field)) {
+        if (item instanceof com.google.protobuf.Message nested) {
+          refuseCoordinates(nested);
+        }
+      }
+    }
   }
 
   /**
@@ -839,6 +1192,7 @@ public final class Protos {
     }
     quantity.unit().ifPresent(builder::setUnit);
     quantity.reduction().ifPresent(reduction -> builder.setUnitTerm(proto(reduction)));
+    quantity.valueType().ifPresent(builder::setValueType);
     return builder.build();
   }
 
@@ -985,7 +1339,27 @@ public final class Protos {
         s.getMassBounded(),
         s.getNotesList(),
         s.getScopeList(),
-        s.getStatus());
+        s.getStatus(),
+        s.hasCoverage() ? coverage(s.getCoverage()) : Coverage.NONE);
+  }
+
+  /**
+   * The states entered and transitions taken across every run or schedule.
+   *
+   * @param c the generated coverage
+   * @return the immutable coverage
+   */
+  public static Coverage coverage(org.openmbee.opensysml.proto.Coverage c) {
+    return new Coverage(coverageEntries(c.getStatesList()), coverageEntries(c.getTransitionsList()));
+  }
+
+  private static List<Coverage.Entry> coverageEntries(
+      List<org.openmbee.opensysml.proto.CoverageEntry> entries) {
+    List<Coverage.Entry> out = new ArrayList<>(entries.size());
+    for (org.openmbee.opensysml.proto.CoverageEntry e : entries) {
+      out.add(new Coverage.Entry(e.getPath(), e.getDeclaration(), e.getRuns()));
+    }
+    return out;
   }
 
   private static CheckResult.Witness checkWitness(org.openmbee.opensysml.proto.CheckWitness w) {
@@ -1393,7 +1767,8 @@ public final class Protos {
         status.getRunsBudget(),
         status.getDepthBudget(),
         status.getFailedLinearizations(),
-        status.getProbabilitiesLowerBound());
+        status.getProbabilitiesLowerBound(),
+        status.hasCoverage() ? coverage(status.getCoverage()) : Coverage.NONE);
   }
 
   /**
@@ -1788,9 +2163,9 @@ public final class Protos {
     org.openmbee.opensysml.proto.SweepRange.Builder builder =
         org.openmbee.opensysml.proto.SweepRange.newBuilder()
             .setParameter(range.parameter())
-            .setStart(proto(range.start()))
-            .setEnd(proto(range.end()));
-    range.step().ifPresent(step -> builder.setStep(proto(step)));
+            .setStart(suppliable(proto(range.start())))
+            .setEnd(suppliable(proto(range.end())));
+    range.step().ifPresent(step -> builder.setStep(suppliable(proto(step))));
     return builder.build();
   }
 
@@ -2324,6 +2699,63 @@ public final class Protos {
    * @param response the generated answer
    * @return the immutable result
    */
+  /**
+   * The public form of a failed query's outcome.
+   *
+   * @param outcome the wire message
+   * @return the outcome
+   */
+  public static QueryOutcome queryOutcome(org.openmbee.opensysml.proto.QueryOutcome outcome) {
+    List<QueryOutcome.Finding> findings = new ArrayList<>(outcome.getFindingsCount());
+    for (org.openmbee.opensysml.proto.QueryFinding finding : outcome.getFindingsList()) {
+      findings.add(
+          new QueryOutcome.Finding(
+              finding.getStep(),
+              finding.getElement(),
+              finding.getConstraint(),
+              finding.getObserved()));
+    }
+    return new QueryOutcome(
+        outcome.getKind(),
+        outcome.getStep(),
+        queryFailures(outcome.getFailuresList()),
+        findings,
+        queryFailures(outcome.getPathFailuresList()),
+        outcome.getFailuresTotal(),
+        outcome.getFindingsTotal(),
+        outcome.getPathFailuresTotal());
+  }
+
+  private static List<QueryOutcome.Failure> queryFailures(
+      List<org.openmbee.opensysml.proto.QueryFailure> failures) {
+    List<QueryOutcome.Failure> out = new ArrayList<>(failures.size());
+    for (org.openmbee.opensysml.proto.QueryFailure failure : failures) {
+      org.openmbee.opensysml.proto.QueryFrontier frontier = failure.getFrontier();
+      List<QueryOutcome.Frontier.Member> members = new ArrayList<>(frontier.getMembersCount());
+      for (org.openmbee.opensysml.proto.QueryFrontierMember member : frontier.getMembersList()) {
+        members.add(new QueryOutcome.Frontier.Member(member.getName(), member.getMetaclass()));
+      }
+      List<QueryOutcome.Frontier.Feature> features = new ArrayList<>(frontier.getFeaturesCount());
+      for (org.openmbee.opensysml.proto.QueryFrontierFeature feature : frontier.getFeaturesList()) {
+        features.add(new QueryOutcome.Frontier.Feature(feature.getName(), feature.getType()));
+      }
+      out.add(
+          new QueryOutcome.Failure(
+              failure.getStep(),
+              failure.getExpected(),
+              new QueryOutcome.Frontier(
+                  frontier.getAt(),
+                  members,
+                  features,
+                  frontier.getKindsList(),
+                  frontier.getNearest(),
+                  frontier.getMembersTotal(),
+                  frontier.getFeaturesTotal(),
+                  frontier.getKindsTotal())));
+    }
+    return out;
+  }
+
   public static DocumentQueryResult documentQueryResult(RunDocumentQueryResponse response) {
     List<String> columns = new ArrayList<>(response.getColumnsCount());
     for (org.openmbee.opensysml.proto.DocumentQueryColumn column : response.getColumnsList()) {
@@ -2341,7 +2773,7 @@ public final class Protos {
       }
       rows.add(documentRow(row.getElement(), cells));
     }
-    return new DocumentQueryResult(columns, rows);
+    return new DocumentQueryResult(columns, rows, response.getResultView());
   }
 
   private static DocumentRow documentRow(

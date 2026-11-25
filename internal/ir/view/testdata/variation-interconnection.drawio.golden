@@ -7,6 +7,12 @@
       <root>
         <mxCell id="0"/>
         <mxCell id="1" parent="0"/>
+        <mxCell id="frame" value="«view» VariationViews::familyLinks : Family" style="shape=umlFrame;whiteSpace=wrap;html=1;fillColor=none;strokeWidth=0.5;width=386;height=40;" vertex="1" parent="1">
+            <mxGeometry width="827" height="1169" as="geometry"/>
+        </mxCell>
+        <mxCell id="frame_tr" value="expose vehicleFamily**" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=10;" vertex="1" parent="1">
+            <mxGeometry x="626" width="201" height="36" as="geometry"/>
+        </mxCell>
         <object id="n0" label="«part»&#xA;vehicleFamily" fqn="VariationViews::vehicleFamily" kind="part" view="VariationViews::familyLinks" link="variation.sysml:20">
           <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;rounded=1;arcSize=10;" vertex="1" parent="1">
             <mxGeometry x="50" y="50" width="408" height="253" as="geometry"/>

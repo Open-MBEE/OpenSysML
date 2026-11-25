@@ -33,6 +33,37 @@ const (
 	// ExpressionChainFeature is the Feature a dotted function or target name
 	// reaches through, owned by the expression at Slot (KerML 8.3.3.3.3).
 	ExpressionChainFeature
+	// ExpressionGuard is a transition's guard, owned through a TransitionFeatureMembership
+	// of kind guard; Owner is the transition.
+	ExpressionGuard
+	// ExpressionTriggerAction is the AcceptActionUsage a transition's trigger declares,
+	// owned through a TransitionFeatureMembership of kind trigger; Owner is the transition.
+	ExpressionTriggerAction
+	// ExpressionPayload is a parameter of that accept: its payload, valued by a time or change
+	// event's TriggerInvocationExpression, or its `via` receiver; Owner is the accept.
+	ExpressionPayload
+	// ExpressionOperand is an expression an action node statement writes at a slot of its own
+	// (the `if` condition, an assignment's target and value, `send` payload and receiver, ...).
+	ExpressionOperand
+	// ExpressionFilterCondition is the condition a namespace's `filter` states,
+	// owned through an ElementFilterMembership (KerML 8.2.4); Owner is the namespace, Index its position.
+	ExpressionFilterCondition
+	// ExpressionTransitionSuccession is the succession a transition's `then` clause owns (SysML.xtext
+	// TransitionSuccessionMember); ExpressionConnectorEnd its ends, Index 0 the empty source, 1 the target.
+	ExpressionTransitionSuccession
+	ExpressionConnectorEnd
+	// ExpressionBound is a bound of a written MultiplicityRange, owned by the
+	// range through an OwningMembership: Slot "lowerBound" or "upperBound".
+	ExpressionBound
+	// ExpressionFilterPackage is the Package an import with a filter, `import X::*[c]`,
+	// imports and owns (SysML.xtext FilterPackage); Owner is the importing namespace.
+	ExpressionFilterPackage
+	// ExpressionTransitionLinkParameter is an `in` ReferenceUsage a transition owns through a
+	// ParameterMembership ahead of its trigger (SysML.xtext EmptyParameterMember); Owner is the transition.
+	ExpressionTransitionLinkParameter
+	// ExpressionTransitionLink is the ReferenceUsage a transition owns last through a FeatureMembership,
+	// after its succession, as the pilot exports it (TransitionUsage::transitionLink); Owner is the transition.
+	ExpressionTransitionLink
 )
 
 // ExpressionElement is the side record of a symbol the reflective layer

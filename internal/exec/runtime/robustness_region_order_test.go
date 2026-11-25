@@ -45,6 +45,7 @@ const regionOrderModel = `package test {
 // TestRuntimeRobustnessRegionOrder: a witness naming a unit the front does not hold is a
 // typed refusal leaving the data as the move found it; a front beyond the budget is no hang.
 func TestRuntimeRobustnessRegionOrder(t *testing.T) {
+	t.Parallel()
 	t.Run("entry_order_naming_a_region_the_front_does_not_hold", testEntryOrderNamingARegionTheFrontDoesNotHold)
 	t.Run("firing_unit_order_naming_a_unit_of_no_firing", testFiringUnitOrderNamingAUnitOfNoFiring)
 	t.Run("exit_order_naming_a_state_not_being_left", testExitOrderNamingAStateNotBeingLeft)

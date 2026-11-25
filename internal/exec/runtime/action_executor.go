@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -31,7 +32,7 @@ type ActionExecutor struct {
 	// performedAt is the node of another action's graph whose performance this
 	// executor runs, nil for an action run on its own: the body's own places are
 	// that performance's, as its pins are.
-	performedAt ast.Node
+	performedAt NodeRef
 	// action states the body performed; performed is the action as named, a usage
 	// stating no body of its own or the action itself, whose metadata binds the performance.
 	action, performed *symbols.Symbol
@@ -132,18 +133,18 @@ func (e *ActionExecutor) beginSweep() func() {
 // breakpointVisit identifies one token's stay at one node.
 type breakpointVisit struct {
 	token int64
-	node  ast.Node
+	node  NodeRef
 }
 
 // NodeBreakpoint is a breakpoint set by identity: on Node, in the flow of the nested
 // action nodes Within (outermost first, as Token.Within lists them; none for the action's own).
 type NodeBreakpoint struct {
-	Within []ast.Node
-	Node   ast.Node
+	Within []NodeRef
+	Node   NodeRef
 }
 
 // at reports whether the breakpoint is set on node in the flow of within.
-func (bp NodeBreakpoint) at(within []ast.Node, node ast.Node) bool {
+func (bp NodeBreakpoint) at(within []NodeRef, node NodeRef) bool {
 	return bp.Node == node && slices.Equal(bp.Within, within)
 }
 
@@ -168,7 +169,7 @@ type breakpointStop struct {
 
 // stopAt is the stop at a breakpoint set on node in the flow of within, if one is;
 // false otherwise.
-func (e *ActionExecutor) stopAt(within []ast.Node, node ast.Node) (breakpointStop, bool) {
+func (e *ActionExecutor) stopAt(within []NodeRef, node NodeRef) (breakpointStop, bool) {
 	name := e.breakpointNameOf(within, node)
 	if name == "" {
 		return breakpointStop{}, false
@@ -180,7 +181,7 @@ func (e *ActionExecutor) stopAt(within []ast.Node, node ast.Node) (breakpointSto
 // Inputs are applied after attribute defaults, so they override defaults with
 // the same name. Must be called before initialize().
 func (e *ActionExecutor) SetInputs(inputs map[string]Value) {
-	e.inputs = inputs
+	e.inputs = maps.Clone(inputs)
 }
 
 // newActionExecutor creates an action executor. self is the object performing
@@ -194,8 +195,7 @@ func newActionExecutor(ctx *Context, action *symbols.Symbol, self *Instance) (*A
 func newActionExecutorOf(
 	ctx *Context,
 	performed, action *symbols.Symbol,
-	self *Instance,
-	occurrence *Instance,
+	self, occurrence *Instance,
 ) (*ActionExecutor, error) {
 	return newActionExecutorOfGraph(ctx, performed, action, self, occurrence, nil)
 }
@@ -203,8 +203,7 @@ func newActionExecutorOf(
 func newActionExecutorOfGraph(
 	ctx *Context,
 	performed, action *symbols.Symbol,
-	self *Instance,
-	occurrence *Instance,
+	self, occurrence *Instance,
 	graph *lower.ActionGraph,
 ) (*ActionExecutor, error) {
 	if !action.Kind.IsAction() {
@@ -237,7 +236,8 @@ func newActionExecutorOfGraph(
 			action, tool = held, found
 		}
 	}
-	return newActionExecutorOn(ctx, performed, action, declared, tool, graph, self, occurrence), nil
+	body := actionBody{action: action, declared: declared, tool: tool, graph: graph}
+	return newActionExecutorOn(ctx, performed, body, self, occurrence), nil
 }
 
 // declaredThrough is callee when body, what performanceBody resolved it to, is another
@@ -249,24 +249,26 @@ func declaredThrough(callee, body *symbols.Symbol, tool *toolExecution) *symbols
 	return callee
 }
 
-// newActionExecutorOn is an execution of graph, the lowering of action, ready to
-// begin at its root and attached to ctx's clock.
-func newActionExecutorOn(
-	ctx *Context,
-	performed, action, declared *symbols.Symbol,
-	tool *toolExecution,
-	graph *lower.ActionGraph,
-	self, occurrence *Instance,
-) *ActionExecutor {
+// actionBody is what a performance runs: action states the body and graph lowers it;
+// tool performs it in place of the body, and declared is the usage reached through (see ActionExecutor).
+type actionBody struct {
+	action, declared *symbols.Symbol
+	tool             *toolExecution
+	graph            *lower.ActionGraph
+}
+
+// newActionExecutorOn is an execution of body's graph, ready to begin at its root
+// and attached to ctx's clock.
+func newActionExecutorOn(ctx *Context, performed *symbols.Symbol, body actionBody, self, occurrence *Instance) *ActionExecutor {
 	exec := &ActionExecutor{
-		performances:     performances{ctx: ctx, self: self, behavior: action, occurrence: occurrence},
-		action:           action,
+		performances:     performances{ctx: ctx, self: self, behavior: body.action, occurrence: occurrence},
+		action:           body.action,
 		performed:        performed,
-		declared:         declared,
-		tool:             tool,
-		dynamicsKind:     ctx.stateSpaceKindOf(action),
+		declared:         body.declared,
+		tool:             body.tool,
+		dynamicsKind:     ctx.stateSpaceKindOf(body.action),
 		occurrence:       occurrence,
-		graph:            graph,
+		graph:            body.graph,
 		stepCounts:       make(map[stepMultiplicityKey]stepMultiplicityResult),
 		tokens:           make([]Token, 0),
 		state:            StateReady,
@@ -280,10 +282,11 @@ func newActionExecutorOn(
 	shape := exec.performanceShape()
 	exec.features = shape.attributes
 	exec.root = exec.newRootFrame(shape)
-	exec.through = ctx.performedPinBindings(performed, graph, self)
+	exec.through = ctx.performedPinBindings(performed, body.graph, self)
 	exec.owner = exec
 	exec.flow = exec
 	if occurrence != nil {
+		occurrence.performed = true
 		ctx.registerActionExecutor(exec)
 	}
 	exec.driven.exec = exec
@@ -318,15 +321,7 @@ func (e *ActionExecutor) performanceFeatures() []lower.Attribute {
 			continue
 		}
 		if i, ok := declared[name]; ok {
-			switch {
-			case e.declared != nil && features[i].Node != ast.Node(usage):
-				if e.redefinesAttribute(member, features[i]) {
-					features[i] = e.redefinedAttribute(features[i], member, usage)
-				}
-			case features[i].Value == nil && features[i].Node == ast.Node(usage):
-				features[i].Value, features[i].Scope, features[i].Binding = e.inheritedValue(member)
-			}
-			features[i].Optional = e.ctx.admitsNoValue(member)
+			e.refineDeclared(&features[i], member, usage)
 			continue
 		}
 		declared[name] = len(features)
@@ -354,7 +349,28 @@ func (e *ActionExecutor) performanceFeatures() []lower.Attribute {
 			declared[key] = len(features)
 			features = append(features, e.inheritedAttribute(member, usage, key, true))
 		})
+	// A value taken from a general is no expression of the flow: all are read from the model's table.
+	for i := range features {
+		scope := features[i].Scope
+		if scope == nil {
+			scope = e.graph.Scope
+		}
+		features[i].ValueID = e.ctx.model.exprs.Intern(features[i].Value, scope)
+	}
 	return features
+}
+
+// refineDeclared folds member into the feature already held under its name.
+func (e *ActionExecutor) refineDeclared(feature *lower.Attribute, member *symbols.Symbol, usage *ast.Usage) {
+	switch {
+	case e.declared != nil && feature.Node != ast.Node(usage):
+		if e.redefinesAttribute(member, *feature) {
+			*feature = e.redefinedAttribute(*feature, member, usage)
+		}
+	case feature.Value == nil && feature.Node == ast.Node(usage):
+		feature.Value, feature.Scope, feature.Binding = e.inheritedValue(member)
+	}
+	feature.Optional = e.ctx.admitsNoValue(member)
 }
 
 // inheritedAttribute is the attribute a performance holds for an inherited member,
@@ -480,7 +496,7 @@ func (e *ActionExecutor) holdVisible(held map[*symbols.Symbol]bool, attr lower.A
 // made and nothing is waiting for a message).
 func (e *ActionExecutor) Step() error {
 	defer e.ctx.beginExecutorRun(&e.driven)()
-	defer e.ctx.performingNode(e.performedAt, e.performedParams())()
+	defer e.ctx.performingNode(e.performedAt.Node(), e.performedParams())()
 
 	if e.released {
 		return fmt.Errorf("%w: its run ended when it was let go of", ErrExecutorReleased)
@@ -514,7 +530,7 @@ func (e *ActionExecutor) Step() error {
 	tokenCountBefore := len(e.tokens)
 	tokenLocationsBefore := make([]ast.Node, len(e.tokens))
 	for i, t := range e.tokens {
-		tokenLocationsBefore[i] = t.Location
+		tokenLocationsBefore[i] = t.Node()
 	}
 
 	// Under a sweep the tokens whose work paused resume last, the longest paused
@@ -607,7 +623,7 @@ func (e *ActionExecutor) tokensProgressed(countBefore int, locationsBefore []ast
 		return true
 	}
 	for i := 0; i < len(e.tokens) && i < len(locationsBefore); i++ {
-		if e.tokens[i].Location != locationsBefore[i] || e.moving(e.tokens[i]) {
+		if e.tokens[i].Node() != locationsBefore[i] || e.moving(e.tokens[i]) {
 			return true
 		}
 	}
@@ -771,7 +787,7 @@ func (e *ActionExecutor) describePausedWait(token Token, seen map[waitToken]bool
 	if len(descriptions) == 0 {
 		return nil, blocked
 	}
-	caller := ActionNodeName(token.Location)
+	caller := ActionNodeName(token.Node())
 	for i := range descriptions {
 		context := make([]string, 0, 2)
 		if performance != "" {
@@ -833,7 +849,7 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 // runSteps is run, stopping after one step where single is set.
 func (e *ActionExecutor) runSteps(atCurrentTime, single bool) error {
 	defer e.ctx.beginExecutorRun(&e.driven)()
-	defer e.ctx.performingNode(e.performedAt, e.performedParams())()
+	defer e.ctx.performingNode(e.performedAt.Node(), e.performedParams())()
 
 	if e.released {
 		return fmt.Errorf("%w: its run ended when it was let go of", ErrExecutorReleased)
@@ -1046,7 +1062,7 @@ func (e *ActionExecutor) changeWaitHoldsIn(perf *actionFrame, seen map[waitTarge
 			continue
 		}
 		if token.Wait != nil && !token.Wait.Timed && token.Wait.Trigger != "" {
-			usage, ok := token.Location.(*ast.Usage)
+			usage, ok := token.Node().(*ast.Usage)
 			if ok {
 				accept, ok := e.graphOf(token.frame).Accepts[usage]
 				if _, isChange := accept.Trigger.(*ast.ChangeEvent); ok && isChange {
@@ -1192,7 +1208,7 @@ func (e *ActionExecutor) acceptTaking(m Message) ([]TakingAccept, error) {
 		if matches(m) {
 			taking = append(taking, TakingAccept{
 				Param:  token.Wait.ParamName,
-				Node:   ActionNodeName(token.Location),
+				Node:   ActionNodeName(token.Node()),
 				Within: token.frame.path(),
 			})
 		}
@@ -1231,7 +1247,7 @@ func (e *ActionExecutor) parkedAcceptTakes(perf *actionFrame, takes func(token T
 		if token.Wait == nil || token.Wait.Timed || !token.inFlowOf(perf) {
 			continue
 		}
-		usage, ok := token.Location.(*ast.Usage)
+		usage, ok := token.Node().(*ast.Usage)
 		if !ok {
 			continue
 		}
@@ -1332,22 +1348,35 @@ func (e *ActionExecutor) tokenByID(id int64) (Token, bool) {
 // breakpointNameOf returns the name a breakpoint is set on for node in the flow of
 // within, or "" when none is. A node answers to its short name as well as its name;
 // one a breakpoint is set on by identity answers to its description.
-func (e *ActionExecutor) breakpointNameOf(within []ast.Node, node ast.Node) string {
+func (e *ActionExecutor) breakpointNameOf(within []NodeRef, node NodeRef) string {
+	decl := e.declarationAt(node)
 	for _, bp := range e.breakpointNodes {
 		if !bp.at(within, node) {
 			continue
 		}
-		if name := ActionNodeName(node); name != "" {
+		if name := ActionNodeName(decl); name != "" {
 			return name
 		}
-		return nodeDescription(node)
+		return describeNode(node.Graph, decl)
 	}
-	for _, name := range actionNodeNames(node) {
+	for _, name := range actionNodeNames(decl) {
 		if e.breakpoints[name] {
 			return name
 		}
 	}
 	return ""
+}
+
+// declarationAt is the declaration a token at ref stands at: the graph's node, or the
+// action itself for a state-space run, whose token stands at no node of the flow.
+func (e *ActionExecutor) declarationAt(ref NodeRef) ast.Node {
+	if node := ref.Node(); node != nil {
+		return node
+	}
+	if ref.Graph == e.graph && e.dynamics != nil {
+		return e.dynamicsNode()
+	}
+	return nil
 }
 
 // PausedAt returns the breakpoint node the last run stopped at, or "" when the
@@ -1464,7 +1493,8 @@ func (e *ActionExecutor) initializeAttributes() error {
 				return fmt.Errorf("%w: read %s of object #%d: %w",
 					errActionPerformanceOccurrence, attr.Name, e.occurrence.ID, err)
 			}
-			if attr.Binding && !fv.Written && !e.occurrenceRedefinesAttribute(attr, fv) {
+			supplies := e.ctx.occurrenceSupplies(attr, fv)
+			if supplies && attr.Binding && !fv.Written && !e.occurrenceRedefinesAttribute(attr, fv) {
 				value, seeded, err := e.ctx.seedBodyBindingFromFeatureValue(e.root.cells, e.root.key(attr.Name), fv)
 				if err != nil {
 					return fmt.Errorf("eval attribute default %s: %w", attr.Name, err)
@@ -1476,7 +1506,7 @@ func (e *ActionExecutor) initializeAttributes() error {
 					continue
 				}
 			}
-			if value := fv.HeldValue(); value.Kind != ValInvalid &&
+			if value := fv.HeldValue(); supplies &&
 				(!attr.Binding || fv.Written || e.occurrenceRedefinesAttribute(attr, fv)) {
 				e.ctx.writeBodyValue(e.root.cells, e.root.data, e.root.key(attr.Name), value)
 				if err := e.streamInitialOutput(attr.Name, value); err != nil {
@@ -1500,7 +1530,7 @@ func (e *ActionExecutor) initializeAttributes() error {
 				e.root.cells, e.root.key(attr.Name), e.root.cells.existingCell(e.root.key(attr.Name)),
 			)
 		} else {
-			value, err = evalDefaults().evalIn(attr.Scope).Eval(attr.Value)
+			value, err = evalDefaults().evalIn(attr.Scope).reading(e.ctx.model.exprs).evalPayload(attr.ValueID)
 		}
 		if err != nil {
 			return fmt.Errorf("eval attribute default %s: %w", attr.Name, err)
@@ -1639,7 +1669,7 @@ func (e *ActionExecutor) materializeOccurrence() (*Instance, error) {
 	if e.occurrence != nil {
 		return e.occurrence, nil
 	}
-	if !isBehaviorDefKind(e.action.Kind) {
+	if !e.action.Kind.IsBehaviorDef() {
 		return nil, nil
 	}
 	inst, err := e.ctx.materialize(e.action, 0, nil, "")
@@ -1648,6 +1678,7 @@ func (e *ActionExecutor) materializeOccurrence() (*Instance, error) {
 	}
 	// The run's own object: what it holds is the run's, not the model's alone.
 	inst.explicit = true
+	inst.performed = true
 	e.occurrence = inst
 	e.performances.occurrence = inst
 	e.ctx.registerActionExecutor(e)
@@ -1670,7 +1701,7 @@ func (e *ActionExecutor) materializeOccurrence() (*Instance, error) {
 		}
 	}
 	e.ctx.beginPerformanceLife(inst, e.ctx.newActivation())
-	return inst, nil
+	return inst, e.holdNodeOccurrences(e.root)
 }
 
 // returnAround holds nothing either.
@@ -1728,22 +1759,32 @@ func (e *ActionExecutor) occurrenceRedefinesAttribute(attr lower.Attribute, fv *
 // occurrence for a feature the action declares: the occurrence is authoritative
 // for those, and data mirrors what it holds after the write.
 func (e *ActionExecutor) setFeature(name string, value Value) error {
+	value, err := e.holdFeature(name, value)
+	if err != nil {
+		return err
+	}
+	e.moved = true
+	return e.streamOutput(name, value)
+}
+
+// holdFeature is setFeature's write alone, returning the value as held: nothing
+// listening hears it, so a probe's rollback (see Context.beginProbe) undoes it whole.
+func (e *ActionExecutor) holdFeature(name string, value Value) (Value, error) {
 	var err error
 	if e.occurrence != nil && e.declaresAttribute(name) {
 		if value, err = e.mirrorOccurrence(name, value); err != nil {
-			return err
+			return value, err
 		}
 	} else {
 		// No occurrence holds this feature, so its declaration is checked here
 		// rather than by the write to that occurrence.
 		scope, declared := heldDeclaration(e.root, e.graph.Scope, name)
 		if err := e.ctx.checkNamedWriteAs(scope, func() string { return actionLabelPrefix + SymbolText(e.action) }, declared, &value); err != nil {
-			return err
+			return value, err
 		}
 	}
 	e.ctx.writeBodyValue(e.root.cells, e.root.data, e.root.key(name), value)
-	e.moved = true
-	return e.streamOutput(name, value)
+	return value, nil
 }
 
 // outputListener is a node's ear on the outputs of the action it performs: perf is
@@ -1929,14 +1970,15 @@ func (e *ActionExecutor) fixWitnessInputs() error {
 		}
 		value := in.Value
 		if value.Kind == ValInvalid {
-			expr, ok, err := e.ctx.model.parseOneExpression("<witness>", in.Written)
+			expr, err := e.ctx.model.readExpression("<witness>", in.Written, ec.scope)
 			if err != nil {
 				return err
 			}
-			if !ok {
+			if expr == nil {
 				return &WitnessInputError{Feature: in.Feature, Reason: fmt.Sprintf("%q is not an expression the notation reads", in.Written)}
 			}
-			evaluated, err := ec.Eval(expr)
+			evaluated, err := ec.evaluate(expr.lowered, false)
+			expr.forget()
 			if err != nil {
 				return &WitnessInputError{Feature: in.Feature, Reason: fmt.Sprintf("%q does not evaluate: %v", in.Written, err)}
 			}
@@ -1992,7 +2034,7 @@ func (e *ActionExecutor) checkInputNames() error {
 // initialize spawns initial token at InitialNode.
 func (e *ActionExecutor) initialize() error {
 	defer e.ctx.beginExecutorRun(&e.driven)()
-	defer e.ctx.performingNode(e.performedAt, e.performedParams())()
+	defer e.ctx.performingNode(e.performedAt.Node(), e.performedParams())()
 
 	if e.dynamicsKind != lower.NotStateSpace {
 		return e.initializeDynamics()
@@ -2061,7 +2103,7 @@ func (e *ActionExecutor) stepTokenAt(tokenIdx int) error {
 	}
 	token := &e.tokens[tokenIdx]
 
-	switch node := token.Location.(type) {
+	switch node := token.Node().(type) {
 	case *ast.InitialNode:
 		return e.stepInitialNode(tokenIdx)
 	case *ast.FinalNode:
@@ -2086,10 +2128,9 @@ func (e *ActionExecutor) stepTokenAt(tokenIdx int) error {
 		}
 		return fmt.Errorf("unsupported usage kind in action: %v", node.Kind)
 	case *ast.PerformActionNode:
-		if e.tokenGraph(tokenIdx).UnstatedCaseFlow {
-			return e.stepStatementNode(tokenIdx)
-		}
-		return fmt.Errorf("unsupported node type: %T", node)
+		// A step a succession end implies by chaining to an action through an
+		// object, or a `perform` of an unstated case flow: its one statement.
+		return e.stepStatementNode(tokenIdx)
 	case *ast.WhileLoopActionNode, *ast.IfActionNode, *ast.AssignmentActionNode,
 		*ast.SendStatement, *ast.TerminateStatement:
 		// An action node member written as a statement (`then send x via p;`,
@@ -2136,20 +2177,20 @@ func (e *ActionExecutor) synchronize(tokenIdx int) (int, bool) {
 // the earliest per awaited succession, or nil while one has yet to deliver; held is false
 // for a token no synchronization holds.
 func (e *ActionExecutor) arrivals(token Token) (consumed []int, held bool) {
-	if token.Via == (lower.ActionEdge{}) || token.body != nil || !synchronizes(token.Location) {
+	if token.Via == (lower.ActionEdge{}) || token.body != nil || !synchronizes(token.Node()) {
 		return nil, false
 	}
-	if e.starvedPin(token.frame, token.Location) {
+	if e.starvedPin(token.frame, token.Node()) {
 		return nil, true
 	}
-	_, join := token.Location.(*ast.JoinNode)
-	incoming := e.awaitedSuccessions(token.frame, token.Location)
+	_, join := token.Node().(*ast.JoinNode)
+	incoming := e.awaitedSuccessions(token.frame, token.Node())
 	if len(incoming) < 2 && !join {
 		return nil, false
 	}
 	consumed = make([]int, 0, len(incoming))
 	for _, edge := range incoming {
-		idx, ok := e.arrival(token.frame, token.Location, edge, true)
+		idx, ok := e.arrival(token.frame, token.Node(), edge, true)
 		if !ok {
 			return nil, true
 		}
@@ -2186,7 +2227,7 @@ func (e *ActionExecutor) starvedPin(frame *actionFrame, node ast.Node) bool {
 	var live map[ast.Node]bool
 	for _, feature := range graph.Features[node] {
 		edges := feeds[feature.Name]
-		if feature.Direction != ast.DirIn || len(edges) == 0 || len(frame.pending[node][feature.Name]) > 0 {
+		if feature.Direction != ast.DirIn || len(edges) == 0 || len(frame.pending[refOf(graph, node)][feature.Name]) > 0 {
 			continue
 		}
 		if sym := memberSymbol(feature.Scope, feature.Node); sym != nil && e.ctx.admitsNoValue(sym) {
@@ -2216,7 +2257,7 @@ func synchronizes(node ast.Node) bool {
 // passes over those the sweep in progress moved there, which arrive once it ends.
 func (e *ActionExecutor) arrival(frame *actionFrame, node ast.Node, edge lower.ActionEdge, settled bool) (int, bool) {
 	for i, t := range e.tokens {
-		if t.Location == node && t.frame == frame && t.body == nil && t.Via == edge &&
+		if t.Node() == node && t.frame == frame && t.body == nil && t.Via == edge &&
 			(!settled || !e.moving(t)) {
 			return i, true
 		}
@@ -2291,12 +2332,12 @@ func (e *ActionExecutor) leaves(frame *actionFrame, node ast.Node, reached map[a
 // Awaiting returns the successions into the node token is held at that no token has
 // arrived over yet, nil for a token not held there.
 func (e *ActionExecutor) Awaiting(token Token) []lower.ActionEdge {
-	if token.Via == (lower.ActionEdge{}) || token.body != nil || !synchronizes(token.Location) {
+	if token.Via == (lower.ActionEdge{}) || token.body != nil || !synchronizes(token.Node()) {
 		return nil
 	}
 	var awaited []lower.ActionEdge
-	for _, edge := range e.awaitedSuccessions(token.frame, token.Location) {
-		if _, delivered := e.arrival(token.frame, token.Location, edge, false); !delivered {
+	for _, edge := range e.awaitedSuccessions(token.frame, token.Node()) {
+		if _, delivered := e.arrival(token.frame, token.Node(), edge, false); !delivered {
 			awaited = append(awaited, edge)
 		}
 	}
@@ -2318,7 +2359,7 @@ func (e *ActionExecutor) enabledSuccessions(frame *actionFrame, node ast.Node) (
 
 	enabled := make([]lower.ActionEdge, 0, len(declared))
 	for _, edge := range declared {
-		holds, err := e.guardHolds(ec.evalIn(graph.DeclScope(edge.Decl)), node, edge.Guard)
+		holds, err := e.guardHolds(ec.evalIn(graph.DeclScope(edge.Decl)), graph, node, edge.Guard, edge.GuardID)
 		if err != nil {
 			return nil, err
 		}
@@ -2354,29 +2395,30 @@ func (e *ActionExecutor) falseGuardLeavesRepeated(graph *lower.ActionGraph, edge
 
 // guardHolds evaluates the guard a succession out of node carries; none is unconditional, and
 // one reading a feature with no value is not true, so it does not assert it (SysML v2 7.17.5).
-func (e *ActionExecutor) guardHolds(ec *EvalContext, node, guard ast.Node) (bool, error) {
+func (e *ActionExecutor) guardHolds(ec *EvalContext, graph *lower.ActionGraph, node, guard ast.Node, id program.ExprID) (bool, error) {
+	ec = ec.reading(graph.Exprs)
 	return e.ctx.guardUnderStatementOrders(guard, e.stepCount+1, ec.scope, func() (bool, error) {
-		result, err := guardResult(ec, guard)
+		result, err := guardResult(ec, guard, id)
 		if readsNoValue(err) {
 			return false, nil
 		}
 		if err != nil {
-			return false, fmt.Errorf("eval guard of %s: %w", nodeDescription(node), err)
+			return false, fmt.Errorf("eval guard of %s: %w", describeNode(graph, node), err)
 		}
 		if !result.isBool() {
 			return false, fmt.Errorf("%w: %s: guard must evaluate to boolean, got %v",
-				ErrTypeMismatch, nodeDescription(node), result.Kind)
+				ErrTypeMismatch, describeNode(graph, node), result.Kind)
 		}
 		return result.Const.Bool, nil
 	})
 }
 
 // guardResult is what a guard evaluates to; no guard is true.
-func guardResult(ec *EvalContext, guard ast.Node) (Value, error) {
+func guardResult(ec *EvalContext, guard ast.Node, id program.ExprID) (Value, error) {
 	if guard == nil {
 		return boolValue(true), nil
 	}
-	result, err := ec.Eval(guard)
+	result, err := ec.evalPayload(id)
 	return soleElement(result), err
 }
 
@@ -2392,9 +2434,9 @@ func (e *ActionExecutor) probeGuard(frame *actionFrame, node *ast.DecisionNode, 
 	func() {
 		defer e.ctx.beginProbe()()
 		holds, err = e.ctx.guardUnderStatementOrders(guard, e.stepCount+1, scope, func() (bool, error) {
-			ec := e.evalContextFor(frame, scope)
+			ec := e.evalContextFor(frame, scope).reading(e.graphOf(frame).Exprs)
 			defer ec.beginStep()()
-			result, err := guardResult(ec, guard)
+			result, err := guardResult(ec, guard, successors[i].GuardID)
 			if err != nil {
 				return false, err
 			}
@@ -2479,9 +2521,9 @@ func (e *ActionExecutor) readiness(id int64, eligible func(Token) bool) (ready b
 	}
 	t := e.tokens[i]
 	if e.dynamics != nil {
-		return e.dynamicsDue(t), nil
+		return e.dynamicsDue(t) && !e.awaitsSource(), nil
 	}
-	usage, ok := t.Location.(*ast.Usage)
+	usage, ok := t.Node().(*ast.Usage)
 	if !ok || t.body != nil {
 		return true, nil
 	}
@@ -2506,7 +2548,7 @@ func (e *ActionExecutor) readiness(id int64, eligible func(Token) bool) (ready b
 // tokenLabel names a token as the trace does, by ID and node.
 func (e *ActionExecutor) tokenLabel(id int64) string {
 	if tok, ok := e.tokenByID(id); ok {
-		return fmt.Sprintf("%d@%s", id, nodeIdentifier(tok.Location))
+		return fmt.Sprintf("%d@%s", id, nodeIdentifier(tok.Node()))
 	}
 	return fmt.Sprintf("%d", id)
 }
@@ -2561,14 +2603,14 @@ func (e *ActionExecutor) stepTokens(schedule *tokenSchedule, paused []int64, ord
 func (e *ActionExecutor) stepInitialNode(tokenIdx int) error {
 	token := &e.tokens[tokenIdx]
 	graph := e.tokenGraph(tokenIdx)
-	if len(graph.Edges[token.Location]) == 0 {
+	if len(graph.Edges[token.Node()]) == 0 {
 		return fmt.Errorf("%w: initial node has no successors", errInvalidActionFlow)
 	}
-	if err := e.runNodeBody(token.frame, token.Location); err != nil {
+	if err := e.runNodeBody(token.frame, token.Node()); err != nil {
 		return err
 	}
 
-	successors, err := e.enabledSuccessions(token.frame, token.Location)
+	successors, err := e.enabledSuccessions(token.frame, token.Node())
 	if err != nil {
 		return err
 	}
@@ -2617,7 +2659,7 @@ func (e *ActionExecutor) retireToken(tokenIdx int) error {
 // only: its branches go on reading and writing the action's own features.
 func (e *ActionExecutor) stepForkNode(tokenIdx int) error {
 	token := &e.tokens[tokenIdx]
-	node := token.Location.(*ast.ForkNode)
+	node := token.Node().(*ast.ForkNode)
 	frame := token.frame
 	graph := e.graphOf(frame)
 
@@ -2667,7 +2709,7 @@ func (e *ActionExecutor) split(tokenIdx int, successors []lower.ActionEdge) {
 	for _, edge := range successors {
 		newToken := Token{
 			ID:       e.nextTokenID,
-			Location: edge.Target,
+			Location: refOf(e.graphOf(frame), edge.Target),
 			Via:      edge,
 			moved:    e.sweep,
 			frame:    frame,
@@ -2687,7 +2729,7 @@ func (e *ActionExecutor) split(tokenIdx int, successors []lower.ActionEdge) {
 // already waited for its incoming successions — on to its successor.
 func (e *ActionExecutor) stepJoinNode(tokenIdx int) error {
 	token := &e.tokens[tokenIdx]
-	node := token.Location.(*ast.JoinNode)
+	node := token.Node().(*ast.JoinNode)
 	frame := token.frame
 	graph := e.graphOf(frame)
 
@@ -2725,9 +2767,9 @@ func (e *ActionExecutor) stepJoinNode(tokenIdx int) error {
 // arrival (Actions::MergeAction), so a loop re-enters it and a fork's branches each traverse it.
 func (e *ActionExecutor) stepMergeNode(tokenIdx int) error {
 	token := &e.tokens[tokenIdx]
-	mergeNode, ok := token.Location.(*ast.MergeNode)
+	mergeNode, ok := token.Node().(*ast.MergeNode)
 	if !ok {
-		return fmt.Errorf("expected MergeNode, got %T", token.Location)
+		return fmt.Errorf("expected MergeNode, got %T", token.Node())
 	}
 
 	graph := e.graphOf(token.frame)
@@ -2763,9 +2805,9 @@ func (e *ActionExecutor) stepMergeNode(tokenIdx int) error {
 // stepDecisionNode evaluates guards and routes token to matching branch.
 func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 	token := &e.tokens[tokenIdx]
-	decisionNode, ok := token.Location.(*ast.DecisionNode)
+	decisionNode, ok := token.Node().(*ast.DecisionNode)
 	if !ok {
-		return fmt.Errorf("expected DecisionNode, got %T", token.Location)
+		return fmt.Errorf("expected DecisionNode, got %T", token.Node())
 	}
 
 	// Get successors (outgoing edges from decision)
@@ -2818,7 +2860,7 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 			}
 		} else {
 			var err error
-			if holds, err = e.guardHolds(ec.evalIn(graph.DeclScope(edge.Decl)), decisionNode, edge.Guard); err != nil {
+			if holds, err = e.guardHolds(ec.evalIn(graph.DeclScope(edge.Decl)), graph, decisionNode, edge.Guard, edge.GuardID); err != nil {
 				return err
 			}
 		}
@@ -2839,7 +2881,7 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 		// is the run's own, so the run holds what evaluating it did.
 		if pick > 0 && successors[holding[pick]].Guard != nil {
 			picked := successors[holding[pick]]
-			holds, err := e.guardHolds(ec.evalIn(graph.DeclScope(picked.Decl)), decisionNode, picked.Guard)
+			holds, err := e.guardHolds(ec.evalIn(graph.DeclScope(picked.Decl)), graph, decisionNode, picked.Guard, picked.GuardID)
 			if err != nil {
 				return err
 			}
@@ -2891,7 +2933,7 @@ func (e *ActionExecutor) guardsStanding(graph *lower.ActionGraph, successors []l
 // performedParams is the action's own parameters where another action's node
 // performs it, nil where it runs on its own: the places the node's pins are.
 func (e *ActionExecutor) performedParams() map[*symbols.Symbol]bool {
-	if e.performedAt == nil || e.graph == nil {
+	if e.performedAt == (NodeRef{}) || e.graph == nil {
 		return nil
 	}
 	params := make(map[*symbols.Symbol]bool, len(e.graph.Parameters))
@@ -2906,9 +2948,9 @@ func (e *ActionExecutor) performedParams() map[*symbols.Symbol]bool {
 // stepActionExecutionNode evaluates inline expression or invokes nested action.
 func (e *ActionExecutor) stepActionExecutionNode(tokenIdx int) error {
 	token := &e.tokens[tokenIdx]
-	node, ok := token.Location.(*ast.ActionExecutionNode)
+	node, ok := token.Node().(*ast.ActionExecutionNode)
 	if !ok {
-		return fmt.Errorf("expected ActionExecutionNode, got %T", token.Location)
+		return fmt.Errorf("expected ActionExecutionNode, got %T", token.Node())
 	}
 
 	frame := token.frame
@@ -2959,9 +3001,9 @@ func (e *ActionExecutor) leaveExecutionNode(tokenIdx int, frame *actionFrame, no
 // stepNestedAction performs a nested action usage in a frame of its own.
 func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 	token := &e.tokens[tokenIdx]
-	usage, ok := token.Location.(*ast.Usage)
+	usage, ok := token.Node().(*ast.Usage)
 	if !ok {
-		return fmt.Errorf("expected Usage, got %T", token.Location)
+		return fmt.Errorf("expected Usage, got %T", token.Node())
 	}
 
 	// An accept node waits for a message of its parameter's type. Until one
@@ -2992,7 +3034,7 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 		}
 	}
 
-	perf, err := e.beginPerformance(token.frame, graph, usage, nil, nil, nil)
+	perf, err := e.beginPerformance(token.frame, graph, usage, nil, nil, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -3072,7 +3114,7 @@ func (e *ActionExecutor) awaitSignal(token *Token, accept lower.Accept, usage *a
 	}
 	token.Wait = nil
 	if tr := e.trace(); tr != nil {
-		tr.recordActionAccept(e.traceOrigin(), token.ID, e.stepCount+1, nodeIdentifier(token.Location),
+		tr.recordActionAccept(e.traceOrigin(), token.ID, e.stepCount+1, nodeIdentifier(token.Node()),
 			msg.Serial, acceptedEventName(msg), msg.Payload)
 	}
 	if accepting, err := e.materializeOccurrence(); err != nil {
@@ -3168,10 +3210,10 @@ func (e *ActionExecutor) triggerHolds(token *Token, accept lower.Accept) (bool, 
 	frame := token.frame
 	switch t := accept.Trigger.(type) {
 	case *ast.ChangeEvent:
-		ec := e.evalContextFor(frame, frame.graph.Scope)
+		ec := e.evalContextFor(frame, frame.graph.Scope).reading(frame.graph.Exprs)
 		defer ec.beginStep()()
 		return e.ctx.guardUnderStatementOrders(t.Condition, e.stepCount+1, frame.graph.Scope, func() (bool, error) {
-			result, err := ec.Eval(t.Condition)
+			result, err := ec.evalPayload(accept.TriggerExprID)
 			if err != nil {
 				return false, fmt.Errorf("eval accept condition: %w", err)
 			}
@@ -3188,9 +3230,9 @@ func (e *ActionExecutor) triggerHolds(token *Token, accept lower.Accept) (bool, 
 		if err := e.ctx.judgeTimeTriggerType(frame.graph.Scope, t); err != nil {
 			return false, err
 		}
-		ec := e.evalContextFor(frame, frame.graph.Scope)
+		ec := e.evalContextFor(frame, frame.graph.Scope).reading(frame.graph.Exprs)
 		defer ec.beginStep()()
-		val, err := ec.Eval(t.Duration)
+		val, err := ec.evalPayload(accept.TriggerExprID)
 		if err != nil {
 			return false, fmt.Errorf("eval %s: %w", triggerDescription(t), err)
 		}
@@ -3351,6 +3393,9 @@ func (e *ActionExecutor) dueWork() bool {
 	if e.released || (e.state != StateRunning && e.state != StateWaiting) {
 		return false
 	}
+	if e.awaitsSource() {
+		return false
+	}
 	for _, token := range e.tokens {
 		if token.Wait == nil && !token.pausedOnClock() && !token.pausedOnMessage() && !token.pausedOnChange() &&
 			!e.heldAtSync(token) && token.inFlowOf(e.awaiting) {
@@ -3421,7 +3466,7 @@ func (e *ActionExecutor) runDueSteps(progress *dueProgress, single bool) (bool, 
 func (e *ActionExecutor) tokenPositions() map[int64]ast.Node {
 	positions := make(map[int64]ast.Node, len(e.tokens))
 	for _, token := range e.tokens {
-		positions[token.ID] = token.Location
+		positions[token.ID] = token.Node()
 	}
 	return positions
 }
@@ -3442,8 +3487,8 @@ func performerSuffix(self *Instance) string {
 // runs the statements lowering recorded for it, then leaves for its successor.
 func (e *ActionExecutor) stepStatementNode(tokenIdx int) error {
 	token := e.tokens[tokenIdx]
-	step := e.beginStatementStep(token.frame, token.Location)
-	return e.runBody(tokenIdx, &statementWork{exec: e, token: token.ID, frame: token.frame, node: token.Location, step: step})
+	step := e.beginStatementStep(token.frame, token.Node())
+	return e.runBody(tokenIdx, &statementWork{exec: e, token: token.ID, frame: token.frame, node: token.Node(), step: step})
 }
 
 // beginStatementStep is a token's step of a statement node in frame: a transparent performance
@@ -3461,7 +3506,7 @@ func (e *ActionExecutor) beginStatementStep(frame *actionFrame, node ast.Node) *
 		connections: frame.connections,
 		data:        make(map[string]Value),
 		features:    make(map[string]ast.FeatureDirection),
-		subactions:  make(map[ast.Node]*actionFrame),
+		subactions:  make(map[NodeRef]*actionFrame),
 		perfs:       &e.performances,
 		run:         frame.run,
 		began:       e.ctx.newActivation(),
@@ -3504,7 +3549,7 @@ func (e *performances) applyDataFlows(
 			}
 			return fmt.Errorf(
 				"%w: %s: %s produced no value at %s",
-				errFlowSource, flowDescription(flow), nodeDescription(sourceNode), orAnyPin(flow.SourcePin),
+				errFlowSource, flowDescription(flow), describeNode(graph, sourceNode), orAnyPin(flow.SourcePin),
 			)
 		}
 		var err error
@@ -3568,13 +3613,14 @@ func orAnyPin(pin string) string {
 	return pin
 }
 
-// nodeDescription names an action node for a diagnostic, falling back to the
-// kind of node it is when the notation gave it no name.
-func nodeDescription(node ast.Node) string {
-	if name := ActionNodeName(node); name != "" {
-		return "node " + name
+//go:noinline
+func describeNode(graph *lower.ActionGraph, node ast.Node) string {
+	// Names a node for a diagnostic by its origin (`node a`, else `the if action`); kept out
+	// of line because inlined into every error path it cost 17 KB of the wasm size budget.
+	if graph == nil {
+		return program.Origin{}.String()
 	}
-	return fmt.Sprintf("the %T", node)
+	return graph.OriginOf(node).String()
 }
 
 // --- Public accessor methods for REPL debugging ---
@@ -3591,7 +3637,7 @@ func (e *ActionExecutor) Tokens() []Token {
 type Traversal struct {
 	Token  int64
 	Edge   lower.ActionEdge
-	Within []ast.Node
+	Within []NodeRef
 }
 
 // cloneTraversals copies ts, each path with it, so neither copy can alias the other.
@@ -3708,7 +3754,7 @@ func (e *ActionExecutor) collectPartsHeld(into map[string]Value) {
 		return
 	}
 	for _, sym := range e.action.Scope.Members() {
-		if sym.Name == "" || (sym.Kind != symbols.SymbolPartUsage && sym.Kind != symbols.SymbolItemUsage) {
+		if !sym.Named() || (sym.Kind != symbols.SymbolPartUsage && sym.Kind != symbols.SymbolItemUsage) {
 			continue
 		}
 		objects, live := e.ctx.liveOccurrences(sym)
@@ -3754,7 +3800,7 @@ func (h Held) Features() []lower.Attribute {
 
 // Value is the value held under name: its redefinition's when name is redefined.
 func (h Held) Value(name string) (Value, bool) {
-	v, ok := h.data[canonical(h.aliases, name)]
+	v, ok := h.data[program.Canonical(h.aliases, name)]
 	return v, ok
 }
 
@@ -3797,7 +3843,7 @@ func (e *ActionExecutor) Breakpoints() []string {
 func (e *ActionExecutor) ReplaceBreakpointsAt(bps []NodeBreakpoint) {
 	e.breakpointNodes = e.breakpointNodes[:0]
 	for _, bp := range bps {
-		if bp.Node != nil {
+		if bp.Node != (NodeRef{}) {
 			e.breakpointNodes = append(e.breakpointNodes, NodeBreakpoint{Within: slices.Clone(bp.Within), Node: bp.Node})
 		}
 	}
@@ -3857,13 +3903,13 @@ func (e *ActionExecutor) recordTokenAt(token *Token, edge *lower.ActionEdge) {
 	if edge != nil {
 		from = nodeIdentifier(edge.Source)
 	}
-	tr.recordTokenStep(e.traceOrigin(), token.ID, e.stepCount+1, from, nodeIdentifier(token.Location))
+	tr.recordTokenStep(e.traceOrigin(), token.ID, e.stepCount+1, from, nodeIdentifier(token.Node()))
 }
 
 // recordTokenWait records token parking where it is for awaited.
 func (e *ActionExecutor) recordTokenWait(token *Token, awaited string) {
 	if tr := e.trace(); tr != nil {
-		tr.recordTokenWait(e.traceOrigin(), token.ID, e.stepCount+1, nodeIdentifier(token.Location), awaited)
+		tr.recordTokenWait(e.traceOrigin(), token.ID, e.stepCount+1, nodeIdentifier(token.Node()), awaited)
 	}
 }
 
@@ -3877,7 +3923,7 @@ func (e *ActionExecutor) recordDecide(token *Token, successors []lower.ActionEdg
 	for i := range successors {
 		alternatives[i] = branchName(successors, i)
 	}
-	tr.recordDecide(e.traceOrigin(), token.ID, e.stepCount+1, nodeIdentifier(token.Location), alternatives, branchName(successors, pick))
+	tr.recordDecide(e.traceOrigin(), token.ID, e.stepCount+1, nodeIdentifier(token.Node()), alternatives, branchName(successors, pick))
 }
 
 // SetTrace sets the trace recorder for this executor and the context it

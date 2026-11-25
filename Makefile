@@ -1,4 +1,4 @@
-.PHONY: all build docker vulncheck sca-tools audit audit-npm audit-python audit-rust audit-java extension-libraries-check extension-libraries-sync extension-libraries-pin-check build-sysml build-re build-wasm-re build-lsp build-grpc build-mcp build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-mcp conformance-rust conformance-julia conformance-matlab test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check metaclass-graph metaclass-graph-check python-metamodel python-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage vscode-coverage jupyterlab-coverage mcp-npm-coverage python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts diagnostics-catalogue diagnostics-check docs-check changelog-check changelog-render self-model mcp-registry-check
+.PHONY: all build docker stdlib-snapshot vulncheck sca-tools audit audit-npm audit-python audit-rust audit-java extension-libraries-check extension-libraries-sync extension-libraries-pin-check textmate-grammars-check textmate-grammars-publish build-sysml build-re build-wasm-re build-lsp build-grpc build-mcp build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check man-lint install-tree pgo-profile conformance conformance-pkg conformance-mcp conformance-rust conformance-julia conformance-matlab test test-shard test-quick test-queue coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check metaclass-graph metaclass-graph-check python-metamodel python-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage vscode-coverage jupyterlab-coverage mcp-npm-coverage python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package emacs-keywords emacs-compile emacs-test docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts diagnostics-catalogue diagnostics-check docs-check changelog-check changelog-render spec-compliance-check spec-compliance-render self-model mcp-registry-check
 
 # Version information
 # Only release tags describe a build; the moving `nightly` tag is not a version.
@@ -31,7 +31,8 @@ GOSEC_EXCLUDE := -exclude=G602,G703
 GOVULNCHECK_VERSION := v1.9.0
 CYCLONEDX_MAVEN_VERSION := 2.9.1
 SCA_BIN := build/sca/bin
-PIP_AUDIT := build/sca/venv/bin/pip-audit
+# pip-audit asks PyPI for every package; the wrapper retries an answer that was slow or failed.
+PIP_AUDIT := scripts/pip-audit-retry.sh build/sca/venv/bin/pip-audit
 # `npm audit` fails on production advisories at this severity and above, in every lockfile directory.
 NPM_AUDIT_LEVEL := moderate
 BUF_VERSION := v1.57.2
@@ -71,6 +72,10 @@ NPM_LOCK_DIRS := $(NODE_DIR) $(MCP_NPM_DIR) $(VSCODE_DIR) $(JUPYTERLAB_DIR) edit
 PYTHON_PROJECT_DIRS := $(PYTHON_DIR) $(JUPYTER_KERNEL_DIR) packaging/pypi-pysysml
 PYTHON_REQUIREMENTS := docs-requirements.txt
 JAVA_PROJECT_DIRS := client/java editors/syson editors/mdk
+EMACS_DIR := editors/emacs
+EMACS ?= emacs
+# Where `make emacs-test` installs lsp-mode for the suites, outside any user config.
+EMACS_DEPS ?= $(CURDIR)/build/emacs-deps
 PYTHON ?= python3
 # api/proto/buf.gen.python.yaml starts the interpreter this names.
 export PYTHON
@@ -90,9 +95,23 @@ TOOLS_DIR := tools
 COVERAGE_PACKAGES ?= ./...
 COVERAGE_TOOLS ?= ./...
 COVERAGE_PROFILE ?= coverage.txt
-# The coverage job's nodes: the race shards except runtime-corpus, since without -race
-# internal/exec/runtime runs whole in about 19 minutes under -coverpkg (see .circleci/config.yml).
-COVERAGE_SHARDS := runtime model export graph codegen tools rest migrate cli
+# The coverage-shard being written, which selects COVERAGE_SELECT_<shard>; empty for make coverage.
+COVERAGE_SHARD ?=
+# The coverage job's nodes: the race shards but the runtime's corpus ones, since without -race internal/exec/runtime
+# runs whole in about 19 minutes under -coverpkg; tests/export and tests/corpus whole overran 30 (see .circleci/config.yml).
+COVERAGE_SHARDS := runtime model smt corpus corpus-sweep-committed corpus-sweep-corpora export export-library export-examples export-corpus graph graph-corpora codegen translate translate-structure grpc tools internal rest migrate cli
+# coverage-shard's splits of four packages by test name, test-shard's; empty for every other shard.
+COVERAGE_SELECT_corpus = -skip '$(RACE_CORPUS_SWEEP)'
+COVERAGE_SELECT_corpus-sweep-committed = -run '$(RACE_CORPUS_SWEEP_COMMITTED)'
+COVERAGE_SELECT_corpus-sweep-corpora = -run '$(RACE_CORPUS_SWEEP_CORPORA)'
+COVERAGE_SELECT_export = -skip '$(RACE_EXPORT_CORPUS)|$(RACE_EXPORT_LIBRARY)|$(RACE_EXPORT_EXAMPLES)'
+COVERAGE_SELECT_export-library = -run '$(RACE_EXPORT_LIBRARY)'
+COVERAGE_SELECT_export-examples = -run '$(RACE_EXPORT_EXAMPLES)'
+COVERAGE_SELECT_export-corpus = -run '$(RACE_EXPORT_CORPUS)'
+COVERAGE_SELECT_graph = -skip '$(RACE_GRAPH_CORPORA)'
+COVERAGE_SELECT_graph-corpora = -run '$(RACE_GRAPH_CORPORA)'
+COVERAGE_SELECT_translate = -skip '$(RACE_TRANSLATE_STRUCTURE)'
+COVERAGE_SELECT_translate-structure = -run '$(RACE_TRANSLATE_STRUCTURE)'
 
 # The commands whose manual pages are generated and shipped, in section 1.
 COMMANDS := sysml sysml-lsp sysml-grpc sysml-jupyter-kernel sysml-mcp
@@ -117,7 +136,7 @@ all: build test python-test ## Build and test everything
 
 build: build-sysml build-lsp build-grpc build-jupyter-kernel build-mcp ## Build all binaries
 
-build-sysml: ## Build bin/sysml, the DK build with every feature group
+build-sysml: stdlib-snapshot ## Build bin/sysml, the DK build with every feature group
 	@echo "Building sysml (DK)..."
 	@mkdir -p $(BIN_DIR)
 	$(call winres,sysml)
@@ -127,29 +146,29 @@ build-sysml: ## Build bin/sysml, the DK build with every feature group
 # The RE (Runtime Environment) sysml leaves out the optional and developer-only
 # feature groups (sysml_re; see cmd/sysml/features.go); the DK (Development Kit)
 # build is the default one. Opt-in: nothing builds the RE by default.
-build-re: ## Build bin/re/sysml, the RE build without the optional features (-tags sysml_re)
+build-re: stdlib-snapshot ## Build bin/re/sysml, the RE build without the optional features (-tags sysml_re)
 	@echo "Building sysml (RE)..."
 	@mkdir -p $(BIN_DIR)/re
 	$(call winres,sysml)
 	$(GO_BUILD) -tags sysml_re -o $(BIN_DIR)/re/sysml ./cmd/sysml
 	@echo "✓ Built $(BIN_DIR)/re/sysml ($(VERSION))"
 
-build-lsp: ## Build sysml-lsp binary
+build-lsp: stdlib-snapshot ## Build sysml-lsp binary
 	@echo "Building sysml-lsp..."
 	@mkdir -p $(BIN_DIR)
 	$(call winres,sysml-lsp)
 	$(GO_BUILD) -o $(BIN_DIR)/sysml-lsp ./cmd/sysml-lsp
 	@echo "✓ Built $(BIN_DIR)/sysml-lsp ($(VERSION))"
 
-build-grpc: ## Build sysml-grpc binary
+build-grpc: stdlib-snapshot ## Build sysml-grpc binary
 	@echo "Building sysml-grpc..."
 	@mkdir -p $(BIN_DIR)
 	$(call winres,sysml-grpc)
 	$(GO_BUILD) -o $(BIN_DIR)/sysml-grpc ./cmd/sysml-grpc
 	@echo "✓ Built $(BIN_DIR)/sysml-grpc ($(VERSION))"
 
-# Container image: sysml-grpc as the entrypoint with sysml and sysml-lsp beside
-# it, built by the Dockerfile with the same -ldflags metadata as the binaries.
+# Container image: sysml-grpc as the entrypoint with sysml, sysml-lsp and
+# sysml-mcp beside it, built by the Dockerfile with the binaries' -ldflags.
 IMAGE ?= openmbee/opensysml
 IMAGE_TAG ?= dev
 
@@ -162,14 +181,14 @@ docker: ## Build the $(IMAGE):$(IMAGE_TAG) container image for the local platfor
 	    -t $(IMAGE):$(IMAGE_TAG) .
 	@echo "✓ Built $(IMAGE):$(IMAGE_TAG) ($(VERSION))"
 
-build-jupyter-kernel: ## Build sysml-jupyter-kernel binary
+build-jupyter-kernel: stdlib-snapshot ## Build sysml-jupyter-kernel binary
 	@echo "Building sysml-jupyter-kernel..."
 	@mkdir -p $(BIN_DIR)
 	$(call winres,sysml-jupyter-kernel)
 	$(GO_BUILD) -o $(BIN_DIR)/sysml-jupyter-kernel ./cmd/sysml-jupyter-kernel
 	@echo "✓ Built $(BIN_DIR)/sysml-jupyter-kernel ($(VERSION))"
 
-build-mcp: ## Build sysml-mcp binary
+build-mcp: stdlib-snapshot ## Build sysml-mcp binary
 	@echo "Building sysml-mcp..."
 	@mkdir -p $(BIN_DIR)
 	$(call winres,sysml-mcp)
@@ -178,25 +197,25 @@ build-mcp: ## Build sysml-mcp binary
 
 # The JSON commands, natively: each serves its JSON-RPC over stdio. Opt-in:
 # nothing builds, installs or releases them.
-build-engine: ## Build bin/sysml-engine natively (opt-in; not released)
+build-engine: stdlib-snapshot ## Build bin/sysml-engine natively (opt-in; not released)
 	@echo "Building sysml-engine..."
 	@mkdir -p $(BIN_DIR)
 	$(GO_BUILD) -o $(BIN_DIR)/sysml-engine ./cmd/sysml-engine
 	@echo "✓ Built $(BIN_DIR)/sysml-engine ($(VERSION))"
 
-build-core: ## Build bin/sysml-core natively (opt-in; not released)
+build-core: stdlib-snapshot ## Build bin/sysml-core natively (opt-in; not released)
 	@echo "Building sysml-core..."
 	@mkdir -p $(BIN_DIR)
 	$(GO_BUILD) -o $(BIN_DIR)/sysml-core ./cmd/sysml-core
 	@echo "✓ Built $(BIN_DIR)/sysml-core ($(VERSION))"
 
-build-sysml-wasm: ## Build bin/sysml-wasm natively (opt-in; not released)
+build-sysml-wasm: stdlib-snapshot ## Build bin/sysml-wasm natively (opt-in; not released)
 	@echo "Building sysml-wasm..."
 	@mkdir -p $(BIN_DIR)
 	$(GO_BUILD) -o $(BIN_DIR)/sysml-wasm ./cmd/sysml-wasm
 	@echo "✓ Built $(BIN_DIR)/sysml-wasm ($(VERSION))"
 
-build-release-wasm: ## Build release bin/wasm/release/{sysml-wasm.wasm,sysml-prod.wasm.gz,wasm_exec.js}
+build-release-wasm: stdlib-snapshot ## Build release bin/wasm/release/{sysml-wasm.wasm,sysml-prod.wasm.gz,wasm_exec.js}
 	@echo "Building release WebAssembly assets..."
 	@mkdir -p $(WASM_DIR)/release
 	GOOS=js GOARCH=wasm $(GO_BUILD) -trimpath -o $(WASM_DIR)/release/sysml-wasm.wasm ./cmd/sysml-wasm
@@ -205,7 +224,7 @@ build-release-wasm: ## Build release bin/wasm/release/{sysml-wasm.wasm,sysml-pro
 	@cp "$(shell go env GOROOT)/lib/wasm/wasm_exec.js" $(WASM_DIR)/release/wasm_exec.js
 	@echo "✓ Built $(WASM_DIR)/release/sysml-wasm.wasm, sysml-prod.wasm.gz and wasm_exec.js ($(VERSION))"
 
-build-syntax: ## Build bin/sysml-syntax natively (opt-in; not released)
+build-syntax: stdlib-snapshot ## Build bin/sysml-syntax natively (opt-in; not released)
 	@echo "Building sysml-syntax..."
 	@mkdir -p $(BIN_DIR)
 	$(GO_BUILD) -o $(BIN_DIR)/sysml-syntax ./cmd/sysml-syntax
@@ -217,7 +236,7 @@ build-syntax: ## Build bin/sysml-syntax natively (opt-in; not released)
 # resource to embed and no libc to link. `build` stays native: these are opt-in.
 build-wasm: build-wasm-wasip1 build-wasm-js ## Build all seven commands for both WebAssembly targets
 
-build-wasm-wasip1: ## Build bin/wasm/wasip1/*.wasm, runnable under a WASI preview 1 runtime
+build-wasm-wasip1: stdlib-snapshot ## Build bin/wasm/wasip1/*.wasm, runnable under a WASI preview 1 runtime
 	@echo "Building WebAssembly (wasip1)..."
 	@mkdir -p $(WASM_DIR)/wasip1
 	@for cmd in $(WASM_COMMANDS); do \
@@ -225,7 +244,7 @@ build-wasm-wasip1: ## Build bin/wasm/wasip1/*.wasm, runnable under a WASI previe
 	done
 	@echo "✓ Built $(WASM_DIR)/wasip1 ($(VERSION))"
 
-build-wasm-js: ## Build bin/wasm/js/*.wasm plus the wasm_exec.js that runs them
+build-wasm-js: stdlib-snapshot ## Build bin/wasm/js/*.wasm plus the wasm_exec.js that runs them
 	@echo "Building WebAssembly (js)..."
 	@mkdir -p $(WASM_DIR)/js
 	@for cmd in $(WASM_COMMANDS); do \
@@ -234,7 +253,7 @@ build-wasm-js: ## Build bin/wasm/js/*.wasm plus the wasm_exec.js that runs them
 	@cp "$(shell go env GOROOT)/lib/wasm/wasm_exec.js" $(WASM_DIR)/js/wasm_exec.js
 	@echo "✓ Built $(WASM_DIR)/js ($(VERSION))"
 
-build-wasm-re: ## Build bin/wasm/{js,wasip1}/re/sysml.wasm, the RE build, with -tags sysml_re
+build-wasm-re: stdlib-snapshot ## Build bin/wasm/{js,wasip1}/re/sysml.wasm, the RE build, with -tags sysml_re
 	@echo "Building WebAssembly sysml (RE)..."
 	@mkdir -p $(WASM_DIR)/js/re $(WASM_DIR)/wasip1/re
 	GOOS=wasip1 GOARCH=wasm $(GO_BUILD) -tags sysml_re -o $(WASM_DIR)/wasip1/re/sysml.wasm ./cmd/sysml
@@ -246,7 +265,7 @@ build-wasm-re: ## Build bin/wasm/{js,wasip1}/re/sysml.wasm, the RE build, with -
 # runner, past go test's default 10m. 25m is about twice that, so a slow run fails on an assertion.
 WASM_GATE_TIMEOUT ?= 25m
 
-wasm-check: ## Run the WebAssembly build-and-run gate (needs Node; fails rather than skipping)
+wasm-check: stdlib-snapshot ## Run the WebAssembly build-and-run gate (needs Node; fails rather than skipping)
 	OPENSYSML_REQUIRE_WASM=1 go test -count=1 -v -timeout $(WASM_GATE_TIMEOUT) ./tests/wasm
 
 static-check: ## Check the built Linux binaries are statically linked (BINARIES=path...)
@@ -267,17 +286,24 @@ man: ## Regenerate the shipped manual pages from each command's description
 man-check: ## Verify the shipped pages are current and formatter-clean
 	@echo "Checking the manual pages..."
 	go test -count=1 -run 'TestTheShippedManualPage|TestTheManualPage' ./cmd/sysml ./cmd/sysml-lsp ./cmd/sysml-grpc ./cmd/sysml-jupyter-kernel ./cmd/sysml-mcp
+	@$(MAKE) --no-print-directory man-lint
+	@echo "✓ Manual pages are current"
+
+man-lint: ## Run the shipped pages through a formatter, without rebuilding the commands
 	@# mandoc is the strictest reader; groff is the one always at hand.
 	@if command -v mandoc >/dev/null 2>&1; then \
 		mandoc -T lint -W warning $(MAN_PAGES) || exit 1; \
 	elif command -v groff >/dev/null 2>&1; then \
 		groff -man -Tutf8 -ww -z $(MAN_PAGES) || exit 1; \
+	elif [ -n "$(MAN_LINT_OPTIONAL)" ]; then \
+		echo "note: neither mandoc nor groff is installed; the pages were not formatted"; exit 0; \
 	else \
-		echo "note: neither mandoc nor groff is installed; the pages were not formatted"; \
-	fi
-	@echo "✓ Manual pages are current"
+		echo "error: neither mandoc nor groff is installed, so the pages cannot be checked;" >&2; \
+		echo "       install one, or set MAN_LINT_OPTIONAL=1 to skip the formatter" >&2; exit 1; \
+	fi; \
+	echo "✓ Manual pages are formatter-clean"
 
-pgo-profile: ## Regenerate cmd/*/default.pgo, the CPU profile go build optimizes the binaries against
+pgo-profile: stdlib-snapshot ## Regenerate cmd/*/default.pgo, the CPU profile go build optimizes the binaries against
 	@echo "Collecting the PGO profile..."
 	scripts/pgo-profile.sh
 	@echo "✓ Regenerated cmd/*/default.pgo"
@@ -327,45 +353,87 @@ conformance-mcp: ## Run the conformance suite through sysml-mcp's runtime tools
 	go run -C $(TOOLS_DIR) ./cmd/conformance -protocols mcp -allow-skips -withhold-capabilities strict_conformance,oslc_query -report $(CURDIR)/$(BIN_DIR)/conformance-mcp-report.json -junit $(CURDIR)/$(BIN_DIR)/conformance-mcp-report.xml
 	@echo "✓ Conformance suite passed through sysml-mcp ($(BIN_DIR)/conformance-mcp-report.json, $(BIN_DIR)/conformance-mcp-report.xml)"
 
-test: ## Run Go tests with race detection and coverage
+test: stdlib-snapshot ## Run Go tests with race detection and coverage
 	@echo "Running Go race tests..."
 	@# Per-package timeout: under -race the runtime package runs 31-47 minutes on CI runners.
 	@# -pgo=off: coverage plus cmd/*/default.pgo trips golang/go#80891 (link: fingerprint mismatch).
 	go test -v -race -pgo=off -timeout 45m -coverprofile=coverage.txt -covermode=atomic ./...
 	go test -C $(TOOLS_DIR) -v -race -pgo=off -timeout 45m ./...
 
-# Run race-free by their own gate steps in the PR workflow's static-and-integrity job.
-RACE_SHARD_SKIP := ^(TestTrainingExamplesSemanticErrors|TestCorpusGatesCacheStateIndependent|TestPilotCorporaDiagnostics|TestPilotLibraryXMI|TestPSSMSuiteMigration|TestDifferentialRandomizedAssignments|TestDifferentialConformanceCorpus|TestDifferentialStandardLibrary|TestDifferentialTrainingCorpus|TestPortability|TestPortabilityGateIsRequired)$$
-# The runtime-corpus shard: the suites that run every model of the conformance corpus,
-# about half the package's time under -race.
+# Run race-free by their own gate steps in the PR workflow's static-and-integrity job; the two element-form
+# differentials are there as each takes 24-26 minutes under -race, more than the rest shard's hour holds.
+RACE_SHARD_SKIP := ^(TestTrainingExamplesSemanticErrors|TestSymbolStructureMatchesGraphStructure|TestCorpusGatesCacheStateIndependent|TestPilotCorporaDiagnostics|TestPilotLibraryXMI|TestPSSMSuiteMigration|TestDifferentialRandomizedAssignments|TestDifferentialConformanceCorpus|TestDifferentialStandardLibrary|TestDifferentialTrainingCorpus|TestPortability|TestPortabilityGateIsRequired)$$
+# The runtime-corpus shard runs the four suites that walk the conformance corpus; the exploration
+# suite is as long as those four together, so runtime-exploration runs it as a shard of its own.
 RACE_RUNTIME_EXPLORATION := ^TestExploreWithIsExploreOverTheConformanceCorpus$$
 RACE_RUNTIME_CORPUS := ^Test(ExploreWithIsExploreOverTheConformanceCorpus|CheckAgreesWithExploreOverTheConformanceCorpus|CheckWitnessesReplayOverTheConformanceCorpus|ExecutionConformance|ExecutionConformanceUnderPolicies)$$
+# The export-corpus shard: the tests/export suite that converts every example model, about as
+# long as the rest of the package under -race.
+RACE_EXPORT_CORPUS := ^TestAPIJSONWritersNeverEmitNameReferences$$
+# tests/export's two parallel per-file sweeps: 60 and 27 of the remainder's 103 CPU-minutes under -race (37 minutes wall), so a shard each.
+RACE_EXPORT_LIBRARY := ^TestLibraryFilesComeBackFromTheGraphAlone$$
+RACE_EXPORT_EXAMPLES := ^TestExamplesCorpusInvariants$$
+# The corpus-sweep shards: tests/corpus's load of every example model (round trips, settled collections, gRPC agreement).
+# Whole it passed 55 minutes under -race, so the committed models and the downloaded corpora are a shard each; corpus is the rest.
+RACE_CORPUS_SWEEP_COMMITTED := ^TestExamplesSweepCommitted$$
+RACE_CORPUS_SWEEP_CORPORA := ^TestExamplesSweepCorpora$$
+RACE_CORPUS_SWEEP := ^Test(ExamplesSweepCommitted|ExamplesSweepCorpora)$$
+# The graph-corpora shard: tests/model's record differential over the OMG corpora, 13 of the
+# package's 18 minutes under -race; graph is the rest of the package.
+RACE_GRAPH_CORPORA := ^TestInterfaceRecordDifferentialCorpora$$
+# The translate-structure shard: internal/translate/export's structure differential over every
+# model, which ran 36-46 of the package's 39-50 minutes under -race; translate is the rest of the package.
+RACE_TRANSLATE_STRUCTURE := ^TestSymbolStructureMatchesGraphStructure$$
 RACE_SHARD_TOOLS_SKIP := ^(TestSuiteRead|TestSuiteClassification|TestEmitSuite|TestSuiteClassificationReasons|TestSuiteLibraryCallsAreClassified|TestSuiteReadsControlAndObjectFlow|TestSuiteReadsClassifiers|TestSuiteReadsExceptionHandlers)$$
 
-test-shard: ## Run one CI shard of the race suite (SHARD=runtime|runtime-corpus|model|export|graph|codegen|tools|rest|migrate|cli)
-	@echo "Running Go race tests, shard $(SHARD)..."
-	@# 55m per package; its job's ceiling is 60. Whole, internal/exec/runtime took 31-57 minutes
-	@# under -race on the CI runners, so it runs as two shards of about half that each.
-	pkgs=$$(scripts/race-shard.sh $(SHARD)) && case "$(SHARD)" in \
-	  runtime-corpus) go test -run '$(RACE_RUNTIME_EXPLORATION)' -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m -coverprofile=coverage-exploration.txt -covermode=atomic $$pkgs && \
-	    go test -run '$(RACE_RUNTIME_CORPUS)' -skip '$(RACE_SHARD_SKIP)|$(RACE_RUNTIME_EXPLORATION)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs && \
-	    tail -n +2 coverage-exploration.txt >> coverage.txt && python3 scripts/dedupe-coverage.py coverage.txt ;; \
-	  runtime) go test -skip '$(RACE_SHARD_SKIP)|$(RACE_RUNTIME_CORPUS)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
-	  *) go test -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
-	esac
+# test-shard's -run/-skip per shard: the by-test-name shards and the package shards they are cut
+# from select their tests; every other shard only skips the gates the static job runs.
+SHARD_SELECT_runtime-exploration = -run '$(RACE_RUNTIME_EXPLORATION)' -skip '$(RACE_SHARD_SKIP)'
+SHARD_SELECT_runtime-corpus = -run '$(RACE_RUNTIME_CORPUS)' -skip '$(RACE_SHARD_SKIP)|$(RACE_RUNTIME_EXPLORATION)'
+SHARD_SELECT_runtime = -skip '$(RACE_SHARD_SKIP)|$(RACE_RUNTIME_CORPUS)'
+SHARD_SELECT_corpus-sweep-committed = -run '$(RACE_CORPUS_SWEEP_COMMITTED)' -skip '$(RACE_SHARD_SKIP)'
+SHARD_SELECT_corpus-sweep-corpora = -run '$(RACE_CORPUS_SWEEP_CORPORA)' -skip '$(RACE_SHARD_SKIP)'
+SHARD_SELECT_corpus = -skip '$(RACE_SHARD_SKIP)|$(RACE_CORPUS_SWEEP)'
+SHARD_SELECT_export-corpus = -run '$(RACE_EXPORT_CORPUS)' -skip '$(RACE_SHARD_SKIP)'
+SHARD_SELECT_export-library = -run '$(RACE_EXPORT_LIBRARY)' -skip '$(RACE_SHARD_SKIP)'
+SHARD_SELECT_export-examples = -run '$(RACE_EXPORT_EXAMPLES)' -skip '$(RACE_SHARD_SKIP)'
+SHARD_SELECT_export = -skip '$(RACE_SHARD_SKIP)|$(RACE_EXPORT_CORPUS)|$(RACE_EXPORT_LIBRARY)|$(RACE_EXPORT_EXAMPLES)'
+SHARD_SELECT_graph-corpora = -run '$(RACE_GRAPH_CORPORA)' -skip '$(RACE_SHARD_SKIP)'
+SHARD_SELECT_graph = -skip '$(RACE_SHARD_SKIP)|$(RACE_GRAPH_CORPORA)'
+SHARD_SELECT_translate-structure = -run '$(RACE_TRANSLATE_STRUCTURE)' -skip '$(RACE_SHARD_SKIP)'
+SHARD_SELECT_translate = -skip '$(RACE_SHARD_SKIP)|$(RACE_TRANSLATE_STRUCTURE)'
+SHARD_SELECT = $(or $(SHARD_SELECT_$(SHARD)),-skip '$(RACE_SHARD_SKIP)')
+# -race for the race suite (test-shard); test-quick runs the same shards with it empty.
+TEST_SHARD_RACE ?= -race
+
+test-shard: stdlib-snapshot ## Run one CI shard of the race suite (SHARD=runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep-committed|corpus-sweep-corpora|export|export-library|export-examples|export-corpus|graph|graph-corpora|codegen|translate|translate-structure|grpc|tools|internal|rest|migrate|cli)
+	@echo "Running Go $(if $(TEST_SHARD_RACE),race ,)tests, shard $(SHARD)$(if $(OPENSYSML_CORPUS_SUBSET), over the $(OPENSYSML_CORPUS_SUBSET) corpus subset,)..."
+	@# 55m per package; its job's ceiling is 60. internal/exec/runtime (31-57 minutes whole under -race), tests/export
+	@# (past 55; four shards) and tests/corpus (past 55; three) run split by test name above.
+	pkgs=$$(scripts/race-shard.sh $(SHARD)) && go test $(SHARD_SELECT) -v $(TEST_SHARD_RACE) -pgo=off -timeout 55m $$pkgs
 	@# The tools module runs with tools (tests/wasm) on CircleCI and, as the PR workflow has no
 	@# tools shard (tests/wasm is its WebAssembly gate job there), with rest on GitHub Actions.
-	case "$(SHARD)" in rest|tools) go test -C $(TOOLS_DIR) -skip '$(RACE_SHARD_TOOLS_SKIP)' -v -race -pgo=off -timeout 55m ./... ;; esac
+	case "$(SHARD)" in rest|tools) go test -C $(TOOLS_DIR) -skip '$(RACE_SHARD_TOOLS_SKIP)' -v $(TEST_SHARD_RACE) -pgo=off -timeout 55m ./... ;; esac
 
-test-quick: ## Run the race-free quick tier over one or more race shards (SHARDS="runtime" | "model export graph" | "rest migrate cli codegen")
+test-quick: stdlib-snapshot ## Run the race-free quick tier over one or more race shards, in turn (SHARDS="graph" | "export-corpus export-library" | "rest grpc" | ...)
 	@echo "Running Go tests without race detection, shards $(SHARDS)..."
-	@# Draft pull requests run this instead of test-shard: the same packages and skips, no -race, no coverage.
-	@test -n "$(SHARDS)" || { echo "Error: set SHARDS to one or more of runtime model export graph codegen tools rest migrate cli"; exit 1; }
-	pkgs=$$(for shard in $(SHARDS); do scripts/race-shard.sh $$shard || exit 1; done) && \
-	go test -skip '$(RACE_SHARD_SKIP)' -v -timeout 45m $$pkgs
-	case " $(SHARDS) " in *" rest "*|*" tools "*) go test -C $(TOOLS_DIR) -skip '$(RACE_SHARD_TOOLS_SKIP)' -v -timeout 45m ./... ;; esac
+	@# Every pull-request push runs this instead of test-shard: the same shards, selections and skips, no -race.
+	@test -n "$(SHARDS)" || { echo "Error: set SHARDS to one or more of runtime runtime-corpus runtime-exploration model smt corpus corpus-sweep-committed corpus-sweep-corpora export export-library export-examples export-corpus graph graph-corpora codegen translate translate-structure grpc tools internal rest migrate cli"; exit 1; }
+	for shard in $(SHARDS); do $(MAKE) --no-print-directory test-shard SHARD=$$shard TEST_SHARD_RACE= || exit 1; done
 
-coverage: ## Write the coverage profile the SonarCloud scan reads
+test-queue: stdlib-snapshot ## Run the merge queue's tier over one or more race shards, in turn (SHARDS="export-corpus" | "rest grpc" | ...)
+	@echo "Running the queue tier, shards $(SHARDS)..."
+	@# The merge queue runs this: test-shard with -race on every shard but the examples/ sweeps
+	@# (scripts/race-shard.sh --sweeps), which run without -race over the construct-cover subset.
+	@test -n "$(SHARDS)" || { echo "Error: set SHARDS to one or more of runtime runtime-corpus runtime-exploration model smt corpus corpus-sweep-committed corpus-sweep-corpora export export-library export-examples export-corpus graph graph-corpora codegen translate translate-structure grpc tools internal rest migrate cli"; exit 1; }
+	sweeps=" $$(scripts/race-shard.sh --sweeps | tr '\n' ' ')" && for shard in $(SHARDS); do \
+		case "$$sweeps" in \
+			*" $$shard "*) OPENSYSML_CORPUS_SUBSET=construct-cover $(MAKE) --no-print-directory test-shard SHARD=$$shard TEST_SHARD_RACE= ;; \
+			*) $(MAKE) --no-print-directory test-shard SHARD=$$shard ;; \
+		esac || exit 1; \
+	done
+
+coverage: stdlib-snapshot ## Write the coverage profile the SonarCloud scan reads
 	@echo "Writing coverage.txt..."
 	@# -coverpkg credits a package for the code it exercises elsewhere: without it
 	@# ast/dump.go measures 21% though the parser's golden tests run 90% of it.
@@ -377,7 +445,7 @@ coverage: ## Write the coverage profile the SonarCloud scan reads
 	@# it at this directory; go test folds in only its own binary's counters.
 	rm -rf $(GO_COUNTER_DIR)
 	mkdir -p $(GO_COUNTER_DIR)
-	OPENSYSML_GOCOVERDIR=$(GO_COUNTER_DIR) go test -count=1 -pgo=off -timeout 30m -coverpkg=./... -coverprofile=$(COVERAGE_PROFILE) -covermode=atomic $(COVERAGE_PACKAGES)
+	OPENSYSML_GOCOVERDIR=$(GO_COUNTER_DIR) go test -count=1 -pgo=off -timeout 30m -coverpkg=./... -coverprofile=$(COVERAGE_PROFILE) -covermode=atomic $(COVERAGE_SELECT_$(COVERAGE_SHARD)) $(COVERAGE_PACKAGES)
 	go tool covdata textfmt -i=$(GO_COUNTER_DIR) -o $(GO_COUNTER_DIR)/profile.txt
 	tail -n +2 $(GO_COUNTER_DIR)/profile.txt >> $(COVERAGE_PROFILE)
 	@# The tools' tests exercise product packages too; their profile credits those. It is
@@ -390,10 +458,10 @@ coverage: ## Write the coverage profile the SonarCloud scan reads
 	python3 scripts/dedupe-coverage.py $(COVERAGE_PROFILE)
 	@go tool cover -func=$(COVERAGE_PROFILE) | tail -n 1
 
-coverage-shard: ## Write one CI shard's coverage profile, coverage-$(SHARD).txt (SHARD=runtime|model|export|graph|codegen|tools|rest|migrate|cli)
+coverage-shard: ## Write one CI shard's coverage profile, coverage-$(SHARD).txt (SHARD=one of COVERAGE_SHARDS)
 	@# The race shards' packages; the tools module goes with tools (tests/wasm), as in test-shard.
 	pkgs=$$(scripts/race-shard.sh $(SHARD)) && \
-	$(MAKE) --no-print-directory coverage COVERAGE_PROFILE=coverage-$(SHARD).txt \
+	$(MAKE) --no-print-directory coverage COVERAGE_PROFILE=coverage-$(SHARD).txt COVERAGE_SHARD=$(SHARD) \
 		COVERAGE_PACKAGES="$$(echo $$pkgs)" \
 		COVERAGE_TOOLS="$(if $(filter tools,$(SHARD)),./...)"
 
@@ -435,12 +503,13 @@ audit-rust: ## Fail on RustSec advisories against client/rust/Cargo.lock (cargo 
 
 audit-java: ## Fail on OSV advisories against the Maven trees' compile and runtime dependencies (JAVA_PROJECT_DIRS=dir... narrows)
 	@# A CycloneDX SBOM carries the versions Maven resolved, reactor modules included, which osv-scanner's own pom resolver cannot follow.
-	@for dir in $(JAVA_PROJECT_DIRS); do echo "osv-scanner $$dir" && mvn -B -q -f "$$dir/pom.xml" org.cyclonedx:cyclonedx-maven-plugin:$(CYCLONEDX_MAVEN_VERSION):makeAggregateBom -DoutputFormat=json -DoutputName=bom -DincludeTestScope=false && $(SCA_BIN)/osv-scanner scan source -L "$$dir/target/bom.json" || exit 1; done
+	@# scripts/maven-sbom.sh asks a mirror of Maven Central for the plugin that writes it when Central refuses.
+	@for dir in $(JAVA_PROJECT_DIRS); do echo "osv-scanner $$dir" && scripts/maven-sbom.sh "$$dir" $(CYCLONEDX_MAVEN_VERSION) && $(SCA_BIN)/osv-scanner scan source -L "$$dir/target/bom.json" || exit 1; done
 
 audit: vulncheck audit-npm audit-python audit-rust audit-java ## Run every dependency audit, as CI and the release procedure do
 	@echo "✓ Dependency audits passed"
 
-test-short: ## Run Go tests without race detection
+test-short: stdlib-snapshot ## Run Go tests without race detection
 	@echo "Running Go tests without race detection..."
 	go test -v ./...
 	go test -C $(TOOLS_DIR) -v ./...
@@ -451,20 +520,29 @@ extension-libraries-check: ## Check the vendored extension libraries match their
 extension-libraries-sync: ## Re-vendor the extension libraries from the pinned upstream commit
 	./scripts/sync-extension-libraries.sh
 
-extension-libraries-pin-check: ## After moving the extension-library pin: every Java-free gate the full tier runs over the vendored libraries
+textmate-grammars-check: ## Check Open-MBEE/sysml-v2-textmate (the grammar repository GitHub Linguist vendors) carries the committed TextMate grammars
+	./scripts/sync-textmate-grammars.sh --check
+
+textmate-grammars-publish: ## Publish the committed TextMate grammars to Open-MBEE/sysml-v2-textmate (needs GITHUB_TOKEN; the release pipeline runs this)
+	./scripts/sync-textmate-grammars.sh --publish
+
+extension-libraries-pin-check: stdlib-snapshot ## After moving the extension-library pin: every Java-free gate the full tier runs over the vendored libraries
 	./scripts/sync-extension-libraries.sh --check
-	go run -C $(TOOLS_DIR) ./gen/snapshot -check
 	go test -count=1 ./tests/hygiene -run 'TestEngineContract'
 	go test -C $(TOOLS_DIR) -count=1 ./referee/diff ./referee/apijson -run 'TestCommittedBaselineStatesThisRepositorysProvenance|TestProvenance'
 	go test -count=1 ./internal/frontend/repl ./internal/workspace/libs ./internal/ir/queryplan ./internal/doc/queryexec
 	@echo "✓ the vendored extension libraries pass every pin gate"
 
-stdlib-snapshot: ## Regenerate the embedded snapshot of the bundled library after editing $(LIBS_DIR)/stdlib
-	go generate ./$(LIBS_DIR)
-
-stdlib-snapshot-check: ## Verify the committed library snapshot matches the bundled library, as CI does
-	go run -C $(TOOLS_DIR) ./gen/snapshot -check
-	@echo "✓ stdlib.snapshot is current"
+# The snapshot of the bundled library every binary embeds is generated, not
+# committed: each build and test target writes it first, into the directory
+# package libs embeds, so a shipped binary always starts from a current one
+# while a tree without it (a `go install` from the module proxy) still builds
+# and loads the library files instead. The generator runs on the host whatever
+# GOOS/GOARCH the binary is being built for.
+stdlib-snapshot: ## Generate $(LIBS_DIR)/stdlib.snapshot and the Go file embedding it, the snapshot of the bundled library the binaries carry
+	@# The generator imports package libs, which an embedding without its snapshot cannot compile.
+	rm -f $(LIBS_DIR)/snapshot_embedded.go
+	GOOS= GOARCH= go generate ./$(LIBS_DIR)
 
 ontology-table: ## Regenerate the metamodel table from the pilot SysML.ecore that scripts/pilot-pin.sh pins
 	./scripts/download-pilot-metamodel.sh
@@ -502,6 +580,7 @@ clean: ## Remove build artifacts
 	rm -rf $(GO_COUNTER_DIR)
 	rm -f sysml sysml-lsp sysml-grpc sysml-jupyter-kernel sysml-mcp
 	rm -f cmd/*/rsrc_windows_*.syso
+	rm -f $(LIBS_DIR)/stdlib.snapshot $(LIBS_DIR)/snapshot_embedded.go
 	rm -rf $(SITE_DIR)
 	@# Only the default destination; an overridden SELF_MODEL_OUT is the caller's.
 	rm -rf build/self-model
@@ -616,14 +695,19 @@ scripts-coverage: ## Run the repository scripts and their tests under coverage a
 	$(PYTHON) -m coverage erase --rcfile=scripts/coverage-scripts.ini
 	$(SCRIPTS_COVERAGE) scripts/changelog-test.py
 	$(SCRIPTS_COVERAGE) scripts/changelog.py check
+	$(SCRIPTS_COVERAGE) scripts/spec_compliance-test.py
+	$(SCRIPTS_COVERAGE) scripts/spec_compliance.py check
 	$(SCRIPTS_COVERAGE) scripts/release-announce-test.py
 	$(SCRIPTS_COVERAGE) scripts/release-downloads-test.py
+	$(SCRIPTS_COVERAGE) scripts/ci-verified-tree-test.py
 	$(SCRIPTS_COVERAGE) scripts/mkdocs_census-test.py
 	$(SCRIPTS_COVERAGE) scripts/mkdocs_suite_figures-test.py
 	$(SCRIPTS_COVERAGE) scripts/mkdocs_install_scripts-test.py
+	$(SCRIPTS_COVERAGE) ci/tests/test_ci_tools.py
 	$(SCRIPTS_COVERAGE) scripts/mkdocs_security-test.py
 	$(SCRIPTS_COVERAGE) scripts/dedupe-coverage-test.py
 	$(SCRIPTS_COVERAGE) scripts/go-test-stream-test.py
+	$(SCRIPTS_COVERAGE) scripts/rebaseline-movement-test.py
 	$(SCRIPTS_COVERAGE) scripts/check-doc-links.py
 	$(SCRIPTS_COVERAGE) scripts/check-doc-ids.py
 	$(SCRIPTS_COVERAGE) scripts/check-doc-figures.py
@@ -690,7 +774,34 @@ vscode-package: ## Package the VS Code extension as a .vsix for side-loading (VS
 	@echo "Packaging the VS Code extension..."
 	@# `npm run package -- <args>` appends the arguments to the script's last command, `vsce package`.
 	cd $(VSCODE_DIR) && npm ci && npm run package $(if $(VSIX_VERSION),-- $(VSIX_VERSION) --no-update-package-json)
-	@echo "✓ Packaged $(VSCODE_DIR)/opensysml-sysml.vsix"
+	@echo "✓ Packaged $(VSCODE_DIR)/opensysml.vsix"
+
+emacs-keywords: ## Regenerate the Emacs mode's keyword lists from the lexer keywords
+	@echo "Generating Emacs keyword lists..."
+	go run ./$(EMACS_DIR)/tools/genkeywords -out $(EMACS_DIR)
+	@echo "✓ Keyword lists generated"
+
+emacs-compile: ## Byte-compile and checkdoc the Emacs package, warnings as errors
+	@echo "Byte-compiling the Emacs package..."
+	OPENSYSML_EMACS_DEPS=$(EMACS_DEPS) $(EMACS) -Q --batch -l $(EMACS_DIR)/test/deps.el \
+		-L $(EMACS_DIR) --eval '(setq byte-compile-error-on-warn t)' \
+		-f batch-byte-compile $(EMACS_DIR)/sysml-mode-keywords.el $(EMACS_DIR)/sysml-mode.el \
+		$(EMACS_DIR)/sysml-lsp.el $(EMACS_DIR)/sysml-diagram.el
+	rm -f $(EMACS_DIR)/*.elc
+	OPENSYSML_EMACS_DEPS=$(EMACS_DEPS) $(EMACS) -Q --batch -l $(EMACS_DIR)/test/deps.el \
+		-L $(EMACS_DIR) -l $(EMACS_DIR)/test/checkdoc.el \
+		$(EMACS_DIR)/sysml-mode-keywords.el $(EMACS_DIR)/sysml-mode.el \
+		$(EMACS_DIR)/sysml-lsp.el $(EMACS_DIR)/sysml-diagram.el
+	@echo "✓ Emacs package compiles cleanly"
+
+emacs-test: ## Run the Emacs package's ERT suites (the live ones need `make build`)
+	@echo "Running Emacs tests..."
+	OPENSYSML_EMACS_DEPS=$(EMACS_DEPS) $(EMACS) -Q --batch -l $(EMACS_DIR)/test/deps.el \
+		-L $(EMACS_DIR) -L $(EMACS_DIR)/test \
+		-l $(EMACS_DIR)/test/sysml-mode-test.el -l $(EMACS_DIR)/test/sysml-lsp-test.el \
+		-l $(EMACS_DIR)/test/sysml-diagram-test.el \
+		-f ert-run-tests-batch-and-exit
+	@echo "✓ Emacs tests passed"
 
 self-model: build-sysml ## Render the architecture self-model's views (see examples/self-model/README.md)
 	@echo "Rendering the architecture self-model..."
@@ -725,9 +836,11 @@ docs-check: ## Verify documentation links, internal-label hygiene, quoted oracle
 	$(PYTHON) scripts/check-doc-ids.py
 	$(PYTHON) scripts/check-doc-figures.py
 	$(PYTHON) scripts/changelog.py check
+	$(PYTHON) scripts/spec_compliance.py check
 	$(MAKE) diagnostics-check
 	$(PYTHON) scripts/mkdocs_census-test.py
 	$(PYTHON) scripts/mkdocs_suite_figures-test.py
+	$(PYTHON) scripts/mkdocs_spec_compliance-test.py
 	$(PYTHON) scripts/griffe_sphinx_roles-test.py
 	$(PYTHON) scripts/mkdocs_install_scripts-test.py
 
@@ -737,6 +850,13 @@ changelog-check: ## Verify every changelog fragment under changes/unreleased/ an
 
 changelog-render: ## Fold changes/unreleased/ fragments into the Unreleased section of CHANGELOG.md
 	$(PYTHON) scripts/changelog.py render
+
+spec-compliance-check: ## Verify the compliance-map sources under docs/project/spec-compliance/ and the combine script; SPEC_COMPLIANCE_PAGE=require|forbid adds the release or develop policy for the combined page
+	$(PYTHON) scripts/spec_compliance-test.py
+	$(PYTHON) scripts/spec_compliance.py check $(if $(filter require,$(SPEC_COMPLIANCE_PAGE)),--require-page)$(if $(filter forbid,$(SPEC_COMPLIANCE_PAGE)),--forbid-page)
+
+spec-compliance-render: ## Combine the compliance-map sources into docs/project/spec-compliance.md (a release commits the result; develop does not)
+	$(PYTHON) scripts/spec_compliance.py render
 
 docs-install: ## Install the documentation site toolchain
 	$(PYTHON) -m pip install -r docs-requirements.txt
@@ -750,12 +870,12 @@ docs: ## Build the documentation site, failing on a broken link
 # assets; they are built, never vendored. The Pages job runs this target before
 # `docs`; a local `make docs` or `docs-serve` preview wants the same target first
 # or neither page can load its module.
-docs-engine-assets: ## Build the in-browser WebAssembly assets into docs/assets
+docs-engine-assets: stdlib-snapshot ## Build the in-browser WebAssembly assets into docs/assets
 	@mkdir -p docs/assets
 	GOOS=js GOARCH=wasm $(GO_BUILD) -trimpath -o docs/assets/sysml-wasm.wasm ./cmd/sysml-wasm
 	gzip -9nf docs/assets/sysml-wasm.wasm
-	GOOS=js GOARCH=wasm $(GO_BUILD) -tags sysml_re -o docs/assets/sysml-repl.wasm ./cmd/sysml
-	gzip -9f docs/assets/sysml-repl.wasm
+	GOOS=js GOARCH=wasm $(GO_BUILD) -trimpath -tags sysml_re -o docs/assets/sysml-repl.wasm ./cmd/sysml
+	gzip -9nf docs/assets/sysml-repl.wasm
 	@mkdir -p docs/assets/repl-examples
 	@cp examples/runtime-showcase/*.sysml docs/assets/repl-examples/
 	@cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" docs/assets/

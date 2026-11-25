@@ -1,6 +1,7 @@
 package resolve
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -195,7 +196,7 @@ func TestResolveEndpointsThatNameVertices(t *testing.T) {
 					state inner;
 				}
 				state done;
-				transition first inner then done;
+				transition first outer.inner then done;
 			}
 		`,
 		"sibling orthogonal region": `
@@ -536,5 +537,162 @@ func TestResolveEndpointDoneShadowedByANonVertexIsReported(t *testing.T) {
 	}
 	if r.Diagnostics[0].Code != CodeNotAVertex {
 		t.Errorf("expected the %s code, got %q", CodeNotAVertex, r.Diagnostics[0].Code)
+	}
+}
+
+// The source of a transition with an accepter is the accepter rule's to judge: both
+// walks resolve it to whatever it names and report nothing; its target stays a vertex.
+func TestResolveTransitionSourceWithAccepterIsLeftToTheAccepterRule(t *testing.T) {
+	const src = `
+		item def Sig;
+		state def M {
+			action work { }
+			entry; then idle;
+			state idle;
+			transition first work accept Sig then idle;
+			transition first idle accept Sig then work;
+		}
+	`
+	r := resolveDoc(t, "d.sysml", src)
+	if len(r.Diagnostics) != 1 || r.Diagnostics[0].Code != CodeNotAVertex {
+		t.Fatalf("expected the target alone reported as no vertex, got %v", r.Diagnostics)
+	}
+	if at := r.Diagnostics[0].Span; src[at.Offset:at.Offset+at.Len] != "work" || at.Offset < strings.Index(src, "then work") {
+		t.Errorf("expected the diagnostic at the target, got %v", at)
+	}
+
+	p := parser.New(source.New("d.sysml", []byte(src)))
+	root := p.ParseFile()
+	idx := symbols.NewIndexFromDoc("d.sysml", root)
+	fresh := New(idx)
+	var sources int
+	for _, ref := range References(root, idx.DocumentRoot("d.sysml")) {
+		if !ref.AccepterSource {
+			continue
+		}
+		sources++
+		sym, ok := fresh.ResolveReference(ref)
+		if !ok || sym == nil || sym.Name != ref.QN.Parts[0].Text {
+			t.Errorf("transition source %s did not resolve to its declaration: %v %v", ref.QN.Parts[0].Text, sym, ok)
+		}
+	}
+	// A trial spelling of the reference is read as spelled, as a rename check reads it.
+	var work, idle Reference
+	for _, ref := range References(root, idx.DocumentRoot("d.sysml")) {
+		switch {
+		case ref.AccepterSource && ref.QN.Parts[0].Text == "work":
+			work = ref
+		case ref.AccepterSource:
+			idle = ref
+		}
+	}
+	if sym, ok := New(idx).ResolveReference(work.Spelled(idle.QN)); !ok || sym == nil || sym.Name != "idle" {
+		t.Errorf("the source respelled idle resolved to %v %v", sym, ok)
+	}
+	if sources != 2 {
+		t.Errorf("expected both transition sources among the references, got %d", sources)
+	}
+	if len(fresh.Diagnostics) != 0 {
+		t.Errorf("expected the reference walk to report nothing for the sources, got %v", fresh.Diagnostics)
+	}
+}
+
+// A guarded succession in a calculation, constraint or case body sequences action
+// nodes as one in an action body does (SysML.xtext CalculationBodyItem).
+func TestResolveGuardedSuccessionEndsOutsideAnActionBodyAreActions(t *testing.T) {
+	for _, owner := range []string{"calc def", "constraint def", "analysis def", "action def"} {
+		t.Run(owner, func(t *testing.T) {
+			r := resolveDoc(t, "d.sysml", owner+` C {
+				attribute n = 1;
+				action a;
+				action b;
+				first a if n > 0 then b;
+			}`)
+			if len(r.Diagnostics) != 0 {
+				t.Fatalf("expected no diagnostics, got %v", r.Diagnostics)
+			}
+		})
+	}
+}
+
+// An endpoint resolves from the namespace it is written in, outward (KerML
+// 8.2.3.5): a vertex nested below is reached only through its owners, each one.
+func TestResolveEndpointNestedVertexNeedsItsOwners(t *testing.T) {
+	const machine = `
+		state def M {
+			entry; then idle;
+			state idle;
+			state work parallel {
+				state left { state deep { state leaf; } }
+				state right { state other; %s }
+			}
+			%s
+		}
+	`
+	for _, tc := range []struct{ name, inner, outer, unresolved string }{
+		{"bare nested", "", "transition first idle then leaf;", "leaf"},
+		{"bare nested source", "", "transition first leaf then idle;", "leaf"},
+		{"owners left out", "", "transition first idle then work.leaf;", "work.leaf"},
+		{"some owners left out", "", "transition first idle then work.left.leaf;", "work.left.leaf"},
+		{"qualified owners left out", "", "transition first idle then work::leaf;", "work::leaf"},
+		{"sibling region", "transition first other then leaf;", "", "leaf"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := resolveDoc(t, "d.sysml", fmt.Sprintf(machine, tc.inner, tc.outer))
+			if len(r.Diagnostics) != 1 {
+				t.Fatalf("expected one diagnostic for %s, got %v", tc.unresolved, r.Diagnostics)
+			}
+			if diag := r.Diagnostics[0]; diag.Code != "unresolved" || !strings.Contains(diag.Message, tc.unresolved) {
+				t.Errorf("expected %s unresolved, got %s %q", tc.unresolved, diag.Code, diag.Message)
+			}
+		})
+	}
+	for _, tc := range []struct{ name, inner, outer string }{
+		{"every owner", "", "transition first idle then work.left.deep.leaf;"},
+		{"every owner qualified", "", "transition first work::left::deep::leaf then idle;"},
+		{"owner visible from the sibling region", "transition first other then left.deep.leaf;", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if r := resolveDoc(t, "d.sysml", fmt.Sprintf(machine, tc.inner, tc.outer)); len(r.Diagnostics) != 0 {
+				t.Errorf("expected the endpoint to resolve, got %v", r.Diagnostics)
+			}
+		})
+	}
+}
+
+// A nil or empty transition names no source, and a nil endpoint is the sourceless form:
+// the exported lookups answer an unsuccessful lookup and report nothing.
+func TestTransitionSourceLookupsTolerateNilAndZeroInputs(t *testing.T) {
+	root := parser.New(source.New("d.sysml", []byte(`state def M { state idle; }`))).ParseFile()
+	idx := symbols.NewIndexFromDoc("d.sysml", root)
+	scope := idx.DocumentRoot("d.sysml")
+	lookups := map[string]func(*Resolver, *symbols.Scope, *ast.TransitionMember) (*symbols.Symbol, bool){
+		"ResolveTransitionSource": (*Resolver).ResolveTransitionSource,
+		"TransitionSourceSymbol":  (*Resolver).TransitionSourceSymbol,
+	}
+	transitions := map[string]*ast.TransitionMember{
+		"nil transition":  nil,
+		"zero transition": {},
+		"empty source":    {Source: &ast.QualifiedName{}},
+	}
+	for name, lookup := range lookups {
+		for form, transition := range transitions {
+			for _, at := range []*symbols.Scope{scope, nil} {
+				r := New(idx)
+				if sym, ok := lookup(r, at, transition); ok || sym != nil {
+					t.Errorf("%s of a %s = %v, %v; want an unsuccessful lookup", name, form, sym, ok)
+				}
+				if len(r.Diagnostics) != 0 {
+					t.Errorf("%s of a %s reported %v", name, form, r.Diagnostics)
+				}
+			}
+		}
+	}
+
+	if d := NotAVertexDiagnostic(nil); d.Code != "" || d.Message != "" || d.Span != (source.Span{}) || d.Fixes != nil {
+		t.Errorf("NotAVertexDiagnostic(nil) = %+v; want the zero diagnostic", d)
+	}
+	if d := NotAVertexDiagnostic(&ast.QualifiedName{}); d.Code != CodeNotAVertex {
+		t.Errorf("NotAVertexDiagnostic of an empty name has code %q, want %q", d.Code, CodeNotAVertex)
 	}
 }

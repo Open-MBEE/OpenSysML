@@ -11,7 +11,7 @@ dependency footprint, service ownership and release verification are in
 <dependency>
   <groupId>org.openmbee</groupId>
   <artifactId>opensysml</artifactId>
-  <version>0.12.1</version>
+  <version>0.13.0</version>
 </dependency>
 ```
 
@@ -88,6 +88,9 @@ model.roots();                                  // one Symbol per document; empt
 
 Symbol vehicle = model.symbol("Demo::Vehicle"); // throws if the model has no such symbol
 model.findSymbol("Demo::Vehicle");              // Optional, for a name that may be absent
+model.symbol("Demo::Vehicle", SymbolOptions.defaults().lookup(Lookup.QUALIFIED_NAME)); // only as a name
+model.symbol("Demo::Vehicle::@3", SymbolOptions.defaults().lookup(Lookup.ELEMENT_ID)); // only as a reported id
+model.elementProperties(Lookup.ELEMENT_ID, "Demo::Vehicle::@3");
 model.find("Vehicle");                          // Optional, by short name or qualified id
 model.get("Demo::Vehicle");                     // Optional, by qualified id only
 model.lookup("Vehicle");                        // throws SymbolNotFoundException with suggestions
@@ -102,6 +105,43 @@ Value here = model.evalInContext("radius", "Demo::Wheel");  // resolved in a sco
 Value mass = model.evalWithSubject("mass", "Demo::sedan");  // with a `self`
 Instantiation built = model.instantiate("Demo::Vehicle");
 ```
+
+### Members, element properties and object paths
+
+```java
+Symbol m = model.symbol("Demo::m");
+m.childIds();                    // the owned members' ids, as before
+m.members();                     // every member, own then inherited: Symbol.Member records
+m.ownMembers();                  // the ones m declares
+m.inheritedMembers();            // the inherited ones; inheritedFrom() names the declaring type
+m.withheldLibraryMembers();      // standard-library members counted rather than listed, until:
+Symbol full = model.symbol("Demo::m", SymbolOptions.defaults().withLibraryMembers(true));
+full.members().stream().filter(Symbol.Member::library).toList();
+
+ElementProperties read = model.elementProperties("Demo::Pair", "inheritedFeature", "isAbstract");
+read.element();                  // ElementRef: id, qualifiedName, metaclass
+read.get("inheritedFeature").orElseThrow().elements();   // ElementRefs, whose ids the call accepts back
+read.get("isAbstract").orElseThrow().value();            // Optional<PropertyValue>: Bool, Text, Integer, Real, Number, Element
+read.get("connectorEnd").orElseThrow().unsupported();    // why a property has no values, when it cannot be answered
+model.elementProperties("Demo::Pair::@2");               // an unnamed member by position; no names reads every property
+
+Instantiation built = model.instantiate("Demo::sedan");
+Instance engine = built.resolve(reference).orElseThrow();
+engine.reachedBy();              // Optional<Instance.Reach>: owner id, feature, index, path; empty for the root
+engine.owner();                  // Optional<Value.InstanceReference>, resolved by built.owner(engine)
+engine.path();                   // "engine"
+InstancePaths paths = model.instancePaths(engine);       // or by id, or by path "Demo::sedan.engine"
+paths.paths().get(0).steps();    // InstancePaths.Step records; paths.truncated() when the search was bounded
+```
+
+`members()` is populated by a service advertising `symbol_members` and empty from one that
+does not; asking for library members, `elementProperties` and `instancePaths` are each refused
+with a `CapabilityException` before anything is sent when the service lacks `symbol_members`,
+`element_properties` or `instance_paths`. `annotatingMetadataIds()` names the metadata usages
+annotating the symbol: its own `#M` prefixes and body `@M` usages, then the ones naming it in an
+`about` clause elsewhere, which `childIds()` and `members()` leave out; look each up with
+`model.symbol(id)` for its type and attributes. It is empty from a service without
+`symbol_annotating_metadata`.
 
 `ParseOptions` is a record of `Language` (`SYSML` or `KERML`) and
 `strictConformance`, with `defaults()` and `withLanguage`/`withStrictConformance`.
@@ -154,7 +194,11 @@ A failed traced run remains a `ModelException`; its `trace()` and
 `explore:runs=N,depth=M`; a non-exploring schedule is an `IllegalArgumentException`)
 and answer an `Exploration` of `Outcome`s, each a distinct end state with the
 `witness` order that reached it and how many `linearizations` do, plus whether the
-search was `complete`, how many `runs` it made and which `budgetsHit`.
+search was `complete`, how many `runs` it made and which `budgetsHit`. Its `coverage()`
+is the `Coverage` of every run, not only each outcome's witness: the states entered and
+transitions taken as `Coverage.Entry`s (`path` under the running instance, `declaration`
+under the machine, `runs` that did); `CheckResult.Search.coverage()` carries the same
+over every schedule of a check.
 
 ### Verification
 
@@ -246,7 +290,12 @@ List<QueryElement> same = model.queryOslc("oslc.where=rdf:type=\"PartUsage\"&osl
 `any`, of at least two conditions), so the query is a value a caller can build and
 inspect; `Query.orderBy(List.of("@type", "name"))` sorts the answer by each property
 in turn, ascending. `queryOslc` needs the `oslc_query` capability; a scope naming
-no element is refused as `INVALID_ARGUMENT`.
+no element is refused as `INVALID_ARGUMENT`, and an unknown property as a
+`QueryOutcomeException` (see [Document queries](#document-queries-and-rendering)).
+
+`queryAsView(query)` and `queryOslcAsView(text)` return a `QuerySelection`: the same
+`elements()` and, in `resultView()`, the answer written as a `QVTS::QueryResult` view (see
+[The answer as a view](#the-answer-as-a-view)).
 
 ### Several documents, and conversion
 
@@ -264,15 +313,17 @@ model.roots();   // one Symbol per document, in request order
 `Connection.convert`/`convertFile` translate source text between notations and
 answer a `Conversion` (`content`, the resolved `fromFormat`/`toFormat`,
 `experimental`/`experimentalNotice`, `diagnostics`, and for `api-json` the
-`libraryReferences` — each a `LibraryReference` with `id`, `qualifiedName` and
-`type` — named outside the element array); `Model.convert` converts the
+`libraryReferences` — each a `LibraryReference` with `id`, `qualifiedName` (or
+`libraryPath` for an unnamed member) and `type` — named outside the element array); `Model.convert` converts the
 parsed model itself. `ConversionOptions` carries a `fromFormat` (else the service
 sniffs it), `tolerateSyntaxErrors` — without it, a syntax error throws a
 `ModelException` carrying the diagnostics rather than converting anyway —
 `idForm` (`ID_FORM_QUALIFIED`, the default, or `ID_FORM_UUID`) for the derived
 element ids of a graph notation (`ttl`, `api-json`), and `includeLibraryStubs`,
 which restores in `api-json` the ownerless library stubs releases before 0.11.0
-wrote (needs the service's `convert_library_stubs` capability). `Conversion.write(Path)`
+wrote (needs the service's `convert_library_stubs` capability), and `inheritedMembers`,
+which also writes in `api-json` the derived lists that repeat each Namespace's and Type's
+inherited and imported members (needs `convert_inherited_members`). `Conversion.write(Path)`
 saves the content as UTF-8, `Conversion.formatOf(Path)` names a notation by its
 extension, and `EditResult.save(Path)` writes a one-document edit and refuses one whose
 `severalDocuments()` is set, whose text is in `documents()` alone; a model
@@ -434,6 +485,28 @@ besides the ones the view's rendering shows (`"all"` for every one); the
 (`"positioned"`, the default, `"most"` or `"ports"`), each folded node naming
 its `compartment`. This call requires the `render_view` capability.
 
+#### The answer as a view
+
+```java
+DocumentQueryResult cabin = model.runDocumentQueryAsView("QVTSDemo::CabinMass", Map.of());
+cabin.resultView();          // "package CabinMassResult { … view cabinMass : QueryResult { … } }"
+QuerySelection found = model.queryOslcAsView("oslc.where=sysml:name=\"cabin\"");
+found.elements(); found.resultView();
+```
+
+`runDocumentQueryAsView`, `runInlineDocumentQueryAsView`, `queryAsView` and `queryOslcAsView`
+ask the service to write the answer as one view typed by `QVTS::QueryResult`
+([QVTS guide](../guide/qvts.md#write-the-answer-as-a-view)); `resultView()` is its SysML text,
+and `""` from the calls that did not ask. A query the model has no answer for still has a
+view, of its path or model error: `QueryOutcomeException.resultView()`. These calls need the
+`query_result_view` capability (`Capabilities.QUERY_RESULT_VIEW`).
+
+`model.renderView(name, DocumentForm.MARKDOWN)` (or `HTML`, `ASCIIDOC`) renders a result view
+that is part of the model as a document: `RenderedView.header()` holds its four attributes as
+`HeaderField`s, `rows()` the exposed elements, and `text()` the rendered document. It needs
+the `render_view_form` capability too, and `HTML` or `ASCIIDOC` for a view that is not a
+`QVTS::QueryResult` is refused as `INVALID_ARGUMENT`.
+
 `DocumentValue` is sealed over `ElementRef`, `ObjectRef` (an object the service
 holds, by id or by path, with the `ElementRef` it is held under), `DocumentVerdict`,
 `DocumentState`, `DocumentEvent`, the literal kinds `StringValue`, `IntegerValue`,
@@ -446,6 +519,57 @@ cells. `runDocumentQuery` needs the `document_query` capability and
 `renderDocument` the `render_document` capability, and `render_document_html`
 besides for `DocumentForm.HTML`; an unknown query or document
 id is a `ServiceException` `NOT_FOUND`.
+
+A query the model has no answer for fails with a `QueryOutcomeException`, a
+`ServiceException` whose `outcome()` is the structured record the service attaches
+to the status — the one the CLI's `-json` prints and the [QVTS guide](../guide/qvts.md)
+describes:
+
+```java
+try {
+  model.runDocumentQuery("QVTSDemo::MissingMassProject");
+} catch (QueryOutcomeException e) {
+  e.serviceMessage();                       // "... reads feature mass of Lander::lander::cabinEngine ..."
+  QueryOutcome outcome = e.outcome();
+  outcome.kind();                           // "pathError" (QueryOutcome.PATH_ERROR) or "modelError"
+  outcome.step();                           // "Feature(mass)": the step the outcome is reported at
+  outcome.failuresTotal();                  // how many failures there are; failures() holds the first
+  for (QueryOutcome.Failure failure : outcome.failures()) {   // a path error, one per failing element
+    failure.step();                         // "Feature(mass)"
+    failure.expected();                     // "a feature named mass on the element"
+    failure.frontier().at();                // "Lander::lander::cabinEngine", "" when nothing resolved
+    failure.frontier().members();           // the candidates there, when a name was expected
+    failure.frontier().features();          //   … when a feature was expected
+    failure.frontier().kinds();             //   … when a relationship kind was expected
+    failure.frontier().nearest();           // the closest spelling, "" when none
+    failure.frontier().membersTotal();      // how many members the element has; members() holds a few
+    failure.frontier().featuresTotal();     //   … and features
+    failure.frontier().kindsTotal();        //   … and kinds
+  }
+  for (QueryOutcome.Finding finding : outcome.findings()) {   // a model error
+    finding.element(); finding.constraint(); finding.observed();
+  }
+  outcome.findingsTotal();                  // how many findings there are; findings() holds the first
+  outcome.pathFailures();                   // a model error's path failures from the same step
+  outcome.pathFailuresTotal();              // how many of those there are
+}
+```
+
+The service bounds the record so it fits a status: `failures()`, `findings()` and
+`pathFailures()` hold the first eight entries of a step that failed on more elements,
+and a frontier's `members()`, `features()` and `kinds()` hold at most eight
+candidates. Each list has a total beside it — `failuresTotal()`, `findingsTotal()`,
+`pathFailuresTotal()` on the outcome, `membersTotal()`, `featuresTotal()`,
+`kindsTotal()` on the frontier — counting every entry there was, so
+`total - list.size()` is how many were left out. A total is never below its list's
+size: a record built without totals, or decoded from a service that sends none,
+counts its lists whole. `nearest()` is reported apart from the lists and need not be
+among the members listed.
+
+`QueryOutcome` and its nested `Failure`, `Frontier` (with `Member` and `Feature`)
+and `Finding` are serializable records. `query` and `queryOslc` fail the same way
+when they name an unknown property: a path error whose frontier lists the properties
+the query could have named, with the nearest spelling.
 
 ## Values and the rest of the domain
 
@@ -477,6 +601,9 @@ else if (value instanceof Value.InstanceReference v)    rendered = "instance " +
 else if (value instanceof Value.Sequence v)             rendered = v.elements().toString();
 else if (value instanceof Value.UndeterminedValue v)    rendered = "<undetermined>: " + v.reason();  // left open by the model
 else if (value instanceof Value.InfinityValue v)        rendered = "*";       // unbounded
+else if (value instanceof Value.CoordinateFrameValue v) rendered = v.frame().name();   // axes, scale, transformation
+else if (value instanceof Value.CoordinateTransformationValue v)
+  rendered = v.transformation().pose().map(Object::toString).orElse("unposed");        // source, target, shape, pose
 else if (value instanceof Value.NullValue v)            rendered = "null";    // evaluated, no value
 else                                                    rendered = "unset";   // declared, never given one
 ```
@@ -502,6 +629,7 @@ throws nothing.
 | --- | --- |
 | `ServiceException` | the call was refused, carrying a `StatusCode` (`NOT_FOUND`, …) |
 | `ModelNotFoundException` / `ModelFileNotFoundException` | a `ServiceException` `NOT_FOUND`: the service holds no model of that hash, or cannot read the named file |
+| `QueryOutcomeException` | a `ServiceException` from a query the model has no answer for; `outcome()` is the decoded `QueryOutcome` (kind, step, failures with their frontiers, findings, and the total behind each bounded list) |
 | `SymbolNotFoundException` | a `ModelException` from `Model.lookup` naming the missing `name()` and near `suggestions()` |
 | `StaleServiceException` | a `ServiceStartException`: the service is not the release asked for |
 | `ModelException` | the call succeeded and the answer reports a model failure; `failureReason()` classifies it and `diagnostics()` carry what the service said |

@@ -207,12 +207,16 @@ class ConversionError(OpenSysMLError):
         message (str): Error description reported by the service
         diagnostics (list): Diagnostic objects behind the failure, when the
             source was notation the parser could not read
+        excluded_documents (list): ``(document, error)`` pairs for the documents
+            an element read left out of the model, when the requested element's
+            own document is one of them
     """
 
-    def __init__(self, message, diagnostics=None):
+    def __init__(self, message, diagnostics=None, excluded_documents=None):
         super().__init__(message)
         self.message = message
         self.diagnostics = diagnostics or []
+        self.excluded_documents = list(excluded_documents or [])
 
 
 class MigrationError(OpenSysMLError):
@@ -334,6 +338,27 @@ class SymbolNotFoundError(OpenSysMLError, KeyError):
         # KeyError.__str__ reprs its argument, which would quote the whole
         # sentence; the message is already written for a reader.
         return self.args[0]
+
+
+class UnresolvedChildError(SymbolNotFoundError):
+    """Raised when the service lists a child of a symbol under an id it then
+    cannot resolve, so :meth:`Symbol.children` would otherwise silently return
+    fewer members than the symbol has.
+
+    Attributes:
+        owner (str): Id of the symbol whose children were asked for
+        child_ids (list[str]): The listed child ids the service did not resolve
+    """
+
+    def __init__(self, owner, child_ids):
+        self.owner = owner
+        self.child_ids = list(child_ids)
+        super().__init__(self.child_ids[0] if self.child_ids else owner)
+        ids = ", ".join(repr(i) for i in self.child_ids)
+        self.args = (
+            f"the service lists {ids} among the children of {owner!r} "
+            "but does not resolve the id; the symbol's children cannot be read completely",
+        )
 
 
 class ViewNotFoundError(SymbolNotFoundError):
@@ -618,6 +643,43 @@ def from_rpc_error(exc, not_found=ModelNotFoundError, unimplemented=None):
     return cls(message, code=code)
 
 
+_RESULT_VIEW_TYPE = "type.googleapis.com/sysml.QueryResultView"
+
+
+def result_view_of(exc):
+    """The ``QVTS::QueryResult`` view a refused query carries, or ``""``.
+
+    The service attaches it as a ``QueryResultView`` status detail when the
+    call asked for the view and the query ended in a path or model error.
+    """
+    from google.protobuf import any_pb2
+    from google.protobuf.internal.decoder import _DecodeVarint
+
+    from opensysml.proto import sysml_pb2
+
+    if not isinstance(exc, grpc.Call):
+        return ""
+    status = next(
+        (value for key, value in exc.trailing_metadata() or () if key == "grpc-status-details-bin"), b""
+    )
+    # google.rpc.Status: details are field 3, each a length-delimited Any.
+    position = 0
+    while position < len(status):
+        tag, position = _DecodeVarint(status, position)
+        if tag & 7 == 0:
+            _, position = _DecodeVarint(status, position)
+            continue
+        if tag & 7 != 2:
+            return ""
+        size, position = _DecodeVarint(status, position)
+        if tag >> 3 == 3:
+            detail = any_pb2.Any.FromString(status[position:position + size])
+            if detail.type_url == _RESULT_VIEW_TYPE:
+                return sysml_pb2.QueryResultView.FromString(detail.value).text
+        position += size
+    return ""
+
+
 @contextmanager
 def translate_rpc_errors(not_found=ModelNotFoundError, unimplemented=None):
     """Re-raise any ``grpc.RpcError`` raised in the block as a OpenSysMLError.
@@ -636,9 +698,12 @@ def translate_rpc_errors(not_found=ModelNotFoundError, unimplemented=None):
     try:
         yield
     except grpc.RpcError as exc:
-        raise from_rpc_error(
-            exc, not_found=not_found, unimplemented=unimplemented
-        ) from exc
+        error = from_rpc_error(exc, not_found=not_found, unimplemented=unimplemented)
+        view = result_view_of(exc)
+        if view:
+            # A query that ended in a path or model error, asked for as a view.
+            error.result_view = view
+        raise error from exc
 
 
 __all__ = [

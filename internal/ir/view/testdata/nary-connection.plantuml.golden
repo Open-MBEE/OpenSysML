@@ -1,0 +1,61 @@
+@startuml
+' NaryViews::wheelLinks — interconnection rendering (render asInterconnectionDiagram)
+' not represented: 1 note(s); the dot form draws notes
+mainframe <size:10>//«view»//</size> **NaryViews::wheelLinks**\n<size:10>expose Nary::Wheel</size>
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+.dot {
+  BackGroundColor black
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+rectangle "<size:10>//«part def»//</size>\n**Wheel**" as n0 <<part def>> {
+  rectangle "<size:10>//«part»//</size>\n**hub**" as n1 <<part>> <<usage>>
+  rectangle "<size:10>//«part»//</size>\n**leftSpoke**" as n2 <<part>> <<usage>>
+  rectangle "<size:10>//«part»//</size>\n**rightSpoke**" as n3 <<part>> <<usage>>
+  circle "" as n4 <<dot>>
+  circle "" as n5 <<dot>>
+}
+n4 -[thickness=3]- "hub" n1
+n4 -[thickness=3]- "left" n2
+n4 -[thickness=3]- "right" n3
+n5 -[thickness=3]- n1
+n5 -[thickness=3]- n2
+n5 -[thickness=3]- n3
+@enduml

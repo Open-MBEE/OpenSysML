@@ -11,11 +11,11 @@ For a task-oriented walkthrough, see the
 <dependency>
   <groupId>org.openmbee</groupId>
   <artifactId>opensysml</artifactId>
-  <version>0.12.1</version>
+  <version>0.13.0</version>
 </dependency>
 ```
 
-The client version follows the core release (`0.12.1`), and the artifact is on Maven Central from
+The client version follows the core release (`0.13.0`), and the artifact is on Maven Central from
 0.10.1. To run against unreleased changes, build and install it into the local repository from a checkout:
 
 ```bash
@@ -31,7 +31,14 @@ try (Connection connection = Connection.open()) {      // starts a private sysml
   Value mass = model.evalWithSubject("mass", "Demo::sedan");
 
   Symbol vehicle = model.symbol("Demo::Vehicle");      // findSymbol returns Optional
+  vehicle.members();                                   // every member, own and inherited, with its provenance
+  model.symbol("Demo::Vehicle", SymbolOptions.defaults().withLibraryMembers(true));
+  ElementProperties read = model.elementProperties("Demo::Vehicle", "inheritedFeature");
   Instantiation built = model.instantiate("Demo::Vehicle");
+  Instance engine = built.reachable().get(1);
+  engine.reachedBy();                                  // owner, feature, index and path from the root
+  built.owner(engine);                                 // the holding object
+  InstancePaths paths = model.instancePaths(engine);   // every root-relative path to it
 
   ActionRun run = model.executeAction("Test::addFive");           // outputs, final time, diagnostics, performer
   Verification v = model.verifyConstraint("Demo::Vehicle::massLight");
@@ -57,7 +64,9 @@ records (`IntegerValue`, `BigIntegerValue` for an Integer beyond `long`, `RealVa
 `VectorValue`, `VectorQuantityValue`, `SetValue`, `TensorQuantityValue`, `MeasurementRefValue`,
 `FunctionValue`, `MetaobjectValue`, `EnumerationValue` (whose `EnumLiteral` carries the scalar a
 `high = 3` literal was given as `value()`), `InstanceReference`, `Sequence`, `NullValue`,
-`UnsetValue`, `UndeterminedValue`, `InfinityValue`), and `Symbol`,
+`UnsetValue`, `UndeterminedValue`, `InfinityValue`, and the answer-only `CoordinateFrameValue`
+and `CoordinateTransformationValue` over the `CoordinateFrame` and `CoordinateTransformation`
+records), and `Symbol`,
 `Diagnostic`, `Instance` and `Instantiation` are records with copied collections, as are
 the answers of execution (`ActionRun`, `StateRun`, `Exploration` of `Outcome`s),
 verification (`Verification`, `Satisfaction`, `Validation`, each over `Verdict`s and
@@ -125,7 +134,7 @@ The compile-scope dependency is protobuf-java. Nothing else, by default:
 | ---------------------------- | ----: | --------------------------------------- |
 | `protobuf-java` 4.33.1       | 1.8 M | always: the generated messages need it  |
 | `protobuf-java-util` 4.33.1  |  76 K | only `Encoding.JSON`, declared optional  |
-| `gson` 2.11.0                | 291 K | only `Encoding.JSON`, behind the above   |
+| `gson` 2.11.0                | 291 K | only `Encoding.JSON` and `org.openmbee.opensysml.repository` (publication to a SysML v2 API server), declared optional |
 
 There is no gRPC, no Netty and no `tcnative`. The transport is
 `java.net.http.HttpClient` from the JDK, speaking the Connect protocol: unary
@@ -401,12 +410,12 @@ unnoticed.
 
 Or as a test, which is what CI runs: `mvn -f client/java/pom.xml test`.
 
-Per protocol, of 166 scenarios:
+Per protocol, of 206 scenarios:
 
 | protocol       | ran | passed | failed | skipped |
 | -------------- | --: | -----: | -----: | ------: |
-| `connect`      | 161 |    161 |      0 |       5 |
-| `connect-json` | 161 |    161 |      0 |       5 |
+| `connect`      | 201 |    201 |      0 |       5 |
+| `connect-json` | 201 |    201 |      0 |       5 |
 
 **5 skipped**: only the requests the public API cannot express —
 `parse/naming_no_source_is_invalid` (the API always names a

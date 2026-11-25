@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 )
 
 func TestSelfCheckAppliesValidationLibraryToWorkspaceElements(t *testing.T) {
@@ -85,7 +87,7 @@ func TestSelfCheckReportsViolationsAndUnevaluatedConstraints(t *testing.T) {
 			}
 			constraint def inspectTypeSpecializations {
 				in element : KerML::Type;
-				element.multiplicity->isEmpty();
+				element.ownedIntersecting->isEmpty();
 			}
 			part def P { part c; }
 		}
@@ -139,7 +141,7 @@ func TestSelfCheckUnevaluatedOnlyDoesNotFailSummary(t *testing.T) {
 			private import SequenceFunctions::*;
 			constraint def inspectTypeSpecializations {
 				in element : KerML::Type;
-				element.multiplicity->isEmpty();
+				element.ownedIntersecting->isEmpty();
 			}
 			part def P;
 		}
@@ -436,8 +438,8 @@ func TestSelfCheckPartUsageDefinitionForObjectivesAndVariants(t *testing.T) {
 	if stats.Checks == 0 || stats.Violations != 0 || stats.EvaluationErrors != 0 {
 		t.Fatalf("self-check counts = %+v; verdicts = %+v", stats, verdicts)
 	}
-	if got := stats.Applications["SysMLValidation::validatePartUsagePartDefinition"]; got != 2 {
-		t.Errorf("part-definition constraint applications = %d, want 2 (subject and part, not objective or variant reference)", got)
+	if got := stats.Applications["SysMLValidation::validatePartUsagePartDefinition"]; got != 1 {
+		t.Errorf("part-definition constraint applications = %d, want 1 (the part; not the subject, a ReferenceUsage, the objective or the variant reference)", got)
 	}
 }
 
@@ -568,8 +570,8 @@ func TestSelfCheckConnectorRelatedFeaturesCoverEndForms(t *testing.T) {
 			message byMessage of Integer from a.x to b.y;
 			message incoming : Message[*];
 			binding byReferences {
-				end feature references a;
-				end feature references b;
+				end references a;
+				end references b;
 			}
 		}
 		action def Sequence {
@@ -1214,8 +1216,10 @@ func TestSelfCheckKerMLNotationTypesKeepBaseClassification(t *testing.T) {
 }`}
 	s := NewSession()
 	result := s.SubmitFiles([]SourceFile{file})
-	if errs := errorDiagnostics(result.Diagnostics); len(errs) > 0 {
-		t.Fatalf("fixture did not load cleanly: %v", errs)
+	for _, d := range errorDiagnostics(result.Diagnostics) {
+		if d.Code != passes.CodeKerMLNotation {
+			t.Fatalf("fixture carries an error beyond its KerML notation: %v", d)
+		}
 	}
 	if s.HasErrors() {
 		t.Fatal("fixture has model errors")

@@ -147,6 +147,9 @@ func (idx *Index) collectFromTables(e *snapshotEncoder) {
 			for _, route := range claim.routes {
 				e.collectFilters(route.filters)
 			}
+			for _, hop := range claim.hops {
+				e.collectFilters(hop.filters)
+			}
 		}
 	}
 	for _, m := range idx.docReexports.own {
@@ -300,6 +303,7 @@ func (e *snapshotEncoder) writeSymbols() {
 			e.w.Uint(e.facts[s.Facts])
 		}
 		e.w.String(s.ShortName)
+		e.w.Uint(uint64(s.EmptyNames))
 		e.w.Uint(uint64(s.Naming))
 		e.node(s.NamingTarget)
 	}
@@ -447,6 +451,7 @@ func (e *snapshotEncoder) writeTables(idx *Index, docs []string) {
 			for _, imp := range imports {
 				e.w.String(imp.Target)
 				e.w.Bool(imp.Private)
+				e.w.Bool(imp.All)
 				e.filter(imp.Filter)
 			}
 		}
@@ -483,6 +488,17 @@ func (e *snapshotEncoder) writeTables(idx *Index, docs []string) {
 			for _, route := range claim.routes {
 				e.w.Bool(route.private)
 				e.filters(route.filters)
+				e.w.Len(len(route.via))
+				for _, ns := range route.via {
+					e.w.String(ns)
+				}
+			}
+			e.w.Len(len(claim.hops))
+			for _, hop := range claim.hops {
+				e.w.String(hop.from)
+				e.w.Bool(hop.private)
+				e.w.Bool(hop.all)
+				e.filters(hop.filters)
 			}
 		}
 	}
@@ -546,6 +562,7 @@ func (e *snapshotEncoder) writeTables(idx *Index, docs []string) {
 			e.w.String(t.doc)
 			e.w.String(t.fqn)
 			e.w.Bool(t.private)
+			e.w.Bool(t.all)
 		}
 	}
 
@@ -661,7 +678,7 @@ func (d *sectionReader) decl() ast.Node {
 	if form == 0 {
 		return n
 	}
-	if form < 0 || form-1 > int64(ImpliedConjugatedPortDefinition) {
+	if form < 0 || form-1 > int64(ImpliedSuccessionTargetEnd) {
 		d.r.Fail("implied form")
 		return n
 	}
@@ -826,6 +843,12 @@ func (d *sectionReader) readSymbols() {
 			s.Facts = &d.facts[id-1]
 		}
 		s.ShortName = d.r.String()
+		empty := d.r.Uint()
+		if empty > uint64(EmptyName|EmptyShortName) {
+			d.r.Fail("empty names")
+			return
+		}
+		s.EmptyNames = EmptyNames(empty)
 		naming := d.r.Uint()
 		if naming > uint64(NamedByRedefinition) {
 			d.r.Fail("naming kind")
@@ -954,39 +977,25 @@ func (d *sectionReader) readTables() *Index {
 		}
 		return out
 	})
-	idx.wildcardMeta = stringTable(d, gen, func() map[string][]WildcardImport {
-		n := d.r.Len()
-		byDoc := make(map[string][]WildcardImport, n)
-		for i := 0; i < n; i++ {
-			doc := d.r.String()
-			imports := make([]WildcardImport, d.r.Len())
-			for j := range imports {
-				imports[j].Target = d.r.String()
-				imports[j].Private = d.r.Bool()
-				imports[j].Filter = d.filter()
-			}
-			byDoc[doc] = imports
-		}
-		return byDoc
-	})
+	idx.wildcardMeta = stringTable(d, gen, d.wildcardImports)
 	idx.reexported = stringTable(d, gen, d.symbolSet)
 	idx.hidden = stringTable(d, gen, d.symbolSet)
 
 	n = d.r.Len()
 	reexportDocs := make(map[reexportKey]map[string]*reexportClaim, n)
 	claims := make([]reexportClaim, 0, n)
+	// The import graph is gathered from the claims as they are read: walking
+	// the decoded table again costs a map iteration per re-exported member.
+	graph := importGraph{}
 	for i := 0; i < n; i++ {
 		k := d.reexportKey()
+		importer, _ := splitFQN(k.fqn)
 		m := d.r.Len()
 		byDoc := make(map[string]*reexportClaim, m)
 		for j := 0; j < m; j++ {
 			doc := d.r.String()
-			claim := reexportClaim{public: d.r.Bool()}
-			claim.routes = make([]gateRoute, d.r.Len())
-			for r := range claim.routes {
-				claim.routes[r].private = d.r.Bool()
-				claim.routes[r].filters = d.filters()
-			}
+			claim := d.claim()
+			graph.addHops(importer, claim.hops)
 			if len(claims) == cap(claims) {
 				claims = make([]reexportClaim, 0, n)
 			}
@@ -1032,6 +1041,7 @@ func (d *sectionReader) readTables() *Index {
 			out[i].doc = d.r.String()
 			out[i].fqn = d.r.String()
 			out[i].private = d.r.Bool()
+			out[i].all = d.r.Bool()
 		}
 		return out
 	})
@@ -1054,8 +1064,52 @@ func (d *sectionReader) readTables() *Index {
 		doc := d.r.String()
 		idx.aboutUsages[doc] = d.symbols()
 	}
+	idx.cyclic = newLayer[string, []string](gen)
+	graph.addLastTargets(idx)
+	idx.noteImportCycles(graph)
 	idx.takeLibraryIdentity()
 	idx.derived = &derivedMemo{}
 	idx.frozen = true
 	return idx
+}
+
+// wildcardImports reads a namespace's wildcard imports, by the document declaring them.
+func (d *sectionReader) wildcardImports() map[string][]WildcardImport {
+	n := d.r.Len()
+	byDoc := make(map[string][]WildcardImport, n)
+	for i := 0; i < n; i++ {
+		doc := d.r.String()
+		imports := make([]WildcardImport, d.r.Len())
+		for j := range imports {
+			imports[j].Target = d.r.String()
+			imports[j].Private = d.r.Bool()
+			imports[j].All = d.r.Bool()
+			imports[j].Filter = d.filter()
+		}
+		byDoc[doc] = imports
+	}
+	return byDoc
+}
+
+// claim reads one document's claim on a re-exported name: its visibility, routes and hops.
+func (d *sectionReader) claim() reexportClaim {
+	claim := reexportClaim{public: d.r.Bool()}
+	claim.routes = make([]gateRoute, d.r.Len())
+	for r := range claim.routes {
+		claim.routes[r].private = d.r.Bool()
+		claim.routes[r].filters = d.filters()
+		if n := d.r.Len(); n > 0 {
+			claim.routes[r].via = make([]string, n)
+			for v := range claim.routes[r].via {
+				claim.routes[r].via[v] = d.r.String()
+			}
+		}
+	}
+	if n := d.r.Len(); n > 0 {
+		claim.hops = make([]importHop, n)
+		for h := range claim.hops {
+			claim.hops[h] = importHop{from: d.r.String(), private: d.r.Bool(), all: d.r.Bool(), filters: d.filters()}
+		}
+	}
+	return claim
 }

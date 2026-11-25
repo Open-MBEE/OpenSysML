@@ -29,7 +29,9 @@ make build            # build bin/sysml and bin/sysml-lsp (with version ldflags)
 make build-sysml      # REPL binary only
 make build-lsp        # LSP binary only
 make test             # full suite: go test -race -coverprofile ... ./...
-make test-shard SHARD=runtime   # one CI shard of the race suite (runtime|runtime-corpus|model|export|graph|codegen|tools|rest|migrate|cli)
+make test-shard SHARD=runtime   # one CI shard of the race suite (runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep-committed|corpus-sweep-corpora|export|export-library|export-examples|export-corpus|graph|graph-corpora|codegen|translate|translate-structure|grpc|tools|internal|rest|migrate|cli)
+make test-quick SHARDS="rest grpc"  # the same shards without -race, in turn: what a pull-request push runs
+make test-queue SHARDS="rest export-corpus"  # the merge queue's tier: -race, but the examples/ sweeps (scripts/race-shard.sh --sweeps) race-free over the construct-cover subset
 make test-short       # faster, no race detector
 make clean            # remove build artifacts
 ```
@@ -75,6 +77,12 @@ migrator is gated over: fetch it with `./scripts/download-pssm-suite.sh` and run
 variable must run the matching download script first; the scripts are idempotent, and none
 reports success over an empty corpus.
 
+The normative OMG `SysML.json` gates the `api-json` element form the same way: fetch it with
+`./scripts/download-omg-json-schema.sh` and run
+`go test -count=1 ./tests/export -run TestAPIJSONNormativeSchema`. CI sets
+`OPENSYSML_REQUIRE_OMG_JSON_SCHEMA=1`. Its baseline may only shrink over the same elements; re-record a
+movement toward the schema with `-update-normative-schema`.
+
 The Modelica Reference-FMUs gate the FMI integration the same way: fetch them with
 `./scripts/download-reference-fmus.sh` (into `examples/reference-fmus/`, gitignored), install
 the runner's simulator with `pip install fmpy`, and run
@@ -100,10 +108,10 @@ answers under `internal/ir/docplan/markup/testdata/`, and the `Installed` test t
 against the pinned converter — re-record them (`asciidoctor-json.js < x.adoc > x.json`) when either moves.
 
 The RDF mapping has a per-file ratchet of its own over every model under `examples/`, the
-downloaded corpora included: `TestCorpusRoundTrip` in `tests/corpus` converts each file
-notation → Turtle → notation → Turtle and pins the verdict. Run it with both require variables
-set after any change to `internal/translate/export`, adjudicate every movement, then regenerate with
-`-update-corpus-roundtrip`. See `docs/project/rdf-corpus-roundtrip.md`.
+downloaded corpora included: the two `TestExamplesSweep*` tests in `tests/corpus` (the committed models, the downloaded corpora) load each file once, convert it
+notation → Turtle → notation → Turtle (and the same through `api-json`) and pins the verdicts. Run it with
+the require variables set after any change to `internal/translate/export`, adjudicate every movement,
+then regenerate with `-update-corpus-roundtrip` (`-update-api-json-roundtrip`). See `docs/project/rdf-corpus-roundtrip.md`.
 
 ---
 
@@ -165,7 +173,7 @@ When touching the lexer/parser or adding grammar:
 3. **Golden execution traces** for ordering-sensitive behavior (fork/join, transitions): `go test -run TestExecutionTrace ./internal/exec/runtime` (update flag: `-update-traces`).
 4. **Robustness:** add a failure-mode case (deadlock, unbound params, missing refs, dangling transitions, step budget) as a subtest of a `TestRuntimeRobustness<Feature>` function in `internal/exec/runtime/robustness_<feature>_test.go` — a new file for a new feature, so branches never edit one shared registry; `robustness_test.go` holds only the shared helpers and is not where new ones go. Must return typed errors, never panic or hang. The suite counters read every `TestRuntimeRobustness*` function, and gRPC cases follow the same pattern with `TestGRPCRobustness*`.
 
-Then update `docs/project/spec-compliance.md` mapping: semantic rule → implementation (file:function) → test → status (✅ faithful / ⚠️ approximate / ❌ not implemented / 🚧 known failure).
+Then update the compliance map: edit the area's source under `docs/project/spec-compliance/` (`python3 scripts/spec_compliance.py locate "<heading>"` names it; the combined `docs/project/spec-compliance.md` is built from the sources and is never committed on `develop`), mapping semantic rule → implementation (file:function) → test → status (✅ faithful / ⚠️ approximate / ❌ not implemented / 🚧 known failure).
 
 ### 5.3 General
 - Unit tests live beside code as `*_test.go`, one concern per test.
@@ -184,11 +192,17 @@ Then update `docs/project/spec-compliance.md` mapping: semantic rule → impleme
 5. **Implement the correct fix.** For bug fixes, keep edits minimal and scoped. For features, implement completely (see §8) — "minimal" means *no unrelated changes*, never *under-built*. Match existing style; keep imports at the top.
 6. **Add/adjust tests** to lock in the fix and cover the failure mode.
 7. **Verify** with the full gate in §2. Remove any temporary debug code and dead code.
+   Then review the head yourself with `.agents/skills/reviewing-pull-requests/SKILL.md` against
+   `REVIEW.md` and fix what it finds before pushing (§10).
 8. **Commit** using Conventional Commits (see §7). Keep PRs focused (one feature/fix each).
-9. **Open the PR ready for review** against `develop`. The full CI tier runs on every push and must be
-   green. Address review findings as they arrive rather than waiting for CI. Merging is a maintainer's
-   decision. A draft is only for work you do not yet want reviewed — it runs the cheaper quick tier —
-   and it has to be marked ready before it can be considered.
+9. **Open the PR ready for review** against `develop`. Every push runs the quick CI tier (the Go suite
+   without `-race`, the cheap gates, the clients whose paths changed) and must be green; the queue tier
+   (`-race` on every shard but the `examples/` sweeps, which run race-free over the construct-cover subset;
+   every corpus and solver gate, every client) runs in the merge queue, and the full tier (`-race` over
+   the whole corpus) on the label `ci:full`, on an unclaimed path and nightly over `develop`
+   (CONTRIBUTING.md, "GitHub Actions"). Address
+   review findings as they arrive rather than waiting for CI. Merging is a maintainer's decision. A draft
+   is only for work you do not yet want reviewed and has to be marked ready before it can be considered.
 
 ---
 
@@ -198,8 +212,8 @@ The vendored `OpenSysML Libraries` (`scripts/extension-libraries-pin.sh`, synced
 `scripts/sync-extension-libraries.sh`) are an input to gates far from `internal/workspace/libs`, and
 the full CI tier is expensive, so run them locally before the PR, every time the pin moves:
 
-1. `go generate ./internal/workspace/libs` — `stdlib.snapshot` embeds the libraries; commit it.
-2. `make extension-libraries-pin-check` — Java-free, about a minute: the sync check, the snapshot,
+1. `make extension-libraries-pin-check` — Java-free, about a minute: regenerates the snapshot
+   from the synced libraries, then the sync check,
    `tests/hygiene TestEngineContractCoversEveryBoundName` (a new binding in
    `internal/ir/queryplan/compiler.go` needs an `engine-contract.json` entry upstream, in the same
    library PR as the declaration), the provenance guards of both pilot-differential baselines, and
@@ -211,16 +225,49 @@ the full CI tier is expensive, so run them locally before the PR, every time the
    into `docs/project/pilot-differential.md` / `api-json-differential.md`, then re-record with
    `-update` and run `make docs-counts`. A library change that adds declarations always moves
    `pilotLibraryElements`; anything else moving is an implementation difference to explain.
-### 6.2 Changing `internal/translate/export`: the api-json writer provenance
+   The api-json record's figures (the scorecard headline, the per-root table and the figure
+   columns of its gap tables) are `<!-- doc-counts:begin apijson-… -->` blocks the site build
+   renders from the baseline (`go run -C tools ./cmd/pilot-apijson-diff -site-blocks`), so the
+   page is edited only for the adjudication; `TestRecordStatesTheBaselinesFigures` refuses a
+   figure typed into one.
+### 6.2 Changing `internal/translate/export`: the api-json differential
 
-The api-json baseline's `api-json-writer` provenance digests **every non-test `.go` file of
-`internal/translate/export`** — the RDF/api-json writer *and* the reverse converter
-(`rdf_in*.go`), element ids, names, addresses — so any commit touching that package, however
-small, moves the digest and turns the `rest` shard red on `TestCommittedBaselineStatesThisRepositorysProvenance`.
-Before pushing such a commit (including a review fix pushed after a re-record): run
-`go run -C tools ./cmd/pilot-apijson-diff -update` over the real corpus directories, confirm that
-only `sourceDigest` moved (account for anything else in `docs/project/api-json-differential.md`),
-and run `go test -C tools -count=1 ./referee/apijson` as the pre-push check.
+The api-json baseline is the directory `docs/project/api-json-differential/`: one fragment per
+compared source file (`<root>/<relative path>.json`) beside an `index.json` that carries the
+provenance and the aggregate figures (the shared layout of `tools/referee/baseline`). The
+provenance records the pinned pilot's side and the compared inputs only — no digest of this
+repository's writer and no recording date — so a commit under `internal/translate/export` moves
+the baseline only in the fragments of the files whose verdicts it moves, one bucket line at a
+time, and two branches re-recording it conflict only on a fragment they both moved. When they both
+moved `index.json`, take either side and run `go run -C tools ./cmd/pilot-apijson-diff -reindex`
+on the merged tree (no pilot needed) to fold the merged fragments; when a fragment conflicts, or
+both branches added or removed files of one root, re-record that root on the merged tree
+(`-update -roots <root>`) and adjudicate what moved. Neither command vouches for a moved pilot
+pin, bridge, errata digest or library: those need the full `-update`. What
+proves the figures current is the differential itself: the pull-request
+workflow's `apijson-differential` job runs `go run -C tools ./cmd/pilot-apijson-diff -check` on
+every change under the writer, the referee, the bridge, the pin or the baseline. Before pushing
+such a commit, run `go run -C tools ./cmd/pilot-apijson-diff` over the real corpus directories
+(`-check` to confirm the baseline reproduces); if a bucket moved, adjudicate it in
+`docs/project/api-json-differential.md` (prose and the keyed rows of its gap tables; the figures
+render from the baseline when the site builds), re-record with `-update` and run `make docs-counts`.
+The pilot's export moves only with the pin, the bridge, a root or a library, so
+`-pilot-record DIR` keeps it per root under `DIR`, keyed by all of those and the declared Java, and
+a later run with a matching record runs our side alone; CI restores the directory the nightly
+oracle-reproduction workflow records. The count baselines (the api-json fragments and index, the
+derived census, the structure differential) merge cell by cell once
+`./scripts/install-baseline-merge-driver.sh` has run in the clone; a merged file is the measurement
+only once its `-check` reproduces it.
+Never re-record a baseline whose figures did not move: its provenance lines change only on a pin
+bump, an errata change or an edit to a compared input.
+
+When `develop` re-recorded a generated baseline your branch also re-recorded, do not resolve the
+conflict and re-run the recorders by hand: apply the `ci:rebaseline` label to the pull request.
+`.github/workflows/rebaseline.yml` merges `origin/develop` taking `develop`'s side of the
+conflicts confined to its listed generated paths (any other conflict fails the run), re-runs every
+recorder, refuses a movement the merge does not explain (`scripts/rebaseline-movement.py`),
+commits with the movement in the message, pushes, removes the label and comments the movement
+to adjudicate. It never touches `tests/corpus/testdata/training_examples_expected.txt`.
 
 ### 6.3 Keeping the agent skills current
 
@@ -258,6 +305,19 @@ skill says the same thing:
    string, the Java skill's `<dependency>` snippet, is held to `client/java/pom.xml` by
    `client/python/tests/test_check_version.py` with the other in-repo references, so the release
    commit's version bump moves it.
+
+### 6.4 The TextMate grammar mirror
+
+GitHub highlights `.sysml` and `.kerml` through [Linguist](https://github.com/github-linguist/linguist),
+which vendors a grammar *repository*, so the grammars `editors/vscode/tools/gengrammar` generates into
+`editors/vscode/syntaxes/` are mirrored unchanged in
+[Open-MBEE/sysml-v2-textmate](https://github.com/Open-MBEE/sysml-v2-textmate). Nothing is edited there:
+a grammar change lands here (`make vscode-grammar`, whose tests fail on a stale committed file), and
+the tag's `publish-textmate-grammars` job pushes the files committed at the tag to the mirror after the
+GitHub release (`scripts/sync-textmate-grammars.sh --publish`), and only for the newest stable release,
+so a pre-release or a re-run of an older tag never rolls the mirror back. `make textmate-grammars-check`
+diffs the mirror against HEAD's grammars; between releases it reports the grammar changes develop has
+accumulated, which is expected, so it is not a CI gate.
 
 ## 7. Code Style & Commits
 
@@ -318,7 +378,7 @@ Bug-fix discipline (small, scoped diffs) does **not** apply to feature work. For
 4. **Implement layer by layer**, keeping `go build ./...` and `go vet ./...` green at each step.
 5. **Handle all cases explicitly.** Every unsupported path returns a typed error with a clear message — never a silent no-op, panic, or wrong result.
 6. **Remove interim scaffolding** (bridges, temporary fields, debug prints, dead code) before finishing.
-7. **Verify the full gate** (§2), **update `docs/project/spec-compliance.md`** with honest status flags, and **update the agent skills** the feature's surface is described in (§6.3).
+7. **Verify the full gate** (§2), **update the compliance map's source under `docs/project/spec-compliance/`** with honest status flags, and **update the agent skills** the feature's surface is described in (§6.3).
 
 **When a feature is genuinely too large to finish correctly in one pass:** stop and flag it. Deliver a correct, complete *subset* with the remaining scope explicitly documented as known limitations + failing/`t.Skip`-with-reason tests or a `known_failures` entry. Never fake completeness.
 
@@ -333,4 +393,139 @@ Bug-fix discipline (small, scoped diffs) does **not** apply to feature work. For
 - **Leaving unused structs/functions** after a refactor — `go vet ./...` and clean them up.
 - **Assuming where states/members live** (Members vs Substates vs Regions) — verify against actual parser output.
 
+---
+
+## 10. Self-Review Before Every Push
+
+The automated review on GitHub reads `REVIEW.md` and finds, on about half of all pull requests,
+defects of a few recurring shapes: a language edge case the change did not handle (inherited,
+redefined, anonymous, same-named, nested), a sibling surface that still answers the old way, a
+test deleted or narrowed, and a code comment over two lines. Each costs a review round, a full CI
+tier and a second review. Catch them first:
+
+1. Run the gate in §2 on the exact head you will push.
+2. Follow `.agents/skills/reviewing-pull-requests/SKILL.md`: the mechanical checks, a change map of
+   every function and caller, the edge-case axes and surfaces in `REVIEW.md` probed with a real
+   model, and the tests checked for reductions.
+3. Fix every bug and settle every flag in the same push. A root cause outside the PR's scope goes
+   in the PR body as a known limitation with its reproducer.
+4. When a review finding does land, batch the fixes across all open findings, re-run the gate, and
+   push once.
+
+The cross-cutting rules distilled from whole-project reviews are in §11; check them when a change
+touches serialization, external processes, shared state, caches, build tags, or CI.
+
 See `CONTRIBUTING.md` and `docs/internals/architecture.md` for the authoritative, detailed references.
+
+---
+
+## 11. Cross-cutting rules learned from whole-project reviews
+
+These are general rules, not a backlog. They apply to any change, in any layer, and are intended
+to prevent the defect shapes that repeatedly survive ordinary review. When a rule is violated by
+an existing path, fix all sibling paths that share the shape rather than the one in front of you.
+
+### 11.1 Determinism and correctness
+
+- **Map iteration is not an order.** Any identifier, path suffix, diagnostic list, choice order, or
+  serialized section derived from a map must come from an ordered table, or the comparator must have
+  a total-order tie-breaker. Sorting by a key that can tie preserves the original random order.
+- **Prove cross-run stability where IDs matter.** When a value is meant to be stable across two
+  lowerings, loads, or renders, write a test that performs the operation twice and compares the
+  identity-bearing result — a consistency-only test cannot catch assignment-order drift.
+- **Exported functions must tolerate nil and zero values.** Guard every pointer and index before
+  dereference, and return a typed error instead of panicking. Check the zero value of every new
+  exported type in a unit test.
+- **A select between a result and an end signal needs a drain rule.** When one goroutine delivers a
+  reply and another signals termination, decide explicitly which wins when both are ready, and
+  reject duplicate replies with a typed protocol error rather than blocking the reader forever.
+- **A build tag that removes a symbol must remove or stub every consumer.** Keep the stub's exported
+  surface complete, and verify the whole tree — not just the flagship binary — under every declared
+  tag. A narrow CI check can hide a hard compile failure for weeks.
+
+### 11.2 Safety, security, and resource bounds
+
+- **Validate at every serialization boundary.** IRIs, generated comments, SVG/Math blocks, XML-derived
+  text, and file names each need their own escaping or validation. Escaping in one writer does not
+  protect another backend that emits the same value.
+- **Bound everything that originates outside the process:** bytes read from stderr, HTTP responses,
+  header lines, archive entries (cumulatively, not just per entry), goroutines/jobs, recursion depth,
+  cache size, and session lifetime. If one surface has a bound, audit its siblings for the same rule.
+- **Multi-tenant state is keyed by principal.** A shared workspace, open-buffer map, subscription set,
+  or resource template will leak one caller's uncommitted data to another. Prove isolation with a
+  two-principal test, not by inspecting the authorization table.
+- **Cancellation and deadlines must cross every boundary.** Propagate the caller's context into
+  handshakes, subprocess launches, request handlers, WASM calls, and client transports. A client
+  disconnect must stop the work, not merely reject the JS promise; add a test that observes the
+  server actually stopping.
+- **Never trust a path from a message, model, or environment variable as a destination.** Resolve it
+  against an explicit root, reject absolute paths and `..`, and check symlinks before reading or writing.
+
+### 11.3 Performance and memory
+
+- **Profile before optimizing.** Several suspected hot paths turned out not to be the dominant
+  allocators. Run an existing benchmark or pprof first; if none exists for the path, add one that
+  varies the relevant dimension (depth, node count, diagnostic count, out-degree) and reports
+  allocations.
+- **Internal tree walkers must not clone.** Provide a non-cloning child accessor for internal passes
+  and keep defensive copying only at the public boundary; cloning each subtree once per ancestor
+  turns a linear walk into a depth-multiplied one.
+- **Linear scans inside per-item loops are a bug waiting on a large model.** Use a keyed set or index
+  for deduplication and lookup; avoid allocating on cache hits, and prefer a read lock for caches
+  that are read far more often than written.
+- **Global caches in long-lived processes need an eviction or reference-count policy.** An LSP server
+  or REPL that caches every archive, document, or session forever will grow without bound.
+
+### 11.4 Duplication and API design
+
+- **A duplicated algorithm needs a parity gate the day it is created.** Two converters, two
+  value-to-text functions, two capability lists, or two registries will drift; add a differential
+  test over a representative corpus that fails when the surfaces disagree, then consolidate behind
+  one implementation where practical.
+- **Generate mechanical surfaces from one source.** Forwarding methods, dispatch switches, and
+  generated-to-public conversions should be derived from the schema, or at minimum guarded by a
+  completeness test that enumerates every operation.
+- **Do not keep production code that exists only for tests.** If a test uses a legacy payload, migrate
+  it to the real representation and remove the fallback; a fallback that resolves by name can pick
+  the wrong element when names repeat in different scopes.
+- **Functional options must not expose generated wire request structs.** Apply options to a private
+  struct first and build the wire request afterwards, so callers cannot overwrite identity fields
+  and a regenerated field name cannot break the public API.
+- **Keep one canonical representation per value kind.** A renderer that reimplements the evaluator's
+  value-to-text will silently omit new kinds; share one function and pass display names in explicitly.
+
+### 11.5 Testing and measurement
+
+- **A require variable either fails or is not a gate.** Accept common truthy spellings, trim whitespace,
+  and fail on an absent corpus when the variable is set. Never silently skip in that case.
+- **A subset run must announce what it did not check.** When a switch limits a sweep to a subset,
+  print the scope, fail if a strict gate is combined with it, and fail when a recorded file has
+  disappeared rather than treating "not visited" as success.
+- **Tests must not leak temp directories, subprocesses, or environment variables.** Use `t.TempDir`
+  or `TestMain` cleanup, process groups for children, and pass environment explicitly to commands
+  instead of mutating the test process.
+- **Test the failure mode, not only the happy path.** For a new parser rule, serialization sink, or
+  external tool, add a negative case with hostile input and assert the exact typed error. A test that
+  only uses finite values, clean models, or one protocol version will not catch the panic or leak.
+- **A green suite can be misleading.** Check for "GATE NOT RUN" banners, silent skips, single-iteration
+  benchmarks, and benchmarks that skip when optional corpora are absent; treat all of these as missing
+  coverage to be explained, not as passes.
+
+### 11.6 Infrastructure and tooling
+
+- **Every changed path must map to at least one gate.** A catch-all "known path" pattern that no area
+  claims will make pull requests green without running any checks; add a hygiene test that asserts the
+  path-to-area mapping covers every tracked tree.
+- **Single-source tool versions and digests.** A version hardcoded in several CI files will drift from
+  the local build; derive it from one manifest and assert agreement. Pin security-relevant tools by
+  digest, and keep them current — a stale signing tool is worse than no signature check.
+- **A moving alias must not advance before publication succeeds.** Registry publishes and the alias
+  move (plus pruning of old artifacts) need an explicit dependency; otherwise the alias can name a
+  release whose packages no longer exist.
+- **Verify the toolchain you ship with.** Cross-compile every declared build target, and exercise the
+  external tools the project advertises (FMI runners, solvers, converters, WASM harnesses) with the
+  pinned versions. A target that builds but deadlocks or reports "not implemented" at runtime is not
+  supported.
+- **When a baseline is re-recorded, adjudicate the movement.** Regenerated figures, ratchets, and
+  differential fragments are evidence of a behavior change; state what moved and why before the new
+  numbers become the contract.

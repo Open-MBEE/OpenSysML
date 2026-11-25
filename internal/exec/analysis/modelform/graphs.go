@@ -10,9 +10,9 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
@@ -93,6 +93,8 @@ type graphsExporter struct {
 	model *runtime.Model
 	sem   *semantics.Model
 	text  source.Lookup
+	// exprs is the expression table of the graph being written.
+	exprs *lower.ExprTable
 
 	lowered  map[string]bool // qualified names already exported or queued
 	pending  []*symbols.Symbol
@@ -103,8 +105,8 @@ type graphsExporter struct {
 // action nor a state machine or whose lowering fails.
 func (x *graphsExporter) lowerSubject(out *Graphs, sym *symbols.Symbol) error {
 	x.lowered[symbols.FQNOf(sym)] = true
-	switch sym.Kind {
-	case symbols.SymbolActionDef, symbols.SymbolActionUsage:
+	switch {
+	case sym.Kind == symbols.SymbolActionDef || sym.Kind.IsActionUsage():
 		graph, err := lower.ToActionGraphWith(sym.Decl, runtime.DeclScope(sym), x.model.Resolver())
 		if err != nil {
 			return fmt.Errorf("%w: %s: %w", ErrGraphsSubject, symbols.FQNOf(sym), err)
@@ -114,7 +116,7 @@ func (x *graphsExporter) lowerSubject(out *Graphs, sym *symbols.Symbol) error {
 			return err
 		}
 		out.Actions = append(out.Actions, form)
-	case symbols.SymbolStateDef, symbols.SymbolStateUsage:
+	case sym.Kind == symbols.SymbolStateDef || sym.Kind == symbols.SymbolStateUsage:
 		graph, err := lower.ToStateGraphWithEndpoints(sym.Decl, runtime.DeclScope(sym),
 			lower.NewLibraryStateTypes(x.model.Resolver()))
 		if err != nil {
@@ -161,22 +163,23 @@ func (x *graphsExporter) lowerPerformed(out *Graphs, sym *symbols.Symbol) error 
 	return nil
 }
 
-// perform queues the behaviors a node names — a `perform`, a typed action usage,
-// an exhibited state — once each, resolved in scope, and returns their names.
-func (x *graphsExporter) perform(scope *symbols.Scope, node ast.Node) []string {
+// perform queues the behaviors a node performs or is typed by — a `perform`, a
+// typed action usage, an exhibited state — once each, and returns their names.
+func (x *graphsExporter) perform(performed []*symbols.Symbol) []string {
 	var names []string
-	for _, qn := range performedNames(node) {
-		sym, ok := x.model.Resolver().ResolveQualified(scope, qn)
-		if !ok || sym == nil || sym.Decl == nil {
+	for _, sym := range performed {
+		if sym.Decl == nil {
 			continue
 		}
 		machine := false
 		switch sym.Kind {
-		case symbols.SymbolActionDef, symbols.SymbolActionUsage:
 		case symbols.SymbolStateDef, symbols.SymbolStateUsage:
 			machine = true
+		case symbols.SymbolActionDef:
 		default:
-			continue
+			if !sym.Kind.IsActionUsage() {
+				continue
+			}
 		}
 		fqn := symbols.FQNOf(sym)
 		names = append(names, fqn)
@@ -188,40 +191,6 @@ func (x *graphsExporter) perform(scope *symbols.Scope, node ast.Node) []string {
 		x.pending = append(x.pending, sym)
 	}
 	return names
-}
-
-// performedNames are the names a node performs or is typed by, as the runtime
-// reads them: an invocation's callee, a `perform` target, a usage's typing or
-// reference.
-func performedNames(node ast.Node) []*ast.QualifiedName {
-	switch n := node.(type) {
-	case *ast.PerformActionNode:
-		if inv := n.PerformedInvocation(); inv != nil {
-			return []*ast.QualifiedName{inv.Type}
-		}
-		if qn, ok := n.ActionRef.(*ast.QualifiedName); ok {
-			return []*ast.QualifiedName{qn}
-		}
-	case *ast.ActionExecutionNode:
-		if n.ActionRef != nil {
-			return []*ast.QualifiedName{n.ActionRef}
-		}
-	case *ast.Usage:
-		if inv := n.PerformedInvocation(); inv != nil {
-			return []*ast.QualifiedName{inv.Type}
-		}
-		var names []*ast.QualifiedName
-		for _, rel := range n.Relationships {
-			if rel.Kind != ast.RelTyping && rel.Kind != ast.RelReferences {
-				continue
-			}
-			if qn, ok := rel.Target.(*ast.QualifiedName); ok {
-				names = append(names, qn)
-			}
-		}
-		return names
-	}
-	return nil
 }
 
 // SpanForm locates a node in the model's text: the document and the byte span.
@@ -238,12 +207,22 @@ type ExprForm struct {
 	Span SpanForm `json:"span"`
 }
 
-// expr renders a node written in scope; nil for a nil node.
-func (x *graphsExporter) expr(scope *symbols.Scope, node ast.Node) *ExprForm {
-	if nilNode(node) {
+// expr renders the expression behind id in the table being written, read in
+// scope; nil for none.
+func (x *graphsExporter) expr(scope *symbols.Scope, id program.ExprID) *ExprForm {
+	entry := x.exprs.Entry(id)
+	if entry == nil {
 		return nil
 	}
-	span := node.Span()
+	return x.exprAt(scope, entry.Extent())
+}
+
+// exprAt renders the expression written at an extent in scope; nil for none.
+func (x *graphsExporter) exprAt(scope *symbols.Scope, at lower.Extent) *ExprForm {
+	if !at.Written {
+		return nil
+	}
+	span := at.Span
 	form := &ExprForm{Span: SpanForm{Document: docOf(scope), Offset: span.Offset, Len: span.Len}}
 	if x.text != nil && span.Len > 0 {
 		form.Text = strings.TrimSpace(x.text(form.Span.Document, span))
@@ -268,52 +247,15 @@ func scopeName(scope *symbols.Scope) string {
 	if owner := scope.Owner(); owner != nil {
 		return symbols.FQNOf(owner)
 	}
-	if node := scope.Node(); !nilNode(node) {
+	if node := scope.Node(); !unwritten(node) {
 		span := node.Span()
 		return fmt.Sprintf("%s#%d+%d", scope.DocName(), span.Offset, span.Len)
 	}
 	return scope.DocName()
 }
 
-// vertexIDs numbers the vertices of one graph in a traversal order that is a
-// function of the lowered graph alone, so a map keyed by node is written as a
-// list keyed by these numbers.
-type vertexIDs struct {
-	ids   map[ast.Node]int
-	order []ast.Node
-}
-
-func newVertexIDs() *vertexIDs {
-	return &vertexIDs{ids: map[ast.Node]int{}}
-}
-
-// add numbers a vertex on first sight and returns its number; nil is -1.
-func (v *vertexIDs) add(node ast.Node) int {
-	if nilNode(node) {
-		return -1
-	}
-	if id, ok := v.ids[node]; ok {
-		return id
-	}
-	id := len(v.order)
-	v.ids[node] = id
-	v.order = append(v.order, node)
-	return id
-}
-
-// ref is the number of a vertex already added, or -1 for nil; a vertex first
-// seen here is numbered too, so every reference resolves.
-func (v *vertexIDs) ref(node ast.Node) *int {
-	if nilNode(node) {
-		return nil
-	}
-	id := v.add(node)
-	return &id
-}
-
-// nilNode reports a nil node, a typed nil pointer read from a map of the lowered
-// graph included.
-func nilNode(node ast.Node) bool {
+// unwritten reports a scope without a node, a typed nil pointer included.
+func unwritten(node interface{ Span() source.Span }) bool {
 	if node == nil {
 		return true
 	}
@@ -321,89 +263,75 @@ func nilNode(node ast.Node) bool {
 	return v.Kind() == reflect.Pointer && v.IsNil()
 }
 
-// addSorted numbers vertices reached only through a map, in an order that is a
-// function of what they are: span, kind, name, then owner. Two the export cannot
-// tell apart are refused rather than written in memory order.
-func (v *vertexIDs) addSorted(nodes []ast.Node, owner func(ast.Node) string) error {
-	var rest []ast.Node
-	for _, node := range nodes {
-		if _, ok := v.ids[node]; !ok && !nilNode(node) {
-			rest = append(rest, node)
-		}
+// vertexIDs numbers the vertices of one graph in an order that is a function of
+// the lowered graph alone, so a table keyed by vertex is written as a list.
+type vertexIDs[K comparable] struct {
+	ids   map[K]int
+	order []K
+	// late reports a reference to a vertex the numbering never reached.
+	late bool
+}
+
+func newVertexIDs[K comparable]() *vertexIDs[K] {
+	return &vertexIDs[K]{ids: map[K]int{}}
+}
+
+// add numbers a vertex on first sight and returns its number; the zero K is -1.
+func (v *vertexIDs[K]) add(vertex K) int {
+	var none K
+	if vertex == none {
+		return -1
 	}
-	keys := make(map[ast.Node]string, len(rest))
-	for _, node := range rest {
-		span := node.Span()
-		keys[node] = fmt.Sprintf("%012d:%012d:%s:%s:%s", span.Offset, span.Len, vertexKind(node), vertexName(node), owner(node))
+	if id, ok := v.ids[vertex]; ok {
+		return id
+	}
+	id := len(v.order)
+	v.ids[vertex] = id
+	v.order = append(v.order, vertex)
+	return id
+}
+
+// ref is the number of a vertex, nil for none; a vertex first seen here is
+// numbered too, so every reference resolves.
+func (v *vertexIDs[K]) ref(vertex K) *int {
+	var none K
+	if vertex == none {
+		return nil
+	}
+	id := v.add(vertex)
+	return &id
+}
+
+// addSorted numbers the vertices not yet numbered by span, kind, name, then
+// owner. Two the export cannot tell apart are refused, not written in table order.
+func (v *vertexIDs[K]) addSorted(vertices []K, site func(K) (lower.Site, bool), owner func(K) string) error {
+	var rest []K
+	sites := make(map[K]lower.Site, len(vertices))
+	keys := make(map[K]string, len(vertices))
+	for _, vertex := range vertices {
+		if _, ok := v.ids[vertex]; ok {
+			continue
+		}
+		if _, ok := keys[vertex]; ok {
+			continue
+		}
+		s, ok := site(vertex)
+		if !ok {
+			continue
+		}
+		sites[vertex] = s
+		keys[vertex] = fmt.Sprintf("%012d:%012d:%s:%s:%s", s.Span.Offset, s.Span.Len, s.Kind, s.Name, owner(vertex))
+		rest = append(rest, vertex)
 	}
 	sort.SliceStable(rest, func(i, j int) bool { return keys[rest[i]] < keys[rest[j]] })
 	for i := 1; i < len(rest); i++ {
-		if keys[rest[i]] == keys[rest[i-1]] && rest[i] != rest[i-1] {
-			return fmt.Errorf("%w: two %s vertices named %q at the same place", ErrGraphsOrder, vertexKind(rest[i]), vertexName(rest[i]))
+		if keys[rest[i]] == keys[rest[i-1]] {
+			s := sites[rest[i]]
+			return fmt.Errorf("%w: two %s vertices named %q at the same place", ErrGraphsOrder, s.Kind, s.Name)
 		}
 	}
-	for _, node := range rest {
-		v.add(node)
+	for _, vertex := range rest {
+		v.add(vertex)
 	}
 	return nil
-}
-
-// vertexKind labels a vertex by what it is in the lowered graph.
-func vertexKind(node ast.Node) string {
-	switch n := node.(type) {
-	case *ast.InitialNode:
-		return "start"
-	case *ast.FinalNode:
-		return "end"
-	case *ast.ForkNode:
-		return "fork"
-	case *ast.JoinNode:
-		return "join"
-	case *ast.MergeNode:
-		return "merge"
-	case *ast.DecisionNode:
-		return "decision"
-	case *ast.ActionExecutionNode:
-		return "action"
-	case *ast.PerformActionNode:
-		return "perform"
-	case *ast.AssignmentActionNode:
-		return "assignment"
-	case *ast.WhileLoopActionNode:
-		return "loop"
-	case *ast.IfActionNode:
-		return "if"
-	case *ast.SendStatement:
-		return "send"
-	case *ast.TerminateStatement:
-		return "terminate"
-	case *ast.AcceptActionUsage:
-		return "accept"
-	case *ast.StateNode:
-		return "state"
-	case *ast.PseudostateNode:
-		return "pseudostate " + n.Kind.String()
-	case *ast.StateRegion:
-		return "region"
-	case *ast.Usage:
-		return n.Kind.String() + " usage"
-	case *ast.Definition:
-		return n.Kind.String() + " def"
-	}
-	return strings.TrimPrefix(fmt.Sprintf("%T", node), "*ast.")
-}
-
-// vertexName is the name a vertex answers to, "" for an anonymous one or for
-// no vertex at all (a typed nil read from a map of the lowered graph).
-func vertexName(node ast.Node) string {
-	if nilNode(node) {
-		return ""
-	}
-	switch n := node.(type) {
-	case *ast.PseudostateNode:
-		return n.Name
-	case *ast.StateRegion:
-		return n.Name
-	}
-	return runtime.ActionNodeName(node)
 }

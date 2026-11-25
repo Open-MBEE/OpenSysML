@@ -14,7 +14,13 @@ import org.openmbee.opensysml.proto.ExecuteActionRequest;
 import org.openmbee.opensysml.proto.ExecuteActionResponse;
 import org.openmbee.opensysml.proto.ExecuteStateRequest;
 import org.openmbee.opensysml.proto.ExecuteStateResponse;
+import org.openmbee.opensysml.proto.DocumentObject;
+import org.openmbee.opensysml.proto.GetElementPropertiesRequest;
+import org.openmbee.opensysml.proto.GetElementPropertiesResponse;
 import org.openmbee.opensysml.proto.GetSymbolRequest;
+import org.openmbee.opensysml.proto.LookupKind;
+import org.openmbee.opensysml.proto.InstancePathsRequest;
+import org.openmbee.opensysml.proto.InstancePathsResponse;
 import org.openmbee.opensysml.proto.InstantiateRequest;
 import org.openmbee.opensysml.proto.InstantiateResponse;
 import org.openmbee.opensysml.proto.QueryRequest;
@@ -104,6 +110,7 @@ public final class Model {
   public static final String IMPORT_AS_VALUES = "values";
 
   private static final String EXPLORE = "explore";
+  private static final String NAME_EXPRESSION = "expression";
   private static final String NAME_SUBJECT_SYMBOL_ID = "subjectSymbolId";
   private static final String NAME_SYMBOL_ID = "symbolId";
   private static final String NAME_OPTIONS = "options";
@@ -348,7 +355,9 @@ public final class Model {
   }
 
   /**
-   * A symbol by qualified name.
+   * A symbol by qualified name, resolved from the root namespace the way the notation resolves
+   * one: through imports, an alias answered by the element it names, and a member not visible
+   * from outside its namespace ({@code private}, {@code protected}) not found.
    *
    * @param symbolId a qualified name, such as {@code "Demo::Vehicle"}
    * @return the symbol
@@ -356,7 +365,27 @@ public final class Model {
    * @throws ServiceException if the service does not hold this model
    */
   public Symbol symbol(String symbolId) {
-    SymbolResponse response = symbolResponse(symbolId);
+    return symbol(symbolId, SymbolOptions.defaults());
+  }
+
+  /**
+   * A symbol by qualified name, with what the lookup asks for beyond the symbol itself.
+   *
+   * <p>A service advertising {@code symbol_members} enumerates every member of the symbol, own and
+   * inherited, in {@link Symbol#members()}; the members inherited from standard-library content
+   * are left out and counted in {@link Symbol#withheldLibraryMembers()} unless the options ask for
+   * them.
+   *
+   * @param symbolId a qualified name, such as {@code "Demo::Vehicle"}
+   * @param options what to ask for
+   * @return the symbol
+   * @throws ModelException if the model declares no such symbol
+   * @throws CapabilityException if library members are asked of a service without {@code
+   *     symbol_members}, which would ignore the request
+   * @throws ServiceException if the service does not hold this model
+   */
+  public Symbol symbol(String symbolId, SymbolOptions options) {
+    SymbolResponse response = symbolResponse(symbolId, options);
     if (!response.getError().isEmpty()) {
       throw new ModelException(response.getError(), List.of());
     }
@@ -371,10 +400,143 @@ public final class Model {
    * @throws ServiceException if the service does not hold this model
    */
   public Optional<Symbol> findSymbol(String symbolId) {
-    SymbolResponse response = symbolResponse(symbolId);
+    return findSymbol(symbolId, SymbolOptions.defaults());
+  }
+
+  /**
+   * A symbol by qualified name, absent when the model declares no such symbol, with what the lookup
+   * asks for beyond the symbol itself.
+   *
+   * @param symbolId a qualified name
+   * @param options what to ask for, as {@link #symbol(String, SymbolOptions)} takes them
+   * @return the symbol, or empty
+   * @throws CapabilityException if library members are asked of a service without {@code
+   *     symbol_members}
+   * @throws ServiceException if the service does not hold this model
+   */
+  public Optional<Symbol> findSymbol(String symbolId, SymbolOptions options) {
+    SymbolResponse response = symbolResponse(symbolId, options);
     return response.getError().isEmpty()
         ? Optional.of(Protos.symbol(response.getSymbol()))
         : Optional.empty();
+  }
+
+  /**
+   * Reads the metamodel properties of one element by their specification names ({@code
+   * inheritedFeature}, {@code connectorEnd}, …), as the model's API element form spells them;
+   * every property the element carries when none is named.
+   *
+   * <p>The element is a qualified name, the positional id of an unnamed member ({@code
+   * "Owner::@2"}) or an element form id — which every {@link ElementRef} in an answer carries, so
+   * the graph is walked with one vocabulary.
+   *
+   * @param element the element to read
+   * @param properties the specification names, none for every property
+   * @return the element and one entry per property, answered or saying why not
+   * @throws SymbolNotFoundException if the model has no such element
+   * @throws ModelException if the service refused the read
+   * @throws CapabilityException if the service does not advertise {@code element_properties}
+   * @throws ServiceException if the service does not hold this model
+   */
+  public ElementProperties elementProperties(String element, String... properties) {
+    return elementProperties(Lookup.EITHER, element, properties);
+  }
+
+  /**
+   * Reads the metamodel properties of the element a string names as the stated kind.
+   *
+   * @param lookup a qualified name, an element form id or symbol id, or either (the legacy form:
+   *     an element form id first, then a name)
+   * @param element the name or id
+   * @param properties the specification names, none for every property
+   * @return the element and one entry per property, answered or saying why not
+   * @throws SymbolNotFoundException if the model has no such element
+   * @throws ModelException if the service refused the read
+   * @throws CapabilityException if the service does not advertise {@code element_properties}
+   * @throws ServiceException if the service does not hold this model
+   */
+  public ElementProperties elementProperties(Lookup lookup, String element, String... properties) {
+    Objects.requireNonNull(lookup, "lookup");
+    Objects.requireNonNull(element, "element");
+    connection.capabilities().require(Capabilities.ELEMENT_PROPERTIES);
+    GetElementPropertiesResponse response =
+        connection.call(
+            "GetElementProperties",
+            GetElementPropertiesRequest.newBuilder()
+                .setModelHash(hash)
+                .setElementId(element)
+                .setLookup(lookupKind(lookup))
+                .addAllProperties(List.of(properties))
+                .build(),
+            GetElementPropertiesResponse.getDefaultInstance());
+    if (!response.getError().isEmpty()) {
+      if (response.getError().startsWith("element not found")) {
+        throw new SymbolNotFoundException(element, List.of());
+      }
+      throw new ModelException(response.getError(), List.of());
+    }
+    return Protos.elementProperties(response);
+  }
+
+  /**
+   * Every root-relative path that reaches one object of this model's population, aliases through
+   * connector ends and reference usages included: what {@link Instance#reachedBy()} gives one of.
+   *
+   * @param instance an object {@link #instantiate} built
+   * @return the paths in traversal order, and whether the service bounded its search
+   * @throws ModelException if the service could not list them
+   * @throws CapabilityException if the service does not advertise {@code instance_paths}
+   * @throws ServiceException {@code NOT_FOUND} if no object has the id, or if the service does not
+   *     hold this model
+   */
+  public InstancePaths instancePaths(Instance instance) {
+    Objects.requireNonNull(instance, "instance");
+    return instancePaths(instance.id());
+  }
+
+  /**
+   * Every root-relative path that reaches the object of an id.
+   *
+   * @param instanceId the id {@link #instantiate} gave the object
+   * @return the paths, as {@link #instancePaths(Instance)} answers them
+   * @throws ModelException if the service could not list them
+   * @throws CapabilityException if the service does not advertise {@code instance_paths}
+   * @throws ServiceException {@code NOT_FOUND} if no object has the id, or if the service does not
+   *     hold this model
+   */
+  public InstancePaths instancePaths(long instanceId) {
+    return instancePaths(DocumentObject.newBuilder().setInstanceId(instanceId).build());
+  }
+
+  /**
+   * Every root-relative path that reaches the object at a path.
+   *
+   * @param objectPath the qualified name the object was instantiated as ({@code "Garage::car"}),
+   *     its id ({@code "#2"}), or a path through feature values from either ({@code
+   *     "Garage::car.wheels[2]"}; indexes count from 1)
+   * @return the paths, as {@link #instancePaths(Instance)} answers them
+   * @throws ModelException if the service could not list them
+   * @throws CapabilityException if the service does not advertise {@code instance_paths}
+   * @throws ServiceException {@code NOT_FOUND} if nothing is at the path, or if the service does
+   *     not hold this model
+   */
+  public InstancePaths instancePaths(String objectPath) {
+    Objects.requireNonNull(objectPath, "objectPath");
+    return instancePaths(DocumentObject.newBuilder().setPath(objectPath).build());
+  }
+
+  private InstancePaths instancePaths(DocumentObject object) {
+    connection.capabilities().require(Capabilities.INSTANCE_PATHS);
+    InstancePathsResponse response =
+        connection.call(
+            "InstancePaths",
+            InstancePathsRequest.newBuilder().setModelHash(hash).setObject(object).build(),
+            InstancePathsResponse.getDefaultInstance());
+    if (!response.getError().isEmpty()) {
+      throw new ModelException(
+          response.getError(), Protos.diagnostics(response.getDiagnosticsList()));
+    }
+    return Protos.instancePaths(response);
   }
   /**
    * A symbol by short name or qualified name, answered from the service's index.
@@ -470,7 +632,8 @@ public final class Model {
   }
 
   private Optional<Symbol> symbolWithId(String id) {
-    return findSymbol(id).filter(symbol -> symbol.id().equals(id));
+    return findSymbol(id, SymbolOptions.defaults().lookup(Lookup.ELEMENT_ID))
+        .filter(symbol -> symbol.id().equals(id));
   }
 
   private Optional<Symbol> symbolNamed(String name) {
@@ -560,7 +723,7 @@ public final class Model {
     while (!queue.isEmpty()) {
       Symbol current = queue.removeFirst();
       for (String childId : current.childIds()) {
-        Optional<Symbol> child = seen.add(childId) ? findSymbol(childId) : Optional.empty();
+        Optional<Symbol> child = seen.add(childId) ? symbolWithId(childId) : Optional.empty();
         if (child.isPresent()) {
           if (stop.test(child.get())) {
             return;
@@ -1309,10 +1472,53 @@ public final class Model {
     return selected(QueryRequest.newBuilder().setModelHash(hash).setOslcQuery(oslcQuery));
   }
 
+  /**
+   * Selects elements as {@link #query(Query)} does, answering the selection with its {@code
+   * QVTS::QueryResult} view. A query that ends in a path error throws a {@link
+   * QueryOutcomeException} whose {@link QueryOutcomeException#resultView()} is the view of it.
+   *
+   * @param query the elements considered, the properties reported and the filter applied
+   * @return the elements selected and the view exposing them
+   * @throws ServiceException as {@link #query(Query)} throws
+   * @throws CapabilityException if the service does not advertise {@code query_result_view}
+   */
+  public QuerySelection queryAsView(Query query) {
+    Objects.requireNonNull(query, "query");
+    connection.capabilities().require(Capabilities.QUERY);
+    if (!query.orderBy().isEmpty()) {
+      connection.capabilities().require(Capabilities.QUERY_ORDER_BY);
+    }
+    connection.capabilities().require(Capabilities.QUERY_RESULT_VIEW);
+    return selection(
+        QueryRequest.newBuilder().setModelHash(hash).setQuery(Protos.proto(query)).setAsView(true));
+  }
+
+  /**
+   * Selects elements as {@link #queryOslc(String)} does, answering as {@link #queryAsView(Query)}
+   * does; a property the metamodel does not define is a path error, thrown with its view.
+   *
+   * @param oslcQuery the query, as OSLC Query Syntax spells it
+   * @return the elements selected and the view exposing them
+   * @throws ServiceException as {@link #queryOslc(String)} throws
+   * @throws CapabilityException if the service does not advertise {@code query_result_view}
+   */
+  public QuerySelection queryOslcAsView(String oslcQuery) {
+    Objects.requireNonNull(oslcQuery, "oslcQuery");
+    connection.capabilities().require(Capabilities.OSLC_QUERY);
+    connection.capabilities().require(Capabilities.QUERY_RESULT_VIEW);
+    return selection(
+        QueryRequest.newBuilder().setModelHash(hash).setOslcQuery(oslcQuery).setAsView(true));
+  }
+
   private List<QueryElement> selected(QueryRequest.Builder request) {
+    return selection(request).elements();
+  }
+
+  private QuerySelection selection(QueryRequest.Builder request) {
     QueryResponse response =
         connection.call("Query", request.build(), QueryResponse.getDefaultInstance());
-    return Protos.queryElements(response.getElementsList());
+    return new QuerySelection(
+        Protos.queryElements(response.getElementsList()), response.getResultView());
   }
 
   /**
@@ -1766,10 +1972,93 @@ public final class Model {
   public DocumentQueryResult runDocumentQuery(
       String queryId, Map<String, List<DocumentValue>> bindings) {
     Objects.requireNonNull(queryId, "queryId");
+    return runDocumentQuery(
+        RunDocumentQueryRequest.newBuilder().setModelHash(hash).setQueryId(queryId), bindings);
+  }
+
+  /**
+   * Runs a query expression written in place of a named query: the result expression of a {@code
+   * calc def} specializing {@code DocumentQueries::Query}, such as {@code
+   * Project(WhereType(Descendants(Named("Vehicles")), "PartUsage"), ("name", "mass"))}, planned in
+   * the model's context with the {@code DocumentQueries} library in scope.
+   *
+   * @param expression the query expression
+   * @return the projected columns and rows
+   * @throws ServiceException if the expression does not parse or plan (positioned as {@code inline
+   *     query <line>:<column>}), or fails as a named query would
+   * @throws CapabilityException if the service does not advertise {@code inline_document_query}
+   */
+  public DocumentQueryResult runInlineDocumentQuery(String expression) {
+    return runInlineDocumentQuery(expression, Map.of());
+  }
+
+  /**
+   * Runs a query expression written in place of a named query, with the entry parameters it
+   * declares bound as {@link #runDocumentQuery(String, Map)} binds a named query's.
+   *
+   * @param expression the query expression
+   * @param bindings the entry parameters' values, by parameter name
+   * @return the projected columns and rows
+   * @throws ServiceException if the expression does not parse or plan, or a binding is refused
+   * @throws CapabilityException if the service does not advertise {@code inline_document_query}
+   */
+  public DocumentQueryResult runInlineDocumentQuery(
+      String expression, Map<String, List<DocumentValue>> bindings) {
+    Objects.requireNonNull(expression, NAME_EXPRESSION);
+    connection.capabilities().require(Capabilities.INLINE_DOCUMENT_QUERY);
+    return runDocumentQuery(
+        RunDocumentQueryRequest.newBuilder().setModelHash(hash).setInlineQuery(expression),
+        bindings);
+  }
+
+  /**
+   * Runs a document query as {@link #runDocumentQuery(String, Map)} does, the result also carrying
+   * the answer as a {@code QVTS::QueryResult} view. A query that ends in a path or model error
+   * throws a {@link QueryOutcomeException} whose {@link QueryOutcomeException#resultView()} is the
+   * view of that outcome.
+   *
+   * @param queryId qualified name of the document query
+   * @param bindings the entry parameters' values, by parameter name
+   * @return the projected columns and rows, and the view exposing the selected elements
+   * @throws ServiceException as {@link #runDocumentQuery(String, Map)} throws
+   * @throws CapabilityException if the service does not advertise {@code query_result_view}
+   */
+  public DocumentQueryResult runDocumentQueryAsView(
+      String queryId, Map<String, List<DocumentValue>> bindings) {
+    Objects.requireNonNull(queryId, "queryId");
+    connection.capabilities().require(Capabilities.QUERY_RESULT_VIEW);
+    return runDocumentQuery(
+        RunDocumentQueryRequest.newBuilder().setModelHash(hash).setQueryId(queryId).setAsView(true),
+        bindings);
+  }
+
+  /**
+   * Runs a query expression as {@link #runInlineDocumentQuery(String, Map)} does, with the view as
+   * {@link #runDocumentQueryAsView(String, Map)} carries it.
+   *
+   * @param expression the query expression
+   * @param bindings the entry parameters' values, by parameter name
+   * @return the projected columns and rows, and the view exposing the selected elements
+   * @throws ServiceException as {@link #runInlineDocumentQuery(String, Map)} throws
+   * @throws CapabilityException if the service does not advertise {@code query_result_view}
+   */
+  public DocumentQueryResult runInlineDocumentQueryAsView(
+      String expression, Map<String, List<DocumentValue>> bindings) {
+    Objects.requireNonNull(expression, NAME_EXPRESSION);
+    connection.capabilities().require(Capabilities.INLINE_DOCUMENT_QUERY);
+    connection.capabilities().require(Capabilities.QUERY_RESULT_VIEW);
+    return runDocumentQuery(
+        RunDocumentQueryRequest.newBuilder()
+            .setModelHash(hash)
+            .setInlineQuery(expression)
+            .setAsView(true),
+        bindings);
+  }
+
+  private DocumentQueryResult runDocumentQuery(
+      RunDocumentQueryRequest.Builder request, Map<String, List<DocumentValue>> bindings) {
     Objects.requireNonNull(bindings, "bindings");
     connection.capabilities().require(Capabilities.DOCUMENT_QUERY);
-    RunDocumentQueryRequest.Builder request =
-        RunDocumentQueryRequest.newBuilder().setModelHash(hash).setQueryId(queryId);
     bindings.forEach(
         (parameter, values) ->
             request.addBindings(
@@ -1898,6 +2187,35 @@ public final class Model {
    */
   public RenderedView renderView(
       String viewName, RenderViewPorts ports, List<String> show, int depth, String compartments) {
+    return renderView(viewName, ports, show, depth, compartments, "");
+  }
+
+  /**
+   * Renders a {@code QVTS::QueryResult} view as a document too: its {@link RenderedView#header()}
+   * is the view's query, source, outcome and provenance, its rows the exposed elements, and its
+   * {@link RenderedView#text()} the same written as a document in {@code form}.
+   *
+   * @param viewName qualified name of the view
+   * @param form the document form
+   * @return the rendering, with the document
+   * @throws ServiceException if the view is not a {@code QVTS::QueryResult} view
+   * @throws CapabilityException if the service does not advertise {@code render_view_form} and
+   *     {@code query_result_view}
+   */
+  public RenderedView renderView(String viewName, DocumentForm form) {
+    Objects.requireNonNull(form, "form");
+    connection.capabilities().require(Capabilities.RENDER_VIEW_FORM);
+    connection.capabilities().require(Capabilities.QUERY_RESULT_VIEW);
+    return renderView(viewName, RenderViewPorts.MINIMAL, List.of(), 0, "", form.wireName());
+  }
+
+  private RenderedView renderView(
+      String viewName,
+      RenderViewPorts ports,
+      List<String> show,
+      int depth,
+      String compartments,
+      String form) {
     Objects.requireNonNull(viewName, "viewName");
     Objects.requireNonNull(compartments, "compartments");
     Objects.requireNonNull(ports, "ports");
@@ -1916,6 +2234,7 @@ public final class Model {
                 .addAllShow(show)
                 .setDepth(depth)
                 .setCompartments(compartments)
+                .setForm(form)
                 .build(),
             RenderViewResponse.getDefaultInstance());
     return RenderedView.from(response);
@@ -2154,16 +2473,44 @@ public final class Model {
         .ifPresent(question -> connection.capabilities().require(Capabilities.VERIFICATION_QUESTIONS));
   }
 
-  private SymbolResponse symbolResponse(String symbolId) {
+  private SymbolResponse symbolResponse(String symbolId, SymbolOptions options) {
     Objects.requireNonNull(symbolId, NAME_SYMBOL_ID);
+    Objects.requireNonNull(options, NAME_OPTIONS);
+    if (options.includeLibraryMembers()) {
+      connection.capabilities().require(Capabilities.SYMBOL_MEMBERS);
+    }
     return connection.call(
         "GetSymbol",
-        GetSymbolRequest.newBuilder().setModelHash(hash).setSymbolId(symbolId).build(),
+        GetSymbolRequest.newBuilder()
+            .setModelHash(hash)
+            .setSymbolId(symbolId)
+            .setIncludeLibraryMembers(options.includeLibraryMembers())
+            .setResolveName(
+                resolvesName(options)
+                    && connection.capabilities().has(Capabilities.SYMBOL_NAME_RESOLUTION))
+            .setLookup(lookupKind(options.lookup()))
+            .build(),
         SymbolResponse.getDefaultInstance());
   }
 
+  // The legacy form of a stated kind, which is all a service without symbol_lookup_kind reads.
+  private static boolean resolvesName(SymbolOptions options) {
+    return switch (options.lookup()) {
+      case EITHER -> !options.byReportedId();
+      case QUALIFIED_NAME -> true;
+      case ELEMENT_ID -> false;
+    };
+  }
+
+  // No kind is stated to a service that would ignore it: it reads the string as either.
+  private LookupKind lookupKind(Lookup lookup) {
+    return connection.capabilities().has(Capabilities.SYMBOL_LOOKUP_KIND)
+        ? lookup.kind()
+        : LookupKind.LOOKUP_KIND_UNSPECIFIED;
+  }
+
   private EvaluateRequest.Builder request(String expression) {
-    Objects.requireNonNull(expression, "expression");
+    Objects.requireNonNull(expression, NAME_EXPRESSION);
     return EvaluateRequest.newBuilder().setModelHash(hash).setExpression(expression);
   }
 

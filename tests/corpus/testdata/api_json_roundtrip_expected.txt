@@ -3,19 +3,12 @@
 # element form (hop 2), then the two graphs compared as triple sets.
 # Verdicts: stable (hop 2 is byte-identical), whitespace-only (bytes
 # differ, triple sets equal once the whitespace inside sysx:sourceText
-# literals is normalised), graph-diff, unwritable (the JSON form ->
-# notation refused), unparseable (the written notation no longer
+# literals is normalised and every element states the same sysx:Note
+# texts), graph-diff, unwritable (the JSON form -> notation refused), unparseable (the written notation no longer
 # converts) and refused:<class> (notation -> the JSON form refused).
 # This is a per-file ratchet, not a claim that any verdict is right;
 # see docs/project/rdf-corpus-roundtrip.md. Regenerate with:
-#   go test ./tests/corpus -run TestCorpusAPIJSONRoundTrip -update-api-json-roundtrip
-# files: committed 56
-# files: sysml-v2-training 100
-# files: pilot-corpora/kerml-examples 58
-# files: pilot-corpora/sysml-examples 99
-# files: pilot-corpora/sysml-validation 56
-# files: spec-examples/kerml 170
-# files: spec-examples/sysml 341
+#   go test ./tests/corpus -run TestExamplesSweep -update-api-json-roundtrip
 stable	action-executor-demo.sysml
 stable	analysis-demo/lander.sysml
 stable	analysis-results-demo/lander-results.sysml
@@ -29,6 +22,7 @@ stable	general-views-demo/use-cases.sysml
 stable	general-views-demo/vehicle.sysml
 stable	gridview-relationship-matrix.sysml
 stable	mosa-demo/mosa-demo.sysml
+stable	npr7123-demo/npr7123-demo.sysml
 stable	oosem-demo/oosem-demo.sysml
 stable	orthogonal-regions-demo.sysml
 stable	parser_features_demo_action_semantics.sysml
@@ -258,7 +252,18 @@ stable	pilot-corpora/sysml-validation/17-Sequence Modeling/17b-Sequence-Modeling
 stable	pilot-corpora/sysml-validation/18-Use Case/18-Use Case.sysml
 stable	pseudostates-demo.sysml
 stable	qvts/duplicates.sysml
+stable	qvts/expected/views/ambiguous-part.sysml
+stable	qvts/expected/views/cabin-mass.sysml
+stable	qvts/expected/views/double-mass-value.sysml
+stable	qvts/expected/views/empty-selection.sysml
+stable	qvts/expected/views/inline-mass.sysml
+stable	qvts/expected/views/missing-mass-project.sysml
+stable	qvts/expected/views/misspelled-name.sysml
+stable	qvts/expected/views/oslc-cabin.sysml
+stable	qvts/expected/views/oslc-unknown-property.sysml
 stable	qvts/lander.sysml
+stable	qvts/observatory/observatory.sysml
+stable	qvts/observatory/result.sysml
 stable	qvts/queries.sysml
 stable	rdf-interop-demo.sysml
 stable	relay-probe-demo/mission.sysml
@@ -278,6 +283,7 @@ stable	self-model/execution.sysml
 stable	self-model/identity.sysml
 stable	self-model/pipeline.sysml
 stable	self-model/quality.sysml
+stable	self-model/queries.sysml
 stable	self-model/surfaces.sysml
 stable	self-model/views.sysml
 stable	semantic-layer/demo.sysml

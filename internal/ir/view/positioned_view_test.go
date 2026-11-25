@@ -58,7 +58,7 @@ func TestExposedMemberIsNoSecondRoot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
-	if got := strings.Count(dot, "member"); got != 1 {
+	if got := strings.Count(withoutFrameExposes(dot), "member"); got != 1 {
 		t.Errorf("member is declared %d times, want once:\n%s", got, dot)
 	}
 }

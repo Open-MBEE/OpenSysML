@@ -140,7 +140,10 @@ A redefinition reuses the original feature name, so the generated property
 overrides its base property and uses the redefinition's type when narrowed.
 Python does not check that narrowed annotation against the base property. A
 subset under a new name adds a property and inherits the type and multiplicity
-it leaves unstated.
+it leaves unstated: the type is the service's derived `TypeFacts.types` (KerML
+`Feature::type`, most specific first), which also covers reference subsetting
+(`::>`); the generator walks the feature's `specializations` for the type only
+against a service that predates `types`, and for the inherited multiplicity.
 
 In multiple inheritance, bases appear in declaration order and Python's
 usual method-resolution order applies. A base already inherited through

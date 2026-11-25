@@ -1,6 +1,7 @@
 package view
 
 import (
+	"fmt"
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -60,8 +61,9 @@ func (r *Renderer) treeEdges(out *Rendering) map[symbols.ElementKey]*Node {
 	// its owner draws it as inherited: a relationship arrow joins declarations,
 	// not one usage's copy to another's.
 	var index func(node, parent *Node)
+	indexed := map[*Node]bool{}
 	index = func(node, parent *Node) {
-		if parent != nil {
+		if parent != nil && (!out.query || !indexed[node]) {
 			g.parent[node.ID] = parent.ID
 		}
 		parentSite, inElement := out.sites[parent]
@@ -70,6 +72,12 @@ func (r *Renderer) treeEdges(out *Rendering) map[symbols.ElementKey]*Node {
 			if _, drawn := g.nodes[key]; !drawn {
 				g.nodes[key] = node
 			}
+		}
+		if out.query && indexed[node] {
+			return
+		}
+		if out.query {
+			indexed[node] = true
 		}
 		for _, child := range node.Children {
 			index(child, node)
@@ -80,7 +88,14 @@ func (r *Renderer) treeEdges(out *Rendering) map[symbols.ElementKey]*Node {
 	}
 	g.associationLines()
 	var walk func(node *Node)
+	walked := map[*Node]bool{}
 	walk = func(node *Node) {
+		if out.query && walked[node] {
+			return
+		}
+		if out.query {
+			walked[node] = true
+		}
 		if site, ok := out.sites[node]; ok && g.nodes[symbols.KeyOf(site.sym)] == node {
 			g.edgesOf(node, site)
 		}
@@ -111,6 +126,13 @@ func (r *Rendering) nestingEdges() map[[2]string]bool {
 	index(r.Roots, "")
 	nesting := map[[2]string]bool{}
 	for _, edge := range r.Edges {
+		if edge.Kind == EdgeAnchor {
+			// An annotation node hangs on its links alone, not on a containment line.
+			if parent, ok := parents[edge.From]; ok && parent != "" {
+				nesting[[2]string{parent, edge.From}] = true
+			}
+			continue
+		}
 		if !membershipEdge(edge.Kind) {
 			continue
 		}
@@ -147,12 +169,25 @@ func declaredUnder(parent, sym *symbols.Symbol) bool {
 // the name up.
 func (g *treeGraph) associationLines() {
 	var prune func(nodes []*Node) []*Node
+	visited, removed := map[*Node]bool{}, map[*Node]bool{}
 	prune = func(nodes []*Node) []*Node {
 		kept := nodes[:0]
 		for _, node := range nodes {
+			if g.out.query && visited[node] {
+				if !removed[node] {
+					kept = append(kept, node)
+				}
+				continue
+			}
+			if g.out.query {
+				visited[node] = true
+			}
 			site := g.out.sites[node]
-			if line, ok := g.associationLine(node, site); ok {
+			if line, ok := g.associationLine(node, site); ok && nary(len(line.ends)) {
+				g.drawAssociationDot(node, site, line)
+			} else if ok {
 				g.drawAssociation(node, site, line)
+				removed[node] = true
 				continue
 			}
 			node.Children = prune(node.Children)
@@ -227,13 +262,36 @@ type linedEdge struct {
 	property, typ symbols.ElementKey
 }
 
-// association is a connection def drawn as a line: the nodes of its two end
-// types, its ends, and for each end the drawn property it crosses, nil for none.
+// association is a connection def drawn as a line or an n-ary dot: its end types' nodes, its
+// ends and their types, and for each end of a binary def the drawn property it crosses, or nil.
 type association struct {
 	from, to *Node
+	typed    []*Node
 	ends     []*symbols.Symbol
-	types    [2]*symbols.Symbol
+	types    []*symbols.Symbol
 	crossed  [2]*symbols.Symbol
+}
+
+// drawAssociationDot redraws a connection def of more than two ends as §8.2.3.13's n-ary dot
+// where its box stood, a segment to each end's type labelled with the end's role.
+func (g *treeGraph) drawAssociationDot(node *Node, site treeSite, line association) {
+	def := site.sym
+	node.Kind, node.Compartments, node.Children, node.Type, node.Typings = connectionDefDotKind, nil, nil, "", nil
+	if route := g.r.unsteeredRoute(site.view, def, g.out); len(route) > 0 {
+		g.out.Notices = append(g.out.Notices, fmt.Sprintf("connection def %s states a route; its %d ends are drawn as a dot and segments, which the route does not steer",
+			localName(def), len(line.ends)))
+	}
+	if g.r.model.NameSynthesized(def) {
+		node.Name = ""
+	}
+	for i, end := range line.ends {
+		label := ""
+		if !g.r.model.NameSynthesized(end) {
+			label = g.r.usageLabel(end)
+		}
+		g.add(Edge{From: node.ID, To: line.typed[i].ID, Kind: EdgeAssociation, ToLabel: label, Origin: symbolOrigin(def),
+			Style: g.r.styleOf(site.view, end, g.out)}, end)
+	}
 }
 
 // associationLine is the line the connection def of node is drawn as: between
@@ -247,11 +305,11 @@ type association struct {
 // with an end type the tree does not draw stays a box.
 func (g *treeGraph) associationLine(node *Node, site treeSite) (line association, ok bool) {
 	def := site.sym
-	if def == nil || def.Kind != symbols.SymbolConnectionDef || g.nodes[symbols.KeyOf(def)] != node {
+	if !associationDefinition(def) || g.nodes[symbols.KeyOf(def)] != node {
 		return line, false
 	}
 	line.ends = g.r.model.EndFeatures(def)
-	if len(line.ends) != 2 {
+	if len(line.ends) < 2 {
 		return line, false
 	}
 	for _, rel := range semantics.RelationshipsOf(def) {
@@ -260,12 +318,13 @@ func (g *treeGraph) associationLine(node *Node, site treeSite) (line association
 		}
 	}
 	members := g.r.containedMembers(def)
-	var typed [2]*Node
+	line.types, line.typed = make([]*symbols.Symbol, len(line.ends)), make([]*Node, len(line.ends))
+	typed := line.typed
 	for i, end := range line.ends {
 		if !slices.Contains(members, end) || g.endHasContent(end) {
 			return line, false
 		}
-		types := g.r.model.DeclaredTypes(end)
+		types := g.r.drawnTypes(end)
 		if len(types) != 1 {
 			return line, false
 		}
@@ -280,9 +339,12 @@ func (g *treeGraph) associationLine(node *Node, site treeSite) (line association
 			return line, false
 		}
 	}
+	if nary(len(line.ends)) {
+		return line, true
+	}
 	for i, end := range line.ends {
 		p := g.r.model.CrossFeature(end)
-		if p == nil || !structuralUsage(p) || g.node(p.Owner()) != typed[1-i] || !slices.Contains(g.r.model.DeclaredTypes(p), line.types[i]) {
+		if p == nil || !structuralUsage(p) || g.node(p.Owner()) != typed[1-i] || !slices.Contains(g.r.drawnTypes(p), line.types[i]) {
 			continue
 		}
 		line.crossed[i] = p
@@ -301,6 +363,13 @@ func (g *treeGraph) associationLine(node *Node, site treeSite) (line association
 // Notes stay anchored to the node, where the usage is named.
 func (g *treeGraph) edgesOf(node *Node, site treeSite) {
 	sym := site.sym
+	// An annotation nested under its owner is linked by the owner's walk below.
+	if annotatingSymbol(sym) {
+		if g.parent[node.ID] == "" {
+			g.annotationLinks(nil, node, sym, site.view)
+		}
+		return
+	}
 	for _, rel := range semantics.RelationshipsOf(sym) {
 		if rel == nil || rel.Target == nil {
 			continue
@@ -323,6 +392,10 @@ func (g *treeGraph) edgesOf(node *Node, site treeSite) {
 	}
 	for _, child := range node.Children {
 		member := g.out.sites[child].sym
+		if annotatingSymbol(member) {
+			g.annotationLinks(node, child, member, site.view)
+			continue
+		}
 		if !structuralUsage(member) {
 			continue
 		}
@@ -332,6 +405,24 @@ func (g *treeGraph) edgesOf(node *Node, site treeSite) {
 			edge.Route = g.r.routeOf(site.view, member, g.out)
 		}
 		g.add(edge, member)
+	}
+}
+
+// annotationLinks draws the annotation links of the annotation node child,
+// nested under node: a dashed line from the annotation to the node of each
+// drawn element it annotates (§8.2.3.4 annotation-link), its owner's node
+// when it names none.
+func (g *treeGraph) annotationLinks(node, child *Node, member, view *symbols.Symbol) {
+	for _, target := range g.r.annotatedElements(member) {
+		to := g.node(target)
+		if target == member.Owner() && to == nil {
+			to = node
+		}
+		if to == nil || to == child {
+			continue
+		}
+		g.add(Edge{From: child.ID, To: to.ID, Kind: EdgeAnchor, Origin: symbolOrigin(member),
+			Route: g.r.routeOf(view, member, g.out), Style: g.r.styleOf(view, member, g.out)}, member)
 	}
 }
 
@@ -471,15 +562,17 @@ func (r *Renderer) usageLabel(sym *symbols.Symbol) string {
 // usageMultiplicity is a usage's multiplicity as written, `[4]`, the label at
 // the usage's end of its membership edge; "" for a usage declaring none.
 func (r *Renderer) usageMultiplicity(sym *symbols.Symbol) string {
-	usage, ok := sym.Decl.(*ast.Usage)
-	if !ok {
-		return ""
-	}
-	mult := usage.Multiplicity
-	if mult == nil && usage.CrossFeature != nil {
-		// An end's cross multiplicity, `end [0..1] ref trailer`, is how many
-		// of it one of the other end's type is linked to.
-		mult = usage.CrossFeature.Multiplicity
+	var mult *ast.Multiplicity
+	switch decl := sym.Decl.(type) {
+	case *ast.Usage:
+		mult = decl.Multiplicity
+		if mult == nil && decl.CrossFeature != nil {
+			// An end's cross multiplicity, `end [0..1] ref trailer`, is how many
+			// of it one of the other end's type is linked to.
+			mult = decl.CrossFeature.Multiplicity
+		}
+	case *ast.SubjectMember:
+		mult = decl.Multiplicity
 	}
 	if mult == nil {
 		return ""
@@ -510,106 +603,8 @@ func multiplicityBound(node ast.Node) string {
 	return "?"
 }
 
-// expressionText spells an expression as the notation writes it: a literal, a
-// name or feature chain, and an operator over such operands, grouped where the
-// operators' precedence would otherwise read it back differently. An
-// expression of another form spells as "".
+// expressionText spells an expression as the notation writes it, grouped where the
+// operators' precedence would otherwise read it back differently; another form spells as "".
 func expressionText(node ast.Node) string {
-	switch expr := node.(type) {
-	case *ast.LiteralInfinity:
-		return "*"
-	case *ast.FeatureReference, *ast.QualifiedName, *ast.FeatureChainExpr:
-		return referenceText(node)
-	case *ast.OperatorExpr:
-		return operatorExprText(expr)
-	}
-	return literalText(node)
-}
-
-// operatorExprText spells an operator application: a unary operator before
-// its operand, a binary one between its two with a space on each side, a
-// conditional as `if c ? a else b`, a classification or cast with its type.
-func operatorExprText(expr *ast.OperatorExpr) string {
-	operands := make([]string, len(expr.Operands))
-	for i, operand := range expr.Operands {
-		operands[i] = operandText(expr, i, operand)
-		if operands[i] == "" {
-			return ""
-		}
-	}
-	op := expr.Operator.String()
-	switch {
-	case expr.Operator == ast.OpConditional && len(operands) == 3:
-		return "if " + operands[0] + " ? " + operands[1] + " else " + operands[2]
-	case expr.TypeRef != nil && len(operands) == 1:
-		return operands[0] + " " + op + " " + referenceText(expr.TypeRef)
-	case len(operands) == 1 && expr.Operator == ast.OpNot:
-		return op + " " + operands[0]
-	case len(operands) == 1:
-		return op + operands[0]
-	case len(operands) == 2:
-		return operands[0] + " " + op + " " + operands[1]
-	}
-	return ""
-}
-
-// operandText spells the i-th operand of expr, parenthesised when it is an
-// operator application binding no tighter than expr: looser, or as tight on
-// the side the operator does not associate to; under a unary operator, any
-// binary one.
-func operandText(expr *ast.OperatorExpr, i int, operand ast.Node) string {
-	text := expressionText(operand)
-	inner, ok := operand.(*ast.OperatorExpr)
-	if !ok || text == "" {
-		return text
-	}
-	if len(expr.Operands) == 1 {
-		if len(inner.Operands) > 1 {
-			return "(" + text + ")"
-		}
-		return text
-	}
-	if len(expr.Operands) != 2 {
-		return text
-	}
-	outer, in := operatorPrecedence(expr.Operator), operatorPrecedence(inner.Operator)
-	rightAssociative := expr.Operator == ast.OpPow
-	if in < outer || in == outer && (i == 1) != rightAssociative {
-		return "(" + text + ")"
-	}
-	return text
-}
-
-// operatorPrecedence ranks the operators as the KerML expression grammar binds
-// them, loosest first; operators of one rank associate to the left but `**`.
-func operatorPrecedence(op ast.OperatorKind) int {
-	switch op {
-	case ast.OpConditional:
-		return 0
-	case ast.OpNullCoalesce:
-		return 1
-	case ast.OpImplies:
-		return 2
-	case ast.OpOr, ast.OpConditionalOr:
-		return 3
-	case ast.OpXor:
-		return 4
-	case ast.OpAnd, ast.OpConditionalAnd:
-		return 5
-	case ast.OpEq, ast.OpNeq, ast.OpEqEqEq, ast.OpNeqEqEq:
-		return 6
-	case ast.OpHasType, ast.OpIsType, ast.OpAt, ast.OpMetaAt, ast.OpAs, ast.OpMeta:
-		return 7
-	case ast.OpLt, ast.OpGt, ast.OpLe, ast.OpGe:
-		return 8
-	case ast.OpRange:
-		return 9
-	case ast.OpAdd, ast.OpSub:
-		return 10
-	case ast.OpMul, ast.OpDiv, ast.OpMod:
-		return 11
-	case ast.OpPow:
-		return 12
-	}
-	return 13
+	return ast.ExprPrinter{}.Text(node)
 }

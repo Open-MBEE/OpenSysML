@@ -39,7 +39,8 @@ const model = await connection.loads("package Demo { part def Car; }");
 of its own and closes it with the model. `connect()` is the longer-lived form, and
 every model parsed over it shares one service and one parse cache. `Connection`
 and `Model` both implement `Symbol.asyncDispose`, so `await using` closes them;
-`close()` is the explicit form and is safe to call twice.
+`close()` is the explicit form and is safe to call twice. Closing a connection cancels
+the calls still under way on it, which fail with `ClosedConnectionError`.
 
 `ConnectOptions` extends `TransportOptions`:
 
@@ -73,23 +74,53 @@ await model.refreshDiagnostics({ enableLint: ["rounded-real-literal"] }); // und
 model.hasErrors;                             // any error-severity diagnostic
 
 const car = await model.symbol("Demo::Car"); // short name, FQN or id
-await car.children();                        // its members, one call each
+await car.children();                        // its owned members, one call each
+car.members;                                 // every member, own and inherited (MemberFacts)
+car.inheritedMembers();                      // inheritedFrom names the declaring type
+car.withheldLibraryMembers;                  // standard-library members counted, not listed, until
+await car.withLibraryMembers();              // ... the symbol is fetched again with them
+await model.symbolByName("Demo::Car", { includeLibraryMembers: true }); // a qualified name, never an id
+await model.symbolByElementId(car.childIds[0]);                     // a reported id, never a name
+await model.elementProperties({ name: "Demo::Car" }, "inheritedFeature"); // metamodel properties by spec name
+await model.elementProperties({ id: car.id });                            // ... of the element an id names
 for await (const symbol of model.walk()) {}  // breadth-first from the root
 
 const value = await model.eval("2 + 2");                       // SysMLValue
 const mass = await model.eval("mass", { subject: "Demo::sedan" });
 const tree = await model.instantiate("Demo::Car");
 tree.get("wheels");                          // a FeatureValue of the root object
-tree.byId(id);                               // any object the instantiation produced
+const wheel = tree.byId(id);                 // any object the instantiation produced
+wheel.reachedBy;                             // InstanceReach: owner id, feature, index, path; undefined for the root
+wheel.ownerId; wheel.path;                   // 1n, "wheels[2]"
+tree.owner(wheel);                           // the holding object
+await model.instancePaths(wheel);            // InstancePaths: every root-relative path, aliases included
+await model.instancePaths("Demo::Car.wheels[2]"); // by path, or by id
 ```
+
+Members need the `symbol_members` capability (a symbol from an older service enumerates none,
+and `includeLibraryMembers` is refused before asking), `elementProperties` needs
+`element_properties` and `instancePaths` needs `instance_paths`; each refusal is a
+`MissingCapabilityError` naming the capability.
+
+`annotatingMetadataIds` names the metadata usages annotating a symbol: its own `#M` prefixes and
+body `@M` usages, then the ones naming it in an `about` clause elsewhere, which `childIds` and
+`members` leave out. `annotatingMetadata()` fetches them as symbols, each with its `type` and
+`attributes`, and needs the `symbol_annotating_metadata` capability.
 
 `connection.model(hash)` adopts a model the service already holds, which lets a
 hash pass between processes; an adopted model has no root symbol, so symbols are
 looked up by qualified name, and the service answers `NOT_FOUND` once it has
 evicted the model. `symbol()` searches breadth-first when given a short name and
 raises `SymbolNotFoundError` naming near misses for any name the model has not
-got; `symbolById()` is the single call for a name the service can resolve
-directly, reporting a miss with no suggestions.
+got; `symbolByName()` is the single call for a qualified name the service
+resolves, and `symbolByElementId()` for an id it reported, each reporting a miss
+with no suggestions. A name and an id can be spelled alike (a package declared
+`Col__V__c_pend0`, the id generated for an unnamed connector end; a member
+`'@3'` beside the unnamed member `Owner::@3`), which is why there are two calls.
+`symbolById()` and `elementProperties("…")` are the legacy forms taking one
+string for either kind, where a declaration shadows the element an id of its
+spelling was reported for; a service without `symbol_lookup_kind` is asked in
+that form whichever call is made.
 
 `ParseOptions` are `language` (`"sysml"` or `"kerml"`, for inline content) and
 `strictConformance`; both are capability-gated, and the client checks before it
@@ -123,6 +154,8 @@ switch (value.kind) {
   case "sequence": value.elements;               // SysMLValue[]
   case "undetermined": value.reason; value.countLower; value.countUpper;  // left open by the model
   case "infinity": break;                        // the unbounded `*`
+  case "coordinateFrame": value.axes; value.transformation?.pose;   // answer only
+  case "coordinateTransformation": value.source; value.target; value.shape; value.pose;
   case "null":     value.reason;                 // evaluated, no value
   case "unset":    break;                        // declared, never given one
   case "absent":   break;                        // the service sent no value at all
@@ -156,7 +189,7 @@ knowing its members.
 | `ServiceStartError` | a private child failed to start, or died while it was needed |
 | `AuthenticationError` | the service refused the call's credentials: no bearer token, or not the one it expects (`UNAUTHENTICATED`) |
 | `StaleServiceError` | the running service reports another version than `version` asked for |
-| `ClosedConnectionError` | the connection was closed and cannot be used again |
+| `ClosedConnectionError` | the connection was closed and cannot be used again, or was closed while the call was under way |
 | `ParseError` | a file could not be read, or its content did not parse; carries `diagnostics` |
 | `EvaluationError` | the call succeeded and the answer reports a model failure |
 | `ExecutionError` | an execution the service ran failed; carries `diagnostics`; a failed traced `executeState` also carries its partial `trace` and `traceDropped` |
@@ -247,7 +280,9 @@ Beside the model reads above, the client covers every RPC the service offers:
   refused with an `InvalidRequestError` naming `migrate`, since it is migrated,
   not converted; `idForm` (`"qualified"`, the default, or `"uuid"`) chooses how
   a graph spells its derived ids and `includeLibraryStubs` restores the
-  pre-0.11.0 ownerless library stubs in API JSON — `save` takes both, with
+  pre-0.11.0 ownerless library stubs in API JSON, and `inheritedMembers` also
+  writes there the derived lists that repeat each Namespace's and Type's
+  inherited and imported members — `save` takes all three, with
   `toFormat` and `tolerateSyntaxErrors`, as its `SaveOptions` and hands them to
   `Model.convert` unchanged, so the same refusals and capability gates apply;
 - **`connection.migrate`** migrates a SysML v1 model from a `path` or inline

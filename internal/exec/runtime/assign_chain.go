@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
@@ -26,6 +27,11 @@ func writeThroughChain(ec *EvalContext, chain *lower.AssignTarget, feature strin
 	if err != nil {
 		return err
 	}
+	return writeOnReached(ec, target, chain, feature, value)
+}
+
+// writeOnReached writes value to feature of target, the object chain reached.
+func writeOnReached(ec *EvalContext, target *Instance, chain *lower.AssignTarget, feature string, value Value) error {
 	// The target names the feature it resolves to, which the object may hold
 	// under the name of a feature redefining it (KerML 1.0 §7.3.4.5).
 	if slot, ok := ec.ctx.featureSlot(target, ec.chainTargetMember(chain, feature)); ok {
@@ -52,15 +58,46 @@ func writeThroughChain(ec *EvalContext, chain *lower.AssignTarget, feature strin
 // read of one path reach one object. A step holding no object, or holding more
 // than one, names no object to write on and is reported.
 func (ec *EvalContext) chainCarrier(target *lower.AssignTarget) (*Instance, error) {
-	value, err := ec.chainRoot(target.Base)
+	// A chain through a step of the action performed starts at what the step's performance holds.
+	if name := simpleEndName(target.Base); name != "" {
+		if perf, declared, err := ec.lookupSubaction(name); declared {
+			if err != nil {
+				return nil, err
+			}
+			steps := target.Steps
+			for len(steps) > 0 {
+				inner, nested, err := perf.subaction(steps[0], nil)
+				if !nested {
+					break
+				}
+				if err != nil {
+					return nil, err
+				}
+				perf, steps = inner, steps[1:]
+			}
+			if len(steps) > 0 {
+				value, err := ec.evalSubactionPath(perf, []ast.NameSegment{{Text: steps[0]}})
+				if err != nil {
+					return nil, err
+				}
+				return ec.chainSteps(value, steps[0], steps[1:])
+			}
+		}
+	}
+	value, err := ec.chainRoot(target.Base, target.BaseID)
 	if err != nil {
 		return nil, err
 	}
-	reached := lower.FeaturePath(target.Base)
-	for _, step := range target.Steps {
+	return ec.chainSteps(value, lower.FeaturePath(target.Base), target.Steps)
+}
+
+// chainSteps walks steps from value, which reached names, to the one object the last reaches.
+func (ec *EvalContext) chainSteps(value Value, reached string, steps []string) (*Instance, error) {
+	for _, step := range steps {
 		if _, err := ec.chainObject(value, reached); err != nil {
 			return nil, err
 		}
+		var err error
 		if value, err = ec.chainMemberValue(value, []ast.NameSegment{{Text: step}}, reached); err != nil {
 			return nil, err
 		}
@@ -72,7 +109,7 @@ func (ec *EvalContext) chainCarrier(target *lower.AssignTarget) (*Instance, erro
 // chainRoot evaluates the node a chained target starts from, as the object it
 // names: a part names an occurrence rather than a value, and a calc usage names
 // an evaluation, which holds no object a write could reach.
-func (ec *EvalContext) chainRoot(base ast.Node) (Value, error) {
+func (ec *EvalContext) chainRoot(base ast.Node, id program.ExprID) (Value, error) {
 	if sym, ok, err := ec.calcUsageOperand(base); err != nil {
 		return Value{}, err
 	} else if ok {
@@ -82,6 +119,10 @@ func (ec *EvalContext) chainRoot(base ast.Node) (Value, error) {
 	if sym, ok, err := ec.occurrenceOperand(base); err != nil {
 		return Value{}, err
 	} else if ok {
+		// A connection the behavior performed declares is the performance's connector.
+		if val, ok, err := ec.performedConnector(sym); ok {
+			return val, err
+		}
 		// A usage of the behavior performed is the part its performance holds.
 		if val, ok, err := ec.performanceFeatureOf(sym); ok {
 			return val, err
@@ -96,7 +137,7 @@ func (ec *EvalContext) chainRoot(base ast.Node) (Value, error) {
 		}
 		return Value{Kind: ValInstance, Instance: inst.ID}, nil
 	}
-	return ec.Eval(base)
+	return ec.evalPayload(id)
 }
 
 // chainObject is the one object a step of a chained target reaches, which the

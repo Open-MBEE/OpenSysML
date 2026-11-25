@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Reference:** the OMG pilot implementation's own Xpect test suites, [`org.omg.kerml.xpect.tests`](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/2026-09/org.omg.kerml.xpect.tests) and [`org.omg.sysml.xpect.tests`](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/2026-09/org.omg.sysml.xpect.tests), at release `2026-09`, commit `38665073bbf02849bd309b106eba79cbb3a1ee1d` — the same pin as the corpora and the reference validators (`scripts/pilot-pin.sh`)
+**Reference:** the OMG pilot implementation's own Xpect test suites, [`org.omg.kerml.xpect.tests`](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/2026-09.1/org.omg.kerml.xpect.tests) and [`org.omg.sysml.xpect.tests`](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/2026-09.1/org.omg.sysml.xpect.tests), at release `2026-09`, commit `38665073bbf02849bd309b106eba79cbb3a1ee1d` — the same pin as the corpora and the reference validators (`scripts/pilot-pin.sh`)
 **Provision:** `./scripts/download-pilot-xpect.sh` (the shared downloader of `scripts/pilot-pin.sh`, restricted to `*.xt`: the clone is refused unless the tag resolves to the pinned commit, each suite is stamped with the pin it was fetched at, and a suite stamped otherwise or not at all is re-fetched; writes `build/pilot-xpect-corpus/{kerml,sysml}`, gitignored, not vendored — under `build/` rather than `examples/` because the `.kerml`/`.sysml` models the suites ship are inputs to this harness, and everything that walks `examples/` would otherwise adopt them)
 **Run:** `go run -C tools ./cmd/pilot-xpect` (writes `build/pilot-xpect/pilot-xpect.txt` and `build/pilot-xpect/pilot-xpect.json`)
 **Baseline:** the last committed run is [pilot-xpect-baseline.json](pilot-xpect-baseline.json), which carries every non-agreeing row, so a later run can be diffed against it; `-update` re-records it and `-check` fails unless a fresh run reproduces it
@@ -170,6 +170,9 @@ Every difference from the published numbers is accounted for, and none of it is 
   inside `/* ... */` comments and two are disabled by their authors as `// (TBD) XPECT noErrors`.
   These open no `//` or `//*` note, so the harness does not run them; all ten are listed by file and
   line in the report's *XPECT-shaped text outside a note* section rather than being dropped.
+- **Release `2026-09.1` (no change).** No `.xt` file differs between the `2026-09` and `2026-09.1`
+  tags; the release corrects reference-link resolution in the implementation, and every row stays
+  where it was. Only the baseline's provenance moved.
 - **Release `2026-09` (+3 assertions, +3 files).** `validation/MultiplicityAlias_valid.kerml.xt`
   (one `noErrors` row: an alias member without a name, `alias for Base::exactlyOne;`, which
   `AliasMember` admits and we now parse), `validation/ConnectionUsage_End_Invalid.sysml.xt` and
@@ -395,12 +398,14 @@ by our first diagnostic:
 
 The two **conformance** rows this table carried, `SimpleImportTestsFromOtherFile_Import3{,_FT}`
 (`try (typed by a1) redefines b (typed by A): types do not conform`), closed when the
-redefinition-type-mismatch report became an advisory warning, which `noErrors` does not count. A
+redefinition-type-mismatch report became an advisory warning, which `noErrors` does not count; that
+report has since been withdrawn for `disjoint-feature-types`, which says nothing about the unrelated
+`a1` and `A` (see [adjudications.md](adjudications.md)), so the two files now draw no report at all. A
 redefinition is a subsetting, so the redefining feature is typed by its own type *and* the redefined
 feature's (KerML 8.3.3.3.4, 8.3.3.3.6), and neither KerML nor SysML v2 constrains the two to
 conform; the pinned validator accepts `item :>> faces : Polygon` under `faces : StructuredSurface`
 in its own `ShapeItems` library. The reading is in
-[adjudications.md](adjudications.md#a-redefinitions-declared-types-are-checked-for-direct-conformance).
+[adjudications.md](adjudications.md#a-redefinitions-declared-types-were-checked-for-direct-conformance).
 
 The two nested-member **specialization cycle** rows joined this family when `DirectSupertypes` stopped memoizing
 an answer computed while the resolver's cycle guard had cut a lookup short (the trigger-argument

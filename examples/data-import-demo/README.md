@@ -36,7 +36,7 @@ value, so the calculation that reads it is undetermined:
 $ ../../bin/sysml rover.sysml -eval 'RoverDemo::scout.specificEnergy'
 ✓ package RoverDemo
 ✓ RoverDemo::scout.specificEnergy
-  = <undetermined>
+  = <undetermined>: capacity has no value in the model
 ```
 
 ## Previewing

@@ -224,8 +224,8 @@ type HTMLOptions struct {
 	// choice on the Mermaid fallback. Nil leaves the choice to WithoutGraphviz.
 	Drawer DiagramDrawer
 
-	// Math is typeset HTML for formulas, keyed as Formulas lists them, written
-	// in place of the delimited LaTeX; a formula with none keeps its LaTeX.
+	// Math is typeset HTML for formulas, keyed as Formulas lists them, written as it stands
+	// in place of the delimited LaTeX, so it must be inert; a formula with none keeps its LaTeX.
 	Math map[Formula]string
 
 	// OutputDir is the directory the page is written into, when known, so an
@@ -288,6 +288,9 @@ func HTML(document *docir.Document, opts HTMLOptions) (string, error) {
 		return "", err
 	}
 	if err := drawAutomatic(document, &diagrams, opts.Drawer, &opts.DiagramSVG); err != nil {
+		return "", err
+	}
+	if err := checkInert(opts.Math, opts.DiagramSVG); err != nil {
 		return "", err
 	}
 	var base string
@@ -1039,7 +1042,7 @@ func (w *htmlWriter) writeValue(value queryexec.Value) {
 		classes += " sysml-event"
 	}
 	w.b.WriteString("<span class=\"" + classes + "\"" + attr("data-value-kind", string(value.Kind())) +
-		elementAttrs(value) + quantityAttrs(w.names, value) + ">" + htmlText(valueText(w.names, value)) + spanClose)
+		elementAttrs(value) + quantityAttrs(w.names, value) + ">" + htmlText(queryexec.ValueText(value, w.names)) + spanClose)
 }
 
 // quantityAttrs carries a quantity's magnitude and unit apart, so a theme or a
@@ -1050,7 +1053,7 @@ func quantityAttrs(names namer, value queryexec.Value) string {
 		return ""
 	}
 	magnitude, _ := value.Magnitude()
-	return attr("data-magnitude", valueText(names, magnitude)) + attr("data-unit", quantity.Unit.String())
+	return attr("data-magnitude", queryexec.ValueText(magnitude, names)) + attr("data-unit", quantity.Unit.String())
 }
 
 // writeList writes one bullet or numbered list, one item per query row, each
@@ -1157,10 +1160,16 @@ func (w *htmlWriter) writeFigure(id, name string, caption caption, rendering *vi
 	if !rendering.Kind.Tabular() {
 		var err error
 		form, fallback = w.forms.formFor(rendering)
-		if source, err = diagramSource(name, rendering, options, form); err != nil {
+		drawn := w.diagramSVG() != "" || w.diagramImage() != ""
+		if drawn {
+			err = renderableForm(name, rendering, form)
+		} else {
+			source, err = diagramSource(name, rendering, options, form)
+		}
+		if err != nil {
 			return err
 		}
-		if form == view.FormMermaid && w.diagramSVG() == "" && w.diagramImage() == "" {
+		if form == view.FormMermaid && !drawn {
 			cwd, err := os.Getwd()
 			if err != nil {
 				return err
@@ -1180,6 +1189,9 @@ func (w *htmlWriter) writeFigure(id, name string, caption caption, rendering *vi
 		attr("data-style", string(options.Style)) + ">\n")
 	if fallback != "" {
 		w.b.WriteString("<p class=\"sysml-diagram-notice\"><em>" + html.EscapeString(fallback) + "</em></p>\n")
+	}
+	if rendering.ExpansionFoldNotice != "" {
+		w.b.WriteString("<p class=\"sysml-diagram-notice\"><em>" + html.EscapeString(rendering.ExpansionFoldNotice) + "</em></p>\n")
 	}
 	switch {
 	case rendering.Kind.Tabular():

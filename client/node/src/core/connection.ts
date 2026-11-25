@@ -8,7 +8,7 @@ import {
   type Client,
   type Transport,
 } from "@connectrpc/connect";
-import { create } from "@bufbuild/protobuf";
+import { create, type MessageInitShape } from "@bufbuild/protobuf";
 import {
   CAPABILITY_APPLY_EDITS,
   CAPABILITY_BIG_INT_VALUES,
@@ -16,6 +16,7 @@ import {
   CAPABILITY_CONVERT,
   CAPABILITY_CONVERT_CHECK_DIAGNOSTICS,
   CAPABILITY_CONVERT_COMPACT,
+  CAPABILITY_CONVERT_INHERITED_MEMBERS,
   CAPABILITY_CONVERT_LIBRARY_STUBS,
   CAPABILITY_DOCUMENT_QUERY,
   CAPABILITY_ENGINES,
@@ -28,6 +29,9 @@ import {
   CAPABILITY_STATE_TRACE,
   CAPABILITY_ACTION_TRACE,
   CAPABILITY_QUERY,
+  CAPABILITY_ELEMENT_PROPERTIES,
+  CAPABILITY_SYMBOL_LOOKUP_KIND,
+  CAPABILITY_INLINE_DOCUMENT_QUERY,
   CAPABILITY_QUERY_ORDER_BY,
   CAPABILITY_OSLC_QUERY,
   CAPABILITY_RENDER_DOCUMENT,
@@ -38,6 +42,7 @@ import {
   CAPABILITY_EXPORT_GRAPHS,
   CAPABILITY_IMPORT_DATA,
   CAPABILITY_COMPARE_RESULTS,
+  CAPABILITY_INSTANCE_PATHS,
   CAPABILITY_SCHEDULE,
   CAPABILITY_SCHEDULE_EXPLORE,
   CAPABILITY_STRICT_CONFORMANCE,
@@ -56,6 +61,8 @@ import {
 import {
   ClosedConnectionError,
   ConversionError,
+  EvaluationError,
+  SymbolNotFoundError,
   ExecutionError,
   InvalidRequestError,
   MigrationError,
@@ -72,6 +79,8 @@ import {
   MigrateRequestSchema,
   ParseSourcesRequestSchema,
   QueryRequestSchema,
+  GetElementPropertiesRequestSchema,
+  InstancePathsRequestSchema,
   RenderDocumentRequestSchema,
   RenderViewRequestSchema,
   CheckBehaviorRequestSchema,
@@ -105,6 +114,7 @@ import {
   type ExportGraphsResponse,
   type Verdict as PbVerdict,
   type VerificationVerdict as PbVerificationVerdict,
+  LookupKind,
 } from "../generated/sysml_pb.js";
 import { callRpc, fromHandshakeError, fromRpcError } from "./status.js";
 import { requireString } from "./arguments.js";
@@ -129,6 +139,8 @@ import {
   pathIsV1,
 } from "./conversion.js";
 import type { ConvertOptions, MigrateOptions } from "./conversion.js";
+import { type ElementLookup, type ElementProperties, elementPropertiesOf } from "./element-properties.js";
+import { type InstancePaths, instancePathsOf } from "./instance-paths.js";
 import {
   buildQuery,
   elementsOf,
@@ -156,7 +168,7 @@ import {
   ENGINE_AUTO,
   type EngineInfo,
 } from "./engines.js";
-import { Exploration, Outcome } from "./exploration.js";
+import { coverageOf, Exploration, Outcome } from "./exploration.js";
 import {
   analysisResultOf,
   decodeVerificationVerdict,
@@ -263,6 +275,7 @@ export class Connection {
 
   private readonly backend: ConnectionBackend;
   private readonly timeoutMs: number | undefined;
+  private readonly closing = new AbortController();
   private closed = false;
 
   private constructor(init: {
@@ -338,11 +351,12 @@ export class Connection {
   }
 
   /** Call options every request of this connection carries. */
-  callOptions(): { timeoutMs?: number } {
+  callOptions(): { timeoutMs?: number; signal: AbortSignal } {
     if (this.closed) {
       throw new ClosedConnectionError();
     }
-    return this.timeoutMs === undefined ? {} : { timeoutMs: this.timeoutMs };
+    const signal = this.closing.signal;
+    return this.timeoutMs === undefined ? { signal } : { timeoutMs: this.timeoutMs, signal };
   }
 
   /** Parses a file the service can read, and returns the model it loaded. */
@@ -465,6 +479,9 @@ export class Connection {
     if (options.includeLibraryStubs) {
       requireCapability(this.info, CAPABILITY_CONVERT_LIBRARY_STUBS, upgradeRemedy(CAPABILITY_CONVERT_LIBRARY_STUBS));
     }
+    if (options.inheritedMembers) {
+      requireCapability(this.info, CAPABILITY_CONVERT_INHERITED_MEMBERS, upgradeRemedy(CAPABILITY_CONVERT_INHERITED_MEMBERS));
+    }
     const keepDerived = [...(options.keepDerived ?? [])];
     if (options.compact || options.omitDerived || keepDerived.length > 0) {
       requireCapability(this.info, CAPABILITY_CONVERT_COMPACT, upgradeRemedy(CAPABILITY_CONVERT_COMPACT));
@@ -482,6 +499,7 @@ export class Connection {
       tolerateSyntaxErrors: options.tolerateSyntaxErrors === true,
       idForm: options.idForm ?? "",
       includeLibraryStubs: options.includeLibraryStubs === true,
+      inheritedMembers: options.inheritedMembers === true,
       compact: options.compact === true,
       omitDerived: options.omitDerived === true,
       keepDerived,
@@ -653,10 +671,101 @@ export class Connection {
     return elementsOf(response);
   }
 
+  /**
+   * Reads the metamodel properties of one element by their specification names
+   * (`inheritedFeature`, `connectorEnd`, ...), as the model's API element form
+   * spells them; every property the element carries when none is named. The
+   * element is `{ name }`, its qualified name, or `{ id }`, an element form id or
+   * a symbol's id. One string is the legacy form: an element form id first, then
+   * a qualified name, then the positional id of an unnamed member (`Owner::@2`).
+   */
+  async elementProperties(
+    modelHash: string,
+    element: string | ElementLookup,
+    properties: readonly string[] = [],
+  ): Promise<ElementProperties> {
+    requireCapability(
+      this.info,
+      CAPABILITY_ELEMENT_PROPERTIES,
+      upgradeRemedy(CAPABILITY_ELEMENT_PROPERTIES),
+    );
+    const response = await callRpc(
+      this.rpc.getElementProperties(
+        create(GetElementPropertiesRequestSchema, {
+          modelHash,
+          properties: [...properties],
+          ...elementLookup(this.info, element),
+        }),
+        this.callOptions(),
+      ),
+      "model",
+      capabilityRefusal(this.info, [CAPABILITY_ELEMENT_PROPERTIES]),
+    );
+    if (response.error !== "") {
+      if (response.error.startsWith("element not found")) {
+        throw new SymbolNotFoundError(askedElement(element));
+      }
+      throw new ConversionError(response.error);
+    }
+    return elementPropertiesOf(response);
+  }
+
+  /**
+   * Lists every root-relative path that reaches one object the service holds
+   * for the model, named by the id `Instantiate` answered or by path (the
+   * qualified name it was instantiated as, its id `#2`, or a path through
+   * feature values from either, `Garage::car.wheels[2]`).
+   */
+  async instancePaths(
+    modelHash: string,
+    object: { instanceId: bigint } | { path: string },
+  ): Promise<InstancePaths> {
+    requireCapability(this.info, CAPABILITY_INSTANCE_PATHS, upgradeRemedy(CAPABILITY_INSTANCE_PATHS));
+    const response = await callRpc(
+      this.rpc.instancePaths(
+        create(InstancePathsRequestSchema, {
+          modelHash,
+          object: "instanceId" in object ? { instanceId: object.instanceId } : { path: object.path },
+        }),
+        this.callOptions(),
+      ),
+      "model",
+      capabilityRefusal(this.info, [CAPABILITY_INSTANCE_PATHS]),
+    );
+    if (response.error !== "") {
+      throw new EvaluationError(response.error, "unspecified", response.diagnostics.map(decodeDiagnostic));
+    }
+    return instancePathsOf(response);
+  }
+
   /** Runs a named document query and answers its typed rows. */
-  async runDocumentQuery(
+  runDocumentQuery(
     modelHash: string,
     queryId: string,
+    bindings?: Readonly<Record<string, BindingValues>>,
+  ): Promise<DocumentQueryResult> {
+    return this.documentQuery(modelHash, { queryId }, bindings);
+  }
+
+  /** Runs a query expression written in place of a named query — the result
+   * expression of a `calc def` specializing `DocumentQueries::Query` — as
+   * {@link runDocumentQuery} runs a named one; needs `inline_document_query`. */
+  async runInlineDocumentQuery(
+    modelHash: string,
+    expression: string,
+    bindings?: Readonly<Record<string, BindingValues>>,
+  ): Promise<DocumentQueryResult> {
+    requireCapability(
+      this.info,
+      CAPABILITY_INLINE_DOCUMENT_QUERY,
+      upgradeRemedy(CAPABILITY_INLINE_DOCUMENT_QUERY),
+    );
+    return this.documentQuery(modelHash, { inlineQuery: expression }, bindings);
+  }
+
+  private async documentQuery(
+    modelHash: string,
+    query: { queryId?: string; inlineQuery?: string },
     bindings?: Readonly<Record<string, BindingValues>>,
   ): Promise<DocumentQueryResult> {
     requireCapability(
@@ -678,13 +787,13 @@ export class Connection {
       this.rpc.runDocumentQuery(
         create(RunDocumentQueryRequestSchema, {
           modelHash,
-          queryId,
+          ...query,
           bindings: wire,
         }),
         this.callOptions(),
       ),
       "model",
-      capabilityRefusal(this.info, [CAPABILITY_DOCUMENT_QUERY]),
+      capabilityRefusal(this.info, [CAPABILITY_DOCUMENT_QUERY, CAPABILITY_INLINE_DOCUMENT_QUERY]),
     );
     return documentResult(response);
   }
@@ -1176,6 +1285,7 @@ export class Connection {
       depthBudget: status?.depthBudget ?? 0,
       probabilitiesLowerBound: status?.probabilitiesLowerBound ?? false,
       unenumerated: status?.unenumerated ?? [],
+      coverage: coverageOf(status?.coverage),
     });
   }
 
@@ -1937,13 +2047,15 @@ export class Connection {
 
   /**
    * Releases this connection. A private child loses a reference and stops when
-   * the last one goes; a service this client did not start keeps running.
+   * the last one goes; a service this client did not start keeps running. A call
+   * still under way is cancelled and fails with ClosedConnectionError.
    */
   async close(): Promise<void> {
     if (this.closed) {
       return;
     }
     this.closed = true;
+    this.closing.abort(new ClosedConnectionError());
     await this.backend.release();
   }
 
@@ -2096,4 +2208,29 @@ function queryField(options: { payload?: QueryPayload } & QueryForm): { query?: 
     return { query: buildQuery(options) };
   }
   return {};
+}
+
+/** The string an element read names its element by. */
+function askedElement(element: string | ElementLookup): string {
+  if (typeof element === "string") {
+    return element;
+  }
+  return "name" in element ? element.name : element.id;
+}
+
+/**
+ * The request fields naming the element: the string, and its kind where it is stated and the
+ * service reports `symbol_lookup_kind`.
+ */
+function elementLookup(
+  info: ServerInfo,
+  element: string | ElementLookup,
+): Pick<MessageInitShape<typeof GetElementPropertiesRequestSchema>, "elementId" | "lookup"> {
+  if (typeof element === "string" || !info.has(CAPABILITY_SYMBOL_LOOKUP_KIND)) {
+    return { elementId: askedElement(element) };
+  }
+  return {
+    elementId: askedElement(element),
+    lookup: "name" in element ? LookupKind.QUALIFIED_NAME : LookupKind.ELEMENT_ID,
+  };
 }

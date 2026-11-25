@@ -26,6 +26,7 @@ const sparseDifferentialMaxSteps int64 = 20000
 // requiring the same readable values, materialization errors and verdicts.
 // Each file is a parallel subtest: every one builds its own model and contexts.
 func TestSparseValuesDifferential(t *testing.T) {
+	t.Parallel()
 	var files []string
 	for _, root := range differentialRoots {
 		files = append(files, sysmlFilesUnder(t, root)...)
@@ -61,6 +62,7 @@ func TestSparseValuesDifferential(t *testing.T) {
 // as-built values of their own. The constellation is read through the parts
 // the model declares, so each definition is read once, as the type of its usage.
 func TestSparseValuesDifferentialFleet(t *testing.T) {
+	t.Parallel()
 	network := stressmodel.SatelliteNetwork{Planes: 2, Satellites: 20, GroundStations: 2, Fleet: true}
 	src, stats := network.Source()
 	name := fmt.Sprintf("fleet-%d.sysml", stats.Satellites)

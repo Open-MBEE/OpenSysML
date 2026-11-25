@@ -6,8 +6,13 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.openmbee.opensysml.ElementProperties;
+import org.openmbee.opensysml.ElementRef;
 import org.openmbee.opensysml.Instance;
+import org.openmbee.opensysml.InstancePaths;
+import org.openmbee.opensysml.Instantiation;
 import org.openmbee.opensysml.Quantity;
+import org.openmbee.opensysml.Symbol;
 import org.openmbee.opensysml.TransportException;
 import org.openmbee.opensysml.Value;
 import org.openmbee.opensysml.proto.Array;
@@ -135,6 +140,22 @@ class ProtosTest {
     assertEquals(
         org.openmbee.opensysml.proto.Value.newBuilder().setQuantity(quantity).build(),
         Protos.proto(new Value.QuantityValue(kilograms)));
+  }
+
+  @Test
+  void aQuantityKeepsTheValueTypeItIsHeldAsAcrossARoundTrip() {
+    var held = metres(5.0).toBuilder().setValueType("ISQSpaceTime::LengthValue").build();
+    Quantity read = Protos.quantity(held);
+    assertEquals(Optional.of("ISQSpaceTime::LengthValue"), read.valueType());
+    assertEquals(
+        org.openmbee.opensysml.proto.Value.newBuilder().setQuantity(held).build(),
+        Protos.proto(new Value.QuantityValue(read)));
+
+    // One held as no type reads back with none, as one a caller builds has none.
+    Quantity bare = Protos.quantity(metres(5.0));
+    assertEquals(Optional.empty(), bare.valueType());
+    assertEquals(bare, new Quantity(5.0, Optional.of("m"), bare.reduction()));
+    assertEquals("", Protos.proto(new Value.QuantityValue(bare)).getQuantity().getValueType());
   }
 
   private static org.openmbee.opensysml.proto.Value integer(long value) {
@@ -805,6 +826,282 @@ class ProtosTest {
         Optional.of(new Value.UndeterminedValue("x", "", "")), Protos.value(uncounted));
   }
 
+  private static org.openmbee.opensysml.proto.MeasurementRef millimetre() {
+    return org.openmbee.opensysml.proto.MeasurementRef.newBuilder()
+        .setUnit("mm")
+        .setUnitId("SI::millimetre")
+        .setUnitTerm(
+            org.openmbee.opensysml.proto.UnitTerm.newBuilder()
+                .setScaleNum(1)
+                .setScaleDen(1000)
+                .addFactors(
+                    org.openmbee.opensysml.proto.UnitFactor.newBuilder()
+                        .setUnitId("SI::metre")
+                        .setExponent(1)))
+        .build();
+  }
+
+  private static org.openmbee.opensysml.proto.CoordinateFrame.Builder wireFrame(String name) {
+    return org.openmbee.opensysml.proto.CoordinateFrame.newBuilder()
+        .setName(name)
+        .setFrameId("Frames::" + name)
+        .setTypeId("ISQSpaceTime::CartesianSpatial3dCoordinateFrame")
+        .addDimensions(3)
+        .addAxes(millimetre())
+        .addAxes(millimetre())
+        .addAxes(millimetre());
+  }
+
+  private static org.openmbee.opensysml.proto.Quantity wireLength(double real) {
+    return org.openmbee.opensysml.proto.Quantity.newBuilder()
+        .setRealMagnitude(real)
+        .setUnit("mm")
+        .setUnitTerm(millimetre().getUnitTerm())
+        .build();
+  }
+
+  private static org.openmbee.opensysml.proto.Value wireVector(double x, double y, double z) {
+    return org.openmbee.opensysml.proto.Value.newBuilder()
+        .setVectorQuantity(
+            org.openmbee.opensysml.proto.VectorQuantity.newBuilder()
+                .addComponents(wireLength(x))
+                .addComponents(wireLength(y))
+                .addComponents(wireLength(z)))
+        .build();
+  }
+
+  @Test
+  void aPosedFrameCarriesItsIdentityAxesSequenceAndPose() {
+    org.openmbee.opensysml.proto.CoordinateTransformation.Builder posing =
+        org.openmbee.opensysml.proto.CoordinateTransformation.newBuilder()
+            .setName("transformation")
+            .setSource(wireFrame("datum"))
+            .setSequence(
+                org.openmbee.opensysml.proto.TranslationRotationSequence.newBuilder()
+                    .addSteps(
+                        org.openmbee.opensysml.proto.FrameStep.newBuilder()
+                            .setTranslation(wireVector(10, 0, 0))
+                            .setInstanceId(7))
+                    .addSteps(
+                        org.openmbee.opensysml.proto.FrameStep.newBuilder()
+                            .setRotation(
+                                org.openmbee.opensysml.proto.FrameRotation.newBuilder()
+                                    .setAxisDirection(wireVector(0, 0, 1))
+                                    .setAngle(wireLength(180))
+                                    .setIsIntrinsic(true))))
+            .setPose(
+                org.openmbee.opensysml.proto.FramePose.newBuilder()
+                    .addAllOrigin(List.of(10.0, 0.0, 0.0))
+                    .addAllBasis(List.of(-1.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 1.0)));
+    org.openmbee.opensysml.proto.Value sent =
+        org.openmbee.opensysml.proto.Value.newBuilder()
+            .setCoordinateFrame(wireFrame("lbcf").setInstanceId(4).setTransformation(posing))
+            .build();
+    Value read = Protos.value(sent).orElseThrow();
+    org.openmbee.opensysml.CoordinateFrame frame = ((Value.CoordinateFrameValue) read).frame();
+    assertEquals("lbcf", frame.name());
+    assertEquals(Optional.of("Frames::lbcf"), frame.frameId());
+    assertEquals(Optional.of(4L), frame.instanceId());
+    assertEquals(List.of(3L), frame.dimensions());
+    assertEquals(3, frame.axes().size());
+    assertEquals(Optional.of("SI::millimetre"), frame.axes().get(0).unitId());
+    assertEquals(Optional.empty(), frame.scale());
+
+    org.openmbee.opensysml.CoordinateTransformation t = frame.transformation().orElseThrow();
+    assertEquals(Optional.of("Frames::datum"), t.source().orElseThrow().frameId());
+    assertEquals(Optional.empty(), t.target());
+    org.openmbee.opensysml.CoordinateTransformation.Sequence sequence =
+        (org.openmbee.opensysml.CoordinateTransformation.Sequence) t.shape().orElseThrow();
+    org.openmbee.opensysml.CoordinateTransformation.Translation shift =
+        (org.openmbee.opensysml.CoordinateTransformation.Translation) sequence.steps().get(0);
+    assertTrue(shift.translation() instanceof Value.VectorQuantityValue);
+    assertEquals(Optional.of(7L), shift.instanceId());
+    org.openmbee.opensysml.CoordinateTransformation.Rotation turn =
+        (org.openmbee.opensysml.CoordinateTransformation.Rotation) sequence.steps().get(1);
+    assertTrue(turn.intrinsic());
+    assertEquals(Optional.empty(), turn.instanceId());
+    assertEquals(List.of(10.0, 0.0, 0.0), t.pose().orElseThrow().origin());
+    assertEquals(9, t.pose().orElseThrow().basis().size());
+
+    assertEquals(sent, Protos.proto(read));
+
+    org.openmbee.opensysml.Capabilities all =
+        new org.openmbee.opensysml.Capabilities(
+            "test", java.util.Set.of(org.openmbee.opensysml.Capabilities.RATIONAL_VALUES));
+    List<Value> positional = List.of(read);
+    assertThrows(IllegalArgumentException.class, () -> Protos.protos(positional, all));
+    java.util.Map<String, Value> named = java.util.Map.of("x", new Value.Sequence(positional));
+    assertThrows(IllegalArgumentException.class, () -> Protos.protos(named, all));
+    org.openmbee.opensysml.SweepRange range = org.openmbee.opensysml.SweepRange.of("x", read, read);
+    assertThrows(IllegalArgumentException.class, () -> Protos.proto(range));
+  }
+
+  private static org.openmbee.opensysml.CoordinateFrame readFrame(
+      org.openmbee.opensysml.proto.CoordinateFrame.Builder frame) {
+    Value read =
+        Protos.value(
+                org.openmbee.opensysml.proto.Value.newBuilder().setCoordinateFrame(frame).build())
+            .orElseThrow();
+    return ((Value.CoordinateFrameValue) read).frame();
+  }
+
+  private static org.openmbee.opensysml.CoordinateTransformation readTransformation(
+      org.openmbee.opensysml.proto.CoordinateTransformation.Builder transformation) {
+    Value read =
+        Protos.value(
+                org.openmbee.opensysml.proto.Value.newBuilder()
+                    .setCoordinateTransformation(transformation)
+                    .build())
+            .orElseThrow();
+    return ((Value.CoordinateTransformationValue) read).transformation();
+  }
+
+  private static org.openmbee.opensysml.proto.CoordinateTransformation.Builder wirePlacing(
+      String name, double x) {
+    return org.openmbee.opensysml.proto.CoordinateTransformation.newBuilder()
+        .setName(name)
+        .setSource(wireFrame("datum").setInstanceId(3))
+        .setPlacement(
+            org.openmbee.opensysml.proto.FramePlacement.newBuilder()
+                .setOrigin(wireVector(x, 0, 0)));
+  }
+
+  @Test
+  void framesAndTransformationsCompareAsTheServiceDoes() {
+    org.openmbee.opensysml.proto.FramePose.Builder pose =
+        org.openmbee.opensysml.proto.FramePose.newBuilder()
+            .addAllOrigin(List.of(1.0, 0.0, 0.0))
+            .addAllBasis(List.of(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0));
+    org.openmbee.opensysml.CoordinateFrame posed =
+        readFrame(
+            wireFrame("posed")
+                .setInstanceId(7)
+                .setTransformation(wirePlacing("placed", 1).setInstanceId(9).setPose(pose)));
+    org.openmbee.opensysml.CoordinateFrame cut = readFrame(wireFrame("posed").setInstanceId(7));
+    assertEquals(posed, cut);
+    assertEquals(cut, posed);
+    assertEquals(posed.hashCode(), cut.hashCode());
+    assertEquals(new Value.CoordinateFrameValue(posed), new Value.CoordinateFrameValue(cut));
+    assertNotEquals(cut, readFrame(wireFrame("posed").setInstanceId(8)));
+    assertNotEquals(cut, readFrame(wireFrame("datum").setInstanceId(7)));
+
+    org.openmbee.opensysml.CoordinateFrame composed =
+        readFrame(wireFrame("datum / s").clearFrameId());
+    org.openmbee.opensysml.CoordinateFrame renamed =
+        readFrame(wireFrame("rate").setTypeId("Frames::Rate"));
+    assertEquals(composed, renamed);
+    assertEquals(composed.hashCode(), renamed.hashCode());
+    assertNotEquals(composed, readFrame(wireFrame("datum / s").clearFrameId().addDimensions(1)));
+    assertNotEquals(composed, readFrame(wireFrame("datum").setInstanceId(3)));
+
+    org.openmbee.opensysml.CoordinateTransformation own =
+        readTransformation(wirePlacing("placed", 1).setInstanceId(9).setPose(pose));
+    org.openmbee.opensysml.CoordinateTransformation direct =
+        readTransformation(
+            wirePlacing("trs", 1).setInstanceId(9).setTarget(wireFrame("posed").setInstanceId(7)));
+    assertEquals(own, direct);
+    assertEquals(own.hashCode(), direct.hashCode());
+    org.openmbee.opensysml.CoordinateTransformation reshaped =
+        readTransformation(
+            org.openmbee.opensysml.proto.CoordinateTransformation.newBuilder()
+                .setName("placed")
+                .setInstanceId(9)
+                .setAffine(org.openmbee.opensysml.proto.AffineTransformation3d.newBuilder()));
+    assertEquals(own, reshaped);
+    assertEquals(own.hashCode(), reshaped.hashCode());
+    assertEquals(1, java.util.Set.copyOf(List.of(own, direct, reshaped)).size());
+    assertEquals(
+        readTransformation(wirePlacing("a", 1)), readTransformation(wirePlacing("b", 1).setPose(pose)));
+    assertNotEquals(readTransformation(wirePlacing("a", 1)), readTransformation(wirePlacing("a", 2)));
+    assertNotEquals(
+        readTransformation(wirePlacing("a", 1).clearPlacement().setInstanceId(4)),
+        readTransformation(wirePlacing("a", 1).clearPlacement().setInstanceId(5)));
+    assertEquals(
+        new org.openmbee.opensysml.CoordinateTransformation.Translation(
+            new Value.RealValue(1), Optional.of(7L)),
+        new org.openmbee.opensysml.CoordinateTransformation.Translation(
+            new Value.RealValue(1), Optional.of(8L)));
+  }
+
+  @Test
+  void aTransformationCarriesItsEndpointsAndTheShapeItIsStatedIn() {
+    org.openmbee.opensysml.proto.Value placement =
+                org.openmbee.opensysml.proto.Value.newBuilder()
+                    .setCoordinateTransformation(
+                        org.openmbee.opensysml.proto.CoordinateTransformation.newBuilder()
+                            .setName("placement")
+                            .setSource(wireFrame("datum"))
+                            .setTarget(wireFrame("placed"))
+                            .setPlacement(
+                                org.openmbee.opensysml.proto.FramePlacement.newBuilder()
+                                    .setOrigin(wireVector(1, 2, 3))
+                                    .addBasisDirections(wireVector(1, 0, 0))))
+                    .build();
+    Value placed = Protos.value(placement).orElseThrow();
+    assertEquals(placement, Protos.proto(placed));
+    org.openmbee.opensysml.CoordinateTransformation t =
+        ((Value.CoordinateTransformationValue) placed).transformation();
+    assertEquals("placed", t.target().orElseThrow().name());
+    assertEquals(Optional.empty(), t.pose());
+    assertEquals(
+        1,
+        ((org.openmbee.opensysml.CoordinateTransformation.Placement) t.shape().orElseThrow())
+            .basisDirections()
+            .size());
+
+    Value affine =
+        Protos.value(
+                org.openmbee.opensysml.proto.Value.newBuilder()
+                    .setCoordinateTransformation(
+                        org.openmbee.opensysml.proto.CoordinateTransformation.newBuilder()
+                            .setAffine(
+                                org.openmbee.opensysml.proto.AffineTransformation3d.newBuilder()
+                                    .addAllRotation(
+                                        List.of(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0))
+                                    .addAllTranslation(List.of(1.0, 2.0, 3.0))))
+                    .build())
+            .orElseThrow();
+    assertEquals(
+        Optional.of(
+            new org.openmbee.opensysml.CoordinateTransformation.Affine(
+                List.of(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0), List.of(1.0, 2.0, 3.0))),
+        ((Value.CoordinateTransformationValue) affine).transformation().shape());
+
+    org.openmbee.opensysml.proto.Value noStep =
+        org.openmbee.opensysml.proto.Value.newBuilder()
+            .setCoordinateTransformation(
+                org.openmbee.opensysml.proto.CoordinateTransformation.newBuilder()
+                    .setSequence(
+                        org.openmbee.opensysml.proto.TranslationRotationSequence.newBuilder()
+                            .addSteps(org.openmbee.opensysml.proto.FrameStep.newBuilder())))
+            .build();
+    assertThrows(TransportException.class, () -> Protos.value(noStep));
+  }
+
+  @Test
+  void aMeasurementScaleCarriesItsUnitAndMapping() {
+    Value read =
+        Protos.value(
+                org.openmbee.opensysml.proto.Value.newBuilder()
+                    .setCoordinateFrame(
+                        org.openmbee.opensysml.proto.CoordinateFrame.newBuilder()
+                            .setName("celsius")
+                            .setScale(
+                                org.openmbee.opensysml.proto.MeasurementScale.newBuilder()
+                                    .setUnit(millimetre())
+                                    .setMapping(
+                                        org.openmbee.opensysml.proto.QuantityValueMapping
+                                            .newBuilder()
+                                            .setMapped(wireLength(0))
+                                            .setReference(wireLength(273.15)))))
+                    .build())
+            .orElseThrow();
+    org.openmbee.opensysml.CoordinateFrame.Scale scale =
+        ((Value.CoordinateFrameValue) read).frame().scale().orElseThrow();
+    assertEquals(Optional.of("SI::millimetre"), scale.unit().unitId());
+    assertTrue(scale.mapping().isPresent());
+  }
+
   @Test
   void onlyAnAssertedInfinityArmIsTheUnboundedValue() {
     org.openmbee.opensysml.proto.Value asserted =
@@ -842,5 +1139,223 @@ class ProtosTest {
     assertEquals(new Value.NullValue(), plain);
     assertFalse(((Value.NullValue) plain).isUnsupported());
     assertEquals("", Protos.proto(plain).getNull());
+  }
+
+  @Test
+  void aSymbolCarriesItsMembersWithTheirProvenance() {
+    SymbolInfo info =
+        SymbolInfo.newBuilder()
+            .setId("Demo::m")
+            .setName("m")
+            .setKind("partUsage")
+            .addMembers(
+                org.openmbee.opensysml.proto.MemberInfo.newBuilder()
+                    .setId("Demo::Base::p")
+                    .setName("p")
+                    .setKind("partUsage")
+                    .setInherited(true)
+                    .setInheritedFrom("Demo::Base"))
+            .addMembers(
+                org.openmbee.opensysml.proto.MemberInfo.newBuilder()
+                    .setId("Parts::Part::ownedPorts")
+                    .setName("ownedPorts")
+                    .setKind("portUsage")
+                    .setInherited(true)
+                    .setInheritedFrom("Parts::Part")
+                    .setLibrary(true))
+            .setWithheldLibraryMembers(3)
+            .build();
+    Symbol symbol = Protos.symbol(info);
+    assertEquals(
+        List.of(
+            new Symbol.Member(
+                "Demo::Base::p", "p", "partUsage", true, Optional.of("Demo::Base"), false),
+            new Symbol.Member(
+                "Parts::Part::ownedPorts",
+                "ownedPorts",
+                "portUsage",
+                true,
+                Optional.of("Parts::Part"),
+                true)),
+        symbol.members());
+    assertEquals(List.of(), symbol.ownMembers());
+    assertEquals(2, symbol.inheritedMembers().size());
+    assertEquals(3, symbol.withheldLibraryMembers());
+    Symbol own =
+        Protos.symbol(
+            SymbolInfo.newBuilder()
+                .setId("Demo::Base")
+                .setName("Base")
+                .setKind("partDef")
+                .addChildIds("Demo::Base::p")
+                .addMembers(
+                    org.openmbee.opensysml.proto.MemberInfo.newBuilder()
+                        .setId("Demo::Base::p")
+                        .setName("p")
+                        .setKind("partUsage"))
+                .build());
+    assertEquals(Optional.empty(), own.members().get(0).inheritedFrom());
+    assertEquals(own.members(), own.ownMembers());
+    assertEquals(List.of(), own.inheritedMembers());
+  }
+
+  @Test
+  void anInstanceCarriesHowTheTraversalReachedIt() {
+    org.openmbee.opensysml.proto.Instance root =
+        org.openmbee.opensysml.proto.Instance.newBuilder().setId(1).setTypeSymbolId("D::car").build();
+    org.openmbee.opensysml.proto.Instance wheel =
+        org.openmbee.opensysml.proto.Instance.newBuilder()
+            .setId(3)
+            .setTypeSymbolId("D::Wheel")
+            .setReachedBy(
+                org.openmbee.opensysml.proto.InstanceReach.newBuilder()
+                    .setInstanceId(1)
+                    .setFeatureName("wheels")
+                    .setFeatureSymbolId("D::Car::wheels")
+                    .setIndex(2)
+                    .setPath("wheels[2]"))
+            .build();
+    Instance rootInstance = Protos.instance(root);
+    Instance wheelInstance = Protos.instance(wheel);
+    assertEquals(Optional.empty(), rootInstance.reachedBy());
+    assertEquals(Optional.empty(), rootInstance.owner());
+    assertEquals("", rootInstance.path());
+    assertEquals(
+        Optional.of(new Instance.Reach(1, "wheels", "D::Car::wheels", 2, "wheels[2]")),
+        wheelInstance.reachedBy());
+    assertEquals(Optional.of(new Value.InstanceReference(1)), wheelInstance.owner());
+    assertEquals("wheels[2]", wheelInstance.path());
+    Instantiation instantiation =
+        new Instantiation(rootInstance, List.of(rootInstance, wheelInstance), List.of());
+    assertEquals(Optional.of(rootInstance), instantiation.owner(wheelInstance));
+    assertEquals(Optional.empty(), instantiation.owner(rootInstance));
+  }
+
+  @Test
+  void elementPropertiesReadEveryValueArmAndTheReasonForNone() {
+    var response =
+        org.openmbee.opensysml.proto.GetElementPropertiesResponse.newBuilder()
+            .setElement(
+                org.openmbee.opensysml.proto.ElementRef.newBuilder()
+                    .setId("e1")
+                    .setQualifiedName("Demo::Pair")
+                    .setMetaclass("PartDefinition"))
+            .addProperties(
+                org.openmbee.opensysml.proto.ElementProperty.newBuilder()
+                    .setName("inheritedFeature")
+                    .setDefiningClass("Type")
+                    .setMany(true)
+                    .setDerived(true)
+                    .addValues(
+                        org.openmbee.opensysml.proto.ElementPropertyValue.newBuilder()
+                            .setElement(
+                                org.openmbee.opensysml.proto.ElementRef.newBuilder()
+                                    .setId("e2")
+                                    .setQualifiedName("Demo::Unit::p")
+                                    .setMetaclass("PortUsage")))
+                    .addValues(
+                        org.openmbee.opensysml.proto.ElementPropertyValue.newBuilder()
+                            .setStringValue("in"))
+                    .addValues(
+                        org.openmbee.opensysml.proto.ElementPropertyValue.newBuilder()
+                            .setBoolValue(true))
+                    .addValues(
+                        org.openmbee.opensysml.proto.ElementPropertyValue.newBuilder()
+                            .setIntValue(7))
+                    .addValues(
+                        org.openmbee.opensysml.proto.ElementPropertyValue.newBuilder()
+                            .setRealValue(1.5))
+                    .addValues(
+                        org.openmbee.opensysml.proto.ElementPropertyValue.newBuilder()
+                            .setNumber("123456789012345678901234567890")))
+            .addProperties(
+                org.openmbee.opensysml.proto.ElementProperty.newBuilder()
+                    .setName("connectorEnd")
+                    .setUnsupported("PartDefinition declares no property connectorEnd"))
+            .addExcludedDocuments(
+                org.openmbee.opensysml.proto.ExcludedDocument.newBuilder()
+                    .setDocument("c.sysml")
+                    .setError("c.sysml: 1 syntax error(s)"))
+            .build();
+    ElementProperties read = Protos.elementProperties(response);
+    assertEquals(
+        List.of(new ElementProperties.ExcludedDocument("c.sysml", "c.sysml: 1 syntax error(s)")),
+        read.excludedDocuments());
+    assertEquals(new ElementRef("e1", "Demo::Pair", "PartDefinition"), read.element());
+    assertEquals("Demo::Pair", read.element().toString());
+    ElementProperties.Property inherited = read.get("inheritedFeature").orElseThrow();
+    assertTrue(inherited.many() && inherited.derived() && inherited.supported());
+    assertEquals("Type", inherited.definingClass());
+    ElementRef port = new ElementRef("e2", "Demo::Unit::p", "PortUsage");
+    assertEquals(
+        List.of(
+            new ElementProperties.PropertyValue.Element(port),
+            new ElementProperties.PropertyValue.Text("in"),
+            new ElementProperties.PropertyValue.Bool(true),
+            new ElementProperties.PropertyValue.Integer(7),
+            new ElementProperties.PropertyValue.Real(1.5),
+            new ElementProperties.PropertyValue.Number("123456789012345678901234567890")),
+        inherited.values());
+    assertEquals(List.of(port), inherited.elements());
+    assertEquals(
+        Optional.of(new ElementProperties.PropertyValue.Element(port)), inherited.value());
+    ElementProperties.Property none = read.get("connectorEnd").orElseThrow();
+    assertFalse(none.supported());
+    assertEquals(
+        Optional.of("PartDefinition declares no property connectorEnd"), none.unsupported());
+    assertEquals(Optional.empty(), none.value());
+    assertTrue(read.has("connectorEnd"));
+    assertFalse(read.has("name"));
+    var noValue =
+        org.openmbee.opensysml.proto.GetElementPropertiesResponse.newBuilder()
+            .addProperties(
+                org.openmbee.opensysml.proto.ElementProperty.newBuilder()
+                    .setName("x")
+                    .addValues(org.openmbee.opensysml.proto.ElementPropertyValue.newBuilder()))
+            .build();
+    assertThrows(IllegalArgumentException.class, () -> Protos.elementProperties(noValue));
+  }
+
+  @Test
+  void instancePathsReadEveryRootAndStep() {
+    var response =
+        org.openmbee.opensysml.proto.InstancePathsResponse.newBuilder()
+            .setTruncated(true)
+            .addPaths(
+                org.openmbee.opensysml.proto.InstancePath.newBuilder()
+                    .setRoot(
+                        org.openmbee.opensysml.proto.InstanceRoot.newBuilder()
+                            .setInstanceId(1)
+                            .setSymbolId("D::car"))
+                    .setPath("wheels[2].hub")
+                    .addSteps(
+                        org.openmbee.opensysml.proto.InstancePathStep.newBuilder()
+                            .setFeatureName("wheels")
+                            .setFeatureSymbolId("D::Car::wheels")
+                            .setIndex(2)
+                            .setInstanceId(3))
+                    .addSteps(
+                        org.openmbee.opensysml.proto.InstancePathStep.newBuilder()
+                            .setFeatureName("hub")
+                            .setFeatureSymbolId("D::Wheel::hub")
+                            .setInstanceId(5)))
+            .addPaths(
+                org.openmbee.opensysml.proto.InstancePath.newBuilder()
+                    .setRoot(
+                        org.openmbee.opensysml.proto.InstanceRoot.newBuilder().setInstanceId(5)))
+            .build();
+    InstancePaths paths = Protos.instancePaths(response);
+    assertTrue(paths.truncated());
+    assertEquals(
+        new InstancePaths.Path(
+            1,
+            Optional.of("D::car"),
+            "wheels[2].hub",
+            List.of(
+                new InstancePaths.Step("wheels", "D::Car::wheels", 2, 3),
+                new InstancePaths.Step("hub", "D::Wheel::hub", 0, 5))),
+        paths.paths().get(0));
+    assertEquals(
+        new InstancePaths.Path(5, Optional.empty(), "", List.of()), paths.paths().get(1));
   }
 }

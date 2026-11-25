@@ -10,7 +10,10 @@ package identity
 import (
 	"crypto/sha1" // #nosec G505 -- RFC 4122 defines a version 5 UUID over SHA-1; it names, it does not protect
 	"encoding/hex"
+	"strconv"
 	"strings"
+
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // Language is the half of the standard library an element belongs to, which
@@ -82,11 +85,41 @@ func DerivedID(namespace, name string) string {
 	return uuid5(mustParse(namespace), name).String()
 }
 
+// AnonymousMemberID is this implementation's id for an unnamed library member: uuid5 under
+// its owner's id of metaclass and declaration ordinal; the pilot publishes no rule for these.
+func AnonymousMemberID(ownerID, metaclass string, ordinal int) string {
+	if ownerID == "" || metaclass == "" || ordinal < 0 {
+		return ""
+	}
+	return uuid5(mustParse(ownerID), "/"+metaclass+"["+strconv.Itoa(ordinal)+"]").String()
+}
+
+// AnonymousMemberOwningMembershipID is the id of the OwningMembership owning the
+// anonymous library member AnonymousMemberID names.
+func AnonymousMemberOwningMembershipID(ownerID, metaclass string, ordinal int) string {
+	if ownerID == "" || metaclass == "" || ordinal < 0 {
+		return ""
+	}
+	return uuid5(mustParse(ownerID), "/"+metaclass+"["+strconv.Itoa(ordinal)+"]"+owningMembershipPath).String()
+}
+
+// AliasMembershipID is this implementation's id for the Membership of a library alias: uuid5 under
+// its owner's id of metaclass and index among such memberships; the pilot publishes no rule for these.
+func AliasMembershipID(ownerID, metaclass string, index int) string {
+	if ownerID == "" || metaclass == "" || index < 0 {
+		return ""
+	}
+	return uuid5(mustParse(ownerID), "/"+metaclass+"["+strconv.Itoa(index)+"]"+aliasMembershipPath).String()
+}
+
 // Separator joins the segments of a qualified name.
 const Separator = "::"
 
 // owningMembershipPath is the path suffix an owning membership's id hashes.
 const owningMembershipPath = "/owningMembership"
+
+// aliasMembershipPath is the path suffix an alias membership's id hashes, apart from an unnamed member's.
+const aliasMembershipPath = "/aliasMembership"
 
 // ElementID is the fixed id of the library element with the given qualified
 // name (segments as declared, the first its library package); "" for none.
@@ -126,19 +159,20 @@ func split(lang Language, qualifiedName string) (pkg uuid, path string, top, ok 
 	return pkg, strings.Join(segments, Separator), len(segments) == 1, true
 }
 
-// EscapeName spells a name as the pilot's qualified names do: an ASCII identifier
-// or `$` as is, anything else single-quoted with control and quote characters escaped.
+// EscapeName spells a name as KerML 1.1 §8.3.2.1.2 escapedName does: an identifier or `$` as is,
+// anything else, the empty name included, single-quoted with control and quote characters escaped.
 func EscapeName(name string) string {
-	if name == "" || name == "$" || isIdentifier(name) {
+	if name == "$" || isIdentifier(name) {
 		return name
 	}
 	var b strings.Builder
 	b.Grow(len(name) + 2)
 	b.WriteByte('\'')
-	for _, r := range name {
-		if i := strings.IndexRune("\b\t\n\f\r\"'\\", r); i >= 0 {
+	for i, r := range name {
+		// name[i] is r itself for the one-byte runes an escape can name.
+		if letter, ok := source.EscapeLetter(name[i]); ok {
 			b.WriteByte('\\')
-			b.WriteByte("btnfr\"'\\"[i])
+			b.WriteByte(letter)
 			continue
 		}
 		b.WriteRune(r)

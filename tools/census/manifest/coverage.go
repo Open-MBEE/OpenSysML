@@ -18,7 +18,11 @@ type DocumentCoverage struct {
 	PilotNamed  int
 	SpecSourced int
 	Implemented int
-	Unknown     int
+	// NotImplemented and Deliberate split the assessed rows that are not
+	// implemented: a gap we report, and a rule no textual model can violate.
+	NotImplemented int
+	Deliberate     int
+	Unknown        int
 }
 
 // Coverage tallies the formal documents' constraints per declared
@@ -46,6 +50,10 @@ func (m *Manifest) Coverage() []DocumentCoverage {
 		switch {
 		case Implemented(c.Status):
 			d.Implemented++
+		case c.Status == StatusNotImplemented:
+			d.NotImplemented++
+		case c.Status == StatusDeliberate:
+			d.Deliberate++
 		case c.Status == StatusUnknown:
 			d.Unknown++
 		}
@@ -63,7 +71,7 @@ func (m *Manifest) Coverage() []DocumentCoverage {
 }
 
 // CoverageColumns are the formal-coverage table's columns, in order.
-var CoverageColumns = []string{"Document", "check*", "derive*", "validate*", "Stated", "Pilot-named", "Spec-sourced", "Implemented", "❔ unknown"}
+var CoverageColumns = []string{"Document", "check*", "derive*", "validate*", "Stated", "Pilot-named", "Spec-sourced", "Implemented", "❌ not implemented", "⛔ deliberate", "❔ unknown"}
 
 // RenderCoverage renders the formal-coverage table and its summary sentence.
 func (m *Manifest) RenderCoverage() string {
@@ -78,15 +86,17 @@ func (m *Manifest) RenderCoverage() string {
 			cells = append(cells, fmt.Sprint(d.ByKind[kind]))
 			total.ByKind[kind] += d.ByKind[kind]
 		}
-		cells = append(cells, fmt.Sprint(d.Stated), fmt.Sprint(d.PilotNamed), fmt.Sprint(d.SpecSourced), fmt.Sprint(d.Implemented), fmt.Sprint(d.Unknown))
+		cells = append(cells, fmt.Sprint(d.Stated), fmt.Sprint(d.PilotNamed), fmt.Sprint(d.SpecSourced), fmt.Sprint(d.Implemented), fmt.Sprint(d.NotImplemented), fmt.Sprint(d.Deliberate), fmt.Sprint(d.Unknown))
 		b.WriteString("| " + strings.Join(cells, " | ") + " |\n")
 		total.Stated += d.Stated
 		total.PilotNamed += d.PilotNamed
 		total.SpecSourced += d.SpecSourced
 		total.Implemented += d.Implemented
+		total.NotImplemented += d.NotImplemented
+		total.Deliberate += d.Deliberate
 		total.Unknown += d.Unknown
 	}
-	fmt.Fprintf(&b, "\n**Formal coverage:** the pinned documents state %d constraints in the Constraints subsections of their abstract-syntax clauses — %d `check*`, %d `derive*` and %d `validate*`. %d of them are named by a pilot validator and counted in the census above; %d are recorded from the documents alone, outside the census, of which %d are implemented and %d remain ❔ unknown.",
-		total.Stated, total.ByKind["check"], total.ByKind["derive"], total.ByKind["validate"], total.PilotNamed, total.SpecSourced, total.Implemented, total.Unknown)
+	fmt.Fprintf(&b, "\n**Formal coverage:** the pinned documents state %d constraints in the Constraints subsections of their abstract-syntax clauses — %d `check*`, %d `derive*` and %d `validate*`. %d of them are named by a pilot validator and counted in the census above; %d are recorded from the documents alone, outside the census, of which %d are implemented, %d are ❌ not implemented, %d are ⛔ deliberate and %d remain ❔ unknown.",
+		total.Stated, total.ByKind["check"], total.ByKind["derive"], total.ByKind["validate"], total.PilotNamed, total.SpecSourced, total.Implemented, total.NotImplemented, total.Deliberate, total.Unknown)
 	return b.String()
 }

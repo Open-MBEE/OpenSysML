@@ -1,0 +1,8 @@
+{
+  "rpc": "RenderView",
+  "model": "render_view_form.sysml",
+  "view": "FormDemo::structure",
+  "form": "png",
+  "expected_error": "unknown rendering form \"png\"; the forms are text, mermaid, markdown, dot, plantuml, d2, drawio, csv and tsv",
+  "expected_error_code": "invalid_argument"
+}

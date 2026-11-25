@@ -7,9 +7,7 @@ import (
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
-	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
@@ -18,6 +16,12 @@ func (s *Service) RenderView(ctx context.Context, req *pb.RenderViewRequest) (*p
 	if err := s.requireCapability(CapabilityRenderView); err != nil {
 		return nil, err
 	}
+	stated := renderViewRequest(req)
+	if stated.Written() {
+		if err := s.requireCapability(CapabilityRenderViewForm); err != nil {
+			return nil, err
+		}
+	}
 	cached, ok := s.cache.Get(req.ModelHash)
 	if !ok {
 		return nil, statusErrorf(connect.CodeNotFound, msgModelNotFound, req.ModelHash)
@@ -25,29 +29,23 @@ func (s *Service) RenderView(ctx context.Context, req *pb.RenderViewRequest) (*p
 	if req.View == "" {
 		return nil, statusError(connect.CodeInvalidArgument, "view is required")
 	}
-	ports, ok := view.ParsePorts(req.Ports)
-	if !ok {
-		return nil, statusError(connect.CodeInvalidArgument, (&view.UnknownPortsError{Name: req.Ports}).Error())
-	}
-	shown, err := view.ShownOf(req.Show)
-	if err != nil {
-		return nil, statusError(connect.CodeInvalidArgument, err.Error())
-	}
 	if req.Depth < 0 {
 		return nil, statusError(connect.CodeInvalidArgument, (&view.DepthError{Value: fmt.Sprint(req.Depth)}).Error())
 	}
-	compartments, ok := view.ParseCompartments(req.Compartments)
-	if !ok {
-		return nil, statusError(connect.CodeInvalidArgument, (&view.UnknownCompartmentsError{Name: req.Compartments}).Error())
+	document, documentAsked := queryResultDocumentForm(req.Form)
+	if documentAsked {
+		stated.Form = ""
+	}
+	form, options, err := stated.Options()
+	if err != nil {
+		return nil, statusError(connect.CodeInvalidArgument, err.Error())
 	}
 
 	worker, release := cached.worker()
 	defer release()
 	renderer := view.NewRenderer(worker.Model.Semantics(), worker.Model.Resolver(), cachedSourceText(cached))
 	renderer.SetDepth(int(req.Depth))
-	rendering, err := view.RenderNamed(renderer, req.View, func(name string) []*symbols.Symbol {
-		return symbolfacts.LookupNamed(cached.Index, name)
-	})
+	rendering, err := view.RenderNamed(renderer, req.View, cached.LookupDeclared)
 	if err != nil {
 		var selectionErr *view.SelectionError
 		if errors.As(err, &selectionErr) && selectionErr.Kind == view.SelectionNotFound {
@@ -55,7 +53,51 @@ func (s *Service) RenderView(ctx context.Context, req *pb.RenderViewRequest) (*p
 		}
 		return nil, statusError(connect.CodeInvalidArgument, err.Error())
 	}
-	return renderViewData(cached, rendering.DataWith(view.Options{Ports: ports, Show: shown, Compartments: compartments})), nil
+	response := renderViewData(cached, rendering.DataWith(options))
+	if !s.capabilities.has(CapabilityQueryResultView) {
+		response.Header = nil
+	}
+	if documentAsked && len(rendering.Header) > 0 {
+		if err := s.requireCapability(CapabilityQueryResultView); err != nil {
+			return nil, err
+		}
+		if response.Text, err = queryResultDocument(rendering, document); err != nil {
+			return nil, documentStatus(err)
+		}
+		return response, nil
+	}
+	if documentAsked {
+		// Another view takes the name as a view form, which html and asciidoc are not.
+		if form, err = view.ParseViewForm(req.Form); err != nil {
+			return nil, statusError(connect.CodeInvalidArgument, err.Error())
+		}
+	}
+	if form == "" {
+		return response, nil
+	}
+	if options.NeedsSites(form) {
+		options.Links.Sites = renderer.Sites(view.FileLocator(worker.Model.Semantics(), func(doc string) *source.LineIndex {
+			if sf := cached.document(doc); sf != nil {
+				return sf.Lines()
+			}
+			return nil
+		}))
+	}
+	written, err := rendering.WriteViewWith(form, options)
+	if err != nil {
+		return nil, statusError(connect.CodeInvalidArgument, err.Error())
+	}
+	response.Text = view.Artifact(written)
+	return response, nil
+}
+
+// renderViewRequest is the form and the options req states by name.
+func renderViewRequest(req *pb.RenderViewRequest) view.Request {
+	return view.Request{
+		Form: req.Form, Palette: req.Palette, Style: req.Style, Lines: req.Lines,
+		Direction: req.Direction, Link: req.Link, Unplaced: req.Unplaced,
+		Ports: req.Ports, Compartments: req.Compartments, Show: req.Show,
+	}
 }
 
 type renderViewOrigins struct {
@@ -104,6 +146,9 @@ func renderViewData(model *CachedModel, data view.Data) *pb.RenderViewResponse {
 		Rows:    make([]*pb.RenderRow, 0, len(data.Rows)),
 		Notes:   make([]*pb.RenderNote, 0, len(data.Notes)),
 	}
+	for _, field := range data.Header {
+		response.Header = append(response.Header, &pb.RenderHeaderField{Name: field.Name, Value: field.Value})
+	}
 	if data.Canvas != nil {
 		response.Canvas = &pb.RenderCanvas{
 			Unit: data.Canvas.Unit, Width: data.Canvas.Width, Height: data.Canvas.Height, HasSize: data.Canvas.HasSize,
@@ -114,6 +159,7 @@ func renderViewData(model *CachedModel, data view.Data) *pb.RenderViewResponse {
 			Id: node.ID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
 			Type: node.Type, Detail: node.Detail, Text: node.Text, StandIn: node.StandIn,
 			Parent: node.Parent, Compartment: node.Compartment, Origin: origins.span(node.Origin), Inherited: node.Inherited,
+			Arrow: node.Arrow, Parallel: node.Parallel,
 		}
 		for _, port := range node.Ports {
 			item.Ports = append(item.Ports, &pb.RenderPort{
@@ -153,6 +199,10 @@ func renderViewData(model *CachedModel, data view.Data) *pb.RenderViewResponse {
 			X: note.X, Y: note.Y, Width: note.Width, Height: note.Height, HasSize: note.HasSize,
 			Origin: origins.span(note.Origin),
 		})
+	}
+	if data.Frame != nil {
+		response.Frame = &pb.RenderFrame{Name: data.Frame.Name, Type: data.Frame.Type,
+			Exposes: data.Frame.Exposes, Filters: data.Frame.Filters, Annotations: data.Frame.Annotations}
 	}
 	if response.Notices == nil {
 		response.Notices = []string{}

@@ -52,11 +52,14 @@ export class QueryElement {
   readonly type: string;
   /** The selected properties it has; one it does not have is absent. */
   readonly properties: Readonly<Record<string, string>>;
+  /** The path a held object is answered under (`Garage::car.wheels[2]`); empty for a declared element. */
+  readonly path: string;
 
-  constructor(init: { id: string; type: string; properties: Record<string, string> }) {
+  constructor(init: { id: string; type: string; properties: Record<string, string>; path?: string }) {
     this.id = init.id;
     this.type = init.type;
     this.properties = { ...init.properties };
+    this.path = init.path ?? "";
   }
 
   /** Value of a selected property, or `fallback` if the element has none. */
@@ -70,7 +73,8 @@ export class QueryElement {
   }
 
   toString(): string {
-    return `${this.id} (${this.type})`;
+    const prefix = this.path ? `${this.path} ` : "";
+    return `${prefix}${this.id} (${this.type})`;
   }
 }
 
@@ -313,6 +317,7 @@ function compared(value: unknown): string {
 /** The elements a `QueryResponse` reports, as `QueryElement` records. */
 export function elementsOf(response: QueryResponse): QueryElement[] {
   return response.elements.map(
-    (element) => new QueryElement({ id: element.id, type: element.type, properties: element.properties }),
+    (element) =>
+      new QueryElement({ id: element.id, type: element.type, properties: element.properties, path: element.path }),
   );
 }

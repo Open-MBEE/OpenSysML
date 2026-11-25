@@ -231,7 +231,7 @@ func (s *Session) debugReport(lines []string) DebugReport {
 		report.PausedAt = exec.PausedAt()
 		report.Breakpoints = exec.Breakpoints()
 		for _, tok := range exec.Tokens() {
-			t := TokenReport{ID: tok.ID, Node: nodeLabel(tok.Location)}
+			t := TokenReport{ID: tok.ID, Node: nodeLabel(tok.Node())}
 			if awaiting := exec.Awaiting(tok); len(awaiting) > 0 {
 				t.ArrivedFrom = nodeLabel(tok.Via.Source)
 				for _, edge := range awaiting {

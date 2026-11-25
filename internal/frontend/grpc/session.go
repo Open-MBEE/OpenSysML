@@ -15,6 +15,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/protoconv"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast/astcodec"
@@ -259,7 +260,7 @@ func (ss *Session) FeatureValue(object int64, feature string) (*pb.FeatureValue,
 	// A member read as a whole undetermined value — a Kernel collection the runtime
 	// cannot enumerate — is sent as that value, not as an empty collection.
 	if held := fv.HeldValue(); held.Kind == runtime.ValUndetermined {
-		out.Value = ss.svc.valueToProto(ss.rt, held, ss.cached.Index)
+		out.Value = ss.svc.valueToProto(ss.rt, held, ss.cached)
 		return out, nil
 	}
 	if fv.Feature.Scalar() {
@@ -268,7 +269,7 @@ func (ss *Session) FeatureValue(object int64, feature string) (*pb.FeatureValue,
 		case fv.Value.Kind == runtime.ValInvalid:
 			out.Value = &pb.Value{Kind: &pb.Value_Unset{Unset: true}}
 		default:
-			out.Value = ss.svc.valueToProto(ss.rt, fv.Value, ss.cached.Index)
+			out.Value = ss.svc.valueToProto(ss.rt, fv.Value, ss.cached)
 		}
 		return out, nil
 	}
@@ -277,7 +278,7 @@ func (ss *Session) FeatureValue(object int64, feature string) (*pb.FeatureValue,
 		return nil, err
 	}
 	for _, elem := range elements {
-		out.Values = append(out.Values, ss.svc.valueToProto(ss.rt, elem, ss.cached.Index))
+		out.Values = append(out.Values, ss.svc.valueToProto(ss.rt, elem, ss.cached))
 	}
 	return out, nil
 }
@@ -339,7 +340,7 @@ func (ss *Session) Evaluate(expression, contextSymbolID string) (*pb.Value, erro
 	if evalErr != nil {
 		return nil, ss.runFailure(evalErr, "evaluation failed: %v")
 	}
-	return ss.svc.valueToProto(ss.rt, result, ss.cached.Index), nil
+	return ss.svc.valueToProto(ss.rt, result, ss.cached), nil
 }
 
 // Members lists the named members the named declaration's scope holds, in
@@ -359,7 +360,7 @@ func (ss *Session) Members(symbolID string) ([]SessionMember, error) {
 	}
 	var members []SessionMember
 	for _, member := range sym.Scope.Members() {
-		if member.Name == "" {
+		if !member.Named() {
 			continue
 		}
 		members = append(members, SessionMember{ID: ss.cached.Index.GetFQN(member), Name: member.Name, Kind: member.Kind.String()})
@@ -603,7 +604,7 @@ func (ss *Session) Perform(object int64, actionID string, inputs map[string]*pb.
 		Diagnostics: ss.diagnostics(notes),
 	}
 	for name, val := range exec.Results() {
-		out.Outputs[name] = ss.svc.valueToProto(ss.rt, val, ss.cached.Index)
+		out.Outputs[name] = ss.svc.valueToProto(ss.rt, val, ss.cached)
 	}
 	return out, nil
 }
@@ -617,28 +618,26 @@ func branchesOf(exec *runtime.ActionExecutor) []SessionBranch {
 		if len(t.Within) > 0 {
 			continue
 		}
-		if _, ok := t.Edge.Source.(*ast.DecisionNode); !ok {
+		source := graph.ID[t.Edge.Source]
+		if graph.Kinds[source] != program.NodeDecision {
 			continue
 		}
-		branch := SessionBranch{
-			Decision: runtime.ActionNodeName(t.Edge.Source),
-			Target:   runtime.ActionNodeName(t.Edge.Target),
-			Opening:  t.Edge.Source == gate,
-		}
-		if edge, ok := t.Edge.Decl.(*ast.ControlFlowEdge); ok {
-			branch.Else = edge.IsElse
-		}
-		out = append(out, branch)
+		out = append(out, SessionBranch{
+			Decision: graph.Origins[source].Name,
+			Target:   graph.OriginOf(t.Edge.Target).Name,
+			Opening:  source == gate,
+			Else:     t.Edge.Else,
+		})
 	}
 	return out
 }
 
 // gateOf is the first decision the action's start leads to without a choice on
-// the way, following each node's single succession; nil when there is none.
-func gateOf(graph *lower.ActionGraph) ast.Node {
+// the way, following each node's single succession; 0 when there is none.
+func gateOf(graph *lower.ActionGraph) program.NodeID {
 	var at ast.Node
 	for _, node := range graph.Nodes {
-		if _, ok := node.(*ast.InitialNode); ok {
+		if graph.Kinds[graph.ID[node]] == program.NodeInitial {
 			at = node
 			break
 		}
@@ -646,16 +645,16 @@ func gateOf(graph *lower.ActionGraph) ast.Node {
 	seen := map[ast.Node]bool{}
 	for at != nil && !seen[at] {
 		seen[at] = true
-		if _, ok := at.(*ast.DecisionNode); ok {
-			return at
+		if id := graph.ID[at]; graph.Kinds[id] == program.NodeDecision {
+			return id
 		}
 		edges := graph.Edges[at]
 		if len(edges) != 1 {
-			return nil
+			return 0
 		}
 		at = edges[0].Target
 	}
-	return nil
+	return 0
 }
 
 // choicesOf copies the choice points among a run's notes.
@@ -685,7 +684,7 @@ func (ss *Session) diagnostics(notes []runtime.RunNote) []*pb.Diagnostic {
 // declared resolves a symbol id in the session's model; a member a subtype
 // inherits is named by the subtype too (Sub::inherited).
 func (ss *Session) declared(symbolID string) (*symbols.Symbol, error) {
-	syms := ss.cached.LookupNamedMember(symbolID)
+	syms := ss.cached.LookupDeclaredMember(symbolID)
 	if len(syms) == 0 {
 		return nil, sessionFailuref("symbol not found: %s", symbolID)
 	}
@@ -729,7 +728,7 @@ func (ss *Session) value(name string, pv *pb.Value) (runtime.Value, error) {
 	if err := ss.svc.requireValueCapabilities(pv); err != nil {
 		return runtime.Value{}, err
 	}
-	val, err := protoconv.ProtoToRuntimeValue(ss.rt, pv, ss.cached.Index, ss.rt.Semantics())
+	val, err := protoconv.ProtoToRuntimeValueWith(ss.rt, pv, ss.cached.Index, ss.rt.Semantics(), ss.cached.SymbolContext())
 	if err != nil {
 		return runtime.Value{}, sessionFailuref("value %q could not be read: %v", name, err)
 	}

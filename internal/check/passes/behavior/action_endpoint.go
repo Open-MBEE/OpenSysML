@@ -172,14 +172,22 @@ func (c *actionEndpointChecker) check(
 	hasInitial bool,
 	ref ast.Node,
 	sourceEnd bool,
-	from ast.Node,
-	subject ast.Node,
+	from, subject ast.Node,
 ) {
 	if ref == nil || lower.ActionEndpointAccepted(nodes, hasInitial, ref, sourceEnd) {
 		return
 	}
-	// A feature chain rooted outside the action graph is legal notation; its
-	// runtime support belongs to feature-chain execution rather than this check.
+	// A chain through an object to an occurrence is legal notation (SysML v2
+	// §7.13.5, §7.17.4); one to a value is not, and one unfollowed is another pass's.
+	switch kind, reached := lower.ClassifyChainEnd(nodes, scope, c.ctx.Resolver(), ref); kind {
+	case lower.ChainEndAction, lower.ChainEndOccurrence:
+		return
+	case lower.ChainEndValue:
+		if !c.ctx.DownstreamOfFailure(reached.Decl) && !c.ctx.DownstreamOfFailure(subject) {
+			c.report(ref, successionEndpoint+actionEndpointText(ref)+" is not an action node")
+		}
+		return
+	}
 	if _, ok := ref.(*ast.FeatureChainExpr); ok {
 		return
 	}
@@ -205,6 +213,10 @@ func (c *actionEndpointChecker) check(
 				actionEndpointText(from)
 		}
 	}
+	c.report(ref, message)
+}
+
+func (c *actionEndpointChecker) report(ref ast.Node, message string) {
 	c.diags = append(c.diags, diag.Diagnostic{
 		Severity: diag.SeverityError,
 		Span:     ref.Span(),

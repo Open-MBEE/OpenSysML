@@ -49,6 +49,14 @@ package FoldedViews {
 		metadata Layout about vehicle { x = 0; y = 0; collapsed = true; }
 	}
 
+	// The same in a mixed rendering: engine stays a root of its own beside the folded vehicle.
+	view bothMixed {
+		expose vehicle;
+		expose vehicle::engine;
+		render OpenSysMLRenderings::asMixedDiagram;
+		metadata Layout about vehicle { x = 0; y = 0; collapsed = true; }
+	}
+
 	// A Layout binding only collapsed folds engine without placing it: the form
 	// lays every node out itself, and nothing is left undrawn for want of a place.
 	view foldOnly {

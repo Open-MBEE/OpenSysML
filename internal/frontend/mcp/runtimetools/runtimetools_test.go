@@ -300,7 +300,7 @@ func TestEveryToolTakingAModelTakesPathsAndSources(t *testing.T) {
 		t.Errorf("%d tools take a model, want the model tools: %v", modelTools, names)
 	}
 	slices.Sort(names)
-	want := []string{"apply_edits", "check_behavior", "compare_results", "convert", "diagnostics", "evaluate", "evaluate_calc", "execute_action", "execute_state", "explain_diagnostic", "export_graphs", "import_data", "instantiate", "list_engines", "migrate", "parse", "query", "record_run", "render_model_document", "render_model_view", "run_analysis", "run_document_query", "run_runs", "run_sweep", "self_check", "server_info", "symbol", "validate_instance", "verify_constraint", "verify_requirement", "verify_satisfaction"}
+	want := []string{"apply_edits", "check_behavior", "compare_results", "convert", "diagnostics", "element_properties", "evaluate", "evaluate_calc", "execute_action", "execute_state", "explain_diagnostic", "export_graphs", "import_data", "instance_paths", "instantiate", "list_engines", "migrate", "parse", "query", "record_run", "render_model_document", "render_model_view", "run_analysis", "run_document_query", "run_runs", "run_sweep", "self_check", "server_info", "symbol", "validate_instance", "verify_constraint", "verify_requirement", "verify_satisfaction"}
 	if !slices.Equal(names, want) {
 		t.Errorf("tools = %v, want %v", names, want)
 	}
@@ -388,6 +388,35 @@ func TestSymbolDescribesAnElement(t *testing.T) {
 	}
 }
 
+func TestElementPropertiesReadsAnElementBySpecName(t *testing.T) {
+	h := attach(t, newService(t))
+	var resp pb.GetElementPropertiesResponse
+	_, out := h.ok("element_properties", map[string]any{
+		"paths": []string{"demo.sysml"}, "elementId": "Demo::sedan", "properties": []string{"type", "name", "nowhere"},
+	}, &resp)
+	if resp.GetElement().GetMetaclass() != "PartUsage" || !strings.Contains(out, "PartUsage Demo::sedan (") {
+		t.Errorf("element = %v\n%s", resp.GetElement(), out)
+	}
+	if len(resp.GetProperties()) != 3 {
+		t.Fatalf("properties = %v", resp.GetProperties())
+	}
+	typed := resp.GetProperties()[0]
+	if len(typed.GetValues()) != 1 || typed.GetValues()[0].GetElement().GetQualifiedName() != "Demo::Vehicle" || !strings.Contains(out, "type = Demo::Vehicle\n") {
+		t.Errorf("type = %v\n%s", typed, out)
+	}
+	if name := resp.GetProperties()[1]; name.GetValues()[0].GetStringValue() != "sedan" || !strings.Contains(out, "name = \"sedan\"\n") {
+		t.Errorf("name = %v\n%s", name, out)
+	}
+	if undeclared := resp.GetProperties()[2]; undeclared.GetUnsupported() == "" || !strings.Contains(out, "nowhere: unsupported: PartUsage declares no property nowhere") {
+		t.Errorf("nowhere = %v\n%s", undeclared, out)
+	}
+	hash := h.parse()
+	_, out = h.ok("element_properties", map[string]any{"modelHash": hash, "elementId": "Demo::Nowhere"}, &resp)
+	if resp.GetError() == "" || !strings.HasPrefix(out, "error: ") {
+		t.Errorf("unknown element: %v\n%s", resp.GetError(), out)
+	}
+}
+
 func TestEvaluateSpellsTheValueAndTheError(t *testing.T) {
 	h := attach(t, newService(t))
 	hash := h.parse()
@@ -403,6 +432,11 @@ func TestEvaluateSpellsTheValueAndTheError(t *testing.T) {
 	_, out = h.ok("evaluate", map[string]any{"modelHash": hash, "expression": "nothing + 1"}, &resp)
 	if resp.GetError() == "" || !strings.HasPrefix(out, "error: ") {
 		t.Errorf("an unresolved name evaluated: %v\n%s", resp.GetResult(), out)
+	}
+	open := []map[string]any{{"path": "open.sysml", "text": "package Open { part def P { attribute m : ScalarValues::Real; } part p : P; }"}}
+	_, out = h.ok("evaluate", map[string]any{"sources": open, "expression": "Open::p.m + 1.0"}, &resp)
+	if u := resp.GetResult().GetUndetermined(); u.GetReason() != "p.m has no value in the model" || !strings.Contains(out, "\n<undetermined>: p.m has no value in the model\n") {
+		t.Errorf("an open value spelled without its reason: %v\n%s", resp.GetResult(), out)
 	}
 	if msg := h.fails("evaluate", map[string]any{"expression": "1"}); !strings.Contains(msg, "INVALID_ARGUMENT") {
 		t.Errorf("evaluate without a model: %s", msg)
@@ -657,6 +691,22 @@ func TestQueriesAndRenderings(t *testing.T) {
 	if !slices.Contains(view.GetShown(), "edge-labels") {
 		t.Errorf("show edge-labels: shown = %v", view.GetShown())
 	}
+	_, out = h.ok("render_model_view", map[string]any{
+		"modelHash": hash, "view": "#tree:Demo", "form": "dot", "palette": "okabe-ito", "lines": "ortho", "direction": "LR",
+	}, &view)
+	if !strings.Contains(view.GetText(), "\ndigraph {\n") || !strings.Contains(view.GetText(), "rankdir=LR, splines=ortho") ||
+		!strings.Contains(view.GetText(), `fillcolor="#`) || len(view.GetNodes()) == 0 || !strings.Contains(out, strings.TrimRight(view.GetText(), "\n")) {
+		t.Errorf("dot form: text %q\n%s", view.GetText(), out)
+	}
+	for form, args := range map[string]map[string]any{
+		"png": {"modelHash": hash, "view": "#tree:Demo", "form": "png"},
+		"svg": {"modelHash": hash, "view": "#tree:Demo", "form": "svg"},
+		"csv": {"modelHash": hash, "view": "#tree:Demo", "form": "csv"},
+	} {
+		if msg := h.fails("render_model_view", args); !strings.Contains(msg, "INVALID_ARGUMENT") {
+			t.Errorf("%s form: %s", form, msg)
+		}
+	}
 
 	var graphs pb.ExportGraphsResponse
 	_, out = h.ok("export_graphs", map[string]any{"modelHash": hash, "subject": "Demo::Lamp"}, &graphs)
@@ -668,6 +718,27 @@ func TestQueriesAndRenderings(t *testing.T) {
 	}
 	if err := json.Unmarshal([]byte(graphs.GetContent()), &exported); err != nil || len(exported.States) != 1 {
 		t.Errorf("exported content: %v, %d states", err, len(exported.States))
+	}
+}
+
+func TestRenderModelViewDrawsNoDeeperThanTheDepthAsked(t *testing.T) {
+	h := attach(t, newService(t))
+	hash := h.parse()
+	for _, form := range []string{"", "dot"} {
+		args := map[string]any{"modelHash": hash, "view": "#tree:Demo"}
+		if form != "" {
+			args["form"] = form
+		}
+		var every, shallow pb.RenderViewResponse
+		h.ok("render_model_view", args, &every)
+		args["depth"] = 1
+		h.ok("render_model_view", args, &shallow)
+		if len(shallow.GetNodes()) == 0 || len(shallow.GetNodes()) >= len(every.GetNodes()) {
+			t.Errorf("form %q at depth 1: %d nodes of %d", form, len(shallow.GetNodes()), len(every.GetNodes()))
+		}
+		if form != "" && strings.Count(shallow.GetText(), "\n") >= strings.Count(every.GetText(), "\n") {
+			t.Errorf("form %q at depth 1 is written no shorter:\n%s", form, shallow.GetText())
+		}
 	}
 }
 
@@ -824,27 +895,29 @@ func TestConvertMigrateAndApplyEditsAnswerText(t *testing.T) {
 		t.Errorf("convert without a target format: %s", msg)
 	}
 
-	xmi, err := os.ReadFile(migrateFixture)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(h.root, "v1.xmi"), xmi, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	var migrate pb.MigrateResponse
-	_, out = h.ok("migrate", map[string]any{"filePath": "v1.xmi", "toFormat": "sysml", "report": true}, &migrate)
-	if migrate.GetError() != "" || !strings.Contains(migrate.GetContent(), "occurrence def A") || migrate.GetReport().GetMapped() == 0 {
-		t.Errorf("migrate: error %q, mapped %d\n%s", migrate.GetError(), migrate.GetReport().GetMapped(), migrate.GetContent())
-	}
-	if !strings.Contains(out, migrate.GetReport().GetSummary()) || !strings.Contains(out, strings.TrimRight(migrate.GetContent(), "\n")) {
-		t.Errorf("text:\n%s", out)
-	}
-	h.ok("migrate", map[string]any{"content": base64.StdEncoding.EncodeToString(xmi), "fromFormat": "xmi", "toFormat": "sysml"}, &migrate)
-	if migrate.GetError() != "" || !strings.Contains(migrate.GetContent(), "occurrence def B") {
-		t.Errorf("migrate inline: error %q\n%s", migrate.GetError(), migrate.GetContent())
-	}
-	if msg := h.fails("migrate", map[string]any{"toFormat": "sysml"}); !strings.Contains(msg, "exactly one source") {
-		t.Errorf("migrate of nothing: %s", msg)
+	if migrationLinked {
+		xmi, err := os.ReadFile(migrateFixture)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(h.root, "v1.xmi"), xmi, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		var migrate pb.MigrateResponse
+		_, out = h.ok("migrate", map[string]any{"filePath": "v1.xmi", "toFormat": "sysml", "report": true}, &migrate)
+		if migrate.GetError() != "" || !strings.Contains(migrate.GetContent(), "occurrence def A") || migrate.GetReport().GetMapped() == 0 {
+			t.Errorf("migrate: error %q, mapped %d\n%s", migrate.GetError(), migrate.GetReport().GetMapped(), migrate.GetContent())
+		}
+		if !strings.Contains(out, migrate.GetReport().GetSummary()) || !strings.Contains(out, strings.TrimRight(migrate.GetContent(), "\n")) {
+			t.Errorf("text:\n%s", out)
+		}
+		h.ok("migrate", map[string]any{"content": base64.StdEncoding.EncodeToString(xmi), "fromFormat": "xmi", "toFormat": "sysml"}, &migrate)
+		if migrate.GetError() != "" || !strings.Contains(migrate.GetContent(), "occurrence def B") {
+			t.Errorf("migrate inline: error %q\n%s", migrate.GetError(), migrate.GetContent())
+		}
+		if msg := h.fails("migrate", map[string]any{"toFormat": "sysml"}); !strings.Contains(msg, "exactly one source") {
+			t.Errorf("migrate of nothing: %s", msg)
+		}
 	}
 
 	var edits pb.ApplyEditsResponse
@@ -1043,7 +1116,8 @@ func TestEveryCapabilityIsServedByATool(t *testing.T) {
 		}
 	}
 	for capability := range CapabilityTools {
-		if !slices.Contains(sysmlgrpc.Capabilities(), capability) {
+		leftOut := capability == sysmlgrpc.CapabilityMigrate && !migrationLinked
+		if !leftOut && !slices.Contains(sysmlgrpc.Capabilities(), capability) {
 			t.Errorf("CapabilityTools names %q, which the service does not report", capability)
 		}
 	}
@@ -1136,5 +1210,29 @@ func TestVerificationToolsPrintTheVerdictNotes(t *testing.T) {
 	}
 	if !strings.Contains(out, "\n  "+want) {
 		t.Errorf("text lacks the note:\n%s", out)
+	}
+}
+
+// A type and a general are shown by qualified name where the id GetSymbol takes is spelled otherwise.
+func TestSymbolShowsATypeAndAGeneralByQualifiedName(t *testing.T) {
+	h := attach(t, newService(t))
+	const model = `part def Col__V__c_pend0 { }
+package Col { port def P; part def V { port q : P; port r : P; connection c connect q to r; } }
+package Uses {
+	part def '@2'; part filler; part;
+	part escaped : Col__V__c_pend0; part def EscapedSub :> Col__V__c_pend0;
+	part quoted : '@2'; part def QuotedSub :> '@2';
+}
+`
+	source := []map[string]any{{"path": "", "text": model}}
+	for user, want := range map[string]string{
+		"Uses::escaped": "type: Col__V__c_pend0\ntyping Col__V__c_pend0\n", "Uses::EscapedSub": "specializes Col__V__c_pend0\n",
+		"Uses::quoted": "type: @2 (Uses::@2)\ntyping Uses::@2\n", "Uses::QuotedSub": "specializes Uses::@2\n",
+	} {
+		var resp pb.SymbolResponse
+		_, out := h.ok("symbol", map[string]any{"sources": source, "symbolId": user}, &resp)
+		if !strings.Contains(out, want) {
+			t.Errorf("symbol %s does not show %q:\n%s", user, want, out)
+		}
 	}
 }

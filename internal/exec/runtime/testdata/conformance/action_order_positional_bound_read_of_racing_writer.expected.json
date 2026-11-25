@@ -7,7 +7,6 @@
 		{
 			"outputs": {
 				"x": {"type": "Integer", "value": 1},
-				"yBase": {"type": "Sequence", "elements": [{"type": "Integer", "value": 2}]},
 				"yRace": {"type": "Integer", "value": 2},
 				"z": {"type": "Integer", "value": 2}
 			}
@@ -15,12 +14,11 @@
 		{
 			"outputs": {
 				"x": {"type": "Integer", "value": 2},
-				"yBase": {"type": "Sequence", "elements": [{"type": "Integer", "value": 3}]},
 				"yRace": {"type": "Integer", "value": 3},
 				"z": {"type": "Integer", "value": 3}
 			}
 		}
 	],
 	"admissible": "A feature valued by an expression stands on what its expression reads",
-	"orderDependent": {"x": 2, "yBase": 2, "yRace": 2, "z": 2}
+	"orderDependent": {"x": 2, "yRace": 2, "z": 2}
 }

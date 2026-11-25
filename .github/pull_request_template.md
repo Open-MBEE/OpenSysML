@@ -7,7 +7,8 @@
 ## Specification basis
 
 <!-- For a behaviour change: the clause it implements (document, version, section), and whether it
-     moves a row in docs/project/spec-compliance.md. Delete this section for a pure refactor,
+     moves a row in docs/project/spec-compliance/ (the area's source; never commit the combined
+     docs/project/spec-compliance.md). Delete this section for a pure refactor,
      tooling or docs change. -->
 
 ## How it was verified

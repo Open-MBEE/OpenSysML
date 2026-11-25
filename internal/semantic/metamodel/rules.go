@@ -32,15 +32,17 @@ var servedRules = []Rule{
 	{DefiningClass: "Documentation", Property: "documentedElement", Basis: "owning namespace of the Documentation"},
 	{DefiningClass: "Conjugation", Property: "owningType", Basis: "opposite of Type::ownedConjugator"},
 	{DefiningClass: "Disjoining", Property: "owningType", Basis: "opposite of Type::ownedDisjoining"},
-	{DefiningClass: "Differencing", Property: "owningType", Basis: "opposite of Type::ownedDifferencing"},
 	{DefiningClass: "FeatureTyping", Property: "owningFeature", Basis: "opposite of Feature::ownedTyping"},
 	{DefiningClass: "FeatureInverting", Property: "owningFeature", Basis: "opposite of Feature::ownedFeatureInverting"},
 	{DefiningClass: "CrossSubsetting", Property: "owningFeature", Basis: "opposite of Feature::ownedCrossSubsetting"},
+	{DefiningClass: "CrossSubsetting", Property: "crossingFeature", Basis: "owning related element of the CrossSubsetting"},
+	{DefiningClass: "Unioning", Property: "typeUnioned", Basis: "owning related element of the Unioning"},
+	{DefiningClass: "Intersecting", Property: "typeIntersected", Basis: "owning related element of the Intersecting"},
+	{DefiningClass: "Differencing", Property: "typeDifferenced", Basis: "owning related element of the Differencing"},
 	{DefiningClass: "Subsetting", Property: "owningFeature", Basis: "opposite of Feature::ownedSubsetting"},
 	{DefiningClass: "Redefinition", Property: "owningFeature", Basis: "opposite of Feature::ownedRedefinition"},
 	{DefiningClass: "ReferenceSubsetting", Property: "owningFeature", Basis: "opposite of Feature::ownedReferenceSubsetting"},
 	{DefiningClass: "ReferenceSubsetting", Property: "referencingFeature", Basis: "owning related element of the ReferenceSubsetting"},
-	{DefiningClass: "FeatureChaining", Property: "owningFeature", Basis: "opposite of Feature::ownedFeatureChaining"},
 	{DefiningClass: "FeatureChaining", Property: "featureChained", Basis: "first endpoint of FeatureChaining"},
 	{DefiningClass: "TypeFeaturing", Property: "owningFeatureOfType", Basis: "opposite of Feature::ownedTypeFeaturing"},
 	{DefiningClass: "FeatureMembership", Property: "owningType", Basis: "owning namespace of the FeatureMembership"},
@@ -68,12 +70,13 @@ var servedRules = []Rule{
 	{DefiningClass: "Behavior", Property: "step", Constraint: "deriveBehaviorStep"},
 	{DefiningClass: "Behavior", Property: "parameter", Basis: "redefines Type::directedFeature"},
 	{DefiningClass: "Step", Property: "behavior", Constraint: "deriveStepBehavior"},
-	{DefiningClass: "Step", Property: "parameter", Basis: "owned ParameterMembership members of the Step"},
+	{DefiningClass: "Step", Property: "parameter", Basis: "redefines Type::directedFeature"},
 	{DefiningClass: "Expression", Property: "function", Basis: "function type of the expression"},
 	{DefiningClass: "Expression", Property: "result", Constraint: "deriveExpressionResult"},
 	{DefiningClass: "FeatureReferenceExpression", Property: "referent", Constraint: "deriveFeatureReferenceExpressionReferent"},
 	{DefiningClass: "FeatureChainExpression", Property: "targetFeature", Constraint: "deriveFeatureChainExpressionTargetFeature"},
 	{DefiningClass: "FeatureChainExpression", Property: "operator", Basis: `FeatureChainExpression operator is "."`},
+	{DefiningClass: "MetadataAccessExpression", Property: "referencedElement", Constraint: "deriveMetadataAccessExpressionReferencedElement"},
 	{DefiningClass: "InvocationExpression", Property: "operand", Basis: "receiver operand of the invocation"},
 	{DefiningClass: "InstantiationExpression", Property: "argument", Constraint: "deriveInvocationExpressionArgument"},
 	{DefiningClass: "InstantiationExpression", Property: "instantiatedType", Constraint: "deriveInstantiationExpressionInstantiatedType"},
@@ -82,6 +85,7 @@ var servedRules = []Rule{
 	{DefiningClass: "AcceptActionUsage", Property: "payloadArgument", Constraint: "deriveAcceptActionUsagePayloadArgument"},
 	{DefiningClass: "AcceptActionUsage", Property: "payloadParameter", Constraint: "deriveAcceptActionUsagePayloadParameter"},
 	{DefiningClass: "AcceptActionUsage", Property: "receiverArgument", Constraint: "deriveAcceptActionUsageReceiverArgument"},
+	{DefiningClass: "ForLoopActionUsage", Property: "loopVariable", Constraint: "deriveForLoopActionUsageLoopVariable"},
 	{DefiningClass: "SendActionUsage", Property: "payloadArgument", Constraint: "deriveSendActionUsagePayloadArgument"},
 	{DefiningClass: "SendActionUsage", Property: "senderArgument", Constraint: "deriveSendActionUsageSenderArgument"},
 	{DefiningClass: "SendActionUsage", Property: "receiverArgument", Constraint: "deriveSendActionUsageReceiverArgument"},
@@ -212,8 +216,6 @@ var servedRules = []Rule{
 	{DefiningClass: "Type", Property: "ownedDisjoining", Constraint: "deriveTypeOwnedDisjoining"},
 	{DefiningClass: "Type", Property: "ownedIntersecting", Constraint: "deriveTypeOwnedIntersecting"},
 	{DefiningClass: "Type", Property: "ownedUnioning", Constraint: "deriveTypeOwnedUnioning"},
-	{DefiningClass: "Intersecting", Property: "owningType", Basis: "opposite of Type::ownedIntersecting"},
-	{DefiningClass: "Unioning", Property: "owningType", Basis: "opposite of Type::ownedUnioning"},
 	{DefiningClass: "Type", Property: "unioningType", Constraint: "deriveTypeUnioningType"},
 	{DefiningClass: "Usage", Property: "definition", Basis: "redefines Feature::type"},
 	{DefiningClass: "Usage", Property: "directedUsage", Constraint: "deriveUsageDirectedUsage"},
@@ -246,7 +248,6 @@ var servedRules = []Rule{
 	{DefiningClass: "Usage", Property: "nestedVerificationCase", Constraint: "deriveUsageNestedVerificationCase"},
 	{DefiningClass: "Usage", Property: "nestedView", Constraint: "deriveUsageNestedView"},
 	{DefiningClass: "Usage", Property: "nestedViewpoint", Constraint: "deriveUsageNestedViewpoint"},
-	{DefiningClass: "Usage", Property: "ownedUsage", Basis: "redefines Namespace::ownedMember"},
 	{DefiningClass: "Usage", Property: "owningDefinition", Basis: "owningType when it is a Definition"},
 	{DefiningClass: "Usage", Property: "owningUsage", Basis: "owningType when it is a Usage"},
 	{DefiningClass: "Usage", Property: "usage", Constraint: "deriveUsageUsage"},
@@ -269,7 +270,7 @@ var servedRules = []Rule{
 	{DefiningClass: "Flow", Property: "targetInputFeature", Constraint: "deriveFlowTargetInputFeature"},
 	{DefiningClass: "Flow", Property: "interaction", Basis: "Interaction-valued typing of the Flow"},
 	{DefiningClass: "ConjugatedPortTyping", Property: "portDefinition", Constraint: "deriveConjugatedPortTypingPortDefinition"},
-	{DefiningClass: "ConjugatedPortTyping", Property: "conjugatedPortDefinition", Basis: "redefines FeatureTyping::type as a ConjugatedPortDefinition"},
+	{DefiningClass: "ConjugatedPortTyping", Property: "conjugatedPortDefinition", Basis: "target of the ConjugatedPortTyping, the ConjugatedPortDefinition typing its feature (redefines FeatureTyping::type)"},
 	{DefiningClass: "PortDefinition", Property: "conjugatedPortDefinition", Constraint: "derivePortDefinitionConjugatedPortDefinition"},
 	{DefiningClass: "ConjugatedPortDefinition", Property: "originalPortDefinition", Basis: "owningNamespace of the ConjugatedPortDefinition"},
 	{DefiningClass: "PortConjugation", Property: "originalPortDefinition", Basis: "source endpoint of PortConjugation"},
@@ -404,7 +405,6 @@ Flow::sourceOutputFeature
 Flow::targetInputFeature
 FlowDefinition::flowEnd
 FlowUsage::flowDefinition
-ForLoopActionUsage::loopVariable
 ForLoopActionUsage::seqArgument
 FramedConcernMembership::ownedConcern
 FramedConcernMembership::referencedConcern
@@ -426,7 +426,6 @@ InvocationExpression::operand
 ItemUsage::itemDefinition
 LoopActionUsage::bodyAction
 Membership::memberElementId
-MetadataAccessExpression::referencedElement
 MetadataFeature::metaclass
 MetadataUsage::metadataDefinition
 MultiplicityRange::bound

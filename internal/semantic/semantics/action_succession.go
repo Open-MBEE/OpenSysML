@@ -151,6 +151,9 @@ func (m *Model) DeclaredSuccessions(scope *symbols.Scope, owner *symbols.Symbol,
 			var source ActionSuccessionEnd
 			if n.Source != nil {
 				source = m.referenceEnd(scope, owner, n.Source)
+			} else if before := ast.ImplicitTransitionSource(members, n); ast.LeavableByTransition(before) {
+				// A sourceless transition leaves the closest state usage before it (SysML v2 §7.18.3).
+				source = ActionSuccessionEnd{Node: before}
 			}
 			target := m.referenceEnd(scope, owner, n.Target)
 			target.Multiplicity = n.TargetMultiplicity
@@ -290,4 +293,18 @@ func ActionDeclaration(decl ast.Node) bool {
 		return d.Guard != nil
 	}
 	return false
+}
+
+// InitialNodeTarget is the action a one-ended `first a;` marker names: the
+// declaration or inherited member under that name, which the marker is a Membership of.
+func (m *Model) InitialNodeTarget(sym *symbols.Symbol) (*symbols.Symbol, bool) {
+	if m == nil || sym == nil {
+		return nil, false
+	}
+	node, ok := sym.Decl.(*ast.InitialNode)
+	if !ok || symbols.FirstNamesSource(node) || node.Guard != nil {
+		return nil, false
+	}
+	target := m.actionSymbolNamed(sym.OwnerScope, m.ownerOf(sym), sym.Name)
+	return target, target != nil
 }

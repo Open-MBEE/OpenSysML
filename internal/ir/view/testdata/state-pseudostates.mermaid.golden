@@ -27,94 +27,95 @@ config:
     transitionLabelColor: "#000000"
     labelBackgroundColor: "#FFFFFF"
     specialStateColor: "#181818"
+title: "«view» NotationViews::alignmentView : StateTransitionView"
 ---
 %% NotationViews::alignmentView — state rendering (view def StateTransitionView)
 %% not represented: 2 fork/join name(s) (spread, collect); Mermaid's fork bar draws no label
 %% not represented: 1 note(s) not drawn: Mermaid state notes need an anchor to a declared state; free, edge-anchored and pseudostate notes have none
 %% canvas: w=1000 h=400
 %% layout: n0 x=0 y=0 w=1000 h=400
-%% layout: n18 x=40 y=30 w=15 h=15
+%% layout: n25 x=40 y=30 w=15 h=15
 %% layout: n1 x=20 y=100 w=140 h=70
-%% layout: n2 x=260 y=100 w=200 h=110
-%% layout: n3 x=520 y=20 w=460 h=360
-%% layout: n19 x=560 y=60 w=15 h=15
-%% layout: n4 x=540 y=120 w=120 h=60
-%% layout: n5 x=700 y=200 w=120 h=60
-%% layout: n6 x=790 y=270 w=120 h=100
-%% layout: n7 x=790 y=290 w=120 h=40
-%% layout: n9 x=810 y=295 w=80 h=30
-%% layout: n8 x=790 y=330 w=120 h=40
-%% layout: n10 x=810 y=335 w=80 h=30
-%% layout: n12 x=590 y=220 w=20 h=20
-%% layout: n13 x=592 y=290 w=16 h=16
-%% layout: n14 x=700 y=293 w=60 h=10
-%% layout: n15 x=930 y=250 w=10 h=120
-%% layout: n16 x=860 y=80 w=20 h=20
-%% layout: n17 x=920 y=80 w=20 h=20
-%% layout: n11 x=350 y=320 w=20 h=20
-%% route: n18->n1 47,45 47,100
-%% route: n19->n4 567,75 567,120
-%% route: n1->n2 160,130 260,130
-%% route: n1->n17 160,110 200,110 200,5 930,5 930,80
-%% route: n2->n11 360,210 360,320
-%% route: n2->n1 260,180 90,180 90,170
-%% route: n2->n3 460,130 520,130
-%% route: n2->n16 460,110 490,110 490,10 870,10 870,80
-%% route: n3->n2 520,180 460,180
-%% route: n4->n12 600,180 600,220
-%% route: n9->n15 890,310 930,310
-%% route: n10->n15 890,350 930,350
-%% route: n12->n5 610,230 700,230
-%% route: n12->n13 600,240 600,290
-%% route: n13->n14 608,298 700,298
-%% route: n14->n9 760,298 785,298 785,310 810,310
-%% route: n14->n10 760,298 780,298 780,350 810,350
-%% route: n15->n5 935,250 935,230 820,230
-%% route: n16->n4 860,90 660,90 660,120
-%% route: n17->n5 930,100 930,140 780,140 780,200
+%% layout: n3 x=260 y=100 w=200 h=110
+%% layout: n7 x=520 y=20 w=460 h=360
+%% layout: n26 x=560 y=60 w=15 h=15
+%% layout: n9 x=540 y=120 w=120 h=60
+%% layout: n11 x=700 y=200 w=120 h=60
+%% layout: n13 x=790 y=270 w=120 h=100
+%% layout: n14 x=790 y=290 w=120 h=40
+%% layout: n16 x=810 y=295 w=80 h=30
+%% layout: n15 x=790 y=330 w=120 h=40
+%% layout: n17 x=810 y=335 w=80 h=30
+%% layout: n19 x=590 y=220 w=20 h=20
+%% layout: n20 x=592 y=290 w=16 h=16
+%% layout: n21 x=700 y=293 w=60 h=10
+%% layout: n22 x=930 y=250 w=10 h=120
+%% layout: n23 x=860 y=80 w=20 h=20
+%% layout: n24 x=920 y=80 w=20 h=20
+%% layout: n18 x=350 y=320 w=20 h=20
+%% route: n25->n1 47,45 47,100
+%% route: n26->n9 567,75 567,120
+%% route: n1->n3 160,130 260,130
+%% route: n1->n24 160,110 200,110 200,5 930,5 930,80
+%% route: n3->n18 360,210 360,320
+%% route: n3->n1 260,180 90,180 90,170
+%% route: n3->n7 460,130 520,130
+%% route: n3->n23 460,110 490,110 490,10 870,10 870,80
+%% route: n7->n3 520,180 460,180
+%% route: n9->n19 600,180 600,220
+%% route: n16->n22 890,310 930,310
+%% route: n17->n22 890,350 930,350
+%% route: n19->n11 610,230 700,230
+%% route: n19->n20 600,240 600,290
+%% route: n20->n21 608,298 700,298
+%% route: n21->n16 760,298 785,298 785,310 810,310
+%% route: n21->n17 760,298 780,298 780,350 810,350
+%% route: n22->n11 935,250 935,230 820,230
+%% route: n23->n9 860,90 660,90 660,120
+%% route: n24->n11 930,100 930,140 780,140 780,200
 stateDiagram-v2
-  state "«state def» Alignment" as n0 {
-    state "«state»<br>Initializing<br>initial, do / Initialize" as n1
-    state "«state»<br>Aligning<br>entry / prime, do / align, exit / Settle" as n2
-      note right of n2
+  state "«state def» Alignment<br>state transition" as n0 {
+    state "«state»<br>Initializing<br>initial<br>do<br>action : Initialize" as n1
+    state "«state»<br>Aligning<br>entry<br>action prime<br>do<br>action align : Align<br>exit<br>action : Settle" as n3
+      note right of n3
         guide on the current star
       end note
-    state "«state» Phasing<br>entry / Initialize" as n3 {
-      state "«state»<br>Coarse<br>initial, do / Align" as n4
-      state "«state»<br>Fine<br>do / Align" as n5
-      state "«state» Tracking" as n6 {
-        state "«region» Guiding" as n7 {
-          state "«state»<br>guide" as n9
+    state "«state» Phasing<br>entry<br>action : Initialize<br>state transition" as n7 {
+      state "«state»<br>Coarse<br>initial<br>do<br>action : Align" as n9
+      state "«state»<br>Fine<br>do<br>action : Align" as n11
+      state "«state» Tracking<br>«parallel»<br>state transition" as n13 {
+        state "«region» Guiding" as n14 {
+          state "«state»<br>guide" as n16
         }
-        state "«region» Focusing" as n8 {
-          state "«state»<br>focus" as n10
+        state "«region» Focusing" as n15 {
+          state "«state»<br>focus" as n17
         }
       }
-      state n12 <<choice>>
-      state n13 <<choice>>
-      state n14 <<fork>>
-      state n15 <<join>>
-      state "H" as n16
-      state "H*" as n17
-      [*] --> n4
+      state n19 <<choice>>
+      state n20 <<choice>>
+      state n21 <<fork>>
+      state n22 <<join>>
+      state "H" as n23
+      state "H*" as n24
+      [*] --> n9
     }
     [*] --> n1
-    n2 --> [*] : accept Done [timer #gt; 0]
+    n3 --> [*] : accept Done [timer #gt; 0]
   }
-  n1 --> n2 : accept Done
-  n1 --> n17 : accept Recall
-  n2 --> n1 : accept Abort / retry
-  n2 --> n3 : accept Phase
-  n2 --> n16 : accept Resume
-  n3 --> n2 : accept Abort
-  n4 --> n12 : accept Done
-  n9 --> n15
-  n10 --> n15
-  n12 --> n5 : [timer #gt; 0]
-  n12 --> n13
-  n13 --> n14
-  n14 --> n9
-  n14 --> n10
-  n15 --> n5
-  n16 --> n4
-  n17 --> n5
+  n1 --> n3 : accept Done
+  n1 --> n24 : accept Recall
+  n3 --> n1 : accept Abort / retry
+  n3 --> n7 : accept Phase
+  n3 --> n23 : accept Resume
+  n7 --> n3 : accept Abort
+  n9 --> n19 : accept Done
+  n16 --> n22
+  n17 --> n22
+  n19 --> n11 : [timer #gt; 0]
+  n19 --> n20
+  n20 --> n21
+  n21 --> n16
+  n21 --> n17
+  n22 --> n11
+  n23 --> n9
+  n24 --> n11

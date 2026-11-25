@@ -63,7 +63,7 @@ func (e *executor) evaluateTree(expression queryplan.Expression) (sequence, erro
 		return sequence{}, err
 	}
 	for i, node := range nodes {
-		parent := -1
+		var parent int
 		if first := index[keyOfRow(node.value)]; first != i {
 			parent = nodes[first].parent
 		} else if parent = e.owningNode(node.value, index); parent < 0 {

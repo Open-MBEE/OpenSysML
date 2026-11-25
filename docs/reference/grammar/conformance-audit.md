@@ -9,7 +9,7 @@ against the pinned OMG grammars, and states the resulting policy for each.
 ## Ground truth
 
 The grammars are the ones at the pin in `scripts/pilot-pin.sh`
-(`PILOT_TAG=2026-09`, `Systems-Modeling/SysML-v2-Pilot-Implementation`), read
+(`PILOT_TAG=2026-09.1`, `Systems-Modeling/SysML-v2-Pilot-Implementation`), read
 from a sparse clone rather than vendored:
 
 - `org.omg.kerml.xtext/src/org/omg/kerml/xtext/KerML.xtext` — cited as `KerML.xtext`
@@ -109,6 +109,7 @@ one state substate per region, `entry; then <state>;`, a transition targeting
 |-----------|------------------------|
 | `choice <name>;`, `junction <name>;` | no literal; no pseudostate production of any kind. Deprecated: write `#choice state <name>;` / `#junction state <name>;`, the `StateMachines` library's `ChoiceMetadata`/`JunctionMetadata` (with `private import StateMachines::*;`) — the warning names the replacement and a quick-fix rewrites the member and adds the import |
 | `<feature>#( <index> )` as a connector end — `connect s.y#(1) to k.u`, and the same end in `connection … connect`, `interface`, `allocate`/`allocation`, `bind`/`binding`, a structural `flow` and KerML's `connector`/`binding` | a `ConnectorEnd` is a feature chain (`SysML.xtext` `ConnectorEnd: ... ownedRelationship += OwnedReferenceSubsetting`, SysML v2 §8.2.2.13.1) and `#(` is the index operator of an expression (`KerML.xtext` `IndexExpression`, KerML §8.2.5.8.2), so no production puts one after the other. OpenSysML reads it as the end attaching the selected element (1-based, as `#(` indexes everywhere) with multiplicity one and the element's type; the index is admitted on the chain's last segment only (`a.b#(1).c` stays the expression-end error), and not on a succession, transition or action-body flow end; a message sent through the connection reaches the port the end selects from, as the runtime delivers to a port of an object, not to one element of it. The standard spelling is a feature holding the element, connected whole |
+| the escape sequence `\r` in a string or an unrestricted name — `"a\rb"`, `'a\rb'` | KerML 1.1 Beta 2 §8.2.2.3 Table 4 (Escape Sequences) lists `\'`, `\"`, `\b`, `\f`, `\t`, `\n` and `\\` only, and §8.2.2.5 gives `STRING_VALUE` the same `ESCAPE_SEQUENCE`. Unlike the other rows this one *is* a production of the pinned grammar (`KerMLExpressions.xtext:562-566` admits `\r` in `STRING_VALUE` and `UNRESTRICTED_NAME`), so the pinned validator accepts it and the text is read, as a carriage return, in either mode; the warning marks the gap between the pilot's terminal and the specification's table. Any escape the lexer admits beyond Table 4 is reported from the one table that decides what it admits (`internal/syntax/source/string.go` `escapes`); an escape outside both, such as `\q`, stays a lexical error |
 | `history <name>;`, `shallow history <name>;`, `deep history <name>;` | same. Deprecated: write `#shallowHistory state <name>;` / `#deepHistory state <name>;` (`ShallowHistoryMetadata`/`DeepHistoryMetadata`) |
 | `analysis case def <name>`, `verification case def <name>`, `analysis case <name>`, `verification case <name>` | no production spells `case` after either word. SysML v2.1 Beta 2 §8.2.2.23: `AnalysisCaseDefinition = OccurrenceDefinitionPrefix 'analysis' 'def' DefinitionDeclaration CaseBody`, `AnalysisCaseUsage = OccurrenceUsagePrefix 'analysis' ConstraintUsageDeclaration CaseBody`; §8.2.2.24: `VerificationCaseDefinition = OccurrenceDefinitionPrefix 'verification' 'def' DefinitionDeclaration CaseBody`, `VerificationCaseUsage = OccurrenceUsagePrefix 'verification' ConstraintUsageDeclaration CaseBody`. The pinned pilot reports `no viable alternative at input 'case'`. OpenSysML reads the declaration as the analysis or verification case its first word declares and keeps both words as the keyword written; the warning spans the two words and a quick-fix drops `case` |
 | `;` after a body's closing bare condition: `constraint def K { in x : Real; x > 0.0; }`, the body of a constraint usage or of `assert constraint { … }`, and a KerML `predicate` or `inv` body | the closing condition is the body's result expression, and the production ends with it. SysML v2.1 Beta 2 §8.2.2.19: `CalculationBodyPart = CalculationBodyItem* ( ownedRelationship += ResultExpressionMember )?`, `ResultExpressionMember = MemberPrefix? ownedRelatedElement += OwnedExpression` (§8.2.2.20 ends `ConstraintDefinition` and `ConstraintUsage` in that `CalculationBody`); KerML 1.1 Beta 2 §8.2.5.7.1: `FunctionBodyPart = ( TypeBodyElement \| ownedRelationship += ReturnFeatureMember )* ( ownedRelationship += ResultExpressionMember )?`, the body an `Invariant` and a `Predicate` share. The pinned pilot reports `extraneous input ';' expecting '}'`. The terminator stays on the member, the warning sits on it and a quick-fix deletes it. A `;` between two conditions separates the conjunction OpenSysML reads and is not reported here. The `;` after a reference an `assert` or `assume` states (`assert c;`) ends that usage as the grammar does and is silent |
@@ -200,18 +201,24 @@ transition's ends, which `TransitionUsage` (`:1851-1880`) writes with `first` an
 errors now, and `initial`, which neither grammar reserves, stays an ordinary
 name.
 
-### KerML-only notation in a `.sysml` file — warning `kerml-notation`
+### KerML-only notation in a `.sysml` file — `kerml-notation`
 
 `namespace` is a literal in `KerML.xtext` only (`:125`); `SysML.xtext` does not have
 it. A `.sysml` file's root is `RootNamespace : PackageBodyElement*`
 (`SysML.xtext:38`), which allows package members, element filters, aliases and
 imports, but not a `namespace` declaration. Both spellings, `namespace N;` and
 `namespace N { … }`, are legal KerML, so the semicolon form is not the problem;
-the problem is using the production in a SysML file at all. It is still parsed,
-with a warning in `.sysml` and silently in `.kerml`.
+the problem is using the production in a SysML file at all. SysML does not reserve
+the word either (SysML 8.2.2.1.2), and its root and package bodies list no namespace
+declaration (8.2.2.5.1, 8.2.2.5.2), so the declaration is an error in a `.sysml` file
+in every mode, as it is in the pilot (`no viable alternative at input 'N'`), and
+silent in `.kerml`. It is still parsed, and the error describes the writing, so the
+members of the namespace are resolved and checked as before.
 
 The same holds for every declaration keyword `KerML.xtext` spells and `SysML.xtext`
-does not. `source.IsKeywordIn` reads both pinned keyword sets, so a word that is a
+does not: such a declaration is an error in either mode. SysML v2 §8.2.2.1.2 gives SysML the lexical structure of KerML with its own
+reserved keywords, none of these among them, and no production of `SysML.xtext` starts
+with one. The declaration is still parsed, so the editor and later checks keep working. `source.IsKeywordIn` reads both pinned keyword sets, so a word that is a
 KerML keyword and not a SysML one is reported on its declaration — `connector`
 (`KerML.xtext:824`), `class` (`:795`), `struct`, `datatype`, `classifier`,
 `subclassifier`, `feature` (`:537`), `step` (`:911`), `expr`, `bool`, `behavior`,
@@ -236,7 +243,7 @@ and the other prefixes. The message names the SysML spelling where there is one:
 The parser keeps accepting the keywords whatever the file kind where a named
 declaration follows them — a name, a short name, prefix metadata or a further
 declaration keyword (`step s;`, `step <s>;`, `step #M s;`, `feature redefines x`) —
-so the finding is the notation pass's (warning by default, error under `-strict`),
+so the finding is the notation pass's (an error in either mode),
 the members of a reported declaration are not reported again, and there is no
 `-fix`: swapping the keyword changes what kind of element is declared. The pinned
 pilot rejects each of these in a `.sysml` file (`no viable alternative at input …`,
@@ -252,7 +259,7 @@ usages named `step` and `namespace`, clean in the pilot too. An anonymous KerML
 declaration therefore has no reading in a `.sysml` file — `inv { x > 0 }` is the
 syntax error `no viable alternative at input '>'` and `connector [1] a to b;` the one
 at `a` in `validate-sysml-batch`, and `expected a body member` here — so the
-`kerml-notation` warning covers the named declarations only.
+`kerml-notation` error covers the named declarations only.
 `binding`/`bind`, `succession`, `connection`/`connect`, `flow`, `interface` and
 `allocate` are SysML productions and stay silent.
 
@@ -288,9 +295,12 @@ in a `.sysml` file, the same treatment `namespace` gets.
 `':' | 'defined' 'by'`; `SysML.xtext` has no `typed` literal at all, and the
 pinned pilot answers `part p typed by P;` in a `.sysml` file with
 `no viable alternative at input 'typed'`. The parser reads the three spellings
-alike and records the KerML one on the typing, and the pass warns it as
-`kerml-notation` in a `.sysml` file with a fix that writes `defined by`;
-`.kerml` files are silent. A metadata usage's typing (`@ m typed by Tag;`,
+alike and records the KerML one on the typing, and the pass rejects it as
+`typing-keyword` in a `.sysml` file, an error with or without `-strict`, with a
+fix that writes `defined by`; `.kerml` files are silent. Unlike `namespace` or
+`featured by`, the construct is one SysML has, so the SysML specification itself
+names its spelling (§8.2.2.1.2 `DEFINED_BY`, §8.2.2.6.5 `TypedBy`) and no
+leniency is owed a second one. A metadata usage's typing (`@ m typed by Tag;`,
 `SysML.xtext:150` `DefinedByKeyword`) is the same case.
 
 ## Judgment calls

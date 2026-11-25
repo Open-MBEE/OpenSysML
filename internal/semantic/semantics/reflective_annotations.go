@@ -4,14 +4,11 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"slices"
 )
 
-// OwnedAnnotations returns the Annotations sym owns as their annotated element
-// (KerML 8.3.2.1 Element::ownedAnnotation), each owning its annotating element:
-// one per `#M` prefix metadata feature, and one per annotating element in a
-// relationship body (KerML 8.2.3.3.1 OwnedAnnotation). An annotating element
-// in a namespace body is owned through a membership and annotates the
-// namespace through no Annotation (8.3.2.3.2 deriveAnnotatingElementAnnotatedElement).
+// OwnedAnnotations returns the Annotations sym owns (KerML 8.3.2.1 Element::ownedAnnotation): one
+// per `#M` prefix or body annotating element of a relationship; a namespace owns them as members.
 func (m *Model) OwnedAnnotations(sym *symbols.Symbol) []*symbols.Symbol {
 	if m == nil || sym == nil || sym.Implicit != nil {
 		return nil
@@ -25,6 +22,9 @@ func (m *Model) OwnedAnnotations(sym *symbols.Symbol) []*symbols.Symbol {
 	// A record keeps each prefix annotation as a fact, not as a symbol: the
 	// Annotation is reflected with no annotating element to read through it.
 	for _, span := range m.recordedPrefixAnnotationSpans(sym) {
+		if !relationshipBodyOwner(sym) {
+			break
+		}
 		out = append(out, &symbols.Symbol{
 			Kind:     symbols.SymbolRelationship,
 			DocName:  sym.DocName,
@@ -34,7 +34,12 @@ func (m *Model) OwnedAnnotations(sym *symbols.Symbol) []*symbols.Symbol {
 			},
 		})
 	}
+	seen := make(map[*symbols.Symbol]bool)
 	for _, prefix := range m.prefixMetadataSymbols(sym) {
+		if !ownedThroughAnnotation(sym, prefix) {
+			continue
+		}
+		seen[prefix] = true
 		out = append(out, &symbols.Symbol{
 			Kind:     symbols.SymbolRelationship,
 			DocName:  sym.DocName,
@@ -44,7 +49,6 @@ func (m *Model) OwnedAnnotations(sym *symbols.Symbol) []*symbols.Symbol {
 			},
 		})
 	}
-	seen := make(map[*symbols.Symbol]bool)
 	sym.Scope.ForEachMember(func(member *symbols.Symbol) bool {
 		if member == nil || seen[member] || !ownedThroughAnnotation(sym, member) {
 			return true
@@ -68,7 +72,7 @@ func (m *Model) OwnedAnnotations(sym *symbols.Symbol) []*symbols.Symbol {
 // its record states every annotation its declaration made, the metadata usages
 // in its body among them, and those are recorded members located by the same span.
 func (m *Model) recordedPrefixAnnotationSpans(sym *symbols.Symbol) []source.Span {
-	if !sym.Recorded() {
+	if !sym.Recorded() || !relationshipBodyOwner(sym) {
 		return nil
 	}
 	body := make(map[source.Span]bool)
@@ -90,7 +94,7 @@ func (m *Model) recordedPrefixAnnotationSpans(sym *symbols.Symbol) []source.Span
 // AnnotatingRelationships returns the Annotations the annotating element sym
 // owns for the elements its `about` clause names, in clause order (KerML
 // 8.3.2.3.2 AnnotatingElement::ownedAnnotatingRelationship); a name resolving
-// to nothing is a resolver diagnostic, not an annotation.
+// to nothing still states its Annotation, whose annotated element is unresolved.
 func (m *Model) AnnotatingRelationships(sym *symbols.Symbol) []*symbols.Symbol {
 	if m == nil || sym == nil || sym.Implicit != nil || !isAnnotatingSymbol(sym) {
 		return nil
@@ -127,8 +131,8 @@ func (m *Model) aboutTargets(sym *symbols.Symbol) []*symbols.Symbol {
 	default:
 		refs = symbols.MetadataAboutRefs(sym.Decl)
 	}
-	var out []*symbols.Symbol
-	for _, qn := range refs {
+	out := make([]*symbols.Symbol, len(refs))
+	for i, qn := range refs {
 		target, ok := m.resolver.ResolveQualified(sym.OwnerScope, qn)
 		if !ok || target == nil {
 			continue
@@ -136,9 +140,64 @@ func (m *Model) aboutTargets(sym *symbols.Symbol) []*symbols.Symbol {
 		if resolved, ok := m.resolver.ResolveAliasTarget(target); ok && resolved != nil {
 			target = resolved
 		}
-		out = append(out, target)
+		out[i] = target
 	}
 	return out
+}
+
+// AnnotatingMetadataOf returns the metadata usages annotating sym (the inverse of
+// KerML 8.3.2.3.2 AnnotatingElement::annotatedElement), `about`-form ones last.
+func (m *Model) AnnotatingMetadataOf(sym *symbols.Symbol) []*symbols.Symbol {
+	if m == nil || sym == nil || sym.Implicit != nil {
+		return nil
+	}
+	var out []*symbols.Symbol
+	add := func(usage *symbols.Symbol) {
+		if !slices.Contains(out, usage) {
+			out = append(out, usage)
+		}
+	}
+	for _, prefix := range m.prefixMetadataSymbols(sym) {
+		add(prefix)
+	}
+	sym.Scope.ForEachMember(func(member *symbols.Symbol) bool {
+		if member != nil && member.Kind == symbols.SymbolMetadataUsage && !annotatesOthers(member) {
+			add(member)
+		}
+		return true
+	})
+	m.annotationsAbout()
+	for _, usage := range m.aboutUsages.of(sym) {
+		add(usage)
+	}
+	return out
+}
+
+// MetadataAnnotationsOf returns the Annotations whose annotated element is sym: those sym owns,
+// then those the metadata usages stated `about` it own (KerML 8.3.2.3.2), in index order.
+func (m *Model) MetadataAnnotationsOf(sym *symbols.Symbol) []*symbols.Symbol {
+	if m == nil || sym == nil || sym.Implicit != nil {
+		return nil
+	}
+	out := slices.Clone(m.OwnedAnnotations(sym))
+	m.annotationsAbout()
+	for _, usage := range m.aboutUsages.of(sym) {
+		for _, annotation := range m.AnnotatingRelationships(usage) {
+			if annotation.Implicit.Member == sym {
+				out = append(out, annotation)
+			}
+		}
+	}
+	return out
+}
+
+// annotatesOthers reports whether the metadata usage sym has an `about` clause,
+// read from its record when it has no declaration.
+func annotatesOthers(sym *symbols.Symbol) bool {
+	if sym.Recorded() {
+		return sym.Facts.Modifiers.Has(symbols.ModAnnotatesOthers)
+	}
+	return symbols.AnnotatesOthers(sym.Decl)
 }
 
 // owningAnnotatingRelationship is the Annotation that owns the annotating
@@ -149,9 +208,6 @@ func (m *Model) owningAnnotatingRelationship(sym *symbols.Symbol) *symbols.Symbo
 		return nil
 	}
 	owner := m.ownerOf(sym)
-	if isPrefixMetadataSymbol(sym) {
-		owner = m.prefixMetadataOwner(sym)
-	}
 	if owner == nil {
 		return nil
 	}
@@ -179,9 +235,6 @@ func (m *Model) annotationsOfAnnotatingElement(sym *symbols.Symbol) []*symbols.S
 func (m *Model) annotatedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 	annotations := m.annotationsOfAnnotatingElement(sym)
 	if len(annotations) == 0 {
-		if isPrefixMetadataSymbol(sym) {
-			return []*symbols.Symbol{}
-		}
 		if owner := m.ownerOf(sym); owner != nil && m.reflectiveMetaclassConforms(owner, "Namespace") {
 			return []*symbols.Symbol{owner}
 		}
@@ -189,7 +242,9 @@ func (m *Model) annotatedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 	}
 	out := make([]*symbols.Symbol, 0, len(annotations))
 	for _, ann := range annotations {
-		out = append(out, m.annotationAnnotatedElement(ann))
+		if annotated := m.annotationAnnotatedElement(ann); annotated != nil {
+			out = append(out, annotated)
+		}
 	}
 	return out
 }
@@ -249,9 +304,17 @@ func (m *Model) annotatingElementElements(sym *symbols.Symbol, feature string) (
 
 // annotationElements is ReflectiveElements for a reflected Annotation object.
 func (m *Model) annotationElements(sym *symbols.Symbol, feature string) ([]*symbols.Symbol, bool) {
-	annotated := []*symbols.Symbol{m.annotationAnnotatedElement(sym)}
 	owned := sym.Implicit.Form == symbols.ImplicitOwnedAnnotation
 	empty := []*symbols.Symbol{}
+	el := m.annotationAnnotatedElement(sym)
+	annotated := []*symbols.Symbol{el}
+	switch feature {
+	case "annotatedElement", "target", "owningAnnotatedElement", "relatedElement":
+		if el == nil {
+			// An `about` name resolving to nothing leaves the annotated side underived.
+			return nil, false
+		}
+	}
 	switch feature {
 	case "annotatedElement", "target":
 		return annotated, true
@@ -286,17 +349,4 @@ func (m *Model) annotationElements(sym *symbols.Symbol, feature string) ([]*symb
 		return empty, true
 	}
 	return nil, false
-}
-
-// prefixMetadataOwner is the element a synthesized prefix metadata feature is
-// written on, found through the annotation that owns it.
-func (m *Model) prefixMetadataOwner(sym *symbols.Symbol) *symbols.Symbol {
-	for owner, annotations := range m.ownedAnnotations {
-		for _, ann := range annotations {
-			if ann.Implicit.Member == sym {
-				return owner
-			}
-		}
-	}
-	return nil
 }

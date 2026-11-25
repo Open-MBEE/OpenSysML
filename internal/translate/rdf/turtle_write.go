@@ -1,6 +1,7 @@
 package rdf
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 )
@@ -42,15 +43,15 @@ func writeSubject(b *strings.Builder, g *Graph, subject Term) {
 	if si == nil {
 		return
 	}
-	byPredicate := si.objects
 	predicates := make([]string, len(si.predicates))
 	copy(predicates, si.predicates)
 	sort.SliceStable(predicates, func(i, j int) bool {
 		return predicates[i] == RDFType && predicates[j] != RDFType
 	})
 	for i, predicate := range predicates {
-		objects := make([]string, 0, len(byPredicate[predicate]))
-		for _, object := range byPredicate[predicate] {
+		stated := si.of(predicate)
+		objects := make([]string, 0, len(stated))
+		for _, object := range stated {
 			objects = append(objects, g.term(object))
 		}
 		name := g.term(IRI(predicate))
@@ -71,10 +72,10 @@ func (g *Graph) term(t Term) string {
 	if t.IsLiteral() {
 		out := quoteLiteral(t.Value)
 		switch {
-		case t.Lang != "":
-			return out + "@" + t.Lang
-		case t.Datatype != "":
-			return out + "^^" + g.term(IRI(t.Datatype))
+		case t.Lang() != "":
+			return out + "@" + t.Lang()
+		case t.Datatype() != "":
+			return out + "^^" + g.term(IRI(t.Datatype()))
 		}
 		return out
 	}
@@ -96,7 +97,24 @@ func (g *Graph) term(t Term) string {
 	if bestLabel != "" {
 		return bestLabel + ":" + strings.TrimPrefix(t.Value, bestNS)
 	}
-	return "<" + t.Value + ">"
+	return "<" + escapeIRI(t.Value) + ">"
+}
+
+// escapeIRI writes the characters an IRIREF cannot hold as its \u escapes, so an
+// IRI built from unchecked text cannot close the reference and start a statement.
+func escapeIRI(iri string) string {
+	if _, forbidden := IRIForbidden(iri); !forbidden {
+		return iri
+	}
+	var b strings.Builder
+	for _, r := range iri {
+		if _, forbidden := IRIForbidden(string(r)); forbidden {
+			fmt.Fprintf(&b, "\\u%04X", r)
+			continue
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
 }
 
 // isPrefixedLocalName reports whether local can follow a prefix label without

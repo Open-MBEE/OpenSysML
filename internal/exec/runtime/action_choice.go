@@ -253,7 +253,7 @@ func (e *ActionExecutor) keeps(t Token) bool {
 // this step, so the keeping accept does not yield to it.
 func (e *ActionExecutor) yieldsKeeping(k Token, pending []Message, unready map[int64]bool) bool {
 	accept, _ := e.messageAccept(k)
-	keeps, _ := e.acceptMatch(k.frame, accept, k.Location.(*ast.Usage))
+	keeps, _ := e.acceptMatch(k.frame, accept, k.Node().(*ast.Usage))
 	for _, m := range pending {
 		if !keeps(m) {
 			continue
@@ -263,7 +263,7 @@ func (e *ActionExecutor) yieldsKeeping(k Token, pending []Message, unready map[i
 				continue
 			}
 			if other, ok := e.messageAccept(t); ok {
-				matches, _ := e.acceptMatch(t.frame, other, t.Location.(*ast.Usage))
+				matches, _ := e.acceptMatch(t.frame, other, t.Node().(*ast.Usage))
 				if matches(m) {
 					return true
 				}
@@ -286,14 +286,14 @@ func (e *ActionExecutor) offeredMessage(t Token, pending []Message) bool {
 	if !ok {
 		return false
 	}
-	matches, _ := e.acceptMatch(t.frame, accept, t.Location.(*ast.Usage))
+	matches, _ := e.acceptMatch(t.frame, accept, t.Node().(*ast.Usage))
 	return slices.ContainsFunc(pending, matches)
 }
 
 // messageAccept returns the accept the token sits at when it is one a message,
 // not a trigger, answers.
 func (e *ActionExecutor) messageAccept(t Token) (lower.Accept, bool) {
-	usage, ok := t.Location.(*ast.Usage)
+	usage, ok := t.Node().(*ast.Usage)
 	if !ok || t.body != nil {
 		return lower.Accept{}, false
 	}
@@ -367,7 +367,7 @@ func (e *ActionExecutor) noteTokenOrder(step int, order stepOrder, schedule *tok
 		alts = make([]string, len(tokens))
 		fps = make([]lower.Footprint, len(tokens))
 		for i, t := range tokens {
-			alts[i] = TokenLabel(t.ID, t.Location)
+			alts[i] = TokenLabel(t.ID, t.Node())
 			fps[i] = standing(e, t)
 			if t.ID == first {
 				taken = i
@@ -383,7 +383,7 @@ func (e *ActionExecutor) noteTokenOrder(step int, order stepOrder, schedule *tok
 		Span:         e.action.DeclSpan,
 	}
 	choice.alike = e.ctx.heldAlike
-	classifyChoice(&choice, fps, nil)
+	classifyChoice(e.ctx.choiceSerials, &choice, fps, nil)
 	e.noteChoice(choice)
 }
 
@@ -395,7 +395,7 @@ func (e *ActionExecutor) labeledFootprints(labels []string, able []Token) []lowe
 	for i, label := range labels {
 		fps[i] = unknownFootprint()
 		for _, t := range able {
-			if TokenLabel(t.ID, t.Location) == label {
+			if TokenLabel(t.ID, t.Node()) == label {
 				fps[i] = standing(e, t)
 				break
 			}
@@ -410,7 +410,7 @@ func (e *ActionExecutor) labeledFootprints(labels []string, able []Token) []lowe
 // drawn by their weights, read in ec where their guards are; a sole holding
 // succession is taken without a draw, its weight still read and checked.
 func (e *ActionExecutor) chooseBranch(ec *EvalContext, frame *actionFrame, node *ast.DecisionNode, successors []lower.ActionEdge, holding []int) (*ChoicePoint, int, error) {
-	declared, err := e.branchWeights(ec, node, successors)
+	declared, err := e.branchWeights(ec.reading(e.graphOf(frame).Exprs), node, successors)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -437,7 +437,7 @@ func (e *ActionExecutor) chooseBranch(ec *EvalContext, frame *actionFrame, node 
 		Span:         node.Span(),
 		Weights:      weights,
 	}
-	classifyExclusive(&choice, e.branchFutures(frame, successors, holding))
+	classifyExclusive(e.ctx.choiceSerials, &choice, e.branchFutures(frame, successors, holding))
 	if err := e.ctx.scheduling().chooseWeighted(&choice, nil); err != nil {
 		return nil, 0, err
 	}
@@ -453,7 +453,7 @@ func (e *ActionExecutor) branchWeights(ec *EvalContext, node *ast.DecisionNode, 
 	weights := make([]float64, len(successors))
 	for pos, edge := range successors {
 		p := edge.Probability
-		val, err := ec.Eval(p.Expr)
+		val, err := ec.evalPayload(p.ExprID)
 		if err != nil {
 			return nil, fmt.Errorf("%w: %s: weight of %s: %v", errBranchWeights, DecisionPlace(node), branchName(successors, pos), err)
 		}

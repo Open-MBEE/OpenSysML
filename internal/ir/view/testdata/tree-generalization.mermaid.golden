@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» MicroscopeViews::positioned"
 ---
 %% MicroscopeViews::positioned — tree rendering (render asTreeDiagram)
 %% canvas: unit=px w=620 h=240

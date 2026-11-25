@@ -64,20 +64,26 @@ func checkToasterPorts(t *testing.T, rendering *Rendering) {
 			t.Errorf("node %s nests %v, want the ports pinned, not nested", node.Name, nodeNames(node.Children))
 		}
 	}
-	if len(rendering.Edges) != 2 {
-		t.Fatalf("edges = %+v, want the interface and the flow", rendering.Edges)
-	}
-	for _, edge := range rendering.Edges {
-		if edge.From != control.ID || edge.To != heating.ID || edge.FromPort != out.ID || edge.ToPort != in.ID {
-			t.Errorf("edge %q = %s:%s -> %s:%s, want %s:%s -> %s:%s", edge.Label,
-				edge.From, edge.FromPort, edge.To, edge.ToPort, control.ID, out.ID, heating.ID, in.ID)
+	// The flow shares the interface's ends, so it is an item box on the interface's
+	// line (§8.2.3.16): the line runs from control's pin to the box and on to heating's.
+	var box *Node
+	for _, node := range everyNode(rendering.Roots) {
+		if itemBox(node) {
+			box = node
 		}
 	}
-	if rendering.Edges[0].Kind != EdgeConnection || rendering.Edges[0].Label != "durationInterface" {
-		t.Errorf("edge 0 = %+v, want the interface", rendering.Edges[0])
+	if box == nil || box.Kind != "flow" || box.Text != "of Real" || box.Arrow != arrowRight {
+		t.Fatalf("item box = %+v, want the flow of Real pointing right", box)
 	}
-	if rendering.Edges[1].Kind != EdgeFlow || rendering.Edges[1].Label != "of Real" {
-		t.Errorf("edge 1 = %+v, want the flow", rendering.Edges[1])
+	if len(rendering.Edges) != 2 {
+		t.Fatalf("edges = %+v, want the interface's two segments", rendering.Edges)
+	}
+	first, second := rendering.Edges[0], rendering.Edges[1]
+	if first.From != control.ID || first.FromPort != out.ID || first.To != box.ID || first.Kind != EdgeConnection || first.Label != "durationInterface" {
+		t.Errorf("edge 0 = %+v, want the interface from %s:%s to the box %s", first, control.ID, out.ID, box.ID)
+	}
+	if second.From != box.ID || second.To != heating.ID || second.ToPort != in.ID || second.Kind != EdgeConnection || second.Label != "" {
+		t.Errorf("edge 1 = %+v, want the interface from the box %s to %s:%s", second, box.ID, heating.ID, in.ID)
 	}
 }
 
@@ -117,20 +123,20 @@ func TestTypedPartsPinTheirDefinitionsPorts(t *testing.T) {
 			t.Errorf("%s names durationOut %d times, want once:\n%s", label, got, form)
 		}
 	}
-	for _, want := range []string{`"n2":"n2.0" -> "n1":"n1.0" [label="durationInterface"`, `"n2":"n2.0" -> "n1":"n1.0" [label="of Real"`,
+	for _, want := range []string{`"n2":"n2.0" -> "n4" [label="durationInterface"`, `"n4" -> "n1":"n1.0" [arrowhead=none`, `«flow»</i></font><br/><b>of Real</b><br/>—▶`,
 		`<td port="n1.0" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">^durationIn</font></td>`} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("DOT lacks the edge at the ports %q:\n%s", want, dot)
 		}
 	}
-	for _, want := range []string{"n2.0 -[thickness=3]- n1.0 : durationInterface", "n2.0 --> n1.0 : of Real", "port \"^durationIn\" as n1.0"} {
+	for _, want := range []string{"n2.0 -[thickness=3]- n4 : durationInterface", "n4 -[thickness=3]- n1.0", `**of Real**\n—▶" as n4`, "port \"^durationIn\" as n1.0"} {
 		if !strings.Contains(plantuml, want) {
 			t.Errorf("PlantUML lacks %q:\n%s", want, plantuml)
 		}
 	}
 	checkPlantUMLRenders(t, plantuml)
 	for _, want := range []string{"  part heating : HeatingSystem\n    port ^durationIn\n",
-		"  control.durationOut -- heating.durationIn: durationInterface\n", "  control.durationOut => heating.durationIn: of Real\n"} {
+		"  control.durationOut -- flow n4: durationInterface\n", "  flow n4 -- heating.durationIn\n", "  flow of Real\n"} {
 		if !strings.Contains(forms["text"], want) {
 			t.Errorf("text lacks %q:\n%s", want, forms["text"])
 		}
@@ -177,12 +183,12 @@ func TestTheFullDisplayTypesThePins(t *testing.T) {
 			}
 		}
 	}
-	for _, want := range []string{`"n2":"n2.0" -> "n1":"n1.0" [label="durationInterface"`, `"n2":"n2.0" -> "n1":"n1.0" [label="of Real"`} {
+	for _, want := range []string{`"n2":"n2.0" -> "n4" [label="durationInterface"`, `"n4" -> "n1":"n1.0" [arrowhead=none`, `<b>of Real</b><br/>—▶`} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("DOT lacks the edge at the ports %q:\n%s", want, dot)
 		}
 	}
-	for _, want := range []string{"n2.0 -[thickness=3]- n1.0 : durationInterface", "n2.0 --> n1.0 : of Real",
+	for _, want := range []string{"n2.0 -[thickness=3]- n4 : durationInterface", "n4 -[thickness=3]- n1.0", `**of Real**\n—▶" as n4`,
 		"port \"^durationIn : <U+007E>DurationPort\" as n1.0"} {
 		if !strings.Contains(plantuml, want) {
 			t.Errorf("PlantUML lacks %q:\n%s", want, plantuml)
@@ -190,7 +196,7 @@ func TestTheFullDisplayTypesThePins(t *testing.T) {
 	}
 	checkPlantUMLRenders(t, plantuml)
 	for _, want := range []string{"  part heating : HeatingSystem\n    port ^durationIn : ~DurationPort\n",
-		"  control.durationOut -- heating.durationIn: durationInterface\n", "  control.durationOut => heating.durationIn: of Real\n"} {
+		"  control.durationOut -- flow n4: durationInterface\n", "  flow n4 -- heating.durationIn\n", "  flow of Real\n"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("text lacks %q:\n%s", want, text)
 		}
@@ -259,12 +265,12 @@ func TestAUsageEndIsTheUsagesPortBesideItsDefinition(t *testing.T) {
 		t.Fatalf("the usage pins no port: %+v", heating)
 	}
 	if len(rendering.Edges) != 2 {
-		t.Fatalf("edges = %+v, want the interface and the flow", rendering.Edges)
+		t.Fatalf("edges = %+v, want the interface's two segments around the flow's item box", rendering.Edges)
 	}
-	for _, edge := range rendering.Edges {
-		if edge.To != heating.ID || edge.ToPort != in.ID {
-			t.Errorf("edge %q ends at %s:%s, want the usage's pin %s:%s", edge.Label, edge.To, edge.ToPort, heating.ID, in.ID)
-		}
+	// The flow is an item box on the interface's line, so the segment from the box ends at the pin.
+	last := rendering.Edges[1]
+	if last.To != heating.ID || last.ToPort != in.ID {
+		t.Errorf("edge %q ends at %s:%s, want the usage's pin %s:%s", last.Label, last.To, last.ToPort, heating.ID, in.ID)
 	}
 }
 

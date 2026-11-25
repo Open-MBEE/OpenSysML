@@ -65,7 +65,7 @@ package Demo {
     <dependency>
       <groupId>org.openmbee</groupId>
       <artifactId>opensysml</artifactId>
-      <version>0.12.1</version>
+      <version>0.13.0</version>
     </dependency>
     ```
 
@@ -219,6 +219,67 @@ The same engine parses the model in every client. A parse that reports errors st
 diagnostics; the examples check those before using the result. A false constraint verdict is an
 answer about the model, not an exception. For service resolution and error details, see the
 [client-library reference](../reference/clients.md).
+
+### Read an element's metamodel properties
+
+A service that advertises the `element_properties` capability answers the `GetElementProperties`
+RPC: the properties of one element by their KerML/SysML specification names (`inheritedFeature`,
+`connectorEnd`, `isComposite`, …), spelled as the model's api-json export spells them. The element is
+a qualified name, the positional id of an unnamed member (`Owner::@2`) or the id an earlier answer
+carried — every id an answer returns reads back, a standard-library element or an unnamed library
+member included, so a client walks from the model into the library. Every client binds it under the
+`element_properties` capability — Go `client.ElementProperties`, Python `Model.element_properties`,
+Node `model.elementProperties`, Java `ElementProperties`, Rust `element_properties`, Julia
+`element_properties(model, element, names...)`, MATLAB `model.elementProperties(element, names...)` —
+as does the MCP server (`element_properties`); each refuses the call before it is sent when the
+service does not advertise the capability. The WASM build serves neither it nor `Convert`.
+
+A model of several documents is read one document at a time: a document with a syntax error, or one
+declaring a top-level name an earlier document already declares, is left out instead of refusing
+every element. The answer lists the documents left out and why (Go `ExcludedDocuments`, Python
+`excluded_documents`, Node `excludedDocuments`, Java `excludedDocuments()`, Rust and Julia
+`excluded_documents`, MATLAB `excludedDocuments`), and only a read of an element of such a document
+fails, with that document's error.
+
+=== "Go"
+
+    ```go
+    read, err := client.ElementProperties(ctx, model, "Demo::sedan", "inheritedFeature")
+    if err != nil { return err }
+    for _, feature := range read.Property("inheritedFeature").Elements() {
+        fmt.Println(feature.QualifiedName, feature.Metaclass)
+    }
+    ```
+
+=== "Python"
+
+    ```python
+    read = model.element_properties("Demo::sedan", "inheritedFeature")
+    for feature in read["inheritedFeature"].elements:
+        print(feature.qualified_name, feature.metaclass)
+        model.element_properties(feature.id, "owner")  # the id reads back
+    ```
+
+=== "Julia"
+
+    ```julia
+    read = element_properties(model, "Demo::sedan", "inheritedFeature")
+    for feature in property_elements(read["inheritedFeature"])
+        println(feature.qualified_name, " ", feature.metaclass)
+    end
+    ```
+
+=== "MATLAB"
+
+    ```matlab
+    read = model.elementProperties('Demo::sedan', 'inheritedFeature');
+    for feature = read.byName('inheritedFeature').values
+        disp(feature{1}.qualifiedName);
+    end
+    ```
+
+See the [wire contract](../reference/wire-contract.md#getelementproperties) for the value arms and
+how an unanswerable property says why.
 
 ## From Go
 

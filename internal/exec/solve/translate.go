@@ -9,9 +9,10 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
@@ -789,13 +790,16 @@ func (t *translator) pinnedAssertions(offset int) []Assertion {
 // negates that conjunction.
 func (t *translator) condition(cond runtime.Condition) (*Term, error) {
 	if cond.Steps != nil {
-		return nil, t.refuse(cond.Steps.Node, "constraint body steps", "not covered: the solver does not encode the steps a constraint body performs before its result expression")
+		return nil, t.refuseAt(cond.Steps.Written(), "constraint body steps", "not covered: the solver does not encode the steps a constraint body performs before its result expression")
 	}
 	if cond.Conflict != nil {
-		return nil, t.refuse(cond.Conflict.Node, "conflicting result expression", "only one owned or inherited result expression is allowed")
+		return nil, t.refuseAt(cond.Conflict.Written(), "conflicting result expression", "only one owned or inherited result expression is allowed")
 	}
 	if cond.Circular != nil {
 		return nil, t.refuse(nil, "require "+cond.Circular.Name, "it names the requirement being translated")
+	}
+	if cond.Bound != nil {
+		return nil, t.refuse(t.ctx.ExprEntry(cond.Bound.DefaultValueID), "bound subrequirement "+cond.Subrequirement.Name, "not covered: the solver does not encode the values a bound subrequirement's binding yields, which its container's check ranges over")
 	}
 	if cond.Subrequirement != nil {
 		// A subrequirement is its own check, its assumptions implying its required
@@ -821,15 +825,16 @@ func (t *translator) condition(cond runtime.Condition) (*Term, error) {
 		}
 		return negate(And(parts...), cond.Negated), nil
 	}
-	if cond.Expr == nil {
+	written := t.ctx.ExprEntry(cond.ExprID)
+	if written == nil {
 		return nil, t.refuse(nil, "empty condition", "it states no expression")
 	}
-	term, err := t.expr(cond.Expr, cond.Scope)
+	term, err := t.expr(written, cond.Scope)
 	if err != nil {
 		return nil, err
 	}
 	if term.Sort.Kind != SortBool {
-		return nil, t.refuse(cond.Expr, "condition", "it yields "+term.Sort.Name+" rather than a boolean")
+		return nil, t.refuse(written, "condition", "it yields "+term.Sort.Name+" rather than a boolean")
 	}
 	return negate(term, cond.Negated), nil
 }
@@ -843,42 +848,52 @@ func negate(term *Term, negated bool) *Term {
 }
 
 // expr translates an expression, resolving names in scope.
-func (t *translator) expr(node ast.Node, scope *symbols.Scope) (*Term, error) {
-	switch n := node.(type) {
-	case *ast.LiteralBool:
-		return BoolTerm(n.Value), nil
-	case *ast.LiteralInteger:
-		val, ok := semantics.ParseInteger(n.Value)
+func (t *translator) expr(node *lower.ExprEntry, scope *symbols.Scope) (*Term, error) {
+	if node == nil {
+		return nil, t.refuse(node, describe(node), outsideSubset)
+	}
+	switch n := node; n.Kind {
+	case program.ExprBool:
+		return BoolTerm(n.Const.Bool), nil
+	case program.ExprInt:
+		val, ok := semantics.ParseInteger(n.Text)
 		if !ok {
-			return nil, t.refuse(n, "integer literal "+n.Value, "it is no Integer")
+			return nil, t.refuse(n, "integer literal "+n.Text, "it is no Integer")
 		}
 		return BigIntTerm(val.BigInt()), nil
-	case *ast.LiteralReal:
-		rat, ok := new(big.Rat).SetString(n.Value)
+	case program.ExprReal:
+		rat, ok := new(big.Rat).SetString(n.Text)
 		if !ok {
-			return nil, t.refuse(n, "real literal "+n.Value, "it is not an exact rational")
+			return nil, t.refuse(n, "real literal "+n.Text, "it is not an exact rational")
 		}
 		return RealTerm(rat), nil
-	case *ast.LiteralString:
-		return StringTerm(source.StringValue(n.Value)), nil
-	case *ast.FeatureReference, *ast.FeatureChainExpr:
-		return t.reference(node, scope)
-	case *ast.IndexExpr:
+	case program.ExprString:
+		return StringTerm(n.Text), nil
+	case program.ExprRef, program.ExprChain:
+		if n.Reference() {
+			return t.reference(node, scope)
+		}
+	case program.ExprIndex:
 		if !n.Bracket {
 			return nil, t.refuse(n, "index expression", "indexing a sequence is outside the subset")
 		}
 		return t.quantity(n, scope)
-	case *ast.OperatorExpr:
+	case program.ExprOp:
 		return t.operator(n, scope)
-	case *ast.InvocationExpr:
+	case program.ExprInvoke:
 		return t.quantified(n, scope)
-	case *ast.SequenceExpr:
-		if len(n.Elements) == 1 {
-			return t.expr(n.Elements[0], scope)
+	case program.ExprSequence:
+		if len(n.Operands) == 1 {
+			return t.expr(n.Operands[0], scope)
 		}
 		return nil, t.refuse(n, "sequence", "a collection is outside the subset")
 	}
-	return nil, t.refuse(node, describe(node), "it is outside the subset")
+	return nil, t.refuse(node, describe(node), outsideSubset)
+}
+
+// operatorText is an operator as the notation writes it.
+func operatorText(op program.Operator) string {
+	return lower.OperatorKindOf(op).String()
 }
 
 // recordBaseUnits remembers the base units a dimension's magnitudes are scaled
@@ -910,13 +925,13 @@ func baseUnitsText(unit semantics.UnitTerm) string {
 
 // quantity translates `magnitude [unit]`, scaling the magnitude to the base units
 // its unit reduces to so that magnitudes of one dimension are comparable.
-func (t *translator) quantity(n *ast.IndexExpr, scope *symbols.Scope) (*Term, error) {
-	unit, err := t.model.UnitTermOfExpr(scope, n.Index)
+func (t *translator) quantity(n *lower.ExprEntry, scope *symbols.Scope) (*Term, error) {
+	unit, err := operand(n, 1).UnitTerm(t.model, scope)
 	if err != nil {
 		return nil, t.refuse(n, "quantity", err.Error())
 	}
 	unit = unit.Normalized()
-	dim, ok := t.model.DimensionOfExpr(scope, n)
+	dim, ok := n.Dimension(t.model, scope)
 	if !ok {
 		return nil, t.refuse(n, "quantity", "the dimension of its unit is not determined statically")
 	}
@@ -925,7 +940,7 @@ func (t *translator) quantity(n *ast.IndexExpr, scope *symbols.Scope) (*Term, er
 	if !ok {
 		return nil, t.refuse(n, "quantity", "its unit reduces to a scale factor that is not an exact ratio")
 	}
-	magnitude, err := t.expr(n.Operand, scope)
+	magnitude, err := t.expr(operand(n, 0), scope)
 	if err != nil {
 		return nil, err
 	}
@@ -957,73 +972,76 @@ func ratOfScale(scale semantics.Scale) (*big.Rat, bool) {
 // msgOperatorPrefix names the operator a refusal is about.
 const msgOperatorPrefix = "operator `"
 
+// outsideSubset is the reason given for a construct no narrower reason names.
+const outsideSubset = "it is outside the subset"
+
 // operator translates an operator application, refusing one whose meaning this
 // term language does not carry.
-func (t *translator) operator(n *ast.OperatorExpr, scope *symbols.Scope) (*Term, error) {
-	switch n.Operator {
-	case ast.OpNot:
+func (t *translator) operator(n *lower.ExprEntry, scope *symbols.Scope) (*Term, error) {
+	switch n.Op {
+	case program.OpNot:
 		return t.unaryBool(n, scope)
-	case ast.OpAnd, ast.OpConditionalAnd:
+	case program.OpAnd, program.OpConditionalAnd:
 		return t.binaryBool(n, scope, OpAnd)
-	case ast.OpOr, ast.OpConditionalOr:
+	case program.OpOr, program.OpConditionalOr:
 		return t.binaryBool(n, scope, OpOr)
-	case ast.OpXor:
+	case program.OpXor:
 		return t.binaryBool(n, scope, OpXor)
-	case ast.OpImplies:
+	case program.OpImplies:
 		return t.binaryBool(n, scope, OpImplies)
-	case ast.OpEq:
+	case program.OpEq:
 		return t.equality(n, scope, OpEq)
-	case ast.OpNeq:
+	case program.OpNeq:
 		return t.equality(n, scope, OpNe)
-	case ast.OpLt:
+	case program.OpLt:
 		return t.comparison(n, scope, OpLt)
-	case ast.OpLe:
+	case program.OpLe:
 		return t.comparison(n, scope, OpLe)
-	case ast.OpGt:
+	case program.OpGt:
 		return t.comparison(n, scope, OpGt)
-	case ast.OpGe:
+	case program.OpGe:
 		return t.comparison(n, scope, OpGe)
-	case ast.OpAdd:
+	case program.OpAdd:
 		return t.additive(n, scope, OpAdd)
-	case ast.OpSub:
+	case program.OpSub:
 		return t.additive(n, scope, OpSub)
-	case ast.OpMul:
+	case program.OpMul:
 		return t.multiplicative(n, scope, OpMul)
-	case ast.OpDiv:
+	case program.OpDiv:
 		return t.multiplicative(n, scope, OpDiv)
-	case ast.OpMod:
+	case program.OpMod:
 		return t.remainder(n, scope)
-	case ast.OpNeg, ast.OpPos:
+	case program.OpNeg, program.OpPos:
 		return t.unaryNumber(n, scope)
-	case ast.OpConditional:
+	case program.OpConditional:
 		return t.conditional(n, scope)
 	}
-	return nil, t.refuse(n, msgOperatorPrefix+n.Operator.String()+"`", operatorReason(n.Operator))
+	return nil, t.refuse(n, msgOperatorPrefix+operatorText(n.Op)+"`", operatorReason(n.Op))
 }
 
 // operatorReason says why an operator outside the subset is outside it.
-func operatorReason(op ast.OperatorKind) string {
+func operatorReason(op program.Operator) string {
 	switch op {
-	case ast.OpPow:
+	case program.OpPow:
 		return "exponentiation is outside the arithmetic encoded here"
-	case ast.OpRange:
+	case program.OpRange:
 		return "a range is a collection"
-	case ast.OpIndex, ast.OpAll:
+	case program.OpIndex, program.OpAll:
 		return "a collection operation is outside the subset"
-	case ast.OpEqEqEq, ast.OpNeqEqEq:
+	case program.OpEqEqEq, program.OpNeqEqEq:
 		return "identity compares objects rather than values"
-	case ast.OpHasType, ast.OpIsType, ast.OpAs, ast.OpMeta, ast.OpAt, ast.OpMetaAt:
+	case program.OpHasType, program.OpIsType, program.OpAs, program.OpMeta, program.OpAt, program.OpMetaAt:
 		return "classification and metadata are not encoded as terms"
-	case ast.OpNullCoalesce:
+	case program.OpNullCoalesce:
 		return "a null value has no term"
-	case ast.OpBitNot:
+	case program.OpBitNot:
 		return "bitwise negation is outside the subset"
 	}
-	return "it is outside the subset"
+	return outsideSubset
 }
 
 // unaryBool translates `not e`, whose operand is read in a negated position.
-func (t *translator) unaryBool(n *ast.OperatorExpr, scope *symbols.Scope) (*Term, error) {
+func (t *translator) unaryBool(n *lower.ExprEntry, scope *symbols.Scope) (*Term, error) {
 	t.branched++
 	defer func() { t.branched-- }()
 	arg, err := t.operandOfSort(n, scope, 0, Bool)
@@ -1035,7 +1053,7 @@ func (t *translator) unaryBool(n *ast.OperatorExpr, scope *symbols.Scope) (*Term
 
 // binaryBool translates a boolean connective. Every connective but `and` may
 // leave an operand unevaluated, or reads it negated, so its operands are branched.
-func (t *translator) binaryBool(n *ast.OperatorExpr, scope *symbols.Scope, op Op) (*Term, error) {
+func (t *translator) binaryBool(n *lower.ExprEntry, scope *symbols.Scope, op Op) (*Term, error) {
 	if op != OpAnd {
 		t.branched++
 		defer func() { t.branched-- }()
@@ -1125,16 +1143,16 @@ func (t *translator) read(v *Var) {
 }
 
 // equality translates `==` or `!=` between two values of the same sort.
-func (t *translator) equality(n *ast.OperatorExpr, scope *symbols.Scope, op Op) (*Term, error) {
+func (t *translator) equality(n *lower.ExprEntry, scope *symbols.Scope, op Op) (*Term, error) {
 	left, right, err := t.operands(n, scope)
 	if err != nil {
 		return nil, err
 	}
-	return t.equalityOf(n, scope, msgOperatorPrefix+n.Operator.String()+"`", op, left, right)
+	return t.equalityOf(n, scope, msgOperatorPrefix+operatorText(n.Op)+"`", op, left, right)
 }
 
 // comparison translates an ordering comparison between two numbers.
-func (t *translator) comparison(n *ast.OperatorExpr, scope *symbols.Scope, op Op) (*Term, error) {
+func (t *translator) comparison(n *lower.ExprEntry, scope *symbols.Scope, op Op) (*Term, error) {
 	left, right, err := t.numericOperands(n, scope)
 	if err != nil {
 		return nil, err
@@ -1146,7 +1164,7 @@ func (t *translator) comparison(n *ast.OperatorExpr, scope *symbols.Scope, op Op
 }
 
 // additive translates `+` or `-` between two numbers of the same dimension.
-func (t *translator) additive(n *ast.OperatorExpr, scope *symbols.Scope, op Op) (*Term, error) {
+func (t *translator) additive(n *lower.ExprEntry, scope *symbols.Scope, op Op) (*Term, error) {
 	left, right, err := t.numericOperands(n, scope)
 	if err != nil {
 		return nil, err
@@ -1159,7 +1177,7 @@ func (t *translator) additive(n *ast.OperatorExpr, scope *symbols.Scope, op Op) 
 
 // multiplicative translates `*` or `/`. A quotient is a Real whatever its
 // operand sorts, as the evaluator's is, with a non-zero divisor asserted.
-func (t *translator) multiplicative(n *ast.OperatorExpr, scope *symbols.Scope, op Op) (*Term, error) {
+func (t *translator) multiplicative(n *lower.ExprEntry, scope *symbols.Scope, op Op) (*Term, error) {
 	if op == OpDiv {
 		if folded, ok := t.folded(n); ok {
 			return folded, nil
@@ -1186,7 +1204,7 @@ func (t *translator) multiplicative(n *ast.OperatorExpr, scope *symbols.Scope, o
 
 // remainder translates `%` on integers as the remainder truncating division
 // leaves, which takes the sign of the dividend as the evaluator's does.
-func (t *translator) remainder(n *ast.OperatorExpr, scope *symbols.Scope) (*Term, error) {
+func (t *translator) remainder(n *lower.ExprEntry, scope *symbols.Scope) (*Term, error) {
 	if folded, ok := t.folded(n); ok {
 		return folded, nil
 	}
@@ -1209,16 +1227,16 @@ func (t *translator) remainder(n *ast.OperatorExpr, scope *symbols.Scope) (*Term
 // zero, and asserts a computed one to be non-zero: SMT-LIB's division is total,
 // so a solver could otherwise satisfy a condition by dividing by zero. A divisor
 // that is not a literal makes the arithmetic nonlinear.
-func (t *translator) divisor(n *ast.OperatorExpr, divisor *Term) error {
+func (t *translator) divisor(n *lower.ExprEntry, divisor *Term) error {
 	if divisor.Literal() {
 		if isZero(divisor) {
-			return t.refuse(n, msgOperatorPrefix+n.Operator.String()+"` by zero",
+			return t.refuse(n, msgOperatorPrefix+operatorText(n.Op)+"` by zero",
 				"the evaluator reports division by zero")
 		}
 		return nil
 	}
 	if !t.hoistable() {
-		return t.refuse(n, msgOperatorPrefix+n.Operator.String()+"` by a computed divisor",
+		return t.refuse(n, msgOperatorPrefix+operatorText(n.Op)+"` by a computed divisor",
 			"asserting the divisor non-zero would deny assignments the evaluator accepts, "+
 				"as this division may go unevaluated")
 	}
@@ -1239,20 +1257,20 @@ func (t *translator) hoistable() bool {
 
 // guard asserts a side condition a translated condition needs to mean what the
 // evaluator means, once per distinct term.
-func (t *translator) guard(term *Term, node ast.Node) {
+func (t *translator) guard(term *Term, node *lower.ExprEntry) {
 	key := writeTerm(term)
 	if t.guarded[key] {
 		return
 	}
 	t.guarded[key] = true
-	t.guards = append(t.guards, Assertion{Term: term, From: t.provenance(RoleDefined, nil, node.Span())})
+	t.guards = append(t.guards, Assertion{Term: term, From: t.provenance(RoleDefined, nil, node.Origin.Span)})
 }
 
 // folded returns what the evaluator's constant folder answers for a constant
 // expression: it keeps a constant `7 / 2` a real quotient rather than truncating
 // it, so the encoding must answer the same.
-func (t *translator) folded(n *ast.OperatorExpr) (*Term, bool) {
-	val, ok := t.model.Eval(n)
+func (t *translator) folded(n *lower.ExprEntry) (*Term, bool) {
+	val, ok := n.Folded(t.model, semantics.DefaultMaxIntegerBits)
 	if !ok {
 		return nil, false
 	}
@@ -1291,19 +1309,19 @@ func zeroOf(sort Sort) *Term {
 }
 
 // unaryNumber translates unary `-` and `+`.
-func (t *translator) unaryNumber(n *ast.OperatorExpr, scope *symbols.Scope) (*Term, error) {
+func (t *translator) unaryNumber(n *lower.ExprEntry, scope *symbols.Scope) (*Term, error) {
 	if len(n.Operands) != 1 {
-		return nil, t.refuse(n, msgOperatorPrefix+n.Operator.String()+"`", "it takes one operand")
+		return nil, t.refuse(n, msgOperatorPrefix+operatorText(n.Op)+"`", "it takes one operand")
 	}
 	arg, err := t.expr(n.Operands[0], scope)
 	if err != nil {
 		return nil, err
 	}
 	if !arg.Sort.Numeric() {
-		return nil, t.refuse(n, msgOperatorPrefix+n.Operator.String()+"`",
+		return nil, t.refuse(n, msgOperatorPrefix+operatorText(n.Op)+"`",
 			"its operand yields "+arg.Sort.Name+" rather than a number")
 	}
-	if n.Operator == ast.OpPos {
+	if n.Op == program.OpPos {
 		return arg, nil
 	}
 	return negated(arg), nil
@@ -1322,7 +1340,7 @@ func negated(arg *Term) *Term {
 }
 
 // conditional translates `if c ? a else b`, whose branches must share a sort.
-func (t *translator) conditional(n *ast.OperatorExpr, scope *symbols.Scope) (*Term, error) {
+func (t *translator) conditional(n *lower.ExprEntry, scope *symbols.Scope) (*Term, error) {
 	if len(n.Operands) != 3 {
 		return nil, t.refuse(n, "conditional expression", "it takes a condition and two branches")
 	}
@@ -1349,9 +1367,9 @@ func (t *translator) conditional(n *ast.OperatorExpr, scope *symbols.Scope) (*Te
 }
 
 // operands translates the two operands of a binary operator.
-func (t *translator) operands(n *ast.OperatorExpr, scope *symbols.Scope) (*Term, *Term, error) {
+func (t *translator) operands(n *lower.ExprEntry, scope *symbols.Scope) (*Term, *Term, error) {
 	if len(n.Operands) != 2 {
-		return nil, nil, t.refuse(n, msgOperatorPrefix+n.Operator.String()+"`", "it takes two operands")
+		return nil, nil, t.refuse(n, msgOperatorPrefix+operatorText(n.Op)+"`", "it takes two operands")
 	}
 	left, err := t.expr(n.Operands[0], scope)
 	if err != nil {
@@ -1366,13 +1384,13 @@ func (t *translator) operands(n *ast.OperatorExpr, scope *symbols.Scope) (*Term,
 
 // numericOperands translates two operands that must both be numbers, widening an
 // integer one when the other is real.
-func (t *translator) numericOperands(n *ast.OperatorExpr, scope *symbols.Scope) (*Term, *Term, error) {
+func (t *translator) numericOperands(n *lower.ExprEntry, scope *symbols.Scope) (*Term, *Term, error) {
 	left, right, err := t.operands(n, scope)
 	if err != nil {
 		return nil, nil, err
 	}
 	if !left.Sort.Numeric() || !right.Sort.Numeric() {
-		return nil, nil, t.refuse(n, msgOperatorPrefix+n.Operator.String()+"`",
+		return nil, nil, t.refuse(n, msgOperatorPrefix+operatorText(n.Op)+"`",
 			fmt.Sprintf("its operands yield %s and %s rather than numbers", left.Sort.Name, right.Sort.Name))
 	}
 	left, right = promote(left, right)
@@ -1380,16 +1398,16 @@ func (t *translator) numericOperands(n *ast.OperatorExpr, scope *symbols.Scope) 
 }
 
 // operandOfSort translates one operand and requires the sort given.
-func (t *translator) operandOfSort(n *ast.OperatorExpr, scope *symbols.Scope, i int, want Sort) (*Term, error) {
+func (t *translator) operandOfSort(n *lower.ExprEntry, scope *symbols.Scope, i int, want Sort) (*Term, error) {
 	if i >= len(n.Operands) {
-		return nil, t.refuse(n, msgOperatorPrefix+n.Operator.String()+"`", "it is missing an operand")
+		return nil, t.refuse(n, msgOperatorPrefix+operatorText(n.Op)+"`", "it is missing an operand")
 	}
 	term, err := t.expr(n.Operands[i], scope)
 	if err != nil {
 		return nil, err
 	}
 	if !term.Sort.Equal(want) {
-		return nil, t.refuse(n.Operands[i], "operand of `"+n.Operator.String()+"`",
+		return nil, t.refuse(n.Operands[i], "operand of `"+operatorText(n.Op)+"`",
 			"it yields "+term.Sort.Name+" rather than "+want.Name)
 	}
 	return term, nil
@@ -1409,20 +1427,20 @@ func promote(left, right *Term) (*Term, *Term) {
 // sameDimension refuses an operator whose operands are magnitudes of different
 // dimensions, which the evaluator reports as incommensurable units. A dimension
 // that is not statically determined counts as dimensionless, as a bare number is.
-func (t *translator) sameDimension(n *ast.OperatorExpr, scope *symbols.Scope) error {
+func (t *translator) sameDimension(n *lower.ExprEntry, scope *symbols.Scope) error {
 	left := t.dimensionOf(scope, n.Operands[0])
 	right := t.dimensionOf(scope, n.Operands[1])
 	if left.Term.Commensurable(right.Term) {
 		return nil
 	}
-	return t.refuse(n, msgOperatorPrefix+n.Operator.String()+"`",
+	return t.refuse(n, msgOperatorPrefix+operatorText(n.Op)+"`",
 		fmt.Sprintf("incommensurable units: %s against %s", dimensionText(left), dimensionText(right)))
 }
 
 // dimensionOf returns the dimension of an expression, dimensionless when it is
 // not statically determined.
-func (t *translator) dimensionOf(scope *symbols.Scope, node ast.Node) semantics.Dimension {
-	if dim, ok := t.model.DimensionOfExpr(scope, node); ok {
+func (t *translator) dimensionOf(scope *symbols.Scope, node *lower.ExprEntry) semantics.Dimension {
+	if dim, ok := node.Dimension(t.model, scope); ok {
 		return dim
 	}
 	return semantics.Dimension{Term: semantics.UnitTerm{Scale: semantics.UnitScale(1)}}
@@ -1437,30 +1455,40 @@ func dimensionText(dim semantics.Dimension) string {
 }
 
 // describe names a node as the notation writes it, for a refusal.
-func describe(node ast.Node) string {
-	switch node.(type) {
-	case nil:
+func describe(node *lower.ExprEntry) string {
+	if node == nil {
 		return "empty expression"
-	case *ast.NullExpr:
+	}
+	switch node.Kind {
+	case program.ExprNull:
 		return "`null`"
-	case *ast.LiteralInfinity:
+	case program.ExprInfinity:
 		return "`*`"
-	case *ast.InvocationExpr:
+	case program.ExprInvoke:
 		return "invocation"
-	case *ast.CollectExpr:
+	case program.ExprCollect:
 		return "`->` collect expression"
-	case *ast.SelectExpr:
+	case program.ExprSelect:
 		return "`->select` expression"
-	case *ast.BodyExpr:
+	case program.ExprBody:
 		return "body expression"
-	case *ast.MetadataAccessExpr:
+	case program.ExprMetadata:
 		return "metadata access"
-	case *ast.CastExpr:
-		return "cast"
-	case *ast.ConstructorExpr:
+	case program.ExprConstruct:
 		return "constructor"
 	}
-	return fmt.Sprintf("expression %T", node)
+	if written := node.Written(); written != "*ast.CastExpr" {
+		return "expression " + written
+	}
+	return "cast"
+}
+
+// operand is the i-th operand of n, nil where it states none.
+func operand(n *lower.ExprEntry, i int) *lower.ExprEntry {
+	if i >= len(n.Operands) {
+		return nil
+	}
+	return n.Operands[i]
 }
 
 // conditionOrigin returns the element that declared a condition and where it was
@@ -1475,14 +1503,14 @@ func conditionOrigin(cond runtime.Condition) (*symbols.Symbol, source.Span) {
 	}
 	owner := cond.Owner()
 	span := declSpan(owner)
-	if cond.Expr != nil {
-		span = cond.Expr.Span()
+	if written, ok := cond.Written(); ok {
+		span = written
 	}
 	if cond.Steps != nil {
-		span = cond.Steps.Node.Span()
+		span = cond.Steps.Written()
 	}
 	if cond.Conflict != nil {
-		span = cond.Conflict.Node.Span()
+		span = cond.Conflict.Written()
 	}
 	return owner, span
 }
@@ -1511,11 +1539,16 @@ func (t *translator) provenance(role Role, owner *symbols.Symbol, span source.Sp
 
 // refuse reports that a construct is outside the translatable subset, naming the
 // condition it appeared in and where it was written.
-func (t *translator) refuse(node ast.Node, construct, reason string) error {
+func (t *translator) refuse(node *lower.ExprEntry, construct, reason string) error {
 	span := source.Span{}
 	if node != nil {
-		span = node.Span()
+		span = node.Origin.Span
 	}
+	return t.refuseAt(span, construct, reason)
+}
+
+// refuseAt is refuse of a construct written at span.
+func (t *translator) refuseAt(span source.Span, construct, reason string) error {
 	return &NotTranslatableError{
 		Construct: construct,
 		Reason:    reason,

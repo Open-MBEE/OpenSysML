@@ -28,6 +28,10 @@ service SysMLService {
   // Runtime operations (Phase 4)
   rpc Evaluate(EvaluateRequest) returns (EvaluateResponse);
   rpc Instantiate(InstantiateRequest) returns (InstantiateResponse);
+  // List every root-relative usage path that reaches one object the model's
+  // population holds, aliases through connector ends and references included.
+  // Reported as the "instance_paths" capability.
+  rpc InstancePaths(InstancePathsRequest) returns (InstancePathsResponse);
   rpc ExecuteAction(ExecuteActionRequest) returns (ExecuteActionResponse);
   rpc ExecuteState(ExecuteStateRequest) returns (ExecuteStateResponse);
 
@@ -110,9 +114,15 @@ service SysMLService {
   // model here. Reported as the "query" capability.
   rpc Query(QueryRequest) returns (QueryResponse);
 
-  // Run a named document query with parameter bindings, the answer the REPL's
-  // %run-query gives, as typed rows rather than formatted lines. Reported as
-  // the "document_query" capability.
+  // Read the metamodel properties of one element by their specification
+  // names (KerML 1.1 and SysML 2.1 abstract syntax: inheritedFeature,
+  // connectorEnd, directedFeature, payloadType, ...), as the model's API
+  // element form (Convert to api-json) spells them, without converting the
+  // whole model. Reported as the "element_properties" capability.
+  rpc GetElementProperties(GetElementPropertiesRequest) returns (GetElementPropertiesResponse);
+
+  // Run a document query named by query_id or written in inline_query as typed rows, the answer
+  // the REPL's %run-query gives; capabilities "document_query" and "inline_document_query".
   rpc RunDocumentQuery(RunDocumentQueryRequest) returns (RunDocumentQueryResponse);
 
   // Render a named document to Markdown, as the CLI's -render-document does.
@@ -708,6 +718,27 @@ message ExplorationStatus {
   // without a choice point, by identifier; `complete` is false while any is
   // listed, since fewer orders were run than the library admits.
   repeated string unenumerated = 8;
+  // Every state entered and transition taken over all the runs, not only the
+  // witness of each outcome, with how many runs did so.
+  Coverage coverage = 9;
+}
+
+// Coverage is what every run of an exploration, or every schedule of a check,
+// entered and took, with how many did so.
+message Coverage {
+  repeated CoverageEntry states = 1;
+  repeated CoverageEntry transitions = 2;
+}
+
+// CoverageEntry is one state entered or one transition taken.
+message CoverageEntry {
+  // Qualified by the instance running the machine: `Cov::Sys#1.m.run: viaA`,
+  // `Cov::Sys#1.m.run: s0 -> viaB`.
+  string path = 1;
+  // Qualified by the declaration: `Cov::M::run::viaA`, `Cov::M::run::s0 -> viaB`.
+  string declaration = 2;
+  // How many runs (schedules, under the check engine) entered or took it.
+  int32 runs = 3;
 }
 
 // CheckBehaviorRequest searches every schedule of a behavior, as the `sysml`
@@ -822,6 +853,9 @@ message CheckSearch {
   repeated string scope = 9;
   // How the search ended, as `sysml` reports it.
   string status = 10;
+  // Every state entered and transition taken over all the searched schedules,
+  // not only the witness of each final, with how many schedules did so.
+  Coverage coverage = 11;
 }
 
 // CheckBehaviorResponse is what the search found.
@@ -991,7 +1025,36 @@ message ParseFileResponse {
 // GetSymbolRequest queries for a specific symbol
 message GetSymbolRequest {
   string model_hash = 1;
-  string symbol_id = 2;  // Fully qualified name
+  // A qualified name or an element id, as lookup states; with none stated, read as a
+  // name first, then an id, so a name declared like a generated id shadows that element.
+  string symbol_id = 2;
+  // List the members inherited from standard-library content in
+  // SymbolInfo.members, each marked library, instead of counting them in
+  // withheld_library_members.
+  bool include_library_members = 3;
+  // Resolve symbol_id as a qualified name from the root namespace (KerML 8.2.3.5), through visible
+  // memberships and to an alias's element; unset, or without the
+  // symbol_name_resolution capability, it is an id the service reported, whatever its visibility.
+  bool resolve_name = 4;
+  // What symbol_id is, stated rather than guessed; read with the "symbol_lookup_kind"
+  // capability, and resolve_name is then ignored.
+  LookupKind lookup = 5;
+  // Id of the type the symbol is read as a feature of: metadata["direction"] is then relative to
+  // it (KerML Type::directionOf), reversed by a conjugation; capability "symbol_member_direction".
+  string member_of = 6;
+}
+
+// LookupKind states what the one string naming an element is, as the SysML v2 API keeps
+// an element's "@id" apart from its qualifiedName (KerML 8.3.2.1).
+enum LookupKind {
+  // Not stated: the string is read as either kind, in the order its field documents.
+  LOOKUP_KIND_UNSPECIFIED = 0;
+  // A qualified name, resolved from the root namespace (KerML 8.2.3.5) through visible
+  // memberships; never read as an id.
+  LOOKUP_KIND_QUALIFIED_NAME = 1;
+  // An id the service reported for an element (SymbolInfo.id, child_ids, MemberInfo.id,
+  // ElementRef.id, a metaobject's element_id), whatever its visibility; never read as a name.
+  LOOKUP_KIND_ELEMENT_ID = 2;
 }
 
 // SymbolResponse contains symbol information
@@ -1000,11 +1063,95 @@ message SymbolResponse {
   string error = 2;
 }
 
+// GetElementPropertiesRequest names one element of a parsed model and the
+// metamodel properties to read of it.
+message GetElementPropertiesRequest {
+  string model_hash = 1;
+  // A qualified name or an id, as lookup states; with none stated, the "@id" of the model's
+  // API element form first, then a qualified name, then a positional id (Owner::@3).
+  string element_id = 2;
+  // The properties to read, by specification name. Empty reads every property
+  // the element form carries for the element.
+  repeated string properties = 3;
+  // What element_id is, stated rather than guessed; read with the "symbol_lookup_kind"
+  // capability. An alias named by qualified name answers as its membership.
+  LookupKind lookup = 4;
+}
+
+// GetElementPropertiesResponse is one property entry per requested name, in
+// the request's order, or every property the element carries when none was
+// named, in the element form's order.
+message GetElementPropertiesResponse {
+  ElementRef element = 1;
+  repeated ElementProperty properties = 2;
+  // Why there is no answer: the model or the element was not found, or the
+  // element belongs to an excluded document.
+  string error = 3;
+  // The documents the model is read without, each with why; empty when the whole model is read.
+  // Any other element is answered and may name one of theirs; asking for theirs answers its document's error.
+  repeated ExcludedDocument excluded_documents = 4;
+}
+
+// ExcludedDocument is a document GetElementProperties leaves out of a model: one the parser could not
+// read whole, one the element form cannot write, or one declaring an element an earlier document declares.
+message ExcludedDocument {
+  // The document's name as the parse request gave it.
+  string document = 1;
+  // Why it is left out, as Convert would refuse the model for it.
+  string error = 2;
+}
+
+// ElementRef identifies an element the element form knows: an element of
+// the model or a standard-library element it references.
+message ElementRef {
+  // The "@id" of the API element form.
+  string id = 1;
+  // The qualified name; empty for an unnamed element. An unnamed
+  // standard-library member carries its library path (owner/Metaclass[i]).
+  string qualified_name = 2;
+  // The metaclass ("ConnectionUsage"); empty when the id is known to nothing.
+  string metaclass = 3;
+}
+
+// ElementProperty is one metamodel property of an element.
+message ElementProperty {
+  // The specification name ("connectorEnd").
+  string name = 1;
+  // The metaclass declaring the property ("Connector"); empty when the
+  // element's metaclass declares no such property.
+  string defining_class = 2;
+  // Whether the property holds a collection; a single-valued property has at
+  // most one value.
+  bool many = 3;
+  // Whether the specification derives the property rather than stating it.
+  bool derived = 4;
+  // The values, in the collection's order; none for an empty or null property.
+  repeated ElementPropertyValue values = 5;
+  // Set when values cannot be answered: the element's metaclass declares no
+  // such property, or OpenSysML does not derive it yet (and why). Empty for a
+  // property that is answered, with or without values.
+  string unsupported = 6;
+}
+
+// ElementPropertyValue is one value of a metamodel property, in the shape the
+// API element form spells it.
+message ElementPropertyValue {
+  oneof value {
+    ElementRef element = 1;
+    string string_value = 2;
+    bool bool_value = 3;
+    int64 int_value = 4;
+    double real_value = 5;
+    // A number beyond int64 and float64, in decimal.
+    string number = 6;
+  }
+}
+
 // DiagnosticsRequest gets all diagnostics for a model
 message DiagnosticsRequest {
   string model_hash = 1;
   // Lints left out of the diagnostics, by code (`sysml -disable-lint`): one of
-  // undeclared-signal, port-type-mismatch, deferred-keeper-unmarked or
+  // undeclared-signal, deferred-keeper-unmarked or
   // rounded-real-literal. A code naming no lint is INVALID_ARGUMENT.
   repeated string disable_lint = 2;
   // Opt-in lints kept in the diagnostics, by code (`sysml -enable-lint`):
@@ -1043,6 +1190,29 @@ message Instance {
   reserved "slots";
   // What the object holds for each feature of its type, by feature name.
   map<string, FeatureValue> feature_values = 4;
+  // How the traversal that serialized the graph reached this object: the object
+  // holding it, the feature of that holder it is a value of, and the path from
+  // the root. Unset for the root. The traversal is depth-first from the root,
+  // over the features of an object in name order (those the model declares
+  // first, then those the standard library derives, such as `subparts`) and the
+  // values of a feature in their order, and reaches an object once, the first
+  // time; one object is often a value of several features (a port and the
+  // connector end referencing it are one object), and InstancePaths lists every
+  // path to it.
+  InstanceReach reached_by = 5;
+}
+
+// InstanceReach is how a traversal of an object graph reached one object.
+message InstanceReach {
+  int64 instance_id = 1;         // the object holding this one
+  string feature_name = 2;       // the holder's feature, a key of its feature_values
+  string feature_symbol_id = 3;  // FQN of the feature as declared
+  // Position among the values of a multi-valued feature, counted from 1 as an
+  // object path indexes them (`wheels[2]`); 0 for a single-valued feature.
+  int32 index = 4;
+  // The path from the root: the feature names, indexed within a multi-valued
+  // feature, joined by dots (`powertrain.engine.fuelIn`, `wheels[2].hub`).
+  string path = 5;
 }
 
 // FeatureValue is what an object holds for one feature of its type.
@@ -1077,6 +1247,63 @@ message InstantiateResponse {
   // Every instance reachable from `instance`, including `instance` itself, so a
   // client can resolve an `instance_id` feature value without a follow-up RPC.
   repeated Instance instances = 4;
+}
+
+// InstancePathsRequest asks for every root-relative usage path that reaches
+// one object: the paths by which a client can address it, and so the parts
+// that share it. A port and the connector end referencing it, or an object and
+// a reference usage bound to it, are one object reached by several paths.
+message InstancePathsRequest {
+  string model_hash = 1;
+  // The object, by id or by path. Fails with NOT_FOUND when no object of the
+  // model's population has the id or the name, INVALID_ARGUMENT when neither
+  // is given or the path reaches no object.
+  DocumentObject object = 2;
+}
+
+// InstancePathsResponse lists the paths, in traversal order: the roots the
+// population holds in id order and, from each, depth-first over the features
+// of an object in name order and the values of a feature in their order. A
+// path visits no object twice, and steps through the features the model
+// declares only: the collections the standard library derives (`subparts`,
+// `ownedPorts`) hold the same objects and are not paths of their own. An
+// object no root reaches has no path.
+message InstancePathsResponse {
+  repeated InstancePath paths = 1;
+  // The paths are cut short: more than `limit` of them reach the object, or
+  // one would be deeper than the service walks.
+  bool truncated = 2;
+  string error = 3;
+  repeated Diagnostic diagnostics = 4;
+}
+
+// InstancePath is one root-relative path to an object: the root it starts
+// from and the features walked from it, each with the object it reaches.
+message InstancePath {
+  InstanceRoot root = 1;
+  // The steps joined as an object path (`powertrain.engine.fuelIn`); empty when
+  // the object is the root itself. `<root label>.<path>` addresses the object
+  // in a DocumentObject.
+  string path = 2;
+  repeated InstancePathStep steps = 3;
+}
+
+// InstanceRoot is an object the population holds on its own: one Instantiate
+// created, by the identity it answered and the name it was created under.
+message InstanceRoot {
+  int64 instance_id = 1;
+  // The qualified name the object was instantiated as, the label a path from
+  // it starts with; empty for an object the name no longer binds, which `#<id>`
+  // addresses.
+  string symbol_id = 2;
+}
+
+// InstancePathStep is one feature walked along a path.
+message InstancePathStep {
+  string feature_name = 1;       // feature of the object before this step
+  string feature_symbol_id = 2;  // FQN of the feature as declared
+  int32 index = 3;               // 1-based within a multi-valued feature, 0 for a single-valued one
+  int64 instance_id = 4;         // the object the step reaches
 }
 
 // ExecuteActionRequest requests action execution
@@ -1295,6 +1522,9 @@ message ConvertRequest {
   // For api-json, restore the ownerless library stubs written before 0.11.0.
   // Default false: library elements remain bare references, not roots.
   bool include_library_stubs = 13;
+  // For api-json, also write each Namespace's and Type's derived lists of inherited and imported members;
+  // default false writes owned structure. Capability "convert_inherited_members"; a service without it always writes them.
+  bool inherited_members = 14;
 }
 
 // ConvertResponse contains the converted model.
@@ -1328,6 +1558,7 @@ message LibraryReference {
   string id = 1;
   string qualified_name = 2;
   string type = 3; // Metaclass, as API JSON's @type spells it.
+  string library_path = 4; // Positional path owner/Metaclass[i] of an unnamed member, which has no qualified_name.
 }
 
 // MigrateRequest asks for a SysML v1 model migrated to v2. The source is a
@@ -1874,45 +2105,104 @@ enum EditFailure {
 }
 
 // SymbolInfo represents any SysML element
+// SymbolInfo is the symbol table's summary of an element. Several fields
+// restate metamodel properties that GetElementProperties derives in full; each
+// such field names the property it summarises, and element_properties is the
+// surface whose answer the specification defines.
 message SymbolInfo {
-  string id = 1;             // Unique identifier (fully qualified name)
+  // The element id, this element's alone: its qualified name (`Owner::'@3'`), a positional id
+  // (`Owner::@3`), or its element-form "@id" where another's generated id is spelled like the name.
+  string id = 1;
   string name = 2;
-  string kind = 3;           // "PartDefinition", "AttributeUsage", etc
-  map<string, string> metadata = 4;  // multiplicity, type, etc
-  repeated string child_ids = 5;     // References to children
+  // Declaration keyword kind ("partDef", "attributeUsage", "actionUsage", ...):
+  // the written syntax, not the element's metaclass. GetElementProperties
+  // reports the metaclass and every property that classifies the element.
+  string kind = 3;
+  // Summary entries: "type" and "specializes" (the first written edge of each,
+  // kept for compatibility; `specializations` has them all), "multiplicity",
+  // "direction" (the direction written on the feature; the derived
+  // Feature::direction is GetElementProperties' `direction`), "abstract",
+  // "variation", "variant" and the like.
+  map<string, string> metadata = 4;
+  // The owned members' ids, each naming its member under LOOKUP_KIND_ELEMENT_ID: a qualified name, a positional id
+  // (`Owner::@3`), or an unnamed connector end's GetElementProperties element id (`Owner__c_pend0`).
+  repeated string child_ids = 5;
   repeated AttributeInfo attributes = 6;
-  // Static type facts; unset when the element is not a def/usage.
+  // Static type facts; unset when the element is not a def/usage. `declared`
+  // is the written typing and `types` the derived Feature::type, the `type`
+  // property of GetElementProperties.
   TypeInfo type_info = 7;
   // Declared multiplicity; unset when none is declared.
   MultiplicityInfo multiplicity = 8;
-  // Every generalization edge declared, in declaration order. metadata["type"]
-  // and metadata["specializes"] report only the first, kept for compatibility.
+  // Every generalization edge declared, in declaration order: the written
+  // relationships Type::ownedSpecialization of GetElementProperties reflects
+  // (typing, subsetting, reference subsetting, redefinition, specialization),
+  // but not the implied ones the metamodel adds. metadata["type"] and
+  // metadata["specializes"] report only the first, kept for compatibility.
   repeated Specialization specializations = 9;
   // Attributes inherited from standard-library content, which `attributes`
   // leaves out. Their absence is stated here rather than silent.
   int32 withheld_library_attributes = 10;
+  // Every member the element has (KerML Type::member): its owned members, in
+  // declaration order, then the members it inherits, in inheritance order, a
+  // redefinition masking what it redefines and a private member of a supertype
+  // not inherited. Members inherited from standard-library content are left
+  // out unless GetSymbolRequest.include_library_members asks for them, and are
+  // counted in withheld_library_members. Reported with the "symbol_members"
+  // capability; child_ids stays the owned members only.
+  repeated MemberInfo members = 11;
+  // Members inherited from standard-library content that `members` leaves out.
+  int32 withheld_library_members = 12;
+  // Ids of the metadata usages annotating the element: its own prefix and body
+  // ones, then the `about` ones written elsewhere, which child_ids leaves out.
+  repeated string annotating_metadata_ids = 13;
+}
+
+// MemberInfo is one member of an element, own or inherited.
+message MemberInfo {
+  // The member's element id, as SymbolInfo.id spells it, library members included.
+  string id = 1;
+  // Declared name; empty for an unnamed member such as `bind a = b;`.
+  string name = 2;
+  // Symbol kind of the member ("partUsage", "bindingConnectorAsUsage", ...).
+  string kind = 3;
+  // True when the member is inherited rather than declared by the element.
+  bool inherited = 4;
+  // FQN of the type declaring an inherited member; empty for an own member.
+  string inherited_from = 5;
+  // True when the member is declared in standard-library content.
+  bool library = 6;
 }
 
 // Specialization is one generalization edge an element declares.
 message Specialization {
-  // Relationship kind: "specializes", "subsets", "redefines" or "typing".
+  // Relationship kind: "specializes", "subsets", "redefines", "typing" or
+  // "references" (reference subsetting, `::>` and `include`).
   string kind = 1;
   // The target as written in the source ("Engine", "Demo::Engine").
   string declared = 2;
-  // FQN of the resolved target; empty when the name does not resolve.
+  // Element id of the resolved target, as GetSymbol reports it, for lookup; empty when the name does not resolve.
+  // A "references" feature chain (`x.p`) is one entry per chaining feature, each with the chain as `declared`.
   string target_id = 3;
   // Symbol kind of the resolved target ("partDef", ...); empty when unresolved.
   string target_kind = 4;
+  // Qualified name of the resolved target, for display; empty when the name does not resolve.
+  string target_qualified_name = 5;
 }
 
 // TypeInfo is the static type of a usage, or the classification of a
 // definition, as far as the service derives it without running the model.
+// TypeInfo summarises an element's typing. `declared`, `resolved_id` and
+// `resolved_kind` are the typing the declaration writes (`: T`); `types` is
+// the feature's semantic type as the metamodel derives it, the `type` property
+// of GetElementProperties (KerML Feature::type), which the typing of every
+// feature it subsets, references or redefines contributes to.
 message TypeInfo {
   // Type name as written; empty when none is declared.
   string declared = 1;
-  // FQN of the resolved type; empty when unresolved or undeclared.
+  // Element id of the resolved written type, as GetSymbol reports it, for lookup; empty when unresolved or undeclared.
   string resolved_id = 2;
-  // Symbol kind of the resolved type ("partDef", "attributeDef", ...).
+  // Symbol kind of the resolved written type ("partDef", "attributeDef", ...).
   string resolved_kind = 3;
   // Library scalar the type reduces to ("Boolean", "Integer", "Real", ...);
   // empty when it is not a scalar value type.
@@ -1924,6 +2214,20 @@ message TypeInfo {
   bool quantity = 6;
   // Unit as written when the default value names one ("m/s"), else empty.
   string unit = 7;
+  // The feature's derived types (Feature::type), most specific first, with the
+  // redundant supertypes removed: `part pBoth : V :> q` with `q : T` reports V
+  // and T. Empty when the element is not a feature or none derives.
+  repeated TypeRef types = 8;
+  // Qualified name of the resolved written type, for display; empty when unresolved or undeclared.
+  string resolved_qualified_name = 9;
+}
+
+// TypeRef names one derived type of a feature.
+message TypeRef {
+  // FQN of the type.
+  string id = 1;
+  // Symbol kind of the type ("partDef", "attributeDef", ...).
+  string kind = 2;
 }
 
 // MultiplicityInfo is a declared multiplicity range. A bound the service cannot
@@ -1979,7 +2283,136 @@ message Value {
     // server answers one a double holds exactly as real_value; a client sends
     // any exact Rational here, and an inbound real_value is always a Real.
     Rational rational_value = 23;
+    // A coordinate frame or measurement scale held as a value: its axes and the
+    // placement relating it to another frame. Sent, never accepted.
+    CoordinateFrame coordinate_frame = 24;
+    // A placement of one frame in another, with the frames it relates. Sent,
+    // never accepted.
+    CoordinateTransformation coordinate_transformation = 25;
   }
+}
+
+// CoordinateFrame is a MeasurementReferences::VectorMeasurementReference held
+// as a value: a coordinate frame's axes, or the one axis a measurement scale
+// is. Two frames read from objects are the same exactly when instance_id is; a
+// frame composed by arithmetic (`spatialCF / s`) is its content.
+message CoordinateFrame {
+  // The frame as a reader writes it: "datum", or "spatialCF / s" for one composed.
+  string name = 1;
+  // The id a client keeps for the usage declaring the frame ("Frames::datum");
+  // empty for a frame composed by arithmetic or made of a definition.
+  string frame_id = 2;
+  // FQN of the type the frame is a value of
+  // ("MeasurementReferences::CartesianSpatial3dCoordinateFrame"); empty for none.
+  string type_id = 3;
+  // The object the frame was read from; 0 for a frame composed by arithmetic.
+  int64 instance_id = 4;
+  // `dimensions`: [3] for a three-dimensional frame, empty for a scale.
+  repeated int64 dimensions = 5;
+  // `mRefs` in row-major order under dimensions: one unit per axis.
+  repeated MeasurementRef axes = 6;
+  // `transformation`: the placement of this frame in another; unset when the
+  // model states none. Its target is this frame and is not repeated.
+  CoordinateTransformation transformation = 7;
+  // Set exactly when the frame is a MeasurementReferences::MeasurementScale.
+  MeasurementScale scale = 8;
+}
+
+// MeasurementScale is what a scale states beyond its one axis.
+message MeasurementScale {
+  // The unit a magnitude on the scale is expressed in.
+  MeasurementRef unit = 1;
+  // `quantityValueMapping`: one point given on the scale and on the reference
+  // the scale is defined against; unset when the model states none.
+  QuantityValueMapping mapping = 2;
+}
+
+// QuantityValueMapping is one point on a scale and the same point on the
+// measurement reference the scale is defined against.
+message QuantityValueMapping {
+  Quantity mapped = 1;     // the point on the scale, in the scale's unit
+  Quantity reference = 2;  // the same point on the reference
+}
+
+// CoordinateTransformation is a MeasurementReferences::CoordinateTransformation
+// held as a value: the placement of the target frame in the source frame, in
+// the library shape the model states it in. A transformation of no library
+// shape carries its frames alone.
+message CoordinateTransformation {
+  // The transformation as a reader names it: its declared name, else its type.
+  string name = 1;
+  // The id a client keeps for the usage declaring it; empty for one constructed.
+  string transformation_id = 2;
+  // FQN of the type it is a value of
+  // ("MeasurementReferences::TranslationRotationSequence"); empty for none.
+  string type_id = 3;
+  // The object the transformation was read from; 0 for none.
+  int64 instance_id = 4;
+  // `source`; unset when the model states none.
+  CoordinateFrame source = 5;
+  // `target`; unset inside the CoordinateFrame whose transformation this is.
+  // A target whose own transformation is this one does not repeat it.
+  CoordinateFrame target = 6;
+  oneof shape {
+    FramePlacement placement = 7;           // a CoordinateFramePlacement
+    TranslationRotationSequence sequence = 8;
+    AffineTransformation3d affine = 9;      // an AffineTransformationMatrix3d
+  }
+  // The pose the shape resolves to, as VectorCalculations::transform applies
+  // it. Unset when the model states no source, or the shape resolves to none.
+  FramePose pose = 10;
+}
+
+// FramePose is where a transformation's target frame sits in its source frame,
+// as bare numbers in the source's axis units: the point with target
+// coordinates v lies at `origin + basis · v` in the source.
+message FramePose {
+  repeated double origin = 1;  // one per source axis
+  // n×n over the source's n axes, row-major: column j is the direction of
+  // target axis j in the source.
+  repeated double basis = 2;
+}
+
+// FramePlacement is a MeasurementReferences::CoordinateFramePlacement.
+message FramePlacement {
+  // The target's origin in the source frame: a vector_quantity, or a quantity
+  // for a one-dimensional frame.
+  Value origin = 1;
+  // The target's basis directions in the source frame, one vector_quantity per
+  // target axis; empty for the source's own orientation.
+  repeated Value basis_directions = 2;
+}
+
+// TranslationRotationSequence is the `elements` of a
+// MeasurementReferences::TranslationRotationSequence, in the order applied.
+message TranslationRotationSequence {
+  repeated FrameStep steps = 1;
+}
+
+// FrameStep is one Translation or Rotation of a TranslationRotationSequence.
+message FrameStep {
+  oneof step {
+    Value translation = 1;       // `translationVector`, a vector_quantity
+    FrameRotation rotation = 2;
+  }
+  // The Translation or Rotation object the step was read from.
+  int64 instance_id = 3;
+}
+
+// FrameRotation is a MeasurementReferences::Rotation.
+message FrameRotation {
+  Value axis_direction = 1;  // `axisDirection`, a vector_quantity
+  Quantity angle = 2;        // `angle`, an angular measure in the unit written
+  // `isIntrinsic`: about the axes as already rotated (true, the library's
+  // default) or about the source frame's fixed axes (false).
+  bool is_intrinsic = 3;
+}
+
+// AffineTransformation3d is a MeasurementReferences::AffineTransformationMatrix3d
+// as bare numbers.
+message AffineTransformation3d {
+  repeated double rotation = 1;     // `rotationMatrix`: 9, row-major
+  repeated double translation = 2;  // `translationVector`: 3
 }
 
 // Rational is an exact rational number in lowest terms: numerator over a
@@ -1997,7 +2430,8 @@ message Rational {
 // exactly when element_id is, whatever type each was cast to. Its features
 // (`declaredName`, `ownedFeature`, ...) are read in the model, not carried.
 message Metaobject {
-  // FQN of the element reflected on ("Vehicle::seatBelt"). Its identity.
+  // The id a client keeps for the element: its FQN ("Vehicle::seatBelt"), an unnamed member's
+  // positional id ("Vehicle::@2") or a synthesized element's form @id ("Vehicle__send___400_pvalue").
   string element_id = 1;
   // FQN of the element's own reflective metaclass ("SysML::Systems::PartUsage"),
   // the most specific metaclass of the KerML or SysML library classifying it;
@@ -2134,6 +2568,9 @@ message Quantity {
   // Required wherever `unit` names one: a named unit sent without its reduction
   // is rejected rather than read as dimension one.
   UnitTerm unit_term = 4;
+  // Qualified name of the quantity value type the quantity is held as, empty for
+  // none: sent back, it is held as that type still, which a sibling type refuses.
+  string value_type = 7;
 }
 
 // MeasurementRef is a MeasurementReferences::ScalarMeasurementReference held as
@@ -2300,6 +2737,8 @@ message ServerInfoResponse {
   //                  and the response carries the document in `asciidoc`.
   //   "render_view" - the RenderView RPC renders a declared view or targeted
   //                  pseudo-view as machine-readable diagram data.
+  //   "query_result_view" - as_view writes a query's answer as a QVTS::QueryResult view: result_view on success, a
+  //                  QueryResultView detail on failure; RenderView answers such a view's header and, for form, a document.
   //   "export_graphs" - the ExportGraphs RPC exports the lowered graph of an
   //                  action or state machine as canonical graphs:1 JSON.
   //   "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
@@ -2346,6 +2785,9 @@ message QueryRequest {
   Query query = 2;
   // OSLC Query 3.0 parameter text, mutually exclusive with query.
   string oslc_query = 3;
+  // Also write the answer as a QVTS::QueryResult view, in result_view or a failure's
+  // QueryResultView detail. Under the "query_result_view" capability.
+  bool as_view = 4;
 }
 
 // QueryResponse contains the elements the query selected, in the order they are
@@ -2354,6 +2796,9 @@ message QueryRequest {
 // rather than answering empty.
 message QueryResponse {
   repeated QueryResultElement elements = 1;
+  // The answer as SysML text when the request set as_view, as RunDocumentQueryResponse.result_view;
+  // its query is the OSLC text, or the API query written as `scope=…; select=…; where=…; orderBy=…`.
+  string result_view = 2;
 }
 
 // Query is the standard's Query resource (SysML v2 API & Services). Its `@type`
@@ -2432,12 +2877,17 @@ enum CompositeOperator {
 
 // QueryResultElement is one matched element. `id` and `type` are always
 // reported, since an element record is not usable without them; `properties`
-// carries what `select` asked for, omitting a property the element does not
-// have.
+// carries what `select` asked for, omitting a property the element has no
+// value of. An OSLC query selecting held objects (`rdf:type=elmt:<id>`) answers
+// one record per object: `id` and `type` name the element the object is an
+// instance of, and `path` the object itself.
 message QueryResultElement {
   string id = 1;    // qualified name, the identity this service reports
   string type = 2;  // metamodel type name ("PartUsage", "PartDefinition", ...)
   map<string, string> properties = 3;
+  // The path the session holds an object under (`car.wheels[2]`, `#7`); empty
+  // for a model element.
+  string path = 4;
 }
 
 // SweepRange is one parameter's range: the endpoints a swept run advances
@@ -2755,20 +3205,29 @@ message RunRunsResponse {
 }
 
 
-// RunDocumentQueryRequest runs a named document query — a calc def
-// specializing DocumentQueries::Query — against a model the service already
-// parsed, binding its entry parameters. It answers as %run-query does, but with
-// typed rows rather than formatted lines. The query runs over the objects
-// Instantiate created for the model, which a binding may name (DocumentObject)
-// and `DocumentQueries::Objects` and `Verdicts` reach.
+// RunDocumentQueryRequest runs a DocumentQueries::Query the model declares (query_id) or one
+// written in inline_query over a parsed model and its Instantiate objects, binding its parameters.
 message RunDocumentQueryRequest {
   string model_hash = 1;  // from ParseFile response
   // FQN of the document query to run. Fails with NOT_FOUND when the model does
   // not declare it, and INVALID_ARGUMENT when it declares something else.
+  // Exactly one of query_id and inline_query is given.
   string query_id = 2;
   // Entry-parameter bindings. Repeating a parameter appends to its binding, so
   // a nonscalar parameter can be given several values.
   repeated DocumentQueryBinding bindings = 3;
+  // A query expression to run in place of a named query — the result
+  // expression of a `calc def` specializing DocumentQueries::Query, such as
+  // `Project(WhereType(Descendants(Named("Vehicles")), "PartUsage"), ("name",
+  // "mass"))` — compiled in the model's context with the DocumentQueries
+  // library in scope and the model's own names reachable. A fault in the
+  // expression fails with INVALID_ARGUMENT positioned within it (`inline query
+  // <line>:<column>`); a path or model error carries a QueryOutcome detail as a
+  // named query's does. Reported as the "inline_document_query" capability.
+  string inline_query = 4;
+  // Also write the answer as a QVTS::QueryResult view, in result_view or a failure's
+  // QueryResultView detail. Under the "query_result_view" capability.
+  bool as_view = 5;
 }
 
 // DocumentQueryBinding binds one entry parameter of a document query.
@@ -2953,6 +3412,15 @@ message DocumentQueryRow {
 message RunDocumentQueryResponse {
   repeated DocumentQueryColumn columns = 1;
   repeated DocumentQueryRow rows = 2;
+  // The answer as SysML text when the request set as_view: a package holding one `view : QVTS::QueryResult`
+  // that exposes each selected element and states the query, its bindings, the source, the outcome and the provenance.
+  string result_view = 3;
+}
+
+// QueryResultView is a failed query written as a QVTS::QueryResult view, an error
+// detail beside QueryOutcome when the request set as_view: it exposes the frontier and finding elements.
+message QueryResultView {
+  string text = 1;
 }
 
 // QueryOutcome is the record behind a document query that could not be run, an error
@@ -2963,6 +3431,11 @@ message QueryOutcome {
   repeated QueryFailure failures = 3;        // a pathError's failures, one per failing element
   repeated QueryFinding findings = 4;        // a modelError's findings
   repeated QueryFailure path_failures = 5;   // a modelError's path failures from the same fan-out
+  // The detail is bounded to fit a status trailer: the lists above hold the first
+  // few of a fan-out, and these count how many there were in all (the CLI's -json record carries every one).
+  int32 failures_total = 6;
+  int32 findings_total = 7;
+  int32 path_failures_total = 8;
 }
 
 // QueryFailure is one failure of one step on one element: what the step
@@ -2981,6 +3454,11 @@ message QueryFrontier {
   repeated QueryFrontierFeature features = 3;  // its features, when a feature was expected
   repeated string kinds = 4;                   // the relationship kinds there are, when a kind was expected
   string nearest = 5;                          // the closest spelling, when a name was expected
+  // Bounded to fit a status trailer: members, features and kinds hold the nearest spellings
+  // only, and these count how many there were in all (the CLI's -json record carries every one).
+  int32 members_total = 6;
+  int32 features_total = 7;
+  int32 kinds_total = 8;
 }
 
 message QueryFrontierMember {
@@ -3054,6 +3532,27 @@ message RenderViewRequest {
   // owned usage no Layout, nested definition or package keeps a node) or
   // "ports" (the port usages with the ports nested under them).
   string compartments = 6;
+  // Form to also write into RenderViewResponse.text: "text", "mermaid", "markdown", "dot", "plantuml", "d2", "drawio", "csv" or "tsv", and for a
+  // QVTS::QueryResult view "markdown", "html" or "asciidoc", a document of its header and rows; a wrong-kind form is INVALID_ARGUMENT. Needs render_view_form.
+  string form = 7;
+  // Palette the dot, mermaid, plantuml, d2 or drawio form fills nodes from,
+  // as -render-palette names them; empty draws in black and white.
+  string palette = 8;
+  // Drawing style of the dot or mermaid form, as -render-style names them:
+  // "" or "pilot" (the default), or "cameo".
+  string style = 9;
+  // How the dot or plantuml form routes its edges, as -render-lines names
+  // them: "" or "splines" (the default), "ortho" or "polyline".
+  string lines = 10;
+  // Flow direction of a graph-shaped form: "TB", "LR", "RL" or "BT"; empty
+  // leaves each kind's default, which is what the CLI writes.
+  string direction = 11;
+  // Source link template of each node and edge, as -render-link takes it:
+  // placeholders {file}, {line}, {col}, {qname} and {id}; empty writes no links.
+  string link = 12;
+  // Where a graph form of a positioned view puts the nodes no layout places,
+  // as -render-unplaced names them: "" or "omit" (the default), or "strip".
+  string unplaced = 13;
 }
 
 // RenderViewResponse carries all machine-readable fields of the rendering.
@@ -3061,7 +3560,8 @@ message RenderViewResponse {
   string view = 1;
   string kind = 2;
   string stated = 3;
-  // Nodes are flattened with parents before children.
+  // Nodes are flattened with parents before children; each node is listed once,
+  // and ids are unique within a rendering.
   repeated RenderNode nodes = 4;
   repeated RenderEdge edges = 5;
   repeated string columns = 6;
@@ -3072,6 +3572,31 @@ message RenderViewResponse {
   repeated string notices = 10;
   // The optional notation elements drawn, in registry order.
   repeated string shown = 11;
+  // The view frame round a graph-shaped rendering; unset for a frameless one.
+  RenderFrame frame = 12;
+  // The rendering written in RenderViewRequest.form, byte for byte what the CLI's
+  // -render writes at no particular width; empty when the request names no form.
+  string text = 13;
+  // A QVTS::QueryResult view's query, source, outcome and provenance, in that
+  // order, above its rows; empty for any other view.
+  repeated RenderHeaderField header = 14;
+}
+
+// RenderHeaderField is one stated attribute of a QVTS::QueryResult view.
+message RenderHeaderField {
+  string name = 1;
+  string value = 2;
+}
+
+// RenderFrame is the view frame of SysML v2 §8.2.3.26: the name compartment's
+// name and view definition, and the lines of the three information
+// compartments (exposes top right, filters bottom left, annotations bottom right).
+message RenderFrame {
+  string name = 1;
+  string type = 2;
+  repeated string exposes = 3;
+  repeated string filters = 4;
+  repeated string annotations = 5;
 }
 
 // RenderNode is one flattened node of the rendering.
@@ -3097,6 +3622,12 @@ message RenderNode {
   // subclassification or subsetting rather than declares it; the notation
   // prefixes its name with `^`. `name` stays the bare name.
   bool inherited = 15;
+  // Set on an item box drawn on a connection line (a flow, succession flow or
+  // message whose ends are the connection's): "right" when the item goes toward
+  // the line's second end, "left" toward its first. Empty for every other node.
+  string arrow = 16;
+  // The state's substates run in parallel; a label writes «parallel» under the name.
+  bool parallel = 17;
 }
 
 // RenderPort is a feature drawn on a node's border.

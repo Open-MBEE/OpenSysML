@@ -11,74 +11,13 @@ const cSeqPrelude = `
 /* A collection value is null, one bare scalar, or a sequence (shape). */
 enum { SYSML_NULL = 0, SYSML_ONE = 1, SYSML_MANY = 2 };
 
-typedef struct sysml_block { struct sysml_block *next; size_t used, cap; char data[]; } sysml_block;
-static sysml_block *sysml_arena;
 static sysml_int sysml_elements;
 static sysml_int sysml_max_elements = SYSML_DEFAULT_MAX_ELEMENTS;
 
-typedef struct { sysml_block *block; size_t used; } sysml_mark;
-
-static sysml_mark sysml_arena_mark(void) {
-	return (sysml_mark){sysml_arena, sysml_arena ? sysml_arena->used : 0};
-}
-
-static void sysml_arena_release(sysml_mark m) {
-	while (sysml_arena != m.block) {
-		sysml_block *next = sysml_arena->next;
-		free(sysml_arena);
-		sysml_arena = next;
-	}
-	if (sysml_arena) sysml_arena->used = m.used;
-}
-
-/* Whether p lies in memory a release to m would reclaim. */
-static bool sysml_above_mark(const void *p, sysml_mark m) {
-	const char *c = p;
-	for (sysml_block *b = sysml_arena; b; b = b->next) {
-		if (c >= b->data && c < b->data + b->used) return b != m.block || (size_t)(c - b->data) >= m.used;
-		if (b == m.block) break;
-	}
-	return false;
-}
-
-/* A run owns what it allocates until the next run begins, so its result outlives it. */
-static void sysml_run_begin(void) {
-	static sysml_mark mark;
-	static bool ran;
-	if (ran) sysml_arena_release(mark);
-	mark = sysml_arena_mark();
-	ran = true;
-	sysml_elements = 0;
-}
-
-static void *sysml_alloc(size_t n) {
-	n = (n + 15) & ~(size_t)15;
-	if (!sysml_arena || sysml_arena->cap - sysml_arena->used < n) {
-		size_t cap = n > (1 << 16) ? n : (1 << 16);
-		sysml_block *b = malloc(sizeof *b + cap);
-		if (!b) sysml_fail("out of memory");
-		b->next = sysml_arena; b->used = 0; b->cap = cap;
-		sysml_arena = b;
-	}
-	void *p = sysml_arena->data + sysml_arena->used;
-	sysml_arena->used += n;
-	return p;
-}
-
-static void sysml_failf(const char *fmt, ...) __attribute__((format(printf, 1, 2), noreturn));
-static void sysml_failf(const char *fmt, ...) {
-	static char *msg;
-	va_list ap, again;
-	va_start(ap, fmt);
-	va_copy(again, ap);
-	int n = vsnprintf(NULL, 0, fmt, ap);
-	va_end(ap);
-	free(msg);
-	msg = malloc((size_t)n + 1);
-	if (!msg) sysml_fail("out of memory");
-	vsnprintf(msg, (size_t)n + 1, fmt, again);
-	va_end(again);
-	sysml_fail(msg);
+/* The position an index names; an Integer beyond int64 names none. */
+static inline sysml_int sysml_pos(sysml_integer i, const char *op) {
+	if (__builtin_expect(i.big != NULL, 0)) sysml_failf("index out of range: %s: index %s addresses no position", op, sysml_show_int(i));
+	return i.small;
 }
 
 /* Charges n materialized elements to the budget a statement releases at its end. */
@@ -124,10 +63,8 @@ static void sysml_seq_close(void) { fputc(']', stdout); fputc('\n', stdout); }
 static void sysml_seq_sep(sysml_int i) { if (i) fputs(", ", stdout); }
 `
 
-// cSeqTemplate is the runtime over one element type; ELEM is the C type, SFX
-// the suffix naming it, PRINT prints one element without a newline, FORMAT
-// writes one into a buffer, KINDOF is the interpreter's description of one, KEY
-// hashes one, EQ is '==' of two and SKIP says which elements equal nothing (a NaN).
+// cSeqTemplate is the runtime over one element type: ELEM its C type, SFX its suffix, and
+// PRINT, SHOW, KINDOF, KEY, EQ and SKIP (elements equal to nothing, a NaN) its operations.
 const cSeqTemplate = `
 typedef struct { int8_t shape; sysml_int len; ELEM *data; } sysml_seq_SFX;
 
@@ -137,13 +74,6 @@ static inline sysml_seq_SFX sysml_one_SFX(ELEM v) {
 	ELEM *p = sysml_alloc(sizeof *p);
 	*p = v;
 	return (sysml_seq_SFX){SYSML_ONE, 1, p};
-}
-
-/* One element as the interpreter prints it, in memory the run owns. */
-static const char *sysml_show64_SFX(ELEM v) {
-	char *text = sysml_alloc(64);
-	FORMAT(v, text, 64);
-	return text;
 }
 
 /* s in the shape a feature's multiplicity gives its values: a multi-valued
@@ -179,6 +109,17 @@ static void sysml_restore_SFX(sysml_seq_SFX *s, ELEM *t) {
 	RESTOREELEMS(s->data, s->len);
 	free(t);
 }
+
+/* s with its elements held until the run ends, for a record or a closure keeping it. */
+static sysml_kept sysml_keepseq_SFX(sysml_seq_SFX s) {
+	if (s.len && sysml_in_arena(s.data)) {
+		s.data = sysml_keep(s.data, (size_t)s.len * sizeof(ELEM));
+		KEEPELEMS(s.data, s.len);
+	}
+	return (sysml_kept){s.shape, s.len, s.data};
+}
+
+static inline sysml_seq_SFX sysml_keptseq_SFX(sysml_kept h) { return (sysml_seq_SFX){h.shape, h.len, h.data}; }
 
 static sysml_seq_SFX sysml_concat_SFX(int n, const sysml_seq_SFX *parts) {
 	sysml_int total = 0;
@@ -253,7 +194,8 @@ static sysml_bool sysml_equals_SFX(sysml_seq_SFX a, sysml_seq_SFX b) {
 	return true;
 }
 
-static inline ELEM sysml_index_SFX(sysml_seq_SFX s, sysml_int i) {
+static inline ELEM sysml_index_SFX(sysml_seq_SFX s, sysml_integer at) {
+	sysml_int i = sysml_pos(at, "sequence index");
 	if (__builtin_expect(i < 1 || i > s.len, 0)) sysml_failf("index out of range: sequence index %lld is outside 1..%lld", (long long)i, (long long)s.len);
 	return s.data[i - 1];
 }
@@ -292,14 +234,16 @@ static sysml_seq_SFX sysml_sift_SFX(sysml_seq_SFX a, sysml_seq_SFX b, sysml_bool
 	return r;
 }
 
-static sysml_seq_SFX sysml_including_at_SFX(sysml_seq_SFX a, sysml_seq_SFX b, sysml_int i) {
+static sysml_seq_SFX sysml_including_at_SFX(sysml_seq_SFX a, sysml_seq_SFX b, sysml_integer at) {
+	sysml_int i = sysml_pos(at, "SequenceFunctions::includingAt");
 	if (i < 1 || i > a.len + 1) sysml_failf("index out of range: SequenceFunctions::includingAt insertion index %lld is outside 1..%lld", (long long)i, (long long)(a.len + 1));
 	sysml_seq_SFX parts[3] = {{SYSML_MANY, i - 1, a.data}, b, {SYSML_MANY, a.len - (i - 1), a.data + (i - 1)}};
 	return sysml_concat_SFX(3, parts);
 }
 
-static sysml_seq_SFX sysml_subsequence_SFX(sysml_seq_SFX s, sysml_int start, sysml_int end, sysml_bool has_end) {
-	if (!has_end) end = s.len;
+static sysml_seq_SFX sysml_subsequence_SFX(sysml_seq_SFX s, sysml_integer from, sysml_integer to, sysml_bool has_end) {
+	sysml_int start = sysml_pos(from, "SequenceFunctions::subsequence");
+	sysml_int end = has_end ? sysml_pos(to, "SequenceFunctions::subsequence") : s.len;
 	if (start < 1) sysml_failf("index out of range: SequenceFunctions::subsequence start index %lld is outside 1..%lld", (long long)start, (long long)s.len);
 	if (start > end) return sysml_many_SFX(0);
 	if (end > s.len) sysml_failf("index out of range: SequenceFunctions::subsequence end index %lld is outside 1..%lld", (long long)end, (long long)s.len);
@@ -307,8 +251,9 @@ static sysml_seq_SFX sysml_subsequence_SFX(sysml_seq_SFX s, sysml_int start, sys
 	return sysml_concat_SFX(1, &part);
 }
 
-static sysml_seq_SFX sysml_excluding_at_SFX(sysml_seq_SFX s, sysml_int start, sysml_int end, sysml_bool has_end) {
-	if (!has_end) end = start;
+static sysml_seq_SFX sysml_excluding_at_SFX(sysml_seq_SFX s, sysml_integer from, sysml_integer to, sysml_bool has_end) {
+	sysml_int start = sysml_pos(from, "SequenceFunctions::excludingAt");
+	sysml_int end = has_end ? sysml_pos(to, "SequenceFunctions::excludingAt") : start;
 	if (start < 1 || start > s.len + 1) sysml_failf("index out of range: SequenceFunctions::excludingAt start index %lld is outside 1..%lld", (long long)start, (long long)(s.len + 1));
 	if (end < 1) sysml_failf("index out of range: SequenceFunctions::excludingAt end index %lld is outside 1..*", (long long)end);
 	if (end > s.len) end = s.len;
@@ -417,13 +362,33 @@ static void sysml_range_charge(sysml_int n) {
 	sysml_steps += n;
 }
 
-static sysml_seq_int sysml_range(sysml_int lo, sysml_int hi) {
-	if (lo > hi) return sysml_many_int(0);
-	sysml_int n;
-	if (__builtin_sub_overflow(hi, lo, &n) || __builtin_add_overflow(n, 1, &n)) n = INT64_MAX;
+/* The range between bounds beyond int64, charged and sized element by element
+   as the interpreter's is: a bound is held as given, each successor is checked. */
+static sysml_seq_int sysml_big_range(sysml_integer lo, sysml_integer hi) {
+	sysml_int cap = 16;
+	sysml_seq_int r = {SYSML_MANY, 0, sysml_alloc((size_t)cap * sizeof(sysml_integer))};
+	for (sysml_integer v = lo;; v = sysml_add(v, SYSML_I(1))) {
+		sysml_range_charge(1);
+		if (r.len == cap) {
+			sysml_integer *grown = sysml_alloc((size_t)cap * 2 * sizeof(sysml_integer));
+			memcpy(grown, r.data, (size_t)cap * sizeof(sysml_integer));
+			r.data = grown;
+			cap *= 2;
+		}
+		r.data[r.len++] = v;
+		if (sysml_ieq(v, hi)) return r;
+	}
+}
+
+static sysml_seq_int sysml_range(sysml_integer lo, sysml_integer hi) {
+	if (sysml_icmp(lo, hi) > 0) return sysml_many_int(0);
+	if (lo.big || hi.big) return sysml_big_range(lo, hi);
+	/* The count of an int64 range can itself be beyond int64; no budget admits that many. */
+	uint64_t span = (uint64_t)hi.small - (uint64_t)lo.small;
+	sysml_int n = span >= (uint64_t)INT64_MAX ? INT64_MAX : (sysml_int)span + 1;
 	sysml_range_charge(n);
-	sysml_seq_int r = {SYSML_MANY, n, sysml_alloc((size_t)n * sizeof(sysml_int))};
-	for (sysml_int i = 0; i < n; i++) r.data[i] = lo + i;
+	sysml_seq_int r = {SYSML_MANY, n, sysml_alloc((size_t)n * sizeof(sysml_integer))};
+	for (sysml_int i = 0; i < n; i++) r.data[i] = SYSML_I(lo.small + i);
 	return r;
 }
 
@@ -431,7 +396,7 @@ static sysml_seq_int sysml_range(sysml_int lo, sysml_int hi) {
 static sysml_seq_real sysml_widen_int(sysml_seq_int s) {
 	sysml_charge(s.len);
 	sysml_seq_real r = {s.shape, s.len, s.len ? sysml_alloc((size_t)s.len * sizeof(sysml_real)) : NULL};
-	for (sysml_int i = 0; i < s.len; i++) r.data[i] = (sysml_real)s.data[i];
+	for (sysml_int i = 0; i < s.len; i++) r.data[i] = sysml_to_real(s.data[i]);
 	return r;
 }
 
@@ -460,12 +425,11 @@ static sysml_seq_num sysml_nums_real(sysml_seq_real s) {
 /* Folds numbers from the Integer identity: Integer arithmetic while both
    operands hold Integers, Real arithmetic once one does not. */
 static sysml_num sysml_nfold(sysml_seq_num s, bool product, const char *op) {
-	sysml_num acc = sysml_ni(product ? 1 : 0);
+	sysml_num acc = sysml_ni(SYSML_I(product ? 1 : 0));
 	for (sysml_int i = 0; i < s.len; i++) {
 		sysml_num v = s.data[i];
 		if (!acc.real && !v.real) {
-			bool over = product ? __builtin_mul_overflow(acc.i, v.i, &acc.i) : __builtin_add_overflow(acc.i, v.i, &acc.i);
-			if (over) sysml_failf("arithmetic overflow: %s leaves int64, which a C program holds", op);
+			acc.i = product ? sysml_mul(acc.i, v.i) : sysml_add(acc.i, v.i);
 			continue;
 		}
 		acc = sysml_nr(product ? sysml_num_real(acc) * sysml_num_real(v) : sysml_num_real(acc) + sysml_num_real(v));
@@ -476,22 +440,20 @@ static sysml_num sysml_nfold(sysml_seq_num s, bool product, const char *op) {
 
 /* The hash key of a number: a whole one hashes as the Integer it equals. */
 static inline uint64_t sysml_num_key(sysml_num n) {
-	if (!n.real) return (uint64_t)n.i;
-	if (n.r == trunc(n.r) && n.r >= -9223372036854775808.0 && n.r < 9223372036854775808.0) return (uint64_t)(sysml_int)n.r;
+	if (!n.real) return sysml_int_key(n.i);
+	if (n.r == trunc(n.r)) return sysml_int_key(sysml_int_of_real(n.r));
 	return sysml_real_key(n.r);
 }
 
-static sysml_int sysml_isum(sysml_seq_int s, const char *op) {
-	sysml_int acc = 0;
-	for (sysml_int i = 0; i < s.len; i++)
-		if (__builtin_add_overflow(acc, s.data[i], &acc)) sysml_failf("arithmetic overflow: %s leaves int64, which a C program holds", op);
+static sysml_integer sysml_isum(sysml_seq_int s) {
+	sysml_integer acc = SYSML_I(0);
+	for (sysml_int i = 0; i < s.len; i++) acc = sysml_add(acc, s.data[i]);
 	return acc;
 }
 
-static sysml_int sysml_iproduct(sysml_seq_int s, const char *op) {
-	sysml_int acc = 1;
-	for (sysml_int i = 0; i < s.len; i++)
-		if (__builtin_mul_overflow(acc, s.data[i], &acc)) sysml_failf("arithmetic overflow: %s leaves int64, which a C program holds", op);
+static sysml_integer sysml_iproduct(sysml_seq_int s) {
+	sysml_integer acc = SYSML_I(1);
+	for (sysml_int i = 0; i < s.len; i++) acc = sysml_mul(acc, s.data[i]);
 	return acc;
 }
 
@@ -523,10 +485,25 @@ static sysml_bool sysml_any_true(sysml_seq_bool s) {
 	return false;
 }
 
-static void sysml_print_int(sysml_int v) { printf("%" PRId64, v); }
+
+static void sysml_save_nums(sysml_num *t, sysml_int n) {
+	for (sysml_int i = 0; i < n; i++) if (t[i].i.big) sysml_save_ints(&t[i].i, 1);
+}
+
+static void sysml_restore_nums(sysml_num *d, sysml_int n) {
+	for (sysml_int i = 0; i < n; i++) if (d[i].i.big) sysml_restore_ints(&d[i].i, 1);
+}
+
+static void sysml_keep_nums(sysml_num *d, sysml_int n) {
+	for (sysml_int i = 0; i < n; i++) d[i].i = sysml_keep_int(d[i].i);
+}
 static void sysml_print_bool(sysml_bool v) { fputs(v ? "true" : "false", stdout); }
-static void sysml_format_int(sysml_int v, char *out, size_t size) { snprintf(out, size, "%" PRId64, v); }
-static void sysml_format_bool(sysml_bool v, char *out, size_t size) { snprintf(out, size, "%s", v ? "true" : "false"); }
+static const char *sysml_show_bool(sysml_bool v) { return v ? "true" : "false"; }
+static const char *sysml_show_real(sysml_real r) {
+	char *text = sysml_alloc(64);
+	sysml_format_real(r, text, 64);
+	return text;
+}
 
 /* The hash key of a Real: its bits, with both zeros as one key since they compare equal. */
 static inline uint64_t sysml_real_key(sysml_real r) {
@@ -567,28 +544,32 @@ func cSeqRuntime() string {
 	b.WriteString(cSeqPrelude)
 	b.WriteString(cStrRuntime)
 	// Element printers precede the template; the Real printer is the scalar one.
-	b.WriteString("\nstatic void sysml_print_int(sysml_int v);\nstatic void sysml_print_bool(sysml_bool v);\nstatic void sysml_print_real_value(sysml_real r);\n")
-	b.WriteString("static void sysml_format_int(sysml_int v, char *out, size_t size);\nstatic void sysml_format_bool(sysml_bool v, char *out, size_t size);\nstatic inline uint64_t sysml_real_key(sysml_real r);\n")
+	b.WriteString("\nstatic void sysml_print_bool(sysml_bool v);\nstatic void sysml_print_real_value(sysml_real r);\n")
+	b.WriteString("static void sysml_save_nums(sysml_num *t, sysml_int n);\nstatic void sysml_restore_nums(sysml_num *d, sysml_int n);\nstatic void sysml_keep_nums(sysml_num *d, sysml_int n);\nstatic const char *sysml_show_real(sysml_real r);\nstatic const char *sysml_show_bool(sysml_bool v);\nstatic inline uint64_t sysml_real_key(sysml_real r);\n")
 	b.WriteString("static inline uint64_t sysml_num_key(sysml_num n);\n")
 	b.WriteString("#define SYSML_SCALAR_EQ(a, b) ((a) == (b))\n#define SYSML_NEVER(v) false\n#define SYSML_KIND_INT(v) \"an Integer\"\n#define SYSML_KIND_REAL(v) \"a Real\"\n#define SYSML_KIND_BOOL(v) \"a Boolean\"\n#define SYSML_KIND_STR(v) \"string\"\n#define SYSML_NO_ELEMS(t, n) ((void)0)\n")
 	for _, t := range []Type{TypeInt, TypeReal, TypeBool, TypeNum, TypeString} {
 		printer := "sysml_print_" + cSeqSuffix(t)
-		kind, key, skip, eq := "SYSML_KIND_INT", "(uint64_t)", "false && ", "SYSML_SCALAR_EQ"
-		show, save, restore := "sysml_show64_"+cSeqSuffix(t), "SYSML_NO_ELEMS", "SYSML_NO_ELEMS"
+		kind, key, skip, eq := "SYSML_KIND_INT", "(uint64_t)", "SYSML_NEVER", "SYSML_SCALAR_EQ"
+		show, save, restore, keep := "sysml_show_"+cSeqSuffix(t), "SYSML_NO_ELEMS", "SYSML_NO_ELEMS", "SYSML_NO_ELEMS"
 		switch t {
+		case TypeInt:
+			printer, key, eq, show = "sysml_print_int_value", "sysml_int_key", "sysml_ieq", "sysml_show_int"
+			save, restore, keep = "sysml_save_ints", "sysml_restore_ints", "sysml_keep_ints"
 		case TypeString:
 			printer, kind, key, skip, eq = "sysml_print_str_value", "SYSML_KIND_STR", "sysml_str_key", "SYSML_NEVER", "sysml_str_eq"
-			show, save, restore = "sysml_show_str", "sysml_save_texts", "sysml_restore_texts"
+			show, save, restore, keep = "sysml_show_str", "sysml_save_texts", "sysml_restore_texts", "sysml_keep_texts"
 		case TypeReal:
 			printer, kind, key, skip = "sysml_print_real_value", "SYSML_KIND_REAL", "sysml_real_key", "isnan"
 		case TypeBool:
 			kind = "SYSML_KIND_BOOL"
 		case TypeNum:
 			printer, kind, key, skip, eq = "sysml_print_num_value", "sysml_num_kind", "sysml_num_key", "SYSML_NEVER", "sysml_num_eq"
+			show, save, restore, keep = "sysml_show_num", "sysml_save_nums", "sysml_restore_nums", "sysml_keep_nums"
 		}
 		r := strings.NewReplacer("ELEMNAME", cSeqSuffix(t), "ELEM", cType(t), "SFX", cSeqSuffix(t), "PRINT", printer,
-			"FORMAT", "sysml_format_"+cSeqSuffix(t), "KINDOF", kind, "KEY", key, "SKIP", skip, "EQ", eq,
-			"SHOW", show, "SAVEELEMS", save, "RESTOREELEMS", restore, "KOPEN", `" ("`, "KCLOSE", `")"`)
+			"KINDOF", kind, "KEY", key, "SKIP", skip, "EQ", eq,
+			"SHOW", show, "SAVEELEMS", save, "RESTOREELEMS", restore, "KEEPELEMS", keep, "KOPEN", `" ("`, "KCLOSE", `")"`)
 		b.WriteString(r.Replace(cSeqTemplate))
 	}
 	b.WriteString(cSeqTyped)
@@ -724,7 +705,7 @@ func (e *cEmitter) seqCall(x SeqCall, v []string) string {
 	sfx := cSeqSuffix(x.Args[0].Type())
 	switch x.Op {
 	case SeqSize:
-		return v[0] + ".len"
+		return "SYSML_I(" + v[0] + ".len)"
 	case SeqIsEmpty:
 		return "(" + v[0] + ".len == 0)"
 	case SeqNotEmpty:
@@ -755,7 +736,7 @@ func (e *cEmitter) seqCall(x SeqCall, v []string) string {
 		if x.Op == SeqExcludingAt {
 			name = "excluding_at"
 		}
-		end, has := "0", "false"
+		end, has := "SYSML_I(0)", "false"
 		if len(v) == 3 {
 			end, has = v[2], "true"
 		}
@@ -775,11 +756,10 @@ func (e *cEmitter) seqCall(x SeqCall, v []string) string {
 			return fmt.Sprintf("sysml_nfold(%s, %t, %q)", v[0], x.Op == SeqProduct, x.Op.Name())
 		}
 		fn := map[SeqOp]string{SeqSum: "sum", SeqProduct: "product"}[x.Op]
-		prefix := "i"
-		if x.T == TypeReal {
-			prefix = "r"
+		if x.T == TypeInt {
+			return fmt.Sprintf("sysml_i%s(%s)", fn, v[0])
 		}
-		return fmt.Sprintf("sysml_%s%s(%s, %q)", prefix, fn, v[0], x.Op.Name())
+		return fmt.Sprintf("sysml_r%s(%s, %q)", fn, v[0], x.Op.Name())
 	}
 	e.err = fmt.Errorf("codegen: C emitter has no case for collection operation %s", x.Op)
 	return "0"
@@ -847,6 +827,9 @@ func (e *cEmitter) fold(x Fold) string {
 		fmt.Fprintf(&b, "if (!%s.len) sysml_fail(\"multiplicity violation: %s requires a collection of at least one element\"); ", seq, x.Op.Name())
 		fmt.Fprintf(&b, "%s sysml_r%d = %s; ", cType(x.T), n, cZero(x.T))
 		better := fmt.Sprintf("sysml_v%d %s sysml_r%d", n, less, n)
+		if x.T == TypeInt {
+			better = fmt.Sprintf("sysml_icmp(sysml_v%d, sysml_r%d) %s 0", n, n, less)
+		}
 		if x.T == TypeNum {
 			better = fmt.Sprintf("sysml_ncmp(sysml_v%d, sysml_r%d) %s 0", n, n, less)
 		}

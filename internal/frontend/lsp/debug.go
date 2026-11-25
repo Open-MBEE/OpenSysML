@@ -384,7 +384,7 @@ func (s *Server) debugPrepare(params *debugStartParams) (*debugSession, error) {
 		if objectSym == nil {
 			return nil, debugInvalid(fmt.Errorf("%w: no document declares %s to perform %s", ErrDebugTarget, params.Object, params.Target))
 		}
-		if !debugPerformerKind(objectSym.Kind) {
+		if !objectSym.Kind.IsObject() {
 			return nil, debugInvalid(fmt.Errorf("%w: %s is a %s, not an object that could perform %s", ErrDebugTarget, params.Object, objectSym.Notation(), params.Target))
 		}
 		if performer, err = ctx.Instantiate(objectSym); err != nil {
@@ -496,19 +496,6 @@ func debugTargetKind(kind view.Kind, target *symbols.Symbol) error {
 	return fmt.Errorf("%w: a %s rendering draws no behavior", ErrDebugTarget, kind)
 }
 
-// debugPerformerKind reports whether a declaration of kind is an object — a part,
-// item or occurrence definition or usage — and so can perform a behavior.
-func debugPerformerKind(kind symbols.SymbolKind) bool {
-	switch kind {
-	case symbols.SymbolPartDef, symbols.SymbolPartUsage,
-		symbols.SymbolItemDef, symbols.SymbolItemUsage,
-		symbols.SymbolOccurrenceDef, symbols.SymbolOccurrenceUsage,
-		symbols.SymbolIndividualDef, symbols.SymbolIndividualUsage:
-		return true
-	}
-	return false
-}
-
 // locate binds the session to rendering, in which drawn declares the target at
 // version, keeping the breakpoints on runtime nodes still drawn.
 func (sess *debugSession) locate(rendering *view.Rendering, drawn *symbols.Symbol, version int) error {
@@ -605,7 +592,9 @@ func (sess *debugSession) applyBreakpoints() {
 	if sess.action != nil {
 		bps := make([]runtime.NodeBreakpoint, 0, len(sess.breakpoints))
 		for _, bp := range sess.breakpoints {
-			bps = append(bps, runtime.NodeBreakpoint{Within: bp.within, Node: bp.node})
+			if at, ok := sess.action.BreakpointAt(bp.within, bp.node); ok {
+				bps = append(bps, at)
+			}
 		}
 		sess.action.ReplaceBreakpointsAt(bps)
 		return
@@ -707,7 +696,7 @@ func (sess *debugSession) pause() {
 		return
 	}
 	if bp, ok := sess.action.PausedBreakpoint(); ok {
-		sess.paused, _ = sess.actions.Node(bp.Within, bp.Node)
+		sess.paused, _ = sess.actions.Node(runtime.NodesOf(bp.Within), bp.Node.Node())
 		sess.pausedName = sess.action.PausedAt()
 	}
 }
@@ -1241,14 +1230,14 @@ func (sess *debugSession) breakpointIDs() []string {
 func (sess *debugSession) actionSnapshot(snap *debugSnapshot) {
 	exec := sess.action
 	for _, tr := range exec.TraversalsSince(sess.fired) {
-		if edge, ok := sess.actionEdge(tr.Within, tr.Edge); ok {
+		if edge, ok := sess.actionEdge(runtime.NodesOf(tr.Within), tr.Edge); ok {
 			snap.Taken = append(snap.Taken, edge)
 		}
 	}
 	sess.fired = exec.TraversalCount()
 	for _, tok := range exec.Tokens() {
-		within := tok.Within()
-		id, drawn := sess.actions.Node(within, tok.Location)
+		within := runtime.NodesOf(tok.Within())
+		id, drawn := sess.actions.Node(within, tok.Node())
 		t := debugToken{ID: tok.ID, Node: id, Placed: drawn, Waiting: debugWait(tok)}
 		if tok.Wait != nil && tok.Wait.Timed {
 			due := tok.Wait.Due
@@ -1363,10 +1352,11 @@ func (sess *debugSession) machineSnapshot(snap *debugSnapshot) {
 	for _, f := range exec.FiredSince(sess.fired) {
 		var index int
 		var ok bool
-		if f.Source == nil {
-			index, ok = sess.states.EntryTransition(f.Decl, f.Owner, f.Target)
+		decl, source, target, owner := exec.FiredNodes(f)
+		if !f.Entry.IsZero() {
+			index, ok = sess.states.EntryTransition(decl, owner, target)
 		} else {
-			index, ok = sess.states.Transition(f.Decl, f.Source, f.Target)
+			index, ok = sess.states.Transition(decl, source, target)
 		}
 		if ok {
 			snap.Taken = append(snap.Taken, sess.edgeAt(index))

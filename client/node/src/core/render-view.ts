@@ -5,6 +5,7 @@ import type {
   RenderEdge as PbRenderEdge,
   RenderGeometry as PbRenderGeometry,
   RenderNode as PbRenderNode,
+  RenderFrame as PbRenderFrame,
   RenderNote as PbRenderNote,
   RenderPoint as PbRenderPoint,
   RenderPort as PbRenderPort,
@@ -65,9 +66,13 @@ export interface RenderNode {
   type: string;
   detail: string;
   text: string;
+  /** On an item box drawn on a connection line: `right` toward the line's second end, `left` toward its first; empty otherwise. */
+  arrow: string;
   standIn: boolean;
   /** The owner the node is drawn or listed under has the usage through typing, subclassification or subsetting rather than declares it; the notation draws `^` before `name`. */
   inherited: boolean;
+  /** The state's substates run in parallel; the notation writes «parallel» under the name. */
+  parallel: boolean;
   parent: string;
   /** The compartment of the parent this node is a row of ("attributes", "parts", ...); empty for a box. */
   compartment: string;
@@ -115,6 +120,15 @@ export interface RenderNote {
   origin?: RenderSpan;
 }
 
+/** The view frame of SysML v2 §8.2.3.26 round a graph-shaped rendering. */
+export interface RenderFrame {
+  name: string;
+  type: string;
+  exposes: readonly string[];
+  filters: readonly string[];
+  annotations: readonly string[];
+}
+
 export interface RenderedView {
   view: string;
   kind: string;
@@ -128,6 +142,8 @@ export interface RenderedView {
   notices: readonly string[];
   /** The optional notation elements the rendering drew. */
   shown: readonly string[];
+  /** The view frame; absent for a frameless rendering. */
+  frame?: RenderFrame;
 }
 
 function spanOf(span: PbSpan | undefined): RenderSpan | undefined {
@@ -190,8 +206,10 @@ function nodeOf(node: PbRenderNode): RenderNode {
     type: node.type,
     detail: node.detail,
     text: node.text,
+    arrow: node.arrow,
     standIn: node.standIn,
     inherited: node.inherited,
+    parallel: node.parallel,
     compartment: node.compartment,
     parent: node.parent,
     ports: node.ports.map(portOf),
@@ -253,8 +271,21 @@ export function renderedViewFromJson(json: unknown): RenderedView {
   return renderedViewOf(fromJson(RenderViewResponseSchema, json as JsonValue));
 }
 
+function frameOf(frame: PbRenderFrame | undefined): RenderFrame | undefined {
+  return frame === undefined
+    ? undefined
+    : {
+        name: frame.name,
+        type: frame.type,
+        exposes: [...frame.exposes],
+        filters: [...frame.filters],
+        annotations: [...frame.annotations],
+      };
+}
+
 export function renderedViewOf(response: RenderViewResponse): RenderedView {
   const canvas = canvasOf(response.canvas);
+  const frame = frameOf(response.frame);
   return {
     view: response.view,
     kind: response.kind,
@@ -267,5 +298,6 @@ export function renderedViewOf(response: RenderViewResponse): RenderedView {
     notices: [...response.notices],
     shown: [...response.shown],
     ...(canvas === undefined ? {} : { canvas }),
+    ...(frame === undefined ? {} : { frame }),
   };
 }

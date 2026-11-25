@@ -19,7 +19,7 @@ import (
 // interfaceFormatVersion is the on-disk format version of an interface record.
 // Bump it whenever InterfaceRecord, symbols.DocumentRecord or
 // symbols.LibraryFacts changes shape or meaning.
-const interfaceFormatVersion = 21
+const interfaceFormatVersion = 26
 
 // ErrUnrecordable reports a document whose interface cannot be written without
 // its tree: a fact a reader needs has no name to restore it by. The document is
@@ -132,7 +132,7 @@ func (w *interfaceWriter) checkAnnotation(sym *symbols.Symbol, a symbols.Annotat
 func isQuantity(v symbols.FilterValue) bool { return v.Quantity != nil }
 
 // ref is the reference a fact restores sym by, failing when none reaches it.
-func (w *interfaceWriter) ref(of *symbols.Symbol, sym *symbols.Symbol, what string) symbols.ElementRef {
+func (w *interfaceWriter) ref(of, sym *symbols.Symbol, what string) symbols.ElementRef {
 	ref, ok := w.idx.RefTo(sym)
 	if !ok {
 		w.fail(of, fmt.Sprintf("%s (%s %q at %s:%d)", what, sym.Kind, sym.Name, sym.DocName, sym.DeclSpan.Offset))
@@ -169,8 +169,8 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 		Redefines:      w.refs(sym, m.RedefinedFeatures(sym), "redefined feature"),
 		About:          w.refs(sym, m.AnnotatedElementsOf(sym), "annotated element"),
 	}
-	if related, ok := m.ReflectiveElements(sym, "relatedFeature"); ok {
-		facts.RelatedFeatures = w.refs(sym, related, "related feature")
+	if related := m.ConnectorRelatedFeaturesByEnd(sym); len(related) > 0 {
+		facts.RelatedFeatures = w.relatedFeatureRefs(sym, related)
 	}
 	if paths := m.ConnectorEndFeaturePaths(sym); len(paths) > 0 {
 		facts.EndPaths = make([][]symbols.ElementRef, len(paths))
@@ -188,6 +188,9 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 	}
 	if ref := m.ReferencedFeature(sym); ref != nil {
 		facts.References = w.ref(sym, ref, "referenced feature")
+	}
+	if general := m.FeatureValueGeneral(sym); general != nil {
+		facts.ValueGeneral = w.ref(sym, general, "feature value general")
 	}
 	if sym.Kind == symbols.SymbolAlias {
 		if target, ok := w.r.AliasTarget(sym); ok {
@@ -212,7 +215,7 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 		facts.Ends = make([]symbols.ElementRef, len(ends))
 		for i, end := range ends {
 			// An end with no name of its own has no reference a record can carry.
-			if end != nil && end.Name != "" {
+			if end != nil && end.Named() {
 				facts.Ends[i] = w.ref(sym, end, "connector end")
 			}
 		}
@@ -237,7 +240,10 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 	if sym.Kind == symbols.SymbolMetadataUsage && symbols.AnnotatesOthers(sym.Decl) {
 		facts.Modifiers |= symbols.ModAnnotatesOthers
 	}
-	facts.Node = symbols.NodeKindOf(sym.Decl)
+	if sym.IsPrefixMetadata() {
+		facts.Modifiers |= symbols.ModPrefixMetadata
+	}
+	facts.Node = sym.NodeKind()
 	facts.Keyword = sym.Keyword()
 	facts.Notation = sym.Notation()
 	facts.UsageKind, _ = sym.UsageKind()
@@ -248,9 +254,11 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 			if scope == nil {
 				scope = sym.Scope
 			}
-			// A chain target names no element a record can restore: leave it zero.
-			if src, resolved := w.r.ResolveTarget(scope, member.Source); resolved && src != nil {
-				rel.Source = w.ref(sym, src, "relationship source")
+			// A chain end names no element a record can restore: leave it zero.
+			if !ast.IsFeatureChain(member.Source) {
+				if src, resolved := w.r.ResolveTarget(scope, member.Source); resolved && src != nil {
+					rel.Source = w.ref(sym, src, "relationship source")
+				}
 			}
 			if !ast.IsFeatureChain(member.Target) {
 				if tgt, resolved := w.r.ResolveTarget(scope, member.Target); resolved && tgt != nil {
@@ -298,6 +306,12 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 	}
 	if semantics.AcceptPayload(sym) {
 		facts.Modifiers |= symbols.ModAcceptPayload
+	}
+	if symbols.IsFirstMarker(sym) {
+		facts.Modifiers |= symbols.ModFirstMarker
+	}
+	if m.IsTypeFeatureMember(sym) {
+		facts.Modifiers |= symbols.ModTypeFeatureMember
 	}
 	if base, bound, unconditional := m.BaseTypeFacts(sym); bound {
 		if !unconditional {
@@ -348,10 +362,12 @@ func declaredTraits(decl ast.Node) (ast.FeatureDirection, symbols.Modifiers) {
 		set(d.Value != nil, symbols.ModValued)
 		set(d.IsNegated, symbols.ModNegated)
 		set(d.Keyword == "assert" || d.PrefixKeyword == "assert", symbols.ModAssert)
+		set(d.IsIncludedUseCase(), symbols.ModInclude)
 		set(d.DeclaresRequirement, symbols.ModDeclaresRequirement)
 		set(d.IsAll, symbols.ModAll)
 		set(d.IsChain, symbols.ModChain)
 		set(d.IsEvent, symbols.ModEvent)
+		set(d.IsExtendedUsage(), symbols.ModExtendedUsage)
 		return d.Direction, mods
 	case *ast.CrossFeatureMember:
 		set(d.IsDerived, symbols.ModDerived)
@@ -377,4 +393,24 @@ func declaredTraits(decl ast.Node) (ast.FeatureDirection, symbols.Modifiers) {
 		set(oc.ValueIsDefault, symbols.ModDefault)
 	}
 	return ast.DirNone, mods
+}
+
+// relatedFeatureRefs names a connector's related features by end position, zero
+// for an end referencing none. A record carries no chain Feature, so a chained end
+// names the feature its chain reaches; a recorded end with a symbol of its own
+// derives the chain Feature from its recorded reference subsetting instead.
+func (w *interfaceWriter) relatedFeatureRefs(of *symbols.Symbol, related []*symbols.Symbol) []symbols.ElementRef {
+	out := make([]symbols.ElementRef, len(related))
+	for i, feature := range related {
+		if feature == nil {
+			continue
+		}
+		if feature.Chain != nil {
+			if chain, ok := w.model.ReflectiveElements(feature, "chainingFeature"); ok && len(chain) > 0 {
+				feature = chain[len(chain)-1]
+			}
+		}
+		out[i] = w.ref(of, feature, "related feature")
+	}
+	return out
 }

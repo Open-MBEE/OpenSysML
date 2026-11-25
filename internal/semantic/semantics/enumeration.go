@@ -26,8 +26,7 @@ func EnumerationOwning(sym *symbols.Symbol) *symbols.Symbol {
 // enumeratedValueOwning returns the enumeration definition sym is an enumerated
 // value of, or nil when sym is not one.
 func enumeratedValueOwning(sym *symbols.Symbol) *symbols.Symbol {
-	usage, ok := sym.Decl.(*ast.Usage)
-	if !ok || usage.Kind != ast.UsageEnumeration {
+	if kind, ok := sym.UsageKind(); !ok || kind != ast.UsageEnumeration {
 		return nil
 	}
 	return EnumerationDefinitionOwning(sym)

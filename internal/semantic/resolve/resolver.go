@@ -2,6 +2,7 @@ package resolve
 
 import (
 	"math"
+	"reflect"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/suggest"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -103,6 +104,7 @@ type modeMemoKey struct {
 type importVisit struct {
 	target, from *symbols.Scope
 	name         string
+	all          bool
 }
 
 type filteredMemoKey struct {
@@ -115,13 +117,18 @@ type filteredMemoKey struct {
 // Resolver performs lazy name resolution over a symbol index, memoizing results
 // keyed by the reference AST node and collecting diagnostics.
 type Resolver struct {
-	idx      *symbols.Index
-	memo     map[ast.Node]resolution
-	modeMemo map[modeMemoKey]resolution
-	filtered map[filteredMemoKey]resolution
+	idx *symbols.Index
+	// hidingInherited marks the scopes whose inherited names are being gathered.
+	hidingInherited map[*symbols.Scope]bool
+	memo            map[ast.Node]resolution
+	modeMemo        map[modeMemoKey]resolution
+	filtered        map[filteredMemoKey]resolution
 	// resolving holds the depth (see enter) of each lookup on the stack, so a
 	// re-entrant query of the same name fails instead of recursing.
 	resolving map[ast.Node]int
+	// generalizing is the generalization relationships whose targets are being
+	// resolved, so a chain through the specializing feature itself does not recurse.
+	generalizing map[*ast.Relationship]struct{}
 	// featuring holds the depth of each featured-member lookup (featuredMember)
 	// on the stack, whose scope walk may resolve the very chain that began it.
 	featuring map[featuredKey]int
@@ -150,18 +157,25 @@ type Resolver struct {
 	imports          map[ast.Node][]*ast.Import
 	importStack      map[*ast.Import]bool
 	resolvingImports map[*ast.Import]bool
-	// importVisits are the import edges already searched for a name by the
-	// imported-member lookup in progress, and importDepth is its nesting:
-	// namespaces importing one another in a cycle are searched once per
-	// lookup, not once per path through the cycle, as the excluded set of
-	// Namespace::visibleMemberships intends (KerML 8.2.3.5; issue #633).
-	// A lookup made aside or for a filter condition starts with a set of its
-	// own (see freshImportVisits).
-	importVisits map[importVisit]bool
+	// importVisits are the import searches that found nothing in the lookup in
+	// progress (issue #633), each with its cuts; importDepth is the nesting.
+	importVisits map[importVisit][][]*symbols.Scope
 	importDepth  int
+	// importPath is the excluded set of KerML 8.3.2.4.5, the namespaces being
+	// read; importHits and importSeen record cuts and entries (routeDepsSince).
+	importPath []*symbols.Scope
+	// plainRead is set while the read in progress is over a plain region (plainRegion).
+	plainRead bool
+	// plainWork is the storage plainRegion works in, nil while a call holds it.
+	plainWork *plainRegionReader
+	// importNames names the leading scopes of importPath as the index does.
+	importNames []string
+	importHits  []*symbols.Scope
+	importSeen  []*symbols.Scope
+	importMarks int
 	// enumMembers memoizes each import edge's members within one enumeration (issue
-	// #633); enumKept/enumResults keep uncut ones across enumerations, journaled.
-	enumMembers map[enumEdge][]*symbols.Symbol
+	// #633), per route; enumKept/enumResults keep uncut ones across enumerations, journaled.
+	enumMembers map[enumEdge][]keptMembers
 	enumDepth   int
 	enumKept    map[enumEdge]keptMembers
 	enumResults map[enumResult]keptMembers
@@ -285,6 +299,9 @@ type Resolver struct {
 	// invocationNames are the names invocations call, whose last segment may
 	// denote several declarations: see ResolveInvocationName.
 	invocationNames map[*ast.QualifiedName]bool
+	// invocationScopes are the scopes the called names were read in, for a reader
+	// selecting among what a name denotes from its call site after the walk.
+	invocationScopes map[*ast.QualifiedName]*symbols.Scope
 	// stack are the frames in progress, innermost last; cur is the innermost
 	// document frame, which reads and dependencies are recorded on (frames.go).
 	stack      []*frame
@@ -296,13 +313,26 @@ type Resolver struct {
 	dependents map[string]map[string]bool
 }
 
-// MemoSize is the number of resolutions this resolver retains.
+// memoSizeExempt are the Resolver's map fields MemoSize leaves out: the guards
+// held only while a walk is in progress, and the document frame bookkeeping.
+var memoSizeExempt = map[string]bool{
+	"resolving": true, "featuring": true, "redefining": true, "importStack": true,
+	"resolvingImports": true, "importVisits": true, "viewFiltersInProgress": true,
+	"colliding": true, "naming": true, "resolvingAlias": true, "suggesting": true,
+	"probing": true, "valuesInProgress": true, "owners": true, "dependents": true,
+}
+
+// MemoSize is the number of entries this resolver retains across walks: every
+// map it holds but the exempt ones, so a table added later is counted too.
 func (r *Resolver) MemoSize() int {
-	return len(r.memo) + len(r.modeMemo) + len(r.filtered) + len(r.featureChains) +
-		len(r.parts) + len(r.aliasNames) + len(r.endpoints) + len(r.readings) +
-		len(r.invocationNames) + len(r.ambiguities) + len(r.reportedQualified) +
-		len(r.initials) + len(r.imports) + len(r.suggestions) + len(r.importTargets) +
-		len(r.collisions) + len(r.enumKept) + len(r.enumResults) + len(r.shortNames)
+	size := 0
+	fields := reflect.ValueOf(r).Elem()
+	for i := range fields.NumField() {
+		if field := fields.Field(i); field.Kind() == reflect.Map && !memoSizeExempt[fields.Type().Field(i).Name] {
+			size += field.Len()
+		}
+	}
+	return size
 }
 
 // New creates a resolver over the given index.
@@ -313,6 +343,7 @@ func New(idx *symbols.Index) *Resolver {
 		modeMemo:              map[modeMemoKey]resolution{},
 		filtered:              map[filteredMemoKey]resolution{},
 		resolving:             map[ast.Node]int{},
+		generalizing:          map[*ast.Relationship]struct{}{},
 		redefining:            map[*ast.QualifiedName]int{},
 		featureChains:         map[featureChainKey]resolution{},
 		parts:                 map[*ast.QualifiedName][]*symbols.Symbol{},
@@ -321,7 +352,7 @@ func New(idx *symbols.Index) *Resolver {
 		initials:              map[*ast.InitialNode]*symbols.Symbol{},
 		imports:               map[ast.Node][]*ast.Import{},
 		importStack:           map[*ast.Import]bool{},
-		enumMembers:           map[enumEdge][]*symbols.Symbol{},
+		enumMembers:           map[enumEdge][]keptMembers{},
 		enumKept:              map[enumEdge]keptMembers{},
 		enumResults:           map[enumResult]keptMembers{},
 		resolvingImports:      map[*ast.Import]bool{},
@@ -338,7 +369,7 @@ func New(idx *symbols.Index) *Resolver {
 		colliding:             map[*symbols.Scope]bool{},
 		below:                 map[*symbols.Scope]bool{},
 		bringing:              map[*symbols.Scope]bool{},
-		importVisits:          map[importVisit]bool{},
+		importVisits:          map[importVisit][][]*symbols.Scope{},
 		redefined:             map[*symbols.Symbol][]*symbols.Symbol{},
 		bodyOwners:            map[*symbols.Scope]*symbols.Symbol{},
 		effNames:              map[*symbols.Symbol]bool{},
@@ -353,6 +384,7 @@ func New(idx *symbols.Index) *Resolver {
 		resolvingAlias:    map[*symbols.Symbol]bool{},
 		reportedQualified: map[*ast.QualifiedName]bool{},
 		invocationNames:   map[*ast.QualifiedName]bool{},
+		invocationScopes:  map[*ast.QualifiedName]*symbols.Scope{},
 		ambiguities:       map[*ast.QualifiedName]int{},
 		readings:          map[readingKey]Reading{},
 	}
@@ -418,12 +450,12 @@ func (r *Resolver) EndSymbol(qn *ast.QualifiedName) (*symbols.Symbol, bool) {
 // declared member bears reaches an inherited one, so `first start` links the
 // start the owner inherits; a member of an enclosing body is not a start.
 func (r *Resolver) resolveInitial(scope *symbols.Scope, n *ast.InitialNode) {
-	if n.Name() == "" {
+	if !n.Named() {
 		return
 	}
 	sym, ok := memberPastLabels(scope, n.Name())
 	if !ok {
-		sym, ok = r.lookupContributedMember(scope.Owner(), n.Name(), nil)
+		sym, ok = r.inheritedMember(scope.Owner(), n.Name())
 	}
 	if ok {
 		journalNew(r, r.initials, n, n)
@@ -436,7 +468,7 @@ func (r *Resolver) resolveInitial(scope *symbols.Scope, n *ast.InitialNode) {
 func memberPastLabels(scope *symbols.Scope, name string) (*symbols.Symbol, bool) {
 	var members []*symbols.Symbol
 	for _, sym := range scope.LookupLocalAll(name) {
-		if _, label := sym.Decl.(*ast.InitialNode); label {
+		if _, label := sym.Decl.(*ast.InitialNode); label || symbols.IsFirstMarker(sym) {
 			continue
 		}
 		members = append(members, sym)
@@ -458,6 +490,36 @@ func (r *Resolver) InitialSymbol(n *ast.InitialNode) (*symbols.Symbol, bool) {
 		return nil, false
 	}
 	return r.EndSymbol(n.First)
+}
+
+// ResolveInitial is InitialSymbol for a start marker reached before the walk
+// resolved its body: the marker is bound on demand in the scope that owns it.
+func (r *Resolver) ResolveInitial(scope *symbols.Scope, n *ast.InitialNode) (*symbols.Symbol, bool) {
+	if sym, ok := r.initials[n]; ok {
+		return sym, true
+	}
+	if scope == nil || n.Successor != nil {
+		return nil, false
+	}
+	r.resolveInitial(scope, n)
+	sym, ok := r.initials[n]
+	return sym, ok
+}
+
+// ResolveInitialMember is the member a `first name;` marker of scope's body binds to
+// (see resolveInitial), for a recorded marker that kept no declaration.
+func (r *Resolver) ResolveInitialMember(scope *symbols.Scope, name string) (*symbols.Symbol, bool) {
+	if scope == nil || name == "" {
+		return nil, false
+	}
+	if sym, ok := memberPastLabels(scope, name); ok {
+		return sym, true
+	}
+	// An inherited start marker bearing the name is a label too, not the start.
+	if sym, ok := r.inheritedMember(scope.Owner(), name); ok && !symbols.IsFirstMarker(sym) {
+		return sym, true
+	}
+	return nil, false
 }
 
 // PartAlias returns the alias membership the i-th segment of qn was written as,
@@ -489,6 +551,12 @@ func (r *Resolver) Index() *symbols.Index {
 // is attached, else from the relationships sym declares, where a member hide
 // covers does not stop the walk short of what a general offers.
 func (r *Resolver) lookupMember(sym *symbols.Symbol, name string, hide *refFilter) (*symbols.Symbol, bool) {
+	return r.lookupMemberThrough(sym, name, hide, nil)
+}
+
+// lookupMemberThrough is lookupMember reading only the imports of sym that
+// visible admits, every one when it is nil.
+func (r *Resolver) lookupMemberThrough(sym *symbols.Symbol, name string, hide *refFilter, visible func(*ast.Import) bool) (*symbols.Symbol, bool) {
 	if sym == nil {
 		return nil, false
 	}
@@ -502,7 +570,7 @@ func (r *Resolver) lookupMember(sym *symbols.Symbol, name string, hide *refFilte
 		return nil, false
 	}
 	for _, imp := range r.scopeImports(sym.Scope) {
-		if r.resolvingImports[imp] {
+		if r.resolvingImports[imp] || (visible != nil && !visible(imp)) {
 			continue
 		}
 		if !r.importPrefixAvailable(sym.Scope, imp, name) {
@@ -513,6 +581,16 @@ func (r *Resolver) lookupMember(sym *symbols.Symbol, name string, hide *refFilte
 		}
 	}
 	return nil, false
+}
+
+// inheritedMember resolves name as a member sym inherits, or the feature of sym
+// named by redefining that member (KerML 8.3.3.1.10).
+func (r *Resolver) inheritedMember(sym *symbols.Symbol, name string) (*symbols.Symbol, bool) {
+	found, ok := r.lookupContributedMember(sym, name, nil)
+	if !ok || !visibleAsInheritedMember(sym, found) {
+		return nil, false
+	}
+	return r.inheritedAs(sym, found)
 }
 
 // lookupContributedMember resolves name as a member sym inherits or
@@ -704,7 +782,8 @@ func (r *Resolver) ResolveName(scope *symbols.Scope, name string, at ast.Node) (
 	if (res.ok || r.quiet == 0) && r.allVisible == 0 && settled {
 		r.memoize(at, res)
 	}
-	if !res.ok {
+	// A quiet lookup reports nothing, so the hint and the fixes are not worked out for it.
+	if !res.ok && r.quiet == 0 {
 		r.report(Diagnostic{
 			Span:    spanOf(at),
 			Message: r.unresolvedMessage(scope, name, at),
@@ -758,16 +837,24 @@ func (r *Resolver) aside(f func()) {
 	r.freshImportVisits(f)
 }
 
-// freshImportVisits runs f as a lookup of its own: the import edges the
-// enclosing imported-member search has already visited must not cut it short.
+// freshImportVisits runs f as a lookup of its own: neither the searches the
+// enclosing imported-member lookup made nor the namespaces it excludes bear on it.
 func (r *Resolver) freshImportVisits(f func()) {
-	if r.importDepth == 0 {
+	if r.importDepth == 0 && len(r.importPath) == 0 && r.importMarks == 0 {
 		f()
 		return
 	}
 	visits, depth := r.importVisits, r.importDepth
-	r.importVisits, r.importDepth = map[importVisit]bool{}, 0
-	defer func() { r.importVisits, r.importDepth = visits, depth }()
+	path, hits, seen, marks := r.importPath, r.importHits, r.importSeen, r.importMarks
+	names, plain := r.importNames, r.plainRead
+	r.importNames, r.plainRead = nil, false
+	r.importVisits, r.importDepth = map[importVisit][][]*symbols.Scope{}, 0
+	r.importPath, r.importHits, r.importSeen, r.importMarks = nil, nil, nil, 0
+	defer func() {
+		r.importVisits, r.importDepth = visits, depth
+		r.importPath, r.importHits, r.importSeen, r.importMarks = path, hits, seen, marks
+		r.importNames, r.plainRead = names, plain
+	}()
 	f()
 }
 
@@ -909,4 +996,9 @@ func qnText(qn *ast.QualifiedName) string {
 		s = "$::" + s
 	}
 	return s
+}
+
+// ResolveSegments is ResolveQualified of the qualified name segments spell.
+func (r *Resolver) ResolveSegments(scope *symbols.Scope, segments ...string) (*symbols.Symbol, bool) {
+	return r.ResolveQualified(scope, ast.QualifiedNameOf(segments...))
 }

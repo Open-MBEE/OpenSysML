@@ -4,7 +4,7 @@
 
 **Corpus:** the textual-notation examples printed in the OMG SysML v2.1 Beta 2 and KerML 1.1 Beta 2
 specifications themselves, extracted by `./scripts/download-spec-examples.sh` from the two PDFs of
-release `2026-09`, commit `b7a6b77000c9136f8f24822fc9d2cb237c76267f` (`scripts/pilot-pin.sh`,
+release `2026-09.1`, commit `9546486f49f704d1df092e3f252f4fcfbce534dd` (`scripts/pilot-pin.sh`,
 `PILOT_RELEASE_COMMIT`).
 
 | Root | Source | Clauses | Directory | Files |
@@ -19,6 +19,13 @@ diagnostic of ours). Run `go test -count=1 ./tests/corpus -run TestSpecExamples`
 adjudicating every moved line here.
 **Required in CI:** `OPENSYSML_REQUIRE_SPEC_EXAMPLES=1` in both `.circleci/config.yml` and
 `.github/workflows/pr.yml`; the gate skips when the corpus is absent and the variable unset.
+**Subset:** under `OPENSYSML_CORPUS_SUBSET=construct-cover` the gate still opens each root whole but
+diagnoses only the files listed in `tests/corpus/testdata/construct_cover.txt` and checks their counts
+against the expectation,
+leaving the other recorded lines unchecked and printing `RATCHET INCOMPLETE: … left N of M recorded
+files unchecked` to say so; the recorder refuses to run under it. A recorded file that is no longer
+in its root fails the gate, with or without the subset. See
+[construct-cover-subset.md](construct-cover-subset.md).
 **Referee:** the root `spec-examples` of `tools/referee/diff` (`go run -C tools ./cmd/pilot-diff`),
 recorded in `docs/project/pilot-differential-baseline.json` and summarised in
 [pilot-differential.md](pilot-differential.md); the grammar-coverage census also searches the root.
@@ -73,19 +80,19 @@ does not import a library package wholesale, and it does not reorder or split an
 
 ## Results
 
-Pilot `2026-09` (`0.63.0`), both validators, fresh cache:
+Pilot `2026-09.1` (`0.63.1`), both validators, fresh cache:
 
 | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---:|---:|---:|---:|---:|---:|---:|---:|
-| 511 | 150 | 1094 | 3395 | 1038 | 6 | 50 | 2351 |
+| 511 | 151 | 1092 | 3395 | 1040 | 6 | 46 | 2349 |
 
 Of the pilot-only diagnostics, 1359 are the pilot's EMF `unmapped` records ("The feature 'type' of
 ... is required"), 586 its `kind-mismatch` typing constraints ("A usage must be typed by
 definitions.") and 50 multiplicity constraints: all three follow an unresolved cross-example name on
 the same lines, where we report the unresolved reference once and stop. Those 1995 are the same
 finding counted differently, not disagreements about the examples. The remaining pilot-only
-categories are 196 syntax, 156 unresolved-reference and 4 units; the 50 ours-only diagnostics are
-38 unresolved-reference, 7 syntax, 3 kind-mismatch and 2 unmapped. Every file behind those two
+categories are 196 syntax, 154 unresolved-reference and 4 units; the 46 ours-only diagnostics are
+38 unresolved-reference, 7 syntax and 1 unmapped. Every file behind those two
 groups is adjudicated below.
 
 ## Adjudication
@@ -102,7 +109,7 @@ needs context the text does not print) or **cascade** (a secondary diagnostic of
 |---|---|---|---|---|---|---|
 | SysML 8.4.13.4 | `sysml/8.4.13.4/1`–`9.sysml` | `succession s1 first a1[1..1] then j[1..1];` | `ConnectorEnd` (8.2.2.13.1) puts the multiplicity *before* the end name as `OwnedCrossMultiplicityMember`; nothing follows the reference | rejects (`no viable alternative at input 'then'`) | rejects (`a connector end names a feature, not an expression; name the feature itself and put any multiplicity before it`, on every end that carries one) | erratum, both right |
 | SysML 7.13.2 | `sysml/7.13.2/8.sysml` | `connect ( [1] hub ::> mainSwitch[1], [1] device ::> sensorFeed )` | the same: `ConnectorEnd` (8.2.2.13.1) opens with the `OwnedCrossMultiplicityMember`; nothing follows the referenced feature | rejects (`missing ',' at '['`, `no viable alternative at input ','`) | rejects (`a connector end's multiplicity precedes it … nothing follows that feature`, once, at the `[1]` after `mainSwitch`) | erratum, both right |
-| SysML 8.4.8.2, 8.4.18.1, 8.4.18.2, 8.4.20.2, 8.4.21.2 | `sysml/8.4.8.2/1`, `8.4.18.1/1`, `8.4.18.2/3`, `8.4.20.2/1`, `8.4.21.2/1.sysml` | `case cs2 specializes Cases::cases { ... }` | a usage specialises with `subsets`/`:>` (8.2.2.5.3 `FeatureSpecialization`); `specializes` is `OwnedSpecialization` of a definition | rejects (`no viable alternative at input 'specializes'`) | rejects (`only a definition may specialize; found a usage`) | erratum, both right |
+| SysML 8.4.8.2, 8.4.18.1, 8.4.18.2, 8.4.20.2, 8.4.21.2 | `sysml/8.4.8.2/1`, `8.4.18.1/1`, `8.4.18.2/3`, `8.4.20.2/1`, `8.4.21.2/1.sysml` | `case cs2 specializes Cases::cases { ... }` | a usage specialises with `subsets`/`:>` (8.2.2.5.3 `FeatureSpecialization`); `specializes` is `OwnedSpecialization` of a definition | rejects (`no viable alternative at input 'specializes'`) | rejects (`only a definition may specialize; found a usage`); `8.4.21.2/1` is rejected a tier earlier, on `UseCases::Case::subj` and `UseCases::Case::obj`, which the pilot leaves unresolved too: `UseCases` imports `Cases::Case` privately, so the name is not visible from outside it (KerML 8.2.3.5) | erratum, both right |
 | SysML 8.4.19.1, 8.4.19.2, 8.4.20.1 | `sysml/8.4.19.1/1`, `8.4.19.2/1`, `8.4.20.1/1.sysml` | `analysis case def AC specializes ...`, `verification case V specializes ...` | the keywords are `analysis def` / `analysis` (8.2.2.23) and `verification def` / `verification` (8.2.2.24); the text writes the metaclass name | rejects (`no viable alternative at input 'case'`) | reports the keyword as `nonstandard-notation` (`analysis case def` is an OpenSysML extension …), then rejects `specializes` on the usage | erratum; ours also a gap (accepts `analysis case def`) |
 | SysML 8.4.15.1, 8.4.15.2 | `sysml/8.4.15.1/2`, `8.4.15.2/3.sysml` | `binding result = resultExpr.result; // Implied` followed by a bare `resultExpr` | `binding` is KerML; SysML writes `bind` (8.2.2.13.2); the trailing name is a placeholder | rejects (`no viable alternative at input 'binding'`) | rejects (`unresolved reference: resultExpr`) | erratum (semantics illustration, not notation) |
 | SysML 7.21.2 | `sysml/7.21.2/2.sysml` | `constraint massIsPositive { attribute mass : MassValue; mass > 0[kg]; }` | `CalculationBodyPart` (8.2.2.19.1) ends with a `ResultExpressionMember`, which has no `;` | rejects (`extraneous input ';' expecting '}'`) | reports the `;` as `nonstandard-notation` | erratum, both right (ours as a warning by default, an error under `-strict`) |

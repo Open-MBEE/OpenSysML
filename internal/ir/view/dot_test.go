@@ -39,6 +39,8 @@ func TestGoldenDOT(t *testing.T) {
 		{"state", "state.sysml", "MachineViews::vehicleStates", KindState, false},
 		{"state-entry", "state-entry.sysml", "MachineViews::thermostat", KindState, false},
 		{"action", "action.sysml", "FlowViews::driveView", KindAction, false},
+		{"action-forms", "action-forms.sysml", "ActionFormViews::monitorView", KindAction, false},
+		{"state-forms", "state-forms.sysml", "FurnaceViews::burner", KindState, false},
 		{"case", "case.sysml", "CaseExamples::caseDiagram", KindCase, false},
 		{"mixed", "mixed.sysml", "MixedExamples::mixedDiagram", KindMixed, false},
 		{"mixed-memberships", "mixed-memberships.sysml", "MixedMemberships::memberships", KindMixed, false},
@@ -50,6 +52,8 @@ func TestGoldenDOT(t *testing.T) {
 		{"abstract-interconnection", "abstract.sysml", "AbstractViews::familyLinks", KindInterconnection, false},
 		{"abstract-mixed", "abstract.sysml", "AbstractViews::familyMixed", KindMixed, false},
 		{"general-requirement", "general.sysml", "GeneralViews::requirementView", KindRequirement, false},
+		{"annotations-tree", "annotations.sysml", "AnnotationViews::tree", KindTree, false},
+		{"annotations-definitions", "annotations.sysml", "AnnotationViews::definitions", KindDefinition, false},
 		{"general-definition", "general.sysml", "GeneralViews::definitionView", KindDefinition, false},
 		{"general-package", "general.sysml", "GeneralViews::packageView", KindPackage, false},
 		{"glyphs-requirement", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::requirementGlyphs", KindRequirement, false},
@@ -59,6 +63,9 @@ func TestGoldenDOT(t *testing.T) {
 		{"calc-parameters", "calc-parameters.sysml", "ParameterCalcViews::calculations", KindTree, false},
 		{"calc-parameter-definitions", "calc-parameters.sysml", "ParameterCalcViews::definitions", KindTree, false},
 		{"glyphs-interconnection", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::lineGlyphs", KindInterconnection, false},
+		{"action-swimlanes-performed", "action-swimlanes.sysml", "SwimLanes::performedView", KindAction, false},
+		{"action-swimlanes-action", "action-swimlanes.sysml", "SwimLanes::actionView", KindAction, false},
+		{"action-swimlanes-shapes", "action-swimlanes.sysml", "LaneShapes::assembleView", KindAction, false},
 		{"glyphs-action", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::fillGlyphs", KindAction, false},
 		{"glyphs-mixed", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::mixedGlyphs", KindMixed, false},
 	}
@@ -369,7 +376,8 @@ func TestDOTDirections(t *testing.T) {
 	}
 }
 
-// Every edge kind is drawn in the style parallel to its Mermaid arrow.
+// Every edge kind is drawn in the style parallel to its Mermaid arrow; a typing is the triangle under a
+// class, its two dots drawn into the SVG beside the line (DrawDOTGlyphs), where no arrowhead sets one.
 func TestDOTEdgeKinds(t *testing.T) {
 	styles := map[EdgeKind]string{
 		EdgeConnection:          `"a" -> "b" [label="k", arrowhead=none, penwidth=3];`,
@@ -378,10 +386,10 @@ func TestDOTEdgeKinds(t *testing.T) {
 		EdgeFlow:                `"a" -> "b" [label="k"];`,
 		EdgeBinding:             `"a" -> "b" [label="k", arrowhead=none];`,
 		EdgeSpecialization:      `"a" -> "b" [label="k", arrowhead=empty];`,
-		EdgeTyping:              `"a" -> "b" [label="k", arrowhead=onormaldotdot];`,
+		EdgeTyping:              `"a" -> "b" [label="k", arrowhead=empty, class=definition];`,
 		EdgeComposition:         `"a" -> "b" [label="k", dir=back, arrowtail=diamond];`,
 		EdgeReference:           `"a" -> "b" [label="k", dir=back, arrowtail=odiamond];`,
-		EdgeContainment:         `"a" -> "b" [label="k", dir=back, arrowtail=odot, taillabel="+", labeldistance=0.4, labelangle=0];`,
+		EdgeContainment:         `"a" -> "b" [label="k", dir=back, arrowtail=odot, taillabel="+", labeldistance=0.4, labelangle=0, class="owned-membership"];`,
 		EdgeImport:              `"a" -> "b" [label="k", arrowhead=vee, style=dashed];`,
 		EdgeSatisfy:             `"a" -> "b" [label="k", arrowhead=vee];`,
 		EdgeVerify:              `"a" -> "b" [label="k", arrowhead=vee];`,
@@ -402,10 +410,12 @@ func TestDOTEdgeKinds(t *testing.T) {
 		EdgeAssert:              `"a" -> "b" [label="k", arrowhead=vee];`,
 		EdgeFrame:               `"a" -> "b" [label="k", arrowhead=vee];`,
 		EdgeEvent:               `"a" -> "b" [label="k", arrowhead=vee];`,
-		EdgePortion:             `"a" -> "b" [label="k", dir=back, arrowtail=dot];`,
-		EdgeReferenceSubsetting: `"a" -> "b" [label="k", arrowhead=onormaldot];`,
+		EdgePortion:             `"a" -> "b" [label="k", dir=back, arrowtail=dot, class="portion-relationship"];`,
+		EdgeReferenceSubsetting: `"a" -> "b" [label="k", arrowhead=onormaldot, class="reference-subsetting"];`,
 		EdgeUnownedMembership:   `"a" -> "b" [label="k", dir=back, arrowtail=odot];`,
 		EdgeExpose:              `"a" -> "b" [label="k", arrowhead=vee, style=dashed];`,
+		EdgeDependencyClient:    `"a" -> "b" [label="k", dir=none, style=dashed];`,
+		EdgeMessage:             `"a" -> "b" [label="k", arrowhead=vee];`,
 	}
 	// A case or mixed diagram draws composition in its own notation.
 	caseStyles := map[EdgeKind]string{
@@ -585,7 +595,7 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 	for _, want := range []string{
 		"// canvas: unit=px w=1200 h=800\n// layout: neato -n2\n",
 		// Loop: no Layout, boxed a margin round pump and tank, its anchor at the centre.
-		"    bb=\"292,692,628,768\";\n    \"n0\" [shape=point, style=invis, width=0, height=0, label=\"\", pos=\"460,730!\", pin=true];\n",
+		"    bb=\"292,692,628,768\";\n      \"n0\" [shape=point, style=invis, width=0, height=0, label=\"\", pos=\"460,730!\", pin=true];\n",
 		"  graph [fontname=\"Helvetica\", layout=neato, inputscale=72, dpi=72];\n  node [shape=box, style=filled, fillcolor=white, color=\"#181818\", fontname=\"Helvetica\", fontsize=14, penwidth=0.5];\n  edge [color=\"#181818\", fontname=\"Helvetica\", fontsize=13, penwidth=1];\n  \"canvas:0\" [shape=point, style=invis, width=0, height=0, label=\"\", pos=\"0,800!\", pin=true];\n  \"canvas:1\" [shape=point, style=invis, width=0, height=0, label=\"\", pos=\"1200,0!\", pin=true];\n  subgraph",
 		// pump: top-left (300, 40), no size, so the centre of a 96x36 box fitted to
 		// eleven glyphs at its Style's 11pt over a 10pt keyword line, stated but not
@@ -1273,10 +1283,11 @@ func checkDOTHTMLLabel(t *testing.T, label, dot string) {
 			tag := label[i+1 : i+end]
 			i += end
 			switch {
-			case tag == "br/" || tag == "hr/":
+			case tag == "br/" || tag == "hr/" || tag == `br align="left"/`:
 			case tag == "b" || tag == "i" || tag == "tr" || dotTableCellTag(tag) ||
 				strings.HasPrefix(tag, `table border="`) && strings.HasSuffix(tag, `"`) ||
-				strings.HasPrefix(tag, `font point-size="`) && strings.HasSuffix(tag, `"`):
+				strings.HasPrefix(tag, `font point-size="`) && strings.HasSuffix(tag, `"`),
+				tag == `font color="gray"`:
 				open = append(open, strings.Fields(tag)[0])
 			case strings.HasPrefix(tag, "/"):
 				if len(open) == 0 || open[len(open)-1] != tag[1:] {
@@ -1314,7 +1325,7 @@ func dotTableCellTag(tag string) bool {
 	}
 	for _, attr := range fields[1:] {
 		name, value, ok := strings.Cut(attr, "=")
-		if !ok || !slices.Contains([]string{"align", "port", "border", "fixedsize", "width", "height", "colspan", "bgcolor"}, name) ||
+		if !ok || !slices.Contains([]string{"align", "port", "border", "style", "fixedsize", "width", "height", "colspan", "bgcolor"}, name) ||
 			len(value) < 2 || value[0] != '"' || value[len(value)-1] != '"' {
 			return false
 		}

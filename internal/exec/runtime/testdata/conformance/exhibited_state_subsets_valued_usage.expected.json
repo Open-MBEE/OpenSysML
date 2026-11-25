@@ -1,0 +1,8 @@
+{
+	"libraries": true,
+	"type": "state",
+	"evaluate": "test::P::es",
+	"performers": [
+		{"object": "test::p", "finalState": "s2", "stateVisits": ["s1", "s2"]}
+	]
+}

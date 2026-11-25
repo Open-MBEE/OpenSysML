@@ -8,13 +8,18 @@ what each oracle measures, which divergences are deliberate, and which rows are 
 the divergence census still keys its rows by a short row number, that number is a cross-reference
 within these records and means nothing outside this repository.
 
-- **[Spec compliance](spec-compliance.md)** — faithful, approximate, or not implemented,
+- **[Spec compliance](spec-compliance.md)** ([sources](spec-compliance/README.md); the page is combined from them when the site is built) — faithful, approximate, or not implemented,
   rule by rule
+- **[Implicit specialization audit](implicit-specialization-audit.md)** — every implied
+  generalization against KerML/SysML §8.4 and the pilot's map, row by row
 - **[Training examples](training-examples.md)** — the OMG corpus, adjudicated per file
 - **[Pilot corpora gate](pilot-corpora.md)** — OpenSysML diagnostics on the three pinned OMG pilot
   corpora, ratcheted in CI
 - **[RDF corpus round-trip gate](rdf-corpus-roundtrip.md)** — the notation → Turtle → notation →
   Turtle verdict of every model under `examples/`, ratcheted per file in CI
+- **[Construct-cover corpus subset](construct-cover-subset.md)** — the 95 models under
+  `examples/` that exhibit every syntactic construct the 880 do, and the
+  `OPENSYSML_CORPUS_SUBSET` switch that makes the sweeps iterate them alone
 - **[PSSM migration gate](pssm-migration.md)** — the SysML v1 migrator over the OMG PSSM test
   suite: the notation asserted to parse, the report's verdict totals ratcheted in CI
 - **[Pilot differential](pilot-differential.md)** — OpenSysML diagnostics compared against the OMG
@@ -27,9 +32,16 @@ within these records and means nothing outside this repository.
 - **[API-JSON derived-property differential](api-json-differential.md)** — every corpus model's
   API element JSON compared property by property with the pinned pilot's export, bucketed per
   (metaclass, property) as a scorecard of the metamodel's derived properties
+- **[Derived-property census](derived-property-census.md)** — for every served derivation rule,
+  how many elements of the corpus models answer a value, answer nothing or are not derived through
+  the symbol-backed Structure `GetElementProperties` reads, against the pinned pilot's export; the
+  rules silent where the pilot answers are the gate's baseline
 - **[PSSM referee](pssm-referee.md)** — the OMG PSSM state-machine test suite, translated by rule
   into SysML v2 notation and run against the runtime as an advisory oracle, its bucket counts
   gated in CI; never evidence of SysML v2 conformance
+- **[Cross-MDK conformance suite](hideo-suite.md)** — hideo67/sysmlv2-tests, a common test suite
+  for SysML v2 MDKs whose expectations are the pilot's, run on pull requests and daily against the Python and Go
+  clients as a per-case ratchet; never evidence of SysML v2 conformance
 - **[LLM authoring benchmark](llm-benchmark.md)** — how well language models write SysML v2 with
   `sysml -validate` in the loop, with and without the `sysml-mcp` tools; 50-task corpus, method and per-model results
 - **[fUML referee](fuml-referee.md)** — the fUML reference implementation's activity tests as
@@ -58,6 +70,9 @@ within these records and means nothing outside this repository.
 - **[SysML v1 to v2 transformation census](sysml-v1-transformation-census.md)** — which of the OMG
   transformation model's 783 mapping classes the migrator carries out, each tied to the code and
   test that backs it; the figures and the mapping list are gated in CI
+- **[Graphical notation census](graphical-notation-census.md)** — which of the 523 productions of
+  the SysML v2 graphical notation (§8.2.3) the view renderers draw, each with the code and golden
+  that backs it and every gap with its reason; the figures and the gap list are gated in CI
 - **[Adjudications](adjudications.md)** — the divergences from the pinned pilot implementation we
   keep, the rows still open against it, and the reading behind each one
 - **[Protocol state machines](protocol-state-machines.md)** — whether SysML v2 has a construct for
@@ -99,6 +114,10 @@ within these records and means nothing outside this repository.
 - **[MOSA library](mosa-library.md)** — the Modular Open Systems Approach as a bundled OpenSysML
   library: the statute's vocabulary, openness as metadata over the standard model, the
   interface control document and the warning-only checks
+- **[NPR7123 library](npr7123-library.md)** — NASA NPR 7123.1D as a bundled OpenSysML library:
+  the 17 common technical processes, life-cycle reviews with the Appendix G criteria, work-product
+  maturity, TRLs, the active SE requirements, the generated compliance matrix and the warning-only
+  checks
 - **[StateMachines library](statemachines-library.md)** — pseudostates as bundled
   `SemanticMetadata`, so a state machine's `choice`, `junction` and history pseudostates
   spell standard, conforming SysML v2

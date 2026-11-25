@@ -54,9 +54,9 @@ func diagnosticsOf(r *resolve.Resolver) (warnings, errors []string) {
 
 // Two imports bringing distinct elements under one name hide both
 // memberships from the importing namespace (KerML 7.2.5.4): the unqualified
-// name resolves through the enclosing namespaces or not at all, the warning
-// marks the hidden memberships on the import, and the use-site diagnostic
-// names the imports and the qualified names that still reach each element.
+// name resolves through the enclosing namespaces or not at all, nothing marks
+// the hiding itself, and the use-site diagnostic names the imports and the
+// qualified names that still reach each element.
 func TestHiddenImportedMemberships(t *testing.T) {
 	const left, right = "package Left { part def Engine; }\n", "package Right { part def Engine; }\n"
 	const both = "package Both { public import Left::*; public import Right::*; }\n"
@@ -66,26 +66,25 @@ func TestHiddenImportedMemberships(t *testing.T) {
 		name, src string
 		ref       string // the reference examined
 		binds     string // FQN it binds, "" for unresolved
-		warnings  int    // import warnings expected
 		hint      bool   // the unresolved diagnostic carries the hidden-import hint
 	}{
-		{"root namespace", left + right + "private import Left::*; private import Right::*; part e : Engine;", "Engine", "", 1, true},
-		{"package", left + right + "package Use { private import Left::*; private import Right::*; part e : Engine; }", "Engine", "", 1, true},
-		{"one element via two paths", left + "package Alias { public import Left::Engine; }\npackage Use { private import Left::*; private import Alias::*; part e : Engine; }", "Engine", "Left::Engine", 0, false},
-		{"membership import beside wildcard", left + "package Use { private import Left::Engine; private import Left::*; part e : Engine; }", "Engine", "Left::Engine", 0, false},
-		{"alias beside its target", "package Left { part def Engine; alias Motor for Engine; }\npackage Use { private import Left::*; part e : Engine; part m : Motor; }", "Motor", "Left::Engine", 0, false},
-		{"owned member hides the imports", left + right + "package Use { private import Left::*; private import Right::*; part def Engine; part e : Engine; }", "Engine", "Use::Engine", 0, false},
-		{"protected imports of a general", left + right + "part def Gen { protected import Left::*; protected import Right::*; }\npart def Sub :> Gen { part e : Engine; }", "Engine", "", 1, true},
-		{"re-export namespace", left + right + "package Both { public import Left::*; public import Right::*; }\npackage Use { private import Both::*; part e : Engine; }", "Engine", "", 1, true},
-		{"enclosing namespace supplies the name", left + right + "part def Engine;\npackage Use { private import Left::*; private import Right::*; part e : Engine; }", "Engine", "Engine", 1, false},
-		{"qualified into the importing namespace", left + right + "package Use { private import Left::*; private import Right::*; }\npart u : Use::Engine;", "Use::Engine", "", 1, false},
-		{"qualified into the importing namespace through a re-export", left + right + "package Both { public import Left::*; public import Right::*; }\npackage Use { private import Both::*; }\npart u : Use::Engine;", "Use::Engine", "", 1, false},
-		{"qualified into the exporter", left + right + "package Use { private import Left::*; private import Right::*; part l : Left::Engine; }", "Left::Engine", "Left::Engine", 1, false},
-		{"unrelated recursive import beside a hiding re-export", left + right + both + other + "package Use { private import Both::*; private import Other::**; part a : Axle; }\npart u : Use::Engine;", "Use::Engine", "", 1, false},
-		{"unrelated recursive import does not revive the hidden name", left + right + both + other + "package Use { private import Both::*; private import Other::**; part e : Engine; }", "Engine", "", 1, true},
-		{"qualified through two re-exports", left + right + both + mid + "package Use { private import Mid::*; }\npart u : Use::Engine;", "Use::Engine", "", 1, false},
-		{"hidden through two re-exports", left + right + both + mid + "package Use { private import Mid::*; part e : Engine; }", "Engine", "", 1, true},
-		{"the rest of a two-level re-export still arrives", left + right + both + mid + "package Use { private import Mid::*; part w : Wheel; }", "Wheel", "Mid::Wheel", 1, false},
+		{"root namespace", left + right + "private import Left::*; private import Right::*; part e : Engine;", "Engine", "", true},
+		{"package", left + right + "package Use { private import Left::*; private import Right::*; part e : Engine; }", "Engine", "", true},
+		{"one element via two paths", left + "package Alias { public import Left::Engine; }\npackage Use { private import Left::*; private import Alias::*; part e : Engine; }", "Engine", "Left::Engine", false},
+		{"membership import beside wildcard", left + "package Use { private import Left::Engine; private import Left::*; part e : Engine; }", "Engine", "Left::Engine", false},
+		{"alias beside its target", "package Left { part def Engine; alias Motor for Engine; }\npackage Use { private import Left::*; part e : Engine; part m : Motor; }", "Motor", "Left::Engine", false},
+		{"owned member hides the imports", left + right + "package Use { private import Left::*; private import Right::*; part def Engine; part e : Engine; }", "Engine", "Use::Engine", false},
+		{"protected imports of a general", left + right + "part def Gen { protected import Left::*; protected import Right::*; }\npart def Sub :> Gen { part e : Engine; }", "Engine", "", true},
+		{"re-export namespace", left + right + "package Both { public import Left::*; public import Right::*; }\npackage Use { private import Both::*; part e : Engine; }", "Engine", "", true},
+		{"enclosing namespace supplies the name", left + right + "part def Engine;\npackage Use { private import Left::*; private import Right::*; part e : Engine; }", "Engine", "Engine", false},
+		{"qualified into the importing namespace", left + right + "package Use { private import Left::*; private import Right::*; }\npart u : Use::Engine;", "Use::Engine", "", false},
+		{"qualified into the importing namespace through a re-export", left + right + "package Both { public import Left::*; public import Right::*; }\npackage Use { private import Both::*; }\npart u : Use::Engine;", "Use::Engine", "", false},
+		{"qualified into the exporter", left + right + "package Use { private import Left::*; private import Right::*; part l : Left::Engine; }", "Left::Engine", "Left::Engine", false},
+		{"unrelated recursive import beside a hiding re-export", left + right + both + other + "package Use { private import Both::*; private import Other::**; part a : Axle; }\npart u : Use::Engine;", "Use::Engine", "", false},
+		{"unrelated recursive import does not revive the hidden name", left + right + both + other + "package Use { private import Both::*; private import Other::**; part e : Engine; }", "Engine", "", true},
+		{"qualified through two re-exports", left + right + both + mid + "package Use { private import Mid::*; }\npart u : Use::Engine;", "Use::Engine", "", false},
+		{"hidden through two re-exports", left + right + both + mid + "package Use { private import Mid::*; part e : Engine; }", "Engine", "", true},
+		{"the rest of a two-level re-export still arrives", left + right + both + mid + "package Use { private import Mid::*; part w : Wheel; }", "Wheel", "Mid::Wheel", false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -94,13 +93,8 @@ func TestHiddenImportedMemberships(t *testing.T) {
 				t.Errorf("%s binds %q, want %q", tc.ref, got, tc.binds)
 			}
 			warnings, errors := diagnosticsOf(r)
-			if len(warnings) != tc.warnings {
-				t.Errorf("got %d warnings, want %d: %v", len(warnings), tc.warnings, warnings)
-			}
-			for _, w := range warnings {
-				if !strings.HasPrefix(w, "Duplicate of imported member name 'Engine': Left::Engine (import Left::*), Right::Engine (import Right::*)") {
-					t.Errorf("unexpected warning %q", w)
-				}
+			if len(warnings) != 0 {
+				t.Errorf("got warnings %v, want none: hiding is a derivation, not a violation", warnings)
 			}
 			if tc.binds != "" {
 				if len(errors) != 0 {
@@ -170,8 +164,8 @@ package Use { private import Left::*; private import Right::*; part m : Motor; p
 		}
 	}
 	warnings, errors := diagnosticsOf(r)
-	if len(warnings) != 1 || warnings[0] != "Duplicate of imported member name 'E': Left::Motor (import Left::*), Right::Engine (import Right::*)" {
-		t.Errorf("warnings = %v", warnings)
+	if len(warnings) != 0 {
+		t.Errorf("warnings = %v, want none", warnings)
 	}
 	if len(errors) != 2 {
 		t.Errorf("errors = %v, want Motor and E unresolved", errors)
@@ -195,11 +189,10 @@ package Use { private import V::**; part e : Engine; part p : P::Engine; }`)
 	}
 }
 
-// An inherited member and an imported one of the same name are both
-// memberships of the type (KerML 8.3.3.1.10 nonPrivateMemberships adds the
-// inherited to the owned and imported): neither hides the other, the type is
-// ill-formed and warns, and the name keeps resolving to the inherited member.
-func TestInheritedAndImportedMembershipsHideNothing(t *testing.T) {
+// An imported membership repeating a name the type inherits is hidden by the
+// inherited one, as an owned name would hide it (KerML 7.3.2): the name
+// resolves to the inherited member and nothing is reported.
+func TestInheritedMembershipHidesImportedName(t *testing.T) {
 	r, root, scope := resolvedDoc(t, `package A { part x; }
 part def Gen { part x; }
 part def Child :> Gen { private import A::*; part y :> x; }`)
@@ -207,8 +200,8 @@ part def Child :> Gen { private import A::*; part y :> x; }`)
 		t.Errorf("x binds %q, want Gen::x", got)
 	}
 	warnings, errors := diagnosticsOf(r)
-	if len(warnings) != 1 || warnings[0] != "Duplicate of imported member name 'x': A::x (import A::*), Gen::x (inherited)" {
-		t.Errorf("warnings = %v", warnings)
+	if len(warnings) != 0 {
+		t.Errorf("warnings = %v, want none", warnings)
 	}
 	if len(errors) != 0 {
 		t.Errorf("errors = %v", errors)
@@ -307,8 +300,8 @@ func TestHiddenImportedMembershipsThroughAnImportCycle(t *testing.T) {
 		t.Errorf("D%d binds %q, want P%d::D%d", n, got, n, n)
 	}
 	warnings, errors := diagnosticsOf(r)
-	if len(warnings) != n {
-		t.Errorf("got %d warnings %v, want Engine hidden in each of the %d packages", len(warnings), warnings, n)
+	if len(warnings) != 0 {
+		t.Errorf("got warnings %v, want none: hiding Engine in each of the %d packages reports nothing", warnings, n)
 	}
 	if len(errors) != 2 {
 		t.Fatalf("got errors %v, want Engine unresolved in Use and in Other: Left::Engine and Right::Engine meet in the cycle", errors)
@@ -361,8 +354,8 @@ package Use { private import Both::*; private import Left::*; part e : Engine; p
 	if len(errors) != 0 {
 		t.Errorf("errors = %v, want none", errors)
 	}
-	if len(warnings) != 1 || !strings.HasPrefix(warnings[0], "Duplicate of imported member name 'Engine'") {
-		t.Errorf("warnings = %v, want the one on Both's second import", warnings)
+	if len(warnings) != 0 {
+		t.Errorf("warnings = %v, want none", warnings)
 	}
 }
 

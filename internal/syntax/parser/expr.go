@@ -345,10 +345,12 @@ func (p *Parser) parsePostfixes(start int, expr ast.Node) ast.Node {
 			} else if p.at(lexer.LBrace) {
 				// Function reference given as a body: store as a single arg.
 				inv.Args = []ast.Node{p.parseBodyExpr(p.peek().Span.Offset)}
+				inv.BareArgument = true
 			} else if p.atExprStart() {
 				// Single arg without parens (e.g., `reduce '*'`)
 				// Parse only base expression, not full precedence expression
 				inv.Args = []ast.Node{p.parseBase()}
+				inv.BareArgument = true
 			}
 			inv.NodeSpan = p.spanFrom(start)
 			expr = inv
@@ -456,7 +458,7 @@ func (p *Parser) parseBase() ast.Node {
 		if p.at(lexer.LBrace) && p.peekN(1).Kind == lexer.Keyword && p.peekN(1).KeywordID == "in" {
 			bodyStart := p.peek().Span.Offset
 			bodyExpr := p.parseBodyExpr(bodyStart)
-			inv := &ast.InvocationExpr{Type: qn, Args: []ast.Node{bodyExpr}}
+			inv := &ast.InvocationExpr{Type: qn, Args: []ast.Node{bodyExpr}, BareArgument: true}
 			inv.NodeSpan = p.spanFrom(start)
 			return setBase(inv)
 		}
@@ -648,7 +650,7 @@ func (p *Parser) parseBodyExpr(start int) ast.Node {
 	b := &ast.BodyExpr{}
 
 	// A body may open with documentation, a member of the body like its features.
-	p.memberStart()
+	b.Members = append(b.Members, p.memberStart()...)
 	if p.atKeyword("doc") {
 		b.Members = append(b.Members, p.parseDocumentation(p.peek().Span.Offset))
 	}
@@ -662,7 +664,7 @@ func (p *Parser) parseBodyExpr(start int) ast.Node {
 
 	if hasShorthandParam {
 		// Parse single param without "in" keyword
-		p.memberStart()
+		b.Members = append(b.Members, p.memberStart()...)
 		var paramType *ast.QualifiedName
 		var paramMult *ast.Multiplicity
 
@@ -688,10 +690,12 @@ func (p *Parser) parseBodyExpr(start int) ast.Node {
 	for p.atKeyword("in") || p.atBodyExprMember() {
 		// A body expression is a calculation body, so it may declare features of
 		// its own between its parameters and its result.
-		p.memberStart()
+		b.Members = append(b.Members, p.memberStart()...)
 		if !p.atKeyword("in") {
 			before := p.peek().Span.Offset
-			b.Members = append(b.Members, p.parseBodyMember())
+			member := p.parseBodyMember()
+			b.Members = append(b.Members, p.takeRecovered()...)
+			b.Members = append(b.Members, member)
 			// Force progress: a member that consumed nothing would spin the loop.
 			if p.peek().Span.Offset == before && !p.at(lexer.RBrace) && !p.atEOF() {
 				p.advance()
@@ -719,18 +723,34 @@ func (p *Parser) parseBodyExpr(start int) ast.Node {
 		}
 		if ok {
 			var paramMembers []ast.Node
+			var paramRels []*ast.Relationship
 			if p.at(lexer.Colon) {
 				p.advance() // :
-				paramType = p.parseQualifiedName()
-				// Parse optional multiplicity after type
-				if p.at(lexer.LBracket) {
-					paramMult = p.parseMultiplicity()
+				// A conjugated type (`in p : ~P`) is a relationship; Type names a plain first one.
+				if p.at(lexer.Tilde) {
+					paramRels = p.parseTypingRelationships()
+				} else {
+					paramType = p.parseQualifiedName()
+					// Parse optional multiplicity after type
+					if p.at(lexer.LBracket) {
+						paramMult = p.parseMultiplicity()
+					}
+					// The typing clause lists its further types (`in p : A, B`) as a head's does.
+					if paramType != nil && p.accept2(lexer.Comma) {
+						paramRels = p.parseTypingRelationships()
+					}
 				}
 			}
 			// A parameter may specialize a feature instead of naming a type
 			// (`in p :> ISQ::mass`), which is how a filter names the feature its
 			// elements redefine.
-			paramRels := p.parseRelationships(declFeature)
+			var seen relClauseState
+			paramRels = append(paramRels, p.parseRelationshipsInto(declFeature, &seen)...)
+			// FeatureSpecialization* MultiplicityPart? FeatureSpecialization* (KerML.xtext:574).
+			if paramMult == nil && p.at(lexer.LBracket) {
+				paramMult = p.parseMultiplicity()
+				paramRels = append(paramRels, p.parseRelationshipsInto(declFeature, &seen)...)
+			}
 			if _, ok := p.accept(lexer.Eq); ok {
 				paramValue = p.ParseExpression()
 			}
@@ -739,12 +759,13 @@ func (p *Parser) parseBodyExpr(start int) ast.Node {
 				p.advance() // {
 				leave := p.pushBodyContext(bodyOther)
 				for !p.at(lexer.RBrace) && !p.atEOF() {
-					p.memberStart()
+					paramMembers = append(paramMembers, p.memberStart()...)
 					pm := p.parseBodyMember()
-					p.markAttached(pm)
+					paramMembers = append(p.markAttached(pm, paramMembers), p.takeRecovered()...)
 					paramMembers = append(paramMembers, pm)
 				}
 				leave()
+				paramMembers = append(paramMembers, p.closeComments()...)
 				p.expect(lexer.RBrace, "expected '}'")
 			}
 			b.Params = append(b.Params, ast.BodyParam{
@@ -764,10 +785,11 @@ func (p *Parser) parseBodyExpr(start int) ast.Node {
 		}
 	}
 	if !p.at(lexer.RBrace) {
-		p.memberStart()
+		b.Members = append(b.Members, p.memberStart()...)
 		b.Result = p.ParseExpression()
 		p.resultEnd()
 	}
+	b.Members = append(b.Members, p.closeComments()...)
 	p.expect(lexer.RBrace, "expected '}'")
 	b.NodeSpan = p.spanFrom(start)
 	return b

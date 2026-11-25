@@ -1,50 +1,26 @@
 package resolve_test
 
-import (
-	"testing"
+import "testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
-)
-
-// A type's memberships are its owned, inherited and imported ones together
-// (KerML §8.3.2.4.5), so a member a subtype imports is indistinguishable from
-// one it inherits of the same name; the warning names the inherited member as
-// such, beside the import that brought the other.
-func TestImportedNameCollidingWithInheritedNameWarns(t *testing.T) {
-	for name, tc := range map[string]struct{ src, want, at string }{
-		"a wildcard import of a definition": {
-			src: `package A { part def Base { part def X; } }
+// A member a type imports under a name it inherits is hidden by the inherited
+// membership, as it would be by an owned one (KerML §7.3.2, §7.2.5.4): the
+// type keeps one membership of the name, so there is nothing to report.
+func TestImportedNameCollidingWithInheritedNameIsHidden(t *testing.T) {
+	for name, src := range map[string]string{
+		"a wildcard import of a definition": `package A { part def Base { part def X; } }
 package Q { part def X; }
 package C { part def Sub :> A::Base { private import Q::*; } }`,
-			want: "Duplicate of imported member name 'X': Q::X (import Q::*), A::Base::X (inherited)",
-			at:   "Q",
-		},
-		"an explicit import of a definition": {
-			src: `package A { part def Base { part def X; } }
+		"an explicit import of a definition": `package A { part def Base { part def X; } }
 package Q { part def X; }
 package C { part def Sub :> A::Base { private import Q::X; } }`,
-			want: "Duplicate of imported member name 'X': Q::X (import Q::X), A::Base::X (inherited)",
-			at:   "Q::X",
-		},
-		"a wildcard import of a usage": {
-			src: `package A { part def Base { part x; } }
+		"a wildcard import of a usage": `package A { part def Base { part x; } }
 package Q { part x; }
 package C { part def Sub :> A::Base { private import Q::*; } }`,
-			want: "Duplicate of imported member name 'x': Q::x (import Q::*), A::Base::x (inherited)",
-			at:   "Q",
-		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			r, _, _ := resolvedDoc(t, tc.src)
-			if len(r.Diagnostics) != 1 {
-				t.Fatalf("got %d diagnostics, want 1: %v", len(r.Diagnostics), r.Diagnostics)
-			}
-			d := r.Diagnostics[0]
-			if !d.Warning || d.Code != resolve.CodeNameConflict || d.Message != tc.want {
-				t.Errorf("got warning=%v %s %q, want a warning %s %q", d.Warning, d.Code, d.Message, resolve.CodeNameConflict, tc.want)
-			}
-			if got := tc.src[d.Span.Offset:d.Span.End()]; got != tc.at {
-				t.Errorf("diagnostic sits on %q, want %q", got, tc.at)
+			r, _, _ := resolvedDoc(t, src)
+			if len(r.Diagnostics) != 0 {
+				t.Fatalf("got diagnostics %v, want none", r.Diagnostics)
 			}
 		})
 	}

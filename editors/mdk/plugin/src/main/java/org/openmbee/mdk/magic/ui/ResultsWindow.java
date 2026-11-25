@@ -38,6 +38,9 @@ public final class ResultsWindow implements WindowComponentContent {
   private final JLabel header = new JLabel(" ");
   private final ResultsTableModel outcomes = new ResultsTableModel();
   private final JTable outcomesTable = new JTable(outcomes);
+  private final QueryTableModel rows = new QueryTableModel();
+  private final JTable rowsTable = new JTable(rows);
+  private final JSplitPane results;
   private final DefaultTableModel diagnostics = readOnly("Severity", "Message", "Code", "Location");
   private final JList<String> schedule = new JList<>();
   private boolean registered;
@@ -52,9 +55,21 @@ public final class ResultsWindow implements WindowComponentContent {
         if (event.getClickCount() == 2) selectInBrowser(outcomesTable.rowAtPoint(event.getPoint()));
       }
     });
+    rowsTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+    rowsTable.setCellSelectionEnabled(true);
+    rowsTable.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+    rowsTable.addMouseListener(new MouseAdapter() {
+      @Override
+      public void mouseClicked(MouseEvent event) {
+        if (event.getClickCount() == 2) {
+          select(rows.elementId(rowsTable.rowAtPoint(event.getPoint()), rowsTable.columnAtPoint(event.getPoint())));
+        }
+      }
+    });
     panel.add(header, BorderLayout.NORTH);
-    JSplitPane tables = new JSplitPane(
-        JSplitPane.VERTICAL_SPLIT, new JScrollPane(outcomesTable), new JScrollPane(new JTable(diagnostics)));
+    results = new JSplitPane(JSplitPane.VERTICAL_SPLIT, new JScrollPane(outcomesTable), new JScrollPane(rowsTable));
+    results.setResizeWeight(0.4);
+    JSplitPane tables = new JSplitPane(JSplitPane.VERTICAL_SPLIT, results, new JScrollPane(new JTable(diagnostics)));
     tables.setResizeWeight(0.6);
     JSplitPane all = new JSplitPane(JSplitPane.VERTICAL_SPLIT, tables, new JScrollPane(schedule));
     all.setResizeWeight(0.8);
@@ -74,6 +89,9 @@ public final class ResultsWindow implements WindowComponentContent {
     this.resolver = resolver;
     header.setText(headerText(result));
     outcomes.set(result.outcomes());
+    rows.set(result.tables());
+    results.getBottomComponent().setVisible(!rows.isEmpty());
+    results.resetToPreferredSizes();
     diagnostics.setRowCount(0);
     result.diagnostics().forEach(item -> diagnostics.addRow(new Object[] {
         item.severity(), item.message(), item.code(),
@@ -89,12 +107,16 @@ public final class ResultsWindow implements WindowComponentContent {
   }
 
   static String headerText(RunResult result) {
+    String rows = result.tables().isEmpty() ? "" : "   rows " + result.rowCount();
     return result.operation().label() + " of " + result.subject() + " (" + result.path() + "): " + result.status()
-        + "   final time " + result.finalTime().orElse("-") + "   elapsed " + result.elapsed().toMillis() + " ms";
+        + "   final time " + result.finalTime().orElse("-") + rows + "   elapsed " + result.elapsed().toMillis() + " ms";
   }
 
   private void selectInBrowser(int row) {
-    String elementId = row < 0 ? null : outcomes.outcome(row).elementId();
+    select(row < 0 ? null : outcomes.outcome(row).elementId());
+  }
+
+  private void select(String elementId) {
     if (elementId == null) return;
     for (ModelElement element : resolver.resolve(elementId)) {
       if (element.handle() instanceof BaseElement base) {

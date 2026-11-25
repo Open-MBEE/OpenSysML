@@ -1,0 +1,22 @@
+{
+  "type": "instance",
+  "instantiate": "test::Report",
+  "libraries": true,
+  "slots": {
+    "xOwningFeatureMemberships": {"type": "Integer", "value": 1},
+    "topOwningFeatureMemberships": {"type": "Integer", "value": 0},
+    "xEndOwningTypes": {"type": "Integer", "value": 0},
+    "aEndOwningTypes": {"type": "Integer", "value": 1},
+    "cEndOwningTypes": {"type": "Integer", "value": 2},
+    "xTypeFeaturings": {"type": "Integer", "value": 0},
+    "xFeatureInvertings": {"type": "Integer", "value": 0},
+    "xFeatureChainings": {"type": "Integer", "value": 0},
+    "xFeatureTargets": {"type": "Integer", "value": 1},
+    "xCrossFeatures": {"type": "Integer", "value": 0},
+    "vVariantMemberships": {"type": "Integer", "value": 2},
+    "vVariants": {"type": "Integer", "value": 2},
+    "xVariants": {"type": "Integer", "value": 0},
+    "colorVariants": {"type": "Integer", "value": 2},
+    "aVariants": {"type": "Integer", "value": 0}
+  }
+}

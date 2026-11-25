@@ -191,6 +191,7 @@ func (c checkCase) explore(t *testing.T) *Exploration {
 // reduced and unreduced alike: the verdict, every divergent feature with its values,
 // every agreed feature with its one value.
 func TestCheckConformanceOracles(t *testing.T) {
+	t.Parallel()
 	for _, c := range checkCorpus(t) {
 		t.Run(c.name, func(t *testing.T) {
 			want := loadCheckExpected(t, c.name)

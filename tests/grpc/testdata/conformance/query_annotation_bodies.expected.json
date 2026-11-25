@@ -1,0 +1,12 @@
+{
+  "rpc": "Query",
+  "query": {
+    "select": ["body", "language", "locale", "textualRepresentation", "documentation"],
+    "where": {"composite": {"operator": "COMPOSITE_OPERATOR_OR", "constraint": [
+      {"primitive": {"property": "language", "operator": "PRIMITIVE_OPERATOR_EQUAL", "value": ["rus"]}},
+      {"primitive": {"property": "textualRepresentation", "operator": "PRIMITIVE_OPERATOR_EQUAL", "value": ["Textual representation"]}},
+      {"primitive": {"property": "body", "operator": "PRIMITIVE_OPERATOR_EQUAL", "value": ["Documentation"]}}
+    ]}}
+  },
+  "expected_element_ids": ["Model::aaaa::@0", "Model::bbb", "Model::bbb::@0"]
+}

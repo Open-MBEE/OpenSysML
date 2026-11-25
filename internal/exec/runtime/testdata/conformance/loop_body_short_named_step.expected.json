@@ -1,0 +1,10 @@
+{
+	"type": "action",
+	"evaluate": "test::Run",
+	"libraries": true,
+	"outputs": {
+		"bodyCount": {"type": "Sequence", "elements": [{"type": "Integer", "value": 2}]},
+		"bodySteps": {"type": "Sequence", "elements": [{"type": "Integer", "value": 2}]},
+		"t": {"type": "Integer", "value": 3}
+	}
+}

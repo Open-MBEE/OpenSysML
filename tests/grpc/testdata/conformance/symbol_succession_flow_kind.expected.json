@@ -1,0 +1,11 @@
+{
+	"rpc": "GetSymbol",
+	"symbol_id": "P::Vehicle",
+	"expected_kind": "partDef",
+	"expected_members": [
+		{"id": "P::Vehicle::tank", "kind": "partUsage"},
+		{"id": "P::Vehicle::engine", "kind": "partUsage"},
+		{"id": "P::Vehicle::f", "kind": "flowUsage"},
+		{"id": "P::Vehicle::sf", "kind": "successionFlowUsage"}
+	]
+}

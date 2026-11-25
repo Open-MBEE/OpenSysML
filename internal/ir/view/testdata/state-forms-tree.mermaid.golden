@@ -1,0 +1,60 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+title: "«view» FurnaceViews::burnerTree : GeneralView"
+---
+%% FurnaceViews::burnerTree — tree rendering (view def GeneralView)
+flowchart TD
+  n0["`*«state def»*
+**Burner**`"]
+    n1("`*«attribute»*
+**flame**`")
+    n2("`**entry**`")
+  n0 --- n2
+    n3("`**then off**`")
+  n0 --- n3
+    n4("`*«state»*
+**off**`")
+  n0 --- n4
+    n5("`*«state»*
+**running**`")
+      n6("`*«entry action»*
+**ignite**`")
+  n5 --- n6
+      n7("`**exit action**`")
+  n5 --- n7
+      n8("`**do action**`")
+        n9("`**assignment action usage**`")
+  n8 --- n9
+  n5 --- n8
+      n10("`*«state»*
+**low**`")
+  n5 --- n10
+      n11("`*«state»*
+**high**`")
+  n5 --- n11
+  n0 --- n5
+    n12("`**transition**`")
+  n0 --- n12
+    n13("`**first running then off**`")
+  n0 --- n13
+  n0 ---|"◇"| n1

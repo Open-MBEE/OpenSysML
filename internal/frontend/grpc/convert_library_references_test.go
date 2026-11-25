@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"connectrpc.com/connect"
@@ -20,6 +21,41 @@ func TestConvertLibraryCapabilities(t *testing.T) {
 		if connect.CodeOf(err) != connect.CodeInvalidArgument {
 			t.Fatalf("target %s: %v", target, err)
 		}
+	}
+}
+
+// api-json carries owned structure; inherited_members adds the six inherited lists and
+// nothing else, and is refused for a target that has none.
+func TestConvertInheritedMembers(t *testing.T) {
+	srv := mustNewService(t, 10)
+	if !srv.Supports(CapabilityConvertInheritedMembers) {
+		t.Fatal("convert_inherited_members not advertised")
+	}
+	ctx := context.Background()
+	const source = "package P { part def A { attribute x; } part def B :> A; }"
+	convert := func(target string, inherited bool) (*pb.ConvertResponse, error) {
+		return srv.Convert(ctx, &pb.ConvertRequest{
+			Source: &pb.ConvertRequest_Content{Content: source}, FromFormat: "sysml", ToFormat: target, InheritedMembers: inherited,
+		})
+	}
+	for _, target := range []string{"sysml", "ttl"} {
+		if _, err := convert(target, true); connect.CodeOf(err) != connect.CodeInvalidArgument {
+			t.Fatalf("target %s: %v", target, err)
+		}
+	}
+	owned, err := convert("api-json", false)
+	if err != nil || owned.Error != "" {
+		t.Fatalf("convert: %v %v", owned, err)
+	}
+	complete, err := convert("api-json", true)
+	if err != nil || complete.Error != "" {
+		t.Fatalf("convert with inherited members: %v %v", complete, err)
+	}
+	if strings.Contains(owned.Content, `"inheritedFeature"`) || !strings.Contains(owned.Content, `"ownedFeature"`) {
+		t.Error("the default document is not the owned structure")
+	}
+	if !strings.Contains(complete.Content, `"inheritedFeature"`) {
+		t.Error("inherited_members wrote no inheritedFeature")
 	}
 }
 
@@ -53,5 +89,30 @@ func TestConvertLibraryTableForContentAndCachedDocuments(t *testing.T) {
 		} else if len(response.LibraryReferences) != len(direct.LibraryReferences) {
 			t.Fatalf("cached table: %v", response.LibraryReferences)
 		}
+	}
+}
+
+func TestConvertLibraryTableNamesUnnamedMembersByPath(t *testing.T) {
+	srv := mustNewService(t, 10)
+	response, err := srv.Convert(context.Background(), &pb.ConvertRequest{
+		Source: &pb.ConvertRequest_Content{Content: "package P { part def V; part car : V; }"}, FromFormat: "sysml", ToFormat: "api-json", InheritedMembers: true,
+	})
+	if err != nil || response.Error != "" {
+		t.Fatalf("convert: %v %v", response, err)
+	}
+	unnamed := 0
+	for _, ref := range response.LibraryReferences {
+		switch {
+		case ref.QualifiedName == "" && ref.LibraryPath != "":
+			unnamed++
+		case ref.QualifiedName != "" && ref.LibraryPath == "":
+		case ref.QualifiedName == "" && ref.LibraryPath == "" && strings.HasSuffix(ref.Type, "Membership"):
+			// An owning membership is an unnamed relationship: neither name applies.
+		default:
+			t.Errorf("entry %q has qualifiedName %q and libraryPath %q, want exactly one", ref.Id, ref.QualifiedName, ref.LibraryPath)
+		}
+	}
+	if unnamed == 0 {
+		t.Fatalf("the inherited unnamed library members (Parts::Part's documentation, …) are not named by path: %v", response.LibraryReferences)
 	}
 }

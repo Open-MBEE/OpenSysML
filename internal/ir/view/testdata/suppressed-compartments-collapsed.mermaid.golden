@@ -20,10 +20,12 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» CameraViews::collapsed"
 ---
 %% CameraViews::collapsed — tree rendering (render asTreeDiagram)
 %% not represented: 9 node(s) without a position: 0 drawn as compartment rows of the node above them, 9 in compartments its Layout hides left undrawn
 %% layout: n0 x=10 y=10 w=200 h=33
 flowchart TD
   n0["`*«part def»*
-**Imaging**`"]
+**Imaging**
+…`"]

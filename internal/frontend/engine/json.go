@@ -120,6 +120,9 @@ type JValue struct {
 	Metaobject     *JMetaobject     `json:"metaobject,omitempty"`
 	Undetermined   *JUndetermined   `json:"undetermined,omitempty"`
 	RationalValue  *JRational       `json:"rationalValue,omitempty"`
+
+	CoordinateFrame          *JCoordinateFrame          `json:"coordinateFrame,omitempty"`
+	CoordinateTransformation *JCoordinateTransformation `json:"coordinateTransformation,omitempty"`
 }
 
 // JRational is the Rational message: an exact rational in lowest terms.
@@ -150,7 +153,8 @@ func (v *JValue) UnmarshalJSON(data []byte) error {
 		"measurementRef": v.MeasurementRef != nil, "infinity": v.Infinity != nil,
 		"function": v.Function != nil, "set": v.Set != nil,
 		"tensorQuantity": v.TensorQuantity != nil, "metaobject": v.Metaobject != nil,
-		"undetermined": v.Undetermined != nil,
+		"undetermined":    v.Undetermined != nil,
+		"coordinateFrame": v.CoordinateFrame != nil, "coordinateTransformation": v.CoordinateTransformation != nil,
 	})
 }
 
@@ -187,6 +191,7 @@ type JQuantity struct {
 	BigIntMagnitude *string    `json:"bigIntMagnitude,omitempty"`
 
 	RationalMagnitude *JRational `json:"rationalMagnitude,omitempty"`
+	ValueType         string     `json:"valueType,omitempty"`
 }
 
 // UnmarshalJSON rejects a quantity setting both magnitude arms of its oneof.
@@ -284,6 +289,17 @@ type JInstance struct {
 	Id            I64                       `json:"id,omitempty"`
 	TypeSymbolId  string                    `json:"typeSymbolId,omitempty"`
 	FeatureValues map[string]*JFeatureValue `json:"featureValues,omitempty"`
+	ReachedBy     *JInstanceReach           `json:"reachedBy,omitempty"`
+}
+
+// JInstanceReach is the InstanceReach message: how the traversal that produced
+// the graph reached an instance, unset for the root.
+type JInstanceReach struct {
+	InstanceId      I64    `json:"instanceId,omitempty"`
+	FeatureName     string `json:"featureName,omitempty"`
+	FeatureSymbolId string `json:"featureSymbolId,omitempty"`
+	Index           int32  `json:"index,omitempty"`
+	Path            string `json:"path,omitempty"`
 }
 
 // JDiagnostic is the Diagnostic message, shaped in frontend/syntax where the
@@ -335,6 +351,15 @@ type JRenderViewRequest struct {
 	// Compartments is the folding of a tree's owned members into compartment rows:
 	// "" or "positioned" (the default), "most" or "ports".
 	Compartments string `json:"compartments,omitempty"`
+	// Form is the form to write into the reply's text beside its data, one of
+	// view.ViewForms; the rest are the options that form is written with.
+	Form      string `json:"form,omitempty"`
+	Palette   string `json:"palette,omitempty"`
+	Style     string `json:"style,omitempty"`
+	Lines     string `json:"lines,omitempty"`
+	Direction string `json:"direction,omitempty"`
+	Link      string `json:"link,omitempty"`
+	Unplaced  string `json:"unplaced,omitempty"`
 }
 
 // The RenderView reply, shaped as protojson writes the service's RenderViewResponse
@@ -349,9 +374,39 @@ type JRenderViewResponse struct {
 	Columns []string       `json:"columns,omitempty"`
 	Rows    []JRenderRow   `json:"rows,omitempty"`
 	Canvas  *JRenderCanvas `json:"canvas,omitempty"`
+	Frame   *JRenderFrame  `json:"frame,omitempty"`
 	Notes   []JRenderNote  `json:"notes,omitempty"`
 	Notices []string       `json:"notices,omitempty"`
 	Shown   []string       `json:"shown,omitempty"`
+	Text    string         `json:"text,omitempty"`
+}
+
+// The RenderDocument request and reply, shaped as protojson writes the service's
+// RenderDocumentRequest and RenderDocumentResponse so one client talks to either transport.
+
+type JRenderDocumentRequest struct {
+	ModelHash  string `json:"modelHash,omitempty"`
+	DocumentId string `json:"documentId,omitempty"`
+	// Form is the text the document is written as: "markdown" (the default),
+	// "html" or "asciidoc"; the answer carries it in the field of that name.
+	Form string `json:"form,omitempty"`
+}
+
+type JRenderDocumentResponse struct {
+	Markdown string `json:"markdown,omitempty"`
+	Html     string `json:"html,omitempty"`
+	Asciidoc string `json:"asciidoc,omitempty"`
+	FileName string `json:"fileName,omitempty"`
+}
+
+// JRenderFrame is the view frame round a diagram: its name compartment and
+// the info compartments at its corners (exposes, filters, annotations).
+type JRenderFrame struct {
+	Name        string   `json:"name"`
+	Type        string   `json:"type,omitempty"`
+	Exposes     []string `json:"exposes,omitempty"`
+	Filters     []string `json:"filters,omitempty"`
+	Annotations []string `json:"annotations,omitempty"`
 }
 
 type JRenderCanvas struct {
@@ -377,6 +432,7 @@ type JRenderNode struct {
 	Geometry        *JRenderGeometry `json:"geometry,omitempty"`
 	Style           *JRenderStyle    `json:"style,omitempty"`
 	Inherited       bool             `json:"inherited,omitempty"`
+	Arrow           string           `json:"arrow,omitempty"`
 }
 
 type JRenderPort struct {

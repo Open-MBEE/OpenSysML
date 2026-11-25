@@ -31,6 +31,12 @@ func (e *UnrepresentableError) Error() string {
 	return fmt.Sprintf("%s cannot be written through the SysML v2 API: %s", e.Term, e.Reason)
 }
 
+// Holds reports whether the server has a metaclass for subjects of the class:
+// the SysML vocabulary's classes, and no other.
+func (Representation) Holds(class string) bool {
+	return strings.HasPrefix(class, rdf.SysML)
+}
+
 // Carry keeps sysml: properties in the form the server stores them and drops
 // every other predicate: it has no place for them.
 func (Representation) Carry(triple rdf.Triple) (rdf.Triple, bool, error) {
@@ -56,10 +62,10 @@ func carryTerm(term rdf.Term) (rdf.Term, error) {
 		}
 		return term, &UnrepresentableError{Term: term, Reason: "an IRI is only writable as a reference to an element"}
 	}
-	if term.Lang != "" {
+	if term.Lang() != "" {
 		return term, &UnrepresentableError{Term: term, Reason: "JSON strings carry no language tag"}
 	}
-	switch term.Datatype {
+	switch term.Datatype() {
 	case "", rdf.XSD + "string":
 		return rdf.String(term.Value), nil
 	case rdf.XSD + "boolean":
@@ -81,5 +87,5 @@ func carryTerm(term rdf.Term) (rdf.Term, error) {
 		}
 		return term, &UnrepresentableError{Term: term, Reason: "not a JSON number"}
 	}
-	return term, &UnrepresentableError{Term: term, Reason: "JSON has no value of datatype " + term.Datatype}
+	return term, &UnrepresentableError{Term: term, Reason: "JSON has no value of datatype " + term.Datatype()}
 }

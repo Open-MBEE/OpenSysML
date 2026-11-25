@@ -35,7 +35,7 @@ type exprChecker struct {
 	// an action rather than evaluate a behavior (see performs).
 	performed map[*ast.InvocationExpr]bool
 	// bindings are the arguments bound to a non-conforming parameter, reported by
-	// diagnostics() (w9c_argument_bindings.go); warned keeps one from being judged twice.
+	// diagnostics() (w9c_argument_bindings.go); warned keeps one from being warned about twice.
 	bindings []argumentBinding
 	warned   map[ast.Node]bool
 	// memo is what the silent checkers spawned from this one have typed, so a call read
@@ -667,7 +667,7 @@ func typingValue(sym *symbols.Symbol) ast.Node {
 		return nil
 	}
 	for _, rel := range u.Relationships {
-		if rel != nil && semantics.GeneralizationKind(rel.Kind) {
+		if rel != nil && semantics.UsageGeneralization(u.Kind, rel.Kind) {
 			return nil
 		}
 	}
@@ -1106,7 +1106,7 @@ func (ec *exprChecker) checkArguments(scope *symbols.Scope, call invocation, con
 			report(m.span, "argument %d of %s %s", i+1, sym.Name, m.why)
 		}
 		if considered == nil {
-			ec.judgeParameterBinding(scope, call, arg, params[i], positionalArgSpan(call, arg))
+			ec.judgeParameterBinding(scope, arg, params[i], positionalArgSpan(call, arg))
 		}
 	}
 	// Arguments bind in order, so the parameters past the last one are unbound.
@@ -1306,7 +1306,7 @@ func (ec *exprChecker) checkNamedArguments(scope *symbols.Scope, call invocation
 			report(m.span, "argument %d of %s %s", i+1, sym.Name, m.why)
 		}
 		if selected {
-			ec.judgeParameterBinding(scope, call, arg, params[i], positionalArgSpan(call, arg))
+			ec.judgeParameterBinding(scope, arg, params[i], positionalArgSpan(call, arg))
 		}
 	}
 	unknown := false
@@ -1330,7 +1330,7 @@ func (ec *exprChecker) checkNamedArguments(scope *symbols.Scope, call invocation
 			report(m.span, "argument %s of %s %s", p.name(), sym.Name, m.why)
 		}
 		if selected {
-			ec.judgeParameterBinding(scope, call, arg.Value, p, namedArgSpan(arg))
+			ec.judgeParameterBinding(scope, arg.Value, p, namedArgSpan(arg))
 		}
 	}
 	// A misspelt name is the likelier cause of a parameter left unbound.
@@ -1447,22 +1447,20 @@ func (ec *exprChecker) argumentMismatch(value ast.Node, prim semantics.PrimType,
 // isBehaviorKind reports the behavior kinds whose parameter lists are checked.
 func isBehaviorKind(k symbols.SymbolKind) bool {
 	switch k {
-	case symbols.SymbolCalcDef, symbols.SymbolCalcUsage,
-		symbols.SymbolActionDef, symbols.SymbolActionUsage:
+	case symbols.SymbolCalcDef, symbols.SymbolCalcUsage, symbols.SymbolActionDef:
 		return true
 	}
-	return false
+	return k.IsActionUsage()
 }
 
 func isInvocationBehaviorKind(k symbols.SymbolKind) bool {
 	switch k {
-	case symbols.SymbolCalcDef, symbols.SymbolCalcUsage,
-		symbols.SymbolActionDef, symbols.SymbolActionUsage,
+	case symbols.SymbolCalcDef, symbols.SymbolCalcUsage, symbols.SymbolActionDef,
 		symbols.SymbolConstraintDef, symbols.SymbolConstraintUsage,
 		symbols.SymbolStateDef, symbols.SymbolStateUsage:
 		return true
 	}
-	return false
+	return k.IsActionUsage()
 }
 
 func (ec *exprChecker) isInvocationBehavior(sym *symbols.Symbol, visiting map[*symbols.Symbol]bool) bool {

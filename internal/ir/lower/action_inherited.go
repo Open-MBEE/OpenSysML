@@ -2,6 +2,7 @@ package lower
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -158,20 +159,30 @@ func recordInheritedPerform(graph *ActionGraph, replacement, redefined ast.Node,
 	if !ok || !node.Kind.IsAction() || graph == nil {
 		return
 	}
-	target := typingTarget(node)
-	if target == nil {
-		return
+	performed := PerformedType{Target: typingTarget(node), Scope: declaringScope}
+	if performed.Target == nil {
+		if !referenceSubsets(node) {
+			return
+		}
+		performed.Referrer = node
 	}
 	usage, ok := replacement.(*ast.Usage)
-	if !ok || !usage.Kind.IsAction() || typingTarget(usage) != nil {
+	if !ok || !usage.Kind.IsAction() || typingTarget(usage) != nil || referenceSubsets(usage) {
 		return
 	}
 	if graph.Performs == nil {
 		graph.Performs = make(map[ast.Node]PerformedType)
 	}
 	if _, recorded := graph.Performs[replacement]; !recorded {
-		graph.Performs[replacement] = PerformedType{Target: target, Scope: declaringScope}
+		graph.Performs[replacement] = performed
 	}
+}
+
+// referenceSubsets reports whether a usage states a reference subsetting.
+func referenceSubsets(usage *ast.Usage) bool {
+	return slices.ContainsFunc(usage.Relationships, func(rel *ast.Relationship) bool {
+		return rel != nil && rel.Kind.ReferenceSubsets()
+	})
 }
 
 func hasInheritedBody(graph *ActionGraph, body *symbols.Scope) bool {
@@ -198,6 +209,13 @@ func lowerableActionNode(decl ast.Node) bool {
 }
 
 func orderedAssertionsForGraph(graph *ActionGraph, bodies []*symbols.Scope) map[*ast.Usage]bool {
+	asserts := func(body *symbols.Scope) bool {
+		return body != nil && body.Node() != nil && declaresAssertion(ast.DeclMembers(body.Node()))
+	}
+	// Only an assertion is ever answered for, so bodies declaring none need no listing.
+	if !asserts(graph.Scope) && !slices.ContainsFunc(bodies, asserts) {
+		return nil
+	}
 	members := make([]ast.Node, 0)
 	seen := make(map[ast.Node]bool)
 	appendBody := func(body *symbols.Scope) {
@@ -263,7 +281,7 @@ func inheritedNodeMatches(graph *ActionGraph, body *symbols.Scope, decl ast.Node
 
 func shadowsInheritedActionNode(graph *ActionGraph, body *symbols.Scope, decl ast.Node) bool {
 	name := getNodeName(decl)
-	if name == "" {
+	if !nodeHasName(decl) {
 		return false
 	}
 	for _, node := range graph.Nodes {

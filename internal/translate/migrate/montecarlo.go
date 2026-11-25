@@ -470,7 +470,13 @@ func (m *migration) monteCarloAnalysis(block *sysmlv1.Element) {
 			if member.optional {
 				multiplicity = "[0..1]"
 			}
-			m.w.line(kw + writeName(r.stat) + typing(r.typed) + multiplicity + " = " + member.member + ";")
+			// An out at a statistic's name redefines it by clause; a position would
+			// redefine another statistic (KerML 8.4.4.6). The return binds the mean.
+			binding := " :>> " + member.member
+			if kw == "return " {
+				binding = " = " + member.member
+			}
+			m.w.line(kw + writeName(r.stat) + typing(r.typed) + multiplicity + binding + ";")
 		}
 	})
 }
@@ -580,7 +586,13 @@ func (m *migration) monteCarloSlots(e *sysmlv1.Element, slots []*sysmlv1.Element
 			m.unmapped(h.slot, subject+", which "+strconv.Itoa(count[h.stat])+" slots of the instance hold, and a statistic is one number")
 			continue
 		}
-		line, note, ok := m.monteCarloSlotValue(e, h.slot, member)
+		// The analysis def's own out redefines the statistic it returns, so the
+		// statistic is no longer inherited there and the usage binds that out instead.
+		redefined := member.member
+		if h.stat != monteCarloMean && slices.Contains(cs.statistics(), h.stat) {
+			redefined = writeName(h.stat)
+		}
+		line, note, ok := m.monteCarloSlotValue(e, h.slot, member, redefined)
 		if !ok {
 			m.unmapped(h.slot, subject+": "+note)
 			continue
@@ -605,7 +617,7 @@ func (m *migration) monteCarloSlots(e *sysmlv1.Element, slots []*sysmlv1.Element
 
 // monteCarloSlotValue writes the value a statistic slot holds as the binding of the
 // analysis's member; a slot the tool left blank binds nothing, under a note.
-func (m *migration) monteCarloSlotValue(e, slot *sysmlv1.Element, member monteCarloStatistic) (line, note string, ok bool) {
+func (m *migration) monteCarloSlotValue(e, slot *sysmlv1.Element, member monteCarloStatistic, redefined string) (line, note string, ok bool) {
 	values := slot.Owned("value")
 	switch len(values) {
 	case 0:
@@ -621,7 +633,7 @@ func (m *migration) monteCarloSlotValue(e, slot *sysmlv1.Element, member monteCa
 	if !ok {
 		return "", note, false
 	}
-	return "out :>> " + member.member + " = " + expr + ";", note, true
+	return "out :>> " + redefined + " = " + expr + ";", note, true
 }
 
 // recordedCase is the analysis an instance's statistics are recorded of: that of the

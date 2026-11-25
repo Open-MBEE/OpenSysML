@@ -463,9 +463,9 @@ func TestChangeTriggerArmsAWatchReenteredDuringThePoll(t *testing.T) {
 				}
 			}
 			fork split;
-			transition first l1 accept when ready then split;
-			transition first split then l2;
-			transition first split then C;
+			transition first Working.left.l1 accept when ready then split;
+			transition first split then Working.left.l2;
+			transition first split then Working.right.C;
 			succession first start then Working;
 		}
 	}`)
@@ -718,7 +718,7 @@ func TestChangeTriggerArrivalCompletesOnLaterRise(t *testing.T) {
 	if got := activeStateNames(exec); got != "b1" || len(exec.joinArrived) != 1 {
 		t.Fatalf("after a's rise: configuration = %s, arrivals = %v; want b1 and a's waiting arrival", got, exec.joinArrived)
 	}
-	if !exec.changeFired[exec.graph.Transitions[stateNamed(t, exec, "a1")][0]] {
+	if !exec.changeFired[exec.transID(exec.graph.Transitions[stateNamed(t, exec, "a1")][0])] {
 		t.Error("a's rise is not latched: the next poll would offer the same occurrence again")
 	}
 	// b's later rise completes the join with a's earlier occurrence.

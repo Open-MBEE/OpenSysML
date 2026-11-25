@@ -25,6 +25,15 @@ const placementBody = `
 		:>> transformation : CoordinateFramePlacement { :>> source = datum; :>> origin = (10.0, 20.0, 30.0) [datum]; }
 	}`
 
+// inParallel runs a robustness case as a parallel subtest; every case builds
+// its own model and context, so the cases of a suite are independent.
+func inParallel(f func(*testing.T)) func(*testing.T) {
+	return func(t *testing.T) {
+		t.Parallel()
+		f(t)
+	}
+}
+
 // instantiateHolder instantiates the `Holder` part def the source declares, for
 // a case whose failure surfaces when one of its feature values is read.
 func instantiateHolder(t *testing.T, src string) (*Instance, *Context) {
@@ -261,7 +270,7 @@ func findSymbolByName(scope *symbols.Scope, name string, kind ast.DefinitionKind
 // invokeCalcInSource invokes calcName with one Integer argument and returns the
 // error, on its own goroutine so a body that never terminates fails the case
 // instead of stalling the suite. maxSteps bounds the run.
-func invokeCalcInSource(t *testing.T, src, calcName string, arg int64, maxSteps int64) error {
+func invokeCalcInSource(t *testing.T, src, calcName string, arg, maxSteps int64) error {
 	t.Helper()
 
 	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))

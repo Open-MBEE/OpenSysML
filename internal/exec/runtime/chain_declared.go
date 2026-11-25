@@ -5,6 +5,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -15,6 +17,23 @@ func (ec *EvalContext) declaredChainValue(base ast.Node, parts []ast.NameSegment
 	return ec.underDeclaredObject(base, parts, func(obj Value, owner *symbols.Symbol) (Value, error) {
 		return ec.chainMemberValue(obj, parts, owner.Name)
 	})
+}
+
+// declaredChainCount is declaredChainValue also answering, where the chain reads objects the probe
+// made and takes back, how many the model fixes there: held is nil for any other read.
+func (ec *EvalContext) declaredChainCount(base ast.Node, parts []ast.NameSegment) (val Value, held *semantics.Range, ok bool, err error) {
+	val, ok, err = ec.underDeclaredObject(base, parts, func(obj Value, owner *symbols.Symbol) (Value, error) {
+		read, err := ec.chainMemberValue(obj, parts, owner.Name)
+		if err == nil && read.Kind != ValUndetermined && read.Kind != ValFunction && requiredTail(read) == nil {
+			count := countOf(read)
+			held = &count
+		}
+		return read, err
+	})
+	if ok || err != nil {
+		held = nil
+	}
+	return val, held, ok, err
 }
 
 // underDeclaredObject answers answer over the object a package-level usage no object stands
@@ -82,7 +101,7 @@ func (ec *EvalContext) readsDeclaredMembers(sym *symbols.Symbol) bool {
 	if sym.OwnerScope == nil || !namespaceScope(sym.OwnerScope) {
 		return false
 	}
-	if _, usage := sym.Decl.(*ast.Usage); !usage || declaresType(sym) || isCalcUsageSymbol(sym) {
+	if _, usage := sym.Decl.(*ast.Usage); !usage || declaresType(sym) || lower.IsCalcUsageSymbol(sym) {
 		return false
 	}
 	if ec.ctx.extractDefaultValue(sym) != nil || ec.ctx.model.semantics.IsVariationFeature(sym) {

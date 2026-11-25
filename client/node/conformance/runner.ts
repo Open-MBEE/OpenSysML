@@ -40,11 +40,13 @@ export const COVERED_RPCS = [
   "EvaluateCalc",
   "ExecuteAction",
   "ExportGraphs",
+  "GetElementProperties",
   "ExecuteState",
   "GetDiagnostics",
   "GetServerInfo",
   "GetSymbol",
   "ImportData",
+  "InstancePaths",
   "Instantiate",
   "ListEngines",
   "ParseFile",
@@ -383,13 +385,28 @@ export class Runner {
   private readonly calls: Record<CoveredRpc, (call: Call) => Promise<unknown>> = {
     GetServerInfo: () => this.connection.serverInfo(),
     ParseFile: ({ request }) => this.parseFile(request),
-    GetSymbol: (call) => this.model(call).symbolById(String(call.request["symbol_id"])),
+    GetSymbol: (call) => {
+      const id = String(call.request["symbol_id"]);
+      const options = flagOption(call.request, "include_library_members", "includeLibraryMembers");
+      switch (call.request["lookup"]) {
+        case "LOOKUP_KIND_QUALIFIED_NAME":
+          return this.model(call).symbolByName(id, options);
+        case "LOOKUP_KIND_ELEMENT_ID":
+          return this.model(call).symbolByElementId(id, options);
+        default:
+          return this.model(call).symbolById(id, {
+            ...options,
+            byReportedId: call.request["resolve_name"] !== true,
+          });
+      }
+    },
     Evaluate: (call) =>
       this.model(call).eval(String(call.request["expression"]), {
         ...stringOption(call.request, "context_symbol_id", "context"),
         ...stringOption(call.request, "subject_symbol_id", "subject"),
       }),
     Instantiate: (call) => this.model(call).instantiate(String(call.request["symbol_id"])),
+    InstancePaths: (call) => this.model(call).instancePaths(instancePathsObject(call.request["object"])),
     ParseSources: ({ request }) => this.parseSources(request),
     GetDiagnostics: (call) =>
       this.model(call).refreshDiagnostics({
@@ -434,6 +451,11 @@ export class Runner {
       this.model(call).calc(String(call.request["symbol_id"]), {
         arguments: valueList(call.request["arguments"]),
       }),
+    GetElementProperties: (call) =>
+      this.model(call).elementProperties(
+        elementLookup(call.request),
+        ...stringList(call.request["properties"]),
+      ),
     Query: (call) =>
       this.model(call).query({
         ...(call.request["query"] !== undefined
@@ -442,10 +464,15 @@ export class Runner {
         ...stringOption(call.request, "oslc_query", "oslc"),
       }),
     RunDocumentQuery: (call) =>
-      this.model(call).runDocumentQuery(
-        String(call.request["query_id"]),
-        documentBindings(call.request["bindings"]),
-      ),
+      typeof call.request["inline_query"] === "string" && call.request["inline_query"] !== ""
+        ? this.model(call).runInlineDocumentQuery(
+            call.request["inline_query"],
+            documentBindings(call.request["bindings"]),
+          )
+        : this.model(call).runDocumentQuery(
+            String(call.request["query_id"]),
+            documentBindings(call.request["bindings"]),
+          ),
     RenderDocument: (call) => this.model(call).renderDocument(String(call.request["document_id"])),
     RenderView: (call) =>
       this.model(call).renderView(String(call.request["view"]), {
@@ -714,6 +741,16 @@ function dataImports(value: unknown): { name: string; content: string; format?: 
   });
 }
 
+/** An InstancePaths request's object: by id, or by path; the id when it names neither. */
+function instancePathsObject(value: unknown): bigint | string {
+  const object = (value ?? {}) as Record<string, unknown>;
+  if (typeof object["path"] === "string" && object["path"] !== "") {
+    return object["path"];
+  }
+  const id = object["instance_id"];
+  return typeof id === "number" || typeof id === "bigint" || typeof id === "string" ? BigInt(id) : 0n;
+}
+
 /** A request's `observe` list of stored-name → feature pairs. */
 function observablePairs(value: unknown): [string, string][] {
   if (!Array.isArray(value)) {
@@ -924,4 +961,17 @@ function errored(result: Result, error: unknown): Result {
 
 function isMessage(value: unknown): value is Message {
   return typeof value === "object" && value !== null && "$typeName" in value;
+}
+
+/** The element a GetElementProperties request names, by the kind its `lookup` states. */
+function elementLookup(request: Record<string, unknown>): string | { name: string } | { id: string } {
+  const element = String(request["element_id"]);
+  switch (request["lookup"]) {
+    case "LOOKUP_KIND_QUALIFIED_NAME":
+      return { name: element };
+    case "LOOKUP_KIND_ELEMENT_ID":
+      return { id: element };
+    default:
+      return element;
+  }
 }

@@ -44,7 +44,7 @@ func standing(exec *ActionExecutor, t Token) lower.Footprint {
 	if exec.dynamics != nil {
 		return dynamicsFootprint()
 	}
-	return tokenGraphOf(exec, t).Footprints()[t.Location]
+	return tokenGraphOf(exec, t).Footprints()[t.Node()]
 }
 
 // machineStanding is what the machine's next unit may touch: a dispatch out of
@@ -52,7 +52,7 @@ func standing(exec *ActionExecutor, t Token) lower.Footprint {
 func machineStanding(e *StateExecutor) lower.Footprint {
 	fp := dispatchFootprint(e)
 	for _, act := range e.doActions {
-		fp = unionFootprints(fp, doStepFootprint(e, act.state))
+		fp = unionFootprints(fp, doStepFootprint(e, e.stateDecl(act.state)))
 	}
 	return fp
 }
@@ -114,7 +114,7 @@ func triggerChannel(trans *lower.Transition) (lower.Channel, bool) {
 // by that behavior's, or the next one pending.
 func doStepFootprint(e *StateExecutor, state ast.Node) lower.Footprint {
 	for _, act := range e.doActions {
-		if act.state != state {
+		if e.stateDecl(act.state) != state {
 			continue
 		}
 		if run := act.run; run != nil {
@@ -148,6 +148,54 @@ func unionFootprints(f, g lower.Footprint) lower.Footprint {
 		Routes:     f.Routes || g.Routes,
 		Flows:      append(slices.Clone(f.Flows), g.Flows...),
 	}
+}
+
+// addFootprint adds g to into, which the caller alone holds: a footprint built
+// up from empty, so the union of many is copied once and not once for each.
+func addFootprint(into *lower.Footprint, g lower.Footprint) {
+	into.Reads = append(into.Reads, g.Reads...)
+	into.Writes = append(into.Writes, g.Writes...)
+	into.Sends = append(into.Sends, g.Sends...)
+	into.Accepts = append(into.Accepts, g.Accepts...)
+	into.Control = append(into.Control, g.Control...)
+	into.Completion = into.Completion || g.Completion
+	into.Dynamic = into.Dynamic || g.Dynamic
+	into.Creates = into.Creates || g.Creates
+	into.Routes = into.Routes || g.Routes
+	into.Flows = append(into.Flows, g.Flows...)
+}
+
+// sumFootprints is the union of parts in their order, each slice of it made
+// once at its full length rather than grown as the parts are added.
+func sumFootprints(parts []lower.Footprint) lower.Footprint {
+	var n lower.Footprint
+	var reads, writes, sends, accepts, control, flows int
+	for i := range parts {
+		reads += len(parts[i].Reads)
+		writes += len(parts[i].Writes)
+		sends += len(parts[i].Sends)
+		accepts += len(parts[i].Accepts)
+		control += len(parts[i].Control)
+		flows += len(parts[i].Flows)
+	}
+	n.Reads = sized[lower.Place](reads)
+	n.Writes = sized[lower.Place](writes)
+	n.Sends = sized[lower.Channel](sends)
+	n.Accepts = sized[lower.Channel](accepts)
+	n.Control = sized[ast.Node](control)
+	n.Flows = sized[lower.Flow](flows)
+	for i := range parts {
+		addFootprint(&n, parts[i])
+	}
+	return n
+}
+
+// sized is an empty slice with room for n, nil when n is none.
+func sized[T any](n int) []T {
+	if n == 0 {
+		return nil
+	}
+	return make([]T, 0, n)
 }
 
 // dependent reports whether the two moves may not commute: the moves of one

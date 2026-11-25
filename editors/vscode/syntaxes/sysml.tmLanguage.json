@@ -80,7 +80,7 @@
       "match": "\\b(?:false|null|true)\\b"
     },
     "declaration-names": {
-      "match": "\\b(def|package|namespace|alias|library)\\s+([A-Za-z_][A-Za-z0-9_]*|'[^']*')",
+      "match": "\\b(alias|def|namespace|package)\\s+([A-Za-z_][A-Za-z0-9_]*|'[^']*')",
       "captures": {
         "1": {
           "name": "keyword.declaration.source.sysml"

@@ -40,7 +40,7 @@ type checks struct {
 	runs              runCount
 	observe           stringSlice
 	compare           string
-	queries           stringSlice
+	queries           []queryInvocation
 	actions           stringSlice
 	states            stringSlice
 	advance           advanceTime
@@ -572,7 +572,7 @@ func refuse(c checks, message string) int {
 // and runs the behavior named on the command line, reporting each outcome as it
 // is decided. The result is the exit status: every verdict held, one of them
 // failed, or a check could not be made at all.
-func runChecks(files []string, exprs []string, c checks) int {
+func runChecks(files, exprs []string, c checks) int {
 	format, misuse := reportFormat(c.format, c.jsonOut)
 	if misuse != "" {
 		return refuse(c, misuse)
@@ -884,12 +884,87 @@ func runChecks(files []string, exprs []string, c checks) int {
 	return finishRunCheck(rep, sess)
 }
 
-// runQueries executes each -run-query after the behaviors named have run, so a
-// query over the session's states or trace reads what the run did.
+// runQueries executes each -run-query and -run-inline-query, in the order written,
+// after the behaviors named have run, so a query over the session's states or
+// trace reads what the run did.
 func (c *checks) runQueries(sess *repl.Session, rep *reporter) {
-	for _, invocation := range c.queries {
-		rep.verdict(sess.RunDocumentQuery(invocation))
+	if len(c.queries) == 0 {
+		return
 	}
+	sess.SetResultViews(asViewPath != "")
+	var views []string
+	for _, query := range c.queries {
+		var verdict repl.Verdict
+		if query.inline {
+			verdict = sess.RunInlineDocumentQuery(query.text)
+		} else {
+			verdict = sess.RunDocumentQuery(query.text)
+		}
+		if verdict.ResultView != "" {
+			views = append(views, verdict.ResultView)
+			// -json reports the view in the check's resultView beside its rows.
+			if asViewPath == stdoutPath && !rep.machine {
+				view := resultViewLines(verdict.ResultView, len(views) > 1)
+				// A failed query's view is printed before its error, which keeps the exit status.
+				if verdict.Status == repl.VerdictUnresolved {
+					rep.info(view)
+				} else {
+					verdict.Lines = view
+				}
+			}
+		}
+		rep.verdict(verdict)
+	}
+	if asViewPath == "" || asViewPath == stdoutPath || len(views) == 0 {
+		return
+	}
+	if err := writeOutputFile(asViewPath, []byte(strings.Join(views, "\n")), "QueryResult view"); err != nil {
+		rep.verdict(repl.Verdict{Subject: "-as-view", Status: repl.VerdictUnresolved, Lines: []string{"error: " + err.Error()}})
+	}
+}
+
+// stdoutPath is the -as-view argument that prints the view in place of the rows.
+const stdoutPath = "-"
+
+// resultViewLines are a view's lines, after a blank one when it follows another.
+func resultViewLines(view string, follows bool) []string {
+	lines := strings.Split(strings.TrimRight(view, "\n"), "\n")
+	if follows {
+		return append([]string{""}, lines...)
+	}
+	return lines
+}
+
+// queryInvocation is one query to run: a named query with its bindings, as
+// -run-query takes it, or a query expression, as -run-inline-query takes it.
+type queryInvocation struct {
+	text   string
+	inline bool
+}
+
+// queryFlag appends what -run-query or -run-inline-query is given to one list,
+// so the queries run in the order they were written whichever flag each used.
+type queryFlag struct {
+	queries *[]queryInvocation
+	inline  bool
+}
+
+func (f queryFlag) String() string {
+	if f.queries == nil {
+		return ""
+	}
+	var texts []string
+	for _, query := range *f.queries {
+		if query.inline == f.inline {
+			texts = append(texts, query.text)
+		}
+	}
+	return strings.Join(texts, ", ")
+}
+
+func (f queryFlag) Set(value string) error {
+	*f.queries = append(*f.queries, queryInvocation{text: value, inline: f.inline})
+	return nil
 }
 
 // behaviors reads `-action`/`-state` values as the behaviors they name.

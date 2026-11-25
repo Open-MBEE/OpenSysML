@@ -34,12 +34,13 @@ func TestAPIJSONLibraryReferencesAndLegacyStubs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plain, err := export.WriteAPIJSON(graph)
+	plain, err := export.WriteAPIJSONWithOptions(graph, export.APIJSONOptions{InheritedMembers: true})
 	if err != nil {
 		t.Fatal(err)
 	}
 	var names []export.APIJSONLibraryReference
 	withNames, err := export.WriteAPIJSONWithOptions(graph, export.APIJSONOptions{
+		InheritedMembers:  true,
 		LibraryReferences: func(refs []export.APIJSONLibraryReference) { names = refs },
 	})
 	if err != nil {
@@ -48,13 +49,11 @@ func TestAPIJSONLibraryReferencesAndLegacyStubs(t *testing.T) {
 	if !bytes.Equal(plain, withNames) {
 		t.Fatal("collecting library names changed the default element array")
 	}
-	if !reflect.DeepEqual(names, libraryUnitsReferences) {
-		t.Fatalf("names = %#v", names)
-	}
+	assertLibraryReferences(t, "names", names, true)
 	if bytes.Contains(plain, []byte(`"isLibraryElement": true`)) {
 		t.Fatal("default writes library roots")
 	}
-	legacy, err := export.WriteAPIJSONWithOptions(graph, export.APIJSONOptions{IncludeLibraryStubs: true})
+	legacy, err := export.WriteAPIJSONWithOptions(graph, export.APIJSONOptions{IncludeLibraryStubs: true, InheritedMembers: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,13 +70,19 @@ func TestAPIJSONLibraryReferencesAndLegacyStubs(t *testing.T) {
 		}
 	}
 	declaredNames := []string{"second", "SI", "ISQ", "milli", "SIPrefixes", "DurationValue"}
-	want := make([]map[string]any, len(libraryUnitsReferences))
-	for i, ref := range libraryUnitsReferences {
-		want[i] = map[string]any{"@id": ref.ID, "@type": ref.Type, "qualifiedName": ref.QualifiedName,
-			"declaredName": declaredNames[i], "elementId": ref.ID, "isLibraryElement": true}
+	byID := make(map[string]map[string]any, len(stubs))
+	for _, stub := range stubs {
+		byID[stub["@id"].(string)] = stub
 	}
-	if !reflect.DeepEqual(stubs, want) {
-		t.Fatalf("legacy stubs = %#v, want %#v", stubs, want)
+	for i, ref := range libraryUnitsReferences {
+		want := map[string]any{"@id": ref.ID, "@type": ref.Type, "qualifiedName": ref.QualifiedName,
+			"declaredName": declaredNames[i], "elementId": ref.ID, "isLibraryElement": true}
+		if !reflect.DeepEqual(byID[ref.ID], want) {
+			t.Fatalf("legacy stub %s = %#v, want %#v", ref.QualifiedName, byID[ref.ID], want)
+		}
+	}
+	if len(stubs) <= len(libraryUnitsReferences) {
+		t.Fatalf("legacy stubs = %d, want the six names and the inherited library members too", len(stubs))
 	}
 	var defaultElements []map[string]any
 	if err := json.Unmarshal(plain, &defaultElements); err != nil {
@@ -87,7 +92,7 @@ func TestAPIJSONLibraryReferencesAndLegacyStubs(t *testing.T) {
 		t.Fatal("stub mode changed model elements")
 	}
 	for _, omitDerived := range []bool{false, true} {
-		compact, err := export.WriteAPIJSONCompact(graph, export.CompactAPIJSONOptions{OmitDerived: omitDerived})
+		compact, err := export.WriteAPIJSONCompact(graph, export.CompactAPIJSONOptions{OmitDerived: omitDerived, InheritedMembers: !omitDerived})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -97,9 +102,7 @@ func TestAPIJSONLibraryReferencesAndLegacyStubs(t *testing.T) {
 		if err := json.Unmarshal(compact, &document); err != nil {
 			t.Fatal(err)
 		}
-		if !reflect.DeepEqual(document.LibraryReferences, libraryUnitsReferences) {
-			t.Fatalf("compact table = %#v", document.LibraryReferences)
-		}
+		assertLibraryReferences(t, "compact table", document.LibraryReferences, !omitDerived)
 		read, err := export.ReadAPIJSON(compact)
 		if err != nil {
 			t.Fatal(err)
@@ -111,7 +114,7 @@ func TestAPIJSONLibraryReferencesAndLegacyStubs(t *testing.T) {
 		if bytes.Contains(array, []byte(`"isLibraryElement": true`)) {
 			t.Fatal("compact metadata became model roots")
 		}
-		again, err := export.WriteAPIJSONCompact(read, export.CompactAPIJSONOptions{OmitDerived: omitDerived})
+		again, err := export.WriteAPIJSONCompact(read, export.CompactAPIJSONOptions{OmitDerived: omitDerived, InheritedMembers: !omitDerived})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -128,16 +131,25 @@ func TestAPIJSONLibraryReferencesAndLegacyStubs(t *testing.T) {
 	}
 }
 
+// A malformed stub is refused wherever it would be written: every one with the inherited members,
+// and one the owned structure references without them.
 func TestAPIJSONLibraryStubRejectsIncompleteGraph(t *testing.T) {
 	for _, typeTriple := range []string{"", ` a <https://example.org/Wrong> ;`, ` a sysml:Class, sysml:Feature ;`} {
-		graph, err := rdf.ParseTurtle([]byte(`@prefix sysml: <` + rdf.SysML + `> . <urn:sysmlv2:element:L>` + typeTriple + ` sysml:isLibraryElement "true"^^<` + rdf.XSD + `boolean> .`))
-		if err != nil {
-			t.Fatal(err)
-		}
-		_, err = export.WriteAPIJSONWithOptions(graph, export.APIJSONOptions{IncludeLibraryStubs: true})
-		var unsupported *export.UnsupportedError
-		if !errors.As(err, &unsupported) {
-			t.Fatalf("type %q: got %v, want UnsupportedError", typeTriple, err)
+		stub := `@prefix sysml: <` + rdf.SysML + `> . <urn:sysmlv2:element:L>` + typeTriple + ` sysml:isLibraryElement "true"^^<` + rdf.XSD + `boolean> .`
+		user := ` <urn:sysmlv2:element:P> a sysml:PartUsage ; sysml:elementId "P" ; sysml:type <urn:sysmlv2:element:L> .`
+		for _, tc := range []struct {
+			turtle    string
+			inherited bool
+		}{{stub, true}, {stub + user, false}} {
+			graph, err := rdf.ParseTurtle([]byte(tc.turtle))
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = export.WriteAPIJSONWithOptions(graph, export.APIJSONOptions{IncludeLibraryStubs: true, InheritedMembers: tc.inherited})
+			var unsupported *export.UnsupportedError
+			if !errors.As(err, &unsupported) {
+				t.Fatalf("type %q inherited=%v: got %v, want UnsupportedError", typeTriple, tc.inherited, err)
+			}
 		}
 	}
 }
@@ -282,7 +294,7 @@ func TestAPIJSONUnnamedLibraryMembership(t *testing.T) {
 	if _, err := export.ReadAPIJSON(compact); err != nil {
 		t.Fatal(err)
 	}
-	legacy, err := export.WriteAPIJSONWithOptions(graph, export.APIJSONOptions{IncludeLibraryStubs: true})
+	legacy, err := export.WriteAPIJSONWithOptions(graph, export.APIJSONOptions{IncludeLibraryStubs: true, InheritedMembers: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -299,5 +311,46 @@ func TestAPIJSONUnnamedLibraryMembership(t *testing.T) {
 				t.Fatal("invented a name for an unnamed membership")
 			}
 		}
+	}
+}
+
+// assertLibraryReferences checks that refs hold the six v0.10.0 names unchanged and,
+// withInherited, the library members the completed inherited lists reference: named
+// ones by qualified name, their memberships, and unnamed ones by positional path.
+func assertLibraryReferences(t *testing.T, what string, refs []export.APIJSONLibraryReference, withInherited bool) {
+	t.Helper()
+	byID := make(map[string]export.APIJSONLibraryReference, len(refs))
+	for _, ref := range refs {
+		byID[ref.ID] = ref
+	}
+	for _, want := range libraryUnitsReferences {
+		if got, ok := byID[want.ID]; !ok || got != want {
+			t.Fatalf("%s: %s = %#v, want %#v", what, want.QualifiedName, got, want)
+		}
+	}
+	inherited, positional := 0, 0
+	for _, ref := range refs {
+		switch {
+		case ref.Type == "" || ref.ID == "":
+			t.Fatalf("%s: incomplete entry %#v", what, ref)
+		case ref.LibraryPath != "":
+			if ref.QualifiedName != "" {
+				t.Fatalf("%s: %#v names an element both ways", what, ref)
+			}
+			positional++
+		case ref.QualifiedName == "" && !strings.HasSuffix(ref.Type, "Membership"):
+			t.Fatalf("%s: %#v is unnamed", what, ref)
+		default:
+			inherited++
+		}
+	}
+	if !withInherited {
+		if len(refs) != len(libraryUnitsReferences) {
+			t.Fatalf("%s: %d entries without the derived properties, want the six names only", what, len(refs))
+		}
+		return
+	}
+	if inherited <= len(libraryUnitsReferences) || positional == 0 {
+		t.Fatalf("%s: %d named and %d positional entries; want the inherited library members too", what, inherited, positional)
 	}
 }

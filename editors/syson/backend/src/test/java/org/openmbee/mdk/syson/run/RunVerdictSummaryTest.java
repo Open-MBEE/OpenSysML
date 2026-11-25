@@ -7,6 +7,7 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 import org.openmbee.opensysml.Analysis;
+import org.openmbee.opensysml.Coverage;
 import org.openmbee.opensysml.Exploration;
 import org.openmbee.opensysml.FailureReason;
 import org.openmbee.opensysml.Outcome;
@@ -67,11 +68,32 @@ class RunVerdictSummaryTest {
                 0.0, Optional.empty(), List.of(), List.of());
 
         ResultParts parts = ResultParts.exploration(new Exploration(List.of(completed, failed), true, 2, List.of(), 10,
-                10, 1, false), PROJECT);
+                10, 1, false, Coverage.NONE), PROJECT);
 
         assertThat(parts.ok()).isFalse();
         assertThat(parts.resultText()).isEqualTo("complete (2 runs); 1 of 2 outcomes failed");
         assertThat(parts.outcomes()).hasSize(2);
+        assertThat(parts.coverage()).isEqualTo(new RunCoverage(List.of(), List.of()));
+    }
+
+    @Test
+    void mapsExplorationCoverageOfEveryRun() {
+        Outcome done = new Outcome(java.util.Map.of(), Optional.of("fin"), List.of("s0", "viaA", "fin"),
+                Optional.empty(), 2, 0.0, Optional.empty(), List.of(), List.of());
+        Coverage coverage = new Coverage(
+                List.of(new Coverage.Entry("test::M#1.Run: fin", "test::Run::fin", 2),
+                        new Coverage.Entry("test::M#1.Run: viaB", "test::Run::viaB", 1)),
+                List.of(new Coverage.Entry("test::M#1.Run: s0 -> viaB", "test::Run::s0 -> viaB", 1)));
+
+        ResultParts parts = ResultParts.exploration(new Exploration(List.of(done), true, 2, List.of(), 10, 10, 0,
+                false, coverage), PROJECT);
+
+        assertThat(parts.ok()).isTrue();
+        assertThat(parts.coverage().states()).containsExactly(
+                new RunCoverage.Entry("test::M#1.Run: fin", "test::Run::fin", 2),
+                new RunCoverage.Entry("test::M#1.Run: viaB", "test::Run::viaB", 1));
+        assertThat(parts.coverage().transitions()).containsExactly(
+                new RunCoverage.Entry("test::M#1.Run: s0 -> viaB", "test::Run::s0 -> viaB", 1));
     }
 
     @Test

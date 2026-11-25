@@ -216,48 +216,71 @@ func isSimulationProfile(ns string) bool {
 	return ok && path == "/schemas/simulationprofile.xmi"
 }
 
-// toolContent says why e is the modeling tool's own content rather than the
-// model's: an element of the tool's specification-dialog customization or UI
-// prototyping profile, or a classifier its simulation profile configures other
-// than a run configuration. "" for model content, which the tool's markers
-// annotate: a classifier with a standard stereotype or a behavior of its own is
-// the model's however the tool also draws it.
+// toolContent says why e is the modeling tool's own content: a tool profile defines
+// its kind and it holds nothing of the model. "" for model content, which the tool's markers annotate.
 func toolContent(e *sysmlv1.Element) string {
-	if isClassifier(e) && (behaves(e) || slices.ContainsFunc(e.Stereotypes, hasStandardName)) {
+	if isPackage(e) {
 		return ""
 	}
-	for _, s := range e.Stereotypes {
-		purpose := toolProfile(s.Namespace)
-		switch {
-		case purpose == "" || isMagicDrawCustomization(s.Namespace):
-			continue
-		case isSimulationProfile(s.Namespace):
-			if isSimulationConfig(s) || !isClassifier(e) {
-				continue
-			}
-		}
-		return "«" + s.Name + "» marks " + purpose + ", which has no model meaning"
+	s := toolMarker(e)
+	if s == nil || holdsModelContent(e) {
+		return ""
 	}
-	return ""
+	return "«" + s.Name + "» marks " + toolProfile(s.Namespace) + ", which has no model meaning"
+}
+
+// toolMarker returns e's application of a tool profile's stereotype extending e's kind, not every
+// element's; the simulation profile's only on a classifier that is no run configuration. Nil for none.
+func toolMarker(e *sysmlv1.Element) *sysmlv1.Stereotype {
+	for _, s := range e.Stereotypes {
+		switch {
+		case toolProfile(s.Namespace) == "" || isMagicDrawCustomization(s.Namespace):
+			continue
+		case abstractMetaclasses[s.BaseMetaclass]:
+			continue
+		case isSimulationProfile(s.Namespace) && (isSimulationConfig(s) || !isClassifier(e)):
+			continue
+		}
+		return s
+	}
+	return nil
+}
+
+// abstractMetaclasses are UML 2.5.1's: a stereotype extending one applies to every
+// kind of element under it, so it annotates its element and defines no kind of its own.
+var abstractMetaclasses = map[string]bool{
+	"Element": true, "NamedElement": true, "Namespace": true, "PackageableElement": true,
+	"TypedElement": true, "MultiplicityElement": true, "Relationship": true, "DirectedRelationship": true,
+	"TemplateableElement": true, "ParameterableElement": true, "Type": true, "Classifier": true,
+	"RedefinableElement": true, "Feature": true, "StructuralFeature": true, "BehavioralFeature": true,
+	"ConnectableElement": true, "StructuredClassifier": true, "EncapsulatedClassifier": true,
+	"BehavioredClassifier": true, "Behavior": true, "ValueSpecification": true, "LiteralSpecification": true,
+	"Event": true, "MessageEvent": true, "Observation": true, "Vertex": true, "DeploymentTarget": true,
+	"DeployedArtifact": true, "Action": true, "ActivityNode": true, "ActivityEdge": true, "ActivityGroup": true,
+	"ControlNode": true, "ExecutableNode": true, "FinalNode": true, "ObjectNode": true, "InvocationAction": true,
+	"CallAction": true, "StructuralFeatureAction": true, "WriteStructuralFeatureAction": true,
+	"VariableAction": true, "WriteVariableAction": true, "LinkAction": true, "WriteLinkAction": true,
+	"InteractionFragment": true, "MessageEnd": true, "ExecutionSpecification": true,
+}
+
+// isPackage reports whether e only groups its members, each classified on its own.
+func isPackage(e *sysmlv1.Element) bool {
+	return e.Type == "Model" || e.Type == "Package" || e.Type == "Profile"
+}
+
+// holdsModelContent reports whether e or an element it owns at any depth is the model's however the
+// tool marks it: a package, a behavior, a classifier that runs, an element with a standard stereotype.
+func holdsModelContent(e *sysmlv1.Element) bool {
+	if isPackage(e) || isBehavior(e) || e.Attrs["isActive"] == "true" || e.Attrs["classifierBehavior"] != "" ||
+		slices.ContainsFunc(e.Stereotypes, hasStandardName) {
+		return true
+	}
+	return slices.ContainsFunc(e.Children, holdsModelContent)
 }
 
 // isClassifier reports whether e is a UML class or component.
 func isClassifier(e *sysmlv1.Element) bool {
 	return e.Type == "Class" || e.Type == "Component"
-}
-
-// behaves reports whether classifier e runs: it is active, names a classifier
-// behavior, or owns a behavior.
-func behaves(e *sysmlv1.Element) bool {
-	if e.Attrs["isActive"] == "true" || e.Attrs["classifierBehavior"] != "" {
-		return true
-	}
-	for _, c := range e.Children {
-		if isBehavior(c) {
-			return true
-		}
-	}
-	return false
 }
 
 // libraryReason says why library content e is skipped: as one of the modeling

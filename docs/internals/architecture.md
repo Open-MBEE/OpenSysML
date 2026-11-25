@@ -78,8 +78,9 @@ github.com/Open-MBEE/OpenSysML
 │   │   ├── suggest/        # Name suggestions for unresolved references
 │   │   ├── semantics/      # Type system, conformance, multiplicity, invocation selection
 │   │   ├── identity/       # Element identities and the normative ids
+│   │   ├── naming/         # Qualified and positional (`Owner::@N`) names of declarations, shared by the export and the symbol facts
 │   │   ├── highlight/      # Semantic token classification
-│   │   └── query/          # The API element-query model and its OSLC prefix map
+│   │   └── query/          # Metamodel property names and the reflective PropertyReader the query surfaces share
 │   ├── ir/
 │   │   ├── lower/          # AST → execution IR (ActionGraph/StateGraph)
 │   │   ├── queryplan/      # Document-query definitions → immutable query plans
@@ -105,8 +106,10 @@ github.com/Open-MBEE/OpenSysML
 │   │   └── interop/        # Flexo MMS (interop/flexo) and repository sync (interop/reposync)
 │   ├── doc/
 │   │   ├── queryexec/      # Query plan execution → typed, ordered row sets
+│   │   ├── querytranslate/ # OSLC Query text and the API Query → query plans (the shared translator core)
 │   │   ├── docir/          # Document plan evaluation → backend-agnostic document tree
-│   │   ├── docrender/      # Markdown and HTML document backends
+│   │   ├── docrender/      # Markdown, HTML and AsciiDoc document backends
+│   │   ├── docset/         # One document of a model's set, end to end: plan, siblings, files, a backend's text (service, engine and workspace share it)
 │   │   └── docpdf/         # PDF document backend
 │   ├── workspace/
 │   │   ├── model/          # Workspace, document management
@@ -274,20 +277,25 @@ source → lexer → parser → AST → symbol index → resolve → passes
 
 ### 8. Standard library (`internal/workspace/libs`)
 
-- **Source of truth:** the 98 library files under `internal/workspace/libs/stdlib/`, embedded in
+- **Source of truth:** the 112 library files under `internal/workspace/libs/stdlib/`, embedded in
   the binary; `OPENSYSML_LIBRARY_PATH` substitutes a directory of files for them.
 - **Shared base:** `libs.SharedBase()` builds one frozen `symbols.Index` of the library per
   process; every model is an overlay over it (`NewOverlay`), reading the library without copying
   it.
-- **Snapshot:** `internal/workspace/libs/stdlib.snapshot` is that frozen index — syntax trees, scopes,
-  symbols, wildcard-import expansion, facts — serialized at generation time
-  (`go generate ./internal/workspace/libs`, `make stdlib-snapshot`) and embedded. A process decodes it
-  instead of parsing, when its recorded digest of the library files and its format version match
-  the files in hand and its CRC-32C over the stream holds; otherwise (an edited file, a
-  library-path override, a stale or damaged blob) it parses the files as before. The snapshot is
-  a derived artifact: never edit it, regenerate it, and `TestEmbeddedSnapshotIsCurrent` plus
-  `make stdlib-snapshot-check` in CI fail when it lags the files.
-- **Encoding:** `internal/syntax/pack` (varint scalars over a string table) and
+- **Snapshot:** `internal/workspace/libs/stdlib.snapshot` is that frozen index — syntax
+  trees, scopes, symbols, wildcard-import expansion, facts — serialized at build time
+  (`make stdlib-snapshot`, which is `go generate ./internal/workspace/libs` and a prerequisite of
+  every Makefile build and test target) and embedded by `snapshot_embedded.go`, a generated,
+  gitignored file written beside it whose `init` hands the bytes to `stdlibSnapshot`. A
+  process decodes it instead of parsing, when its recorded digest of the library files and its
+  format version match the files in hand and its CRC-32C over the stream holds; otherwise (an
+  edited file, a library-path override, a stale or damaged blob) it parses the files as before.
+  Both files are generated artifacts, gitignored rather than committed: a tree without them — a
+  `go install` from the module proxy — still compiles, and its binaries load the files, noted at
+  debug level only; a snapshot that fails to decode is a build defect and is warned about.
+  `TestEmbeddedSnapshotIsCurrent` fails when the snapshot a test build embeds lags the files.
+- **Encoding:** `internal/syntax/pack` (varint scalars over a string table, one stream per kind of
+  value so the gzip a wasm artefact is served with sees like values together) and
   `internal/syntax/ast/astcodec` (a node table, every node type, index references in place of
   pointers); `symbols.WriteSnapshot`/`ReadSnapshot` number scopes and symbols the same way. No
   reflection or `encoding/gob`. Decoding reproduces the object graph a fresh load builds, sharing
@@ -314,6 +322,13 @@ source → lexer → parser → AST → symbol index → resolve → passes
   which the migrator fills and the comparison (`repl`, `-compare-results`) reads without the migrator.
 
 ---
+
+### 10. Queries and documents (`internal/ir/queryplan`, `internal/doc/queryexec`, `internal/ir/docplan`)
+
+- **QVTS:** a document table, a `-run-query`, a REPL `%run-query` and the `RunDocumentQuery` RPC all run the same thing — a calc def over the non-normative `DocumentQueries` library, named or written inline as the body of one (`-run-inline-query`, `%run-query inline`, the request's `inline_query` under the `inline_document_query` capability) (`internal/workspace/libs/stdlib/OpenSysML Libraries/DocumentQueries.sysml`), OpenSysML's implementation of QVTS (Query, View, Transformation for SysML v2; [the guide](../guide/qvts.md))
+- **Plan:** `queryplan` compiles the calc def once into an immutable plan of `Operation`s — the library's calc defs bound by name, the expressions between them as parameters, literals, columns and lambdas; a document's plan (`docplan`) holds its tables' query plans beside its sections and prose
+- **Outcome:** `queryexec` runs a plan step by step. A step answers a value — an empty collection is a value — or fails as a *path error* (the model lacks the name or feature asked for; the record carries the frontier it stopped at: the element reached, its members, features, kinds and nearest names) or a *model error* (the model breaks a constraint the step relies on — an ambiguous name, a multiplicity, a type, a unit, a duplicate key; the record carries the finding). One failing element fails a fan-out and every failing element is kept; only `Project` and `WhereFeature` may `tolerate`. The CLI exits 2 and writes the record at `checks[].outcome` under `-json`, the REPL prints it, the service fails the call with a `QueryOutcome` detail bounded for the wire — at most eight failures or findings and eight entries per frontier list, each with its whole count ([design note](design/query-outcomes.md))
+- **Oracle:** the worked examples under `examples/qvts` record every command's output and exit status under `examples/qvts/expected`, and `tests/qvts` pins the recordings against the guide. The architecture self-model ([`examples/self-model`](../../examples/self-model/README.md)) models this path in `queries.sysml` and its own document's tables are such queries
 
 ## Execution Runtime Architecture
 
@@ -414,7 +429,7 @@ Parse + model all behavioral bodies with unified fallback grammar:
    - `SetSchedule(policy)`, `Schedule()` — the policy runs started from now on resolve their choice points under (`explore` is refused: `Explore` drives it)
    - `Notes()`, `Choices()`, `unevaluableGuards()` — what the last run recorded
 
-5. **Notation text the run reads** — the runtime imports no parser. The two places a run receives notation as text — a witness file's `input <feature> = <value>` lines (`replay.go`) and the unit a tool answers a value in (`tool.go`, `Context.UnitOf`) — are read through the `runtime.ExpressionParser` the frontend installs on the `Model` (`Model.SetExpressionParser`, normally `parser.ParseOneExpression`). Reaching either with none installed is the typed `errNoExpressionParser`, never a refused witness or a tool's malformed output; `tests/hygiene` checks that every shipped construction site installs it and that `internal/exec/runtime` does not depend on `internal/syntax/parser`.
+5. **Notation text the run reads** — the runtime imports no parser. The two places a run receives notation as text — a witness file's `input <feature> = <value>` lines (`replay.go`) and the unit a tool answers a value in (`tool.go`, `Context.UnitOf`) — are read through the `runtime.ExpressionParser` the frontend installs on the `Model` (`Model.SetExpressionParser`, normally `lower.ExpressionReader` over `parser.ParseOneExpression`), which parses the text and lowers it in the scope it is written in, so the runtime receives expression records and neither parses nor lowers text. Reaching either with none installed is the typed `errNoExpressionParser`, never a refused witness or a tool's malformed output; `tests/hygiene` checks that every shipped construction site installs it and that `internal/exec/runtime` does not depend on `internal/syntax/parser`.
 
 **Implementation:**
 - `context.go` (460 lines) — Public Execute/Invoke/Evaluate APIs, step budget enforcement
@@ -425,6 +440,7 @@ Parse + model all behavioral bodies with unified fallback grammar:
 - `trace.go` (154 lines) — Deterministic execution trace recorder
 - `eval.go` — Expression evaluation (binary/unary operators, literals, feature references, qualified names, type coercion)
 - Lowering to execution IR lives in `internal/ir/lower/` (`ToActionGraph`, `ToStateGraph`)
+- Graph-local record identity (`NodeID`, `StateID`, …, `Origin`, `GraphID`) is declared in `internal/ir/program/`, which reads no syntax; `lower` assigns it
 
 **Testing:**
 - **Golden ASTs**: `tests/parser/testdata/parse/` — count in [the measured counts](../project/spec-compliance.md)
@@ -467,7 +483,11 @@ Parse + model all behavioral bodies with unified fallback grammar:
   the runtime's test files (110 tests of replay, the checker, the conformance corpus and the
   robustness suites) drive explorations as their harness, and a package's tests cannot import
   a package that imports it. Replay and the checker sit on that same hook, the held images and
-  adoption copy frames, so each stays with the runtime
+  adoption copy frames, so each stays with the runtime. Eventual-response checking uses
+  the same checker traversal and runtime-owned state observations. Its pending graph and
+  witness search live in `internal/exec/internal/progress`, which has no runtime dependency.
+  It receives only state identifiers, moves, and pending or terminal flags; the runtime
+  combines the result with its search limits and errors.
 
 ---
 
@@ -680,7 +700,7 @@ See [the guide](../guide/) for VS Code configuration.
 
 | Component | Status |
 |-----------|--------|
-| Lexer/Parser (structural + behavioral) | ✅ Operational (110/110 stdlib clean - see [conformance gate](../../internal/workspace/libs/stdlib_conformance_test.go)) |
+| Lexer/Parser (structural + behavioral) | ✅ Operational (112/112 stdlib clean - see [conformance gate](../../internal/workspace/libs/stdlib_conformance_test.go)) |
 | Symbol resolution & type system | ✅ Complete |
 | Validation passes (syntax → constraints) | ✅ Complete |
 | Expression evaluator & instance model (Tiers 1-3) | ✅ Complete |
@@ -694,7 +714,7 @@ See [the guide](../guide/) for VS Code configuration.
 | Standard library bundling | ✅ Complete |
 | LSP server implementation | ✅ Complete |
 
-**Parser coverage:** 110/110 bundled library files parse cleanly — the 94 official SysML v2 standard library files and the 16 non-normative OpenSysML extensions: `OpenSysML Libraries/AnalysisRecords.sysml`, `DiagramLayout.sysml`, `DocumentQueries.sysml`, `IdentityMetadata.sysml`, `MOSA.sysml`, `MigrationMetadata.sysml`, `OOSEM.sysml`, `OpenSysMLMathFunctions.kerml`, `OpenSysMLRenderings.sysml`, `RandomFunctions.kerml`, `Simulation.sysml`, `StateActivity.kerml`, `StateMachines.sysml`, `StateSpaceIntegration.sysml`, `Stochastic.sysml` and `SysMLValidation.sysml`. The extensions are maintained upstream at [Open-MBEE/OpenSysML-Extensions-Library](https://github.com/Open-MBEE/OpenSysML-Extensions-Library) and vendored here pinned by `scripts/extension-libraries-pin.sh`; `engine-contract.json` beside them records the names the engine binds. Conformance verified by [stdlib_conformance_test.go](../../internal/workspace/libs/stdlib_conformance_test.go). Grammar reference available at [OMG Xtext grammar](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/master/org.omg.kerml.xtext/src/org/omg/kerml/xtext).
+**Parser coverage:** 112/112 bundled library files parse cleanly — the 94 official SysML v2 standard library files and the 18 non-normative OpenSysML extensions: `OpenSysML Libraries/AnalysisRecords.sysml`, `DiagramLayout.sysml`, `DocumentQueries.sysml`, `IdentityMetadata.sysml`, `MOSA.sysml`, `MigrationMetadata.sysml`, `NPR7123.sysml`, `OOSEM.sysml`, `OpenSysMLMathFunctions.kerml`, `OpenSysMLRenderings.sysml`, `QVTS.sysml`, `RandomFunctions.kerml`, `Simulation.sysml`, `StateActivity.kerml`, `StateMachines.sysml`, `StateSpaceIntegration.sysml`, `Stochastic.sysml` and `SysMLValidation.sysml`. The extensions are maintained upstream at [Open-MBEE/OpenSysML-Extensions-Library](https://github.com/Open-MBEE/OpenSysML-Extensions-Library) and vendored here pinned by `scripts/extension-libraries-pin.sh`; `engine-contract.json` beside them records the names the engine binds. Conformance verified by [stdlib_conformance_test.go](../../internal/workspace/libs/stdlib_conformance_test.go). Grammar reference available at [OMG Xtext grammar](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/master/org.omg.kerml.xtext/src/org/omg/kerml/xtext).
 
 ---
 
@@ -707,8 +727,8 @@ New grammar features require a **four-layer test contract** to ensure correctnes
 #### 1. Conformance Gate
 - **Purpose:** Ensure stdlib continues to parse cleanly
 - **Location:** `internal/workspace/libs/stdlib_conformance_test.go`
-- **Test:** `TestStdlibConformance` loads all 110 bundled library files
-- **Acceptance:** 110/110 files parse without errors
+- **Test:** `TestStdlibConformance` loads all 112 bundled library files
+- **Acceptance:** 112/112 files parse without errors
 - **Allowlist:** `testdata/stdlib_known_failures.txt` (currently empty)
 - **Failure mode:** Regression breaks previously-working stdlib files
 
@@ -869,13 +889,13 @@ Every behavioral feature must have:
 - Status: ✅ Faithful / ⚠️ Approximate / ❌ Not Yet Implemented / ⛔ Deliberate Divergence / 🚧 Known Failure
 
 <!-- doc-counts:begin refereed-figures -->
-**Measured against the pinned reference** (`PILOT_TAG=2026-09`, artifact `0.63.0`). Every number below is generated by `make docs-counts` from the committed baselines and gated; none of them is typed in by hand.
+**Measured against the pinned reference** (`PILOT_TAG=2026-09.1`, artifact `0.63.1`). Every number below is generated by `make docs-counts` from the committed baselines and gated; none of them is typed in by hand.
 
-- **Corpus agreement:** 522 of 924 files agree diagnostic-by-diagnostic; 359 diagnostics are ours alone and 2462 the reference's alone, and the first number must be read by root: the aggregate includes candidate conformance differences, intentional execution-scope warnings on reference corpora and diagnostics from our own examples ([differential](../project/pilot-differential.md), `go run -C tools ./cmd/pilot-diff`).
+- **Corpus agreement:** 542 of 939 files agree diagnostic-by-diagnostic; 127 diagnostics are ours alone and 2454 the reference's alone, and the first number must be read by root: the aggregate includes candidate conformance differences, intentional execution-scope warnings on reference corpora and diagnostics from our own examples ([differential](../project/pilot-differential.md), `go run -C tools ./cmd/pilot-diff`).
 - **Declared-diagnostic silence:** of the 514 declared `errors` rows in the reference's own Xpect suites, we report nothing for 0. 247 we report word-for-word; 248 wording-only and 7 location-only differences are agreement in substance and are not counted as gaps; 0 more we report as a warning and 2 elsewhere in the file ([Xpect oracle](../project/pilot-xpect.md), `go run -C tools ./cmd/pilot-xpect`).
 - **Scope agreement:** 230 of 230 declared scope assertions match exactly (same source).
-- **Permissiveness gaps:** of 349 invalid models we wrote ourselves, the reference rejects 5 that we accept by default, and 334 both reject; 5 further cases agree only when we are asked strictly. We authored every one of these cases ourselves, so the denominator measures the reach of our own corpus and not our conformance; agreement reached only under an opt-in strict mode is weaker evidence than agreement by default ([rejection oracle](../project/pilot-rejection.md), `go run -C tools ./cmd/pilot-reject`).
-- **Declared errata:** the registry declares 13 defect(s) in the published reference material — 6 with a specification-derived correction, 7 documented without one, since no intended reading can be inferred ([OMG issues](../project/omg-issues.md), `tools/oracle/errata`). Every figure above is as published and stays the conformance statement; running the same oracles over the corrected text instead reports 523 of 924 files agreeing, 358 diagnostics ours alone and 2462 the reference's alone, 0 declared rows we are silent on, and 0 of 349 authored cases the reference alone rejects. The corrected figures are diagnostic only: an erratum never reclassifies a divergence category, and the published corpus is never edited.
+- **Permissiveness gaps:** of 356 invalid models we wrote ourselves, the reference rejects 2 that we accept by default, and 344 both reject; 2 further cases agree only when we are asked strictly. We authored every one of these cases ourselves, so the denominator measures the reach of our own corpus and not our conformance; agreement reached only under an opt-in strict mode is weaker evidence than agreement by default ([rejection oracle](../project/pilot-rejection.md), `go run -C tools ./cmd/pilot-reject`).
+- **Declared errata:** the registry declares 13 defect(s) in the published reference material — 6 with a specification-derived correction, 7 documented without one, since no intended reading can be inferred ([OMG issues](../project/omg-issues.md), `tools/oracle/errata`). Every figure above is as published and stays the conformance statement; running the same oracles over the corrected text instead reports 543 of 939 files agreeing, 126 diagnostics ours alone and 2454 the reference's alone, 0 declared rows we are silent on, and 0 of 356 authored cases the reference alone rejects. The corrected figures are diagnostic only: an erratum never reclassifies a divergence category, and the published corpus is never edited.
 - **Self-assessed surface:** the action, state-machine and classifier-behavior rows have no external referee at all — the four refereed figures above cannot see them, because the pinned artifact evaluates expressions but executes neither actions nor state machines. [Spec compliance](../project/spec-compliance.md) counts them.
 
 What these numbers cannot show: the OMG corpora are demonstrations rather than an official conformance suite; the differential is one-directional, comparing the diagnostics the two implementations report on the same files; the Xpect suites are the pilot authors' test intent rather than a certification oracle; and none of these is a percentage of the specification — no global compliance figure is claimed anywhere.
@@ -921,8 +941,8 @@ See [CONTRIBUTING.md](../../CONTRIBUTING.md) for full contribution guidelines.
 
 ## References
 
-- **OMG SysML v2.1 Beta 1 Spec:** [https://www.omg.org/spec/SysML/2.0](https://www.omg.org/spec/SysML/2.0) (2026-09 release)
-- **Pilot Implementation:** [SysML-v2-Pilot-Implementation 2026-09](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/releases/tag/2026-09)
+- **OMG SysML v2.1 Beta 1 Spec:** [https://www.omg.org/spec/SysML/2.0](https://www.omg.org/spec/SysML/2.0) (2026-09.1 release)
+- **Pilot Implementation:** [SysML-v2-Pilot-Implementation 2026-09.1](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/releases/tag/2026-09.1)
 - **Pilot Xtext Grammar:** `SysML.xtext` + `KerMLExpressions` (OMG reference implementation)
 - **Metamodel:** OMG SysML v2 metamodel (semantic foundation)
 - **Precedents:** gopls (Go LSP), rust-analyzer (Rust LSP), IPython/Jupyter (REPL design)

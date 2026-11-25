@@ -496,6 +496,36 @@ class TestQueryAgainstRealService:
             "satisfyingFeature": "Demo::t",
         }
 
+    def test_annotation_bodies_are_reported(self, real_service):
+        model = """package Model {
+            metadata def m {
+                attribute a default "a";
+            }
+            part <a> aaaa {
+                doc /*Documentation*/
+                @m {
+                    a := "aa";
+                }
+                port p;
+            }
+            part <b> bbb {
+                rep language "rus"
+                    /*Textual representation*/
+                port p;
+            }
+            interface connect (a.p, b.p);
+        }"""
+        with Connection(port=real_service, auto_start=False) as conn:
+            elements = conn.load_from_content(model).query(
+                select=["textualRepresentation", "documentation", "body", "language", "locale"],
+            )
+        by_id = {e.id: e.properties for e in elements}
+        assert by_id["Model::aaaa"] == {"documentation": "Documentation"}
+        assert by_id["Model::aaaa::@0"] == {"body": "Documentation"}
+        assert by_id["Model::bbb"] == {"textualRepresentation": "Textual representation"}
+        assert by_id["Model::bbb::@0"] == {"body": "Textual representation", "language": "rus"}
+        assert by_id["Model::m"] == {}
+
     def test_the_new_operators_evaluate(self, real_service):
         with Connection(port=real_service, auto_start=False) as conn:
             model = conn.load_from_content(MODEL)

@@ -66,6 +66,13 @@ var constraintCodes = []Entry{
 		Spec: "KerML 1.0 validateClassifierDefaultSupertype",
 	},
 	{
+		Code: "disjoint-feature-types", Tier: TierConstraint, Severity: "warning",
+		Summary: "a feature typed by two types declared disjoint, so it can have no values",
+		Meaning: "A feature's types are its own typings and the types of every feature it subsets or redefines, and types related by disjoining share no instances, so a feature reaching two disjoint types — declared with `disjoint from`, inherited along their specializations, or established by the kernel library (Occurrences::Occurrence is disjoint from Base::DataValue) — can have no values. " +
+			"Type the feature, or the feature it subsets or redefines, by types that can share instances. An end of a connector typed by an interface or connection definition redefines that definition's end and references the port it attaches to, so it is reported when the two definitions are disjoint; ports of merely unrelated definitions at the two ends of a `connect`, interface or `flow` are not reported, since the specification states no such constraint.",
+		Spec: "KerML 1.1 §7.3.2.5 Disjoining, §8.3.3.3.4 (a feature's types are its typings' and its subsetted features'); an OpenSysML advisory",
+	},
+	{
 		Code: "feature-has-type", Tier: TierConstraint, Severity: "error",
 		Summary: "a feature with no type",
 		Meaning: "Every feature has at least one type, declared or implied through what it subsets or redefines; this one has none. " +
@@ -183,13 +190,6 @@ var constraintCodes = []Entry{
 		Meaning: "A member written `:>> x = v` takes the name of what it redefines; here the redefined feature's name differs from what the owner's other members expect, so the value lands on a member the model names otherwise. " +
 			"Name the member, or redefine the feature the name was meant for.",
 		Spec: "",
-	},
-	{
-		Code: "redefinition-type-mismatch", Tier: TierConstraint, Severity: "warning",
-		Summary: "a redefining feature typed by a type unrelated to the redefined feature's",
-		Meaning: "The redefining feature is typed by both its declared type and the redefined feature's, so two unrelated types leave it with no possible value — almost always a slip, though no normative constraint forbids it. " +
-			"Type the redefinition by a specialization of the redefined feature's type.",
-		Spec: "KerML 1.0 §8.3.3.3.4 (a feature's types are its typings and its subsetted features'); an OpenSysML advisory",
 	},
 	{
 		Code: "redefinition-through-reference", Tier: TierConstraint, Severity: "error",
@@ -570,13 +570,6 @@ var constraintCodes = []Entry{
 		Spec: "SysML v2 validateAssignmentActionUsageReferentIsTimeVarying",
 	},
 	{
-		Code: "assignment-chain-in-calc", Tier: TierConstraint, Severity: "error",
-		Summary: "a calculation assigning a feature of another object",
-		Meaning: "A calculation computes a result and has no side effects; an assignment whose target chains into another object (`assign a.x := v`) would write that object. " +
-			"Move the assignment into an action, or compute the value as the calculation's result.",
-		Spec: "KerML 1.0 §8.4.4.9 (functions have no side effects)",
-	},
-	{
 		Code: "assignment-chain-step-not-one-object", Tier: TierConstraint, Severity: "error",
 		Summary: "an assignment target stepping through a feature that may hold several objects",
 		Meaning: "`assign a.x := v` writes `x` of the one object `a` holds; a feature with multiplicity above 1 in the chain leaves it unclear which object is written. " +
@@ -739,9 +732,9 @@ var constraintCodes = []Entry{
 	},
 	{
 		Code: "accepter-source-not-state", Tier: TierConstraint, Severity: "error",
-		Summary: "a transition with a trigger whose source is not a state",
-		Meaning: "A transition's accepter waits in its source for the trigger, which a state can do and a pseudostate cannot. " +
-			"Move the trigger to a transition out of a state, or drop it from the pseudostate's transition.",
+		Summary: "a transition with an accepter whose source is an action but no state",
+		Meaning: "A transition's accepter waits in its source for the trigger, which a state usage does and any other action usage does not: an entry, do or exit action, a performed, accept, send, assignment or terminate action, a calculation or a case, written as the source or declared just before a transition written without one. " +
+			"Move the accepter to a transition out of a state, or drop it and keep the guard.",
 		Spec: "SysML v2 validateTransitionUsageTriggerActions",
 	},
 	{

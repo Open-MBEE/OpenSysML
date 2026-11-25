@@ -183,7 +183,7 @@ func TestLabelsHeadMembersUnderTheirDrawnOwnersType(t *testing.T) {
 	}
 }
 
-// displayText decodes a raw spelling's escapes for a label: a carriage return
+// DisplayText decodes a raw spelling's escapes for a label: a carriage return
 // breaks a line, a backspace or form feed names no glyph and is dropped.
 func TestDisplayTextDropsControlEscapes(t *testing.T) {
 	cases := []struct{ raw, want string }{
@@ -194,8 +194,8 @@ func TestDisplayTextDropsControlEscapes(t *testing.T) {
 		{`'It\'s'`, "'It's'"},
 	}
 	for _, tc := range cases {
-		if got := displayText(tc.raw); got != tc.want {
-			t.Errorf("displayText(%q) = %q, want %q", tc.raw, got, tc.want)
+		if got := DisplayText(tc.raw); got != tc.want {
+			t.Errorf("DisplayText(%q) = %q, want %q", tc.raw, got, tc.want)
 		}
 	}
 }
@@ -256,7 +256,7 @@ func TestMermaidLabelShapePerForm(t *testing.T) {
 		{KindSequence, []string{
 			`participant n0 as «state def»<br>Machines::Lamp`,
 			`participant n3 as «part»<br>pump : Pump`,
-			`n1->>n2: switch`,
+			`n0->>n0: switch`,
 		}},
 	}
 	for _, tc := range cases {
@@ -346,5 +346,26 @@ func TestMermaidContainerTitleShape(t *testing.T) {
 	}}}).MermaidWith(fullNotation)
 	if !strings.Contains(fallback, `subgraph n0 ["«part» a&b<br>note"]`) {
 		t.Errorf("unsafe container title lacks its escaped one-line fallback:\n%s", fallback)
+	}
+}
+
+// The Cameo frame titles a view by the name its notation denotes: escapes read, quotes dropped.
+func TestCameoFrameTitleIsTheViewsOwnName(t *testing.T) {
+	for _, tc := range []struct{ written, name, title string }{
+		{`'it\'s'`, "it's", "[ it&#39;s ]"},
+		{`'x::y'`, "x::y", "[ x::y ]"},
+		{`'a\\b'`, `a\b`, `[ a\b ]`},
+		{"'two words'", "two words", "[ two words ]"},
+		{"plain", "plain", "[ plain ]"},
+	} {
+		model := "package P {\n    part def A;\n    view " + tc.written + " {\n        expose A;\n    }\n}\n"
+		rendering := renderSource(t, "P::"+tc.name, model)
+		cameo, err := rendering.DOTWith(Options{Style: StyleCameo})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(cameo, tc.title) {
+			t.Errorf("view %s: the frame title is not %q:\n%s", tc.written, tc.title, cameo)
+		}
 	}
 }

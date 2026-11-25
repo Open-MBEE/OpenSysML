@@ -7,7 +7,7 @@ import org.openmbee.mdk.docgen.docbook.DBTable;
 import org.openmbee.mdk.docgen.docbook.DBText;
 import org.openmbee.mdk.docgen.docbook.DocumentElement;
 
-/** Lays one run out as DocBook: a summary line, the outcome table, then diagnostics and schedule. */
+/** Lays one run out as DocBook: a summary line, the outcome table, the rows each query answered, then diagnostics and schedule. */
 public final class DocBookRenderer {
   private DocBookRenderer() {}
 
@@ -20,6 +20,12 @@ public final class DocBookRenderer {
         table.getBody().add(row(outcome.label(), outcome.detail(), outcome.status()));
       }
       elements.add(table);
+    }
+    for (BridgeResult.Table answered : result.tables()) {
+      elements.add(rows(answered));
+    }
+    for (BridgeResult.View view : result.views()) {
+      elements.addAll(view(view));
     }
     if (!result.diagnostics().isEmpty()) {
       DBTable table = table("Diagnostics: " + result.subject(), List.of("Severity", "Code", "Message", "Location"));
@@ -38,6 +44,45 @@ public final class DocBookRenderer {
   public static DocumentElement failure(String operationLabel, String subject, Throwable failure) {
     String message = failure.getMessage() == null ? failure.getClass().getName() : failure.getMessage();
     return new DBParagraph("[ERROR] OpenSysML " + operationLabel + " of " + subject + " failed: " + message);
+  }
+
+  /** A query's rows as a table headed by the properties it projects; an empty one still says so by its title. */
+  static DBTable rows(BridgeResult.Table answered) {
+    DBTable table = table(answered.query() + ": " + rowCount(answered.rows().size()), answered.columns());
+    table.setShowIfEmpty(true);
+    for (BridgeResult.Row row : answered.rows()) {
+      List<String> cells = new ArrayList<>();
+      for (int i = 0; i < answered.columns().size(); i++) {
+        cells.add(i < row.cells().size() ? row.cells().get(i).text() : "");
+      }
+      table.getBody().add(row(cells.toArray(String[]::new)));
+    }
+    return table;
+  }
+
+  /**
+   * A result view: rendered, the attributes it binds as one table and the elements it exposes as
+   * another, row for row what {@code RenderView} lays out; otherwise its SysML text.
+   */
+  static List<DocumentElement> view(BridgeResult.View view) {
+    if (!view.rendered()) {
+      return List.of(new DBParagraph("Query result view " + view.name() + ":"), new DBParagraph(view.text()));
+    }
+    DBTable header = table("Query result view " + view.name(), List.of("Attribute", "Value"));
+    for (BridgeResult.Field field : view.header()) {
+      header.getBody().add(row(field.name(), field.value()));
+    }
+    DBTable exposed = table(view.name() + ": " + rowCount(view.rows().size()), view.columns());
+    exposed.setShowIfEmpty(true);
+    for (List<String> cells : view.rows()) {
+      exposed.getBody().add(row(cells.toArray(String[]::new)));
+    }
+    return List.of(header, exposed);
+  }
+
+  private static String rowCount(int rows) {
+    if (rows == 0) return "no rows";
+    return rows + (rows == 1 ? " row" : " rows");
   }
 
   static String summary(BridgeResult result) {

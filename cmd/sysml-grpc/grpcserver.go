@@ -19,6 +19,7 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard/flags"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -29,8 +30,8 @@ import (
 
 // runGRPC serves the Service through grpc-go alone, as releases before the
 // Connect default did, until shutdown asks for a graceful stop.
-func runGRPC(lis net.Listener, svc *sysmlgrpc.Service, token guard.Token, shutdown <-chan os.Signal) {
-	door := access{token: token}
+func runGRPC(lis net.Listener, svc *sysmlgrpc.Service, auth flags.Authenticators, shutdown <-chan os.Signal) {
+	door := access{chain: auth.Chain()}
 	grpcServer := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
 			unaryAccessInterceptor(door),
@@ -42,7 +43,7 @@ func runGRPC(lis net.Listener, svc *sysmlgrpc.Service, token guard.Token, shutdo
 	reflection.Register(grpcServer) // Enable server reflection for grpcurl/grpcui
 
 	go func() {
-		slog.Info("gRPC server listening", "addr", lis.Addr(), "auth", authDescription(token))
+		slog.Info("gRPC server listening", "addr", lis.Addr(), "auth", auth.String())
 		if err := grpcServer.Serve(lis); err != nil {
 			slog.Error("gRPC server failed", "error", err)
 			os.Exit(1)
@@ -97,14 +98,14 @@ func unaryAccessInterceptor(door access) grpc.UnaryServerInterceptor {
 		handler grpc.UnaryHandler,
 	) (interface{}, error) {
 		start := time.Now()
-		authenticated, refusal := door.admit(authorizationOf(ctx))
+		ctx, refusal := door.admit(ctx, authorizationOf(ctx))
 		if refusal != guard.Accepted {
 			logRefusal(transportGRPC, peerOf(ctx), info.FullMethod, refusal, time.Since(start))
 			_ = grpc.SetTrailer(ctx, challengeTrailer(refusal))
-			return nil, status.Error(codes.Unauthenticated, refusal.Message())
+			return nil, status.Error(codes.Code(codeFor(refusal)), refusal.Message())
 		}
 		resp, err := handler(ctx, req)
-		logCall(transportGRPC, peerOf(ctx), info.FullMethod, grpcCodeOf(err), time.Since(start), authenticated)
+		logCall(ctx, transportGRPC, peerOf(ctx), info.FullMethod, grpcCodeOf(err), time.Since(start))
 		return resp, err
 	}
 }
@@ -119,18 +120,26 @@ func streamAccessInterceptor(door access) grpc.StreamServerInterceptor {
 		handler grpc.StreamHandler,
 	) error {
 		start := time.Now()
-		ctx := ss.Context()
-		authenticated, refusal := door.admit(authorizationOf(ctx))
+		ctx, refusal := door.admit(ss.Context(), authorizationOf(ss.Context()))
 		if refusal != guard.Accepted {
 			logRefusal(transportGRPC, peerOf(ctx), info.FullMethod, refusal, time.Since(start))
 			ss.SetTrailer(challengeTrailer(refusal))
-			return status.Error(codes.Unauthenticated, refusal.Message())
+			return status.Error(codes.Code(codeFor(refusal)), refusal.Message())
 		}
-		err := handler(srv, ss)
-		logCall(transportGRPC, peerOf(ctx), info.FullMethod, grpcCodeOf(err), time.Since(start), authenticated)
+		err := handler(srv, principalStream{ss, ctx})
+		logCall(ctx, transportGRPC, peerOf(ctx), info.FullMethod, grpcCodeOf(err), time.Since(start))
 		return err
 	}
 }
+
+// principalStream is a server stream whose context carries the principal the
+// call was admitted as, which grpc-go gives a handler no other way to see.
+type principalStream struct {
+	grpc.ServerStream
+	ctx context.Context
+}
+
+func (s principalStream) Context() context.Context { return s.ctx }
 
 // authorizationOf is the call's authorization metadata, which gRPC carries in
 // lower case; several values are one header the client repeated, refused as one.

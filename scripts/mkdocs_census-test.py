@@ -11,6 +11,15 @@ spec = importlib.util.spec_from_file_location("mkdocs_census", HERE / "mkdocs_ce
 census = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(census)
 
+_combine = importlib.util.spec_from_file_location("spec_compliance", HERE / "spec_compliance.py")
+spec_compliance = importlib.util.module_from_spec(_combine)
+_combine.loader.exec_module(spec_compliance)
+
+
+def combined_page() -> str:
+    """The page as the site builds it from docs/project/spec-compliance/."""
+    return spec_compliance.render()
+
 try:
     import markdown
     from markdown.extensions.tables import TableProcessor
@@ -157,14 +166,14 @@ class CensusTest(unittest.TestCase):
             census.census(with_known_failure)
 
     def test_real_page_renders(self):
-        text = (HERE.parent / "docs" / "project" / "spec-compliance.md").read_text(encoding="utf-8")
+        text = combined_page()
         out = census.census(text)
         self.assertRegex(out, r"The map below tracks [1-9][0-9]* semantic rules: \*\*")
         self.assertNotIn("doc-counts:begin census", out)
 
     @unittest.skipIf(markdown is None, "the site's Markdown renderer is not installed")
     def test_real_page_splits_as_the_site_renderer_does(self):
-        text = (HERE.parent / "docs" / "project" / "spec-compliance.md").read_text(encoding="utf-8")
+        text = combined_page()
         rows = [line for line in text.splitlines() if line.strip(" ").startswith("|")]
         self.assertGreater(len(rows), 1000)
         for row in rows:

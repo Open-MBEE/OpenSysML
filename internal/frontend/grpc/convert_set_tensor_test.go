@@ -12,6 +12,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/protoconv"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // setTensorWireModel yields a set and tensors of rank two and three as feature
@@ -204,50 +205,61 @@ func TestMalformedSetsAreRejected(t *testing.T) {
 	}
 }
 
-// A set holding a member with no wire form is withheld whole. Two frames read
-// from two objects are two members that render alike; sent as two nulls they
-// would read back as one repeated, so the null names the set instead. A
+// A set holding a member with no wire form is withheld whole. Two metaobjects
+// of two unnamed elements are two members that render alike; sent as two nulls
+// they would read back as one repeated, so the null names the set instead. A
 // sequence of the same still crosses member by member, its places kept.
 func TestSetHoldingAMemberWithNoWireFormIsWithheldWhole(t *testing.T) {
-	frames := []runtime.Value{
-		runtime.NewCoordinateFrameValue(&runtime.CoordinateFrame{Object: 1, Text: "spatialCF"}),
-		runtime.NewCoordinateFrameValue(&runtime.CoordinateFrame{Object: 2, Text: "spatialCF"}),
+	metaclass := &symbols.Symbol{Name: "Feature"}
+	unnamed := []runtime.Value{
+		runtime.NewMetaobject(&symbols.Symbol{}, metaclass),
+		runtime.NewMetaobject(&symbols.Symbol{}, metaclass),
 	}
 	set := runtime.NewSet()
-	for _, frame := range frames {
-		set.Add(frame)
+	for _, member := range unnamed {
+		set.Add(member)
 	}
 	if set.Size() != 2 {
-		t.Fatalf("two frames read from two objects make a set of %d", set.Size())
+		t.Fatalf("two metaobjects of two elements make a set of %d", set.Size())
 	}
-	const want = "unsupported: set Set{spatialCF [], spatialCF []} holding coordinate frame spatialCF []"
+	const reason = "metaobject of an element with no identity"
+	const want = "unsupported: set Set{meta(<unnamed> : Feature), meta(<unnamed> : Feature)} holding " + reason
 	if pv := protoconv.ValueToProto(runtime.NewSetValue(set), nil); pv.GetNull() != want {
-		t.Errorf("set of two frames crossed as %v, want null %q", pv, want)
+		t.Errorf("set of two unnamed metaobjects crossed as %v, want null %q", pv, want)
 	}
 	seq := runtime.NewSequence()
-	for _, frame := range frames {
-		seq.Append(frame)
+	for _, member := range unnamed {
+		seq.Append(member)
 	}
 	seq.Append(runtime.NewSetValue(set))
 	pv := protoconv.ValueToProto(runtime.NewSequenceValue(seq), nil)
 	elems := pv.GetSequence().GetElements()
-	if len(elems) != 3 || elems[0].GetNull() != "unsupported: coordinate frame spatialCF []" || elems[2].GetNull() != want {
-		t.Errorf("sequence of two frames and their set crossed as %v", pv)
+	if len(elems) != 3 || elems[0].GetNull() != "unsupported: "+reason || elems[2].GetNull() != want {
+		t.Errorf("sequence of two unnamed metaobjects and their set crossed as %v", pv)
 	}
 
 	// One member with a wire form beside one without withholds the set too,
 	// wherever the member lies.
 	mixed := runtime.NewSet()
 	mixed.Add(runtime.NewStringValue("a"))
-	mixed.Add(frames[0])
-	if pv := protoconv.ValueToProto(runtime.NewSetValue(mixed), nil); pv.GetNull() != `unsupported: set Set{"a", spatialCF []} holding coordinate frame spatialCF []` {
-		t.Errorf("set of a string and a frame crossed as %v", pv)
+	mixed.Add(unnamed[0])
+	if pv := protoconv.ValueToProto(runtime.NewSetValue(mixed), nil); pv.GetNull() != `unsupported: set Set{"a", meta(<unnamed> : Feature)} holding `+reason {
+		t.Errorf("set of a string and an unnamed metaobject crossed as %v", pv)
 	}
 	outer := runtime.NewSet()
 	outer.Add(runtime.NewSetValue(mixed))
 	outer.Add(runtime.NewStringValue("b"))
-	if pv := protoconv.ValueToProto(runtime.NewSetValue(outer), nil); !strings.HasPrefix(pv.GetNull(), `unsupported: set Set{"b", Set{"a", spatialCF []}} holding set `) {
+	if pv := protoconv.ValueToProto(runtime.NewSetValue(outer), nil); !strings.HasPrefix(pv.GetNull(), `unsupported: set Set{"b", Set{"a", meta(<unnamed> : Feature)}} holding set `) {
 		t.Errorf("set nesting the set crossed as %v", pv)
+	}
+
+	// Frames have a wire form: two read from two objects are two members sent.
+	frames := runtime.NewSet()
+	frames.Add(runtime.NewCoordinateFrameValue(&runtime.CoordinateFrame{Object: 1, Text: "spatialCF"}))
+	frames.Add(runtime.NewCoordinateFrameValue(&runtime.CoordinateFrame{Object: 2, Text: "spatialCF"}))
+	sent := protoconv.ValueToProto(runtime.NewSetValue(frames), nil).GetSet().GetElements()
+	if len(sent) != 2 || sent[0].GetCoordinateFrame().GetInstanceId() == sent[1].GetCoordinateFrame().GetInstanceId() {
+		t.Errorf("set of two frames crossed as %v, want both frames", sent)
 	}
 }
 

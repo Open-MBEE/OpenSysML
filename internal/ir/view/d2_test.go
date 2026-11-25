@@ -208,8 +208,8 @@ func TestD2StateDiagram(t *testing.T) {
 		t.Fatalf("D2: %v", err)
 	}
 	for _, want := range []string{
-		"\nn0: \"«state def»\\nVehicleStates\" {\n  class: definition\n",
-		"\n  n2: \"«state»\\noperating\" {\n    class: usage\n",
+		"\nn0: \"«state def»\\nVehicleStates\\nstate transition\" {\n  class: definition\n",
+		"\n  n2: \"«state»\\noperating\\nstate transition\" {\n    class: usage\n",
 		"\n  initial: { shape: oval; width: 18; height: 18; style: { fill: black; stroke: black } }\n",
 		"\nn0.n1 -> n0.n2: { class: edge }\n",
 		"\nn0.n2.n3 -> n0.n2.n4: \"accept Signal [temperature > 0]\" { class: edge }\n",
@@ -288,8 +288,15 @@ func TestD2SequenceDiagram(t *testing.T) {
 		}
 		last = at
 	}
+	paths := map[string]string{}
+	for _, root := range rendering.Roots {
+		paths[root.ID] = root.ID
+		for _, proxy := range root.Children {
+			paths[proxy.ID] = root.ID + "." + proxy.ID
+		}
+	}
 	for _, edge := range rendering.Edges {
-		want := fmt.Sprintf("\n  %s -> %s: ", edge.From, edge.To)
+		want := fmt.Sprintf("\n  %s -> %s: ", paths[edge.From], paths[edge.To])
 		if at := strings.Index(d2, want); at < last {
 			t.Errorf("message %s -> %s is missing or out of order:\n%s", edge.From, edge.To, d2)
 		} else {

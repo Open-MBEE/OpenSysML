@@ -22,7 +22,16 @@ type Argument struct {
 
 // known reports whether the checker knows anything about the argument's type.
 func (a Argument) known() bool {
-	return a.Prim != PrimUnknown || a.Type != nil || a.Empty
+	return a.Prim != PrimUnknown || a.typed() != nil || a.Empty
+}
+
+// typed is the declared type when it says what the value may be: Base::Anything
+// alone says any value, which is nothing.
+func (a Argument) typed() *symbols.Symbol {
+	if a.Type == nil || (IsAnything(a.Type) && len(a.Also) == 0) {
+		return nil
+	}
+	return a.Type
 }
 
 // types lists every type the argument is known to be of, Type first.
@@ -530,13 +539,24 @@ type signatureParameter struct {
 	optional bool // may go without an argument: a default, or a multiplicity admitting none
 }
 
-// signatureOf returns sym's effective input parameters, in signature order: the
-// subject of a requirement or case first, being its first input parameter (SysML
-// v2 §7.19.1, §7.20.1), then its directed `in` and `inout` parameters.
+// signatureOf returns sym's effective input parameters, in signature order, each described
+// as a call binds it.
 func (m *Model) signatureOf(sym *symbols.Symbol) invocationSignature {
+	sig := m.signatureInputsOf(sym)
+	for i, p := range sig.params {
+		sig.params[i] = m.signatureParameterOf(p.sym, p.name)
+	}
+	// A parameterless declaration with supertypes may inherit an unseen signature.
+	sig.known = len(sig.params) > 0 || (sym.Decl != nil && len(m.DirectSupertypes(sym)) == 0)
+	return sig
+}
+
+// signatureInputsOf returns sym's input parameters by symbol and name only, in signature order:
+// the subject of a requirement or case first (SysML v2 §7.19.1, §7.20.1), then `in` and `inout`.
+func (m *Model) signatureInputsOf(sym *symbols.Symbol) invocationSignature {
 	sig := invocationSignature{owner: sym}
 	if subject := m.SubjectParameterOf(sym); subject != nil {
-		sig.params = append(sig.params, m.signatureParameterOf(subject, m.EffectiveNameOf(subject)))
+		sig.params = append(sig.params, signatureParameter{sym: subject, name: m.EffectiveNameOf(subject)})
 	}
 	for _, p := range m.BehaviorParametersOf(sym) {
 		if p.IsResult || (p.Direction != ast.DirIn && p.Direction != ast.DirInOut) {
@@ -549,10 +569,8 @@ func (m *Model) signatureOf(sym *symbols.Symbol) invocationSignature {
 				name = effective
 			}
 		}
-		sig.params = append(sig.params, m.signatureParameterOf(p.Symbol, name))
+		sig.params = append(sig.params, signatureParameter{sym: p.Symbol, name: name})
 	}
-	// A parameterless declaration with supertypes may inherit an unseen signature.
-	sig.known = len(sig.params) > 0 || (sym.Decl != nil && len(m.DirectSupertypes(sym)) == 0)
 	return sig
 }
 
@@ -636,7 +654,7 @@ func (m *Model) ParameterRedefinitionChain(sym *symbols.Symbol) []*symbols.Symbo
 // redefines a parameter it may take one from.
 func (m *Model) declaresType(sym *symbols.Symbol) bool {
 	for _, rel := range RelationshipsOf(sym) {
-		if rel != nil && GeneralizationKind(rel.Kind) {
+		if rel != nil && Generalizes(sym, rel.Kind) {
 			return true
 		}
 	}
@@ -721,7 +739,7 @@ func (m *Model) parameterIndex(scope *symbols.Scope, sig invocationSignature, na
 // alone; loosely a non-literal's type only bounds its values, so either direction fits, but
 // unrelated declared types never bind, except to a Collection or to Element, which every element is.
 func (m *Model) argumentBinds(arg Argument, p signatureParameter, mode bindMode) (bindFit, bool) {
-	if arg.Type != nil && p.typ != nil {
+	if arg.typed() != nil && p.typ != nil {
 		switch {
 		case m.anyConforms(arg.types(), p.typ):
 			return fitExact, true

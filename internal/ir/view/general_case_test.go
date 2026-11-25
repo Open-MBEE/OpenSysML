@@ -100,6 +100,8 @@ func TestGeneralViewCaseRouteMatchesCaseView(t *testing.T) {
 			if !strings.HasPrefix(general.Stated, "view def GeneralView, filter @") || caseView.Stated == general.Stated {
 				t.Fatalf("stated = %q beside %q", general.Stated, caseView.Stated)
 			}
+			// The frames name their own view definition and filter; the bodies are compared.
+			general.Frame = caseView.Frame
 			for _, form := range []Form{FormText, FormMermaid, FormDot, FormPlantUML} {
 				g, err := general.WriteWith(form, generalLinks)
 				if err != nil {

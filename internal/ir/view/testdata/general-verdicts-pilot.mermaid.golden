@@ -20,9 +20,10 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» GeneralViews::requirementView : GeneralView"
 ---
 %% GeneralViews::requirementView — requirement rendering (view def GeneralView, filter @RequirementDefinition or @RequirementUsage)
-%% not represented: 4 exposed standard library element(s) not drawn; a requirement rendering draws the model's own elements
+%% not represented: 2 exposed standard library element(s) not drawn; a requirement rendering draws the model's own elements
 flowchart TD
   n0["`*«requirement def»*
 **MassRequirement**
@@ -60,6 +61,9 @@ id R3.1, verdict inconclusive by Cases::stop (no verdict bound), error by Cases:
 **StopTest**`"]
   n14("`*«verification»*
 **stopTest**`")
+  n15["`*«part def»*
+**Vehicle**`"]
+  n0 ---|"◇ «subject» vehicle"| n15
   n2 -->|"specialization"| n1
   n3 -->|"typing"| n0
   n4 -->|"typing"| n0

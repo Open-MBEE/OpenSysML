@@ -1,32 +1,48 @@
 #!/usr/bin/env bash
 # Prints the root-module package paths assigned to one race-test shard.
-# Usage: scripts/race-shard.sh runtime|runtime-corpus|model|export|graph|codegen|tools|rest|migrate|cli
-# runtime and runtime-corpus are one package, split by test name in make test-shard.
+# Usage: scripts/race-shard.sh runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep-committed|corpus-sweep-corpora|export|export-library|export-examples|export-corpus|graph|graph-corpora|codegen|translate|translate-structure|grpc|tools|internal|rest|migrate|cli | --sweeps
+
+# A hyphenated shard is a by-test-name part of its package (make test-shard); the others are whole packages:
+# internal is every internal/ package not named here but internal/frontend, rest everything else.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-shards='runtime|runtime-corpus|model|export|graph|codegen|tools|rest|migrate|cli'
+shards='runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep-committed|corpus-sweep-corpora|export|export-library|export-examples|export-corpus|graph|graph-corpora|codegen|translate|translate-structure|grpc|tools|internal|rest|migrate|cli'
+# The shards whose one test walks the example models, which the queue tier (make test-queue) runs race-free over the subset;
+# export-library walks the bundled libraries, grpc's sweeps share a shard with race-prone tests and translate-structure compares its models concurrently: all keep -race.
+sweeps='corpus-sweep-committed corpus-sweep-corpora export-corpus export-examples'
+
+if [[ $# -eq 1 && $1 == --sweeps ]]; then
+  printf '%s\n' $sweeps
+  exit 0
+fi
 
 if [[ $# -ne 1 ]]; then
-  echo "usage: scripts/race-shard.sh $shards" >&2
+  echo "usage: scripts/race-shard.sh $shards | --sweeps" >&2
   exit 2
 fi
 
 shard=$1
 module=github.com/Open-MBEE/OpenSysML
 runtime="$module/internal/exec/runtime"
+# internal/workspace/model (~26 min), tests/corpus (~39 min, its two examples sweeps apart) and
+# internal/exec/smt (~17 min) shared one node that ran 41 minutes under -race, so each is its own.
 workspace_model="$module/internal/workspace/model"
 corpus="$module/tests/corpus"
 smt="$module/internal/exec/smt"
-# tests/export and tests/model each run about 30 minutes under -race on a four-vCPU
-# node and shared one until that node ran 35 minutes, so each is a shard of its own.
+# tests/export and tests/model each ran about 30 minutes under -race and shared a node until it ran 35, so each
+# is a shard of its own; tests/model's corpora differential, 13 of its 18 minutes, is the graph-corpora shard.
 export="$module/tests/export"
 model="$module/tests/model"
-# internal/check/passes (~15 min under -race) rides with cmd/sysml.
+# internal/translate/export and tests/grpc with internal/frontend/grpc (~18 and ~13 min under -race) are shards of their own;
+# the export package's structure differential over every model, 36-46 of its 39-50 minutes, is the translate-structure shard.
+translate="$module/internal/translate/export"
+grpc_tests="$module/tests/grpc"
+grpc_frontend="$module/internal/frontend/grpc"
+# internal/check/passes (~8 min under -race) rides with cmd/sysml.
 passes="$module/internal/check/passes"
-# tests/migrate runs the SysML v1 migrator over whole models and is the next-longest
-# package under -race after the runtime, so it is a shard of its own.
+# tests/migrate runs the SysML v1 migrator over whole models (~13 min under -race).
 migrate="$module/tests/migrate"
 # tests/codegen's compiled-step budget alone runs 9-15 minutes under -race and held
 # the rest node at 30, so it is a shard of its own.
@@ -37,12 +53,12 @@ wasm="$module/tests/wasm"
 # cmd/sysml's exploration budgets take 23-30 of the coverage job's 30 minutes under
 # -coverpkg=./... while sharing a node, so the command is a shard of its own.
 cli="$module/cmd/sysml"
-named_packages=("$runtime" "$workspace_model" "$corpus" "$smt" "$export" "$model" "$passes" "$migrate" "$codegen" "$wasm" "$cli")
+named_packages=("$runtime" "$workspace_model" "$corpus" "$smt" "$export" "$model" "$translate" "$grpc_tests" "$grpc_frontend" "$passes" "$migrate" "$codegen" "$wasm" "$cli")
 
 case "$shard" in
-  runtime|runtime-corpus|model|export|graph|codegen|tools|rest|migrate|cli) ;;
+  runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep-committed|corpus-sweep-corpora|export|export-library|export-examples|export-corpus|graph|graph-corpora|codegen|translate|translate-structure|grpc|tools|internal|rest|migrate|cli) ;;
   *)
-    echo "usage: scripts/race-shard.sh $shards" >&2
+    echo "usage: scripts/race-shard.sh $shards | --sweeps" >&2
     exit 2
     ;;
 esac
@@ -56,20 +72,32 @@ for package in "${named_packages[@]}"; do
 done
 
 case "$shard" in
-  runtime|runtime-corpus)
+  runtime|runtime-corpus|runtime-exploration)
     printf '%s\n' "$runtime"
     ;;
   model)
-    printf '%s\n' "$workspace_model" "$corpus" "$smt"
+    printf '%s\n' "$workspace_model"
     ;;
-  export)
+  smt)
+    printf '%s\n' "$smt"
+    ;;
+  corpus|corpus-sweep-committed|corpus-sweep-corpora)
+    printf '%s\n' "$corpus"
+    ;;
+  export|export-library|export-examples|export-corpus)
     printf '%s\n' "$export"
     ;;
-  graph)
+  graph|graph-corpora)
     printf '%s\n' "$model"
     ;;
   codegen)
     printf '%s\n' "$codegen"
+    ;;
+  translate|translate-structure)
+    printf '%s\n' "$translate"
+    ;;
+  grpc)
+    printf '%s\n' "$grpc_tests" "$grpc_frontend"
     ;;
   tools)
     printf '%s\n' "$wasm"
@@ -80,12 +108,19 @@ case "$shard" in
   cli)
     printf '%s\n' "$cli" "$passes"
     ;;
-  rest)
+  # The unnamed packages ran 27-36 minutes under -race as one shard, the queue build's longest job,
+  # so internal/ but internal/frontend is a shard of its own (24 minutes with it, rest 14 without).
+  internal|rest)
     while IFS= read -r package; do
       case " ${named_packages[*]} " in
-        *" $package "*) ;;
-        *) printf '%s\n' "$package" ;;
+        *" $package "*) continue ;;
       esac
+      case "$package" in
+        "$module"/internal/frontend|"$module"/internal/frontend/*) owner=rest ;;
+        "$module"/internal/*) owner=internal ;;
+        *) owner=rest ;;
+      esac
+      [[ $owner == "$shard" ]] && printf '%s\n' "$package"
     done <<<"$packages"
     ;;
   *)

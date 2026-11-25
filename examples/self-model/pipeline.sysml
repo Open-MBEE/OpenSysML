@@ -202,9 +202,15 @@ package OpenSysMLPipeline {
             attribute :>> elementScoped = true;
         }
         // A lint: a signal trigger's name no declaration and no send accounts for.
-        part undeclaredSignals : NameResolutionCheck { attribute :>> goType = "UndeclaredSignalPass"; }
+        part undeclaredSignals : NameResolutionCheck {
+            attribute :>> goType = "UndeclaredSignalPass";
+            attribute :>> elementScoped = true;
+        }
         // A lint: a deferred signal's keeping loop written without its marker.
-        part deferredKeepers : NameResolutionCheck { attribute :>> goType = "DeferredKeeperPass"; }
+        part deferredKeepers : NameResolutionCheck {
+            attribute :>> goType = "DeferredKeeperPass";
+            attribute :>> elementScoped = true;
+        }
         part typeCheck : TypeCheck { attribute :>> goType = "TypeCheckPass"; }
         part transitionGuards : TypeCheck {
             attribute :>> goType = "TransitionGuardPass";
@@ -311,9 +317,8 @@ package OpenSysMLPipeline {
         part behaviorOrders : ConstraintCheck { attribute :>> goType = "BehaviorOrderPass"; }
         part oosemMethod : ConstraintCheck { attribute :>> goType = "OOSEMMethodPass"; }
         part mosa : ConstraintCheck { attribute :>> goType = "MOSAPass"; }
+        part npr7123 : ConstraintCheck { attribute :>> goType = "NPR7123Pass"; }
         part nestedRedefinitions : ConstraintCheck { attribute :>> goType = "NestedRedefinitionPass"; }
-        // A lint: a connection between ports of unrelated definitions.
-        part portTypeMismatch : ConstraintCheck { attribute :>> goType = "PortTypeMismatchPass"; }
 
         in item typed : TypeTable;
         out item findings : Diagnostic;
@@ -325,8 +330,29 @@ package OpenSysMLPipeline {
     #SemanticEngine part def Workspace :> Stage {
         attribute :>> goPackage = "internal/workspace/model";
         attribute oneSessionPerWorkspace : Boolean = true;
+        part projects : ProjectDiscovery;
+        part fit : WorkspaceChecks;
         port documents : ArtifactPort;
         port requests : RequestPort;
+    }
+
+    // A directory holding .project.json is a project; what a package manager installs beside it
+    // (a plain lib/ or sysand's .sysand/lib) is read as installed projects, not workspace files.
+    part def ProjectDiscovery :> CodeUnit {
+        attribute :>> goPackage = "internal/workspace/project";
+        attribute projectFile : String = ".project.json";
+        attribute libraryLayouts : String = "lib, .sysand/lib";
+        attribute libraryRootsEnvVar : String = "OPENSYSML_LIBRARY_ROOTS";
+        attribute archiveExtension : String = ".kpar";
+    }
+
+    // Checks of the workspace as a whole, which no document's own analysis sees: a `library
+    // package` two documents declare is reported once, on the copy references do not resolve to.
+    part def WorkspaceChecks :> CodeUnit {
+        attribute :>> goPackage = "internal/check/workspace";
+        attribute source : String = "workspace";
+        attribute libraryDeclaredTwice : String = "library-declared-twice";
+        attribute oncePerWorkspace : Boolean = true;
     }
 
     // The compact binary encoding the library snapshot is written in.
@@ -340,22 +366,23 @@ package OpenSysMLPipeline {
         in item tree : SyntaxTree;
     }
 
-    // go generate writes the snapshot; the check target is what CI runs on it.
+    // go generate writes the snapshot and the Go file embedding it, which every
+    // Makefile build target runs first; both are gitignored, never committed.
     part def SnapshotGenerator :> CodeUnit {
         attribute :>> goPackage = "tools/gen/snapshot";
         attribute makeTarget : String = "stdlib-snapshot";
-        attribute checkTarget : String = "stdlib-snapshot-check";
         out item snapshotBlob : LibrarySnapshot;
     }
 
-    // Bundled standard library. Its frozen index is decoded from an embedded
-    // snapshot when that matches the files, and parsed from the files otherwise.
+    // Bundled standard library. Its frozen index is decoded from the snapshot
+    // the build embedded when that matches the files, and parsed from the files
+    // otherwise — also when the build embedded none, as a module-proxy install does.
     #SemanticEngine part def StandardLibrary :> Stage {
         attribute :>> goPackage = "internal/workspace/libs";
-        attribute bundledFileCount : Integer = 110;
+        attribute bundledFileCount : Integer = 112;
         attribute cached : Boolean = true;
         attribute snapshotFile : String = "internal/workspace/libs/stdlib.snapshot";
-        attribute snapshotEmbedded : Boolean = true;
+        attribute snapshotTracked : Boolean = false;
         attribute snapshotChecksummed : Boolean = true;
         attribute fallsBackToParsing : Boolean = true;
         attribute overrideEnvVar : String = "OPENSYSML_LIBRARY_PATH";
@@ -525,10 +552,14 @@ package OpenSysMLPipeline {
         port requests : RequestPort;
     }
 
-    // Discharges constraint sets through an external SMT solver.
+    // Discharges constraint sets through an external SMT solver: the features read are unknowns,
+    // held or declared values pins, and a derived declared value a defining equation, not a pin.
     #Backend part def Solver :> Stage {
         attribute :>> goPackage = "internal/exec/solve";
         attribute engines : String = "z3, cvc5";
+        attribute solverEnvVar : String = "OPENSYSML_SMT";
+        attribute pinSources : String = "held, declared, chosen";
+        attribute derivedRole : String = "defining equation";
         port requests : RequestPort;
     }
 
@@ -610,6 +641,9 @@ package OpenSysMLPipeline {
         attribute :>> replays = true;
         attribute :>> needsProcess = true;
         attribute :>> adapts = "internal/exec/smt";
+        attribute defaultMoves : Integer = 40;
+        attribute maxSlots : Integer = 32;
+        attribute encodesDerivedFeatures : Boolean = true;
     }
 
     // An FMU's model description behind the fmi/1 runner protocol; registered

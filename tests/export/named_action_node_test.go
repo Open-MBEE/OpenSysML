@@ -87,3 +87,73 @@ func TestRicherActionNodeKeepsItsDeclaration(t *testing.T) {
 		}
 	}
 }
+
+// A named if, while or for node is one element of its node's metaclass (SysML v2
+// §8.2.2.17) and a `succession flow` a SuccessionFlowUsage (§8.2.2.14); each round-trips.
+func TestNamedControlNodesAndSuccessionFlowKeepTheirMetaclass(t *testing.T) {
+	src := `package P {
+    private import ScalarValues::*;
+    item def Fuel;
+    part def Tank { out item fuelOut : Fuel; }
+    part def Engine { in item fuelIn : Fuel; }
+    action def A {
+        attribute count : Integer;
+        action ifIt if count > 0 { action body1; }
+        action whileIt while count < 3 { action body2; }
+        action forIt for i : Integer in (1, 2, 3) { action body3; }
+    }
+    part def Vehicle {
+        part tank : Tank;
+        part engine : Engine;
+        flow f of Fuel from tank.fuelOut to engine.fuelIn;
+        succession flow sf of Fuel from tank.fuelOut to engine.fuelIn;
+    }
+}
+`
+	out, err := convert.Convert("nodes.sysml", []byte(src), convert.FormatSysML, convert.FormatAPIJSON)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var elements []map[string]any
+	if err := json.Unmarshal(out, &elements); err != nil {
+		t.Fatal(err)
+	}
+	byID := map[string]map[string]any{}
+	for _, el := range elements {
+		byID[el["@id"].(string)] = el
+	}
+	for id, metaclass := range map[string]string{
+		"P__A__ifIt":     "IfActionUsage",
+		"P__A__whileIt":  "WhileLoopActionUsage",
+		"P__A__forIt":    "ForLoopActionUsage",
+		"P__Vehicle__f":  "FlowUsage",
+		"P__Vehicle__sf": "SuccessionFlowUsage",
+	} {
+		el, ok := byID[id]
+		if !ok {
+			t.Fatalf("%s is not written", id)
+		}
+		if el["@type"] != metaclass {
+			t.Errorf("%s is a %v, want %s", id, el["@type"], metaclass)
+		}
+	}
+	ttl, err := convert.Convert("nodes.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	back, err := convert.Convert("nodes.ttl", ttl, convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"action ifIt if count > 0",
+		"action whileIt while count < 3",
+		"action forIt for i : Integer in (1, 2, 3)",
+		"succession flow sf of Fuel from tank.fuelOut to engine.fuelIn;",
+		"flow f of Fuel from tank.fuelOut to engine.fuelIn;",
+	} {
+		if !strings.Contains(string(back), want) {
+			t.Errorf("round trip lacks %q:\n%s", want, back)
+		}
+	}
+}

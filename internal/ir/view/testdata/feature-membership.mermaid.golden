@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» MembershipViews::structure"
 ---
 %% MembershipViews::structure — tree rendering
 flowchart TD

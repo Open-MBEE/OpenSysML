@@ -105,8 +105,14 @@ func nestedInvocationInGraph(graph *lower.ActionGraph, usage *ast.Usage) (action
 	if graph == nil {
 		return actionInvocation{}, false
 	}
-	if performed, ok := graph.Performs[usage]; ok && performed.Target != nil {
+	performed, ok := graph.Performs[usage]
+	if ok && performed.Target != nil {
 		return actionInvocation{target: performed.Target, scope: performed.Scope}, true
+	}
+	if ok && performed.Referrer != nil {
+		inv, referenced := referencedInvocation(performed.Referrer)
+		inv.scope = performed.Scope
+		return inv, referenced
 	}
 	return actionInvocation{}, false
 }
@@ -203,7 +209,7 @@ func invocationArguments(
 			errReceiverWithNamedArgs, inv.name(),
 		)
 	}
-	written := writtenArguments(inv.args, inv.named)
+	written := writtenArguments(ec.operandsIn(inv.args, inv.named))
 	if sym == nil {
 		if sym, err = settleAction(ec, inv, tied, written); err != nil {
 			return nil, nil, err
@@ -317,8 +323,7 @@ func invokeBoundAction(
 	ctx *Context,
 	inv actionInvocation,
 	sym *symbols.Symbol,
-	pins map[string]Value,
-	data map[string]Value,
+	pins, data map[string]Value,
 	self *Instance,
 ) (features, outputs map[string]Value, err error) {
 	if callee, resumed, err := popFrame[*calleeFrame](ctx); err != nil {
@@ -360,7 +365,7 @@ func invokeBoundAction(
 		return nil, nil, err
 	}
 
-	callee, err := ctx.beginOrJoinCallee(inv, sym, self, inputs, nil)
+	callee, err := ctx.beginOrJoinCallee(inv, sym, self, nil, inputs, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("invoke action %s: %w", inv.name(), err)
 	}
@@ -412,7 +417,7 @@ func (f *calleeFrame) clone() bodyFrame { c := *f; return &c }
 // `part.callee` whose object performs the callee already (its type performs it), joins
 // that one performance, as a run of the action named on an object does (performAction);
 // listener, if any, takes each write to the outputs of either.
-func (ctx *Context) beginOrJoinCallee(inv actionInvocation, sym *symbols.Symbol, self *Instance, inputs map[string]Value, listener *outputListener) (*calleeFrame, error) {
+func (ctx *Context) beginOrJoinCallee(inv actionInvocation, sym *symbols.Symbol, self, occurrence *Instance, inputs map[string]Value, listener *outputListener) (*calleeFrame, error) {
 	if inv.chain != nil {
 		exec, err := ctx.performanceOf(sym, self, inputs)
 		if err != nil {
@@ -425,17 +430,17 @@ func (ctx *Context) beginOrJoinCallee(inv actionInvocation, sym *symbols.Symbol,
 			return &calleeFrame{exec: exec, joined: true}, nil
 		}
 	}
-	return ctx.beginCallee(inv.performed(sym), sym, self, inputs, listener)
+	return ctx.beginCallee(inv.performed(sym), sym, self, occurrence, inputs, listener)
 }
 
 // beginCallee starts action, a performance of performed, as a sub-execution of
 // the caller nested one deeper, on the clock until run to completion; listener,
 // if any, takes each write to its outputs from its first declared value on.
-func (ctx *Context) beginCallee(performed, action *symbols.Symbol, self *Instance, inputs map[string]Value, listener *outputListener) (*calleeFrame, error) {
+func (ctx *Context) beginCallee(performed, action *symbols.Symbol, self, occurrence *Instance, inputs map[string]Value, listener *outputListener) (*calleeFrame, error) {
 	ctx.actionDepth++
 	defer func() { ctx.actionDepth-- }()
 	defer ctx.nestRun()()
-	exec, err := ctx.beginPerformed(performed, action, self, inputs, false, listener, startActionStep)
+	exec, err := ctx.beginPerformed(performed, action, self, occurrence, inputs, performanceStart{listener: listener, start: startActionStep})
 	if err != nil {
 		return nil, err
 	}
@@ -541,7 +546,9 @@ func actionCandidates(
 		sym = sel.Called()
 		ok = sym != nil
 	default:
-		sym, ok = ctx.resolveQualified(scope, target)
+		if sym, ok = ctx.resolveQualified(scope, target); ok {
+			sym = ctx.performedThrough(inv.step, sym)
+		}
 	}
 	if !ok || sym == nil {
 		return nil, nil, &UnresolvedActionError{Name: name}
@@ -553,6 +560,16 @@ func actionCandidates(
 		return nil, nil, fmt.Errorf("%w: %s is not an action (%v)", errNotABehavior, name, sym.Kind)
 	}
 	return sym, nil, nil
+}
+
+// performedThrough is the action usage a typed step subsets when its performances are that
+// usage's (subsettedBehavior) and the usage is of the type, else the type itself.
+func (ctx *Context) performedThrough(step, typ *symbols.Symbol) *symbols.Symbol {
+	through := ctx.subsettedBehavior(step)
+	if through == nil || !ctx.model.semantics.Conforms(through, typ) {
+		return typ
+	}
+	return through
 }
 
 // bindArgumentList binds an invocation's arguments, written, into inputs by the callee's
@@ -632,7 +649,7 @@ type actionParameter struct {
 func (ctx *Context) actionParametersOf(sym *symbols.Symbol) []actionParameter {
 	var params []actionParameter
 	for _, param := range ctx.model.semantics.BehaviorParametersOf(sym) {
-		if param.Symbol == nil || param.Symbol.Name == "" {
+		if param.Symbol == nil || !param.Symbol.Named() {
 			continue
 		}
 		params = append(params, actionParameter{

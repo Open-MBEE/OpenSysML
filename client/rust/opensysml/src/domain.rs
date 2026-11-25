@@ -3,6 +3,10 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use crate::capabilities::{upgrade_remedy, CAPABILITY_SYMBOL_ANNOTATING_METADATA};
+use crate::frame::{
+    frame_from_wire, transformation_from_wire, CoordinateFrame, CoordinateTransformation,
+};
 use crate::rational::Rational;
 use crate::{error::Error, wire, Connection};
 
@@ -265,6 +269,9 @@ pub struct Quantity {
     pub unit: String,
     /// Reduced unit term, when supplied by the service.
     pub unit_term: Option<UnitTerm>,
+    /// Qualified name of the quantity value type the service holds it as, empty for none;
+    /// sent back, it is kept, so a sibling type still refuses the quantity.
+    pub value_type: String,
 }
 
 impl fmt::Display for Magnitude {
@@ -632,7 +639,10 @@ pub struct Function {
 /// null, read as [`Error::UnsupportedValue`], in its place.
 #[derive(Clone, Debug, Eq)]
 pub struct Metaobject {
-    /// FQN of the element reflected on (`Vehicle::seatBelt`).
+    /// The id a client keeps for the element reflected on: its FQN
+    /// (`Vehicle::seatBelt`), the positional id of an unnamed member
+    /// (`Vehicle::@2`), or the element form's `@id` of an element the model
+    /// synthesizes, such as a send's or accept's argument.
     pub element_id: String,
     /// FQN of the element's own reflective metaclass
     /// (`SysML::Systems::PartUsage`), not the type it was cast to.
@@ -699,6 +709,10 @@ pub enum Value {
     Unset,
     /// A model-level result the model leaves open: a successful answer, not an error.
     Undetermined(Undetermined),
+    /// A coordinate frame or measurement scale held as a value.
+    CoordinateFrame(Box<CoordinateFrame>),
+    /// A coordinate transformation held as a value.
+    CoordinateTransformation(Box<CoordinateTransformation>),
     /// The unbounded value `*`, ordered above every finite magnitude.
     Infinity,
 }
@@ -1057,6 +1071,12 @@ pub(crate) fn value_from_wire(value: wire::Value) -> Result<Value, Error> {
                 count_upper,
             }))
         }
+        wire::value::Kind::CoordinateFrame(v) => {
+            Ok(Value::CoordinateFrame(Box::new(frame_from_wire(*v)?)))
+        }
+        wire::value::Kind::CoordinateTransformation(v) => Ok(Value::CoordinateTransformation(
+            Box::new(transformation_from_wire(*v)?),
+        )),
         // Only an asserted arm carries the unbounded value.
         wire::value::Kind::Infinity(asserted) => {
             if !asserted {
@@ -1095,10 +1115,12 @@ fn kind_name(kind: &wire::value::Kind) -> &'static str {
         wire::value::Kind::Set(_) => "set",
         wire::value::Kind::TensorQuantity(_) => "tensor_quantity",
         wire::value::Kind::Metaobject(_) => "metaobject",
+        wire::value::Kind::CoordinateFrame(_) => "coordinate_frame",
+        wire::value::Kind::CoordinateTransformation(_) => "coordinate_transformation",
     }
 }
 
-fn measurement_ref_from_wire(v: wire::MeasurementRef) -> Result<MeasurementRef, Error> {
+pub(crate) fn measurement_ref_from_wire(v: wire::MeasurementRef) -> Result<MeasurementRef, Error> {
     let Some(term) = v.unit_term else {
         if v.unit.is_empty() && v.unit_id.is_empty() {
             return Err(Error::Decode(
@@ -1163,7 +1185,88 @@ pub(crate) fn quantity_from_wire(v: wire::Quantity) -> Result<Quantity, Error> {
         magnitude,
         unit: v.unit,
         unit_term: v.unit_term.map(unit_term_from_wire),
+        value_type: v.value_type,
     })
+}
+
+/// Options for looking a symbol up.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct SymbolOptions {
+    /// List the members inherited from standard-library content too, which are
+    /// otherwise only counted by [`Symbol::withheld_library_members`]. Needs the
+    /// `symbol_members` capability.
+    pub include_library_members: bool,
+    /// With [`Lookup::Either`] only: take the string as one the service reported rather than
+    /// resolving it from the root namespace; a declared name still comes first.
+    pub by_reported_id: bool,
+    /// What the string names. [`Lookup::Either`], the default, is the legacy form.
+    pub lookup: Lookup,
+}
+
+impl SymbolOptions {
+    /// Options looking a symbol up by an id the service reported, and by nothing else.
+    pub(crate) fn element_id() -> Self {
+        Self {
+            lookup: Lookup::ElementId,
+            ..Self::default()
+        }
+    }
+}
+
+/// What the one string of a lookup names: a qualified name and an id can be spelled alike
+/// (a member `'@3'` beside the unnamed member `Owner::@3`), so a lookup states which it is.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum Lookup {
+    /// The legacy form, one string for either kind: a declared name first, then an id, so
+    /// a declaration shadows the element an id of its spelling was reported for.
+    #[default]
+    Either,
+    /// A qualified name, resolved from the root namespace; never read as an id.
+    QualifiedName,
+    /// An id the service reported for an element, whatever its visibility; never read as
+    /// a name.
+    ElementId,
+}
+
+impl Lookup {
+    /// The kind as the request states it.
+    pub(crate) fn wire(self) -> wire::LookupKind {
+        match self {
+            Self::Either => wire::LookupKind::Unspecified,
+            Self::QualifiedName => wire::LookupKind::QualifiedName,
+            Self::ElementId => wire::LookupKind::ElementId,
+        }
+    }
+}
+
+/// One member of a symbol, own or inherited.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Member {
+    /// Fully qualified identifier.
+    pub id: String,
+    /// Short name.
+    pub name: String,
+    /// Service symbol kind.
+    pub kind: String,
+    /// Whether the member is inherited rather than declared by the symbol.
+    pub inherited: bool,
+    /// The type the member is inherited from, when it is.
+    pub inherited_from: Option<String>,
+    /// Whether the member is declared in standard-library content.
+    pub library: bool,
+}
+
+impl Member {
+    fn from_wire(wire: &wire::MemberInfo) -> Self {
+        Self {
+            id: wire.id.clone(),
+            name: wire.name.clone(),
+            kind: wire.kind.clone(),
+            inherited: wire.inherited,
+            inherited_from: (!wire.inherited_from.is_empty()).then(|| wire.inherited_from.clone()),
+            library: wire.library,
+        }
+    }
 }
 
 /// A symbol in a parsed model.
@@ -1212,11 +1315,51 @@ impl Symbol {
             inner: self.connection.clone(),
         }
     }
+    /// Every member, own then inherited, as the service enumerated them; standard-library
+    /// members appear only when the symbol was looked up with `include_library_members`.
+    pub fn members(&self) -> Vec<Member> {
+        self.wire.members.iter().map(Member::from_wire).collect()
+    }
+    /// The members declared by the symbol itself.
+    pub fn own_members(&self) -> Vec<Member> {
+        self.members()
+            .into_iter()
+            .filter(|m| !m.inherited)
+            .collect()
+    }
+    /// The members inherited from the symbol's supertypes.
+    pub fn inherited_members(&self) -> Vec<Member> {
+        self.members().into_iter().filter(|m| m.inherited).collect()
+    }
+    /// How many standard-library members were left out of [`Self::members`].
+    pub fn withheld_library_members(&self) -> i32 {
+        self.wire.withheld_library_members
+    }
     /// Child symbols, fetched lazily from the service; one it cannot resolve is left out.
     pub fn children(&self) -> Result<Vec<Symbol>, Error> {
-        let mut children = Vec::with_capacity(self.wire.child_ids.len());
-        for id in &self.wire.child_ids {
-            match self.connection().get_symbol(&self.model_hash, id) {
+        self.fetch_symbols(&self.wire.child_ids)
+    }
+    /// Ids of the metadata usages annotating the symbol: its own prefix and body ones, then
+    /// the `about` ones written elsewhere, which [`Self::children`] leaves out.
+    pub fn annotating_metadata_ids(&self) -> &[String] {
+        &self.wire.annotating_metadata_ids
+    }
+    /// The metadata usages annotating the symbol, fetched lazily; one it cannot resolve is
+    /// left out. Needs the `symbol_annotating_metadata` capability.
+    pub fn annotating_metadata(&self) -> Result<Vec<Symbol>, Error> {
+        self.connection().capabilities().require(
+            CAPABILITY_SYMBOL_ANNOTATING_METADATA,
+            upgrade_remedy(CAPABILITY_SYMBOL_ANNOTATING_METADATA),
+        )?;
+        self.fetch_symbols(&self.wire.annotating_metadata_ids)
+    }
+    fn fetch_symbols(&self, ids: &[String]) -> Result<Vec<Symbol>, Error> {
+        let mut children = Vec::with_capacity(ids.len());
+        for id in ids {
+            match self
+                .connection()
+                .get_symbol(&self.model_hash, id, &SymbolOptions::element_id())
+            {
                 Ok(child) => children.push(child),
                 Err(Error::Model(_)) => {}
                 Err(error) => return Err(error),
@@ -1542,9 +1685,28 @@ impl Model {
     pub fn evaluate(&self, expr: &str, options: &EvalOptions) -> Result<Evaluation, Error> {
         self.connection.evaluate(self.hash(), expr, options)
     }
-    /// Look up a fully qualified symbol.
+    /// Look up a fully qualified symbol, resolved from the root namespace as the notation
+    /// resolves one: through imports and aliases, a non-visible member not found.
     pub fn symbol(&self, fqn: &str) -> Result<Symbol, Error> {
-        self.connection.get_symbol(self.hash(), fqn)
+        self.symbol_with(fqn, &SymbolOptions::default())
+    }
+    /// Look up a fully qualified symbol, choosing what the service lists for it.
+    pub fn symbol_with(&self, fqn: &str, options: &SymbolOptions) -> Result<Symbol, Error> {
+        self.connection.get_symbol(self.hash(), fqn, options)
+    }
+    /// Look a symbol up by its qualified name and nothing else, resolved from the root
+    /// namespace. A service without `symbol_lookup_kind` falls back to reading an id.
+    pub fn symbol_by_name(&self, name: &str) -> Result<Symbol, Error> {
+        let options = SymbolOptions {
+            lookup: Lookup::QualifiedName,
+            ..SymbolOptions::default()
+        };
+        self.symbol_with(name, &options)
+    }
+    /// Look a symbol up by an id the service reported ([`Symbol::id`], a child's, a member's)
+    /// and nothing else. A service without `symbol_lookup_kind` reads a declared name first.
+    pub fn symbol_by_element_id(&self, id: &str) -> Result<Symbol, Error> {
+        self.symbol_with(id, &SymbolOptions::element_id())
     }
     /// Instantiate a part or usage.
     pub fn instantiate(&self, fqn: &str) -> Result<Instantiation, Error> {
@@ -1813,6 +1975,7 @@ mod tests {
 
     fn metres(magnitude: f64) -> wire::Quantity {
         wire::Quantity {
+            value_type: String::new(),
             magnitude: Some(wire::quantity::Magnitude::RealMagnitude(magnitude)),
             unit: "m".to_owned(),
             unit_term: Some(wire::UnitTerm {
@@ -1905,6 +2068,7 @@ mod tests {
         let inner = Array::new(
             vec![1],
             vec![Value::Quantity(Quantity {
+                value_type: String::new(),
                 magnitude: Magnitude::Real(3.0),
                 unit: "m".to_owned(),
                 unit_term: Some(metre_term()),
@@ -2001,11 +2165,13 @@ mod tests {
             position.components(),
             [
                 Quantity {
+                    value_type: String::new(),
                     magnitude: Magnitude::Real(3.0),
                     unit: "m".to_owned(),
                     unit_term: Some(metre_term()),
                 },
                 Quantity {
+                    value_type: String::new(),
                     magnitude: Magnitude::Real(4.0),
                     unit: "m".to_owned(),
                     unit_term: Some(metre_term()),
@@ -2015,6 +2181,7 @@ mod tests {
 
         // Units may differ per component; a composed unit keeps its reduction.
         let speed = wire::Quantity {
+            value_type: String::new(),
             magnitude: Some(wire::quantity::Magnitude::RealMagnitude(5.0)),
             unit: "m/s".to_owned(),
             unit_term: Some(wire::UnitTerm {
@@ -2259,6 +2426,7 @@ mod tests {
         let rational = |n, d| Value::Rational(Rational::parse(n, d).unwrap());
         let metre = |magnitude| {
             Value::Quantity(Quantity {
+                value_type: String::new(),
                 magnitude,
                 unit: "m".to_owned(),
                 unit_term: None,
@@ -2382,6 +2550,7 @@ mod tests {
         };
         let quantity = |magnitude, unit: &str, unit_term| {
             Value::Quantity(Quantity {
+                value_type: String::new(),
                 magnitude,
                 unit: unit.to_owned(),
                 unit_term,
@@ -2691,11 +2860,13 @@ mod tests {
             Value::VectorQuantity(
                 VectorQuantity::new(vec![
                     Quantity {
+                        value_type: String::new(),
                         magnitude: Magnitude::Real(1.0),
                         unit: "m".to_owned(),
                         unit_term: Some(metre_term()),
                     },
                     Quantity {
+                        value_type: String::new(),
                         magnitude: Magnitude::Real(2.0),
                         unit: "m".to_owned(),
                         unit_term: Some(metre_term()),
@@ -2707,6 +2878,7 @@ mod tests {
 
         // Components with differing units report no shared one.
         let speed = wire::Quantity {
+            value_type: String::new(),
             magnitude: Some(wire::quantity::Magnitude::IntMagnitude(5)),
             unit: "m/s".to_owned(),
             unit_term: None,

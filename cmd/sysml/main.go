@@ -121,6 +121,7 @@ var (
 	convertFormat               string
 	libraryReferencesPath       string
 	includeLibraryStubs         bool
+	inheritedMembers            bool
 	keepLineBreaks              bool
 	conversionLibraryReferences []export.APIJSONLibraryReference
 	stdlibModel                 bool
@@ -128,6 +129,7 @@ var (
 	bundleDir                   string
 	unbundleFile                string
 	queryText                   string
+	asViewPath                  string
 	outputPath                  string
 	fromFormat                  string
 	idForm                      string
@@ -144,11 +146,13 @@ var (
 	renderForm                  string
 	renderPalette               string
 	renderLink                  string
+	renderLimit                 int
 	renderUnplaced              string
 	renderCompartments          string
 	renderStyle                 string
 	renderPorts                 string
 	renderLines                 string
+	renderDirection             string
 	renderShow                  string
 	renderDepth                 int
 	renderOverlay               string
@@ -410,6 +414,10 @@ func runCLI() int {
 		fmt.Fprintln(os.Stderr, `sysml: -query is empty; give it OSLC Query text, as -query 'sysml:name="battery"'`)
 		return 2
 	}
+	if flagGiven("as-view") && (asViewPath == "" || queryText == "" && len(modelChecks.queries) == 0) {
+		fmt.Fprintln(os.Stderr, "sysml: -as-view names the file the answer of -run-query, -run-inline-query or -query is written to as a QVTS::QueryResult view, or - to print it in place of the rows, as -run-query Heavy -as-view heavy.sysml")
+		return 2
+	}
 	if flagGiven("graphs") && graphsSubject == "" {
 		fmt.Fprintln(os.Stderr, "sysml: -graphs is empty; name the action or state machine to export, as -graphs Pipeline::terrain")
 		return 2
@@ -489,6 +497,10 @@ func runCLI() int {
 		fmt.Fprintln(os.Stderr, "sysml: -render-lines is how the dot or plantuml form of -render or -render-all routes its edges; name the view to render with -render or a directory with -render-all")
 		return 2
 	}
+	if renderDirection != "" && renderView == "" && renderAllDir == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -render-direction is the direction a graph-shaped form of -render or -render-all flows in; name the view to render with -render or a directory with -render-all")
+		return 2
+	}
 	if renderCompartments != "" && renderView == "" && renderAllDir == "" && renderDoc == "" && renderDocsDir == "" {
 		fmt.Fprintln(os.Stderr, "sysml: -render-compartments folds a tree's owned members into compartment rows; name what to render with -render, -render-all, -render-document or -render-documents")
 		return 2
@@ -507,6 +519,14 @@ func runCLI() int {
 	}
 	if renderDepth != 0 && renderView == "" && renderAllDir == "" {
 		fmt.Fprintln(os.Stderr, "sysml: -render-depth is how many levels of nested elements a diagram draws below each exposed element; name what to render with -render or -render-all")
+		return 2
+	}
+	if renderLimit != 0 && len(renderRuns) == 0 {
+		fmt.Fprintln(os.Stderr, "sysml: -render-limit bounds how many spans or messages a run rendering draws; name the rendering with -render-run")
+		return 2
+	}
+	if renderLimit < 0 {
+		fmt.Fprintf(os.Stderr, "sysml: -render-limit must be a positive count, not %d\n", renderLimit)
 		return 2
 	}
 	if renderDepth < 0 {
@@ -654,8 +674,8 @@ func runCLI() int {
 		fmt.Fprintln(os.Stderr, "sysml: -convert and -migrate are mutually exclusive: a SysML v1 model is migrated, a v2 model or an RDF graph converted; ask for one per run")
 		return 2
 	}
-	if (flagGiven("library-references") || includeLibraryStubs) && convertFormat == "" {
-		fmt.Fprintln(os.Stderr, "sysml: -library-references and -include-library-stubs require -convert api-json")
+	if (flagGiven("library-references") || includeLibraryStubs || inheritedMembers) && convertFormat == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -library-references, -include-library-stubs and -inherited-members require -convert api-json")
 		return 2
 	}
 	if keepLineBreaks && convertFormat == "" {
@@ -772,7 +792,7 @@ func runCLI() int {
 		case convertFormat != "" || migrateFormat != "" || renderView != "" || renderDoc != "" || renderAllDir != "" || renderDocsDir != "" || queryText != "" || graphsSubject != "" || len(evalExprs) > 0:
 			fmt.Fprintf(os.Stderr, "sysml: %s syncs a change set; it cannot be combined with -convert, -migrate, -render, -render-all, -render-document, -render-documents, -query, -graphs or -eval\n", mode)
 			return 2
-		case outputPath != "" || fromFormat != "" || renderForm != "" || renderPalette != "" || renderLink != "" || renderUnplaced != "" || renderCompartments != "" || renderStyle != "" || renderPorts != "" || renderLines != "" || renderShow != "" || renderDepth != 0 || docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures:
+		case outputPath != "" || fromFormat != "" || renderForm != "" || renderPalette != "" || renderLink != "" || renderUnplaced != "" || renderCompartments != "" || renderStyle != "" || renderPorts != "" || renderLines != "" || renderDirection != "" || renderShow != "" || renderDepth != 0 || docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures:
 			fmt.Fprintf(os.Stderr, "sysml: %s reads SysML or Turtle inputs and reports the change set; -output, -from and the render options do not apply\n", mode)
 			return 2
 		case modelChecks.requested():

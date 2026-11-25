@@ -1,0 +1,48 @@
+enter calc test::Capped
+  eval literal 3 -> 3
+  bind cap = 3 [default]
+  stmt declare x
+    eval literal 0 -> 0
+  stmt while
+materialize: Capped #1
+    iteration 1
+        eval feature x -> 0
+        eval literal 10 -> 10
+      eval operator < -> true
+      stmt assign x
+          eval feature x -> 0
+          eval literal 1 -> 1
+        eval operator + -> 1
+      stmt if
+          eval feature x -> 1
+          eval feature cap -> 3
+        eval operator == -> false
+    iteration 2
+        eval feature x -> 1
+        eval literal 10 -> 10
+      eval operator < -> true
+      stmt assign x
+          eval feature x -> 1
+          eval literal 1 -> 1
+        eval operator + -> 2
+      stmt if
+          eval feature x -> 2
+          eval feature cap -> 3
+        eval operator == -> false
+    iteration 3
+        eval feature x -> 2
+        eval literal 10 -> 10
+      eval operator < -> true
+      stmt assign x
+          eval feature x -> 2
+          eval literal 1 -> 1
+        eval operator + -> 3
+      stmt if
+          eval feature x -> 3
+          eval feature cap -> 3
+        eval operator == -> true
+        stmt terminate
+terminate calc test::Capped: no token dropped
+  stmt return
+    eval feature x -> 3
+exit calc test::Capped -> (3)

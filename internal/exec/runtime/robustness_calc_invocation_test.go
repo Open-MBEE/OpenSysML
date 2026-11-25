@@ -36,9 +36,16 @@ func TestRuntimeRobustnessCalcInvocation(t *testing.T) {
 	t.Run("calc_recursion_at_depth_ceiling", testCalcRecursionAtDepthCeiling)
 	t.Run("calc_non_terminating_loop", testCalcNonTerminatingLoop)
 	t.Run("calc_body_never_returns", testCalcBodyNeverReturns)
-	t.Run("calc_send_is_rejected", testCalcSendIsRejected)
-	t.Run("calc_terminate_is_rejected", testCalcTerminateIsRejected)
-	t.Run("calc_assignment_outside_the_calc", testCalcAssignmentOutsideTheCalc)
+	t.Run("calc_send_posts_the_message", testCalcSendPostsTheMessage)
+	t.Run("calc_send_to_no_object", testCalcSendToNoObject)
+	t.Run("calc_terminate_ends_its_steps", testCalcTerminateEndsItsSteps)
+	t.Run("calc_assignment_of_a_wrong_typed_value", testCalcAssignmentOfAWrongTypedValue)
+	t.Run("calc_assignment_through_this_is_read_back", testCalcAssignmentThroughThisIsReadBack)
+	t.Run("nested_calc_assigns_the_enclosing_calcs_value", testNestedCalcAssignsTheEnclosingCalcsValue)
+	t.Run("nested_calc_assigns_a_wrong_typed_enclosing_value", testNestedCalcAssignsAWrongTypedEnclosingValue)
+	t.Run("nested_calc_write_refreshes_the_enclosing_bindings", testNestedCalcWriteRefreshesTheEnclosingBindings)
+	t.Run("calc_assignment_through_this_to_a_constant", testCalcAssignmentThroughThisToAConstant)
+	t.Run("calc_assignment_through_this_past_a_shadowing_local", testCalcAssignmentThroughThisPastAShadowingLocal)
 	t.Run("calc_output_write_of_a_wrong_typed_value", testCalcOutputWriteOfAWrongTypedValue)
 }
 
@@ -634,60 +641,217 @@ func testCalcBodyNeverReturns(t *testing.T) {
 	}
 }
 
-// testCalcSendIsRejected: a calculation computes a value and nothing else, so a
-// send in its body is rejected rather than posted.
-func testCalcSendIsRejected(t *testing.T) {
-	src := `
-		package test {
-			attribute def Ping;
-			calc noisy {
-				in n: Integer;
-				send Ping() to listener;
-				return : Integer = n;
-			}
+// calcOnHost invokes calc test::Host::<name> of src on a fresh Host and returns
+// the runtime, the Host and the error.
+func calcOnHost(t *testing.T, src, name string) (*Context, *Instance, error) {
+	t.Helper()
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	root := idx.DocumentRoot("<test>")
+	inst := mustInstantiate(t, ctx, findSymbolByName(root, "Host", ast.DefPart))
+	_, err := ctx.invokeCalcWithSelf(oneSymbol(t, idx, "test::Host::"+name), calcArgs{}, root, inst)
+	return ctx, inst, err
+}
+
+const calcSendingHost = `package test {
+	private import ScalarValues::*;
+	item def Ping;
+	part def Worker;
+	part def Host {
+		part worker : Worker;
+		calc def Notify {
+			send new Ping() to worker;
+			return : Integer = 1;
 		}
-	`
-	err := invokeCalcInSource(t, src, "noisy", 1, 10000)
-	if !errors.Is(err, errCalcSideEffect) {
-		t.Errorf("expected errCalcSideEffect, got: %v", err)
+		calc def NotifyNumber {
+			in level : Integer = 4;
+			send new Ping() to level;
+			return : Integer = 1;
+		}
+	}
+}`
+
+// testCalcSendPostsTheMessage: a calculation may have side effects (KerML 7.4.8.1),
+// so a send in its body posts its message to the object it addresses.
+func testCalcSendPostsTheMessage(t *testing.T) {
+	ctx, host, err := calcOnHost(t, calcSendingHost, "Notify")
+	if err != nil {
+		t.Fatalf("Notify: %v", err)
+	}
+	worker, ok, err := ctx.fvObject(host, "worker")
+	if err != nil || !ok {
+		t.Fatalf("Host.worker: ok=%v err=%v", ok, err)
+	}
+	if len(ctx.messages) != 1 || ctx.messages[0].SignalType != "Ping" || ctx.messages[0].Object != worker.ID {
+		t.Fatalf("messages = %+v, want one Ping addressed to the worker #%d", ctx.messages, worker.ID)
 	}
 }
 
-// testCalcTerminateIsRejected: `terminate` ends an execution, which a
-// calculation has no business doing.
-func testCalcTerminateIsRejected(t *testing.T) {
-	src := `
-		package test {
-			calc halting {
-				in n: Integer;
-				terminate;
-				return : Integer = n;
-			}
-		}
-	`
-	err := invokeCalcInSource(t, src, "halting", 1, 10000)
-	if !errors.Is(err, errCalcSideEffect) {
-		t.Errorf("expected errCalcSideEffect, got: %v", err)
+// testCalcSendToNoObject: a send in a calc body answers to the rules of any send,
+// so a target holding a number is refused and nothing is posted.
+func testCalcSendToNoObject(t *testing.T) {
+	ctx, _, err := calcOnHost(t, calcSendingHost, "NotifyNumber")
+	if !errors.Is(err, errSendTargetNotObject) {
+		t.Fatalf("err = %v, want errSendTargetNotObject", err)
+	}
+	if len(ctx.messages) != 0 {
+		t.Errorf("messages = %+v, want none posted by the refused send", ctx.messages)
 	}
 }
 
-// testCalcAssignmentOutsideTheCalc: a calc may write its own parameters and
-// locals; a name it does not declare belongs to the model around it and writing
-// it would be an effect, so it is rejected.
-func testCalcAssignmentOutsideTheCalc(t *testing.T) {
-	src := `
-		package test {
-			attribute shared : Integer = 0;
-			calc leaky {
-				in n: Integer;
-				assign shared := n;
-				return : Integer = n;
+// testCalcTerminateEndsItsSteps: a terminate ends the calculation's own performance (SysML v2
+// §7.17.10), so later steps are not taken; the result, a binding, answers with the values held.
+func testCalcTerminateEndsItsSteps(t *testing.T) {
+	src := `package test {
+		private import ScalarValues::*;
+		calc def Halting {
+			in n : Integer;
+			attribute x : Integer := n;
+			if n > 2 { terminate; }
+			assign x := x + 10;
+			return : Integer = x;
+		}
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	for arg, want := range map[int64]string{1: "(11)", 5: "(5)"} {
+		got, err := ctx.invokeCalcWithSelf(oneSymbol(t, idx, "test::Halting"),
+			calcArgs{positional: []Value{integerValue(arg)}}, idx.DocumentRoot("<test>"), nil)
+		if err != nil {
+			t.Fatalf("Halting(%d): %v", arg, err)
+		}
+		if FormatTraceValue(got) != want {
+			t.Errorf("Halting(%d) = %s, want %s", arg, FormatTraceValue(got), want)
+		}
+	}
+}
+
+// testCalcAssignmentOfAWrongTypedValue: a calc body writing a feature of the
+// object performing it is held to that feature's declaration, as an action is.
+func testCalcAssignmentOfAWrongTypedValue(t *testing.T) {
+	ctx, host, err := calcOnHost(t, `package test {
+		private import ScalarValues::*;
+		part def Host {
+			attribute count : Integer := 0;
+			calc def Mistype {
+				assign count := "three";
+				return : Integer = 1;
 			}
 		}
-	`
-	err := invokeCalcInSource(t, src, "leaky", 3, 10000)
-	if !errors.Is(err, errCalcExternalAssignment) {
-		t.Errorf("expected errCalcExternalAssignment, got: %v", err)
+	}`, "Mistype")
+	if !errors.Is(err, ErrTypeMismatch) {
+		t.Fatalf("err = %v, want ErrTypeMismatch", err)
+	}
+	if fv, err := host.GetFeatureValue(ctx, "count"); err != nil {
+		t.Fatalf("read Host.count: %v", err)
+	} else if got := fv.HeldValue(); got.Const.Int != 0 {
+		t.Errorf("Host.count = %v, want 0: the refused write changed nothing", got)
+	}
+}
+
+// testCalcAssignmentThroughThisIsReadBack: `this.x` in a calculation names the
+// value the body holds as x, so a read after the write answers what was written.
+func testCalcAssignmentThroughThisIsReadBack(t *testing.T) {
+	src := `package test {
+		private import ScalarValues::*;
+		calc def Overwrite { in x : Integer; assign this.x := 5; return : Integer[1] = x; }
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	got, err := ctx.invokeCalcWithSelf(oneSymbol(t, idx, "test::Overwrite"),
+		calcArgs{positional: []Value{integerValue(1)}}, idx.DocumentRoot("<test>"), nil)
+	if err != nil {
+		t.Fatalf("Overwrite(1): %v", err)
+	}
+	if got.Const.Int != 5 {
+		t.Errorf("Overwrite(1) = %v, want 5: the value written through this", got)
+	}
+}
+
+const nestedCalcWrites = `package test {
+	private import ScalarValues::*;
+	calc def Outer {
+		attribute n : Integer := 0;
+		calc inner { assign n := %s; return : Integer[1] = 1; }
+		%s
+	}
+}`
+
+// testNestedCalcAssignsTheEnclosingCalcsValue: a calculation declared within
+// another writes the value the enclosing run holds, not a copy of its own.
+func testNestedCalcAssignsTheEnclosingCalcsValue(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, fmt.Sprintf(nestedCalcWrites, "3", "return : Integer[1] = inner() + n;")))
+	got, err := ctx.invokeCalcWithSelf(oneSymbol(t, idx, "test::Outer"), calcArgs{}, idx.DocumentRoot("<test>"), nil)
+	if err != nil {
+		t.Fatalf("Outer(): %v", err)
+	}
+	if got.Const.Int != 4 {
+		t.Errorf("Outer() = %v, want 4: inner's 1 and the 3 it wrote to n", got)
+	}
+}
+
+// testNestedCalcAssignsAWrongTypedEnclosingValue: the write to the enclosing
+// run's value answers to that value's declaration.
+func testNestedCalcAssignsAWrongTypedEnclosingValue(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, fmt.Sprintf(nestedCalcWrites, `"three"`, "return : Integer[1] = inner();")))
+	_, err := ctx.invokeCalcWithSelf(oneSymbol(t, idx, "test::Outer"), calcArgs{}, idx.DocumentRoot("<test>"), nil)
+	if !errors.Is(err, ErrTypeMismatch) {
+		t.Fatalf("err = %v, want ErrTypeMismatch", err)
+	}
+}
+
+// testNestedCalcWriteRefreshesTheEnclosingBindings: a value of the enclosing run
+// bound to the one a nested calculation writes is computed again after the write.
+func testNestedCalcWriteRefreshesTheEnclosingBindings(t *testing.T) {
+	src := fmt.Sprintf(nestedCalcWrites, "3", "attribute m : Integer = n + 1; return : Integer[1] = m + inner() + m;")
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	got, err := ctx.invokeCalcWithSelf(oneSymbol(t, idx, "test::Outer"), calcArgs{}, idx.DocumentRoot("<test>"), nil)
+	if err != nil {
+		t.Fatalf("Outer(): %v", err)
+	}
+	if got.Const.Int != 6 {
+		t.Errorf("Outer() = %v, want 6: m is 1 before the write, inner answers 1, m is 4 after", got)
+	}
+}
+
+// testCalcAssignmentThroughThisToAConstant: `this.k` names the calculation's own
+// constant, which no assignment changes however it is reached.
+func testCalcAssignmentThroughThisToAConstant(t *testing.T) {
+	src := `package test {
+		private import ScalarValues::*;
+		calc def Fixed { constant attribute k : Integer = 1; assign this.k := 5; return : Integer[1] = k; }
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	_, err := ctx.invokeCalcWithSelf(oneSymbol(t, idx, "test::Fixed"), calcArgs{}, idx.DocumentRoot("<test>"), nil)
+	if !errors.Is(err, errReadOnlyFeature) {
+		t.Fatalf("err = %v, want errReadOnlyFeature", err)
+	}
+}
+
+// testCalcAssignmentThroughThisPastAShadowingLocal: `this.x` names the calculation's own x,
+// so a block's local of that name neither types nor freezes the write, and x's declaration does.
+func testCalcAssignmentThroughThisPastAShadowingLocal(t *testing.T) {
+	const model = `package test {
+		private import ScalarValues::*;
+		calc def C { %s return : Integer[1] = x; }
+	}`
+	for _, c := range []struct {
+		name, body string
+		want       int64
+		err        error
+	}{
+		{"parameter under a local of another type", `in x : Integer; if true { attribute x : String := "s"; assign this.x := 5; }`, 5, nil},
+		{"root local under a loop's local", `in n : Integer; attribute x : Integer := n; attribute i : Integer := 0;
+			while i < 1 { attribute x : String := "s"; assign this.x := 7; assign i := i + 1; }`, 7, nil},
+		{"parameter under a constant local", `in x : Integer; if true { constant attribute x : Integer = 2; assign this.x := 5; }`, 5, nil},
+		{"value of the local's type, not the parameter's", `in x : Integer; if true { attribute x : String := "s"; assign this.x := "t"; }`, 0, ErrTypeMismatch},
+		{"constant under a variable local", `in n : Integer; constant attribute x : Integer = 2; if true { attribute x : Integer := 1; assign this.x := 5; }`, 0, errReadOnlyFeature},
+	} {
+		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, fmt.Sprintf(model, c.body)))
+		got, err := ctx.invokeCalcWithSelf(oneSymbol(t, idx, "test::C"),
+			calcArgs{positional: []Value{integerValue(1)}}, idx.DocumentRoot("<test>"), nil)
+		if !errors.Is(err, c.err) || (c.err == nil && err != nil) {
+			t.Errorf("%s: err = %v, want %v", c.name, err, c.err)
+		} else if c.err == nil && got.Const.Int != c.want {
+			t.Errorf("%s: C(1) = %v, want %d", c.name, got, c.want)
+		}
 	}
 }
 

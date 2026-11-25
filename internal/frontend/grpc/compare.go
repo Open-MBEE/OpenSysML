@@ -150,7 +150,7 @@ func (s *Service) compareConfiguration(ctx context.Context, v *verifyContext, cf
 		return c, nil, nil
 	}
 	c.Runs, c.Draws, c.ClockStep = count, policy.String(), step
-	syms := v.cached.LookupNamedMember(cfg.Name)
+	syms := v.cached.LookupDeclaredMember(cfg.Name)
 	if len(syms) == 0 {
 		notRun("action not found: " + cfg.Name)
 		return c, nil, nil

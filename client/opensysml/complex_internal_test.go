@@ -34,7 +34,20 @@ func (o *oldCaller) evaluateCalc(context.Context, *pb.EvaluateCalcRequest) (*pb.
 	return nil, nil
 }
 
+func (o *oldCaller) instancePaths(context.Context, *pb.InstancePathsRequest) (*pb.InstancePathsResponse, error) {
+	o.t.Fatal("InstancePaths was sent to a service without instance_paths")
+	return nil, nil
+}
+
 func (o *oldCaller) close() error { return nil }
+
+// InstancePaths is refused before it leaves the client when the service lacks
+// instance_paths, as the other optional calls are.
+func TestInstancePathsIsNotSentWithoutTheCapability(t *testing.T) {
+	c := &client{caller: &oldCaller{t: t, capabilities: []string{CapabilityFeatureValues}}}
+	_, err := c.InstancePaths(context.Background(), &Model{Hash: "h"}, ObjectRef{InstanceID: 1})
+	wantUnimplemented(t, "InstancePaths", err)
+}
 
 // A Complex is refused before it leaves the client when the service lacks
 // complex_values, since such a service would read it as null: whether the

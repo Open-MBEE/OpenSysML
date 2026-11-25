@@ -26,6 +26,7 @@ type Scope struct {
 	docName          string                              // document this scope tree belongs to (stamped by SetDocName)
 	recorded         bool                                // rebuilt from an interface record: no node, imports and filters held here
 	imports          []*ast.Import                       // a recorded scope's import declarations
+	nodeImports      atomic.Pointer[[]*ast.Import]       // lazily collected import declarations of node
 	filters          []ElementFilter                     // a recorded scope's `filter` conditions
 }
 
@@ -83,14 +84,17 @@ func (s *Scope) Node() ast.Node { return s.node }
 // so has no node: its imports and filters are read from the record.
 func (s *Scope) Recorded() bool { return s.recorded }
 
-// Imports returns the import declarations the namespace owning this scope
-// states, in declaration order, whether read from its node or its record.
+// Imports returns the import declarations the namespace owning this scope states, in
+// declaration order, from its node or its record; the slice is shared, so never modified.
 func (s *Scope) Imports() []*ast.Import {
 	if s == nil {
 		return nil
 	}
 	if s.recorded {
 		return s.imports
+	}
+	if held := s.nodeImports.Load(); held != nil {
+		return *held
 	}
 	var out []*ast.Import
 	for _, m := range namespaceMembers(s.node) {
@@ -101,6 +105,7 @@ func (s *Scope) Imports() []*ast.Import {
 			out = append(out, imp)
 		}
 	}
+	s.nodeImports.Store(&out)
 	return out
 }
 
@@ -160,12 +165,17 @@ func (s *Scope) loadChildIndex() *map[ast.Node]*Scope {
 	return &built
 }
 
-// Define registers sym under the given name key. Multiple symbols may share a
-// key (duplicate declarations); all are retained in definition order.
+// Define registers sym under the given name key, or not at all when the key is empty. Symbols
+// sharing a key (duplicate declarations) are all retained in definition order.
 func (s *Scope) Define(name string, sym *Symbol) {
 	if name == "" {
 		return
 	}
+	s.define(name, sym)
+}
+
+// define registers sym under name, which is the empty name when it is empty.
+func (s *Scope) define(name string, sym *Symbol) {
 	s.names = append(s.names, name)
 	s.syms = append(s.syms, sym)
 	s.members = append(s.members, sym)
@@ -201,6 +211,19 @@ func (s *Scope) ForEachAnonymousMember(yield func(*Symbol) bool) {
 	}
 	for _, sym := range s.anonymousMembers {
 		if !yield(sym) {
+			return
+		}
+	}
+}
+
+// ForEachNamedMember visits each named registration with the key it was defined under,
+// in declaration order, without copying them.
+func (s *Scope) ForEachNamedMember(yield func(name string, sym *Symbol) bool) {
+	if s == nil || yield == nil {
+		return
+	}
+	for i, name := range s.names {
+		if !yield(name, s.syms[i]) {
 			return
 		}
 	}

@@ -24,3 +24,5 @@ n2 <- n3: { class: reference }
 n2 <- n4: { class: composition }
 n6 <- n7: { class: reference }
 n6 <- n8: { class: reference }
+frame_name: "«view» VariationViews::familyTree : Family" { shape: text; near: top-left }
+frame_tr: "expose vehicleFamily**\nexpose EngineChoices**" { shape: text; near: top-right }

@@ -19,3 +19,5 @@ n0 <- n1: { class: reference }
 n0 <- n12: { class: composition }
 n0 <- n13: { class: composition }
 n12 -> n15: { class: specialization }
+frame_name: "«view» CompartmentDemoViews::hub" { shape: text; near: top-left }
+frame_tr: "expose PortDemo::Hub\nexpose PortDemo::Buffer" { shape: text; near: top-right }

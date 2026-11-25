@@ -1,6 +1,7 @@
 package export
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"reflect"
 	"testing"
 )
@@ -26,17 +27,17 @@ func TestIdentityNameSegments(t *testing.T) {
 		{`'a'::b`},
 	}
 	for _, test := range tests {
-		segment := identitySegment(test.name)
+		segment := naming.Segment(test.name)
 		if got := identityName(segment); got != test.name {
-			t.Errorf("identityName(identitySegment(%q)) = %q", test.name, got)
+			t.Errorf("identityName(naming.Segment(%q)) = %q", test.name, got)
 		}
-		segments := identitySegments(segment + "::x")
+		segments := naming.Segments(segment + "::x")
 		if len(segments) != 2 || segments[1] != "x" {
-			t.Errorf("identitySegments(%q) = %q, want a name and x", segment+"::x", segments)
+			t.Errorf("naming.Segments(%q) = %q, want a name and x", segment+"::x", segments)
 		}
 	}
-	if got := identitySegment("Vehicle"); got != "Vehicle" {
-		t.Errorf("identitySegment(Vehicle) = %q, want it unquoted", got)
+	if got := naming.Segment("Vehicle"); got != "Vehicle" {
+		t.Errorf("naming.Segment(Vehicle) = %q, want it unquoted", got)
 	}
 	names := []string{"@2", "x", "a"}
 	for _, test := range tests {
@@ -44,9 +45,9 @@ func TestIdentityNameSegments(t *testing.T) {
 	}
 	identities := map[string]string{}
 	for _, name := range names {
-		identity := identitySegment(name)
+		identity := naming.Segment(name)
 		if previous, ok := identities[identity]; ok && previous != name {
-			t.Errorf("identitySegment(%q) and identitySegment(%q) both equal %q", name, previous, identity)
+			t.Errorf("naming.Segment(%q) and naming.Segment(%q) both equal %q", name, previous, identity)
 		}
 		identities[identity] = name
 	}
@@ -77,9 +78,9 @@ func TestIdentityNameSegments(t *testing.T) {
 		{"'A::B'::X", []string{"'A::B'", "X"}, []string{"A::B", "X"}},
 		{"P::'@2'::@0", []string{"P", "'@2'", "@0"}, []string{"P", "@2", "@0"}},
 	} {
-		segments := identitySegments(test.qname)
+		segments := naming.Segments(test.qname)
 		if !reflect.DeepEqual(segments, test.segments) {
-			t.Errorf("identitySegments(%q) = %q, want %q", test.qname, segments, test.segments)
+			t.Errorf("naming.Segments(%q) = %q, want %q", test.qname, segments, test.segments)
 		}
 		names := make([]string, len(segments))
 		for i, segment := range segments {

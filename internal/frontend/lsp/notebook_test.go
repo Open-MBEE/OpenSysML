@@ -35,8 +35,14 @@ type cellSpec struct{ language, text string }
 
 func openCells(t *testing.T, specs []cellSpec) *notebookSession {
 	t.Helper()
+	return openCellsIn(t, t.TempDir(), specs)
+}
+
+// openCellsIn opens the notebook as model.ipynb of dir, beside the files there.
+func openCellsIn(t *testing.T, dir string, specs []cellSpec) *notebookSession {
+	t.Helper()
 	w := newWireSession(t)
-	nb := &notebookSession{wireSession: w, uri: string(uri.File(filepath.Join(t.TempDir(), "model.ipynb")))}
+	nb := &notebookSession{wireSession: w, uri: string(uri.File(filepath.Join(dir, "model.ipynb")))}
 	var cells, texts []string
 	for i, spec := range specs {
 		nb.cells = append(nb.cells, fmt.Sprintf("vscode-notebook-cell:/model.ipynb#cell%d", i))
@@ -63,7 +69,7 @@ func (nb *notebookSession) change(version int, cells string) {
 }
 
 // callOn is a textDocument request on a cell at a position.
-func (nb *notebookSession) callOn(method string, cell int, line, character int) any {
+func (nb *notebookSession) callOn(method string, cell, line, character int) any {
 	nb.t.Helper()
 	return nb.call(method, fmt.Sprintf(
 		`{"textDocument":{"uri":%q},"position":{"line":%d,"character":%d}}`, nb.cells[cell], line, character))

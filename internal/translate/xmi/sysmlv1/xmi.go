@@ -79,6 +79,9 @@ type Stereotype struct {
 	// BaseID is the value of the base_* attribute; Base resolves it.
 	BaseID string
 	Base   *Element
+	// BaseMetaclass is the UML metaclass the stereotype extends, as the base_*
+	// attribute names it: "Class" of base_Class, "Element" of base_Element.
+	BaseMetaclass string
 	// document is the archive entry the application was read from, which a
 	// relative href in BaseID is resolved against.
 	document string
@@ -404,6 +407,24 @@ func (m *Model) finish() (*Model, error) {
 // archive cannot expand without limit while being read.
 const maxEntrySize = 512 << 20
 
+// maxModelSize bounds the uncompressed entries one archive's model is read from
+// together, since every one of them is held until the model is built.
+const maxModelSize = 2 << 30
+
+// checkModelSize refuses entries whose declared sizes pass maxModelSize together; the
+// zip reader fails an entry that holds more than it declares.
+func checkModelSize(groups ...[]*zip.File) error {
+	var total uint64
+	for _, group := range groups {
+		for _, f := range group {
+			if total += f.UncompressedSize64; total > maxModelSize {
+				return fmt.Errorf("archive model entries exceed the %d byte limit together, at %s", maxModelSize, f.Name)
+			}
+		}
+	}
+	return nil
+}
+
 // projectEntry reports whether an archive entry is a MagicDraw project model
 // entry, which is read unconditionally.
 func projectEntry(name string) bool {
@@ -440,6 +461,9 @@ func parseArchive(zr *zip.Reader) (*Model, error) {
 	m := newModel()
 	read := 0
 	if len(project) > 0 {
+		if err := checkModelSize(project, modules); err != nil {
+			return nil, err
+		}
 		for _, f := range project {
 			if err := m.parseEntry(f); err != nil {
 				return nil, err
@@ -454,6 +478,9 @@ func parseArchive(zr *zip.Reader) (*Model, error) {
 			m.indexModule(content)
 		}
 	} else {
+		if err := checkModelSize(documents); err != nil {
+			return nil, err
+		}
 		for _, f := range documents {
 			err := m.parseEntry(f)
 			if errors.Is(err, errNotXMI) {
@@ -621,7 +648,7 @@ func (m *Model) topLevel(raw *xmi.Element) {
 	m.Stereotypes = append(m.Stereotypes, m.newStereotype(raw))
 }
 
-func (m *Model) children(raw *xmi.Element, parent *Element, ref *Element) {
+func (m *Model) children(raw *xmi.Element, parent, ref *Element) {
 	for _, child := range raw.Children {
 		if xmi.IsXMINamespace(child.Space) {
 			m.special(child, parent, ref)
@@ -779,7 +806,7 @@ func (m *Model) newStereotype(raw *xmi.Element) *Stereotype {
 	for name, value := range raw.Attrs {
 		switch {
 		case strings.HasPrefix(name, "base_"):
-			s.BaseID = value
+			s.BaseID, s.BaseMetaclass = value, strings.TrimPrefix(name, "base_")
 		default:
 			s.Tags[name] = append(s.Tags[name], value)
 			s.attrValues[name]++
@@ -796,7 +823,7 @@ func (m *Model) newStereotype(raw *xmi.Element) *Stereotype {
 		}
 		if value != "" && strings.HasPrefix(child.Tag, "base_") {
 			if s.BaseID == "" {
-				s.BaseID = value
+				s.BaseID, s.BaseMetaclass = value, strings.TrimPrefix(child.Tag, "base_")
 			}
 			continue
 		}

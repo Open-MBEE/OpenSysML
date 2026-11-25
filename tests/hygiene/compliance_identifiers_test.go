@@ -15,8 +15,11 @@ import (
 )
 
 // complianceDocsDir holds the compliance tables whose Implementation column
-// maps a rule to the Go code that carries it.
+// maps a rule to the Go code that carries it; the spec-compliance map is kept
+// as per-area sources one and two levels below it.
 const complianceDocsDir = "docs/project"
+
+var complianceDocGlobs = []string{"*.md", "spec-compliance/*.md", "spec-compliance/*/*.md"}
 
 // TestComplianceTablesNameLiveGoIdentifiers checks the Implementation column
 // of every table under docs/project against the Go tree, so a deleted, renamed
@@ -47,9 +50,13 @@ const complianceDocsDir = "docs/project"
 // variable, protobuf field or emitted C name) is never a Go citation.
 func TestComplianceTablesNameLiveGoIdentifiers(t *testing.T) {
 	index := newGoDeclIndex(t)
-	docs, err := filepath.Glob(filepath.Join(repoRoot, complianceDocsDir, "*.md"))
-	if err != nil {
-		t.Fatal(err)
+	var docs []string
+	for _, glob := range complianceDocGlobs {
+		matched, err := filepath.Glob(filepath.Join(repoRoot, complianceDocsDir, glob))
+		if err != nil {
+			t.Fatal(err)
+		}
+		docs = append(docs, matched...)
 	}
 	checked, problems := 0, 0
 	for _, doc := range docs {

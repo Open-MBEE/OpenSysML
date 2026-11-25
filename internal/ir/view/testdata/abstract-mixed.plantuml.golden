@@ -1,5 +1,6 @@
 @startuml
 ' AbstractViews::familyMixed — mixed rendering (render asMixedDiagram)
+mainframe <size:10>//«view»//</size> **AbstractViews::familyMixed** : Family\n<size:10>expose Vehicle<U+002A><U+002A></size>\n<size:10>expose vehicleFamily<U+002A><U+002A></size>\n<size:10>expose Models<U+002A><U+002A></size>
 <style>
 root {
   BackGroundColor white
@@ -41,9 +42,8 @@ note {
 skinparam wrapWidth 300
 hide stereotype
 rectangle "<size:10>//«abstract part def»//</size>\n**Vehicle**" as n1 <<abstract part def>> {
-  rectangle "<size:10>//«attribute»//</size>\n**AbstractViews::Vehicle::mass**" as n0 <<attribute>> <<usage>>
+  rectangle "<size:10>//«attribute»//</size>\n**mass**" as n0 <<attribute>> <<usage>>
 }
-rectangle "<size:10>//«attribute»//</size>\n**AbstractViews::Vehicle::mass**" as n0 <<attribute>> <<usage>>
 rectangle "<size:10>//«abstract part»//</size>\n**vehicleFamily**" as n2 <<abstract part>> <<usage>> {
   rectangle "<size:10>//«abstract port»//</size>\n**fuel**" as n3 <<abstract port>> <<usage>>
   rectangle "<size:10>//«abstract part»//</size>\n**engine**" as n4 <<abstract part>> <<usage>>

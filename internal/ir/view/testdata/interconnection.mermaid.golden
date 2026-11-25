@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» PlantViews::loopView"
 ---
 %% PlantViews::loopView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR

@@ -12,6 +12,7 @@ import (
 // the policy fixes but whose weighted decision still needs a seed. Each is a typed
 // error, never a panic, a silent default or a hang.
 func TestRuntimeRobustnessDrawPolicy(t *testing.T) {
+	t.Parallel()
 	t.Run("normal_has_no_min_or_max", testNormalHasNoMinOrMax)
 	t.Run("degenerate_normal_is_its_mean_under_every_policy", testDegenerateNormalIsItsMeanUnderEveryPolicy)
 	t.Run("degenerate_normal_draws_nothing_at_random", testDegenerateNormalDrawsNothingAtRandom)

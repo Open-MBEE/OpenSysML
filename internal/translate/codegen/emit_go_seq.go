@@ -425,17 +425,27 @@ func sysmlRange(lo, hi sysmlInt) sysmlSeq[sysmlInt] {
 	if sysmlICmp(lo, hi) > 0 {
 		return sysmlManySeq[sysmlInt](0)
 	}
-	count := sysmlAdd(sysmlSub(hi, lo), sysmlI(1))
+	if lo.big != nil || hi.big != nil {
+		// Beyond int64 a bound is held as given and each successor is sized, as
+		// the interpreter's range does.
+		r := sysmlSeq[sysmlInt]{shape: sysmlMany}
+		for v := lo; ; v = sysmlAdd(v, sysmlI(1)) {
+			sysmlRangeCharge(1)
+			r.data = append(r.data, v)
+			if sysmlICmp(v, hi) == 0 {
+				return r
+			}
+		}
+	}
+	// The count of an int64 range can itself be beyond int64; no budget admits that many.
 	n := int64(math.MaxInt64)
-	if count.big == nil {
-		n = count.small
+	if span := uint64(hi.small) - uint64(lo.small); span < math.MaxInt64 {
+		n = int64(span) + 1
 	}
 	sysmlRangeCharge(n)
 	r := sysmlSeq[sysmlInt]{sysmlMany, make([]sysmlInt, n)}
-	v := lo
 	for i := range r.data {
-		r.data[i] = v
-		v = sysmlAdd(v, sysmlI(1))
+		r.data[i] = sysmlI(lo.small + int64(i))
 	}
 	return r
 }

@@ -4,10 +4,12 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // PropertyReader reads queryable properties from shared model semantics.
@@ -53,6 +55,21 @@ func (r *PropertyReader) Values(sym *symbols.Symbol, property string) ([]string,
 		}
 		bodies := r.semantics.DocumentationOf(sym)
 		return bodies, len(bodies) > 0
+	case PropertyTextualRepresentation:
+		if r.semantics == nil {
+			return nil, false
+		}
+		bodies := r.semantics.TextualRepresentationOf(sym)
+		return bodies, len(bodies) > 0
+	case PropertyBody:
+		if r.semantics == nil {
+			return nil, false
+		}
+		if body, ok := r.semantics.AnnotationBodyOf(sym); ok {
+			return []string{body}, true
+		}
+	case PropertyLocale, PropertyLanguage:
+		return presentValues(annotationString(sym, property))
 	case PropertyType:
 		return presentValues(MetamodelTypeNameOf(sym))
 	case PropertyElementType:
@@ -60,11 +77,20 @@ func (r *PropertyReader) Values(sym *symbols.Symbol, property string) ([]string,
 	case PropertyGeneral:
 		return r.generals(sym)
 	case PropertyIsAbstract:
-		// Type::isAbstract: a definition (the implied conjugated port definition included) or any feature, a connector's end included.
+		// Type::isAbstract, as reflection derives it (a variation, an enumeration definition included, is abstract);
+		// without a model, the `abstract` keyword of a definition, a feature or the implied conjugated port definition.
+		if value, ok := r.reflectiveBoolean(sym, property); ok {
+			return value, true
+		}
 		if sym.DeclaresUsage() || sym.DeclaresDefinition() || sym.IsFeature() || sym.IsConjugatedPortDefinition() {
 			return []string{strconv.FormatBool(symbols.IsAbstract(sym))}, true
 		}
 	case PropertyIsIndividual:
+		// OccurrenceDefinition/OccurrenceUsage::isIndividual as reflection derives it (a `state s;` of a state
+		// body, a connector's port end included); without a model, the `individual` keyword of a declaration.
+		if value, ok := r.reflectiveBoolean(sym, property); ok {
+			return value, true
+		}
 		if sym.DeclaresUsage() || sym.DeclaresDefinition() || sym.IsConjugatedPortDefinition() {
 			return []string{strconv.FormatBool(individual(sym))}, true
 		}
@@ -72,10 +98,17 @@ func (r *PropertyReader) Values(sym *symbols.Symbol, property string) ([]string,
 		return r.multiplicityValues(sym, property)
 	case PropertySatisfiedRequirement, PropertySatisfyingFeature:
 		return r.satisfyEnd(sym, property)
+	case PropertyPayloadArgument, PropertySenderArgument, PropertyReceiverArgument:
+		return r.sendArgument(sym, property)
 	case PropertyElementID:
 		if r.elementID != nil {
 			return presentValues(r.elementID(sym))
 		}
+	case PropertySymbolKind:
+		return symbolKind(sym)
+	case PropertyText:
+		texts, ok := r.semantics.RequirementTextsOf(sym)
+		return texts, ok && len(texts) > 0
 	}
 	return nil, false
 }
@@ -91,8 +124,12 @@ func (r *PropertyReader) identityValues(sym *symbols.Symbol, property string) ([
 		}
 		return presentValues(fqn)
 	case PropertyQualifiedName:
+		if semantics.IsImpliedMultiplicity(sym) {
+			// Element::qualifiedName is null for an unnamed element (KerML 1.1 §8.3.2.1).
+			return nil, false
+		}
 		if r.identity != nil {
-			if identity := r.identity(sym); identity != "" && identity != fqn {
+			if identity := r.identity(sym); identity != "" && identity != fqn && naming.Recorded(identity) != fqn {
 				return nil, false
 			}
 		}
@@ -118,23 +155,35 @@ func (r *PropertyReader) nameValues(sym *symbols.Symbol, property string) ([]str
 	switch property {
 	case PropertyName:
 		if r.semantics != nil {
-			return presentValues(r.semantics.EffectiveNameOf(sym))
+			return valueIfPresent(r.semantics.EffectiveNamed(sym))
 		}
-		return presentValues(sym.Name)
+		return valueIfPresent(sym.Name, sym.Named())
 	case PropertyDeclaredName:
-		if sym.EffectiveName() {
+		// A metadata body's `mission = …` declares no name: the Redefinition it implies names it. Nor does
+		// an implied conjugate: `~P` is the name its effectiveName() derives (SysML v2.1 8.3.12.2).
+		if sym.EffectiveName() || declaresMemberNames(sym) || sym.IsConjugatedPortDefinition() ||
+			(r.semantics != nil && r.semantics.RestatesMetadataBodyFeature(sym)) {
 			return nil, false
 		}
-		return presentValues(sym.Name)
+		return valueIfPresent(sym.Name, sym.Named())
 	case PropertyShortName:
 		if r.semantics != nil {
-			return presentValues(r.semantics.EffectiveShortNameOf(sym))
+			return valueIfPresent(r.semantics.EffectiveShortNamed(sym))
 		}
-		return presentValues(sym.ShortName)
+		return valueIfPresent(sym.ShortName, sym.HasShortName())
 	case PropertyDeclaredShortName:
-		return presentValues(sym.ShortName)
+		if declaresMemberNames(sym) {
+			return nil, false
+		}
+		return valueIfPresent(sym.ShortName, sym.HasShortName())
 	}
 	return nil, false
+}
+
+// declaresMemberNames reports whether sym is an alias: the names it writes are its
+// Membership's memberName and memberShortName, not names of the Membership (KerML 8.3.2.4.3).
+func declaresMemberNames(sym *symbols.Symbol) bool {
+	return sym.Kind == symbols.SymbolAlias
 }
 
 func (r *PropertyReader) multiplicityValues(sym *symbols.Symbol, property string) ([]string, bool) {
@@ -169,6 +218,37 @@ func (r *PropertyReader) satisfyEnd(sym *symbols.Symbol, property string) ([]str
 		return nil, false
 	}
 	return r.resolveTargetIdentity(sym, ends.Satisfier)
+}
+
+// sendArgument is an argument of the send action sym as written (SysML v2
+// §8.3.17.15): absent for an argument the send leaves out and for any other element.
+func (r *PropertyReader) sendArgument(sym *symbols.Symbol, property string) ([]string, bool) {
+	send := symbols.SendStatementOf(sym.Decl)
+	if send == nil || sym.Kind != symbols.SymbolSendActionUsage || r.semantics == nil {
+		return nil, false
+	}
+	var argument ast.Node
+	switch property {
+	case PropertyPayloadArgument:
+		argument = send.Message
+	case PropertySenderArgument:
+		if send.IsVia {
+			argument = send.Target
+		}
+	case PropertyReceiverArgument:
+		argument = send.Receiver
+		if !send.IsVia {
+			argument = send.Target
+		}
+	}
+	if argument == nil {
+		return nil, false
+	}
+	lookup := r.semantics.SourceText()
+	if lookup == nil {
+		return presentValues(ast.QualifiedText(argument))
+	}
+	return presentValues(strings.TrimSpace(lookup(sym.DocName, argument.Span())))
 }
 
 func (r *PropertyReader) resolveTargetIdentity(sym *symbols.Symbol, target ast.Node) ([]string, bool) {
@@ -215,6 +295,13 @@ func (r *PropertyReader) elementType(sym *symbols.Symbol) ([]string, bool) {
 		if alias, ok := r.resolver.ResolveAliasTarget(resolved); ok {
 			resolved = alias
 		}
+		// A conjugated typing's type is the ConjugatedPortDefinition its
+		// written target implies (SysML v2 8.3.12.3).
+		if relationship.Conjugated && r.semantics != nil {
+			if conjugate := r.semantics.ConjugatedPortDefinitionOf(resolved); conjugate != nil {
+				resolved = conjugate
+			}
+		}
 		return presentValues(r.index.GetFQN(resolved))
 	}
 	return nil, false
@@ -249,6 +336,27 @@ func (r *PropertyReader) generals(sym *symbols.Symbol) ([]string, bool) {
 	return values, len(values) > 0
 }
 
+// reflectiveBoolean reads a boolean metaclass attribute from the semantic model, so the
+// reader states what reflection derives; absent a model or a derivation it is not read here.
+func (r *PropertyReader) reflectiveBoolean(sym *symbols.Symbol, property string) ([]string, bool) {
+	if r.semantics == nil {
+		return nil, false
+	}
+	value, ok := r.semantics.ReflectiveFeatureValue(sym, property)
+	if !ok || value.Kind != symbols.FilterValueBool {
+		return nil, false
+	}
+	return []string{strconv.FormatBool(value.Bool)}, true
+}
+
+// symbolKind is the kind name SymbolInfo.kind reports for sym, absent for a symbol of no named kind.
+func symbolKind(sym *symbols.Symbol) ([]string, bool) {
+	if !sym.Kind.Named() {
+		return nil, false
+	}
+	return []string{sym.Kind.String()}, true
+}
+
 // individual reports whether sym's declaration carries the `individual` modifier.
 func individual(sym *symbols.Symbol) bool {
 	if sym.Recorded() {
@@ -275,6 +383,15 @@ func generalizes(sym *symbols.Symbol, kind ast.RelationshipKind) bool {
 	return false
 }
 
+// valueIfPresent is the one value of a property that has it, the empty
+// unrestricted name included (KerML §8.2.2.3).
+func valueIfPresent(value string, present bool) ([]string, bool) {
+	if !present {
+		return nil, false
+	}
+	return []string{value}, true
+}
+
 func presentValues(value string) ([]string, bool) {
 	if value == "" {
 		return nil, false
@@ -297,4 +414,24 @@ func boundValues(bound semantics.Bound) ([]string, bool) {
 		return []string{"*"}, true
 	}
 	return []string{strconv.FormatInt(bound.Value, 10)}, true
+}
+
+// annotationString is Comment::locale of a comment or documentation or
+// TextualRepresentation::language of a rep, "" for anything else or undeclared.
+func annotationString(sym *symbols.Symbol, property string) string {
+	switch decl := sym.Decl.(type) {
+	case *ast.Comment:
+		if property == PropertyLocale {
+			return source.StringValue(decl.Locale)
+		}
+	case *ast.Documentation:
+		if property == PropertyLocale {
+			return source.StringValue(decl.Locale)
+		}
+	case *ast.TextualRepresentation:
+		if property == PropertyLanguage {
+			return source.StringValue(decl.Language)
+		}
+	}
+	return ""
 }

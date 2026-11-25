@@ -40,6 +40,20 @@ func TestAddImportForms(t *testing.T) {
 	}
 }
 
+// A name written with escape sequences is imported by the name they denote.
+func TestAddImportOfANameWrittenWithEscapes(t *testing.T) {
+	for _, target := range []string{`A::'\'B\''`, `A::'it\'s'`, `A::'a\\b'`, `'\'Q\''::*`} {
+		model := loadContent(t, "import.sysml",
+			"package A {\n    part def '\\'B\\'';\n    part def 'it\\'s';\n    part def 'a\\\\b';\n}\npackage '\\'Q\\'' {\n}\npackage P {\n}\n")
+		requireClean(t, model)
+		result := applyOne(t, model, AddImport("P", "", target, false, false, nil))
+		if want := "private import " + target + ";"; !strings.Contains(string(result.Content), want) {
+			t.Fatalf("want %q in:\n%s", want, result.Content)
+		}
+		requireClean(t, loadContent(t, "import.sysml", string(result.Content)))
+	}
+}
+
 // Each form that resolves must write exactly the notation and re-load clean.
 func TestAddImportResolvingForms(t *testing.T) {
 	model := loadContent(t, "import.sysml", "package P {\n}\n")
@@ -330,9 +344,9 @@ func TestAddImportNestedOwners(t *testing.T) {
 		},
 		{
 			"metadata def",
-			"metadata def M {\n    ref feature a;\n}\n",
+			"metadata def M {\n    attribute a;\n}\n",
 			"M",
-			"metadata def M {\n    private import ScalarValues::*;\n    ref feature a;\n}\n",
+			"metadata def M {\n    private import ScalarValues::*;\n    attribute a;\n}\n",
 		},
 	}
 	for _, tc := range cases {

@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -259,7 +260,7 @@ func TestPicturesReachTheRenderingAndTheDOTForm(t *testing.T) {
 			t.Errorf("DOT lacks %q:\n%s", want, dot)
 		}
 	}
-	bench := strings.Index(dot, `label=<`)
+	bench := strings.Index(dot, "«part")
 	if bg, ov := strings.Index(dot, background), strings.Index(dot, overlay); !(bg < bench && bench < ov) {
 		t.Errorf("the background picture is not written before the parts and the overlay after them:\n%s", dot)
 	}
@@ -284,7 +285,7 @@ func TestPictureLayersKeepDeclarationOrder(t *testing.T) {
 		}
 		return i
 	}
-	under0, over1, under2, over3, parts := at("picture:0"), at("picture:1"), at("picture:2"), at("picture:3"), strings.Index(dot, `label=<`)
+	under0, over1, under2, over3, parts := at("picture:0"), at("picture:1"), at("picture:2"), at("picture:3"), strings.Index(dot, "«part")
 	if !(under0 < under2 && under2 < parts && parts < over1 && over1 < over3) {
 		t.Errorf("pictures are not written under the parts then over them, each layer in declaration order:\n%s", dot)
 	}
@@ -554,4 +555,84 @@ func picturesWithoutOrigins(t *testing.T, pictures []Picture, docs ...string) []
 		out[i] = p
 	}
 	return out
+}
+
+// A picture is read only from under the directory of the model stating it, wherever
+// the working directory is: one outside by its path or by a link is noticed, not drawn.
+func TestPictureOutsideItsModelDirectoryIsRefusedByForms(t *testing.T) {
+	var pngData bytes.Buffer
+	if err := png.Encode(&pngData, image.NewRGBA(image.Rect(0, 0, 1, 1))); err != nil {
+		t.Fatal(err)
+	}
+	top := t.TempDir()
+	model, outside := filepath.Join(top, "proj"), filepath.Join(top, "outside")
+	for _, dir := range []string{filepath.Join(model, "images"), outside} {
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, file := range []string{filepath.Join(model, "mark.png"), filepath.Join(model, "images", "mark.png"), filepath.Join(outside, "secret.png")} {
+		if err := os.WriteFile(file, pngData.Bytes(), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	within := []string{"mark.png", "images/mark.png", "images/../mark.png", filepath.Join(model, "mark.png")}
+	beyond := []string{"../outside/secret.png", filepath.Join(outside, "secret.png")}
+	if os.Symlink(filepath.Join(outside, "secret.png"), filepath.Join(model, "link.png")) == nil {
+		beyond = append(beyond, "link.png")
+		if err := os.Symlink("mark.png", filepath.Join(model, "inner.png")); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(outside, filepath.Join(model, "linked")); err != nil {
+			t.Fatal(err)
+		}
+		// Read as spelled, the last names a file under the model; opened, its ".." follows the link out.
+		within = append(within, "inner.png")
+		beyond = append(beyond, "linked/secret.png", strings.Join([]string{model, "linked", "..", "outside", "secret.png"}, string(filepath.Separator)))
+		// A ".." after a link into the model names the outside file where ".." is taken before the link.
+		if err := os.Symlink(filepath.Join(model, "images"), filepath.Join(outside, "into")); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(outside, "mark.png"), pngData.Bytes(), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		beyond = append(beyond, strings.Join([]string{outside, "into", "..", "mark.png"}, string(filepath.Separator)))
+		// A model reached through a link states a picture beside it by the path the link leads to.
+		alias := filepath.Join(top, "alias")
+		if err := os.Symlink(model, alias); err != nil {
+			t.Fatal(err)
+		}
+		if err := pictureRefusal(Picture{Location: filepath.Join(model, "mark.png"), Dir: alias}); err != nil {
+			t.Errorf("a picture beside a model reached through a link is refused: %v", err)
+		}
+		if err := pictureRefusal(Picture{Location: filepath.Join(alias, "mark.png"), Dir: model}); err != nil {
+			t.Errorf("a picture named through a link to its model's directory is refused: %v", err)
+		}
+	}
+	rendering := &Rendering{Kind: KindInterconnection, Roots: []*Node{{ID: "n", Kind: "part", Name: "part"}}}
+	for _, location := range slices.Concat(within, beyond) {
+		rendering.Pictures = append(rendering.Pictures, Picture{Location: location, Dir: model, Width: 10, Height: 10})
+	}
+	notice := pictureNotice(rendering.Pictures[len(within):], ErrOutsidePicture.Error())
+	dot, err := rendering.DOT()
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	mermaid := rendering.Mermaid()
+	for form, source := range map[string]string{"DOT": dot, "Mermaid": mermaid} {
+		if !strings.Contains(source, "not represented: "+notice) {
+			t.Errorf("%s lacks the notice %q:\n%s", form, notice, source)
+		}
+		if strings.Contains(source, "secret.png\"") || strings.Contains(source, "link.png\"") {
+			t.Errorf("%s names a picture outside the model's directory:\n%s", form, source)
+		}
+	}
+	for i := range within {
+		if !strings.Contains(dot, dotQuote(dotPictureID(i))+" [shape=none") || !strings.Contains(mermaid, fmt.Sprintf("picture%d@{", i)) {
+			t.Errorf("picture %q under the model's directory is not drawn:\nDOT:\n%s\nMermaid:\n%s", within[i], dot, mermaid)
+		}
+	}
+	if got := rendering.DataWith(Options{}).Notices; !slices.Contains(got, notice) {
+		t.Errorf("data notices = %q, want %q among them", got, notice)
+	}
 }

@@ -19,6 +19,7 @@ func branchCommand(stack *fakeStack, binary string, args ...string) *exec.Cmd {
 }
 
 func TestConvertReadsABranchAsNotationAndTurtle(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 
@@ -35,6 +36,7 @@ func TestConvertReadsABranchAsNotationAndTurtle(t *testing.T) {
 }
 
 func TestConvertReadsABranchIntoAFileAndRecordsTheHead(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 	outPath := filepath.Join(t.TempDir(), "out.sysml")
@@ -57,6 +59,7 @@ func TestConvertReadsABranchIntoAFileAndRecordsTheHead(t *testing.T) {
 }
 
 func TestConvertPushReplacesTheBranchGraph(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 	dir := t.TempDir()
@@ -96,6 +99,7 @@ func TestConvertPushReplacesTheBranchGraph(t *testing.T) {
 }
 
 func TestConvertPushRefusesAHeadTheStateSaysMoved(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 	dir := t.TempDir()
@@ -113,6 +117,7 @@ func TestConvertPushRefusesAHeadTheStateSaysMoved(t *testing.T) {
 }
 
 func TestConvertPushNeedsTurtleAndAUsefulState(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 	dir := t.TempDir()
@@ -136,6 +141,7 @@ func TestConvertPushNeedsTurtleAndAUsefulState(t *testing.T) {
 }
 
 func TestConvertChecksTheStateAgainstTheConfiguredOrg(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 	dir := t.TempDir()
@@ -161,6 +167,7 @@ func TestConvertChecksTheStateAgainstTheConfiguredOrg(t *testing.T) {
 }
 
 func TestConvertPushReportsAWriteNoCommitWasNamedFor(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 	stack.noPutETag = true
@@ -177,6 +184,7 @@ func TestConvertPushReportsAWriteNoCommitWasNamedFor(t *testing.T) {
 }
 
 func TestConvertPushReportsACommitTheHeadMovedPast(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 	stack.supersede412 = true
@@ -193,6 +201,7 @@ func TestConvertPushReportsACommitTheHeadMovedPast(t *testing.T) {
 }
 
 func TestConvertAcceptsTheConfiguredEndpointSpelledDifferently(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 	// The configured endpoint carries a trailing slash; the branch URL does
@@ -206,6 +215,7 @@ func TestConvertAcceptsTheConfiguredEndpointSpelledDifferently(t *testing.T) {
 }
 
 func TestConvertRefusesAnEndpointOtherThanTheConfigured(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 	// syncCommand leaves FLEXO_SYSMLV2_URL at its default, so the URL below
@@ -217,6 +227,7 @@ func TestConvertRefusesAnEndpointOtherThanTheConfigured(t *testing.T) {
 }
 
 func TestConvertRefusesSyncStateWithoutABranch(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 	model := writeModel(t, t.TempDir(), "model.sysml", renamedModel)
@@ -228,6 +239,7 @@ func TestConvertRefusesSyncStateWithoutABranch(t *testing.T) {
 }
 
 func TestStdlibRefusesSyncStateWithoutABranch(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 	dir := t.TempDir()
@@ -252,6 +264,7 @@ func TestStdlibRefusesSyncStateWithoutABranch(t *testing.T) {
 }
 
 func TestMigratePushRefusesAMigrationReportOverTheInput(t *testing.T) {
+	needs(t, syncFeature, v1Feature)
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 	dir := t.TempDir()
@@ -270,7 +283,21 @@ func TestMigratePushRefusesAMigrationReportOverTheInput(t *testing.T) {
 	}
 }
 
+// A migration that wrote nothing of its model is not pushed: the branch keeps its graph.
+func TestMigratePushRefusesAMigrationThatWroteNothing(t *testing.T) {
+	needs(t, syncFeature, v1Feature)
+	binary := buildCLI(t)
+	stack := newFakeStack(t, liveGraph(t, syncedModel))
+	xmi := writeModel(t, t.TempDir(), "mockup.xmi", toolOnlyXMI)
+
+	out, code := exitCode(t, branchCommand(stack, binary, xmi, "-migrate", "ttl", "-o", "flexo://proj-1/main"))
+	if code != 2 || !strings.Contains(out, "nothing of the model was written") || !strings.Contains(out, "the branch is left as it was") || len(stack.puts) != 0 {
+		t.Fatalf("pushing an empty migration: exit %d, %d write(s):\n%s", code, len(stack.puts), out)
+	}
+}
+
 func TestConvertReadRefusesOutputOverTheSyncState(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 	dir := t.TempDir()
@@ -286,6 +313,7 @@ func TestConvertReadRefusesOutputOverTheSyncState(t *testing.T) {
 }
 
 func TestConvertReadRefusesAStatePinnedElsewhereBeforeWriting(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 	dir := t.TempDir()
@@ -304,6 +332,7 @@ func TestConvertReadRefusesAStatePinnedElsewhereBeforeWriting(t *testing.T) {
 }
 
 func TestConvertBranchNeedsTheToken(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 	cmd := exec.Command(binary, "flexo://proj-1/main", "-convert", "sysml")

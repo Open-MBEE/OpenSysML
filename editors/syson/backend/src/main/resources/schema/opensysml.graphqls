@@ -1,5 +1,6 @@
 extend type Mutation {
   runWithOpenSysML(input: RunWithOpenSysMLInput!): RunWithOpenSysMLPayload!
+  publishWithOpenSysML(input: PublishWithOpenSysMLInput!): PublishWithOpenSysMLPayload!
 }
 
 enum RunOperation {
@@ -60,6 +61,7 @@ type OpenSysMLRunResult {
   outputs: [OpenSysMLNamedValue!]!
   trace: [String!]!
   outcomes: [OpenSysMLRunOutcome!]!
+  coverage: OpenSysMLCoverage
   resultText: String
   diagnostics: [OpenSysMLDiagnostic!]!
   verdicts: [OpenSysMLVerdict!]!
@@ -75,6 +77,17 @@ type OpenSysMLRunOutcome {
   error: String
   linearizations: Int!
   witness: [String!]!
+}
+
+type OpenSysMLCoverage {
+  states: [OpenSysMLCoverageEntry!]!
+  transitions: [OpenSysMLCoverageEntry!]!
+}
+
+type OpenSysMLCoverageEntry {
+  path: String!
+  declaration: String!
+  runs: Int!
 }
 
 type OpenSysMLNamedValue {
@@ -124,4 +137,42 @@ type OpenSysMLTableRow {
   element: String!
   siriusId: String
   cells: [String!]!
+}
+
+input PublishWithOpenSysMLInput {
+  id: ID!
+  editingContextId: ID!
+  project: String
+  projectName: String
+  branch: String
+  message: String
+  deleteMissing: Boolean!
+  lastSeenCommit: String
+  token: String
+}
+
+union PublishWithOpenSysMLPayload = ErrorPayload | PublishWithOpenSysMLSuccessPayload
+
+type PublishWithOpenSysMLSuccessPayload {
+  id: ID!
+  messages: [Message]!
+  result: OpenSysMLPublishResult!
+}
+
+type OpenSysMLPublishResult {
+  ok: Boolean!
+  branchMoved: Boolean!
+  summary: String!
+  server: String!
+  project: String!
+  projectName: String!
+  createdProject: Boolean!
+  branch: String!
+  commit: String
+  head: String!
+  created: Int!
+  updated: Int!
+  deleted: Int!
+  leftInPlace: Int!
+  diagnostics: [OpenSysMLDiagnostic!]!
 }

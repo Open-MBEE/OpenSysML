@@ -41,6 +41,7 @@ const completionOrderModel = `package test {
 // left over rather than followed, and a front of completing entries beyond the
 // budget is no hang.
 func TestRuntimeRobustnessCompletionOrder(t *testing.T) {
+	t.Parallel()
 	t.Run("entry_order_naming_a_completing_state_the_front_does_not_hold", testEntryOrderNamingACompletingStateTheFrontDoesNotHold)
 	t.Run("completions_dispatched_in_the_replayed_draws_order", testCompletionsDispatchedInTheReplayedDrawsOrder)
 	t.Run("witness_ordering_the_pool_after_the_draw_is_left_over", testWitnessOrderingThePoolAfterTheDrawIsLeftOver)

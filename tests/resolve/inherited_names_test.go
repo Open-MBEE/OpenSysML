@@ -382,16 +382,119 @@ func TestParameterInheritedFromTwoUnrelatedSupertypesIsAmbiguous(t *testing.T) {
 	}
 }
 
-// The subject, actors and stakeholders of a requirement redefine the inherited
-// ones by name, which is not modelled here, so redeclaring them is no conflict.
+// The subject, actors, stakeholders and objective of a requirement or case
+// redefine the inherited ones by position (SysML 7.21.2, 7.22.2), so they take
+// or leave the inherited names freely.
 func TestRequirementParametersAreNotNameConflicts(t *testing.T) {
-	r, _, _ := resolvedDoc(t, `package P {
-		part def Vehicle;
-		requirement def Weight { subject vehicle : Vehicle; }
-		requirement def MaxWeight :> Weight { subject vehicle : Vehicle; }
-	}`)
-	if conflicts := diagnosticsWithCode(r, resolve.CodeNameConflict); len(conflicts) != 0 {
-		t.Errorf("name conflicts reported for a requirement's subject: %v", conflicts)
+	for _, src := range []string{
+		`package P {
+			part def Vehicle;
+			requirement def Weight { subject vehicle : Vehicle; }
+			requirement def MaxWeight :> Weight { subject vehicle : Vehicle; }
+		}`,
+		`package P {
+			part def Vehicle; part def Person;
+			requirement def R { subject v : Vehicle; actor driver : Person; stakeholder owner : Person; }
+			requirement def Same :> R { subject v : Vehicle; actor driver : Person; stakeholder owner : Person; }
+			requirement def Renamed :> R {
+				subject w : Vehicle; actor pilot : Person; stakeholder payer : Person;
+				ref v : Vehicle; part driver : Person; part owner : Person;
+			}
+			requirement r : R { subject v : Vehicle; actor driver : Person; }
+			concern def C { subject c : Vehicle; stakeholder s : Person; }
+			concern def C1 :> C { subject c : Vehicle; stakeholder s : Person; }
+		}`,
+		`package P {
+			part def Vehicle; part def Person;
+			use case def U { subject s : Vehicle; actor a : Person; objective o { doc /* base */ } }
+			use case def U1 :> U { subject s : Vehicle; actor a : Person; objective o { doc /* refined */ } }
+			use case u : U { subject s : Vehicle; actor b : Person; part a : Person; }
+			verification def V { subject s : Vehicle; }
+			verification def V1 :> V { subject t : Vehicle; ref s : Vehicle; }
+		}`,
+	} {
+		r, _, _ := resolvedDoc(t, src)
+		if conflicts := diagnosticsWithCode(r, resolve.CodeNameConflict); len(conflicts) != 0 {
+			t.Errorf("name conflicts reported for case roles in %s: %v", src, conflicts)
+		}
+	}
+}
+
+// An ordinary member of a requirement or case body conflicts with an inherited
+// name like any other member (KerML 8.3.2.4.5), a role's name included when no
+// role of the body redefines that role; so does a role with no counterpart at
+// its position.
+func TestOrdinaryMembersOfCaseBodiesConflictWithInheritedNames(t *testing.T) {
+	for _, tc := range []struct {
+		name, src string
+		want      []string
+	}{
+		{
+			"requirement definition",
+			`package P {
+				part def Person;
+				requirement def R { part helper : Person; attribute limit; }
+				requirement def R1 :> R { part helper : Person; attribute limit; }
+			}`,
+			[]string{"helper", "limit"},
+		},
+		{
+			"requirement usage",
+			`package P {
+				requirement def R { attribute limit; }
+				requirement r : R { attribute limit; }
+			}`,
+			[]string{"limit"},
+		},
+		{
+			"name of an inherited role",
+			`package P {
+				part def Vehicle; part def Person;
+				requirement def R { subject v : Vehicle; actor driver : Person; stakeholder owner : Person; }
+				requirement def R1 :> R { ref v : Vehicle; part driver : Person; part owner : Person; }
+			}`,
+			[]string{"v", "driver", "owner"},
+		},
+		{
+			"role without a counterpart",
+			`package P {
+				part def Vehicle; part def Person;
+				requirement def R { subject v : Vehicle; actor driver : Person; part helper : Person; }
+				requirement def R1 :> R { subject v : Vehicle; actor a : Person; actor helper : Person; }
+			}`,
+			[]string{"helper"},
+		},
+		{
+			"use case, concern, analysis and verification",
+			`package P {
+				part def Vehicle; part def Person;
+				use case def U { subject s : Vehicle; part extra : Person; }
+				use case def U1 :> U { subject s : Vehicle; part extra : Person; }
+				use case u : U { part extra : Person; }
+				concern def C { subject c : Vehicle; part x : Person; }
+				concern def C1 :> C { subject c : Vehicle; part x : Person; }
+				analysis def A { subject s : Vehicle; part q : Person; }
+				analysis def A1 :> A { subject s : Vehicle; part q : Person; }
+				verification def V { subject s : Vehicle; part q : Person; }
+				verification def V1 :> V { subject t : Vehicle; part q : Person; }
+			}`,
+			[]string{"extra", "extra", "x", "q", "q"},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r, _, _ := resolvedDoc(t, tc.src)
+			var got []string
+			for _, d := range diagnosticsWithCode(r, resolve.CodeNameConflict) {
+				if !strings.HasPrefix(d.Message, "Duplicate of inherited member name '") {
+					t.Errorf("unexpected conflict: %s", d.Message)
+					continue
+				}
+				got = append(got, strings.Split(d.Message, "'")[1])
+			}
+			if strings.Join(got, ",") != strings.Join(tc.want, ",") {
+				t.Errorf("conflicting names = %v, want %v", got, tc.want)
+			}
+		})
 	}
 }
 
@@ -515,9 +618,9 @@ func diagnosticsWithCode(r *resolve.Resolver, code string) []resolve.Diagnostic 
 
 // An imported membership KerML 7.2.5.4 hides — colliding with another import's
 // or with an owned name — is no membership of the importing namespace
-// (8.3.2.4.5 importedMemberships), so a subtype inherits none of it: the
-// warning stays on the import and the subtype is clean. A collision-free import
-// is inherited as before.
+// (8.3.2.4.5 importedMemberships), so a subtype inherits none of it and is
+// clean, the hiding itself being no violation. A collision-free import is
+// inherited as before.
 func TestHiddenImportsOfAGeneralAreNotInherited(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
@@ -527,7 +630,7 @@ func TestHiddenImportsOfAGeneralAreNotInherited(t *testing.T) {
 		{
 			"two imports collide",
 			`part def G { import A::*; import B::*; }`,
-			[]string{"Duplicate of imported member name 'x': P::A::x (import A::*), P::B::x (import B::*)"},
+			nil,
 		},
 		{
 			"an owned name hides an import",
@@ -559,11 +662,11 @@ func TestHiddenImportsOfAGeneralAreNotInherited(t *testing.T) {
 	}
 }
 
-// An import colliding with an inherited name of the same type is not hidden
-// (KerML 8.3.2.4.5 excludes only collisions with each other or with an owned
-// membership): the type is warned, and its subtypes inherit both members and
-// are warned in turn, as the pilot does.
-func TestImportsCollidingWithInheritedNamesAreInherited(t *testing.T) {
+// An import colliding with an inherited name of the same type is hidden by it
+// (KerML 7.3.2: "similarly to how it would be hidden by a conflicting owned
+// membership"), so it is no membership of the type and its subtypes inherit
+// the inherited member alone; nothing is reported at any level.
+func TestImportsCollidingWithInheritedNamesAreHidden(t *testing.T) {
 	r, _, _ := resolvedDoc(t, `package P {
 		part def Base { part x; }
 		package Q { part x; }
@@ -575,13 +678,25 @@ func TestImportsCollidingWithInheritedNamesAreInherited(t *testing.T) {
 	for _, d := range diagnosticsWithCode(r, resolve.CodeNameConflict) {
 		got = append(got, d.Message)
 	}
-	want := []string{
-		"Duplicate of imported member name 'x': P::Q::x (import Q::*), P::Base::x (inherited)",
-		"Duplicate of inherited member name 'x' from Base, Q",
-		"Duplicate of inherited member name 'x' from Base, Q",
+	if len(got) != 0 {
+		t.Errorf("name conflicts = %q, want none", got)
 	}
-	if strings.Join(got, "\n") != strings.Join(want, "\n") {
-		t.Errorf("name conflicts = %q, want %q", got, want)
+}
+
+// An inherited member hides an import under its short name as under its name
+// (KerML 8.3.2.4.3 compares both): the subtype inherits the member alone.
+func TestInheritedShortNameHidesImport(t *testing.T) {
+	r, root, scope := resolvedDoc(t, `package P {
+		part def Base { part <e> engine; }
+		package Q { part e; }
+		part def G :> Base { public import Q::*; }
+		part def S :> G { part x :> e; }
+	}`)
+	if got := bindingOf(t, r, root, scope, "e"); got != "P::Base::engine" {
+		t.Errorf("e binds %q, want P::Base::engine", got)
+	}
+	if got := diagnosticsWithCode(r, resolve.CodeNameConflict); len(got) != 0 {
+		t.Errorf("name conflicts = %v, want none", got)
 	}
 }
 

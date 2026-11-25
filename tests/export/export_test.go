@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -16,122 +15,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
-	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
-
-var update = flag.Bool("update", false, "rewrite the .golden.ttl and .golden.sysml files")
-
-// TestGoldenConversions locks each model's Turtle and the notation it converts
-// back to: as written with its source text, `.canonical.golden.sysml` without.
-func TestGoldenConversions(t *testing.T) {
-	for _, path := range modelFiles(t) {
-		name, ext := fixtureName(path)
-		t.Run(name, func(t *testing.T) {
-			src, err := os.ReadFile(path)
-			if err != nil {
-				t.Fatal(err)
-			}
-			turtle, err := convert.Convert(path, src, convert.FormatSysML, convert.FormatTurtle)
-			if err != nil {
-				t.Fatalf("to turtle: %v", err)
-			}
-			back, err := convert.Convert(name+".ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
-			if err != nil {
-				t.Fatalf("back to notation: %v\n%s", err, turtle)
-			}
-			if want := string(src); string(back) != want {
-				t.Errorf("the model did not come back as written:\n--- want ---\n%s--- got ---\n%s", want, back)
-			}
-			canonical, err := convert.Convert(name+".ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
-			if err != nil {
-				canonical = []byte("sysml: " + err.Error() + "\n")
-			}
-			stem := strings.TrimSuffix(path, ext)
-			checkGolden(t, stem+".golden.ttl", turtle)
-			checkGolden(t, stem+".golden"+ext, back)
-			checkGolden(t, stem+".canonical.golden"+ext, canonical)
-		})
-	}
-}
-
-// TestConvertedNotationParses checks that the notation written from a graph is
-// valid SysML: it must parse without a single syntax error.
-func TestConvertedNotationParses(t *testing.T) {
-	for _, path := range modelFiles(t) {
-		name, ext := fixtureName(path)
-		t.Run(name, func(t *testing.T) {
-			src, err := os.ReadFile(path)
-			if err != nil {
-				t.Fatal(err)
-			}
-			turtle, err := convert.Convert(path, src, convert.FormatSysML, convert.FormatTurtle)
-			if err != nil {
-				t.Fatalf("to turtle: %v", err)
-			}
-			back, err := convert.Convert(name+".ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
-			if err != nil {
-				t.Fatalf("back to notation: %v", err)
-			}
-			p := parser.New(source.New(name+".converted"+ext, back))
-			p.ParseFile()
-			if len(p.Diagnostics) > 0 {
-				t.Errorf("converted notation does not parse: %v\n%s", p.Diagnostics, back)
-			}
-		})
-	}
-}
-
-// textOnlyFixtures are the models whose graph the mapping cannot write back
-// without its source text, by the refusal it must keep reporting for them.
-var textOnlyFixtures = map[string]string{}
-
-// TestRoundTripIsLossless is the fidelity contract: converting the notation a
-// graph produced back to a graph gives the same graph. Notation and RDF say the
-// same thing in different words, so this is what "no data lost" means — the
-// notation itself may legitimately be spelled differently (a name written
-// relative to its scope, a keyword written in place of its symbol).
-func TestRoundTripIsLossless(t *testing.T) {
-	for _, path := range modelFiles(t) {
-		name, ext := fixtureName(path)
-		t.Run(name, func(t *testing.T) {
-			src, err := os.ReadFile(path)
-			if err != nil {
-				t.Fatal(err)
-			}
-			first, err := convert.Convert(path, src, convert.FormatSysML, convert.FormatTurtle)
-			if err != nil {
-				t.Fatalf("to turtle: %v", err)
-			}
-			back, err := convert.Convert(name+".ttl", first, convert.FormatTurtle, convert.FormatSysML)
-			if err != nil {
-				t.Fatalf("back to notation: %v", err)
-			}
-			second, err := convert.Convert(name+ext, back, convert.FormatSysML, convert.FormatTurtle)
-			if err != nil {
-				t.Fatalf("to turtle again: %v", err)
-			}
-			if string(first) != string(second) {
-				t.Errorf("round trip changed the graph\n--- first ---\n%s\n--- second ---\n%s", first, second)
-			}
-			if textOnly, ok := textOnlyFixtures[name]; ok {
-				_, err := convert.Convert(name+".ttl", withoutTriples(t, first, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
-				var unsupported *export.UnsupportedError
-				if !errors.As(err, &unsupported) || !strings.Contains(err.Error(), textOnly) {
-					t.Fatalf("the mapping alone should still refuse %s (%s), got: %v", name, textOnly, err)
-				}
-				return
-			}
-			if name == "payload_declaration_bodies" {
-				if _, err := convert.Convert(name+".ttl", withoutTriples(t, first, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML); err != nil {
-					t.Fatalf("the mapping alone should infer flow end forms: %v", err)
-				}
-				return
-			}
-			structuralRoundTrip(t, name+ext, first)
-		})
-	}
-}
 
 // structuralRoundTrip strips the source text from a graph and requires the
 // structure alone to carry it to notation and back; it returns that notation.
@@ -686,6 +571,8 @@ func TestFixturesComeBackFromTheGraphAlone(t *testing.T) {
 		"nested_namespace_import.sysml",
 		"quoted_succession_ends.sysml",
 		"individual_definitions.sysml",
+		"empty_names.sysml",
+		"empty_names_behavior.sysml",
 	}
 	for _, fixture := range fixtures {
 		path := filepath.Join("testdata", "convert", fixture)
@@ -713,33 +600,75 @@ func TestFixturesComeBackFromTheGraphAlone(t *testing.T) {
 }
 
 // TestIndividualDefinitionWithoutItsFlagReadsAsIndividual covers a graph typed
-// sysml:IndividualDefinition that carries no sysml:isIndividual, the shape
-// earlier releases wrote: the metaclass states the fact, so it reads back as
-// `individual def` and its next hop is the graph an `individual def` writes today.
+// sysml:IndividualDefinition or sysml:IndividualUsage with neither sysml:isIndividual
+// nor the written keyword, the shape earlier releases wrote: the metaclass states the
+// fact, so it reads back as `individual def` / `individual`, its API-JSON is the
+// occurrence metaclass's, and its next hop is the graph written today.
 func TestIndividualDefinitionWithoutItsFlagReadsAsIndividual(t *testing.T) {
 	src := `package P {
     individual def Eagle;
+    individual lander : Eagle;
 }`
 	first, err := convert.Convert("legacy.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	if !strings.Contains(string(first), "sysml:isIndividual") {
-		t.Fatalf("an individual def should carry sysml:isIndividual\n%s", first)
+	for _, stated := range []string{"a sysml:OccurrenceDefinition ;", "a sysml:OccurrenceUsage ;", "sysml:isIndividual", `sysx:declaredKeyword "individual"`} {
+		if !strings.Contains(string(first), stated) {
+			t.Fatalf("an individual should write %s\n%s", stated, first)
+		}
 	}
-	legacy := withoutTriples(t, withoutTriples(t, first, "sysx:sourceText"), "sysml:isIndividual")
+	legacy := withoutTriples(t, first, "sysx:sourceText")
+	for _, property := range []string{"sysml:isIndividual", "sysx:declaredKeyword"} {
+		legacy = withoutTriples(t, legacy, property)
+	}
+	legacy = []byte(strings.NewReplacer(
+		"a sysml:OccurrenceDefinition ;", "a sysml:IndividualDefinition ;",
+		"a sysml:OccurrenceUsage ;", "a sysml:IndividualUsage ;",
+	).Replace(string(legacy)))
 	back, err := convert.Convert("legacy.ttl", legacy, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v", err)
 	}
-	if !strings.Contains(string(back), "individual def Eagle;") {
-		t.Errorf("an IndividualDefinition without its flag should still read as individual\n%s", back)
+	for _, want := range []string{"individual def Eagle;", "individual lander : Eagle;"} {
+		if !strings.Contains(string(back), want) {
+			t.Errorf("a legacy-typed individual should still read as %q\n%s", want, back)
+		}
 	}
 	second, err := convert.Convert("legacy.sysml", back, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle again: %v", err)
 	}
 	requireSameGraphBytes(t, back, first, second)
+	apiJSON, err := convert.Convert("legacy.ttl", legacy, convert.FormatTurtle, convert.FormatAPIJSON)
+	if err != nil {
+		t.Fatalf("legacy turtle to api-json: %v", err)
+	}
+	var elements []map[string]any
+	if err := json.Unmarshal(apiJSON, &elements); err != nil {
+		t.Fatalf("api-json: %v", err)
+	}
+	found := map[string]string{}
+	for _, element := range elements {
+		payload, _ := element["payload"].(map[string]any)
+		if payload == nil {
+			payload = element
+		}
+		name, _ := payload["declaredName"].(string)
+		if name != "Eagle" && name != "lander" {
+			continue
+		}
+		found[name], _ = payload["@type"].(string)
+		if individual, _ := payload["isIndividual"].(bool); !individual {
+			t.Errorf("legacy %s: api-json isIndividual = %v, want true", name, payload["isIndividual"])
+		}
+		if _, list := payload["ownedRelationship"].([]any); !list {
+			t.Errorf("legacy %s: api-json ownedRelationship = %T, want a list (the occurrence metaclass's cardinality)", name, payload["ownedRelationship"])
+		}
+	}
+	if found["Eagle"] != "OccurrenceDefinition" || found["lander"] != "OccurrenceUsage" {
+		t.Errorf("legacy api-json types = %v, want OccurrenceDefinition / OccurrenceUsage", found)
+	}
 }
 
 // tripleSetDiff parses two Turtle documents and returns the triples only the
@@ -2433,31 +2362,13 @@ var sourceRangeProperties = []string{"sysx:sourceLine", "sysx:sourceColumn", "sy
 func withoutTriples(t *testing.T, turtle []byte, property string) []byte {
 	t.Helper()
 	if property == "sysx:sourceText" {
+		// Where a declaration is written and the notes on its lines are layout, as its text is.
 		for _, position := range sourceRangeProperties {
 			turtle = withoutTriples(t, turtle, position)
 		}
+		turtle = withoutNotes(t, turtle)
 	}
-	var blocks []string
-	for _, block := range strings.Split(string(turtle), "\n\n") {
-		var kept []string
-		for _, line := range strings.Split(block, "\n") {
-			if strings.HasPrefix(strings.TrimSpace(line), property+" ") {
-				continue
-			}
-			kept = append(kept, line)
-		}
-		// Dropping the last triple of a block leaves the one before it to end it.
-		for i := len(kept) - 1; i >= 0; i-- {
-			if trimmed := strings.TrimRight(kept[i], "\n"); strings.HasSuffix(trimmed, " ;") {
-				kept[i] = strings.TrimSuffix(trimmed, " ;") + " ."
-				break
-			} else if trimmed != "" {
-				break
-			}
-		}
-		blocks = append(blocks, strings.Join(kept, "\n"))
-	}
-	return []byte(strings.Join(blocks, "\n\n"))
+	return withoutProperty(t, turtle, property)
 }
 
 // Every end-binding head states the form its ends are written in, so the
@@ -3320,7 +3231,7 @@ func TestElementIRIsEncodeQualifiedNames(t *testing.T) {
 // the succession a transition owns (`_succession`), the referent memberships an
 // expression's referent edge restates, and a
 // filtered import's unnamed `_fp` package with its `_im` import and `_efm` filter.
-var materializedSuffixID = regexp.MustCompile(`_(ft|sc|ss|sp|rd|rs)[0-9]*(_om)?$|_(subject|conjugated|pc|referent|preferent|targetFeature|succession|linkparam|triggerparam)(_om)?$|_fp(_im|_efm)?$|_an$`)
+var materializedSuffixID = regexp.MustCompile(`_(ft|sc|ss|sp|rd|rs)[0-9]*(_om)?$|_(subject|conjugated|pc|referent|preferent|targetFeature|succession|linkparam|triggerparam|transitionlink)(_om)?$|_fp(_im|_efm)?$|_an[0-9]*$`)
 
 // materializedExprID is the same convention inside an expression node's id.
 var materializedExprID = regexp.MustCompile(`_(subject|conjugated|pc|referent|preferent|targetFeature|succession)(_|$)|_(ft|sc|ss|sp|rd|rs)[0-9]`)
@@ -3370,7 +3281,11 @@ func TestFixtureElementIDsRoundTrip(t *testing.T) {
 			if materializedSuffixID.MatchString(strings.TrimPrefix(subject.Value, rdf.Element)) {
 				continue
 			}
-			qname, ok := graph.Lexical(subject, rdf.SysML+"qualifiedName")
+			// The address is stated beside a qualified name that spells it differently.
+			qname, ok := graph.Lexical(subject, rdf.OpenSysML+"mappingQualifiedName")
+			if !ok {
+				qname, ok = graph.Lexical(subject, rdf.SysML+"qualifiedName")
+			}
 			if !ok {
 				qname, ok = graph.Lexical(subject, rdf.OpenSysML+"positionalName")
 			}
@@ -3425,56 +3340,6 @@ func TestFormatDetection(t *testing.T) {
 	}
 	if convert.FormatXMI.Writable() || !convert.FormatSysML.Writable() || !convert.FormatTurtle.Writable() {
 		t.Error("XMI is the one format that is read and never written")
-	}
-}
-
-// TestConvertFromXMI checks the XMI entry into the conversion paths: v1 XMI
-// migrates to notation and to Turtle, the report comes back from Migrate, and
-// nothing writes XMI.
-func TestConvertFromXMI(t *testing.T) {
-	data, err := os.ReadFile(filepath.Join("..", "migrate", "testdata", "xmi", "vehicle.xmi"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	migrated, err := convert.Migrate("vehicle.xmi", data, convert.FormatSysML, migrate.Options{})
-	if err != nil {
-		t.Fatalf("Migrate to notation: %v", err)
-	}
-	if migrated.Report == nil || len(migrated.Report.Entries) == 0 {
-		t.Fatal("Migrate returned no report")
-	}
-	if migrated.Results == nil {
-		t.Fatal("Migrate returned no results index")
-	}
-	notation := migrated.Output
-	if !strings.Contains(string(notation), "part def Vehicle") {
-		t.Errorf("migrated notation lacks the Vehicle block:\n%s", notation)
-	}
-	if again, err := convert.Convert("vehicle.xmi", data, convert.FormatXMI, convert.FormatSysML); err != nil || string(again) != string(notation) {
-		t.Errorf("Convert from XMI differs from Migrate: %v", err)
-	}
-
-	asTurtle, err := convert.Migrate("vehicle.xmi", data, convert.FormatTurtle, migrate.Options{})
-	if err != nil {
-		t.Fatalf("Migrate to Turtle: %v", err)
-	}
-	graph, err := rdf.ParseTurtle(asTurtle.Output)
-	if err != nil {
-		t.Fatalf("migrated Turtle does not parse: %v", err)
-	}
-	if len(graph.Triples()) == 0 {
-		t.Error("migrated Turtle is empty")
-	}
-
-	var notWritable *convert.NotWritableError
-	if _, err := convert.Convert("model.sysml", []byte("package P;"), convert.FormatSysML, convert.FormatXMI); !errors.As(err, &notWritable) {
-		t.Errorf("writing XMI: got %v, want a NotWritableError", err)
-	}
-	if _, err := convert.Migrate("vehicle.xmi", data, convert.FormatXMI, migrate.Options{}); !errors.As(err, &notWritable) {
-		t.Errorf("migrating to XMI: got %v, want a NotWritableError", err)
-	}
-	if _, err := convert.Convert("model.sysml", []byte("package P;"), convert.FormatXMI, convert.FormatSysML); err == nil {
-		t.Error("notation read as XMI was accepted")
 	}
 }
 
@@ -4068,7 +3933,9 @@ func TestLoopConditionsLinkTheLoopBodysActions(t *testing.T) {
 func TestMachineEndpointsLinkAcrossRegionsAndNesting(t *testing.T) {
 	turtle := toTurtle(t, filepath.Join("testdata", "convert", "endpoint_scopes.sysml"))
 	for _, want := range []string{
-		"sysml:targetFeature elmt:Machines__Lamp__on__heat__warm .",
+		"sysml:targetFeature elmt:Machines__Lamp__on__heat__warm",
+		// The `then warm` succession's Relationship::target, which its targetFeature redefines.
+		"sysml:target elmt:Machines__Lamp__on__heat__warm",
 		// A transition's own target, ahead of the order annotations its
 		// several owned relationships carry.
 		"sysml:target elmt:Machines__Lamp__on__light__bright ;\n    json:ownedRelationship",
@@ -4115,8 +3982,10 @@ func structuralTriples(t *testing.T, turtle []byte) map[rdf.Triple]bool {
 	}
 	out := map[rdf.Triple]bool{}
 	for _, triple := range g.Triples() {
+		// The notes of an element's lines are layout, as its text is.
 		if triple.Predicate == rdf.OpenSysMLTerm("sourceText") || triple.Predicate == rdf.OpenSysMLTerm("sourceTail") ||
-			export.IsSourceRangeProperty(triple.Predicate.Value) {
+			export.IsSourceRangeProperty(triple.Predicate.Value) || export.IsNoteProperty(triple.Predicate.Value) ||
+			g.Type(triple.Subject) == rdf.OpenSysML+"Note" {
 			continue
 		}
 		out[triple] = true

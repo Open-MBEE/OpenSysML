@@ -65,6 +65,7 @@ func TestAPIJSONUnnamedUsageWritesOwnedAbsences(t *testing.T) {
 }
 
 func TestAPIJSONKeysStayWithinMetaclassPropertySets(t *testing.T) {
+	t.Parallel()
 	for _, path := range modelFiles(t) {
 		name, _ := fixtureName(path)
 		t.Run(name, func(t *testing.T) {
@@ -140,6 +141,7 @@ func TestAPIJSONPropertiesWithPositiveLowerBoundsAreNeverNullForConvertFixtures(
 }
 
 func TestAPIJSONWriteReadWriteIsByteIdenticalForConvertFixtures(t *testing.T) {
+	t.Parallel()
 	for _, path := range modelFiles(t) {
 		name, _ := fixtureName(path)
 		t.Run(name, func(t *testing.T) {

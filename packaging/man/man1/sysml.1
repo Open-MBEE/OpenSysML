@@ -49,8 +49,8 @@ to no OpenSysML library
 .TP
 .BR \-disable\-lint " \fIcode\fP"
 Leave this lint out of the model's diagnostics: undeclared\-signal,
-port\-type\-mismatch, deferred\-keeper\-unmarked or rounded\-real\-literal,
-comma\-separated or repeated
+deferred\-keeper\-unmarked or rounded\-real\-literal, comma\-separated or
+repeated
 .TP
 .BR \-enable\-lint " \fIcode\fP"
 Report this opt\-in lint, off by default, in the model's diagnostics:
@@ -111,6 +111,18 @@ beside the case's
 .BR \-run\-query " \fIquery\fP"
 Execute this document query and report its rows, as \-run\-query "Heavy
 root=telescope" (repeatable)
+.TP
+.BR \-run\-inline\-query " \fIexpression\fP"
+Execute this query expression \(em the body of a document query, written in
+place \(em and report its rows, as \-run\-inline\-query
+\&'Project(WhereType(Descendants(Named("Vehicles")), "PartUsage"), ("name",
+"mass"))' (repeatable)
+.TP
+.BR \-as\-view " \fIfile\fP"
+Write the answer of each \-run\-query, \-run\-inline\-query or \-query into
+this file as a QVTS::QueryResult view, or with \- print it in place of the
+rows: the selected elements exposed, or a path or model error's frontier and
+finding elements, with the query, source, outcome and provenance
 .TP
 .BR \-instantiate " \fIname\fP"
 Create an object of this definition or usage before the checks, so a verdict
@@ -253,6 +265,12 @@ this JSON side file; the element array stays unchanged
 .B \-include\-library\-stubs
 With \-convert api\-json, restore pre\-0.11.0 ownerless library stubs for
 legacy readers (default off)
+.TP
+.B \-inherited\-members
+With \-convert api\-json, also write on every Namespace and Type the derived
+lists that repeat its inherited and imported members (membership, member,
+inheritedMembership, importedMembership, featureMembership, feature,
+inheritedFeature); off, an element carries its owned structure (default off)
 .TP
 .B \-keep\-line\-breaks
 With \-convert sysml or kerml, keep the author's line breaks and fix
@@ -454,6 +472,12 @@ or on a grid, and routed to its ports for neato \-n2 to draw), or polyline,
 straight segments; the Pilot visualizer's ORTHOLINE and POLYLINE styles.
 Mermaid and D2 note the routing as not represented
 .TP
+.BR \-render\-direction " \fIdirection\fP"
+Direction a graph\-shaped form of \-render or \-render\-all flows in: TB, top
+to bottom, LR, left to right, RL or BT; unset leaves each kind's default.
+Mermaid, DOT and D2 draw all four, PlantUML notes RL and BT as not
+represented, draw.io keeps its positions, text and the tables ignore it
+.TP
 .BR \-render\-show " \fIelements\fP"
 Optional notation elements \-render, \-render\-all and document diagrams draw
 besides the default (port symbols, compartments and keywords),
@@ -594,6 +618,10 @@ tokens, state transitions
 Render the trace of a run as timeline or sequence into path (\- is stdout);
 form comes from \-render\-form or the path extension
 .TP
+.BR \-render\-limit " \fIcount\fP"
+The most spans or messages a \-render\-run rendering draws; 200 by default. A
+rendering cut short says so in a notice
+.TP
 .BR \-cpuprofile " \fIfile\fP"
 Write a CPU profile of the run to this file, for go tool pprof
 .TP
@@ -647,6 +675,9 @@ sysml \-analysis "CostAnalysis ship" model.sysml
 sysml \-analysis speedCheck model.sysml
 # Execute a document query
 sysml \-run\-query "Heavy root=scope" model.sysml
+# \&...or a query expression written in place
+sysml \-run\-inline\-query 'Project(Descendants(Named("Lander")), \e
+    ("name"))' m.sysml
 # Run an action to completion
 sysml \-action Drive model.sysml
 # Run a state machine for 10 time units
@@ -1123,15 +1154,17 @@ polyline, straight segments, as the Pilot visualizer's ORTHOLINE and POLYLINE
 styles do; Mermaid and D2 note the routing. Under ortho the DOT form lays the
 drawing out itself, with Graphviz's dot (OPENSYSML_DOT, else PATH) or on a
 grid, and routes every edge to its port, writing a positioned graph for neato
-\-n2 to draw. A DiagramLayout Style on a member colours it over either look,
-and a Note is drawn beside the member it is about. A view whose members carry
-DiagramLayout positions draws the placed members and the edges between them in
-every graph form, and leaves a member with no position undrawn: the DOT form
-pins each at its stated place, so nothing lands on a positioned box, while
-Mermaid, PlantUML and D2 lay the same members out themselves and drawio puts
-them on a grid for draw.io to arrange. \-render\-unplaced strip draws the
-unplaced members too, in rows in a strip below a DOT drawing. The same setting
-shapes the diagrams of \-render\-document and \-render\-documents.
+\-n2 to draw. \-render\-direction names the direction a graph\-shaped form
+flows in: TB, LR, RL or BT. A DiagramLayout Style on a member colours it over
+either look, and a Note is drawn beside the member it is about. A view whose
+members carry DiagramLayout positions draws the placed members and the edges
+between them in every graph form, and leaves a member with no position
+undrawn: the DOT form pins each at its stated place, so nothing lands on a
+positioned box, while Mermaid, PlantUML and D2 lay the same members out
+themselves and drawio puts them on a grid for draw.io to arrange.
+\-render\-unplaced strip draws the unplaced members too, in rows in a strip
+below a DOT drawing. The same setting shapes the diagrams of
+\-render\-document and \-render\-documents.
 .SH LISTING DOCUMENTS AND VIEWS
 .RS 2
 .nf
@@ -1288,7 +1321,8 @@ model that did not analyse cleanly, an unresolved name, a failed conversion.
 Part of what was asked was carried out: a \-render\-documents set in which
 some document could not be rendered. The others were written, a page stating
 the error stands in for each that was not, and each failure is reported with
-the document's qualified name.
+the document's qualified name. Or a \-migrate that wrote the output and report
+but nothing of the model, none of its elements being mapped or approximated.
 .SH OUTPUT STREAMS
 What was asked for is reported on stdout and what went wrong on stderr,
 prefixed "sysml: " unless it locates a finding in the source.

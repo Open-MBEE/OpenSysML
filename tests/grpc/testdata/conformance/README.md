@@ -13,13 +13,21 @@ in this directory, so adding a case is a data-only change.
 ## Expectation schema
 
 `Convert` cases declare `library_references` entries with `id`, `qualified_name` and
-`type`. They verify both array and compact output, with and without legacy stubs.
+`type`. They verify both array and compact output, with and without legacy stubs. A table
+over 150 KiB is committed as `library_references_digest` instead (`sha256 <hex> rows <n>`
+over its rows, one a line), and every other form is held to the table the digest pins.
+`go test ./tests/grpc -run TestGRPCConformance -update-library-references` rewrites both
+forms from the service's response.
 
 | Field | Applies to | Meaning |
 |---|---|---|
 | `rpc` | all | `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`, `ApplyEdits`, `RunDocumentQuery`, `EvaluateCalc`, `RunRuns`, `SelfCheck`, `RecordRun`, `RenderView` or `Query` |
 | `view`, `compartments` | RenderView | the view or `#<kind>:<name>` pseudo-view to render and the compartment folding (`positioned`, `most` or `ports`; empty is `positioned`) |
 | `expected_node_names`, `expected_compartments`, `expected_edge_labels` | RenderView | the nodes drawn in order, the compartment each row is drawn in by the row's name, and the edge labels in order; `expected_error` a refusal instead |
+| `expected_parallel` | RenderView | the names of the nodes drawn «parallel», in order; omit when none is |
+| `form`, `palette`, `style`, `lines`, `direction`, `link`, `unplaced` | RenderView | the form to write the rendering in and the writer options it is written under; no `form` writes none and the response's `text` must be empty |
+| `expected_text`, `expected_text_contains` | RenderView | the text written, whole or as the parts it must hold; a case stating a `form` states one of them |
+| `expected_error_code` | RenderView | the status code a refusal stated by `expected_error` carries, as Connect names it (`invalid_argument`) |
 | `rpc` | all | `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`, `ApplyEdits`, `RunDocumentQuery`, `EvaluateCalc`, `ImportData` or `CompareResults` |
 | `imports`, `import_dry_run` | ImportData | the imports (`name`, `content`, optional `import_format` and `import_map`), in order, and whether to report without changing the model |
 | `expected_assignments` | ImportData | the assignments' descriptions over every import, in order; `expected_content` is the edited model, `expected_error` a refusal that leaves it unchanged |
@@ -37,6 +45,7 @@ empty else blocks are not authorable.
 | `context_symbol_id` | Evaluate | optional FQN whose scope the expression is evaluated in |
 | `subject_symbol_id` | Evaluate | optional FQN of a part/usage instantiated and evaluated against, so features read its feature values |
 | `symbol_id` | GetSymbol, Instantiate, ExecuteAction, ExecuteState, EvaluateCalc, CheckBehavior | FQN of the subject |
+| `lookup`, `expected_id` | GetSymbol, GetElementProperties | the kind `symbol_id` (`element_id`) is stated to be, `qualified_name` or `element_id` (none sends the legacy single string), and the id the symbol or element is answered under. Every id a GetSymbol answer reports — its own, its `child_ids`, its `members` — is also fetched back as an element id and must answer that id |
 | `arguments` | EvaluateCalc | positional arguments bound to the calc's parameters |
 | `tools` | EvaluateCalc | stand-ins under `internal/exec/analysis/testdata` built and registered from a manifest before the service is built |
 | `inputs` | ExecuteAction | parameter name → value, bound before execution |
@@ -62,19 +71,31 @@ empty else blocks are not authorable.
 | `question` | VerifyConstraint | `evaluate`, `holds` or `satisfiable`; a solver question skips when no SMT solver is installed unless `OPENSYSML_REQUIRE_SMT` is set |
 | `expected_status`, `expected_notes` | VerifyConstraint | the verdict's `status`, and the notes its answer rests on, in order: `kind` (`assumed_one` or `uncovered`), `subject`, `text` |
 | `query` | Query | the standard's `Query` as protojson writes it (`scope`, `select`, `where`, `orderBy`) |
+| `model` | all | the fixture parsed instead of `<name>.sysml`, so cases reading different elements of one model share it |
+| `element_id`, `properties` | GetElementProperties | the element read — a qualified name, a positional id (`Owner::@2`) or an id an earlier answer carried — and the specification names of the properties asked for, in order; empty reads every property the element form carries |
+| `expected_properties` | GetElementProperties | per property asked for, in order: `name`, `defining_class`, `many`, `derived`, the `values` as text — an element by its qualified name (its id when it has none), a literal as its text — and `unsupported_contains`, the text the reason must contain when the property has no answer; `expected_error` the in-band error instead |
 | `expected_element_ids`, `expected_query_error` | Query | the ids the answer reports, in order; or text the refusal's status message must contain |
-| `instantiate` | RunDocumentQuery, VerifyRequirement | FQNs `Instantiate` creates objects of first, in order, so the query can bind and enumerate them, or the verification is about the objects the model holds |
+| `expected_reach_paths` | Instantiate | the path each instance of the graph says the traversal reached it by (`reached_by.path`), in graph order, the root's being empty; each holder must hold the instance under the feature and index the path ends with |
+| `object_path` | InstancePaths | the object whose paths to list, as `DocumentObject.path`: the name a root was instantiated as, or a path through feature values from it (`Fuel::vehicle.wheels[2]`) |
+| `expected_paths` | InstancePaths | every root-relative path to the object in traversal order, each as `<root>.<path>` (the root alone when the object is a root); `expected_error` a refusal instead |
+| `instantiate` | RunDocumentQuery, VerifyRequirement, InstancePaths | FQNs `Instantiate` creates objects of first, in order, so the query can bind and enumerate them, or the verification is about the objects the model holds |
 | `subject_symbol_id` | VerifyRequirement | optional FQN of the part/usage instantiated as the requirement's subject; absent, the requirement is checked over the objects the model holds, as the REPL's `%requirement` is over a session's |
 | `expected_status`, `expected_verification_verdicts` | VerifyRequirement | the requirement verdict's `status`, and the body verdicts of the cases verifying it, in order: `case`, `kind`, `detail` (empty for a decided verdict) and `instance_type`, the type of the object the case ran on (empty for a run on none) |
 | `query_id` | RunDocumentQuery | FQN of the document query to run |
 | `bindings` | RunDocumentQuery | list of `{parameter, values}`, each value a document value bound to the parameter |
 | `expected_columns` | RunDocumentQuery | full ordered projected-column name list |
 | `expected_rows` | RunDocumentQuery | full ordered row list, each `{element, cells}` — the row's own document value and one list of document values per column |
-| `expected_result` | Evaluate, EvaluateCalc | expected `Value` |
+| `expected_result` | Evaluate, EvaluateCalc | expected `Value`; a `metaobject` is `"<elementId> : <metaclassId>"`, the element by the id a client keeps for it (qualified name, positional id or the element form's `@id`) |
 | `expected_attribute_names` | GetSymbol | full ordered attribute name list, own then inherited |
+| `expected_kind`, `expected_child_ids` | GetSymbol | the symbol's kind, and the full ordered list of its members' ids: a named member's qualified name, an unnamed one's positional identity (`Owner::@3`), an unnamed connector end's element id (`Owner__c_pend0`), each of which `symbol_id` may name too |
+| `expected_annotating_metadata_ids` | GetSymbol | full ordered list of the ids of the metadata usages annotating the symbol: its own prefix and body ones, then the `about` ones written elsewhere; `[]` requires none |
 | `expected_attributes` | GetSymbol | attribute name → `{type, value_kind, value, unit}`; no `value_kind` requires no value |
+| `expected_members` | GetSymbol | full ordered member list, own then inherited, each `{id, kind, inherited, inherited_from}`; library-inherited members are withheld from it |
+| `min_withheld_library_members` | GetSymbol | the response must count at least this many library-inherited members withheld from `members` |
 | `expected_metadata` | GetSymbol | metadata key → value the symbol must carry (`variation`, `variant`, `abstract`, `type`, …) |
 | `absent_metadata` | GetSymbol | metadata keys the symbol must not carry |
+| `expected_type_info` | GetSymbol | `{declared, resolved_id, types}`: the typing as written (empty when none is) and the derived `Feature::type` ids, most specific first |
+| `expected_specializations` | GetSymbol | full ordered list of generalization edges, each `{kind, declared, target_id}`; `kind` is `typing`, `specializes`, `subsets`, `redefines` or `references`; a chained `references` target is one entry per chaining feature |
 | `expected_feature_values` | Instantiate | feature name → `{materialized, value_kind, value, error}` |
 | `expected_instance_count` | Instantiate | number of reachable instances in the response graph |
 | `expected_outputs` | ExecuteAction, EvaluateCalc | output name → expected `Value`; for EvaluateCalc it is the outputs a calc usage computes when invoked without arguments |

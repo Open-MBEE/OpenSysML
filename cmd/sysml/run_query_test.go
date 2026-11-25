@@ -615,12 +615,12 @@ func TestRunQueryJSONTableSpellsRelationshipsByID(t *testing.T) {
 		t.Fatalf("want one check with a two-row table:\n%s", got.stdout)
 	}
 	for _, row := range report.Checks[0].Table.Rows {
-		if len(row.Cells) != 2 || len(row.Cells[0]) != 1 || len(row.Cells[1]) != 1 {
-			t.Fatalf("row %s: cells = %v, want one elementId and one ownedRelationship", row.Element, row.Cells)
+		if len(row.Cells) != 2 || len(row.Cells[0]) != 1 || len(row.Cells[1]) != 2 {
+			t.Fatalf("row %s: cells = %v, want one elementId and two ownedRelationships (the typing, the implied default Multiplicity's)", row.Element, row.Cells)
 		}
 		id, _ := strconv.Unquote(row.Cells[0][0])
-		if want := id + "_ft0"; id == "" || row.Cells[1][0] != want {
-			t.Errorf("row %s: ownedRelationship spelled %q, want %q", row.Element, row.Cells[1][0], want)
+		if want := []string{id + "_ft0", id + "_pmultiplicity_om"}; id == "" || !slices.Equal(row.Cells[1], want) {
+			t.Errorf("row %s: ownedRelationship spelled %q, want %q", row.Element, row.Cells[1], want)
 		}
 	}
 }
@@ -726,5 +726,44 @@ func TestRunQueryJSONTableSpellsAMultiplicitySubsetting(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("no row for Observatory::some:\n%s", got.stdout)
+	}
+}
+
+// TestRunInlineQueryFlag checks -run-inline-query runs as -run-query does, in
+// order with it, and reports a fault at its position in the expression.
+func TestRunInlineQueryFlag(t *testing.T) {
+	binary := buildCLI(t)
+
+	wantReport(t, check(t, binary, queryModel, "-run-inline-query",
+		`Project(WhereType(Descendants(Observatory::telescope), "PartUsage"), ("name", "mass"))`),
+		0, "✓ Inline query returned 2 rows",
+		"Columns: name, mass",
+		"Row 1: Observatory::telescope::optics",
+		`name = "optics"`,
+		"mass = 8.5",
+		"Row 2: Observatory::telescope::mount")
+
+	// The flags interleave in the order written, and a later failure gates the run.
+	wantReport(t, check(t, binary, queryModel,
+		"-run-inline-query", `WhereName(OwnedElements(Observatory::telescope), "startsWith", "m")`,
+		"-run-query", "HeavySubsystems root=telescope",
+		"-run-inline-query", `Project(Named("Observatory") ("name"))`),
+		2, "✓ Inline query returned 1 row", "✓ Query Observatory::HeavySubsystems returned 1 row",
+		"inline query 1:30: expected ')'", `Project(Named("Observatory") ("name"))`, "^")
+
+	// A path error keeps the QVTS outcome record, and the JSON report the expression as its subject.
+	out := check(t, binary, queryModel, "-json", "-run-inline-query", `Named(qualifiedName = "Observatory::telescop")`)
+	wantReport(t, out, 2, "inline query 1:1: query", "names no element Observatory::telescop", "pathError")
+	var report struct {
+		Checks []struct {
+			Subject string `json:"subject"`
+			Status  string `json:"status"`
+		} `json:"checks"`
+	}
+	if err := json.Unmarshal([]byte(out.stdout), &report); err != nil {
+		t.Fatalf("report is not JSON: %v\n%s", err, out.output())
+	}
+	if len(report.Checks) == 0 || report.Checks[len(report.Checks)-1].Subject != `Named(qualifiedName = "Observatory::telescop")` {
+		t.Errorf("checks = %+v, want the expression as the subject", report.Checks)
 	}
 }

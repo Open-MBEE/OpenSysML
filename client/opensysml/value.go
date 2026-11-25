@@ -12,8 +12,8 @@ import (
 // Value is one evaluated SysML value. It is a sealed sum: the concrete types
 // are Int, BigInt, Rational, Real, Complex, Bool, String, InstanceID, Sequence, Null, Unset,
 // Quantity, EnumLiteral, Array, Vector, VectorQuantity, MeasurementRef,
-// Function, Set, TensorQuantity, Metaobject and Undetermined, and a type switch over
-// them is exhaustive.
+// Function, Set, TensorQuantity, Metaobject, Undetermined, *CoordinateFrame and
+// *CoordinateTransformation, and a type switch over them is exhaustive.
 type Value interface {
 	isValue()
 }
@@ -34,8 +34,11 @@ type Int int64
 type BigInt struct{ n *big.Int }
 
 // NewInteger is n as the integer value it is: an Int within int64, otherwise a
-// BigInt holding a copy of n.
+// BigInt holding a copy of n. A nil n is zero.
 func NewInteger(n *big.Int) Number {
+	if n == nil {
+		return Int(0)
+	}
 	if n.IsInt64() {
 		return Int(n.Int64())
 	}
@@ -58,8 +61,13 @@ func (b BigInt) String() string { return b.Int().String() }
 // holds exactly, such as 0.5, crosses the wire as that Real.
 type Rational struct{ r *big.Rat }
 
-// NewRational is a Rational holding a copy of r.
-func NewRational(r *big.Rat) Rational { return Rational{r: new(big.Rat).Set(r)} }
+// NewRational is a Rational holding a copy of r. A nil r is zero.
+func NewRational(r *big.Rat) Rational {
+	if r == nil {
+		return Rational{}
+	}
+	return Rational{r: new(big.Rat).Set(r)}
+}
 
 // Rat returns a copy of the rational.
 func (q Rational) Rat() *big.Rat {
@@ -127,6 +135,9 @@ type Quantity struct {
 	Unit string
 	// Term is what the unit reduces to, which decides commensurability.
 	Term *UnitTerm
+	// ValueType is the quantity value type the service holds the quantity as
+	// ("ISQThermodynamics::EnergyValue"); empty for none. Sent back, it is kept.
+	ValueType string
 }
 
 // UnitTerm is a unit's reduction to base units, with its scale kept as an

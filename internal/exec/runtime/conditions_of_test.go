@@ -63,7 +63,7 @@ func TestConditionsOfNegatedElementKeepsRoles(t *testing.T) {
 		}
 	`)
 	sym := requirementNamed(t, scope, "SafeWindow")
-	if got, want := labelsOf(ctx.ConditionsOf(sym, sym.OwnerScope)), "required not level > 10"; got != want {
+	if got, want := labelsOf(ctx.ConditionsOf(sym, sym.OwnerScope)), "required not (level > 10)"; got != want {
 		t.Errorf("conditions are [%s], want [%s]", got, want)
 	}
 }

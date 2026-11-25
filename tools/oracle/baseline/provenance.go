@@ -5,7 +5,6 @@
 package baseline
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -45,11 +44,14 @@ type Record struct {
 	PilotArtifact string `json:"pilotArtifact"`
 	// Errata is the digest of the declared overlay, which changes what the
 	// oracles read and therefore what they measure.
-	Errata string  `json:"errataRegistry"`
-	Tools  []Tool  `json:"tools,omitempty"`
-	Inputs []Input `json:"inputs"`
-	// Recorded is the date the baseline was committed, stamped by the -update
-	// flag. A plain run leaves it empty so two runs stay byte-identical.
+	Errata string `json:"errataRegistry"`
+	// PilotJava is the Java feature release declared for the pilot's side, where a baseline
+	// records one; its oracle records under no other, as the pilot's output varies by JVM.
+	PilotJava string  `json:"pilotJava,omitempty"`
+	Tools     []Tool  `json:"tools,omitempty"`
+	Inputs    []Input `json:"inputs"`
+	// Recorded is the date an -update stamped, if it stamps one: a plain run leaves it empty so
+	// two runs stay byte-identical, and the api-json baseline omits it so branches never conflict on it.
 	Recorded string `json:"recorded,omitempty"`
 }
 
@@ -107,6 +109,22 @@ func ReadPin(root string) (Pin, error) {
 	return Pin{Tag: string(tag[1]), Commit: string(commit[1]), Artifact: string(artifact[1])}, nil
 }
 
+var pinJavaRe = regexp.MustCompile(`PILOT_JAVA="\$\{PILOT_JAVA:-([0-9]+)\}"`)
+
+// ReadPilotJava resolves the Java feature release scripts/pilot-pin.sh declares for the
+// baselines that record the JVM their pilot side was produced under.
+func ReadPilotJava(root string) (string, error) {
+	content, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(PinPath))) // #nosec G304 -- the pin is at a fixed path in this repository
+	if err != nil {
+		return "", fmt.Errorf("read %s: %w", PinPath, err)
+	}
+	java := pinJavaRe.FindSubmatch(content)
+	if java == nil {
+		return "", fmt.Errorf("%s declares no PILOT_JAVA", PinPath)
+	}
+	return string(java[1]), nil
+}
+
 // Today is the stamp -update writes into a baseline.
 func Today() string { return time.Now().UTC().Format("2006-01-02") }
 
@@ -143,38 +161,6 @@ func digestFiles(dir string, rel []string, digestFile func(string) (string, erro
 		fmt.Fprintf(sum, "%s\x00%s\n", name, digest)
 	}
 	return digestPrefix + hex.EncodeToString(sum.Sum(nil)), nil
-}
-
-// DigestPackage digests a Go package's non-test .go files, named relative to
-// dir and read with CRLF folded to LF, so the result is checkout-independent.
-func DigestPackage(dir string) (string, error) {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return "", err
-	}
-	var sources []string
-	for _, entry := range entries {
-		name := entry.Name()
-		if entry.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
-			continue
-		}
-		sources = append(sources, name)
-	}
-	if len(sources) == 0 {
-		return "", fmt.Errorf("%s holds no Go sources", dir)
-	}
-	return digestFiles(dir, sources, digestSourceFile)
-}
-
-// digestSourceFile digests a text source as git stores it (LF), whatever the
-// checkout's autocrlf setting rewrote it to.
-func digestSourceFile(path string) (string, error) {
-	content, err := os.ReadFile(path) // #nosec G304 -- callers name repository sources
-	if err != nil {
-		return "", err
-	}
-	sum := sha256.Sum256(bytes.ReplaceAll(content, []byte("\r\n"), []byte("\n")))
-	return digestPrefix + hex.EncodeToString(sum[:]), nil
 }
 
 // DigestStrings is the digest of a list of already-canonical strings, used for
@@ -232,12 +218,16 @@ const (
 	CauseOurs
 	// CausePinned: the pinned reference material changed underneath the baseline.
 	CausePinned
+	// CauseJVM: the baseline's pilot side was produced under a JVM other than the declared one.
+	CauseJVM
 )
 
 func (c Cause) action() string {
 	switch c {
 	case CausePin:
 		return "the repository's pilot pin has moved since this baseline was recorded: re-run the oracle against the new pin"
+	case CauseJVM:
+		return "the baseline's pilot side was produced under a JVM other than the one " + PinPath + " declares: re-record it with that Java first on PATH"
 	case CausePinned:
 		return "pinned reference material differs from what the baseline measured, at an unchanged pin: investigate the provisioning before re-recording, because the reference is not supposed to move underneath a pin"
 	default:
@@ -274,7 +264,9 @@ func Compare(recorded, current Record) []Mismatch {
 	add("pilotCommit", recorded.PilotCommit, current.PilotCommit, CausePin)
 	add("pilotArtifact", recorded.PilotArtifact, current.PilotArtifact, CausePin)
 	add("errataRegistry", recorded.Errata, current.Errata, CauseOurs)
+	add("pilotJava", recorded.PilotJava, current.PilotJava, CauseJVM)
 
+	const notRecorded = "not recorded"
 	recordedTools := make(map[string]Tool, len(recorded.Tools))
 	for _, tool := range recorded.Tools {
 		recordedTools[tool.Name] = tool
@@ -282,12 +274,18 @@ func Compare(recorded, current Record) []Mismatch {
 	for _, tool := range current.Tools {
 		was, ok := recordedTools[tool.Name]
 		if !ok {
-			out = append(out, Mismatch{Field: toolField(tool.Name, ""), Recorded: "not recorded", Current: "present", Cause: CauseOurs})
+			out = append(out, Mismatch{Field: toolField(tool.Name, ""), Recorded: notRecorded, Current: "present", Cause: CauseOurs})
 			continue
 		}
 		add(toolField(tool.Name, ".source"), was.Source, tool.Source, CauseOurs)
 		add(toolField(tool.Name, ".sourceDigest"), was.SourceDigest, tool.SourceDigest, CauseOurs)
 		add(toolField(tool.Name, ".release"), was.Release, tool.Release, CausePin)
+		delete(recordedTools, tool.Name)
+	}
+	for _, tool := range recorded.Tools {
+		if _, removed := recordedTools[tool.Name]; removed {
+			out = append(out, Mismatch{Field: toolField(tool.Name, ""), Recorded: "present", Current: notRecorded, Cause: CauseOurs})
+		}
 	}
 
 	recordedInputs := make(map[string]Input, len(recorded.Inputs))
@@ -301,13 +299,20 @@ func Compare(recorded, current Record) []Mismatch {
 		}
 		was, ok := recordedInputs[input.Name]
 		if !ok {
-			out = append(out, Mismatch{Field: inputField(input.Name, ""), Recorded: "not recorded", Current: input.Dir, Cause: cause})
+			out = append(out, Mismatch{Field: inputField(input.Name, ""), Recorded: notRecorded, Current: input.Dir, Cause: cause})
 			continue
 		}
 		add(inputField(input.Name, ".dir"), was.Dir, input.Dir, cause)
 		add(inputField(input.Name, ".origin"), was.Origin, input.Origin, cause)
 		add(inputField(input.Name, ".files"), fmt.Sprint(was.Files), fmt.Sprint(input.Files), cause)
 		add(inputField(input.Name, ".digest"), was.Digest, input.Digest, cause)
+		delete(recordedInputs, input.Name)
+	}
+	// A pinned input may be absent because it is not downloaded; one of ours cannot be.
+	for _, input := range recorded.Inputs {
+		if _, removed := recordedInputs[input.Name]; removed && input.Origin != OriginPinned {
+			out = append(out, Mismatch{Field: inputField(input.Name, ""), Recorded: input.Dir, Current: notRecorded, Cause: CauseOurs})
+		}
 	}
 	return out
 }
@@ -324,8 +329,8 @@ func Validate(recorded Record) error {
 		return fmt.Errorf("states no errata registry digest")
 	case len(recorded.Inputs) == 0:
 		return fmt.Errorf("states no compared inputs")
-	case !datePattern.MatchString(recorded.Recorded):
-		return fmt.Errorf("states no ISO recording date (%q)", recorded.Recorded)
+	case recorded.Recorded != "" && !datePattern.MatchString(recorded.Recorded):
+		return fmt.Errorf("states a non-ISO recording date (%q)", recorded.Recorded)
 	}
 	return nil
 }

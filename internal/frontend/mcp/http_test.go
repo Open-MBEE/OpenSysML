@@ -170,7 +170,7 @@ func TestOriginPolicyHandlerGrantsCORSByName(t *testing.T) {
 }
 
 // serveHTTP serves a new server over a loopback listener until the returned
-// stop function is called, which also waits for ServeStreamableHTTP to return.
+// stop function is called, which also waits for ServeHTTP to return.
 func serveHTTP(t *testing.T, cfg Config, logs *bytes.Buffer, addr string) (url string, stop func() error) {
 	t.Helper()
 	return serveHTTPWith(t, cfg, logs, addr, BearerToken{})
@@ -182,32 +182,57 @@ func serveHTTPWith(t *testing.T, cfg Config, logs *bytes.Buffer, addr string, to
 	ctx, cancel := context.WithCancel(context.Background())
 	cfg.NewSession = func() (*repl.Session, error) { return repl.NewSession(), nil }
 	cfg.Logger = slog.New(slog.NewTextHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	srv, err := New(ctx, cfg)
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
-	t.Cleanup(func() { srv.Close(context.Background()) })
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
 		t.Fatal(err)
 	}
 	done := make(chan error, 1)
 	go func() {
-		done <- srv.ServeStreamableHTTP(ctx, HTTPConfig{Listener: lis, Token: token, ShutdownTimeout: 20 * time.Second})
+		done <- ServeHTTP(ctx, cfg, HTTPConfig{Listener: lis, Token: token, ShutdownTimeout: 20 * time.Second, Logger: cfg.Logger})
 	}()
-	return "http://" + lis.Addr().String() + HTTPPath, func() error {
+	url = "http://" + lis.Addr().String()
+	waitReady(t, url)
+	return url + HTTPPath, func() error {
 		cancel()
 		select {
 		case err := <-done:
 			return err
 		case <-time.After(30 * time.Second):
-			t.Fatal("ServeStreamableHTTP did not return after its context ended")
+			t.Fatal("ServeHTTP did not return after its context ended")
 			return nil
 		}
 	}
 }
 
-func TestServeStreamableHTTPSharesTheServerAndStopsWithLiveSessions(t *testing.T) {
+// waitReady polls GET /ready of the server at base until it answers 200.
+func waitReady(t *testing.T, base string) {
+	t.Helper()
+	deadline := time.Now().Add(30 * time.Second)
+	for {
+		resp, err := http.Get(base + ReadyPath)
+		if err == nil {
+			resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				return
+			}
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("GET %s%s did not answer 200: %v", base, ReadyPath, err)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+// readyHandler is the handler a listener serves once srv is built, requiring
+// token of the protocol, with no origin named.
+func readyHandler(srv *Server, token BearerToken) http.Handler {
+	over := HTTPConfig{Token: token}
+	gate := &readiness{version: "test"}
+	gate.serve(srv.protocolHandler(over))
+	return serviceMux(gate, over)
+}
+
+func TestServeHTTPSharesTheServerAndStopsWithLiveSessions(t *testing.T) {
 	var logs bytes.Buffer
 	url, stop := serveHTTP(t, Config{Root: t.TempDir(), Groups: []Group{GroupSession}, Version: "test"}, &logs, "127.0.0.1:0")
 	ctx := context.Background()
@@ -237,7 +262,7 @@ func TestServeStreamableHTTPSharesTheServerAndStopsWithLiveSessions(t *testing.T
 	// them to end on their own.
 	started := time.Now()
 	if err := stop(); err != nil {
-		t.Fatalf("ServeStreamableHTTP: %v", err)
+		t.Fatalf("ServeHTTP: %v", err)
 	}
 	if took := time.Since(started); took > 15*time.Second {
 		t.Errorf("stopping took %v with live sessions", took)
@@ -252,27 +277,27 @@ func TestServeStreamableHTTPSharesTheServerAndStopsWithLiveSessions(t *testing.T
 	}
 }
 
-func TestServeStreamableHTTPRefusesOffLoopbackWithoutAToken(t *testing.T) {
-	srv, err := New(context.Background(), Config{Root: t.TempDir(), Groups: []Group{GroupSession}, Version: "test",
-		NewSession: func() (*repl.Session, error) { return repl.NewSession(), nil }})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer srv.Close(context.Background())
+func TestServeHTTPRefusesOffLoopbackWithoutAToken(t *testing.T) {
 	lis, err := net.Listen("tcp", "0.0.0.0:0")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer lis.Close()
-	err = srv.ServeStreamableHTTP(context.Background(), HTTPConfig{Listener: lis})
+	err = ServeHTTP(context.Background(), sessionConfig(t), HTTPConfig{Listener: lis})
 	if !errors.Is(err, ErrNoToken) || !strings.Contains(err.Error(), "-token-file") || !strings.Contains(err.Error(), TokenEnv) {
-		t.Errorf("ServeStreamableHTTP on every interface with no token: %v", err)
+		t.Errorf("ServeHTTP on every interface with no token: %v", err)
 	}
 }
 
-// TestServeStreamableHTTPWarnsOfATokenOverCleartext checks a token served
+// sessionConfig is a server of the session group over an empty workspace.
+func sessionConfig(t *testing.T) Config {
+	return Config{Root: t.TempDir(), Groups: []Group{GroupSession}, Version: "test",
+		NewSession: func() (*repl.Session, error) { return repl.NewSession(), nil }}
+}
+
+// TestServeHTTPWarnsOfATokenOverCleartext checks a token served
 // off loopback without TLS is warned about, and on loopback is not.
-func TestServeStreamableHTTPWarnsOfATokenOverCleartext(t *testing.T) {
+func TestServeHTTPWarnsOfATokenOverCleartext(t *testing.T) {
 	tok, _ := NewBearerToken("s3cret")
 	for addr, warned := range map[string]bool{"0.0.0.0:0": true, "127.0.0.1:0": false} {
 		var logs bytes.Buffer
@@ -289,19 +314,13 @@ func TestServeStreamableHTTPWarnsOfATokenOverCleartext(t *testing.T) {
 	}
 }
 
-func TestServeStreamableHTTPRefusesHalfATLSPair(t *testing.T) {
-	srv, err := New(context.Background(), Config{Root: t.TempDir(), Groups: []Group{GroupSession}, Version: "test",
-		NewSession: func() (*repl.Session, error) { return repl.NewSession(), nil }})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer srv.Close(context.Background())
+func TestServeHTTPRefusesHalfATLSPair(t *testing.T) {
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer lis.Close()
-	if err := srv.ServeStreamableHTTP(context.Background(), HTTPConfig{Listener: lis, CertFile: "server.crt"}); err == nil || !strings.Contains(err.Error(), "both") {
-		t.Errorf("ServeStreamableHTTP with a certificate alone: %v", err)
+	if err := ServeHTTP(context.Background(), sessionConfig(t), HTTPConfig{Listener: lis, CertFile: "server.crt"}); err == nil || !strings.Contains(err.Error(), "both") {
+		t.Errorf("ServeHTTP with a certificate alone: %v", err)
 	}
 }

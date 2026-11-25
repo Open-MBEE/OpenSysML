@@ -102,3 +102,71 @@ func TestTextOfShadowsTheFallbackByName(t *testing.T) {
 		t.Errorf("text without a fallback = %q, want none", got)
 	}
 }
+
+func TestDominantNewline(t *testing.T) {
+	for content, want := range map[string]string{
+		"":              "\n",
+		"a":             "\n",
+		"a\nb\n":        "\n",
+		"a\r\nb\r\n":    "\r\n",
+		"a\r\nb\nc\n":   "\n",
+		"a\r\nb\r\nc\n": "\r\n",
+		"a\r\nb\n":      "\n",
+	} {
+		if got := DominantNewline([]byte(content)); got != want {
+			t.Errorf("DominantNewline(%q) = %q, want %q", content, got, want)
+		}
+	}
+}
+
+// A span that does not lie within the content reads as "" rather than panicking.
+func TestSpanTextOutOfRange(t *testing.T) {
+	sf := New("t.sysml", []byte("part def"))
+	for _, sp := range []Span{
+		{Offset: -1, Len: 2},
+		{Offset: 0, Len: -1},
+		{Offset: 4, Len: 5},
+		{Offset: 9, Len: 0},
+		{Offset: 1, Len: int(^uint(0) >> 1)},
+	} {
+		if got := sf.Text(sp); got != "" {
+			t.Errorf("Text(%+v) = %q, want \"\"", sp, got)
+		}
+	}
+	if got := sf.Text(Span{Offset: 8, Len: 0}); got != "" {
+		t.Errorf("Text at the end = %q, want \"\"", got)
+	}
+	var none *SourceFile
+	if got := none.Text(Span{Len: 1}); got != "" {
+		t.Errorf("nil file Text = %q, want \"\"", got)
+	}
+	if got := (&SourceFile{}).Text(Span{}); got != "" {
+		t.Errorf("zero file Text = %q, want \"\"", got)
+	}
+}
+
+// A column outside its line has no offset, as a line outside the content has none.
+func TestLineIndexOffsetAtOutOfRange(t *testing.T) {
+	li := New("t.sysml", []byte("part\ndef\nE")).Lines()
+	for _, c := range []struct {
+		pos  Pos
+		want int
+	}{
+		{Pos{Line: 1, Col: 5}, 4},
+		{Pos{Line: 3, Col: 2}, 10},
+		{Pos{Line: 1, Col: 6}, -1},
+		{Pos{Line: 3, Col: 3}, -1},
+		{Pos{Line: 2, Col: 0}, -1},
+		{Pos{Line: 2, Col: -3}, -1},
+		{Pos{Line: 0, Col: 1}, -1},
+		{Pos{Line: 4, Col: 1}, -1},
+	} {
+		if got := li.OffsetAt(c.pos); got != c.want {
+			t.Errorf("OffsetAt(%+v) = %d, want %d", c.pos, got, c.want)
+		}
+	}
+	var none *LineIndex
+	if got := none.OffsetAt(Pos{Line: 1, Col: 1}); got != -1 {
+		t.Errorf("nil index OffsetAt = %d, want -1", got)
+	}
+}

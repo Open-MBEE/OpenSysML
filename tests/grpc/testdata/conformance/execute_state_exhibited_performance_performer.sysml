@@ -1,7 +1,7 @@
 package test {
     private import ScalarValues::*;
     private import SI::*;
-    attribute def Ping;
+    item def Ping;
     port def CommandPort { in item cmd : Ping; }
     state def Supervisor {
         port command : CommandPort;

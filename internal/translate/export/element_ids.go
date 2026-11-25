@@ -2,12 +2,14 @@ package export
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"slices"
 	"strings"
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -22,11 +24,16 @@ type ElementIDs struct {
 	// byNode keys each id by the declaration the conversion wrote it for: two
 	// identity scopes may declare one qualified name, and only the node tells
 	// their elements apart.
-	byNode   map[ast.Node]string
-	bySpan   map[spanKey]string // the same declaration in another parse of the document
-	byName   map[string]string
-	res      *resolve.Resolver
-	encoders []*encoder
+	byNode map[ast.Node]string
+	bySpan map[spanKey]string // the same declaration in another parse of the document
+	byName map[string]string
+	// addressByID is the address the conversion stated for each declared element's id: its
+	// qualifiedName, or its positional address (`P::@2::x`) where the metamodel derives none.
+	addressByID map[string]string
+	res         *resolve.Resolver
+	encoders    []*encoder
+	// leftOut names the documents ReadableElementIDs analyzed without recording their elements.
+	leftOut map[string]bool
 	// membershipByNode, membershipBySpan and membershipByName are the ids written
 	// for the owning membership of each declared element, keyed as the element's.
 	membershipByNode map[ast.Node]string
@@ -64,6 +71,58 @@ func NewElementIDs(documents []ModelDocument) (*ElementIDs, error) {
 	return identityIDsOf(res, encoders, referenced)
 }
 
+// ExcludedDocument is a document a model was read without, and why.
+type ExcludedDocument struct {
+	Document string
+	Err      error
+}
+
+// ReadableElementIDs is NewElementIDs without the documents unreadable names and those whose ids cannot be minted
+// or an earlier document declares; each stays analyzed, and they are returned in document order.
+func ReadableElementIDs(documents []ModelDocument, unreadable map[string]error) (*ElementIDs, []ExcludedDocument, error) {
+	res, encoders, err := modelEncodersOf(documents, IDQualifiedName)
+	if err != nil {
+		return nil, nil, err
+	}
+	declaredIn := map[string]mintedSubject{}
+	left := make([]bool, len(documents))
+	var excluded []ExcludedDocument
+	exclude := func(i int, err error) {
+		left[i] = true
+		excluded = append(excluded, ExcludedDocument{Document: documents[i].File.Name(), Err: err})
+	}
+	for i, e := range encoders {
+		if err := unreadable[documents[i].File.Name()]; err != nil {
+			exclude(i, err)
+			continue
+		}
+		minted := e.declaredSubjects()
+		if !documents[i].Referenced {
+			if err := e.mintDeclarations(); err != nil {
+				exclude(i, fmt.Errorf("%s: %w", e.file.Name(), err))
+				continue
+			}
+			minted = e.minted
+		}
+		if err := declaredOnce(declaredIn, minted); err != nil {
+			exclude(i, err)
+		}
+	}
+	ids := newElementIDTables(res, encoders)
+	ids.leftOut = map[string]bool{}
+	for i, e := range encoders {
+		if left[i] {
+			ids.leftOut[e.file.Name()] = true
+			continue
+		}
+		parents := e.parentDeclarations()
+		for _, node := range e.writtenDeclarations() {
+			ids.recordDeclaration(e, node, parents)
+		}
+	}
+	return ids, excluded, nil
+}
+
 // identityIDsOf records each written declaration's id (its subject's local name)
 // once the claims Convert makes for the documents (as modelToRDF does) succeed.
 func identityIDsOf(res *resolve.Resolver, encoders []*encoder, referenced []bool) (*ElementIDs, error) {
@@ -91,7 +150,7 @@ func identityIDsOf(res *resolve.Resolver, encoders []*encoder, referenced []bool
 }
 
 func newElementIDTables(res *resolve.Resolver, encoders []*encoder) *ElementIDs {
-	return &ElementIDs{byNode: map[ast.Node]string{}, bySpan: map[spanKey]string{}, byName: map[string]string{},
+	return &ElementIDs{byNode: map[ast.Node]string{}, bySpan: map[spanKey]string{}, byName: map[string]string{}, addressByID: map[string]string{},
 		membershipByNode: map[ast.Node]string{}, membershipBySpan: map[spanKey]string{}, membershipByName: map[string]string{},
 		relationshipByNode: map[ast.Node]string{}, relationshipBySpan: map[spanKey]string{},
 		conjugateByNode: map[ast.Node]conjugateIDs{}, conjugateBySpan: map[spanKey]conjugateIDs{},
@@ -100,13 +159,14 @@ func newElementIDTables(res *resolve.Resolver, encoders []*encoder) *ElementIDs 
 }
 
 func (ids *ElementIDs) recordDeclaration(e *encoder, node ast.Node, parents map[ast.Node]ast.Node) {
-	fqn := e.fqn[node]
+	fqn := e.names.FQN[node]
 	subject := e.ids.subjectForNode(node, fqn)
 	id := rdf.LocalName(subject.Value)
 	ids.byNode[node] = id
 	ids.bySpan[spanKey{e.file.Name(), node.Span()}] = id
 	if fqn != "" {
 		ids.byName[fqn] = id
+		ids.addressByID[id] = fqn
 	}
 	if membership, ok := e.writtenOwningMembership(node, parents[node], fqn); ok {
 		local := rdf.LocalName(membership.Value)
@@ -120,7 +180,19 @@ func (ids *ElementIDs) recordDeclaration(e *encoder, node ast.Node, parents map[
 		ids.conjugateBySpan[spanKey{e.file.Name(), node.Span()}] = conjugate
 	}
 	ids.recordValuePart(e, node, subject)
+	ids.recordFilterCondition(e, node, subject)
+	ids.recordSendArguments(e, node)
+	ids.recordGuard(e, node, subject)
+	ids.recordStatementOperands(e, node, subject)
+	ids.recordConstraintResult(e, node, subject)
+	ids.recordResultExpression(e, node, parents[node], subject)
+	ids.recordDefaultMultiplicity(e, node, subject)
 	ids.recordConnectorEnds(e, node, subject)
+	ids.recordFlowEndChains(e, node, subject)
+	ids.recordSuccessionEnds(e, node, subject)
+	ids.recordFlowEnds(e, node, subject)
+	ids.recordTransitionSuccession(e, node, subject)
+	ids.recordTransitionHead(e, node, subject)
 	ids.recordSatisfySubjects(e, node, subject)
 	ids.registerHeadChains(e, subject, chainTargets(e.writtenHeadClauses(node, parents[node], parents)))
 	for key, id := range e.writtenRelationships(node, parents[node], subject, parents) {
@@ -136,13 +208,200 @@ func (ids *ElementIDs) recordValuePart(e *encoder, node ast.Node, subject rdf.Te
 	}
 	// The value expression a declaration's value part writes, and the
 	// FeatureValue that owns it (featureValue, expressionOwnership).
-	value := e.ids.mintedNode(rdf.ExpressionIRI(subject, pValue), subject, pValue)
-	ids.byNode[valued] = rdf.LocalName(value.Value)
-	ids.bySpan[spanKey{e.file.Name(), valued.Span()}] = ids.byNode[valued]
+	ids.recordOwnedExpression(e, valued, subject, pValue)
+}
+
+// recordSendArguments files the parameters a send owns for its arguments (encodeSendArguments) under the
+// send at "arg%d", the argument's position, and each value written under its parameter, with its parts.
+func (ids *ElementIDs) recordSendArguments(e *encoder, node ast.Node) {
+	send := symbols.SendStatementOf(node)
+	if send == nil {
+		return
+	}
+	fqn := e.names.FQN[node]
+	arguments := [3]ast.Node{send.Message}
+	written := [3]bool{true}
+	switch {
+	case send.IsVia:
+		arguments[1], written[1] = send.Target, true
+		if send.Receiver != nil {
+			arguments[2], written[2] = send.Receiver, true
+		}
+	case send.Target != nil:
+		written[1] = true
+		arguments[2], written[2] = send.Target, true
+	}
+	index := 0
+	for i, argument := range arguments {
+		if !written[i] {
+			continue
+		}
+		param := e.ids.subjectFor(naming.Positional(fqn, index))
+		index++
+		slot := fmt.Sprintf("arg%d", i)
+		part := partIDs{element: rdf.LocalName(param.Value), membership: rdf.LocalName(rdf.OwningMembershipIRIOf(param).Value)}
+		ids.partByNode[partKey{send, slot}] = part
+		ids.partBySpan[spanPartKey{spanKey{e.file.Name(), send.Span()}, slot}] = part
+		if argument != nil {
+			ids.recordOwnedExpression(e, argument, param, pValue)
+		}
+	}
+}
+
+// recordStatementOperands records the expressions an action-body statement writes at its own slots
+// (encodeBehavior, encodeLoop), on the node written as the statement too (naming.NodeStatement), with their parts.
+func (ids *ElementIDs) recordStatementOperands(e *encoder, node ast.Node, subject rdf.Term) {
+	if usage, ok := node.(*ast.Usage); ok {
+		node = naming.NodeStatement(usage)
+	}
+	record := func(slot string, expression ast.Node) {
+		if expression != nil {
+			ids.recordOwnedExpression(e, expression, subject, slot)
+		}
+	}
+	switch n := node.(type) {
+	case *ast.PerformActionNode:
+		record(xExpression, n.ActionRef)
+	case *ast.ActionExecutionNode:
+		record(xExpression, n.Expression)
+	case *ast.AssignmentActionNode:
+		record(xTarget, n.Target)
+		record(pValue, n.Value)
+	case *ast.TerminateStatement:
+		record(xExpression, n.Target)
+	case *ast.IfActionNode:
+		record(xCondition, n.Condition)
+	case *ast.WhileLoopActionNode:
+		switch n.Kind {
+		case ast.LoopFor:
+			ids.recordLoopVariable(e, n, subject)
+			record(xCollection, n.Collection)
+		case ast.LoopWhile:
+			record(xWhileCondition, n.Condition)
+			record(xUntilCondition, n.Until)
+		default:
+			record(xUntilCondition, n.Condition)
+		}
+	}
+}
+
+// recordLoopVariable records the ReferenceUsage a `for` loop writes for its variable
+// (loopVariable), the membership owning it and the relationships its head states.
+func (ids *ElementIDs) recordLoopVariable(e *encoder, loop *ast.WhileLoopActionNode, subject rdf.Term) {
+	variable := e.ids.mintedNode(rdf.ExpressionIRI(subject, xLoopVariable), subject, xLoopVariable)
+	membership := e.ids.minted(rdf.OwningMembershipIRIOf(variable), variable, rdf.OwningMembershipSuffix)
+	recorded := partIDs{element: rdf.LocalName(variable.Value), membership: rdf.LocalName(membership.Value)}
+	ids.partByNode[partKey{loop, xLoopVariable}] = recorded
+	ids.partBySpan[spanPartKey{spanKey{e.file.Name(), loop.Span()}, xLoopVariable}] = recorded
+	head := map[ast.Node]string{}
+	e.clauseRelationshipIDs(variable, false, loop.VariableRelationships, head)
+	for key, id := range head {
+		ids.relationshipByNode[key] = id
+		ids.relationshipBySpan[spanKey{e.file.Name(), key.Span()}] = id
+	}
+}
+
+// recordGuard records the guard a transition owns through its TransitionFeatureMembership
+// (expressionAs at xGuard), with its parts.
+func (ids *ElementIDs) recordGuard(e *encoder, node ast.Node, subject rdf.Term) {
+	switch n := node.(type) {
+	case *ast.TransitionMember:
+		if n.Guard != nil {
+			ids.recordOwnedExpression(e, n.Guard, subject, xGuard)
+		}
+	case *ast.ControlFlowEdge:
+		if n.Guard != nil {
+			ids.recordOwnedExpression(e, n.Guard, subject, xGuard)
+		}
+	}
+}
+
+// recordOwnedExpression records the expression owner writes at slot, the membership that owns it, and its parts.
+func (ids *ElementIDs) recordOwnedExpression(e *encoder, expression ast.Node, owner rdf.Term, slot string) {
+	value := e.ids.mintedNode(rdf.ExpressionIRI(owner, slot), owner, slot)
+	ids.byNode[expression] = rdf.LocalName(value.Value)
+	ids.bySpan[spanKey{e.file.Name(), expression.Span()}] = ids.byNode[expression]
 	membership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(value), value, rdf.OwningMembershipSuffix).Value)
-	ids.membershipByNode[valued] = membership
-	ids.membershipBySpan[spanKey{e.file.Name(), valued.Span()}] = membership
-	e.registerExpressionIDs(ids, value, valued)
+	ids.membershipByNode[expression] = membership
+	ids.membershipBySpan[spanKey{e.file.Name(), expression.Span()}] = membership
+	e.registerExpressionIDs(ids, value, expression)
+}
+
+// recordFilterCondition records the condition a `filter` member writes at `filter` under
+// itself, the ElementFilterMembership that owns it (encode, *ast.FilterMember), for the id reader.
+func (ids *ElementIDs) recordFilterCondition(e *encoder, node ast.Node, subject rdf.Term) {
+	filter, ok := node.(*ast.FilterMember)
+	if !ok || filter.Condition == nil {
+		return
+	}
+	condition := e.ids.mintedNode(rdf.ExpressionIRI(subject, xFilter), subject, xFilter)
+	ids.byNode[filter.Condition] = rdf.LocalName(condition.Value)
+	ids.bySpan[spanKey{e.file.Name(), filter.Condition.Span()}] = ids.byNode[filter.Condition]
+	ids.membershipByNode[filter.Condition] = rdf.LocalName(subject.Value)
+	ids.membershipBySpan[spanKey{e.file.Name(), filter.Condition.Span()}] = ids.membershipByNode[filter.Condition]
+	e.registerExpressionIDs(ids, condition, filter.Condition)
+}
+
+// recordConstraintResult records a bare condition's expression under the member stating it, with
+// its parts, for the reflective result expression that declares the expression (ConstraintResultMember).
+func (ids *ElementIDs) recordConstraintResult(e *encoder, node ast.Node, subject rdf.Term) {
+	c, ok := node.(*ast.ConstraintMember)
+	if !ok || c.Keyword != "" || c.Name != "" || c.Body != nil || c.Expression == nil {
+		return
+	}
+	id := rdf.LocalName(subject.Value)
+	ids.byNode[c.Expression] = id
+	ids.bySpan[spanKey{e.file.Name(), c.Expression.Span()}] = id
+	if membership, ok := ids.membershipByNode[node]; ok {
+		ids.membershipByNode[c.Expression] = membership
+		ids.membershipBySpan[spanKey{e.file.Name(), c.Expression.Span()}] = membership
+	}
+	e.registerExpressionIDs(ids, subject, c.Expression)
+}
+
+// recordResultExpression records the parts of a bare expression a definition's or usage's body
+// states (ResultExpressionMembership) under the member it is written as, as recordConstraintResult does.
+func (ids *ElementIDs) recordResultExpression(e *encoder, node, parent ast.Node, subject rdf.Term) {
+	if !ast.IsExpression(node) || ast.DeclMembers(parent) == nil {
+		return
+	}
+	for _, member := range localMembers(parent) {
+		if m, ok := member.(*ast.Membership); ok {
+			member = m.Member
+		}
+		if member == node {
+			e.registerExpressionIDs(ids, subject, node)
+			return
+		}
+	}
+}
+
+// recordDefaultMultiplicity records the Multiplicity a usage's implicit [1..1] or an individual
+// definition is parsed with, or the range a usage writes, and its OwningMembership, for the id reader.
+func (ids *ElementIDs) recordDefaultMultiplicity(e *encoder, node ast.Node, subject rdf.Term) {
+	if decl, ok := node.(*ast.MultiplicityDecl); ok {
+		ids.recordMultiplicityBounds(e, node, subject, decl.Range)
+		return
+	}
+	sym := e.ids.declSym[node]
+	if sym == nil {
+		return
+	}
+	var element, membership rdf.Term
+	switch {
+	case semantics.UsageMultiplicityOf(sym) != nil:
+		// A written range is the MultiplicityRange the head owns in the same place (multiplicity).
+		element, membership = e.ids.multiplicityRange(subject)
+		ids.recordMultiplicityBounds(e, node, subject, semantics.UsageMultiplicityOf(sym))
+	case e.ids.model.ImpliesDefaultMultiplicity(sym):
+		element = e.ids.mintedNode(rdf.ExpressionIRI(subject, pMultiplicity), subject, pMultiplicity)
+		membership = e.ids.minted(rdf.OwningMembershipIRIOf(element), element, rdf.OwningMembershipSuffix)
+	default:
+		return
+	}
+	part := partIDs{element: rdf.LocalName(element.Value), membership: rdf.LocalName(membership.Value)}
+	ids.partByNode[partKey{node, pMultiplicity}] = part
+	ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, pMultiplicity}] = part
 }
 
 func (ids *ElementIDs) recordConnectorEnds(e *encoder, node ast.Node, subject rdf.Term) {
@@ -153,6 +412,8 @@ func (ids *ElementIDs) recordConnectorEnds(e *encoder, node ast.Node, subject rd
 		feature := e.ids.mintedNode(rdf.ExpressionIRI(subject, fmt.Sprintf("end%d", i)), subject, fmt.Sprintf("end%d", i))
 		ids.byNode[end] = rdf.LocalName(feature.Value)
 		ids.bySpan[spanKey{e.file.Name(), end.Span()}] = ids.byNode[end]
+		// The end states its implicit [1..1] as a usage does (connectorEnd).
+		ids.recordDefaultMultiplicity(e, end, feature)
 		// The head owns each end through a membership minted beside it (bindingEnds).
 		membership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix).Value)
 		ids.membershipByNode[end] = membership
@@ -173,6 +434,265 @@ func (ids *ElementIDs) recordConnectorEnds(e *encoder, node ast.Node, subject rd
 			}
 		}
 	}
+	// A flow's `from`/`to` ends are minted off the flow at their position (connectorEnd, messageEnd), each
+	// owned through a membership beside it; a flow end owns the flow feature redefining its last segment.
+	usage, ok := node.(*ast.Usage)
+	if !ok || usage.FlowEnds == nil {
+		return
+	}
+	for i, end := range []ast.Node{usage.FlowEnds.From, usage.FlowEnds.To} {
+		if end == nil {
+			continue
+		}
+		slot := fmt.Sprintf("end%d", i)
+		feature := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
+		ids.byNode[end] = rdf.LocalName(feature.Value)
+		ids.bySpan[spanKey{e.file.Name(), end.Span()}] = ids.byNode[end]
+		membership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix).Value)
+		ids.membershipByNode[end] = membership
+		ids.membershipBySpan[spanKey{e.file.Name(), end.Span()}] = membership
+		if usage.Keyword == "message" {
+			continue
+		}
+		flowFeature := rdf.LocalName(e.ids.mintedNode(rdf.ExpressionIRI(feature, "ff"), feature, "ff").Value)
+		ids.partByNode[partKey{end, "ff"}] = partIDs{element: flowFeature}
+		ids.partBySpan[spanPartKey{spanKey{e.file.Name(), end.Span()}, "ff"}] = partIDs{element: flowFeature}
+	}
+}
+
+// recordFlowEndChains files the chain Feature a flow's end references ahead of its payload (flowEndReferences) and
+// that chain's FeatureChainings under the chain as written (`a.b` of `flow a.b.x to c.y`), at "chain" and "chain.fcN".
+func (ids *ElementIDs) recordFlowEndChains(e *encoder, node ast.Node, subject rdf.Term) {
+	usage, ok := node.(*ast.Usage)
+	if !ok || !verbatimUsage(usage) || (usage.Kind == ast.UsageFlow && usage.Keyword == "message") {
+		return
+	}
+	for i := range 2 {
+		prefix := ast.FlowEndChainPrefix(usage, i)
+		if prefix == nil {
+			continue
+		}
+		slot := fmt.Sprintf("end%d", i)
+		end := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
+		chain := e.ids.mintedNode(rdf.ExpressionIRI(end, "chain"), end, "chain")
+		file := func(slot string, element rdf.Term) {
+			recorded := partIDs{element: rdf.LocalName(element.Value)}
+			ids.partByNode[partKey{prefix, slot}] = recorded
+			ids.partBySpan[spanPartKey{spanKey{e.file.Name(), prefix.Span()}, slot}] = recorded
+		}
+		file("chain", chain)
+		for link := range endChainLinks(prefix) {
+			position := fmt.Sprintf("fc%d", link)
+			file("chain."+position, e.ids.mintedNode(rdf.ExpressionIRI(chain, position), chain, position))
+		}
+	}
+}
+
+// transitionLinkParameterSlots name a transition's link parameters off its id (transitionHeadMembers):
+// the one every head owns, then the one ahead of a trigger.
+var transitionLinkParameterSlots = [2]string{"linkparam", "triggerparam"}
+
+// recordTransitionHead files what a transition's head owns (transitionHeadMembers): its source's Membership at
+// "psourcemember", its link parameters at "linkparam" and "triggerparam", its trigger's accept at "trigger".
+func (ids *ElementIDs) recordTransitionHead(e *encoder, node ast.Node, subject rdf.Term) {
+	var sourceMember bool
+	slots := transitionLinkParameterSlots[:1]
+	switch n := node.(type) {
+	case *ast.TransitionMember:
+		// A guarded `succession first a if g then b` owns the same parts (encodeTransition).
+		if n.Target == nil {
+			return
+		}
+		sourceMember = qualifiedText(n.Source) != "" && !qualifiedNameHasChain(n.Source) ||
+			qualifiedText(n.Source) == "" && e.transitionSourceTerm(n, nil, nil, e.names.Preceding[n]).Value != ""
+		if naming.TriggerPayload(e.file, n) != nil {
+			slots = transitionLinkParameterSlots[:]
+		}
+	case *ast.ControlFlowEdge:
+		// A decision's branch and a state body's `then x;` name their positional source (targetTransitionHeadMembers).
+		sourceMember = e.transitionSourceTerm(n, n.Source, n.SourceMember, e.names.Preceding[n]).Value != ""
+	case *ast.SuccessionEdge:
+		if !e.names.TargetTransitions[n] {
+			return
+		}
+		sourceMember = e.transitionSourceTerm(n, n.Source, n.SourceMember, e.names.Preceding[n]).Value != ""
+	default:
+		return
+	}
+	file := func(slot string, part partIDs) {
+		ids.partByNode[partKey{node, slot}] = part
+		ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot}] = part
+	}
+	if sourceMember {
+		file("psourcemember", partIDs{membership: rdf.LocalName(rdf.ExpressionIRI(subject, "sourcemember").Value)})
+	}
+	for _, slot := range slots {
+		feature := rdf.IRI(subject.Value + "_" + slot)
+		file(slot, partIDs{element: rdf.LocalName(feature.Value), membership: rdf.LocalName(rdf.OwningMembershipIRIOf(feature).Value)})
+	}
+	if len(slots) > 1 {
+		// The trigger's accept (encodeTrigger) declares no node of its own: its payload's is the trigger.
+		accepter := e.ids.subjectFor(e.names.FQN[node] + "::" + naming.TriggerSegment)
+		file("trigger", partIDs{element: rdf.LocalName(accepter.Value), membership: rdf.LocalName(rdf.OwningMembershipIRIOf(accepter).Value)})
+	}
+}
+
+// recordTransitionSuccession files the succession a transition owns (transitionSuccession) under the
+// transition's node at the slot "succession", and its transitionLink, so the query leg reads the conversion's ids.
+func (ids *ElementIDs) recordTransitionSuccession(e *encoder, node ast.Node, subject rdf.Term) {
+	switch n := node.(type) {
+	case *ast.TransitionMember:
+		// A guarded `succession first a if g then b` owns the same parts (encodeTransition).
+		if n.Target == nil {
+			return
+		}
+	case *ast.ControlFlowEdge:
+	case *ast.SuccessionEdge:
+		if !e.names.TargetTransitions[n] {
+			return
+		}
+	default:
+		return
+	}
+	succession := e.ids.minted(rdf.IRI(subject.Value+transitionSuccessionSuffix), subject, transitionSuccessionSuffix)
+	membership := e.ids.minted(rdf.OwningMembershipIRIOf(succession), succession, rdf.OwningMembershipSuffix)
+	recorded := partIDs{element: rdf.LocalName(succession.Value), membership: rdf.LocalName(membership.Value)}
+	ids.partByNode[partKey{node, "succession"}] = recorded
+	ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, "succession"}] = recorded
+	// The transitionLink the transition owns last (transitionLinkMember) files at "transitionlink".
+	link := e.ids.minted(rdf.IRI(subject.Value+transitionLinkSuffix), subject, transitionLinkSuffix)
+	linkMembership := e.ids.minted(rdf.OwningMembershipIRIOf(link), link, rdf.OwningMembershipSuffix)
+	transitionLink := partIDs{element: rdf.LocalName(link.Value), membership: rdf.LocalName(linkMembership.Value)}
+	ids.partByNode[partKey{node, "transitionlink"}] = transitionLink
+	ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, "transitionlink"}] = transitionLink
+	for i := 0; i < 2; i++ {
+		// The succession's two ends and the target end's ReferenceSubsetting are minted under it (transitionSuccession).
+		slot := fmt.Sprintf("succession.end%d", i)
+		feature := e.ids.mintedNode(rdf.ExpressionIRI(succession, fmt.Sprintf("end%d", i)), succession, fmt.Sprintf("end%d", i))
+		endMembership := e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix)
+		end := partIDs{element: rdf.LocalName(feature.Value), membership: rdf.LocalName(endMembership.Value)}
+		ids.partByNode[partKey{node, slot}] = end
+		ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot}] = end
+		if i == 1 {
+			reference := partIDs{element: e.referenceSubsettingID(feature)}
+			ids.partByNode[partKey{node, slot + ".rs"}] = reference
+			ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot + ".rs"}] = reference
+		}
+	}
+}
+
+// recordSuccessionEnds records the ends minted at end0/end1 under a `then` edge (encodeSuccessionEdge) or a
+// `first a then b;` (initialSuccessionEnds), with their memberships and the ReferenceSubsetting of a stated end.
+func (ids *ElementIDs) recordSuccessionEnds(e *encoder, node ast.Node, subject rdf.Term) {
+	var stated [2]bool
+	switch n := node.(type) {
+	case *ast.SuccessionEdge:
+		// A state body's `then x;` after a state is written as a TransitionUsage (encodeTargetTransition): no ends.
+		if e.names.TargetTransitions[n] || !semantics.SuccessionMintsEnds(n) {
+			return
+		}
+		stated[1] = e.successionTargetStated(n)
+	case *ast.InitialNode:
+		if _, _, linked := e.linked(e.res.InitialSymbol(n)); !linked || !n.Named() || qualifiedText(n.Successor) == "" {
+			return
+		}
+		stated = [2]bool{true, true}
+	default:
+		return
+	}
+	for i := 0; i < 2; i++ {
+		slot := fmt.Sprintf("end%d", i)
+		feature := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
+		membership := e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix)
+		recorded := partIDs{element: rdf.LocalName(feature.Value), membership: rdf.LocalName(membership.Value)}
+		ids.partByNode[partKey{node, slot}] = recorded
+		ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot}] = recorded
+		if stated[i] {
+			reference := partIDs{element: e.referenceSubsettingID(feature)}
+			ids.partByNode[partKey{node, slot + ".rs"}] = reference
+			ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot + ".rs"}] = reference
+		}
+	}
+}
+
+// recordFlowEnds records the ids the conversion mints for a flow's two FlowEnds at end0/end1: the end and its
+// EndFeatureMembership, its ReferenceSubsetting (`.rs`), its ReferenceUsage (`.ff`) and that usage's Redefinition (`.ff.rd0`).
+func (ids *ElementIDs) recordFlowEnds(e *encoder, node ast.Node, subject rdf.Term) {
+	usage, ok := node.(*ast.Usage)
+	if !ok || !semantics.FlowMintsEnds(usage) {
+		return
+	}
+	targets := [2]ast.Node{usage.FlowEnds.From, usage.FlowEnds.To}
+	for i, target := range targets {
+		slot := fmt.Sprintf("end%d", i)
+		feature := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
+		membership := e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix)
+		ids.recordPart(e, node, slot, partIDs{element: rdf.LocalName(feature.Value), membership: rdf.LocalName(membership.Value)})
+		if len(flowEndSegmentsOf(ast.EndTarget(target))) > 1 {
+			ids.recordPart(e, node, slot+".rs", partIDs{element: e.referenceSubsettingID(feature)})
+		}
+		flowFeature := e.ids.mintedNode(rdf.ExpressionIRI(feature, "ff"), feature, "ff")
+		flowMembership := e.ids.minted(rdf.OwningMembershipIRIOf(flowFeature), flowFeature, rdf.OwningMembershipSuffix)
+		ids.recordPart(e, node, slot+".ff", partIDs{element: rdf.LocalName(flowFeature.Value), membership: rdf.LocalName(flowMembership.Value)})
+		redefinition := rdf.RelationshipIRI(flowFeature, relationshipSuffix(ast.RelRedefines, false, 1, 0))
+		ids.recordPart(e, node, slot+".ff.rd0", partIDs{element: rdf.LocalName(redefinition.Value)})
+	}
+}
+
+// recordPart files the ids of the part at slot of node, by node and by span.
+// recordMultiplicityBounds records the bounds a written range states and their
+// OwningMemberships, minted off the element declaring the range (multiplicityBound).
+func (ids *ElementIDs) recordMultiplicityBounds(e *encoder, node ast.Node, subject rdf.Term, mult *ast.Multiplicity) {
+	if mult == nil {
+		return
+	}
+	lower, upper := mult.Lower, mult.Upper
+	if !mult.IsRange {
+		lower, upper = nil, mult.Lower
+	}
+	for _, bound := range []struct {
+		property string
+		node     ast.Node
+	}{{pLowerBound, lower}, {pUpperBound, upper}} {
+		if bound.node == nil {
+			continue
+		}
+		element := e.ids.mintedNode(rdf.ExpressionIRI(subject, bound.property), subject, bound.property)
+		membership := e.ids.minted(rdf.OwningMembershipIRIOf(element), element, rdf.OwningMembershipSuffix)
+		ids.recordPart(e, node, bound.property, partIDs{element: rdf.LocalName(element.Value), membership: rdf.LocalName(membership.Value)})
+	}
+}
+
+func (ids *ElementIDs) recordPart(e *encoder, node ast.Node, slot string, recorded partIDs) {
+	ids.partByNode[partKey{node, slot}] = recorded
+	ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot}] = recorded
+}
+
+// flowEndSegmentsOf is the names a flow end's target is written as, outermost first.
+func flowEndSegmentsOf(target ast.Node) []*ast.QualifiedName {
+	switch target := target.(type) {
+	case *ast.QualifiedName:
+		return []*ast.QualifiedName{target}
+	case *ast.FeatureChainExpr:
+		return featureChainSegments(target)
+	}
+	return nil
+}
+
+// successionTargetStated reports whether the target end of a `then` succession reference-subsets a
+// feature: the target it names, the library's done, or a member after it the conversion addresses.
+func (e *encoder) successionTargetStated(edge *ast.SuccessionEdge) bool {
+	if edge.Target != nil {
+		return true
+	}
+	if _, done := edge.TargetMember.(*ast.FinalNode); done {
+		return true
+	}
+	if edge.TargetMember != nil {
+		_, ok := e.names.FQN[edge.TargetMember]
+		return ok
+	}
+	return false
 }
 
 // endChainLinks counts the features an end's chain target is written as, as the
@@ -264,7 +784,18 @@ func (e *encoder) writtenRelationships(node, parent ast.Node, subject rdf.Term, 
 	e.writtenDependencyAnnotation(node, parent, subject, out)
 	e.writtenClauseRelationships(node, parent, subject, parents, out)
 	e.writtenBoundEndReferences(node, subject, out)
+	e.writtenConstraintReference(node, subject, out)
 	return out
+}
+
+// writtenConstraintReference records the ReferenceSubsetting of an assume or require member
+// stated by reference alone (`require r;`, requirementCondition), by the member.
+func (e *encoder) writtenConstraintReference(node ast.Node, subject rdf.Term, out map[ast.Node]string) {
+	if ast.ConstraintReferenceOf(node) == nil {
+		return
+	}
+	suffix := referenceSubsettingSuffix(1, 0)
+	out[node] = rdf.LocalName(e.ids.minted(rdf.RelationshipIRI(subject, suffix), subject, suffix).Value)
 }
 
 // referenceSubsettingID is the id of the ReferenceSubsetting written under feature (referenceSubsetting).
@@ -300,14 +831,17 @@ func (e *encoder) writtenDependencyAnnotation(node, parent ast.Node, subject rdf
 // writtenClauseRelationships records the relationship written for each distinct target of the
 // head's clauses (materializeRelationships), by the clause or by the target of an implicit one.
 func (e *encoder) writtenClauseRelationships(node, parent ast.Node, subject rdf.Term, parents map[ast.Node]ast.Node, out map[ast.Node]string) {
-	_, classifier := node.(*ast.Definition)
-	referenceForm := e.referenceFormOf(node)
-	clauses := e.writtenHeadClauses(node, parent, parents)
+	e.clauseRelationshipIDs(subject, isClassifier(declaredMetaclass(node)), e.writtenHeadClauses(node, parent, parents), out)
+}
+
+// clauseRelationshipIDs records, into out, the relationship materialized under subject for
+// each of clauses, by the clause or by the target of an implicit one.
+func (e *encoder) clauseRelationshipIDs(subject rdf.Term, classifier bool, clauses []*ast.Relationship, out map[ast.Node]string) {
 	chains := chainTargets(clauses)
 	for _, kind := range materializedKinds {
 		objects, at := e.clauseObjects(subject, clauses, kind, chains)
 		for rel, i := range at {
-			suffix := relationshipSuffix(kind, classifier, referenceForm, len(objects), i)
+			suffix := relationshipSuffix(kind, classifier, len(objects), i)
 			key := ast.Node(rel)
 			if rel.Span().Len == 0 {
 				key = rel.Target
@@ -315,18 +849,6 @@ func (e *encoder) writtenClauseRelationships(node, parent ast.Node, subject rdf.
 			out[key] = rdf.LocalName(e.ids.minted(rdf.RelationshipIRI(subject, suffix), subject, suffix).Value)
 		}
 	}
-}
-
-// referenceFormOf reports whether a head's `subsets` are written as ReferenceSubsettings
-// (referenceSubsettingForm): a satisfy, an end-form binding or a verified requirement.
-func (e *encoder) referenceFormOf(node ast.Node) bool {
-	usage, ok := node.(*ast.Usage)
-	if !ok {
-		return false
-	}
-	form, _ := e.endFormOf(usage)
-	return usage.Kind == ast.UsageSatisfy || form != "" ||
-		(usage.IsVerifiedRequirement() && !usage.DeclaresRequirement)
 }
 
 // writtenHeadClauses are headClauses plus the objects a usage states without a clause (encode):
@@ -346,24 +868,29 @@ func (e *encoder) writtenHeadClauses(node, parent ast.Node, parents map[ast.Node
 	return clauses
 }
 
-// clauseObjects are the distinct objects the head's clauses of kind state, in clause order, and
-// each clause's position among them: clauses repeating a target (`: T, T`) share one relationship.
+// clauseObjects are the objects the head's clauses of kind state and each clause's position among
+// them, as pendingRelationships orders them: the distinct ones, then each repeat (`: T, T`).
 func (e *encoder) clauseObjects(subject rdf.Term, clauses []*ast.Relationship, kind ast.RelationshipKind, chains map[*ast.Relationship]int) ([]string, map[*ast.Relationship]int) {
-	var objects []string
+	var objects, repeated []string
+	var repeats []*ast.Relationship
 	at := map[*ast.Relationship]int{}
 	for _, rel := range clauses {
 		if rel == nil || rel.Target == nil || rel.Kind != kind {
 			continue
 		}
 		object := e.clauseObject(subject, rel, chains)
-		i := slices.Index(objects, object)
-		if i < 0 {
-			i = len(objects)
-			objects = append(objects, object)
+		if kind != ast.RelAnnotates && slices.Contains(objects, object) {
+			repeated = append(repeated, object)
+			repeats = append(repeats, rel)
+			continue
 		}
-		at[rel] = i
+		at[rel] = len(objects)
+		objects = append(objects, object)
 	}
-	return objects, at
+	for i, rel := range repeats {
+		at[rel] = len(objects) + i
+	}
+	return append(objects, repeated...), at
 }
 
 // writtenBoundEndReferences records the ReferenceSubsetting of each end feature a head
@@ -379,6 +906,26 @@ func (e *encoder) writtenBoundEndReferences(node ast.Node, subject rdf.Term, out
 			if rel != nil && rel.Kind == ast.RelReferences && rel.Target == end.AttachedTarget() {
 				out[rel] = out[end]
 			}
+		}
+	}
+	// A flow end's ReferenceSubsetting is written for its name's prefix, a message end's for the whole
+	// name (flowEndReferences, messageEnd); the flow feature's redefinition is a property, no element.
+	usage, ok := node.(*ast.Usage)
+	if !ok || usage.FlowEnds == nil {
+		return
+	}
+	for i, end := range []ast.Node{usage.FlowEnds.From, usage.FlowEnds.To} {
+		if end == nil {
+			continue
+		}
+		slot := fmt.Sprintf("end%d", i)
+		feature := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
+		if usage.Keyword == "message" {
+			out[ast.EndTarget(end)] = e.referenceSubsettingID(feature)
+			continue
+		}
+		if prefix, _ := ast.FlowEndSegments(end); prefix != nil {
+			out[prefix] = e.referenceSubsettingID(feature)
 		}
 	}
 }
@@ -408,7 +955,12 @@ func (e *encoder) clauseObject(subject rdf.Term, rel *ast.Relationship, chains m
 		return rdf.ExpressionIRI(subject, fmt.Sprintf("chain%d", k)).Value
 	}
 	if name, ok := rel.Target.(*ast.QualifiedName); ok && !qualifiedNameHasChain(name) {
-		return e.reference(name).Value
+		object := e.reference(name)
+		if rel.Kind == ast.RelTyping && rel.Conjugated {
+			// `: ~P` names P's conjugate, an object of its own beside `: P` (relationships).
+			object = e.conjugateReference(object)
+		}
+		return object.Value
 	}
 	return "expr:" + e.text(rel.Target)
 }
@@ -433,6 +985,8 @@ func headClauses(node ast.Node) []*ast.Relationship {
 	switch n := node.(type) {
 	case *ast.Definition:
 		return n.Relationships
+	case *ast.Comment:
+		return aboutClauses(n.About)
 	case *ast.Usage:
 		rels := nodeRelationships(n, "")
 		if !n.IsEnd {
@@ -449,7 +1003,7 @@ func headClauses(node ast.Node) []*ast.Relationship {
 		if n.Type == nil {
 			return nil
 		}
-		return []*ast.Relationship{{Kind: ast.RelTyping, Target: n.Type}}
+		return append([]*ast.Relationship{{Kind: ast.RelTyping, Target: n.Type}}, aboutClauses(n.About)...)
 	case *ast.SubjectMember:
 		if n.TypeRef == nil {
 			return n.Relationships
@@ -535,6 +1089,34 @@ func (ids *ElementIDs) OfExpressionPart(doc string, node ast.Node, slot string) 
 		return part.element, part.membership, true
 	}
 	return "", "", false
+}
+
+// OfBodyParameter is the id written for the named parameter of the expression body at
+// body in doc (`in0`… off the body's owner), and its membership's: a parameter has no node.
+func (ids *ElementIDs) OfBodyParameter(doc string, body *ast.BodyExpr, name string) (element, membership string, ok bool) {
+	if ids == nil || body == nil || name == "" {
+		return "", "", false
+	}
+	for _, decl := range ast.BodyDeclarations(body.Params, body.Members) {
+		if decl.Param == nil || decl.Param.Name != name {
+			continue
+		}
+		if part, ok := ids.partBySpan[spanPartKey{spanKey{doc, decl.Param.Span}, decl.Slot()}]; ok {
+			return part.element, part.membership, true
+		}
+		return "", "", false
+	}
+	return "", "", false
+}
+
+// AddressOf is the address the conversion stated for the declared element written with id —
+// a qualifiedName, or a positional address (`P::@2::x`); none for a minted or unknown id.
+func (ids *ElementIDs) AddressOf(id string) (string, bool) {
+	if ids == nil {
+		return "", false
+	}
+	address, ok := ids.addressByID[id]
+	return address, ok
 }
 
 func (ids *ElementIDs) OfDeclaration(doc string, decl ast.Node, fqn string) (string, bool) {
@@ -675,6 +1257,19 @@ func (r *ElementIDReader) Read(doc string, decl ast.Node, fqn string) (string, e
 	}
 	id, _ := r.ids.OfDeclaration(doc, decl, fqn)
 	return id, nil
+}
+
+// ReadAddress is the address the conversion stated for the element written with id
+// (ElementIDs.AddressOf); none before a conversion, or for a minted or unknown id.
+func (r *ElementIDReader) ReadAddress(id string) (string, bool) {
+	if r == nil {
+		return "", false
+	}
+	r.once.Do(r.convert)
+	if r.err != nil {
+		return "", false
+	}
+	return r.ids.AddressOf(id)
 }
 
 // ReadOwningMembership is the elementId of the owning membership of the element
@@ -870,10 +1465,18 @@ func (e *encoder) registerExpressionIDs(ids *ElementIDs, subject rdf.Term, node 
 		e.registerExpressionIDs(ids, child, operand.Node)
 	}
 	if typeArgument >= 0 {
-		e.registerExpressionPart(ids, subject, node, fmt.Sprintf("in%d", typeArgument))
+		slot := fmt.Sprintf("in%d", typeArgument)
+		e.registerExpressionPart(ids, subject, node, slot)
+		// The parameter's FeatureTyping by the type argument is minted off the parameter (typeArgument).
+		typing := ids.partByNode[partKey{node, slot}].element + relationshipSuffix(ast.RelTyping, false, 1, 0)
+		ids.recordPart(e, node, slot+".ft0", partIDs{element: typing})
 	}
 	if slot, _, _ := expressionReferenceSlot(node); slot != "" {
 		membership := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
+		if slot != "function" && !strings.HasPrefix(subject.Value, rdf.Expression) {
+			// An expression written as an element of its own mints the Membership beside it (referentMembershipNode).
+			membership = e.ids.minted(rdf.RelationshipIRI(subject, "_"+slot), subject, "_"+slot)
+		}
 		recorded := partIDs{membership: rdf.LocalName(membership.Value)}
 		ids.partByNode[partKey{node, slot}] = recorded
 		ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot}] = recorded
@@ -943,7 +1546,7 @@ func (e *encoder) registerBodyDeclarations(ids *ElementIDs, base rdf.Term, param
 // feeds them to bodyDeclarations.
 func localMembers(decl ast.Node) []ast.Node {
 	if usage, ok := decl.(*ast.Usage); ok {
-		return bodyMembers(usage)
+		return naming.BodyMembers(usage)
 	}
 	return ast.DeclMembers(decl)
 }
@@ -1015,4 +1618,14 @@ func expressionReferenceSlot(node ast.Node) (slot string, name *ast.QualifiedNam
 		return "function", n.Ref, true
 	}
 	return "", nil, false
+}
+
+// aboutClauses are the `about` names of a comment or metadata annotation as the clauses
+// the writer states them by: spanless, so each is keyed by the name it annotates.
+func aboutClauses(about []*ast.QualifiedName) []*ast.Relationship {
+	clauses := make([]*ast.Relationship, 0, len(about))
+	for _, name := range about {
+		clauses = append(clauses, &ast.Relationship{Kind: ast.RelAnnotates, Target: name})
+	}
+	return clauses
 }

@@ -300,10 +300,24 @@ function raise_for_errors(model::Model)
     throw(ModelError("$(location) has $(length(es)) error(s): $(join(summaries, "; "))", es; model=model))
 end
 
-"""Return the raw symbol dictionary for a qualified identifier."""
+"""
+The `LookupKind` a request states for `lookup` (`:either`, `:qualified_name`,
+`:element_id`), or `nothing` where none is stated or the service would ignore it.
+"""
+function lookup_kind(model::Model, lookup::Symbol)
+    lookup in (:either, :qualified_name, :element_id) ||
+        throw(ArgumentError("lookup is :either, :qualified_name or :element_id, not $(repr(lookup))"))
+    (lookup === :either || !has_capability(model.connection, CAPABILITY_SYMBOL_LOOKUP_KIND)) &&
+        return nothing
+    return lookup === :qualified_name ? "LOOKUP_KIND_QUALIFIED_NAME" : "LOOKUP_KIND_ELEMENT_ID"
+end
+
+"""Return the raw symbol dictionary a qualified name resolves to (see `get_symbol`)."""
 function symbol(model::Model, id::AbstractString)
     answer = call(model.connection, "GetSymbol",
-                  Dict{String,Any}("modelHash" => model.hash, "symbolId" => String(id)))
+                  Dict{String,Any}("modelHash" => model.hash, "symbolId" => String(id),
+                                   "resolveName" => has_capability(model.connection,
+                                       CAPABILITY_SYMBOL_NAME_RESOLUTION)))
     if !isempty(String(get(answer, "error", "")))
         return nothing
     end

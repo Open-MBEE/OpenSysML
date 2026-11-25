@@ -1,0 +1,12 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::plant",
+  "slots": {
+    "stageLoops": {"type": "Integer", "value": 1},
+    "runLoops": {"type": "Integer", "value": 1},
+    "namedBodyValues": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}, {"type": "Integer", "value": 2}, {"type": "Integer", "value": 3}]},
+    "unnamedBodyValues": {"type": "Sequence", "elements": [{"type": "Integer", "value": 10}, {"type": "Integer", "value": 11}]},
+    "innerValues": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1000}, {"type": "Integer", "value": 1001}, {"type": "Integer", "value": 1100}, {"type": "Integer", "value": 1101}]}
+  }
+}

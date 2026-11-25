@@ -108,7 +108,7 @@ func TestAPIJSONStatesEveryNonDerivedBoolean(t *testing.T) {
 		}
 	}
 	for id, want := range map[string]map[string]any{
-		"P__D__a":           {"isComposite": true, "isUnique": true, "isVariable": true, "mayTimeVary": true, "isAbstract": false, "isReference": nil},
+		"P__D__a":           {"isComposite": true, "isUnique": true, "isVariable": true, "mayTimeVary": true, "isAbstract": false, "isReference": false},
 		"P__D__b":           {"isComposite": false, "isReference": true, "isVariable": true, "mayTimeVary": true},
 		"P__D__v":           {"isVariable": true, "mayTimeVary": true},
 		"P__D__n":           {"isUnique": false},
@@ -116,8 +116,10 @@ func TestAPIJSONStatesEveryNonDerivedBoolean(t *testing.T) {
 		"P__D__a_om":        {"isImplied": false},
 		"P__D__e_pvalue_om": {"isDefault": false, "isInitial": false, "isImplied": false},
 		// A connection's end varies in time and is therefore constant (SysML v2.1 §8.2.2.6.1).
-		"P__D__c_pend0":  {"isEnd": true, "isVariable": true, "mayTimeVary": true, "isConstant": true},
-		"P__CD__src":     {"isEnd": true, "mayTimeVary": true, "isConstant": true},
+		"P__D__c_pend0": {"isEnd": true, "isVariable": true, "mayTimeVary": true, "isConstant": true},
+		"P__CD__src":    {"isEnd": true, "mayTimeVary": true, "isConstant": true},
+		// A ConnectionDefinition is sufficient (SysML v2.1 §8.3.13.3).
+		"P__CD":          {"isSufficient": true, "isAbstract": false},
 		"P_ns":           {apiJSONStatedDefaultsKey: true},
 		"P":              {apiJSONStatedDefaultsKey: nil},
 		"P__D__e_pvalue": {"value": false, "isComposite": false, "isVariable": false, "mayTimeVary": nil},

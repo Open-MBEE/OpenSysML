@@ -250,6 +250,7 @@ type featureMods struct {
 	terminated    *ast.TerminateStatement // the occurrence a terminate action usage names, nil for its own container
 	cross         *ast.CrossFeatureMember // the cross feature declared right after `end`
 	defPrefix     lexer.Token             // first abstract/variation/individual definition prefix
+	basicPrefix   lexer.Token             // the `abstract` or `variation` token read
 	usageOnly     lexer.Token             // first prefix keyword only a usage prefix admits (`ref`, a direction, …)
 }
 
@@ -323,6 +324,58 @@ func (p *Parser) checkDefinitionPrefix(mods featureMods) {
 	}
 	p.error(mods.usageOnly.Span, fmt.Sprintf("'%s' is a usage prefix: a definition prefix admits only %s",
 		p.src.Text(mods.usageOnly.Span), admitted))
+}
+
+// checkDefinitionKindPrefix rejects the prefixes a SysML definition's production omits:
+// MetadataDefinition admits 'abstract' alone, DefinitionPrefix has no 'individual'.
+func (p *Parser) checkDefinitionKindPrefix(kind ast.DefinitionKind, mods featureMods) {
+	if p.src.Kind() != source.KindSysML {
+		return
+	}
+	switch kind {
+	case ast.DefMetadata:
+		const admits = "a metadata definition: a metadata def admits only 'abstract'"
+		if mods.isVariation {
+			p.prefixNotAdmitted(mods.basicPrefix, admits)
+		}
+		if mods.isIndividual {
+			p.prefixNotAdmitted(mods.individual, admits)
+		}
+	case ast.DefAttribute, ast.DefPort:
+		if mods.isIndividual {
+			p.prefixNotAdmitted(mods.individual, fmt.Sprintf("%s %s definition: only an occurrence definition admits 'individual'",
+				indefiniteArticle(kind.String()), kind))
+		}
+	}
+}
+
+// checkMetadataUsagePrefix rejects 'abstract', 'variation' and 'individual' before a
+// SysML metadata usage, whose production reads extension keywords alone (SysML.xtext:140).
+func (p *Parser) checkMetadataUsagePrefix(kind ast.UsageKind, mods featureMods) {
+	if kind != ast.UsageMetadata || p.src.Kind() != source.KindSysML {
+		return
+	}
+	const admits = "a metadata usage: a metadata usage admits no 'abstract', 'variation' or 'individual'"
+	if mods.isAbstract || mods.isVariation {
+		p.prefixNotAdmitted(mods.basicPrefix, admits)
+	}
+	if mods.isIndividual {
+		p.prefixNotAdmitted(mods.individual, admits)
+	}
+}
+
+func (p *Parser) prefixNotAdmitted(t lexer.Token, what string) {
+	if t.Span.Len == 0 {
+		return
+	}
+	p.error(t.Span, fmt.Sprintf("'%s' cannot prefix %s", p.src.Text(t.Span), what))
+}
+
+func indefiniteArticle(word string) string {
+	if strings.ContainsRune("aeiou", rune(word[0])) {
+		return "an"
+	}
+	return "a"
 }
 
 // abstractOrVariation names the prefix keyword of the pair already read.
@@ -671,7 +724,7 @@ func (p *Parser) atKindPrefix() bool {
 		p.peekN(1).Kind == lexer.Keyword && featureModifierKeywords[p.peekN(1).KeywordID]) {
 		return true
 	}
-	if !p.isKindKeyword(p.peekN(1)) {
+	if !p.isKindKeywordAfter(kw, p.peekN(1)) {
 		return false
 	}
 	return kindPrefixKeywords[kw] || !namesDeclaration(p.peekN(2))
@@ -681,7 +734,7 @@ func (p *Parser) atKindPrefix() bool {
 // of the declaration whose first kind keyword was already consumed, rather than
 // being that declaration's name.
 func (p *Parser) atSecondaryKind(firstKeyword string) bool {
-	if notKindPrefixKeywords[firstKeyword] || !p.isKindKeyword(p.peek()) {
+	if notKindPrefixKeywords[firstKeyword] || !p.isKindKeywordAfter(firstKeyword, p.peek()) {
 		return false
 	}
 	if compoundDefKinds[[2]string{firstKeyword, p.peek().KeywordID}] || kindPrefixKeywords[firstKeyword] {
@@ -694,12 +747,21 @@ func (p *Parser) atSecondaryKind(firstKeyword string) bool {
 // usage a portion prefix portions (`timeslice item : Cargo`). A kind keyword
 // there is always the kind, never the portion's name, since the portion keyword
 // itself is the only kind a bare portion usage declares.
-func (p *Parser) atPortionedKind() bool {
-	if !p.at(lexer.Keyword) {
+func (p *Parser) atPortionedKind(portion string) bool {
+	if !p.at(lexer.Keyword) || !p.isKindKeywordAfter(portion, p.peek()) {
 		return false
 	}
 	_, ok := p.usageKind(p.peek().KeywordID)
 	return ok
+}
+
+// isKindKeywordAfter reports whether t continues the kind the keyword first opened. A word
+// the file's language does not reserve names it instead (SysML v2 8.2.2.1.2): `action behavior`.
+func (p *Parser) isKindKeywordAfter(first string, t lexer.Token) bool {
+	if !p.isKindKeyword(t) {
+		return false
+	}
+	return !p.reservedWord(first) || p.reservedWord(t.KeywordID)
 }
 
 // isKindKeyword reports whether the token is a def or usage kind keyword.
@@ -733,7 +795,7 @@ func (p *Parser) atAssertedReference() bool {
 	if p.peekN(0).Kind == lexer.Dollar && p.peekN(1).Kind == lexer.ColonColon {
 		nameOffset = 2
 	}
-	if p.isKindKeyword(p.peekN(nameOffset)) || !p.namesReference(nameOffset) {
+	if p.isKindKeywordAfter("assert", p.peekN(nameOffset)) || !p.namesReference(nameOffset) {
 		return false
 	}
 	for i := nameOffset + 1; ; i += 2 {
@@ -1175,6 +1237,7 @@ func (p *Parser) parseMoreFeatureModifiers(m *featureMods) {
 				p.prefixConflict(t, m.abstractOrVariation(), abstractOrVariationPair)
 			}
 			m.noteDefinitionPrefix(t)
+			m.basicPrefix = t
 			m.isAbstract = true
 		case "variation":
 			p.checkVariationNotation(t)
@@ -1182,6 +1245,7 @@ func (p *Parser) parseMoreFeatureModifiers(m *featureMods) {
 				p.prefixConflict(t, m.abstractOrVariation(), abstractOrVariationPair)
 			}
 			m.noteDefinitionPrefix(t)
+			m.basicPrefix = t
 			m.isVariation = true
 		case "ref":
 			if m.isReference {
@@ -1408,7 +1472,7 @@ func (p *Parser) parsePortionPrefix(start int, mods *featureMods, prefixes *[]*a
 		// The portion kind is part of the usage prefix, so prefix metadata may
 		// still follow it: `snapshot #Classified part s;`.
 		*prefixes = append(*prefixes, p.parsePrefixMetadata()...)
-		if !p.atPortionedKind() {
+		if !p.atPortionedKind(tok.KeywordID) {
 			isAll := p.acceptSufficientAll()
 			return p.parseUsage(start, ast.UsageOccurrence, tok.KeywordID, *mods, isAll)
 		}
@@ -1522,6 +1586,7 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 
 		if len(prefixes) > 0 && prefixMetadataFollowsKeyword(kw) {
 			p.reportMisplacedPrefixMetadata(prefixes, t)
+			p.recoverComments(prefixes[0].Span().Offset, t)
 		}
 
 		// A subject, actor, stakeholder, objective or rendering the body does
@@ -1557,7 +1622,7 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 			}
 			// `variant part def D;`: a VariantUsageElement is a usage (SysML.xtext:700),
 			// so the definition is read and rejected at `variant`.
-			if p.isKindKeyword(p.peek()) && p.peekN(1).Kind == lexer.Keyword && p.peekN(1).KeywordID == "def" {
+			if p.isKindKeywordAfter(kw, p.peek()) && p.peekN(1).Kind == lexer.Keyword && p.peekN(1).KeywordID == "def" {
 				defKw := p.advance().KeywordID
 				p.advance() // 'def'
 				return applyPrefixes(p.parseDefinition(start, p.definitionKindOf(defKw), defKw, mods, false, true))
@@ -1708,14 +1773,15 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 				var members []ast.Node
 				leave := p.pushBodyContext(usageBodyContext(ast.UsageUseCase))
 				for !p.at(lexer.RBrace) && !p.atEOF() {
-					p.memberStart()
+					members = append(members, p.memberStart()...)
 					m := p.parseBodyMember()
 					if m != nil {
-						p.markAttached(m)
+						members = append(p.markAttached(m, members), p.takeRecovered()...)
 						members = append(members, m)
 					}
 				}
 				leave()
+				members = append(members, p.closeComments()...)
 				p.expect(lexer.RBrace, msgExpectedBodyClose)
 				u.Members = members
 				u.HasBody = true
@@ -1738,7 +1804,7 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 		// the reference form the same way, where `assert not (x > 1);` does negate
 		// an expression (SysML.xtext:2008, AssertConstraintUsage).
 		if kindPrefixKeywords[kw] && p.atKeyword("not") &&
-			(p.isKindKeyword(p.peekN(1)) || p.namesReference(1)) {
+			(p.isKindKeywordAfter(kw, p.peekN(1)) || p.namesReference(1)) {
 			mods.isNegated = true
 			p.advance()
 		}
@@ -1776,7 +1842,7 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 		}
 
 		kindKeyword := kw
-		if p.isKindKeyword(p.peek()) &&
+		if p.isKindKeywordAfter(kw, p.peek()) &&
 			(kindPrefixKeywords[kw] || (kw == "variant" && !namesDeclaration(p.peekN(1)))) {
 			kindKeyword = p.peek().KeywordID
 			// `variant` is a modifier of the declaration it prefixes, recorded
@@ -1908,11 +1974,14 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 // from the token stream, kept so a synonym spelling can be told from the
 // canonical one. defKeywordConsumed distinguishes SysML <kind> def from
 // KerML classifier declarations, which share DefinitionKind values.
-func (p *Parser) parseDefinition(start int, kind ast.DefinitionKind, keyword string, mods featureMods, isAll bool, defKeywordConsumed bool) *ast.Definition {
+func (p *Parser) parseDefinition(start int, kind ast.DefinitionKind, keyword string, mods featureMods, isAll, defKeywordConsumed bool) *ast.Definition {
 	p.checkDefinitionPrefix(mods)
 	if kind == ast.DefEnumeration && defKeywordConsumed && mods.defPrefix.Span.Len > 0 {
 		p.error(mods.defPrefix.Span, fmt.Sprintf("'%s' cannot prefix an enumeration definition: an enum def admits no definition prefix and is always a variation",
 			p.src.Text(mods.defPrefix.Span)))
+	}
+	if defKeywordConsumed {
+		p.checkDefinitionKindPrefix(kind, mods)
 	}
 	def := &ast.Definition{
 		Kind:          kind,
@@ -2145,9 +2214,8 @@ var ownedMembers = map[string]ownedMember{
 	// TransitionUsageMember is a StateBodyItem only (SysML.xtext); a transition between
 	// action nodes is an extension the notation pass reports, so those bodies read it too.
 	"transition": {"a transition between states", "state", []bodyContext{bodyState, bodyAction, bodyCalc, bodyCase}, "transition-membership-owning-type"},
-	// Expose is a ViewBodyItem only (SysML.xtext); in a view def body it is an
-	// extension OpenSysML resolves, which the notation pass reports.
-	"expose": {"what a view usage exposes", "view usage", []bodyContext{bodyView, bodyViewDef}, "expose-owning-namespace"},
+	// Expose is a ViewBodyItem only (SysML.xtext): a view def body does not offer it.
+	"expose": {"what a view usage exposes", "view usage", []bodyContext{bodyView}, "expose-owning-namespace"},
 }
 
 // MemberOwner names the body kind that alone offers the member keyword kw
@@ -2325,6 +2393,7 @@ func (p *Parser) atGuardedSuccession() bool {
 // parseUsage parses a usage. keyword is the kind keyword as consumed from the
 // token stream, kept for the same reason as in parseDefinition.
 func (p *Parser) parseUsage(start int, kind ast.UsageKind, keyword string, mods featureMods, isAll bool) *ast.Usage {
+	p.checkMetadataUsagePrefix(kind, mods)
 	u := &ast.Usage{
 		Kind:              kind,
 		Keyword:           keyword,
@@ -2372,10 +2441,10 @@ func (p *Parser) parseUsage(start int, kind ast.UsageKind, keyword string, mods 
 			declRels := p.parseRelationships(declFeature)
 			u.Relationships = append(u.Relationships, declRels...)
 		} else if reqName := p.parseChainedName(); reqName != nil {
-			// SysML.xtext:2119's ReferenceSubsetting reaches a nested feature through a '.'
-			// chain (KerML.xtext:699); kept a plain subsetting until its readers migrate.
+			// SysML.xtext:2119's OwnedReferenceSubsetting reaches a nested feature
+			// through a '.' chain (KerML.xtext:699).
 			u.Relationships = append(u.Relationships, &ast.Relationship{
-				Kind:   ast.RelSubsets,
+				Kind:   ast.RelReferences,
 				Target: reqName,
 			})
 			// The reference form takes specializations of its own:
@@ -2562,12 +2631,12 @@ func (p *Parser) parseUsageBody(u *ast.Usage, kind ast.UsageKind, start int) {
 			inEffect := p.atTransitionEffectStatement(start)
 			savedEffectStmtStart := p.effectStmtStart
 			for !p.atEOF() && !p.atNamespaceSuccession() {
-				p.memberStart()
+				members = append(members, p.memberStart()...)
 				if inEffect {
 					p.effectStmtStart = p.peek().Span.Offset
 				}
 				member := p.parseActionMember()
-				p.markAttached(member)
+				members = append(p.markAttached(member, members), p.takeRecovered()...)
 				members = append(members, member)
 				// Only an inline statement continues the body; a succession names
 				// members of the enclosing body.
@@ -2721,7 +2790,7 @@ func (p *Parser) parseDefUsageBody() (members []ast.Node, hasBody bool) {
 func (p *Parser) parseDefUsageBodyMembers() []ast.Node {
 	body := p.newBodyBuilder()
 	for !p.at(lexer.RBrace) && !p.atEOF() {
-		p.memberStart()
+		body.start()
 		before := p.peek().Span.Offset
 		// A member-attached `then` sequences the members either side of it, so
 		// the keyword is taken here and the member it prefixes read next time
@@ -2742,6 +2811,7 @@ func (p *Parser) parseDefUsageBodyMembers() []ast.Node {
 			p.advance()
 		}
 	}
+	body.close()
 	p.expect(lexer.RBrace, msgExpectedBodyClose)
 	return body.finish()
 }
@@ -2751,7 +2821,7 @@ func (p *Parser) parseDefUsageBodyMembers() []ast.Node {
 func (p *Parser) parseCaseBody() []ast.Node {
 	body := p.newBodyBuilder()
 	for !p.at(lexer.RBrace) && !p.atEOF() {
-		p.memberStart()
+		body.start()
 		before := p.peek().Span.Offset
 		if body.atSuccession() {
 			body.takeSuccession()
@@ -2777,6 +2847,7 @@ func (p *Parser) parseCaseBody() []ast.Node {
 			p.advance()
 		}
 	}
+	body.close()
 	p.expect(lexer.RBrace, msgExpectedBodyClose)
 	return body.finish()
 }
@@ -2828,7 +2899,7 @@ var wordBinaryOpKeywords = map[string]bool{
 func (p *Parser) parseEnumBody(def *ast.Definition) []ast.Node {
 	body := p.newBodyBuilder()
 	for !p.at(lexer.RBrace) && !p.atEOF() {
-		p.memberStart()
+		body.start()
 		before := p.peek().Span.Offset
 		// `= 60.0;`, `uncl : Level = 0;`, `<u> uncl;`, `: Level;` and `#M a;` are
 		// enumerated values (SysML.xtext EnumeratedValue), not keyword-less attributes.
@@ -2869,6 +2940,7 @@ func (p *Parser) parseEnumBody(def *ast.Definition) []ast.Node {
 			p.advance()
 		}
 	}
+	body.close()
 	p.expect(lexer.RBrace, msgExpectedBodyClose)
 	return body.finish()
 }
@@ -2965,6 +3037,7 @@ func (p *Parser) parseTypeFeatureMember(start int, vis ast.Visibility, trivia []
 func (p *Parser) parseBodyMember() ast.Node {
 	start := p.peek().Span.Offset
 	trivia := p.takeTrivia()
+	visTok := p.peek()
 	vis := p.parseVisibility()
 	// The enumeration context names this member only; bodies nested in it hold
 	// ordinary members, so it is consumed here rather than left set while they parse.
@@ -3138,6 +3211,11 @@ func (p *Parser) parseBodyMember() ast.Node {
 			misplaced = p.misplacedMember(p.peek())
 		}
 		p.advance() // consume 'expose'
+		// Expose (SysML.xtext) has no visibility prefix; the form still reads
+		// unambiguously, so it is a warning the analysis escalates.
+		if vis != ast.VisibilityDefault {
+			p.warn(visTok.Span, msgExposeVisibility, codeExposeVisibility)
+		}
 
 		path := p.parseQualifiedName()
 		if path == nil {
@@ -4246,9 +4324,38 @@ func (p *Parser) parseRelationshipsInto(shape declShape, seen *relClauseState) (
 			r := p.parseRelationshipClauseTarget(kind)
 			r.TypedBy, typedBy = typedBy, source.Span{}
 			rels = append(rels, r)
-			if !p.accept2(lexer.Comma) {
+			commaTok, ok := p.accept(lexer.Comma)
+			if !ok {
 				break
 			}
+			if msg := singleTargetClauseList(kind); msg != "" {
+				p.error(commaTok.Span, msg)
+				p.skipRelationshipClauseTargets(kind)
+				break
+			}
+		}
+	}
+}
+
+// singleTargetClauseList is the diagnostic for a comma after the one target a
+// `chains` or `inverse of` clause takes; empty for a clause that lists targets.
+func singleTargetClauseList(kind ast.RelationshipKind) string {
+	switch kind {
+	case ast.RelChains:
+		return "`chains` takes one feature chain, its chaining features joined by `.` (`chains a.b`), not a comma-separated list (KerML 1.1 8.2.4.3.1 ChainingPart, 8.2.4.3.5 FeatureChain)"
+	case ast.RelInverseOf:
+		return "`inverse of` takes one feature, a qualified name or a feature chain, not a comma-separated list (KerML 1.1 8.2.4.3.1 InvertingPart, 8.2.4.3.6 OwnedFeatureInverting)"
+	}
+	return ""
+}
+
+// skipRelationshipClauseTargets reads the surplus targets of a misreported list,
+// so the declaration still ends at its `;` or body.
+func (p *Parser) skipRelationshipClauseTargets(kind ast.RelationshipKind) {
+	for {
+		p.parseRelationshipClauseTarget(kind)
+		if !p.accept2(lexer.Comma) {
+			return
 		}
 	}
 }
@@ -5243,9 +5350,9 @@ func (p *Parser) parseMetadataUsage(start int) *ast.PrefixMetadata {
 		var body []ast.Node
 		leave := p.pushBodyContext(bodyOther)
 		for !p.at(lexer.RBrace) && !p.atEOF() {
-			p.memberStart()
+			body = append(body, p.memberStart()...)
 			if m := p.parseBodyMember(); m != nil {
-				p.markAttached(m)
+				body = append(p.markAttached(m, body), p.takeRecovered()...)
 				body = append(body, m)
 				continue
 			}
@@ -5254,6 +5361,7 @@ func (p *Parser) parseMetadataUsage(start int) *ast.PrefixMetadata {
 			body = append(body, expr)
 		}
 		leave()
+		body = append(body, p.closeComments()...)
 		p.expect(lexer.RBrace, "expected '}' after metadata body")
 		pm.Body = body
 		pm.HasBody = true

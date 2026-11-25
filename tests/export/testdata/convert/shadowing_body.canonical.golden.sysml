@@ -4,6 +4,6 @@ package ShadowBody {
     part def Sensor {
         attribute value : Speed;
         attribute readings : Speed[*];
-        attribute highs = readings->select({ in value; value > 5 });
+        attribute highs = readings->select { in value; value > 5 };
     }
 }

@@ -1,0 +1,6 @@
+{
+  "rpc": "InstancePaths",
+  "instantiate": ["Fuel::vehicle"],
+  "object_path": "Fuel::vehicle",
+  "expected_paths": ["Fuel::vehicle"]
+}

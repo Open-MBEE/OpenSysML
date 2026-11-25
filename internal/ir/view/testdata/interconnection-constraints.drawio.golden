@@ -7,32 +7,38 @@
       <root>
         <mxCell id="0"/>
         <mxCell id="1" parent="0"/>
-        <object id="n0" label="«part def»&#xA;Amplifier" fqn="Parametrics::Amplifier" kind="part def" view="ParametricViews::amplifierView" link="interconnection-constraints.sysml:20">
+        <mxCell id="frame" value="«view» ParametricViews::amplifierView" style="shape=umlFrame;whiteSpace=wrap;html=1;fillColor=none;strokeWidth=0.5;width=335;height=40;" vertex="1" parent="1">
+            <mxGeometry width="827" height="1169" as="geometry"/>
+        </mxCell>
+        <mxCell id="frame_tr" value="expose Parametrics::Amplifier" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=10;" vertex="1" parent="1">
+            <mxGeometry x="567" width="260" height="36" as="geometry"/>
+        </mxCell>
+        <object id="n0" label="«part def»&#xA;Amplifier" fqn="Parametrics::Amplifier" kind="part def" view="ParametricViews::amplifierView" link="interconnection-constraints.sysml:21">
           <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;" vertex="1" parent="1">
             <mxGeometry x="50" y="50" width="390" height="232" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n1" label="«attribute»&#xA;signal" fqn="Parametrics::Amplifier::signal" kind="attribute" view="ParametricViews::amplifierView" link="interconnection-constraints.sysml:21">
+        <object id="n1" label="«attribute»&#xA;signal" fqn="Parametrics::Amplifier::signal" kind="attribute" view="ParametricViews::amplifierView" link="interconnection-constraints.sysml:22">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
             <mxGeometry x="16" y="92" width="82" height="37" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n2" label="«attribute»&#xA;gain" fqn="Parametrics::Amplifier::gain" kind="attribute" view="ParametricViews::amplifierView" link="interconnection-constraints.sysml:22">
+        <object id="n2" label="«attribute»&#xA;gain" fqn="Parametrics::Amplifier::gain" kind="attribute" view="ParametricViews::amplifierView" link="interconnection-constraints.sysml:23">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
             <mxGeometry x="148" y="92" width="82" height="37" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n3" label="«attribute»&#xA;noise" fqn="Parametrics::Amplifier::noise" kind="attribute" view="ParametricViews::amplifierView" link="interconnection-constraints.sysml:23">
+        <object id="n3" label="«attribute»&#xA;noise" fqn="Parametrics::Amplifier::noise" kind="attribute" view="ParametricViews::amplifierView" link="interconnection-constraints.sysml:24">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
             <mxGeometry x="280" y="92" width="82" height="37" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n4" label="«attribute»&#xA;output" fqn="Parametrics::Amplifier::output" kind="attribute" view="ParametricViews::amplifierView" link="interconnection-constraints.sysml:24">
+        <object id="n4" label="«attribute»&#xA;output" fqn="Parametrics::Amplifier::output" kind="attribute" view="ParametricViews::amplifierView" link="interconnection-constraints.sysml:25">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
             <mxGeometry x="16" y="179" width="82" height="37" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n5" label="«constraint»&#xA;amplify" fqn="Parametrics::Amplifier::amplify" kind="constraint" view="ParametricViews::amplifierView" link="interconnection-constraints.sysml:26">
+        <object id="n5" label="«constraint»&#xA;amplify" fqn="Parametrics::Amplifier::amplify" kind="constraint" view="ParametricViews::amplifierView" link="interconnection-constraints.sysml:27">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
             <mxGeometry x="148" y="179" width="88" height="37" as="geometry"/>
           </mxCell>
@@ -58,33 +64,33 @@
             </mxGeometry>
           </mxCell>
         </object>
-        <object id="n6" label="«constraint»&#xA;mix" fqn="Parametrics::Amplifier::mix" kind="constraint" view="ParametricViews::amplifierView" link="interconnection-constraints.sysml:27">
+        <object id="n6" label="«constraint»&#xA;mix" fqn="Parametrics::Amplifier::mix" kind="constraint" view="ParametricViews::amplifierView" link="interconnection-constraints.sysml:28">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
             <mxGeometry x="286" y="179" width="88" height="37" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n6:n6.0" label="^a" fqn="Parametrics::Mix::a" kind="port" view="ParametricViews::amplifierView" link="interconnection-constraints.sysml:12">
+        <object id="n6:n6.0" label="a" fqn="Parametrics::Amplifier::mix::a" kind="port" view="ParametricViews::amplifierView" link="interconnection-constraints.sysml:29">
           <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;" vertex="1" parent="n6">
             <mxGeometry x="0" y="0.3333333333333333" width="12" height="12" relative="1" as="geometry">
               <mxPoint x="-6" y="-6" as="offset"/>
             </mxGeometry>
           </mxCell>
         </object>
-        <object id="n6:n6.1" label="^b" fqn="Parametrics::Mix::b" kind="port" view="ParametricViews::amplifierView" link="interconnection-constraints.sysml:13">
+        <object id="n6:n6.1" label="b" fqn="Parametrics::Amplifier::mix::b" kind="port" view="ParametricViews::amplifierView" link="interconnection-constraints.sysml:30">
           <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;" vertex="1" parent="n6">
             <mxGeometry x="0" y="0.6666666666666666" width="12" height="12" relative="1" as="geometry">
               <mxPoint x="-6" y="-6" as="offset"/>
             </mxGeometry>
           </mxCell>
         </object>
-        <object id="n6:n6.2" label="^total" fqn="Parametrics::Mix::total" kind="port" view="ParametricViews::amplifierView" link="interconnection-constraints.sysml:14">
+        <object id="n6:n6.2" label="total" fqn="Parametrics::Amplifier::mix::total" kind="port" view="ParametricViews::amplifierView" link="interconnection-constraints.sysml:31">
           <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=left;verticalLabelPosition=middle;align=right;verticalAlign=middle;" vertex="1" parent="n6">
             <mxGeometry x="1" y="0.5" width="12" height="12" relative="1" as="geometry">
               <mxPoint x="-6" y="-6" as="offset"/>
             </mxGeometry>
           </mxCell>
         </object>
-        <object id="e0" label="=" fqn="Parametrics::Amplifier::signalIn" kind="binding" view="ParametricViews::amplifierView" link="interconnection-constraints.sysml:31">
+        <object id="e0" label="=" fqn="Parametrics::Amplifier::signalIn" kind="binding" view="ParametricViews::amplifierView" link="interconnection-constraints.sysml:35">
           <mxCell style="edgeStyle=none;exitX=1;exitY=0.5;exitPerimeter=0;entryX=0.0833;entryY=0.5;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n1" target="n5:n5.0">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
@@ -94,7 +100,7 @@
             </mxGeometry>
           </mxCell>
         </object>
-        <object id="e1" label="=" fqn="Parametrics::Amplifier::gainIn" kind="binding" view="ParametricViews::amplifierView" link="interconnection-constraints.sysml:32">
+        <object id="e1" label="=" fqn="Parametrics::Amplifier::gainIn" kind="binding" view="ParametricViews::amplifierView" link="interconnection-constraints.sysml:36">
           <mxCell style="edgeStyle=none;exitX=0;exitY=0.5;exitPerimeter=0;entryX=0.0833;entryY=0.5;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n2" target="n5:n5.1">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
@@ -104,7 +110,7 @@
             </mxGeometry>
           </mxCell>
         </object>
-        <object id="e2" label="=" fqn="Parametrics::Amplifier::amplified" kind="binding" view="ParametricViews::amplifierView" link="interconnection-constraints.sysml:33">
+        <object id="e2" label="=" fqn="Parametrics::Amplifier::amplified" kind="binding" view="ParametricViews::amplifierView" link="interconnection-constraints.sysml:37">
           <mxCell style="edgeStyle=none;exitX=0.9167;exitY=0.5;exitPerimeter=0;entryX=0.0833;entryY=0.5;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n5:n5.2" target="n6:n6.0">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
@@ -114,7 +120,7 @@
             </mxGeometry>
           </mxCell>
         </object>
-        <object id="e3" label="=" fqn="Parametrics::Amplifier::noiseIn" kind="binding" view="ParametricViews::amplifierView" link="interconnection-constraints.sysml:34">
+        <object id="e3" label="=" fqn="Parametrics::Amplifier::noiseIn" kind="binding" view="ParametricViews::amplifierView" link="interconnection-constraints.sysml:38">
           <mxCell style="edgeStyle=none;exitX=0;exitY=0.5;exitPerimeter=0;entryX=0.0833;entryY=0.5;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n3" target="n6:n6.1">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
@@ -124,7 +130,7 @@
             </mxGeometry>
           </mxCell>
         </object>
-        <object id="e4" label="=" fqn="Parametrics::Amplifier::mixed" kind="binding" view="ParametricViews::amplifierView" link="interconnection-constraints.sysml:35">
+        <object id="e4" label="=" fqn="Parametrics::Amplifier::mixed" kind="binding" view="ParametricViews::amplifierView" link="interconnection-constraints.sysml:39">
           <mxCell style="edgeStyle=none;exitX=0.9167;exitY=0.5;exitPerimeter=0;entryX=0.5;entryY=0.5;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n6:n6.2" target="n4">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>

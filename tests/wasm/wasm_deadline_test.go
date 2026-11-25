@@ -14,6 +14,10 @@ import (
 // deadline may read "2s" rather than "2.xxx s".
 var elapsedLine = regexp.MustCompile(`(?m)^elapsed: 2(\.\d+)?s$`)
 
+// Node names its main thread "MainThread" through 25 and "node-MainThread" from 26,
+// so the report's main-thread line is matched by shape, not by one build's spelling.
+var mainThreadLine = regexp.MustCompile(`(?m)^  thread \d+ "(node-)?MainThread" \S+ \S+$`)
+
 // TestRunnerDeadline exercises the harness's own deadline against a runtime that
 // answers and then never exits, the way a deadlocked Node exit looks: the run must
 // end at the deadline, not the test's, and fail with a report that says how long the
@@ -62,12 +66,15 @@ func TestRunnerDeadline(t *testing.T) {
 			"output so far:\nstall.mjs: started stall -version",
 		}
 		if runtime.GOOS == "linux" {
-			want = append(want, "State: S (sleeping)", "VmRSS:", "Threads:", `thread `, `"MainThread"`)
+			want = append(want, "State: S (sleeping)", "VmRSS:", "Threads:")
 		}
 		for _, w := range want {
 			if !strings.Contains(report, w) {
 				t.Errorf("the report is missing %q:\n%s", w, report)
 			}
+		}
+		if runtime.GOOS == "linux" && !mainThreadLine.MatchString(report) {
+			t.Errorf("the report has no main thread line with its name, state and wait channel:\n%s", report)
 		}
 		if !elapsedLine.MatchString(report) {
 			t.Errorf("the report has no whole or fractional 2s elapsed line:\n%s", report)

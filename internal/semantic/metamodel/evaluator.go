@@ -29,12 +29,13 @@ type Evaluator struct {
 	resolver                     *resolve.Resolver
 	model                        *semantics.Model
 	options                      Options
-	mu                           sync.Mutex
+	mu                           sync.RWMutex
 	cache                        map[propertyKey]cachedValue
 	reasons                      map[propertyKey]Reason
 	internedStrings              map[string]string
-	structureQualifiedNames      map[ElementKey]structureQualifiedNameCacheEntry
-	structureQualifiedNameBases  map[ElementKey]structureQualifiedNameCacheEntry
+	memos                        map[ElementKey][]memoEntry
+	structureImported            map[ElementKey]structureImportedEntry
+	structureRedefined           map[ElementKey]structureElementsCacheEntry
 	qualifiedNameNamespaceCaches map[ElementKey]structureQualifiedNameNamespaceCache
 }
 
@@ -51,8 +52,9 @@ func New(res *resolve.Resolver, model *semantics.Model, options ...Options) *Eva
 		cache:                        make(map[propertyKey]cachedValue),
 		reasons:                      make(map[propertyKey]Reason),
 		internedStrings:              make(map[string]string),
-		structureQualifiedNames:      make(map[ElementKey]structureQualifiedNameCacheEntry),
-		structureQualifiedNameBases:  make(map[ElementKey]structureQualifiedNameCacheEntry),
+		memos:                        make(map[ElementKey][]memoEntry),
+		structureImported:            make(map[ElementKey]structureImportedEntry),
+		structureRedefined:           make(map[ElementKey]structureElementsCacheEntry),
 		qualifiedNameNamespaceCaches: make(map[ElementKey]structureQualifiedNameNamespaceCache),
 	}
 }
@@ -80,9 +82,13 @@ func (e *Evaluator) Explain(el Element, definingClass, name string) (Reason, boo
 		return Reason{}, false
 	}
 	key := propertyKey{element: el.Key(), class: definingClass, name: name}
-	e.mu.Lock()
-	defer e.mu.Unlock()
+	e.mu.RLock()
+	defer e.mu.RUnlock()
 	reason, ok := e.reasons[key]
+	if _, served := ruleConstraints[keyName(definingClass, name)]; !ok && !served {
+		// No element has a rule for the property, so the cause is not recorded per element.
+		return Reason{Category: ReasonNoRule, Detail: keyName(definingClass, name)}, true
+	}
 	return reason, ok
 }
 
@@ -97,24 +103,32 @@ func (e *Evaluator) PropertyReadOnly(el Element, definingClass, name string) (Va
 	return e.property(el, definingClass, name, false)
 }
 
+// PropertyReadOnlyUncached returns a derived value the caller must not modify and
+// leaves the result cache alone; the dependencies it derives are cached as usual.
+func (e *Evaluator) PropertyReadOnlyUncached(el Element, definingClass, name string) (Value, bool) {
+	return e.propertyWithPolicy(el, definingClass, name, false, false)
+}
+
 func (e *Evaluator) property(el Element, definingClass, name string, clone bool) (Value, bool) {
+	return e.propertyWithPolicy(el, definingClass, name, clone, true)
+}
+
+func (e *Evaluator) propertyWithPolicy(el Element, definingClass, name string, clone, store bool) (Value, bool) {
 	if e == nil {
 		return Value{}, false
 	}
 	key := propertyKey{element: el.Key(), class: definingClass, name: name}
 	e.mu.Lock()
-	if cached, ok := e.cache[key]; ok {
-		e.mu.Unlock()
-		if clone {
-			return cloneValue(cached.value), cached.ok
+	if store {
+		if cached, ok := e.cache[key]; ok {
+			e.mu.Unlock()
+			if clone {
+				return cloneValue(cached.value), cached.ok
+			}
+			return cached.value, cached.ok
 		}
-		return cached.value, cached.ok
 	}
 	if _, served := ruleConstraints[keyName(definingClass, name)]; !served {
-		if _, recorded := e.reasons[key]; !recorded {
-			e.reasons[key] = Reason{Category: ReasonNoRule, Detail: keyName(definingClass, name)}
-		}
-		e.cache[key] = cachedValue{}
 		e.mu.Unlock()
 		return Value{}, false
 	}
@@ -139,10 +153,16 @@ func (e *Evaluator) property(el Element, definingClass, name string, clone bool)
 		if clone {
 			value = cloneValue(value)
 		}
+	} else if !store {
+		e.mu.Unlock()
+		return value, ok
 	} else {
 		interned := e.internValueStrings(cloneValue(value))
 		e.cache[key] = cachedValue{value: interned, ok: ok}
-		if !clone {
+		if clone {
+			// The derived value may share a memoized list of the structure rules.
+			value = cloneValue(value)
+		} else {
 			value = interned
 		}
 	}
@@ -221,6 +241,19 @@ func (e *Evaluator) derive(el Element, class, name string) (Value, bool) {
 		}
 	case "Feature":
 		switch name {
+		case "isEnd":
+			if sym == nil {
+				return e.unsupported(el, class, name, Reason{
+					Category: ReasonUnrepresentedElement,
+					Detail:   "Feature has no semantic symbol",
+				})
+			}
+			if meta := e.model.MetaclassOf(sym); meta != nil && e.options.Structure != nil &&
+				e.options.Structure.Specializes(meta.Name, "Multiplicity") {
+				return booleanValue(false), true
+			}
+			value, ok := e.model.ReflectiveFeatureValue(sym, "isEnd")
+			return booleanValue(ok && value.Kind == symbols.FilterValueBool && value.Bool), true
 		case "direction":
 			if sym == nil {
 				return e.unsupported(el, class, name, Reason{
@@ -310,7 +343,7 @@ func (e *Evaluator) modelProperty(element Element, class, name string) (Value, b
 			if element.IsMembership {
 				return nullValue(), true, true
 			}
-			if value := e.model.EffectiveNameOf(sym); value != "" {
+			if value, named := e.model.EffectiveNamed(sym); named {
 				return stringValue(value), true, true
 			}
 			return nullValue(), true, true
@@ -518,8 +551,8 @@ func (e *Evaluator) modelQualifiedName(sym *symbols.Symbol, seen map[*symbols.Sy
 		return Value{}, false
 	}
 	seen[sym] = true
-	name := e.model.EffectiveNameOf(sym)
-	if name == "" {
+	name, named := e.model.EffectiveNamed(sym)
+	if !named {
 		return nullValue(), true
 	}
 	if sym.OwnerScope != nil {
@@ -527,7 +560,7 @@ func (e *Evaluator) modelQualifiedName(sym *symbols.Symbol, seen map[*symbols.Sy
 			if member == sym {
 				break
 			}
-			if e.model.EffectiveNameOf(member) == name {
+			if earlier, named := e.model.EffectiveNamed(member); named && earlier == name {
 				return nullValue(), true
 			}
 		}
@@ -538,7 +571,7 @@ func (e *Evaluator) modelQualifiedName(sym *symbols.Symbol, seen map[*symbols.Sy
 			return Value{}, false
 		}
 		seen[namespace] = true
-		if namespaceName := e.model.EffectiveNameOf(namespace); namespaceName != "" {
+		if namespaceName, named := e.model.EffectiveNamed(namespace); named {
 			parts = append(parts, identity.EscapeName(namespaceName))
 		}
 	}
@@ -599,6 +632,7 @@ func structurePropertyRequired(class, name string) bool {
 		"ownedRelatedElement", "owningRelatedElement", "action", "ownedConstraint",
 		"chainingFeature", "featureTarget", "featuringType", "crossFeature", "annotation",
 		"annotatedElement", "annotatingElement", "documentedElement", "expression",
+		"referencedElement",
 		"parameter", "step", "connectorEnd", "relatedFeature", "sourceFeature",
 		"targetFeature", "isModelLevelEvaluable", "isVariable",
 		"lowerBound", "upperBound", "bound", "triggerAction", "guardExpression",
@@ -635,13 +669,26 @@ func (e *Evaluator) importProperty(el Element, name string) (Value, bool) {
 		})
 	}
 	imp, ok := el.Node.(*ast.Import)
+	var scope *symbols.Scope
+	if el.Container != nil {
+		scope = el.Container.Scope
+	}
+	if !ok {
+		// A structure's handle carries no node: the import is the symbol it projects.
+		if sym, found := e.structureSymbolOf(el); found && sym.Implicit != nil && sym.Implicit.Form == symbols.ImplicitImport {
+			imp, ok = sym.Implicit.Decl.(*ast.Import)
+			if owner := sym.Implicit.Owner; owner != nil {
+				scope = owner.Scope
+			}
+		}
+	}
 	if !ok || imp == nil {
 		return e.unsupported(el, "Import", name, Reason{
 			Category: ReasonUnrepresentedElement,
 			Detail:   "Import::importedElement has no syntax-backed import",
 		})
 	}
-	if el.Container == nil || el.Container.Scope == nil {
+	if scope == nil {
 		return e.unsupported(el, "Import", name, Reason{
 			Category: ReasonMissingStructure,
 			Detail:   "Import::importedElement has no containing namespace",
@@ -653,7 +700,7 @@ func (e *Evaluator) importProperty(el Element, name string) (Value, bool) {
 			Detail:   "Import::importedElement requires a resolver",
 		})
 	}
-	imported, ok := e.resolver.ImportTarget(el.Container.Scope, imp)
+	imported, ok := e.resolver.ImportTarget(scope, imp)
 	if !ok || imported == nil ||
 		!e.importTreeComplete(imported, imp, make(map[*symbols.Scope]bool)) {
 		return e.unsupported(el, "Import", name, Reason{
@@ -763,20 +810,23 @@ func (e *Evaluator) ownedUsageMetaclass(property string) (string, bool) {
 		return "", false
 	}
 	suffix := strings.TrimPrefix(property, prefix)
-	metaclasses := map[string]string{
-		"Usage": "Usage", "Reference": "ReferenceUsage", "Attribute": "AttributeUsage",
-		"Enumeration": "EnumerationUsage", "Occurrence": "OccurrenceUsage", "Item": "ItemUsage",
-		"Part": "PartUsage", "Port": "PortUsage", "Connection": "ConnectorAsUsage",
-		"Flow": "FlowUsage", "Interface": "InterfaceUsage", "Allocation": "AllocationUsage",
-		"Action": "ActionUsage", "State": "StateUsage", "Transition": "TransitionUsage",
-		"Calculation": "CalculationUsage", "Constraint": "ConstraintUsage",
-		"Requirement": "RequirementUsage", "Concern": "ConcernUsage", "Case": "CaseUsage",
-		"AnalysisCase": "AnalysisCaseUsage", "VerificationCase": "VerificationCaseUsage",
-		"UseCase": "UseCaseUsage", "View": "ViewUsage", "Viewpoint": "ViewpointUsage",
-		"Rendering": "RenderingUsage", "Metadata": "MetadataUsage",
-	}
-	metaclass, ok := metaclasses[suffix]
+	metaclass, ok := ownedUsageMetaclasses[suffix]
 	return metaclass, ok
+}
+
+// ownedUsageMetaclasses maps the suffix of a nested*/owned* usage collection to
+// the metaclass of its members.
+var ownedUsageMetaclasses = map[string]string{
+	"Usage": "Usage", "Reference": "ReferenceUsage", "Attribute": "AttributeUsage",
+	"Enumeration": "EnumerationUsage", "Occurrence": "OccurrenceUsage", "Item": "ItemUsage",
+	"Part": "PartUsage", "Port": "PortUsage", "Connection": "ConnectorAsUsage",
+	"Flow": "FlowUsage", "Interface": "InterfaceUsage", "Allocation": "AllocationUsage",
+	"Action": "ActionUsage", "State": "StateUsage", "Transition": "TransitionUsage",
+	"Calculation": "CalculationUsage", "Constraint": "ConstraintUsage",
+	"Requirement": "RequirementUsage", "Concern": "ConcernUsage", "Case": "CaseUsage",
+	"AnalysisCase": "AnalysisCaseUsage", "VerificationCase": "VerificationCaseUsage",
+	"UseCase": "UseCaseUsage", "View": "ViewUsage", "Viewpoint": "ViewpointUsage",
+	"Rendering": "RenderingUsage", "Metadata": "MetadataUsage",
 }
 
 func (e *Evaluator) completeSupertypes(sym *symbols.Symbol) bool {
@@ -810,66 +860,15 @@ func (e *Evaluator) completeMembers(sym *symbols.Symbol) bool {
 }
 
 func (e *Evaluator) featureTypes(sym *symbols.Symbol) ([]*symbols.Symbol, bool) {
-	if !e.completeFeatureTypeInputs(sym) {
-		return nil, false
-	}
-	types := e.model.FeatureTypeSet(sym)
-	if len(types) == 0 {
-		if _, hasBase := e.model.FeatureBaseFQN(sym); hasBase {
-			return nil, false
-		}
-	}
-	return types, true
+	return e.model.ReflectiveFeatureTypes(sym)
 }
 
 func (e *Evaluator) completeFeatureTypeInputs(sym *symbols.Symbol) bool {
-	if sym == nil {
-		return false
-	}
-	seen := make(map[*symbols.Symbol]bool)
-	queue := []*symbols.Symbol{sym}
-	for len(queue) > 0 {
-		candidate := queue[0]
-		queue = queue[1:]
-		if candidate == nil || seen[candidate] {
-			continue
-		}
-		seen[candidate] = true
-		if e.model.SupertypesProvisional(candidate) ||
-			e.model.HasSpecializationCycle(candidate) ||
-			!e.completeRelationships(candidate) {
-			return false
-		}
-		for _, relationship := range semantics.RelationshipsOf(candidate) {
-			if relationship == nil || relationship.Kind == ast.RelTyping ||
-				!semantics.GeneralizationKind(relationship.Kind) {
-				continue
-			}
-			target := e.model.RelationshipTarget(candidate, relationship)
-			if target == nil {
-				return false
-			}
-			if target.IsFeature() {
-				queue = append(queue, target)
-			}
-		}
-	}
-	return true
+	return e.model.FeatureTypeInputsComplete(sym)
 }
 
 func (e *Evaluator) completeRelationships(sym *symbols.Symbol) bool {
-	for _, rel := range semantics.RelationshipsOf(sym) {
-		if rel == nil {
-			return false
-		}
-		if !semantics.GeneralizationKind(rel.Kind) && !rel.Kind.ReferenceSubsets() {
-			continue
-		}
-		if rel.Target == nil || e.model.RelationshipTarget(sym, rel) == nil {
-			return false
-		}
-	}
-	return true
+	return e.model.GeneralizationsResolve(sym)
 }
 
 func (e *Evaluator) featureDirection(element Element) (ast.FeatureDirection, bool) {
@@ -1067,16 +1066,16 @@ func (e *Evaluator) instantiationExpressionProperty(element Element, name string
 		}
 		return elementValue(ElementOf(function)), true
 	}
-	if index, ok := expressionNode.(*ast.IndexExpr); ok && index.Bracket {
+	if index, ok := expressionNode.(*ast.IndexExpr); ok {
 		if e.model == nil {
 			return unsupported(Reason{
 				Category: ReasonMissingSemanticModel,
 				Detail:   "operator function lookup requires a semantic model",
 			})
 		}
-		function := e.model.OperatorFunction(ast.OpIndex)
+		function := e.model.IndexFunction(index)
 		if function == nil || !semantics.IsType(function) {
-			return e.unresolvedInstantiationOperator(element, "[")
+			return e.unresolvedInstantiationOperator(element, index.OperatorSpelling())
 		}
 		return elementValue(ElementOf(function)), true
 	}

@@ -322,6 +322,46 @@ func TestDrawDOTRunsTheHeaderEngine(t *testing.T) {
 	}
 }
 
+// fakeDotDrawing installs a dot stand-in that writes svg where `-o` names.
+func fakeDotDrawing(t *testing.T, dir, svg string) {
+	t.Helper()
+	fakeTool(t, dir, "dot", DotEnv, `out=""
+while [ $# -gt 0 ]; do [ "$1" = "-o" ] && out="$2"; shift; done
+cat > "$out" <<'SVG'
+`+svg+`
+SVG
+`)
+}
+
+// TestDrawDOTDotsTheTypingEdges checks the drawing dot wrote takes the two dots of the definition
+// glyph at a typing edge's triangle and at no other, and one that cannot be read fails the diagram.
+func TestDrawDOTDotsTheTypingEdges(t *testing.T) {
+	dir := t.TempDir()
+	withoutDiagramTools(t)
+	diagram := []docrender.Diagram{{Form: view.FormDot, Source: "digraph G { a -> b [arrowhead=empty, class=definition]; c -> b [arrowhead=empty]; }"}}
+	const typing = `<g id="edge1" class="edge definition"><polygon fill="none" stroke="#181818" points="3.5,-10 0,0 -3.5,-10 3.5,-10"/>`
+	const special = `<g id="edge2" class="edge"><polygon fill="none" stroke="#181818" points="23.5,-10 20,0 16.5,-10 23.5,-10"/></g>`
+	fakeDotDrawing(t, dir, `<svg xmlns="http://www.w3.org/2000/svg">`+typing+`</g>`+special+`</svg>`)
+	images, err := drawDiagrams(dir, diagram)
+	if err != nil {
+		t.Fatalf("drawDiagrams: %v", err)
+	}
+	drawn, err := os.ReadFile(filepath.Join(dir, images[0]))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dots := "\n" + `<circle fill="#181818" stroke="none" cx="3.6" cy="-14.3" r="1.7"/>` + "\n" + `<circle fill="#181818" stroke="none" cx="-3.6" cy="-14.3" r="1.7"/>`
+	if want := `<svg xmlns="http://www.w3.org/2000/svg">` + typing + dots + `</g>` + special + `</svg>` + "\n"; string(drawn) != want {
+		t.Errorf("the drawing is\n%s\nwant\n%s", drawn, want)
+	}
+	fakeDotDrawing(t, dir, `<svg xmlns="http://www.w3.org/2000/svg">`+typing+`</svg>`)
+	_, err = drawDiagrams(dir, diagram)
+	var docErr *Error
+	if !errors.As(err, &docErr) || docErr.Kind != ErrorToolFailed || docErr.Tool != "dot" {
+		t.Fatalf("a drawing that is not well-formed: got %v, want ErrorToolFailed from dot", err)
+	}
+}
+
 // imagePathArg is the picture search path dot is run with: the current
 // directory, the one a view's picture paths are relative to.
 func imagePathArg(t *testing.T) string {
@@ -967,5 +1007,32 @@ func TestDefineMasksMovesD2MasksIntoDefs(t *testing.T) {
 
 	if err := defineMasks(filepath.Join(dir, "missing.svg")); err == nil {
 		t.Error("a missing SVG must be an error")
+	}
+}
+
+// A drawn view names each picture by the path of the model stating it, which need not be
+// under the working directory the relative ones resolve against: that picture is drawn too.
+func TestEmbedImagesDrawsAPictureBesideAModelElsewhere(t *testing.T) {
+	var data bytes.Buffer
+	if err := png.Encode(&data, image.NewRGBA(image.Rect(0, 0, 2, 2))); err != nil {
+		t.Fatal(err)
+	}
+	picture := filepath.Join(t.TempDir(), "mark.png")
+	if err := os.WriteFile(picture, data.Bytes(), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "diagram-1.svg")
+	if err := os.WriteFile(path, []byte(`<svg xmlns="http://www.w3.org/2000/svg"><image href="`+filepath.ToSlash(picture)+`"/></svg>`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := embedImages(path, t.TempDir()); err != nil {
+		t.Fatalf("embedImages: %v", err)
+	}
+	out, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := `<image href="data:image/png;base64,` + base64.StdEncoding.EncodeToString(data.Bytes()) + `"/>`; !strings.Contains(string(out), want) {
+		t.Errorf("the picture is not drawn:\n%s", out)
 	}
 }

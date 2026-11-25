@@ -125,7 +125,7 @@ type seedRowFunc func(rt *runtime.Context, bindings []sweep.SweepBinding) (int64
 // runAction makes the runs of an action and tables the observables they produced.
 func (s *Service) runAction(ctx context.Context, v *verifyContext, req *pb.RunRunsRequest, plan sweep.SweepPlan, seedRow seedRowFunc) (*pb.RunRunsResponse, error) {
 	// An inherited action is named by the subtype too (Sub::inherited).
-	syms := v.cached.LookupNamedMember(req.ActionSymbolId)
+	syms := v.cached.LookupDeclaredMember(req.ActionSymbolId)
 	if len(syms) == 0 {
 		return &pb.RunRunsResponse{Error: fmt.Sprintf("action not found: %s", req.ActionSymbolId),
 			FailureReason: pb.FailureReason_FAILURE_REASON_UNSPECIFIED}, nil
@@ -134,7 +134,7 @@ func (s *Service) runAction(ctx context.Context, v *verifyContext, req *pb.RunRu
 	readInputs := func(rt *runtime.Context) (map[string]runtime.Value, error) {
 		inputs := make(map[string]runtime.Value, len(req.Inputs))
 		for name, pv := range req.Inputs {
-			val, err := protoconv.ProtoToRuntimeValue(rt, pv, v.cached.Index, rt.Semantics())
+			val, err := protoconv.ProtoToRuntimeValueWith(rt, pv, v.cached.Index, rt.Semantics(), v.cached.SymbolContext())
 			if err != nil {
 				return nil, fmt.Errorf("input %q could not be read: %w", name, err)
 			}
@@ -303,7 +303,7 @@ func (s *Service) monteCarloRuns(ctx context.Context, v *verifyContext, req *pb.
 	// last row's: renumber it as that row was, and add only the objects it adds.
 	tail := &pb.SweepRow{}
 	for _, out := range concluded.Outputs {
-		tail.Outputs = append(tail.Outputs, &pb.CalcOutput{Name: out.Name, Value: s.valueToProto(in.runtime, out.Value, v.cached.Index)})
+		tail.Outputs = append(tail.Outputs, &pb.CalcOutput{Name: out.Name, Value: s.valueToProto(in.runtime, out.Value, v.cached)})
 	}
 	mark := "✓"
 	for j := range concluded.Verdicts {
@@ -413,7 +413,7 @@ func objectText(ctx *runtime.Context, val runtime.Value) string {
 func (v *verifyContext) distribution(summary analysis.ObservableSummary) *pb.RunDistribution {
 	out := &pb.RunDistribution{Name: summary.Name, Unit: summary.Unit}
 	number := func(x semantics.Value) *pb.Value {
-		return v.service.valueToProto(v.runtime, runtime.ConstValue(x), v.cached.Index)
+		return v.service.valueToProto(v.runtime, runtime.ConstValue(x), v.cached)
 	}
 	if d := summary.Distribution; d != nil {
 		out.Numeric = true

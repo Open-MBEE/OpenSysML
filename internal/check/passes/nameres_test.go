@@ -174,14 +174,13 @@ func TestIndistinguishableMembershipsAreErrorsUnderStrictConformance(t *testing.
 }
 
 // An imported collision is a name KerML 7.2.5.4 hides, not a membership the
-// namespace keeps, so the warning marking it stays a warning under strict.
-func TestImportedNameCollisionStaysAWarningUnderStrictConformance(t *testing.T) {
+// namespace keeps, so there is no name conflict to report, strict mode included.
+func TestImportedNameCollisionIsNoConflictUnderStrictConformance(t *testing.T) {
 	const src = `package A { part def Engine; }
 	package B { part def Engine; }
 	package C { private import A::*; private import B::*; part e : Engine; }`
-	got := only(nameresDiagsIn(t, src, diag.ConformanceStrict), "name-conflict")
-	if len(got) != 1 || got[0].Severity != diag.SeverityWarning || !strings.HasPrefix(got[0].Message, "Duplicate of imported member name 'Engine'") {
-		t.Fatalf("got %+v, want one imported-name warning", got)
+	if got := only(nameresDiagsIn(t, src, diag.ConformanceStrict), "name-conflict"); len(got) != 0 {
+		t.Fatalf("got %+v, want no name conflict: the hidden pair is no membership of C", got)
 	}
 }
 
@@ -254,16 +253,17 @@ func TestImplicitlyRedefiningParameterIsWhatTheNameBinds(t *testing.T) {
 	}
 }
 
-// Two implicit redefinitions need not agree on a name, so neither names the
-// parameter and the inherited feature keeps the name (KerML 7.3.4.5).
+// A parameter at a position two generals fill redefines both (KerML 8.4.4.6): neither
+// redefined parameter is inherited, and the unnamed one answers to the first's name only,
+// as the pilot resolves it (p1 resolves, p2 does not).
 func TestParameterRedefiningTwoInheritedOnesStaysAnonymous(t *testing.T) {
-	sym, scope := resolvedInBody(t, `package P {
+	got := nameresDiags(t, `package P {
 		action def B1 { in p1; }
 		action def B2 { in p2; }
-		action a : B1, B2 { in item; }
-	}`, "P::a", "p1")
-	if sym.OwnerScope == scope {
-		t.Fatalf("p1 resolved to the anonymous parameter of a, want B1::p1")
+		action a : B1, B2 { in item; attribute x = p1; attribute y = p2; }
+	}`)
+	if len(got) != 1 || got[0].Code != "unresolved" || !strings.Contains(got[0].Message, "p2") {
+		t.Fatalf("got %+v, want p2 unresolved only: the parameter redefines p1 and p2 and answers to p1", got)
 	}
 }
 

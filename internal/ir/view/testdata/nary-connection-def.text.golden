@@ -1,0 +1,10 @@
+NaryViews::definitions - tree rendering (render asTreeDiagram)
+
+connection def dot Triad
+part def Hub
+part def Spoke
+
+relationships:
+  Triad -- Hub: hub
+  Triad -- Spoke: left
+  Triad -- Spoke: right

@@ -99,6 +99,8 @@ n0: "«part»\nimagingChain" {
   }
 }
 n0.n1."n1.0" -- n0.n2."n2.0": { class: connection }
+frame_name: "«view» Observatory::interconnectView" { shape: text; near: top-left }
+frame_tr: "expose imagingChain" { shape: text; near: top-right }
 ```
 
 *Observatory states, left to right*
@@ -111,7 +113,7 @@ classes: {
   initial: { shape: oval; width: 18; height: 18; style: { fill: black; stroke: black } }
   edge: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
 }
-n0: "«state»\noperatingStates" {
+n0: "«state»\noperatingStates\nstate transition" {
   class: usage
   n3: "" { class: initial }
   n1: "«state»\n^idle\ninitial" { class: usage }

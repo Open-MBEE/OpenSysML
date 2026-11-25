@@ -510,6 +510,7 @@ func TestRepeatedSingleValuedPropertiesAreRefused(t *testing.T) {
 // rational lacking fractional digits gains them, a boolean is `true` or `false`,
 // and a value no token spells — signed, or not finite — is refused by name.
 func TestLiteralValuesAreSpelledAsTokens(t *testing.T) {
+	t.Parallel()
 	turtle := string(withoutTriples(t, convertFixture(t, "result_expressions"), "sysx:sourceText"))
 	const (
 		integer  = `sysml:value "2"^^xsd:integer ;`
@@ -773,6 +774,7 @@ func TestNonStringLiteralsAreRefused(t *testing.T) {
 // datatype is not the one the property holds, a string on a flag or an index
 // and expression text on a name included.
 func TestMistypedLiteralsAreRefusedEverywhere(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct{ fixture, from, to, want string }{
 		{"result_expressions", `sysml:declaredName "Quoted" ;`, `sysml:declaredName "42"^^xsd:integer ;`, "sysml:declaredName takes a string"},
 		{"result_expressions", `sysml:declaredName "Quoted" ;`, `sysml:declaredName "Quoted"^^sysx:Expression ;`, "sysml:declaredName takes a string"},
@@ -1046,7 +1048,7 @@ func TestExpressionBodyParameterIsDeclaredOutsideTheBody(t *testing.T) {
 		"expr:Params__one_pvalue_pa0_pin0\n    a sysml:ReferenceUsage ;",
 		"sysml:declaredName \"Gauge\" ;\n    sysml:isVariable \"true\"^^xsd:boolean ;\n    sysml:mayTimeVary \"true\"^^xsd:boolean ;\n    sysml:type elmt:Params__Gauge ;\n    sysml:owner expr:Params__one_pvalue_pa0_pbody ;",
 		"expr:Params__two_pvalue_pa0_pin0\n    a sysml:ReferenceUsage ;",
-		"sysml:declaredName \"limit\" ;\n    sysml:isVariable \"true\"^^xsd:boolean ;\n    sysml:mayTimeVary \"true\"^^xsd:boolean ;\n    sysml:type elmt:Params__Gauge ;\n    sysml:owner expr:Params__two_pvalue_pa0_pbody ;\n    sysml:owningRelationship expr:Params__two_pvalue_pa0_pin0_om ;\n    sysml:owningMembership expr:Params__two_pvalue_pa0_pin0_om ;\n    sysml:multiplicity expr:Params__two_pvalue_pa0_pin0_pmultiplicity ;\n    sysml:ownedRelationship expr:Params__two_pvalue_pa0_pin0_ft0, expr:Params__two_pvalue_pa0_pin0_pmultiplicity_om ;\n    sysml:ownedMembership expr:Params__two_pvalue_pa0_pin0_pmultiplicity_om ;\n    sysml:lowerBound expr:Params__two_pvalue_pa0_pin0_plowerBound ;\n    sysml:upperBound expr:Params__two_pvalue_pa0_pin0_pupperBound ;\n    sysml:value expr:Params__two_pvalue_pa0_pin0_pvalue ;\n    sysml:ownedTyping expr:Params__two_pvalue_pa0_pin0_ft0 ;",
+		"sysml:declaredName \"limit\" ;\n    sysml:isVariable \"true\"^^xsd:boolean ;\n    sysml:mayTimeVary \"true\"^^xsd:boolean ;\n    sysml:type elmt:Params__Gauge ;\n    sysml:owner expr:Params__two_pvalue_pa0_pbody ;\n    sysml:owningRelationship expr:Params__two_pvalue_pa0_pin0_om ;\n    sysml:owningMembership expr:Params__two_pvalue_pa0_pin0_om ;\n    sysml:multiplicity expr:Params__two_pvalue_pa0_pin0_pmultiplicity ;\n    sysml:ownedRelationship expr:Params__two_pvalue_pa0_pin0_ft0, expr:Params__two_pvalue_pa0_pin0_pmultiplicity_om ;\n    sysml:ownedMembership expr:Params__two_pvalue_pa0_pin0_pmultiplicity_om ;\n    sysml:ownedMember expr:Params__two_pvalue_pa0_pin0_pmultiplicity ;\n    sysml:lowerBound expr:Params__two_pvalue_pa0_pin0_plowerBound ;\n    sysml:upperBound expr:Params__two_pvalue_pa0_pin0_pupperBound ;\n    sysml:value expr:Params__two_pvalue_pa0_pin0_pvalue ;\n    sysml:ownedTyping expr:Params__two_pvalue_pa0_pin0_ft0 ;",
 		"expr:Params__two_pvalue_pa0_pin0_ft0\n    a sysml:FeatureTyping ;\n    sysml:elementId \"Params__two_pvalue_pa0_pin0_ft0\" ;\n    sysml:typedFeature expr:Params__two_pvalue_pa0_pin0 ;",
 		"expr:Params__two_pvalue_pa0_pin0_pupperBound\n    a sysml:FeatureReferenceExpression ;\n    sysx:sourceText \"upper\" ;\n    sysml:elementId \"Params__two_pvalue_pa0_pin0_pupperBound\" ;\n    sysml:isComposite \"false\"^^xsd:boolean ;\n    sysml:ownedRelationship expr:Params__two_pvalue_pa0_pin0_pupperBound_preferent, expr:Params__two_pvalue_pa0_pin0_pupperBound_pout_om ;\n    sysml:ownedMembership expr:Params__two_pvalue_pa0_pin0_pupperBound_preferent, expr:Params__two_pvalue_pa0_pin0_pupperBound_pout_om ;\n    sysml:referent elmt:Params__upper ;",
 		"expr:Params__two_pvalue_pa0_pin0_pvalue\n    a sysml:FeatureReferenceExpression ;\n    sysx:sourceText \"limit\" ;\n    sysml:elementId \"Params__two_pvalue_pa0_pin0_pvalue\" ;\n    sysml:isComposite \"false\"^^xsd:boolean ;\n    sysml:ownedRelationship expr:Params__two_pvalue_pa0_pin0_pvalue_preferent, expr:Params__two_pvalue_pa0_pin0_pvalue_pout_om ;\n    sysml:ownedMembership expr:Params__two_pvalue_pa0_pin0_pvalue_preferent, expr:Params__two_pvalue_pa0_pin0_pvalue_pout_om ;\n    sysml:referent elmt:Params__limit ;",

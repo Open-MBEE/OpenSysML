@@ -9,7 +9,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/solve"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // Input is one feature of the initial state as the encoding takes it: free in
@@ -34,7 +33,7 @@ type Input struct {
 	// Value is the value the performance holds at its start, ValInvalid when it holds none.
 	Value runtime.Value
 
-	def ast.Node // the default the model wrote, nil without one
+	def *lower.ExprEntry // the default the model wrote, nil without one
 }
 
 // absentInput is how a witness spells an optional input the solver left without
@@ -70,7 +69,7 @@ func (e *Encoding) checkReleases(action string) error {
 	}
 	for _, name := range e.releases {
 		attr, ok := features[name]
-		_, derived := derivation(e.Flow.Graph, attr)
+		_, derived := derivation(e.ctx, e.Flow.Graph, attr)
 		switch {
 		case !ok:
 			return &analysis.InputError{Engine: EngineName, Feature: name,

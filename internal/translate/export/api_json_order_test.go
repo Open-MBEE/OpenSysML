@@ -65,7 +65,7 @@ func TestAPIJSONWithoutMappingPropertyOrderUsesNaturalOrder(t *testing.T) {
 
 func TestAPIJSONMappingPropertyOrderOnlyRecordsMisplacedSidecarProperties(t *testing.T) {
 	subject := rdf.ElementIRIForID("p")
-	reference := apiJSONReference{ID: "other"}
+	reference := APIJSONReference{ID: "other"}
 	for _, test := range []struct {
 		name       string
 		properties []string

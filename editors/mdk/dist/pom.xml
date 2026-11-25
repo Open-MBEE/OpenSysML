@@ -4,7 +4,7 @@
   <parent>
     <groupId>org.openmbee</groupId>
     <artifactId>magic-mdk-parent</artifactId>
-    <version>0.12.1</version>
+    <version>0.13.0</version>
   </parent>
   <artifactId>magic-mdk-dist</artifactId>
   <packaging>pom</packaging>
@@ -57,7 +57,7 @@
           <plugin>
             <groupId>org.codehaus.mojo</groupId>
             <artifactId>exec-maven-plugin</artifactId>
-            <version>3.6.4</version>
+            <version>3.7.0</version>
             <configuration>
               <includePluginDependencies>true</includePluginDependencies>
               <includeProjectDependencies>true</includeProjectDependencies>

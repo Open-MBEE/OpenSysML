@@ -84,6 +84,27 @@ end
     @test AnalysisResult(Dict{String,Any}(), []; tool_dry_run=bare).tool_dry_run === bare
 end
 
+@testset "coverage decoders read every run's states and transitions" begin
+    entry = Dict{String,Any}("path" => "Cov::sys#1.m.run: viaB",
+        "declaration" => "Cov::M::run::viaB", "runs" => 1)
+    edge = Dict{String,Any}("path" => "Cov::sys#1.m.run: s0 -> viaB",
+        "declaration" => "Cov::M::run::s0 -> viaB", "runs" => 1)
+    exploration = Exploration(Dict{String,Any}("outcomes" => Any[],
+        "exploration" => Dict{String,Any}("complete" => true, "runs" => 2,
+            "coverage" => Dict{String,Any}("states" => Any[entry], "transitions" => Any[edge]))))
+    @test exploration.coverage.states == [CoverageEntry("Cov::sys#1.m.run: viaB", "Cov::M::run::viaB", 1)]
+    @test exploration.coverage.transitions ==
+        [CoverageEntry("Cov::sys#1.m.run: s0 -> viaB", "Cov::M::run::s0 -> viaB", 1)]
+    bare = Exploration(Dict{String,Any}("exploration" => Dict{String,Any}("complete" => true)))
+    @test isempty(bare.coverage.states) && isempty(bare.coverage.transitions)
+    search = CheckSearch(Dict{String,Any}("states" => 5,
+        "coverage" => Dict{String,Any}("states" => Any[entry])))
+    @test search.states == 5
+    @test search.coverage.states == [CoverageEntry("Cov::sys#1.m.run: viaB", "Cov::M::run::viaB", 1)]
+    @test isempty(search.coverage.transitions)
+    @test isempty(CheckSearch(Dict{String,Any}("states" => 1)).coverage.states)
+end
+
 @testset "run options are encoded as the service reads them" begin
     request = OpenSysML._run_options!(Dict{String,Any}())
     @test isempty(request)
@@ -170,6 +191,12 @@ end
     @test !(CAPABILITY_RATIONAL_VALUES in value_capabilities(1//2))
     @test encode_value(big(7)) == Dict("intValue" => "7")
     @test encode_value(Quantity(big(2)^63, "kg", nothing)) == Dict("quantity" => Dict("bigIntMagnitude" => "9223372036854775808", "unit" => "kg"))
+    held = decode_value(Dict("quantity" => Dict("realMagnitude" => 5.0, "unit" => "J", "valueType" => "ISQThermodynamics::EnergyValue")))
+    @test held.value_type == "ISQThermodynamics::EnergyValue"
+    @test encode_value(held)["quantity"]["valueType"] == "ISQThermodynamics::EnergyValue"
+    @test held == Quantity(5.0, "J") && Quantity(5.0, "J").value_type == "" && (held * 2).value_type == ""
+    @test !haskey(encode_value(Quantity(5.0, "J"))["quantity"], "valueType")
+    @test Quantity(5, "J"; value_type="M::Work").value_type == "M::Work"
     wide = Quantity(big(2)^63, "kg", nothing)
     for value in (big(2)^70, Any[1, Any[big(2)^70]], Set([big(2)^70]), wide,
                   VectorQuantity([wide]), TensorQuantity([1], [wide]))
@@ -252,6 +279,64 @@ end
     @test_throws UnsupportedValueError decode_value(JSON.parse("""{"metaobject":{"metaclassId":"X"}}"""))
     u = decode_value(JSON.parse("""{"undetermined":{"reason":"P::Q::d has no value in the model","count":{"lower":"1","upper":"*"}}}"""))
     @test u == Undetermined("P::Q::d has no value in the model", "1", "*")
+
+    mm = """{"unit":"mm","unitId":"SI::millimetre","unitTerm":{"scaleNum":1,"scaleDen":1000,"factors":[{"unitId":"SI::metre","exponent":1}]}}"""
+    len(x) = """{"realMagnitude":$x,"unit":"mm","unitTerm":{"scaleNum":1,"scaleDen":1000,"factors":[{"unitId":"SI::metre","exponent":1}]}}"""
+    vec(x, y, z) = """{"vectorQuantity":{"components":[$(len(x)),$(len(y)),$(len(z))]}}"""
+    datum = """{"name":"datum","frameId":"Frames::datum","typeId":"ISQSpaceTime::CartesianSpatial3dCoordinateFrame","dimensions":["3"],"axes":[$mm,$mm,$mm]}"""
+    posed = decode_value(JSON.parse("""{"coordinateFrame":{"name":"lbcf","frameId":"Frames::lbcf","instanceId":"4","dimensions":["3"],"axes":[$mm,$mm,$mm],
+        "transformation":{"name":"transformation","source":$datum,
+            "sequence":{"steps":[{"translation":$(vec(10.0, 0.0, 0.0)),"instanceId":"7"},
+                {"rotation":{"axisDirection":$(vec(0.0, 0.0, 1.0)),"angle":$(len(180.0)),"isIntrinsic":true}}]},
+            "pose":{"origin":[10,0,0],"basis":[-1,0,0,0,-1,0,0,0,1]}}}}"""))
+    @test posed isa CoordinateFrame
+    @test (posed.name, posed.frame_id, posed.type_id, posed.instance_id) == ("lbcf", "Frames::lbcf", nothing, 4)
+    @test posed.dimensions == [3] && length(posed.axes) == 3 && posed.axes[1].unit_id == "SI::millimetre"
+    @test posed.scale === nothing
+    t = posed.transformation
+    @test t.source.frame_id == "Frames::datum" && t.target === nothing
+    @test t.placement === nothing && t.affine === nothing && length(t.steps) == 2
+    @test t.steps[1].translation isa VectorQuantity && t.steps[1].instance_id == 7
+    @test t.steps[2].translation === nothing && t.steps[2].rotation.intrinsic
+    @test t.steps[2].rotation.angle.magnitude == 180.0 && t.steps[2].instance_id === nothing
+    @test t.pose == FramePose([10.0, 0.0, 0.0], [-1.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 1.0])
+    @test posed != decode_value(JSON.parse("""{"coordinateFrame":$datum}"""))
+    @test_throws ArgumentError encode_value(posed)
+    @test CAPABILITY_COORDINATE_FRAME_VALUES in value_capabilities(posed)
+
+    placed = decode_value(JSON.parse("""{"coordinateTransformation":{"name":"placement","source":$datum,"target":$datum,
+        "placement":{"origin":$(vec(1.0, 2.0, 3.0)),"basisDirections":[$(vec(1.0, 0.0, 0.0))]}}}"""))
+    @test placed isa CoordinateTransformation && placed.target.name == "datum" && placed.pose === nothing
+    @test length(placed.placement.basis_directions) == 1
+    @test_throws ArgumentError encode_value(placed)
+    affine = decode_value(JSON.parse("""{"coordinateTransformation":{"affine":{"rotation":[1,0,0,0,1,0,0,0,1],"translation":[1,2,3]}}}"""))
+    @test affine.affine == AffineTransformation3d([1.0, 0, 0, 0, 1, 0, 0, 0, 1], [1.0, 2, 3])
+    scale = decode_value(JSON.parse("""{"coordinateFrame":{"name":"celsius","scale":{"unit":$mm,"mapping":{"mapped":$(len(0.0)),"reference":$(len(273.15))}}}}"""))
+    @test scale.scale.unit.unit_id == "SI::millimetre" && scale.scale.reference.magnitude == 273.15
+    @test_throws OpenSysML.UnsupportedValueError decode_value(JSON.parse("""{"coordinateTransformation":{"sequence":{"steps":[{}]}}}"""))
+
+    # A frame is the object it was read from when it has one, else what it measures.
+    cf(fields) = decode_value(JSON.parse("""{"coordinateFrame":{$fields,"dimensions":["3"],"axes":[$mm,$mm,$mm]}}"""))
+    ct(fields) = decode_value(JSON.parse("""{"coordinateTransformation":{$fields}}"""))
+    cut = cf(""""name":"lbcf","frameId":"Frames::lbcf","instanceId":"4\"""")
+    @test posed == cut && cut == posed
+    @test cut != cf(""""name":"lbcf","frameId":"Frames::lbcf","instanceId":"5\"""")
+    @test cut != cf(""""name":"datum","frameId":"Frames::datum","instanceId":"4\"""")
+    composed = cf(""""name":"datum / s\"""")
+    @test composed == cf(""""name":"rate","typeId":"Frames::Rate\"""")
+    @test composed != cf(""""name":"datum / s","scale":{"unit":$mm}""")
+    @test composed != cut
+    own = """"instanceId":"9","source":$datum,"placement":{"origin":$(vec(1.0, 0.0, 0.0))}"""
+    @test ct(""""name":"placed",$own,"pose":{"origin":[1,0,0],"basis":[1,0,0,0,1,0,0,0,1]}""") ==
+          ct(""""name":"trs",$own,"target":$datum""")
+    built(name, x) = ct(""""name":"$name","source":$datum,"placement":{"origin":{"realValue":$x}}""")
+    @test built("a", 1.0) == built("b", 1.0) && built("a", 1.0) != built("a", 2.0)
+    @test ct(""""source":$datum,"instanceId":"4\"""") != ct(""""source":$datum,"instanceId":"5\"""")
+    @test FrameStep(1.0, nothing, 7) == FrameStep(1.0, nothing, 8)
+    @test hash(posed) == hash(cut) && length(Set([posed, cut])) == 1
+    @test hash(FrameStep(1.0, nothing, 7)) == hash(FrameStep(1.0, nothing, 8))
+    trs = ct(""""name":"trs",$own,"target":$datum""")
+    @test hash(trs) == hash(ct(""""name":"placed",$own""")) && length(Set([trs, ct(""""name":"placed",$own""")])) == 1
     @test_throws UnsupportedValueError decode_value(JSON.parse("""{"fromTheFuture":1}"""))
     @test_throws UnsupportedValueError decode_value(Dict{String,Any}())
 end
@@ -546,6 +631,17 @@ const GRPC_BINARY = get(ENV, "OPENSYSML_GRPC_BINARY",
             rows = query(qmodel, "oslc.where=rdf:type=\"PartUsage\"&oslc.select=sysml:name")
             @test length(get(rows, "elements", Any[])) == 3
 
+            @test has_capability(conn, CAPABILITY_ELEMENT_PROPERTIES)
+            pmodel = parse_source(conn, read(joinpath(FIXTURES, "element_properties.sysml"), String);
+                                  name="element_properties.sysml")
+            pair = element_properties(pmodel, "Demo::Pair", "inheritedFeature", "isAbstract")
+            @test pair.element.metaclass == "PartDefinition"
+            @test "Demo::Unit::p" in [e.qualified_name for e in property_elements(pair["inheritedFeature"])]
+            @test property_value(pair["isAbstract"]) === false
+            walked = element_properties(pmodel, property_elements(pair["inheritedFeature"])[1].id, "owner")
+            @test property_value(walked["owner"]) isa ElementIdentity
+            @test !is_answered(element_properties(pmodel, "Demo::Pair", "connectorEnd")["connectorEnd"])
+
             @test_throws DiagnosticError evaluate(model, "1 +")
             @test_throws ConnectError symbol(Model(conn, "0"^64, Diagnostic[]), "X")
             @test_throws TransportError call(conn, "NoSuchMethod", Dict{String,Any}())
@@ -556,6 +652,13 @@ const GRPC_BINARY = get(ENV, "OPENSYSML_GRPC_BINARY",
             close(conn)
         end
     end
+end
+
+@testset "type and specialization facts still construct without a qualified name" begin
+    type = TypeFacts("T", "P::'@2'", "partDef", "", "", false, "", OpenSysML.TypeRef[])
+    @test type.resolved_id == "P::'@2'"
+    @test type.resolved_qualified_name == ""
+    @test Specialization("typing", "T", "P::T", "partDef").target_qualified_name == ""
 end
 
 include("extended_client.jl")

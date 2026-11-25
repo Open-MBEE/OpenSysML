@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -82,14 +83,18 @@ func (ctx *Context) holdResolved(held *map[*symbols.Symbol]string, adopted map[*
 
 // lookupHeld reads the name qn spells from the innermost frame holding the feature it
 // resolves to; a frame holding it with no value decides the read too, returning it unset.
-func (ec *EvalContext) lookupHeld(qn *ast.QualifiedName) (val Value, ok bool, unset *symbols.Symbol, err error) {
+func (ec *EvalContext) lookupHeld(qn *ast.QualifiedName, at *program.Expr) (val Value, ok bool, unset *symbols.Symbol, err error) {
 	if ec.ctx.model.resolver == nil || ec.scope == nil {
 		return Value{}, false, nil, nil
 	}
 	name := qn.Parts[0].Text
-	sym, ok := ec.lookupName(name)
+	sym, ok := ec.lookupRef(at)
 	if !ok || sym == nil {
 		return Value{}, false, nil, nil
+	}
+	// A connection is read from the performance declaring it, whatever a frame inside binds its name to.
+	if val, ok, err := ec.performedConnector(sym); ok {
+		return val, err == nil, nil, err
 	}
 	for i := len(ec.frames) - 1; i >= 0; i-- {
 		f := &ec.frames[i]
@@ -135,7 +140,7 @@ func (ec *EvalContext) lookupNamed(name string, unset *symbols.Symbol) (Value, b
 
 // holdsAnother reports whether f binds name as a feature other than sym.
 func (f *frame) holdsAnother(name string, sym *symbols.Symbol) bool {
-	name = canonical(f.aliases, name)
+	name = program.Canonical(f.aliases, name)
 	for held, bound := range f.held {
 		if bound == name && held != sym {
 			return true

@@ -9,6 +9,7 @@ import (
 )
 
 func TestRuntimeRobustnessCaseStepOrder(t *testing.T) {
+	t.Parallel()
 	t.Run("explore_budget_is_incomplete", func(t *testing.T) {
 		source := `package test {
 			analysis def ManySteps {

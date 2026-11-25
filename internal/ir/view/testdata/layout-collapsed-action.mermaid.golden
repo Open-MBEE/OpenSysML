@@ -23,6 +23,7 @@ config:
   flowchart:
     subGraphTitleMargin:
       bottom: 48
+title: "«view» FoldedBehaviors::flows : ActionFlowView"
 ---
 %% FoldedBehaviors::flows — action rendering (view def ActionFlowView)
 %% layout: n1 collapsed
@@ -33,7 +34,7 @@ in flowIn`"]
     direction TD
     n1("`*«action»*
 **a**
-own flow`")
+action flow`")
     n4("`*«action»*
 **b**`")
   end

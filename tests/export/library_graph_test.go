@@ -29,6 +29,7 @@ func libraryGraphWithoutSourceText(t *testing.T, name string) (turtle, stripped 
 // accepter, which Actions::TransitionAction declares and every transition
 // inherits — resolves where it is written, and the whole file converts.
 func TestLibraryGraphSpellsImpliedChainSegmentWithoutSourceText(t *testing.T) {
+	t.Parallel()
 	const name = "Systems Library/Actions.sysml"
 	turtle, stripped := libraryGraphWithoutSourceText(t, name)
 	back := toNotation(t, stripped)

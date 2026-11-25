@@ -61,6 +61,7 @@ func ReadAPIJSON(data []byte) (*rdf.Graph, error) {
 	if err := addAPIJSONLibraryReferences(graph, references); err != nil {
 		return nil, err
 	}
+	addReferencedLibraryStubs(graph, apiJSONCompletedReferenceIDs(plan.objects))
 	return withoutRootNamespace(graph), nil
 }
 
@@ -179,17 +180,17 @@ func apiJSONGraphWithQualifiedNames(
 	for i, triple := range triples {
 		position := apiJSONQualifiedNamePosition{triple.Subject, triple.Predicate.Value}
 		if name, ok := before[position]; ok && !emitted[position] {
-			builder.Add(triple.Subject, addressTerm(name), rdf.String(name))
+			stateAddress(builder.Add, triple.Subject, name)
 			emitted[position] = true
 		}
 		builder.AddTriple(triple)
 		if name, ok := afterType[triple.Subject]; ok && triple.Predicate.Value == rdf.RDFType {
-			builder.Add(triple.Subject, addressTerm(name), rdf.String(name))
+			stateAddress(builder.Add, triple.Subject, name)
 			delete(afterType, triple.Subject)
 		}
 		if name, ok := after[position]; ok &&
 			(i+1 == len(triples) || triples[i+1].Subject != triple.Subject || triples[i+1].Predicate.Value != triple.Predicate.Value) {
-			builder.Add(triple.Subject, addressTerm(name), rdf.String(name))
+			stateAddress(builder.Add, triple.Subject, name)
 		}
 	}
 	return builder.Build()
@@ -422,6 +423,9 @@ func expandAPIJSONCompactValue(value any, bareReference bool, ids []string) (any
 		return expanded, nil
 	case map[string]any:
 		if id, ok := value["@id"].(json.Number); ok {
+			if len(value) != 1 {
+				return nil, fmt.Errorf("a compact API reference object holds only @id, not also %q", siblingKey(value))
+			}
 			expandedID, err := expandAPIJSONCompactReference(id, ids)
 			if err != nil {
 				return nil, err
@@ -486,6 +490,7 @@ type apiJSONElementData struct {
 	toolkitForm          bool
 	statedDefaults       bool
 	explicitDefaults     map[string]bool
+	completedProperties  map[string]bool
 }
 
 var apiJSONInteger = regexp.MustCompile(`^-?[0-9]+$`)
@@ -639,6 +644,9 @@ func apiJSONMappingObjectTriples(builder *rdf.GraphBuilder, cache *apiJSONTermCa
 			emitter.memberProperties[member.key] = true
 		}
 	}
+	if err := apiJSONCheckCompletedProperties(object, metaclass); err != nil {
+		return err
+	}
 	for _, member := range object.members {
 		if err := emitter.member(member); err != nil {
 			return err
@@ -667,6 +675,10 @@ func (emitter *apiJSONMappingEmitter) member(member apiJSONMember) error {
 		apiJSONImpliedBoolean(emitter.typ, member, object.members) {
 		return nil
 	}
+	// A derived property the writer completed states no triple; the graph derives it again.
+	if object.completedProperties[member.key] {
+		return nil
+	}
 	predicate, sysmlKey, err := emitter.cache.predicate(member.key)
 	if err != nil {
 		return fmt.Errorf("element %q: %w", object.id, err)
@@ -678,6 +690,11 @@ func (emitter *apiJSONMappingEmitter) member(member apiJSONMember) error {
 		metaclass: emitter.metaclass,
 	}, member.value, nil, emitter.cache, emitter.annotations); err != nil {
 		return fmt.Errorf("element %q: %w", object.id, err)
+	}
+	if emitter.statedDefaults && member.key == pIsImpliedIncluded {
+		// The document's marker follows the flag into the graph, which is
+		// otherwise taken for an external writer's element form.
+		emitter.builder.Add(emitter.subject, rdf.OpenSysMLTerm(xStatedDefaults), rdf.Bool(true))
 	}
 	return nil
 }
@@ -953,6 +970,15 @@ func apiJSONIdentity(object apiJSONElementData) error {
 	case object.typ == "":
 		return fmt.Errorf("element %q needs a string \"@type\"", object.id)
 	}
+	return apiJSONNameable("id", object.id)
+}
+
+// apiJSONNameable refuses text an IRI cannot hold, so an id, type or key read
+// from a document names one term and cannot spell further Turtle.
+func apiJSONNameable(what, text string) error {
+	if r, forbidden := rdf.IRIForbidden(text); forbidden {
+		return fmt.Errorf("the %s %q holds %q, which an IRI cannot; an id, a \"@type\" and a key are free of spaces, controls and <>\"{}|^`\\", what, text, r)
+	}
 	return nil
 }
 
@@ -962,8 +988,7 @@ func (index *apiJSONIndex) classifyExpressions(
 	objects []apiJSONElementData,
 	graph *rdf.Graph,
 	mappingElements map[string]bool,
-	reconstructedNames, mappingNames map[string]string,
-	specNames map[string]string,
+	reconstructedNames, mappingNames, specNames map[string]string,
 ) {
 	mappingElement := make([]bool, len(objects))
 	dependents := make(map[string][]int, len(objects))
@@ -1024,6 +1049,10 @@ func (index *apiJSONIndex) classifyExpressions(
 // expression reports whether the object is classified an expression node by
 // what is classified so far.
 func (index *apiJSONIndex) expression(object *apiJSONElementData) bool {
+	if object.typ == "sysx:"+mNote {
+		// A note is a node of the element whose lines hold it, never an element.
+		return true
+	}
 	ids, types, expressionIDs := index.ids, index.types, index.expressionIDs
 	if base, isMembership := strings.CutSuffix(object.id, rdf.OwningMembershipSuffix); isMembership {
 		return ids[base] && expressionIDs[base]
@@ -1055,7 +1084,7 @@ func (index *apiJSONIndex) expression(object *apiJSONElementData) bool {
 // `event occurrence` usage is never a node — its owner is a namespace, not a
 // FlowUsage, so the metaclass alone decides nothing here.
 func messageParameterEnd(ownerType, membershipType, memberType string) bool {
-	return ownerType == "FlowUsage" && membershipType == mParameterMembership && memberType == mEventOccurrenceUsage
+	return flowMetaclasses[ownerType] && membershipType == mParameterMembership && memberType == mEventOccurrenceUsage
 }
 
 // nodeMembershipMetaclass reports whether an element of this metaclass can
@@ -1139,18 +1168,23 @@ func apiJSONObjectOf(dec *json.Decoder) (apiJSONElementData, error) {
 			}
 			continue
 		}
-		if key == apiJSONExplicitDefaultsKey {
+		if key == apiJSONExplicitDefaultsKey || key == apiJSONCompletedPropertiesKey {
 			names, ok := value.([]any)
 			if !ok {
 				return object, fmt.Errorf("%s is an array of property names, not %v", key, value)
 			}
-			object.explicitDefaults = make(map[string]bool, len(names))
+			named := make(map[string]bool, len(names))
 			for _, name := range names {
 				text, ok := name.(string)
 				if !ok {
 					return object, fmt.Errorf("%s names a property with a string, not %v", key, name)
 				}
-				object.explicitDefaults[text] = true
+				named[text] = true
+			}
+			if key == apiJSONExplicitDefaultsKey {
+				object.explicitDefaults = named
+			} else {
+				object.completedProperties = named
 			}
 			continue
 		}
@@ -1181,9 +1215,9 @@ func apiJSONObjectOf(dec *json.Decoder) (apiJSONElementData, error) {
 				if name, ok := value.(string); ok && name != "" {
 					object.mappingQualifiedName = name
 				}
-			case "isImpliedIncluded":
-				// Only an external writer's element form states this flag: the
-				// mapping's graph never does, and its own documents carry the marker.
+			case pIsImpliedIncluded:
+				// An external writer's element form states this flag and carries
+				// no marker; the mapping's own documents carry the marker.
 				object.toolkitForm = true
 			}
 			if id, ok := memberReference(value); ok {
@@ -1343,6 +1377,9 @@ func apiJSONValueOf(dec *json.Decoder) (any, error) {
 // apiJSONTypeIRI maps a "@type" to its metaclass IRI: a bare name is a sysml:
 // class, the sysx: CURIE an extension class; anything else cannot be named.
 func apiJSONTypeIRI(typ string) (rdf.Term, error) {
+	if err := apiJSONNameable("\"@type\"", typ); err != nil {
+		return rdf.Term{}, err
+	}
 	if name, ok := strings.CutPrefix(typ, "sysx:"); ok {
 		if name == "" {
 			return rdf.Term{}, fmt.Errorf("the \"@type\" %q has no metaclass name", typ)
@@ -1358,6 +1395,9 @@ func apiJSONTypeIRI(typ string) (rdf.Term, error) {
 // apiJSONPredicate maps a member key to its predicate IRI, reporting the sysml:
 // local name for the collection annotation it may carry.
 func apiJSONPredicate(key string) (rdf.Term, string, error) {
+	if err := apiJSONNameable("key", key); err != nil {
+		return rdf.Term{}, "", err
+	}
 	if name, ok := strings.CutPrefix(key, "sysx:"); ok {
 		if name == "" {
 			return rdf.Term{}, "", fmt.Errorf("the key %q has no property name", key)
@@ -1472,6 +1512,9 @@ func (cache *apiJSONTermCache) referenceTarget(subject rdf.Term, object map[stri
 			}
 			if target, ok := cache.references[key]; ok {
 				return target, nil
+			}
+			if err := apiJSONNameable("reference id", id); err != nil {
+				return rdf.Term{}, err
 			}
 			if strings.HasPrefix(id, rdf.Expression) || strings.HasPrefix(id, rdf.Element) {
 				// A service that hands a reference back as the IRI itself names
@@ -1604,7 +1647,7 @@ func apiJSONPropertyScalar(
 // apiJSONScalarOf turns one JSON value into the term a triple holds: a
 // reference object an IRI, a bool or number its typed literal, a string a plain
 // literal — or the expression text a reference-valued property carries.
-func apiJSONScalarOf(subject rdf.Term, predicate rdf.Term, sysmlKey string, value any, expressionIDs map[string]bool, cache *apiJSONTermCache) (rdf.Term, error) {
+func apiJSONScalarOf(subject, predicate rdf.Term, sysmlKey string, value any, expressionIDs map[string]bool, cache *apiJSONTermCache) (rdf.Term, error) {
 	switch v := value.(type) {
 	case bool:
 		return rdf.Bool(v), nil
@@ -1675,4 +1718,16 @@ func apiJSONStatedDefaults(objects []apiJSONElementData) bool {
 		}
 	}
 	return false
+}
+
+// siblingKey names the first key, in sorted order, an object holds beside @id.
+func siblingKey(object map[string]any) string {
+	keys := make([]string, 0, len(object))
+	for key := range object {
+		if key != "@id" {
+			keys = append(keys, key)
+		}
+	}
+	sort.Strings(keys)
+	return keys[0]
 }

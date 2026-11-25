@@ -91,6 +91,16 @@ func (k DefinitionKind) IsAction() bool {
 	return k == DefAction || k == DefUseCase
 }
 
+// HasActionBodyItems reports whether a definition of the kind owns ActionBodyItems, so a `then` among its members
+// may carry a body: an action or occurrence body, and a calculation, constraint or case body, which carry them too.
+func (k DefinitionKind) HasActionBodyItems() bool {
+	switch k {
+	case DefAction, DefOccurrence, DefCalc, DefConstraint, DefCase, DefAnalysisCase, DefVerificationCase, DefUseCase:
+		return true
+	}
+	return false
+}
+
 func (k DefinitionKind) String() string {
 	if int(k) < 0 || int(k) >= len(definitionKindNames) {
 		return "unknown"
@@ -244,6 +254,17 @@ func (k UsageKind) String() string {
 		return "unknown"
 	}
 	return usageKindNames[k]
+}
+
+// HasActionBodyItems reports whether a usage of the kind owns ActionBodyItems, as the parser reads its body: an action
+// body, or a calculation, constraint or case body (SysML.xtext CalculationBodyItem, CaseBodyItem); a step's is a feature body.
+func (k UsageKind) HasActionBodyItems() bool {
+	switch k {
+	case UsageAction, UsageCalc, UsageExpr, UsageConstraint, UsagePredicate, UsageBool,
+		UsageCase, UsageAnalysisCase, UsageVerificationCase, UsageUseCase:
+		return true
+	}
+	return false
 }
 
 // IsAction reports whether a usage of the kind is an action usage: an action, or a
@@ -573,6 +594,12 @@ func (u *Usage) IsExhibitedState() bool {
 	return u.Kind == UsageState && (u.Keyword == "exhibit" || u.Keyword == "exhibit state")
 }
 
+// IsExtendedUsage reports a usage written by prefix metadata in place of a kind
+// keyword (`#M x;`, SysML.xtext ExtendedUsage: a plain Usage, no ReferenceUsage).
+func (u *Usage) IsExtendedUsage() bool {
+	return u.Keyword == "" && len(u.Prefixes) > 0
+}
+
 // IsIncludedUseCase reports whether the usage is an `include use case u : U;` or
 // an `include u;`: a use case the owner includes (SysML v2 IncludeUseCaseUsage).
 func (u *Usage) IsIncludedUseCase() bool {
@@ -615,9 +642,14 @@ func (u *Usage) IsAssumedConstraint() bool {
 	return u.IsRequirementConstraint() && (u.Keyword == "assume" || u.PrefixKeyword == "assume")
 }
 
+// ReferenceSubsettingSpecializes reports a satisfy or verify: its ReferenceSubsetting is the Subsetting
+// that types it (KerML §8.3.3.3.9), and it is no EventOccurrenceUsage (§8.3.9.3), so it stays composite.
+func (k UsageKind) ReferenceSubsettingSpecializes() bool {
+	return k == UsageSatisfy
+}
+
 // ReferenceSubsetting returns the usage's OwnedReferenceSubsetting clause, or
-// nil. The reference form of satisfy/verify (`satisfy r;`) is parsed as a plain
-// subsetting of the requirement it names (SysML.xtext:2119, 2272).
+// nil: a `::>` clause, or the feature a reference form names (`satisfy r;`).
 func (u *Usage) ReferenceSubsetting() *Relationship {
 	if u == nil {
 		return nil
@@ -626,24 +658,11 @@ func (u *Usage) ReferenceSubsetting() *Relationship {
 		if rel == nil || rel.Target == nil {
 			continue
 		}
-		if rel.Kind.ReferenceSubsets() || (rel.Kind == RelSubsets && u.Kind == UsageSatisfy && !u.DeclaresRequirement) {
+		if rel.Kind.ReferenceSubsets() {
 			return rel
 		}
 	}
 	return nil
-}
-
-// IsReferenceSubsetting reports whether rel is decl's OwnedReferenceSubsetting,
-// whatever kind the parser recorded it under.
-func IsReferenceSubsetting(decl Node, rel *Relationship) bool {
-	if rel == nil || rel.Target == nil {
-		return false
-	}
-	if rel.Kind.ReferenceSubsets() {
-		return true
-	}
-	u, ok := decl.(*Usage)
-	return ok && u.ReferenceSubsetting() == rel
 }
 
 // NamedByReference reports whether an unnamed usage takes its name from the
@@ -716,6 +735,41 @@ type FlowEnds struct {
 	// declares no feature of its own (`of Publish[1]`, `of [1] Publish`). Where
 	// the payload is a declaration the multiplicity is that usage's own.
 	PayloadMultiplicity *Multiplicity
+}
+
+// FlowEndSegments splits a flow end's name into the prefix the end references and the last segment its
+// flow feature redefines (SysML.xtext FlowEnd): `a.p.fuel` is `a.p` and `fuel`; nil, nil when it names nothing.
+func FlowEndSegments(target Node) (prefix Node, last *QualifiedName) {
+	switch t := EndTarget(target).(type) {
+	case *FeatureChainExpr:
+		return t.Operand, t.Member
+	case *FeatureReference:
+		return nil, t.Name
+	case *QualifiedName:
+		return nil, t
+	}
+	return nil, nil
+}
+
+// ImpliedPayload is the payload feature an `of T` clause implies without declaring one: a usage carrying the
+// clause's typing and multiplicity (SysML-textual-bnf PayloadFeature); nil for a declared or absent payload.
+func (f *FlowEnds) ImpliedPayload() *Usage {
+	if f == nil || f.Payload == nil || f.PayloadDecl != nil {
+		return nil
+	}
+	span := f.Payload.Span()
+	if f.PayloadMultiplicity != nil {
+		other := f.PayloadMultiplicity.Span()
+		start := min(span.Offset, other.Offset)
+		end := max(span.Offset+span.Len, other.Offset+other.Len)
+		span = source.Span{Offset: start, Len: end - start}
+	}
+	return &Usage{
+		NodeBase:      NodeBase{NodeSpan: span},
+		Kind:          UsageAttribute,
+		Relationships: []*Relationship{{NodeBase: NodeBase{NodeSpan: f.Payload.Span()}, Kind: RelTyping, Target: f.Payload}},
+		Multiplicity:  f.PayloadMultiplicity,
+	}
 }
 
 // CrossFeatureMember is the cross feature declared inline by an end feature,
@@ -810,6 +864,24 @@ func EndSelection(target Node) (feature, index Node) {
 func EndTarget(target Node) Node {
 	feature, _ := EndSelection(target)
 	return feature
+}
+
+// FlowEndChainPrefix is the chain before the payload of a flow's end at position (0 its `from`, 1 its `to`) when
+// more than one feature precedes it (`a.b` of `flow a.b.x to c.y`): the chain Feature the end references, else nil.
+func FlowEndChainPrefix(usage *Usage, position int) *FeatureChainExpr {
+	if usage == nil || usage.FlowEnds == nil || position < 0 || position > 1 {
+		return nil
+	}
+	end := usage.FlowEnds.From
+	if position == 1 {
+		end = usage.FlowEnds.To
+	}
+	payload, ok := EndTarget(end).(*FeatureChainExpr)
+	if !ok {
+		return nil
+	}
+	prefix, _ := payload.Operand.(*FeatureChainExpr)
+	return prefix
 }
 
 // SplitRedefinitions partitions rels into the redefinitions and the rest,

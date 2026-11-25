@@ -1,0 +1,17 @@
+{
+  "rpc": "Instantiate",
+  "symbol_id": "Fuel::vehicle",
+  "expected_reach_paths": [
+    "",
+    "fuelLine",
+    "fuelLine.consumer",
+    "fuelLine.consumer.fuel",
+    "fuelLine.supplier",
+    "fuelLine.supplier.fuel",
+    "powertrain",
+    "powertrain.engine",
+    "powertrain.tank",
+    "wheels[1]",
+    "wheels[2]"
+  ]
+}

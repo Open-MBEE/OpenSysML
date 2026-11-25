@@ -500,12 +500,16 @@ Three changes took it to under 20 ms, each measured over the same command
   33.1–34.4 ms, 15.8 MB and 137k allocations per expansion to 30.5–31.9 ms,
   15.0 MB and 123k. The expansion stays inherently iterative — most of its cost
   is the re-export closure itself — which is what the snapshot removes.
-- **The snapshot.** The library's frozen index is serialized at generation time
+- **The snapshot.** The library's frozen index is serialized at build time
   into `internal/workspace/libs/stdlib.snapshot` (3.4 MB, embedded; the `sysml`
   binary grows from 16.9 to 20.5 MB) and decoded at start-up, so neither the
   parser nor the expansion runs for the library at all. The format is
   hand-rolled (`internal/syntax/pack`, `internal/syntax/ast/astcodec`,
-  `symbols.WriteSnapshot`): varints over one string table, a node table per
+  `symbols.WriteSnapshot`): varints over one string table, kept in one stream
+  per kind of value (lengths, booleans, floats, and the first byte and the
+  tail of each unsigned, signed and string-index varint) so that gzip — which
+  the wasm artefacts are served and budgeted under — sees like values side by
+  side and packs the snapshot to 0.95 MB instead of 1.63 MB; a node table per
   syntax-node type so each type's nodes are allocated in one block, and index
   references in place of pointers, so the decoded graph shares what the parsed
   one shares. Decoding (`BenchmarkDecodeSnapshot`) costs 7.8 ms, 32 MB and 64k

@@ -1,8 +1,11 @@
 package semantics
 
 import (
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"slices"
+	"strings"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // MembersOf returns the members visible on sym: those declared directly in its
@@ -147,9 +150,33 @@ func (m *Model) eachMember(sym *symbols.Symbol, view memberView, declaring *symb
 				}
 			}
 		}
+		// A parameter named by the one its position redefines is a member under
+		// that name, which no scope binds for it (KerML 8.2.4).
+		var positional []string
+		for _, s := range m.positionallyNamedParameters(scope.Owner()) {
+			name := m.EffectiveNameOf(s)
+			if seenName[name] || seenSym[s] {
+				continue
+			}
+			if !inherited && view == memberViewDeclaring && NotYetMember(s, declaring) {
+				continue
+			}
+			if inherited && m.maskedBy(mask, s) {
+				continue
+			}
+			seenSym[s] = true
+			positional = append(positional, name)
+			if !yield(s) {
+				stopped = true
+				return
+			}
+		}
 		// Mark this scope's names only after processing it, so a short+primary
 		// pair in the same scope does not mask its own second key. A name no
 		// kept member binds masks nothing.
+		for _, name := range positional {
+			seenName[name] = true
+		}
 		for _, key := range scope.MemberNames() {
 			for _, s := range scope.LookupLocalAll(key) {
 				if seenSym[s] {
@@ -230,9 +257,8 @@ func (m *Model) LookupContributedMembers(sym *symbols.Symbol, name string) []*sy
 	return out
 }
 
-// eachContributedMember calls yield with the member each of sym's member
-// sources holds under name and passes on to sym, in name-lookup order, until
-// yield returns false. A member a type on the way redefines stops there.
+// eachContributedMember yields, in name-lookup order, the member each of sym's
+// member sources holds under name and a supertype passes on, until yield returns false.
 func (m *Model) eachContributedMember(sym *symbols.Symbol, name string, yield func(*symbols.Symbol) bool) {
 	if sym == nil || name == "" {
 		return
@@ -240,21 +266,141 @@ func (m *Model) eachContributedMember(sym *symbols.Symbol, name string, yield fu
 	if target, ok := m.resolver.ResolveAliasTarget(sym); ok {
 		sym = target
 	}
-	for _, src := range m.lookupSources(sym) {
-		sup := src.sym
+	for _, sup := range m.lookupSources(sym) {
 		if sup.Scope != nil {
 			for _, s := range m.resolver.LocalBindings(sup.Scope, name) {
-				if m.inheritedAlong(s, src.via) && !yield(s) {
+				// An expanded import an owned or inherited name of sup hides is no member of sup.
+				if s.OwnerScope != sup.Scope && m.resolver.HidesImportedName(sup.Scope, name) {
+					continue
+				}
+				if m.passedOnTo(sym, s) && !yield(s) {
 					return
 				}
+			}
+			stop := false
+			m.eachPositionallyNamedMember(sup, name, func(s *symbols.Symbol) bool {
+				stop = m.passedOnTo(sym, s) && !yield(s)
+				return !stop
+			})
+			if stop {
+				return
 			}
 			continue
 		}
 		// A cached source with no scope is read from the index.
 		for _, child := range m.resolver.Index().LookupDirectChildrenNamed(sup.Name, name) {
-			if symbols.LastSegment(child.Name) == name && m.inheritedAlong(child, src.via) && !yield(child) {
+			if symbols.LastSegment(child.Name) == name && m.passedOnTo(sym, child) && !yield(child) {
 				return
 			}
 		}
 	}
+}
+
+// eachPositionallyNamedMember yields the parameters sup declares without a name of
+// their own that answer to name through the parameter their position redefines.
+func (m *Model) eachPositionallyNamedMember(sup *symbols.Symbol, name string, yield func(*symbols.Symbol) bool) {
+	for _, member := range m.positionallyNamedParameters(sup) {
+		if m.EffectiveNameOf(member) == name && !yield(member) {
+			return
+		}
+	}
+}
+
+// positionallyNamedParameters returns the parameters owner declares without a name
+// of their own that take one from the parameter their position redefines (KerML
+// 8.2.4): a scope binds no name for them, yet they are members under it.
+func (m *Model) positionallyNamedParameters(owner *symbols.Symbol) []*symbols.Symbol {
+	if owner == nil {
+		return nil
+	}
+	var out []*symbols.Symbol
+	for _, param := range ownedParameters(owner) {
+		if m.positionallyNamed(param.sym) {
+			out = append(out, param.sym)
+		}
+	}
+	return out
+}
+
+// PositionallyNamed reports whether sym is a parameter declared without a name of
+// its own that answers to the name of the parameter its position redefines.
+func (m *Model) PositionallyNamed(sym *symbols.Symbol) bool {
+	if m == nil || sym == nil || !m.positionallyNamed(sym) {
+		return false
+	}
+	for _, param := range ownedParameters(sym.Owner()) {
+		if param.sym == sym {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *Model) positionallyNamed(sym *symbols.Symbol) bool {
+	if sym.Naming != symbols.NamedByDeclaration || declaresIdentifier(sym) {
+		return false
+	}
+	_, named := m.EffectiveNamed(sym)
+	return named
+}
+
+// roleNamed reports a usage declared without a name that takes one from the feature its role
+// redefines — an objective's `obj`, a subject's `subject`; a parameter is PositionallyNamed instead.
+func (m *Model) roleNamed(sym *symbols.Symbol) bool {
+	if !m.positionallyNamed(sym) || !sym.IsFeature() {
+		return false
+	}
+	switch sym.Decl.(type) {
+	case *ast.Usage, *ast.SubjectMember:
+		return true
+	}
+	return false
+}
+
+// QualifiedNameOf is Element::qualifiedName (KerML 8.2.4): the owner's qualified
+// name and sym's effective name, so a parameter named by the one its position
+// redefines, or an objective by the `obj` its role redefines, is qualified as a
+// declared name is, and so is a member under either (`T::obj::massRequirement`);
+// "" where sym has no name, an owner naming nothing is skipped as FQNOf skips it.
+func (m *Model) QualifiedNameOf(sym *symbols.Symbol) string {
+	var buf [16]string
+	names, _ := m.appendQualifiedNames(buf[:0], sym)
+	return strings.Join(names, "::")
+}
+
+// QualifiedNamesOf is the names QualifiedNameOf joins, outermost first, and
+// whether sym has one: kept apart they tell the empty name from none.
+func (m *Model) QualifiedNamesOf(sym *symbols.Symbol) ([]string, bool) {
+	names, ok := m.appendQualifiedNames(nil, sym)
+	if !ok {
+		return nil, false
+	}
+	return names, true
+}
+
+// appendQualifiedNames appends sym's QualifiedNamesOf to names, which it returns
+// as given when sym has none.
+func (m *Model) appendQualifiedNames(names []string, sym *symbols.Symbol) ([]string, bool) {
+	if m == nil || sym == nil {
+		return names, false
+	}
+	name := sym.Name
+	if !sym.Named() {
+		if !m.PositionallyNamed(sym) && !m.roleNamed(sym) {
+			return names, false
+		}
+		name = m.EffectiveNameOf(sym)
+	}
+	owner := sym.Owner()
+	if owner == nil {
+		return append(names, name), true
+	}
+	qualified, ok := m.appendQualifiedNames(names, owner)
+	if !ok {
+		if !sym.Named() {
+			return names, false
+		}
+		return append(names, symbols.NameChain(sym)...), true
+	}
+	return append(qualified, name), true
 }

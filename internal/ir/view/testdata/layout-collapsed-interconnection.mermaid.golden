@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» FoldedViews::links"
 ---
 %% FoldedViews::links — interconnection rendering (render asInterconnectionDiagram)
 %% not represented: 4 node(s) without a position, left undrawn, and 1 edge(s) at them

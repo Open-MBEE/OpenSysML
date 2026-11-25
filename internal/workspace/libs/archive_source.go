@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/project"
 )
@@ -96,32 +97,66 @@ func (s *archiveSource) Read(name string) ([]byte, error) {
 
 // unionSource lists the files of several sources and reads each from the
 // first that lists it.
-type unionSource struct{ sources []Source }
+type unionSource struct {
+	sources []Source
 
+	mu sync.Mutex
+	// owners is the source each file was first listed by, as of the latest
+	// listing; nil until one is taken.
+	owners map[string]Source
+}
+
+// List lists every source afresh, and records which source holds each file
+// for the reads and tier lookups that follow.
 func (s *unionSource) List() []string {
-	seen := map[string]bool{}
+	owners := map[string]Source{}
 	var out []string
 	for _, src := range s.sources {
 		for _, name := range src.List() {
-			if !seen[name] {
-				seen[name] = true
+			if _, seen := owners[name]; !seen {
+				owners[name] = src
 				out = append(out, name)
 			}
 		}
 	}
 	sort.Strings(out)
+	s.mu.Lock()
+	s.owners = owners
+	s.mu.Unlock()
 	return out
 }
 
-func (s *unionSource) Read(name string) ([]byte, error) {
-	for _, src := range s.sources {
-		for _, listed := range src.List() {
-			if listed == name {
-				return src.Read(name)
-			}
-		}
+// owner is the first source listing name. It answers from the latest listing,
+// and lists again for a name that one does not hold: a file may have arrived.
+func (s *unionSource) owner(name string) (Source, bool) {
+	s.mu.Lock()
+	src, ok := s.owners[name]
+	s.mu.Unlock()
+	if ok {
+		return src, true
 	}
-	return nil, fmt.Errorf("libs: no library file %q", name)
+	s.List()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	src, ok = s.owners[name]
+	return src, ok
+}
+
+func (s *unionSource) Read(name string) ([]byte, error) {
+	src, ok := s.owner(name)
+	if !ok {
+		return nil, fmt.Errorf("libs: no library file %q", name)
+	}
+	data, err := src.Read(name)
+	if err == nil {
+		return data, nil
+	}
+	// The file may have left that source since the listing: ask again.
+	s.List()
+	if now, ok := s.owner(name); ok && now != src {
+		return now.Read(name)
+	}
+	return nil, err
 }
 
 // specLibraries are the libraries the KerML and SysML specifications define,
@@ -155,12 +190,8 @@ func (s *archiveSource) TierOf(name string) symbols.LibraryTier {
 
 // TierOf is the tier the source holding the file states for it.
 func (s *unionSource) TierOf(name string) symbols.LibraryTier {
-	for _, src := range s.sources {
-		for _, have := range src.List() {
-			if have == name {
-				return tierOf(src, name)
-			}
-		}
+	if src, ok := s.owner(name); ok {
+		return tierOf(src, name)
 	}
 	return TierOf(name)
 }

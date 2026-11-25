@@ -27,16 +27,13 @@ func TestTierOf(t *testing.T) {
 }
 
 // Every declaration of the bundled library carries its file's tier, whether
-// the index was loaded from source or decoded from the embedded snapshot.
+// the index was loaded from source or decoded from the snapshot.
 func TestLoadedLibraryCarriesTiers(t *testing.T) {
 	fresh := symbols.NewIndex()
 	if err := NewLoader(EmbeddedSource(), nil).LoadAll(fresh); err != nil {
 		t.Fatalf("LoadAll: %v", err)
 	}
-	decoded, err := SnapshotIndex()
-	if err != nil {
-		t.Fatalf("SnapshotIndex: %v", err)
-	}
+	decoded := testSnapshotIndex(t)
 	want := map[string]symbols.LibraryTier{
 		"Occurrences::Occurrence::self":         symbols.TierKernelSemantic,
 		"Occurrences::Occurrence::timeSlices":   symbols.TierKernelSemantic,
@@ -71,10 +68,7 @@ func TestLoadedLibraryHasAnIdentity(t *testing.T) {
 	if err := NewLoader(src, nil).LoadAll(fresh); err != nil {
 		t.Fatalf("LoadAll: %v", err)
 	}
-	decoded, err := SnapshotIndex()
-	if err != nil {
-		t.Fatalf("SnapshotIndex: %v", err)
-	}
+	decoded := testSnapshotIndex(t)
 	for _, name := range src.List() {
 		text, err := src.Read(name)
 		if err != nil {

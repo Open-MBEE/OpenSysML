@@ -1,12 +1,11 @@
-//go:build windows || wasm
+//go:build !unix
 
 package analysis
 
 import "os/exec"
 
-// ownProcessGroup is a no-op: Windows, a browser and a WebAssembly host all lack the
-// process-group control the unix build sets (GOARCH=wasm covers js/wasm and wasip1, where
-// syscall.SysProcAttr has no Setpgid and there is no process to group at all).
+// ownProcessGroup is a no-op: only the unix targets have process groups; Windows, Plan 9
+// and the WebAssembly hosts have no syscall.SysProcAttr.Setpgid.
 func ownProcessGroup(*exec.Cmd) {
 	// Intentionally empty: there is no process group to mark.
 }

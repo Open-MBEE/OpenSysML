@@ -1,8 +1,6 @@
 package queryexec
 
 import (
-	"strconv"
-
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -31,7 +29,8 @@ func (e *executor) evaluateWhereText(expression queryplan.Expression) (sequence,
 	if err != nil {
 		return sequence{}, err
 	}
-	if compareErr := validateTextComparison(operator, expected); compareErr != nil {
+	comparison, compareErr := newTextComparison(operator, expected)
+	if compareErr != nil {
 		if compareErr != errComparison {
 			return sequence{}, e.invalidArgument(expression, "value", expected)
 		}
@@ -48,7 +47,7 @@ func (e *executor) evaluateWhereText(expression queryplan.Expression) (sequence,
 				continue
 			}
 			for _, value := range source.cells[i][column].values {
-				match, compareErr := compareText(e.valueText(value), operator, expected)
+				match, compareErr := comparison.text(e.valueText(value))
 				if compareErr != nil {
 					return sequence{}, e.operatorError(expression, operator)
 				}
@@ -95,7 +94,11 @@ func (e *executor) textColumns(expression queryplan.Expression, source sequence)
 			}
 		}
 		if index < 0 {
-			return nil, e.unknownProperty(expression, name)
+			columns := make([]string, 0, len(source.columns))
+			for _, column := range source.columns {
+				columns = append(columns, column.name)
+			}
+			return nil, e.unknownPropertyAmong(expression, name, columns)
 		}
 		selected = append(selected, index)
 	}
@@ -105,44 +108,12 @@ func (e *executor) textColumns(expression queryplan.Expression, source sequence)
 // valueText is the plain text a cell prints for one value: an element by its
 // effective name, a number or boolean as written, a quantity with its unit.
 func (e *executor) valueText(value Value) string {
-	if sym, ok := value.Element(); ok {
+	return ValueText(value, func(sym *symbols.Symbol) string {
 		if names, _, err := e.propertyValues(value, query.PropertyName); err == nil && len(names) > 0 {
 			if name, ok := names[0].String(); ok && name != "" {
 				return name
 			}
 		}
-		return symbols.FQNOf(sym)
-	}
-	if _, label, ok := value.Object(); ok {
-		return label
-	}
-	if verdict, ok := value.Verdict(); ok {
-		return verdict.Summary()
-	}
-	if state, ok := value.State(); ok {
-		return state.Label()
-	}
-	if event, ok := value.Event(); ok {
-		return event.Summary()
-	}
-	if text, ok := value.String(); ok {
-		return text
-	}
-	if integer, ok := value.IntegerConst(); ok {
-		return integer.FormatInt()
-	}
-	if number, ok := value.Real(); ok {
-		return strconv.FormatFloat(number, 'g', -1, 64)
-	}
-	if boolean, ok := value.Boolean(); ok {
-		return strconv.FormatBool(boolean)
-	}
-	if value.Kind() == ValueInfinity {
-		return "*"
-	}
-	if quantity, ok := value.Quantity(); ok {
-		magnitude, _ := value.Magnitude()
-		return quantity.TextWithMagnitude(e.valueText(magnitude))
-	}
-	return ""
+		return e.elementText(sym)
+	})
 }

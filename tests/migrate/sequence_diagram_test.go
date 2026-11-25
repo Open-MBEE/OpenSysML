@@ -59,7 +59,8 @@ func TestGoldenUseCaseSequence(t *testing.T) {
 
 // The migrated sequence view renders as a sequence diagram: the renderer draws the
 // lifelines as the occurrence def's usages and the messages between their events in
-// the modelled order, which is the order the interaction's occurrences state.
+// the modelled order, which is the order the interaction's occurrences state; a message
+// runs between the events it ends at and names the payload it carries.
 func TestUseCaseSequenceRendersInModelledOrder(t *testing.T) {
 	r := migrateFixtureFile(t, "usecase_sequence")
 	s := session(t, r)
@@ -71,12 +72,12 @@ func TestUseCaseSequenceRendersInModelledOrder(t *testing.T) {
 	for _, want := range []string{
 		"part operator", "part stage", "part vacuum", "part image", "part log", "part 'display System'", "part operator2",
 		"messages:",
-		"operator => stage: move",
-		"stage => vacuum: pumpDown",
-		"vacuum => image: 'new'",
-		"image => log: record",
-		"image => 'display System': show",
-		"'display System' => operator2: confirm",
+		"operator.moveSent -> stage.moveReceived: move",
+		"stage.pumpDownSent -> vacuum.pumpDownReceived: pumpDown of pumpDownPayload : PumpDown",
+		"vacuum.newSent -> image.newReceived: 'new'",
+		"image.recordSent -> log.recordReceived: record",
+		"image.showSent -> 'display System'.showReceived: show",
+		"'display System'.confirmSent -> operator2.confirmReceived: confirm",
 	} {
 		at := strings.Index(out, want)
 		if at < 0 {

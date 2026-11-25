@@ -28,7 +28,7 @@ Provisioning notes worth knowing before you test it:
 
 - There is **no already-built early exit**: every run recompiles and rewrites
   the launcher. Observed at `f3af23a2`: a second run reprints
-  `Compiling ...` / `Built ... (pilot 2026-09, 0.63.0)`, exit 0, and both
+  `Compiling ...` / `Built ... (pilot 2026-09.1, 0.63.1)`, exit 0, and both
   `classes/EvalSysML.class` and `eval-sysml` are **byte-identical**
   (same sha256) with only the mtime advancing. So assert idempotency by
   `sha256sum`, not by mtime or by an "already built" message.
@@ -44,7 +44,7 @@ Provisioning notes worth knowing before you test it:
   `error: pilot standard library not found at .../sysml.library`.
 - **`PILOT_TAG` is not a real pin for this script.** `PILOT_TAG=bogus
   ./scripts/download-pilot-evaluator.sh` exits **0** and builds normally,
-  printing `Built ... (pilot artifact 0.63.0)`. The artifact is located purely
+  printing `Built ... (pilot artifact 0.63.1)`. The artifact is located purely
   by `PILOT_ARTIFACT_VERSION`; `PILOT_TAG` is provisioned and checked by
   `download-pilot-validator.sh`, not used to locate it here.
 - `grep -c jupyter-sysml-kernel-<version>-all.jar build/pilot-evaluator/eval-sysml`
@@ -154,15 +154,15 @@ pilot answers the representation's own. See
   `pilot-exec-diff: <file>:<line>: model no/such/model.sysml: stat <abs>: no
   such file or directory`.
 - **Additivity.** `go run -C tools ./cmd/pilot-diff` must still print the headline the
-  committed baseline holds (`924 file(s), 522 fully agreeing; 1102 agreed
-  diagnostic(s), 359 only ours, 2462 only the pilot's` at the `2026-09` pin — read it from the baseline JSON, not from this line, since each
+  committed baseline holds (`939 file(s), 542 fully agreeing; 1119 agreed
+  diagnostic(s), 127 only ours, 2454 only the pilot's` at the `2026-09.1` pin — read it from the baseline JSON, not from this line, since each
   fix round moves it) and `jq -S` diff clean against
   `docs/project/pilot-differential-baseline.json`; `git status --porcelain`
   empty at the end.
 
 ## The doc-counts gate is the usual casualty of a compliance-row change
 
-Any wave that flips a status flag in `docs/project/spec-compliance.md` (for
+Any wave that flips a status flag in a `docs/project/spec-compliance/` source (for
 example a row moving ⚠️ → ✅ because the pilot can now referee it) must also
 update **two aggregate count lines**, or
 `tools/referee/diff/doc_counts_test.go:TestPilotDifferentialDocumentCountsMatchBaseline`

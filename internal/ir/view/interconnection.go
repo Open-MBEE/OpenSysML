@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -32,7 +33,16 @@ func (r *Renderer) renderInterconnectionWithIDs(view *symbols.Symbol, exposed []
 			roots = append(roots, elem)
 		}
 	}
-	descendants := r.exposedDescendants(view, roots, w.nestedFeatures)
+	if !mixed && out.Kind == KindInterconnection {
+		w.fold = r.prepareExpansionFold(view, exposed, out, KindInterconnection)
+	}
+	var descendants map[symbols.ElementKey]bool
+	if w.fold != nil {
+		descendants = w.fold.descendants
+		w.pruned = w.fold.pruned
+	} else {
+		descendants = r.exposedDescendants(view, roots, w.nestedFeatures)
+	}
 	var ports []*symbols.Symbol
 	for _, elem := range exposed {
 		switch {
@@ -101,6 +111,7 @@ func (w *featureWalk) connectorEdges() {
 		seen[connector] = true
 		w.connectionEdges(connector.sym, connector.within)
 	}
+	w.flowsOnConnections()
 }
 
 // featureWalk is one interconnection rendering's walk over the exposed features:
@@ -120,10 +131,16 @@ type featureWalk struct {
 	pins       map[*Node]map[*symbols.Symbol]string
 	parent     map[*Node]*Node
 	connectors []connectorSite
-	out        *Rendering
-	mixed      bool
+	// flows are the flow edges drawn, which flowsOnConnections moves onto the
+	// connection line each shares its ends with.
+	flows []flowSite
+	out   *Rendering
+	mixed bool
 	// pruned is each member the view's filter conditions kept the walk from drawing.
-	pruned map[*symbols.Symbol]bool
+	pruned     map[*symbols.Symbol]bool
+	fold       *expansionFold
+	occurrence string
+	insideFold bool
 }
 
 // drawnSite is one drawing of a feature: as a node, or as a pin of one.
@@ -198,11 +215,30 @@ func (w *featureWalk) drawsFeature(sym *symbols.Symbol) bool {
 	return mixedStructural(sym)
 }
 
+// drawsMember reports whether the member switch emits a node, pin, or connection for member.
+func (w *featureWalk) drawsMember(owner, member *symbols.Symbol) bool {
+	return w.r.drawsConnector(member) || casePin(owner, member) || constraintParameter(owner, member) ||
+		!isReferencedIncludedCase(member) && w.drawsFeature(member)
+}
+
 // featureNode renders one exposed feature and the features nested in it,
 // collecting the connectors declared along the way, which join the nodes it
 // renders. A member it has from its type and pins is not drawn nested as well.
 func (w *featureWalk) featureNode(sym, owner *symbols.Symbol, path expansion, depth int, qualified bool) *Node {
 	r := w.r
+	previousName, previousInside := w.occurrence, w.insideFold
+	defer func() { w.occurrence, w.insideFold = previousName, previousInside }()
+	if w.occurrence == "" {
+		w.occurrence = r.notationName(sym)
+	} else {
+		w.occurrence += "::" + localName(sym)
+	}
+	var foldKey treeQueryKey
+	var representative expansionRepresentative
+	canFold := false
+	if w.fold != nil {
+		foldKey, representative, canFold = w.fold.representative(sym, owner, path, depth, qualified)
+	}
 	name := r.notationName(sym)
 	if !qualified {
 		name = localName(sym)
@@ -213,6 +249,10 @@ func (w *featureWalk) featureNode(sym, owner *symbols.Symbol, path expansion, de
 	if path[sym] {
 		node.Detail = detailWith(node.Detail, "already shown as "+w.node(sym).ID)
 		return node
+	}
+	if w.fold != nil {
+		w.fold.q.ancestors[sym] = true
+		defer delete(w.fold.q.ancestors, sym)
 	}
 	w.nodes[sym] = append(w.nodes[sym], node)
 	w.sites = append(w.sites, drawnSite{sym: sym, at: edgeEnd{node: node}})
@@ -228,6 +268,8 @@ func (w *featureWalk) featureNode(sym, owner *symbols.Symbol, path expansion, de
 	// count at their owner's depth — and nothing nested is drawn.
 	bound, cut := r.walkBound(w.view), 0
 	folded := depth >= bound || collapsed(node)
+	skipped := false
+	foldsBefore := w.out.foldedOccurrences
 	for _, member := range w.walkMembers(sym) {
 		if _, pinned := w.pins[node][member]; pinned || recursive != nil && member.Owner() != sym {
 			continue
@@ -238,6 +280,11 @@ func (w *featureWalk) featureNode(sym, owner *symbols.Symbol, path expansion, de
 			}
 			continue
 		}
+		if canFold && w.drawsMember(sym, member) && !pinnedAt(sym, member) && w.fold.omits(sym, member) {
+			skipped = true
+			continue
+		}
+		w.insideFold = previousInside || canFold
 		switch {
 		case r.drawsConnector(member):
 			w.connectors = append(w.connectors, connectorSite{sym: member, within: node})
@@ -258,7 +305,20 @@ func (w *featureWalk) featureNode(sym, owner *symbols.Symbol, path expansion, de
 		node.Detail = detailWith(node.Detail, cutNote(bound))
 		w.out.depthCut += cut
 	}
+	if w.fold != nil {
+		w.recordFold(sym, node, representative, foldKey, depth, skipped, !previousInside && w.out.foldedOccurrences == foldsBefore)
+	}
 	return node
+}
+
+// recordFold notes the fold of sym's node when a member was skipped, else remembers the occurrence,
+// drawn whole, as the representative of its key.
+func (w *featureWalk) recordFold(sym *symbols.Symbol, node *Node, representative expansionRepresentative, key treeQueryKey, depth int, skipped, whole bool) {
+	if skipped {
+		w.fold.note(w.out, sym, node, representative)
+	} else if whole {
+		w.fold.remember(key, depth, w.occurrence)
+	}
 }
 
 // pinPorts draws on node's border the ports sym has from its type, each named
@@ -359,8 +419,7 @@ func casePin(owner, member *symbols.Symbol) bool {
 	case symbols.SymbolAttributeUsage, symbols.SymbolReferenceUsage:
 		return true
 	}
-	usage, ok := member.Decl.(*ast.Usage)
-	return ok && (usage.Kind == ast.UsageSubject || usage.Kind == ast.UsageActor || usage.Kind == ast.UsageStakeholder)
+	return semantics.IsSubjectUsage(member) || semantics.IsActorUsage(member)
 }
 
 // constraintParameter reports whether member is a parameter of the constraint owner —
@@ -473,7 +532,19 @@ func (w *featureWalk) nestedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 			out = append(out, member)
 		}
 	}
-	return append(out, w.r.typedParameters(sym)...)
+	out = append(out, w.r.typedParameters(sym)...)
+	// A def parameter an own parameter redefines, by clause or by position, is that parameter's pin.
+	for _, member := range w.walkMembers(sym) {
+		if member.Owner() != sym || !isParameterKind(member) {
+			continue
+		}
+		for _, base := range w.r.model.MaskingRedefinedFeatures(member) {
+			if isParameterKind(base) && !w.r.libraryDeclared(base) {
+				out = append(out, base)
+			}
+		}
+	}
+	return out
 }
 
 // connectionEdges adds the edges one connector or flow contributes. A binary
@@ -507,7 +578,18 @@ func (w *featureWalk) connectionEdges(connector *symbols.Symbol, within *Node) {
 		}
 		resolved = append(resolved, at)
 	}
-	route, style := r.routeOf(w.view, connector, out), r.edgeDress(w.view, connector, resolved[0].node.ID, resolved[1].node.ID, out)
+	notes := len(out.Notes)
+	style := r.edgeDress(w.view, connector, resolved[0].node.ID, resolved[1].node.ID, out)
+	noteEnd := len(out.Notes)
+	if kind == EdgeConnection && nary(len(resolved)) {
+		w.naryConnection(connector, within, ends, resolved, r.unsteeredRoute(w.view, connector, out), style)
+		// The connection's notes, anchored on its first two ends by edgeDress, sit at the dot.
+		for i := notes; i < len(out.Notes); i++ {
+			out.Notes[i].Anchor, out.Notes[i].EdgeFrom, out.Notes[i].EdgeTo = w.nodes[connector][len(w.nodes[connector])-1].ID, "", ""
+		}
+		return
+	}
+	route := r.routeOf(w.view, connector, out)
 	for i := 0; i < len(resolved); i++ {
 		for j := i + 1; j < len(resolved); j++ {
 			out.Edges = append(out.Edges, Edge{
@@ -515,6 +597,31 @@ func (w *featureWalk) connectionEdges(connector *symbols.Symbol, within *Node) {
 				Label: label, Kind: kind, Origin: symbolOrigin(connector), Route: slices.Clone(route), Style: style,
 			})
 		}
+	}
+	if kind == EdgeFlow || kind == EdgeSuccessionFlow {
+		w.flows = append(w.flows, flowSite{index: len(out.Edges) - 1, sym: connector, within: within, notes: [2]int{notes, noteEnd}})
+	}
+}
+
+// naryConnection draws a connection of more than two ends as §8.2.3.13's n-ary dot, nested
+// where the connection was found, with a segment to each end labelled with the end's role.
+func (w *featureWalk) naryConnection(connector *symbols.Symbol, within *Node, ends []connectorEnd, resolved []edgeEnd, route []Point, style *Style) {
+	r, out := w.r, w.out
+	if len(route) > 0 {
+		out.Notices = append(out.Notices, fmt.Sprintf("connection %s states a route; its %d ends are drawn as a dot and segments, which the route does not steer",
+			localName(connector), len(resolved)))
+	}
+	dot := r.naryDot(w.ids.take(), connectionDotKind, r.connectorName(connector), w.view, connector, out)
+	w.nodes[connector] = append(w.nodes[connector], dot)
+	if within == nil {
+		out.Roots = append(out.Roots, dot)
+	} else {
+		w.parent[dot] = within
+		within.Children = append(within.Children, dot)
+	}
+	for i, end := range resolved {
+		out.Edges = append(out.Edges, Edge{From: dot.ID, To: end.node.ID, ToPort: end.port, ToLabel: ends[i].label,
+			Kind: EdgeConnection, Origin: symbolOrigin(connector), Style: style})
 	}
 }
 
@@ -581,6 +688,9 @@ func featureValue(sym *symbols.Symbol) ast.Node {
 type connectorEnd struct {
 	attachment ast.Node
 	path       string
+	// label is the end's role name and multiplicity, at its end of an n-ary
+	// segment; "" for an end the model gives no name of its own.
+	label string
 }
 
 // drawsConnector reports whether an interconnection rendering draws sym as an
@@ -626,7 +736,11 @@ func (r *Renderer) connectorEnds(connector *symbols.Symbol) ([]connectorEnd, Edg
 		if att.Attachment == nil {
 			continue
 		}
-		out = append(out, connectorEnd{attachment: att.Attachment, path: lower.FeaturePath(att.Attachment)})
+		end := connectorEnd{attachment: att.Attachment, path: lower.FeaturePath(att.Attachment)}
+		if att.EndFeature != nil {
+			end.label = r.usageLabel(att.EndFeature)
+		}
+		out = append(out, end)
 	}
 	return out, EdgeConnection
 }
@@ -777,13 +891,19 @@ func (r *Renderer) connectorLabel(connector *symbols.Symbol) string {
 	if payload := flowPayload(connector); payload != "" {
 		return "of " + notationName(payload)
 	}
-	if connector.Name != "" && !connector.EffectiveName() && !r.model.NameSynthesized(connector) {
-		return localName(connector)
-	}
-	if declared := declType(connector); declared != "" {
-		return declared
+	if name := r.connectorName(connector); name != "" {
+		return name
 	}
 	return declKind(connector)
+}
+
+// connectorName is what names a connector in a drawing: its own given name,
+// else its declared type; "" for one with neither, which its kind stands for.
+func (r *Renderer) connectorName(connector *symbols.Symbol) string {
+	if connector.Named() && !connector.EffectiveName() && !r.model.NameSynthesized(connector) {
+		return localName(connector)
+	}
+	return declType(connector)
 }
 
 // flowPayload is what a flow carries, as written, empty for a flow declaring no

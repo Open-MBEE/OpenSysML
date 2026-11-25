@@ -16,6 +16,83 @@ type renderViewOptions struct {
 	show         []string
 	depth        int
 	compartments string
+	form         string
+	palette      string
+	style        string
+	lines        string
+	direction    string
+	link         string
+	unplaced     string
+}
+
+// written reports whether a form or an option only a written form reads is
+// set, which a service without CapabilityRenderViewForm would drop unanswered.
+func (o *renderViewOptions) written() bool {
+	return o.form != "" || o.palette != "" || o.style != "" || o.lines != "" ||
+		o.direction != "" || o.link != "" || o.unplaced != ""
+}
+
+// The forms WithForm takes, as the CLI's -render-form names them.
+const (
+	ViewFormText     = "text"
+	ViewFormMermaid  = "mermaid"
+	ViewFormMarkdown = "markdown"
+	ViewFormDOT      = "dot"
+	ViewFormPlantUML = "plantuml"
+	ViewFormD2       = "d2"
+	ViewFormDrawio   = "drawio"
+	ViewFormCSV      = "csv"
+	ViewFormTSV      = "tsv"
+)
+
+// ViewForms lists the forms WithForm takes, in the order the CLI offers them.
+func ViewForms() []string {
+	return []string{
+		ViewFormText, ViewFormMermaid, ViewFormMarkdown, ViewFormDOT, ViewFormPlantUML,
+		ViewFormD2, ViewFormDrawio, ViewFormCSV, ViewFormTSV,
+	}
+}
+
+// WithForm also writes the rendering in form into RenderedView.Text, as `sysml -render-form` writes it.
+// A wrong-kind form is refused; a QVTS::QueryResult view takes the DocumentForm names. Requires CapabilityRenderViewForm.
+func WithForm(form string) RenderViewOption {
+	return func(options *renderViewOptions) { options.form = form }
+}
+
+// WithPalette fills the nodes of a graph form from the named palette, as
+// -render-palette names them; none draws in black and white.
+func WithPalette(palette string) RenderViewOption {
+	return func(options *renderViewOptions) { options.palette = palette }
+}
+
+// WithStyle draws the DOT or Mermaid form in the named style, as
+// -render-style names them: "pilot" (the default) or "cameo".
+func WithStyle(style string) RenderViewOption {
+	return func(options *renderViewOptions) { options.style = style }
+}
+
+// WithLines routes the edges of the DOT or PlantUML form, as -render-lines
+// names the routings: "splines" (the default), "ortho" or "polyline".
+func WithLines(lines string) RenderViewOption {
+	return func(options *renderViewOptions) { options.lines = lines }
+}
+
+// WithDirection draws a graph-shaped form in the flow direction "TB", "LR",
+// "RL" or "BT"; none leaves each kind's default, which is what the CLI writes.
+func WithDirection(direction string) RenderViewOption {
+	return func(options *renderViewOptions) { options.direction = direction }
+}
+
+// WithLink links each node and edge of the form to its source through template, as
+// -render-link takes it: placeholders {file}, {line}, {col}, {qname} and {id}.
+func WithLink(template string) RenderViewOption {
+	return func(options *renderViewOptions) { options.link = template }
+}
+
+// WithUnplaced says where a graph form of a positioned view puts the nodes no
+// layout places, as -render-unplaced names it: "omit" (the default) or "strip".
+func WithUnplaced(placement string) RenderViewOption {
+	return func(options *renderViewOptions) { options.unplaced = placement }
 }
 
 // WithCompartments folds a tree rendering's owned members into compartment
@@ -66,6 +143,29 @@ type RenderedView struct {
 	// Shown lists the optional notation elements drawn, the view's own and
 	// those WithShow asked for.
 	Shown []string
+	// Frame is the view frame round a graph-shaped rendering; nil when frameless.
+	Frame *RenderFrame
+	// Text is the rendering written in the form WithForm named; empty without one.
+	Text string
+	// Header is a QVTS::QueryResult view's query, source, outcome and provenance,
+	// in that order; empty for any other view.
+	Header []RenderHeaderField
+}
+
+// RenderHeaderField is one attribute a QVTS::QueryResult view binds.
+type RenderHeaderField struct {
+	Name  string
+	Value string
+}
+
+// RenderFrame is the view frame of SysML v2 §8.2.3.26: the name compartment's
+// name and view definition, and the lines of its three information compartments.
+type RenderFrame struct {
+	Name        string
+	Type        string
+	Exposes     []string
+	Filters     []string
+	Annotations []string
 }
 
 // RenderNode is a view node with optional geometry and style.
@@ -78,7 +178,10 @@ type RenderNode struct {
 	Detail          string
 	Text            string
 	StandIn         bool
-	Parent          string
+	// Parallel marks a state whose substates run in parallel; the notation
+	// writes «parallel» under its name.
+	Parallel bool
+	Parent   string
 	// Compartment names the compartment of Parent this node is a row of
 	// ("attributes", "parts", "ports", ...); empty for a node drawn as a box.
 	Compartment string
@@ -167,9 +270,8 @@ type RenderNote struct {
 	Origin   *Span
 }
 
-// RenderView renders a named view. Ports are minimal unless WithFullPorts is
-// supplied; WithShow adds optional notation elements and WithDepth limits how
-// deep nested elements are drawn.
+// RenderView renders a named view as data, shaped by WithFullPorts, WithShow, WithDepth
+// and WithCompartments; WithForm also writes it as text, under the writer's options.
 func (c *client) RenderView(ctx context.Context, model *Model, viewName string, opts ...RenderViewOption) (*RenderedView, error) {
 	hash, err := c.call(model)
 	if err != nil {
@@ -182,6 +284,17 @@ func (c *client) RenderView(ctx context.Context, model *Model, viewName string, 
 	for _, opt := range opts {
 		opt(&options)
 	}
+	if options.written() {
+		if err := c.requireCapabilities(ctx, CapabilityRenderViewForm); err != nil {
+			return nil, err
+		}
+	}
+	// Only a QVTS::QueryResult view is written in these two, so a service that cannot is not asked.
+	if options.form == DocumentFormHTML || options.form == DocumentFormAsciiDoc {
+		if err := c.requireCapabilities(ctx, CapabilityQueryResultView); err != nil {
+			return nil, err
+		}
+	}
 	if options.depth < 0 || options.depth > math.MaxInt32 {
 		return nil, &StatusError{Code: CodeInvalidArgument, Message: fmt.Sprintf("depth must be between 0 and %d, got %d", math.MaxInt32, options.depth)}
 	}
@@ -192,6 +305,13 @@ func (c *client) RenderView(ctx context.Context, model *Model, viewName string, 
 		Show:         append([]string(nil), options.show...),
 		Depth:        int32(options.depth),
 		Compartments: options.compartments,
+		Form:         options.form,
+		Palette:      options.palette,
+		Style:        options.style,
+		Lines:        options.lines,
+		Direction:    options.direction,
+		Link:         options.link,
+		Unplaced:     options.unplaced,
 	})
 	if err != nil {
 		return nil, err
@@ -203,13 +323,16 @@ func renderedViewFromProto(response *pb.RenderViewResponse) *RenderedView {
 	result := &RenderedView{
 		View: response.View, Kind: response.Kind, Stated: response.Stated,
 		Columns: append([]string(nil), response.Columns...), Notices: append([]string(nil), response.Notices...),
-		Shown: append([]string(nil), response.Shown...),
+		Shown: append([]string(nil), response.Shown...), Text: response.Text,
+	}
+	for _, field := range response.Header {
+		result.Header = append(result.Header, RenderHeaderField{Name: field.Name, Value: field.Value})
 	}
 	for _, node := range response.Nodes {
 		converted := RenderNode{
 			ID: node.Id, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
-			Type: node.Type, Detail: node.Detail, Text: node.Text, StandIn: node.StandIn, Parent: node.Parent, Compartment: node.Compartment,
-			Origin: renderSpanFromProto(node.Origin),
+			Type: node.Type, Detail: node.Detail, Text: node.Text, StandIn: node.StandIn, Parallel: node.Parallel, Parent: node.Parent,
+			Compartment: node.Compartment, Origin: renderSpanFromProto(node.Origin),
 		}
 		for _, port := range node.Ports {
 			converted.Ports = append(converted.Ports, RenderPort{
@@ -250,6 +373,12 @@ func renderedViewFromProto(response *pb.RenderViewResponse) *RenderedView {
 		result.Canvas = &RenderCanvas{
 			Unit: response.Canvas.Unit, Width: response.Canvas.Width, Height: response.Canvas.Height,
 			HasSize: response.Canvas.HasSize,
+		}
+	}
+	if f := response.Frame; f != nil {
+		result.Frame = &RenderFrame{
+			Name: f.Name, Type: f.Type, Exposes: append([]string(nil), f.Exposes...),
+			Filters: append([]string(nil), f.Filters...), Annotations: append([]string(nil), f.Annotations...),
 		}
 	}
 	return result

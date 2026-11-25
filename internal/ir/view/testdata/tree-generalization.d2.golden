@@ -25,3 +25,5 @@ n6: "«part def»\n'Backscattered Electron Detector'" { class: definition }
 n5 -> n0: { class: specialization }
 n6 -> n0: { class: specialization }
 n6 -> n1: { class: specialization }
+frame_name: "«view» MicroscopeViews::positioned" { shape: text; near: top-left }
+frame_tr: "expose Microscope*" { shape: text; near: top-right }

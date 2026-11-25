@@ -14,3 +14,6 @@ n2 -> n0: "«private import»*" { class: dependency }
 n3 -> n0: "«private import»*" { class: dependency }
 n3 -> n1: "«private import»*" { class: dependency }
 n3 -> n2: "«private import»*" { class: dependency }
+frame_name: "«view» GeneralViews::packageView : GeneralView" { shape: text; near: top-left }
+frame_tr: "expose VehicleStructure\nexpose VehicleStructure::Powertrain\nexpose VehicleRequirements\nexpose VehicleVerification\nexpose GeneralViews" { shape: text; near: top-right }
+frame_bl: "filter @SysML::Package" { shape: text; near: bottom-left }

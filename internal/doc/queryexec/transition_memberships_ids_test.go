@@ -1,0 +1,45 @@
+package queryexec
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
+)
+
+// A transition's source Membership, link parameter and transitionLink read the ids the conversion mints:
+// `<transition>_psourcemember`, `_linkparam`, `_linkparam_om`, `_transitionlink`, `_transitionlink_om`.
+func TestTransitionHeadMembershipsReadTheConversionIDs(t *testing.T) {
+	fixture := loadExecutionSource(t, `package Observatory {
+    state def S {
+        state idle;
+        state busy;
+        transition go first idle then busy;
+    }
+}`)
+	read := export.NewElementIDReader([]export.ElementIDDocument{{File: fixture.file, Root: fixture.root}})
+	elementID := func(sym *symbols.Symbol) string {
+		id, err := ElementIDOf(read, fixture.index, sym)
+		if err != nil {
+			t.Fatalf("%v id: %v", sym.Decl, err)
+		}
+		return id
+	}
+	transition := fixture.symbol(t, "S::go")
+	owned, _ := fixture.model.ReflectiveElements(transition, "ownedRelationship")
+	want := "Observatory__S__go_psourcemember Observatory__S__go_linkparam_om Observatory__S__go_succession_om Observatory__S__go_transitionlink_om"
+	if got := strings.Join(elementIDs(elementID, owned), " "); got != want {
+		t.Fatalf("ownedRelationship ids = %q, want %q", got, want)
+	}
+	// The succession is owned through an OwningMembership (SysML.xtext
+	// TransitionSuccessionMember), so it is an owned member and no owned feature.
+	features, _ := fixture.model.ReflectiveElements(transition, "ownedFeature")
+	if got := strings.Join(elementIDs(elementID, features), " "); got != "Observatory__S__go_linkparam Observatory__S__go_transitionlink" {
+		t.Fatalf("ownedFeature ids = %q", got)
+	}
+	members, _ := fixture.model.ReflectiveElements(transition, "ownedMember")
+	if got := strings.Join(elementIDs(elementID, members), " "); got != "Observatory__S__go_linkparam Observatory__S__go_succession Observatory__S__go_transitionlink" {
+		t.Fatalf("ownedMember ids = %q", got)
+	}
+}

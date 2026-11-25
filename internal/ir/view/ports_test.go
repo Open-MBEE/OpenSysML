@@ -90,11 +90,10 @@ func TestTheMinimalDisplayDrawsTheConnectedPortsAlone(t *testing.T) {
 			t.Errorf("%s lacks %q", label, want)
 		}
 	}
-	// The connected pins are squares: a cell of the part's label in DOT, a
-	// `port` in PlantUML, a node in the part's subgraph in Mermaid, each ending
-	// the connector.
+	// The connected pins are squares, each ending the connector: one on the edge of the part's box
+	// in DOT, a `port` in PlantUML, a node in the part's subgraph in Mermaid.
 	for label, wants := range map[string][]string{
-		"DOT": {`"` + backup.ID + `" [shape=plain, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="0">`,
+		"DOT": {`"` + backup.ID + `" [shape=plain, style=solid, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="0">`,
 			`<td port="` + standby.ID + `" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">^durationOut</font></td>`,
 			`"` + backup.ID + `":"` + standby.ID + `" -> "` + heating.ID + `":"` + in.ID + `" [label="standby"`},
 		"PlantUML": {"    port \"^durationOut\" as " + standby.ID + "\n", standby.ID + " -[thickness=3]- " + in.ID + " : standby\n"},
@@ -389,7 +388,7 @@ func TestTheMinimalDisplayFollowsTheEdgesDOTDraws(t *testing.T) {
 			t.Errorf("the omitted connectors' %s is drawn:\n%s", unwanted, omitted)
 		}
 	}
-	for _, want := range []string{"heating", "chassis", "1 node(s) without a position, left undrawn, and 2 edge(s) at them"} {
+	for _, want := range []string{"heating", "chassis", "2 node(s) without a position, left undrawn, and 2 edge(s) at them"} {
 		if !strings.Contains(omitted, want) {
 			t.Errorf("the drawing lacks %q:\n%s", want, omitted)
 		}
@@ -398,7 +397,7 @@ func TestTheMinimalDisplayFollowsTheEdgesDOTDraws(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{`xlabel="^durationIn"`, `xlabel="^durationOut"`, `"n2.0" -> "n1.0" [label="durationInterface"`} {
+	for _, want := range []string{`xlabel="^durationIn"`, `xlabel="^durationOut"`, `"n2.0" -> "n4" [label="durationInterface"`, `"n4" -> "n1.0"`} {
 		if !strings.Contains(stripped, want) {
 			t.Errorf("the strip lacks %q:\n%s", want, stripped)
 		}
@@ -415,7 +414,7 @@ func TestAPinnedDOTNodeSpansItsPinRows(t *testing.T) {
 	}
 	pinned := 0
 	for _, line := range strings.Split(source, "\n") {
-		if !strings.Contains(line, "shape=plain") {
+		if !strings.Contains(line, "shape=plain,") {
 			continue
 		}
 		pinned++

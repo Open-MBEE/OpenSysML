@@ -66,8 +66,8 @@ func TestTreeCompartmentsFold(t *testing.T) {
 		t.Errorf("compartments = %q, want %q", got, want)
 	}
 	band := folded.Roots[2]
-	if len(band.Compartments) != 1 || band.Compartments[0].Name != "enumerations" || len(band.Compartments[0].Rows) != 2 {
-		t.Errorf("Band compartments = %+v, want one `enumerations` compartment of two literals", band.Compartments)
+	if len(band.Compartments) != 1 || band.Compartments[0].Name != "enums" || len(band.Compartments[0].Rows) != 2 {
+		t.Errorf("Band compartments = %+v, want one `enums` compartment of two literals", band.Compartments)
 	}
 	for _, edge := range folded.Edges {
 		for _, id := range []string{edge.From, edge.To} {
@@ -124,7 +124,7 @@ func TestTreeCompartmentRows(t *testing.T) {
 	want := []string{
 		"attributes: gain : dB = 15.0 | noiseFigure : Real | attribute",
 		"parts: ref heatsink : Heatsink | ref part = z",
-		"calculations: total",
+		"calcs: total",
 		"constraints: bound : GainBound",
 		"metadata: : Safety",
 		"widgets: w",

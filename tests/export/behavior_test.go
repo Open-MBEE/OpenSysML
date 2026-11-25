@@ -23,6 +23,7 @@ var behavioralModels = []string{"action_nodes", "loops_conditionals", "state_mac
 // from RDF as the same bytes it was written as, not merely as a graph that says
 // something similar.
 func TestBehavioralModelsComeBackByteIdentical(t *testing.T) {
+	t.Parallel()
 	for _, name := range behavioralModels {
 		t.Run(name, func(t *testing.T) {
 			path := filepath.Join("testdata", "convert", name+".sysml")
@@ -68,7 +69,7 @@ func TestLoopAndConditionalMetaclasses(t *testing.T) {
 	for _, want := range []string{
 		"sysml:WhileLoopActionUsage", "sysml:ForLoopActionUsage", "sysml:IfActionUsage",
 		"sysx:branchKind \"then\"", "sysml:ParameterMembership", "sysx:whileCondition", "sysx:untilCondition",
-		"sysx:loopVariable", "sysx:collection",
+		"sysml:loopVariable", "sysx:collection",
 	} {
 		if !strings.Contains(turtle, want) {
 			t.Errorf("the graph should carry %s:\n%s", want, turtle)
@@ -96,6 +97,7 @@ func TestStateMachineMetaclasses(t *testing.T) {
 // Each shape of each behavioral statement round trips on its own, so a failure
 // names the notation that broke rather than a whole model.
 func TestBehavioralStatementsRoundTrip(t *testing.T) {
+	t.Parallel()
 	actions := map[string]string{
 		"initial node":        "first start;",
 		"guarded initial":     "first start if speed > 0 then brake;",
@@ -144,35 +146,41 @@ func TestBehavioralStatementsRoundTrip(t *testing.T) {
 // The members of a state body round trip in each of the shapes the notation
 // allows: a subaction stated with braces, with a single action, or empty.
 func TestStateMembersRoundTrip(t *testing.T) {
+	t.Parallel()
 	members := map[string]string{
-		"entry succession":     "entry;\n        then launch;",
-		"start state":          "state launch;",
-		"substate":             "state waiting;",
-		"empty entry":          "entry;",
-		"entry action":         "entry perform Warm;",
-		"entry braced":         "entry {\n            perform Warm;\n        }",
-		"entry do braced":      "entry do {\n            perform Warm;\n        }",
-		"anonymous action":     "entry action {\n            perform Warm;\n        }",
-		"do action":            "do action running : Warm;",
-		"exit action":          "exit perform Warm;",
-		"choice":               "choice pick;",
-		"junction":             "junction meet;",
-		"fork pseudostate":     "fork split;",
-		"join pseudostate":     "join sync;",
-		"shallow history":      "shallow history last;",
-		"deep history":         "deep history deepest;",
-		"history synonym":      "history last;",
-		"nested state":         "state working {\n            entry perform Warm;\n        }",
-		"nested transition":    "state working {\n            state a;\n            transition first a then a;\n        }",
-		"nested substates":     "state working {\n            state first_gear;\n            state second_gear;\n        }",
-		"nested regions":       "state working parallel {\n            state left {\n                state stopped;\n            }\n            state right {\n                state moving;\n            }\n        }",
-		"nested full body":     "state working {\n            entry perform Warm;\n            do action spin : Warm;\n            exit perform Warm;\n            state deeper;\n        }",
-		"unordered subactions": "state working {\n            do action spin : Warm;\n            entry perform Warm;\n        }",
-		"transition first":     "transition first idle then idle;",
-		"named transition":     "transition go first idle then idle;",
-		"trigger":              "transition first idle accept sig : Signal then idle;",
-		"guard":                "transition first idle if speed > 0 then idle;",
-		"effect":               "transition first idle do action stop : Warm then idle;",
+		"entry succession":               "entry;\n        then launch;",
+		"start state":                    "state launch;",
+		"substate":                       "state waiting;",
+		"empty entry":                    "entry;",
+		"entry action":                   "entry perform Warm;",
+		"entry braced":                   "entry {\n            perform Warm;\n        }",
+		"entry do braced":                "entry do {\n            perform Warm;\n        }",
+		"anonymous action":               "entry action {\n            perform Warm;\n        }",
+		"do action":                      "do action running : Warm;",
+		"exit action":                    "exit perform Warm;",
+		"choice":                         "choice pick;",
+		"junction":                       "junction meet;",
+		"fork pseudostate":               "fork split;",
+		"join pseudostate":               "join sync;",
+		"shallow history":                "shallow history last;",
+		"deep history":                   "deep history deepest;",
+		"history synonym":                "history last;",
+		"nested state":                   "state working {\n            entry perform Warm;\n        }",
+		"nested transition":              "state working {\n            state a;\n            transition first a then a;\n        }",
+		"nested substates":               "state working {\n            state first_gear;\n            state second_gear;\n        }",
+		"nested regions":                 "state working parallel {\n            state left {\n                state stopped;\n            }\n            state right {\n                state moving;\n            }\n        }",
+		"nested full body":               "state working {\n            entry perform Warm;\n            do action spin : Warm;\n            exit perform Warm;\n            state deeper;\n        }",
+		"unordered subactions":           "state working {\n            do action spin : Warm;\n            entry perform Warm;\n        }",
+		"transition first":               "transition first idle then idle;",
+		"named transition":               "transition go first idle then idle;",
+		"trigger":                        "transition first idle accept sig : Signal then idle;",
+		"guard":                          "transition first idle if speed > 0 then idle;",
+		"effect":                         "transition first idle do action stop : Warm then idle;",
+		"target transition":              "then idle;",
+		"target transition multiplicity": "then [2] idle;",
+		"target transition body":         "then idle {\n            perform Warm;\n        }",
+		"entry transition":               "entry; then idle;",
+		"source succession":              "then state busy;",
 	}
 	for name, member := range members {
 		t.Run(name, func(t *testing.T) {
@@ -245,6 +253,7 @@ func TestUnsupportedBehavioralShapesAreReported(t *testing.T) {
 // parser reads it. The graph alone, without the text each member was written
 // as, has to bring every such `then` back where it stood.
 func TestThenComesBackPastTheMembersTheParserSkips(t *testing.T) {
+	t.Parallel()
 	path := filepath.Join("testdata", "convert", "then_after_members.sysml")
 	src, err := os.ReadFile(path)
 	if err != nil {
@@ -421,7 +430,7 @@ func TestFirstThenOwnsItsConnectorEnds(t *testing.T) {
 			t.Errorf("the graph should state %q:\n%s", want, graph)
 		}
 	}
-	if n := strings.Count(graph, "a sysml:EndFeatureMembership"); n != 4 {
+	if n := declaredOfType(graph, "EndFeatureMembership"); n != 4 {
 		t.Errorf("the two successions should own two ends each, found %d end memberships:\n%s", n, graph)
 	}
 	back, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
@@ -651,10 +660,13 @@ func TestThenDoneIsOneSuccessionToLibraryDone(t *testing.T) {
 	}
 	graph := string(turtle)
 	done := "<urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64>"
-	if strings.Contains(graph, "sysml:memberElement "+done) {
-		t.Errorf("`then done;` should state no Membership of the library's done:\n%s", graph)
+	// The library's own FeatureMembership of done is named as a stub; nothing the model declares may own it.
+	for _, block := range strings.Split(graph, "\n\n") {
+		if strings.Contains(block, "sysml:memberElement "+done) && !strings.Contains(block, `sysml:isLibraryElement "true"`) {
+			t.Errorf("`then done;` should state no Membership of the library's done:\n%s", block)
+		}
 	}
-	if n := strings.Count(graph, "a sysml:SuccessionAsUsage ;"); n != 2 {
+	if n := declaredOfType(graph, "SuccessionAsUsage"); n != 2 {
 		t.Errorf("want the two `then` successions alone, found %d SuccessionAsUsage:\n%s", n, graph)
 	}
 	for _, want := range []string{
@@ -817,7 +829,7 @@ func TestStateBodyFirstThenIsASuccession(t *testing.T) {
 		t.Errorf("a state body's `first x then y;` should map to no initial node:\n%s", turtle)
 	}
 	// The entry's `then idle;` is the third succession.
-	if n := strings.Count(string(turtle), "a sysml:SuccessionAsUsage ;"); n != 3 {
+	if n := declaredOfType(string(turtle), "SuccessionAsUsage"); n != 3 {
 		t.Errorf("want the two `first` successions and the entry's as SuccessionAsUsage, found %d:\n%s", n, turtle)
 	}
 	if n := strings.Count(string(turtle), `sysx:endForm "firstThen"`); n != 2 {
@@ -866,12 +878,12 @@ func TestTerminateUsageKeepsItsNameFromTheMappingAlone(t *testing.T) {
 func TestChainedSuccessionEndLinksItsRootAsAVertex(t *testing.T) {
 	src := "package P {\n    state def M {\n        entry;\n        then src;\n        state src;\n" +
 		"        state outer {\n            state inner {\n                state deep;\n            }\n        }\n" +
-		"        first src then inner.deep;\n        succession first inner.deep then src;\n    }\n}\n"
+		"        first src then outer.inner.deep;\n        succession first outer.inner.deep then src;\n    }\n}\n"
 	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	if n := strings.Count(string(turtle), "sysml:chainingFeature elmt:P__M__outer__inner, elmt:P__M__outer__inner__deep"); n != 2 {
+	if n := strings.Count(string(turtle), "sysml:chainingFeature elmt:P__M__outer, elmt:P__M__outer__inner, elmt:P__M__outer__inner__deep"); n != 2 {
 		t.Errorf("want the root of both chained ends linked to the nested state, found %d:\n%s", n, turtle)
 	}
 	if strings.Contains(string(turtle), `sysml:chainingFeature "`) {
@@ -881,7 +893,7 @@ func TestChainedSuccessionEndLinksItsRootAsAVertex(t *testing.T) {
 	if err != nil {
 		t.Fatalf("back to notation from the mapping alone: %v\n%s", err, turtle)
 	}
-	if !strings.Contains(string(back), "first inner.deep then src;") || !strings.Contains(string(back), "first src then inner.deep;") {
+	if !strings.Contains(string(back), "first outer.inner.deep then src;") || !strings.Contains(string(back), "first src then outer.inner.deep;") {
 		t.Errorf("the chained ends should be written back as chains:\n%s", back)
 	}
 }
@@ -950,8 +962,11 @@ func TestThenIsRefusedWhenTheGraphSequencesFromAnotherMember(t *testing.T) {
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
+	// The flow before the `then` relates its own source, a, as well (its FlowEnd references
+	// the feature before `.y`), so the succession's statement is the one in its block.
 	const stated = "sysml:sourceFeature elmt:P__A__a"
-	if strings.Count(string(turtle), stated) != 1 {
+	succession := elementBlock(t, string(turtle), "a sysml:SuccessionAsUsage ;", stated)
+	if strings.Count(succession, stated) != 1 {
 		t.Fatalf("the succession should state its source once as %s:\n%s", stated, turtle)
 	}
 	for name, source := range map[string]string{
@@ -959,9 +974,26 @@ func TestThenIsRefusedWhenTheGraphSequencesFromAnotherMember(t *testing.T) {
 		"the flow written before": "elmt:P__A___402",
 	} {
 		t.Run(name, func(t *testing.T) {
-			checkThenIsRefusedWithSource(t, turtle, stated, source)
+			moved := strings.Replace(string(turtle), succession, strings.Replace(succession, stated, "sysml:sourceFeature "+source, 1), 1)
+			checkThenIsRefusedWithSource(t, turtle, []byte(moved), source)
 		})
 	}
+}
+
+// elementBlock is the one Turtle block of turtle whose second line is typed
+// and which states stated; none or several fail the test.
+func elementBlock(t *testing.T, turtle, typed, stated string) string {
+	t.Helper()
+	var found []string
+	for _, block := range strings.Split(turtle, "\n\n") {
+		if lines := strings.SplitN(block, "\n", 3); len(lines) >= 2 && strings.TrimSpace(lines[1]) == typed && strings.Contains(block, stated) {
+			found = append(found, block)
+		}
+	}
+	if len(found) != 1 {
+		t.Fatalf("%d blocks are typed %q and state %s, want one:\n%s", len(found), typed, stated, turtle)
+	}
+	return found[0]
 }
 
 // The non-feature members a `then` is read past are no source for it either: a
@@ -992,7 +1024,8 @@ func TestThenIsRefusedWhenTheGraphSequencesFromANonFeature(t *testing.T) {
 		"the multiplicity written before":      "elmt:P__A__m",
 	} {
 		t.Run(name, func(t *testing.T) {
-			checkThenIsRefusedWithSource(t, turtle, stated, source)
+			moved := strings.Replace(string(turtle), stated, "sysml:sourceFeature "+source, 1)
+			checkThenIsRefusedWithSource(t, turtle, []byte(moved), source)
 		})
 	}
 }
@@ -1021,20 +1054,20 @@ func TestThenIsRefusedWhenTheGraphSequencesFromAStateBodyComment(t *testing.T) {
 		"the comment written before": "elmt:P__S___402",
 	} {
 		t.Run(name, func(t *testing.T) {
-			checkThenIsRefusedWithSource(t, turtle, stated, source)
+			moved := strings.Replace(string(turtle), stated, "sysml:sourceFeature "+source, 1)
+			checkThenIsRefusedWithSource(t, turtle, []byte(moved), source)
 		})
 	}
 }
 
 // checkThenIsRefusedWithSource moves the stated source of the one succession
 // in turtle to source, an element of the graph, and requires the refusal.
-func checkThenIsRefusedWithSource(t *testing.T, turtle []byte, stated, source string) {
+func checkThenIsRefusedWithSource(t *testing.T, turtle, moved []byte, source string) {
 	t.Helper()
 	if !strings.Contains(string(turtle), "\n"+source+"\n") {
 		t.Fatalf("%s is not an element of the graph:\n%s", source, turtle)
 	}
-	moved := strings.Replace(string(turtle), stated, "sysml:sourceFeature "+source, 1)
-	_, err := convert.Convert("m.ttl", []byte(moved), convert.FormatTurtle, convert.FormatSysML)
+	_, err := convert.Convert("m.ttl", moved, convert.FormatTurtle, convert.FormatSysML)
 	var unsupported *export.UnsupportedError
 	if !errors.As(err, &unsupported) {
 		t.Fatalf("want an UnsupportedError, got %v", err)
@@ -1144,4 +1177,16 @@ func toTurtle(t *testing.T, path string) string {
 		t.Fatalf("to turtle: %v", err)
 	}
 	return string(turtle)
+}
+
+// declaredOfType counts the elements of metaclass the model declares in turtle,
+// leaving out the library stubs the graph names for the members its types inherit.
+func declaredOfType(turtle, metaclass string) int {
+	n := 0
+	for _, block := range strings.Split(turtle, "\n\n") {
+		if strings.Contains(block, "a sysml:"+metaclass+" ;") && !strings.Contains(block, `sysml:isLibraryElement "true"`) {
+			n++
+		}
+	}
+	return n
 }

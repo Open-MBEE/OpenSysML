@@ -12,9 +12,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
-func (s *Service) symbolToProto(sym *symbols.Symbol, sc *symbolfacts.Context) *pb.SymbolInfo {
-	info := SymbolToProtoIn(sym, sc)
-	return s.filterSymbolInfo(info)
+func (s *Service) symbolToProtoWith(sym *symbols.Symbol, sc *symbolfacts.Context, opts symbolfacts.Options) *pb.SymbolInfo {
+	return s.filterSymbolInfo(SymbolToProtoWith(sym, sc, opts))
 }
 
 func (s *Service) symbolInfoToProto(info *symbolfacts.Info, idx *symbols.Index) *pb.SymbolInfo {
@@ -27,6 +26,13 @@ func (s *Service) filterSymbolInfo(info *pb.SymbolInfo) *pb.SymbolInfo {
 		info.Multiplicity = nil
 		info.Specializations = nil
 	}
+	if !s.capabilities.has(CapabilitySymbolMembers) {
+		info.Members = nil
+		info.WithheldLibraryMembers = 0
+	}
+	if !s.capabilities.has(CapabilitySymbolAnnotatingMetadata) {
+		info.AnnotatingMetadataIds = nil
+	}
 	if !s.capabilities.has(CapabilitySymbolAttributes) {
 		info.Attributes = nil
 		info.WithheldLibraryAttributes = 0
@@ -38,22 +44,24 @@ func (s *Service) filterSymbolInfo(info *pb.SymbolInfo) *pb.SymbolInfo {
 	return info
 }
 
-func (s *Service) valueToProto(rt *runtime.Context, value runtime.Value, idx *symbols.Index) *pb.Value {
-	out := protoconv.ValueToProtoIn(rt, value, idx)
+// valueToProto converts a value of cached's model, naming a metaobject's
+// element by the id the model's symbol context gives it.
+func (s *Service) valueToProto(rt *runtime.Context, value runtime.Value, cached *CachedModel) *pb.Value {
+	out := protoconv.ValueToProtoWith(rt, value, cached.Index, cached.SymbolContext())
 	s.filterValueCapabilities(out)
 	return out
 }
 
-func (s *Service) valuesToProto(rt *runtime.Context, values map[string]runtime.Value, idx *symbols.Index) map[string]*pb.Value {
+func (s *Service) valuesToProto(rt *runtime.Context, values map[string]runtime.Value, cached *CachedModel) map[string]*pb.Value {
 	out := make(map[string]*pb.Value, len(values))
 	for name, value := range values {
-		out[name] = s.valueToProto(rt, value, idx)
+		out[name] = s.valueToProto(rt, value, cached)
 	}
 	return out
 }
 
-func (s *Service) instanceGraphToProto(rt *runtime.Context, inst *runtime.Instance, idx *symbols.Index) protoconv.InstanceGraph {
-	graph := protoconv.InstanceGraphToProtoWithin(rt, inst, idx, protoconv.DefaultGraphBounds())
+func (s *Service) instanceGraphToProto(rt *runtime.Context, inst *runtime.Instance, cached *CachedModel) protoconv.InstanceGraph {
+	graph := protoconv.InstanceGraphToProtoWithin(rt, inst, cached.Index, protoconv.DefaultGraphBounds(), cached.SymbolContext())
 	for _, instance := range graph.All {
 		s.filterInstanceCapabilities(instance)
 	}
@@ -63,6 +71,9 @@ func (s *Service) instanceGraphToProto(rt *runtime.Context, inst *runtime.Instan
 func (s *Service) filterInstanceCapabilities(instance *pb.Instance) {
 	if instance == nil {
 		return
+	}
+	if !s.capabilities.has(CapabilityInstancePaths) {
+		instance.ReachedBy = nil
 	}
 	if !s.capabilities.has(CapabilityFeatureValues) {
 		instance.FeatureValues = nil
@@ -114,6 +125,8 @@ func (s *Service) filterValueCapabilities(value *pb.Value) {
 		}
 	case *pb.Value_Set:
 		s.filterSetCapabilities(value)
+	case *pb.Value_CoordinateFrame, *pb.Value_CoordinateTransformation:
+		s.filterCoordinateCapabilities(value)
 	default:
 		s.filterLeafCapabilities(value)
 	}
@@ -131,6 +144,23 @@ func (s *Service) filterSetCapabilities(value *pb.Value) {
 		s.filterValueCapabilities(nested)
 		if reason, ok := protoconv.UnsupportedReason(nested); ok {
 			value.Kind = protoconv.UnsupportedSet(shown, reason).Kind
+			return
+		}
+	}
+}
+
+// filterCoordinateCapabilities replaces a frame or transformation the client
+// cannot take, or one holding a vector it cannot, with the rendering it can.
+func (s *Service) filterCoordinateCapabilities(value *pb.Value) {
+	shown := protoconv.UnsupportedShown(displayValue(value))
+	if !s.capabilities.has(CapabilityCoordinateFrameValues) {
+		value.Kind = shown
+		return
+	}
+	for _, nested := range protoconv.NestedValues(value) {
+		s.filterValueCapabilities(nested)
+		if reason, ok := protoconv.UnsupportedReason(nested); ok {
+			value.Kind = &pb.Value_Null{Null: shown.Null + " holding " + reason}
 			return
 		}
 	}
@@ -216,11 +246,7 @@ func displayValue(pv *pb.Value) runtime.Value {
 		}
 		return runtime.NewVectorQuantityValue(num, units)
 	case *pb.Value_MeasurementRef:
-		text := k.MeasurementRef.GetUnit()
-		if text == "" {
-			text = describeUnitTerm(k.MeasurementRef.GetUnitTerm())
-		}
-		return runtime.NewMeasurementRefValue(runtime.Unit{Text: text, Product: semantics.NamedUnitProduct(nil, text, false)})
+		return runtime.NewMeasurementRefValue(displayUnit(k.MeasurementRef))
 	case *pb.Value_Set:
 		set := runtime.NewSet()
 		for _, elem := range k.Set.GetElements() {
@@ -238,9 +264,42 @@ func displayValue(pv *pb.Value) runtime.Value {
 		return runtime.NewTensorQuantityValue(k.TensorQuantity.GetDimensions(), num, units)
 	case *pb.Value_Metaobject:
 		return runtime.NewMetaobject(&symbols.Symbol{Name: k.Metaobject.GetElementId()}, &symbols.Symbol{Name: k.Metaobject.GetMetaclassId()})
+	case *pb.Value_CoordinateFrame:
+		return runtime.NewCoordinateFrameValue(displayFrame(k.CoordinateFrame))
+	case *pb.Value_CoordinateTransformation:
+		t := k.CoordinateTransformation
+		return runtime.NewCoordinateTransformationValue(&runtime.CoordinateTransformation{
+			Decl:   &symbols.Symbol{Name: t.GetName()},
+			Source: displayFrame(t.GetSource()),
+			Target: displayFrame(t.GetTarget()),
+		})
 	default:
 		return protoconv.ProtoToScalar(pv)
 	}
+}
+
+// displayFrame is a frame for rendering only: its name over the units sent.
+func displayFrame(pf *pb.CoordinateFrame) *runtime.CoordinateFrame {
+	if pf == nil {
+		return nil
+	}
+	frame := &runtime.CoordinateFrame{Text: pf.GetName(), Dimensions: pf.GetDimensions()}
+	for _, axis := range pf.GetAxes() {
+		frame.Axes = append(frame.Axes, displayUnit(axis))
+	}
+	if scale := pf.GetScale(); scale != nil {
+		frame.Scale = &runtime.MeasurementScale{Unit: displayUnit(scale.GetUnit())}
+	}
+	return frame
+}
+
+// displayUnit is a unit for rendering only, under the text it was sent with.
+func displayUnit(ref *pb.MeasurementRef) runtime.Unit {
+	text := ref.GetUnit()
+	if text == "" {
+		text = describeUnitTerm(ref.GetUnitTerm())
+	}
+	return runtime.Unit{Text: text, Product: semantics.NamedUnitProduct(nil, text, false)}
 }
 
 // displayQuantity is a quantity for rendering only, its unit the text sent or,

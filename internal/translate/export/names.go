@@ -2,6 +2,8 @@ package export
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
+	"maps"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -23,6 +25,8 @@ type nameChoices struct {
 	references map[nameKey]string
 	// segments holds the segments that need more than their element's own name.
 	segments map[segmentKey]string
+	// namedDones holds the `done` features `then done;` does not reach in an owner (member), written by name.
+	namedDones map[nameKey]bool
 }
 
 // segmentKey identifies the chain segments of one name written in one
@@ -49,6 +53,8 @@ type wanted struct {
 	starts map[string]string
 	// variants holds the feature each `variant x;` names, keyed by the variant.
 	variants map[string]string
+	// dones holds the `done` features the `then done;` successions of an owner (member) are to reach.
+	dones map[nameKey]bool
 }
 
 type wantedReference struct {
@@ -66,11 +72,12 @@ func newWanted() *wanted {
 		segments:   map[segmentKey]bool{},
 		starts:     map[string]string{},
 		variants:   map[string]string{},
+		dones:      map[nameKey]bool{},
 	}
 }
 
 func (w *wanted) empty() bool {
-	return len(w.references) == 0 && len(w.segments) == 0 && len(w.starts) == 0 && len(w.variants) == 0
+	return len(w.references) == 0 && len(w.segments) == 0 && len(w.starts) == 0 && len(w.variants) == 0 && len(w.dones) == 0
 }
 
 // chooseNames reads a rendering as the language name says, in the place of the
@@ -79,7 +86,10 @@ func (w *wanted) empty() bool {
 // never shorter than what previous chose; none is a refusal. changed reports
 // whether any choice differs from the spelling the rendering wrote.
 func chooseNames(name, library string, text []byte, want *wanted, previous *nameChoices) (names *nameChoices, changed bool, err error) {
-	names = &nameChoices{references: map[nameKey]string{}, segments: map[segmentKey]string{}}
+	names = &nameChoices{references: map[nameKey]string{}, segments: map[segmentKey]string{}, namedDones: map[nameKey]bool{}}
+	if previous != nil {
+		maps.Copy(names.namedDones, previous.namedDones)
+	}
 	if want.empty() {
 		return names, false, nil
 	}
@@ -99,8 +109,8 @@ func chooseNames(name, library string, text []byte, want *wanted, previous *name
 			Note: fmt.Sprintf("the notation written for them cannot be read back (%v), so no spelling can be checked to reach its element", err),
 		}
 	}
-	declared := make(map[string]ast.Node, len(e.fqn))
-	for node, fqn := range e.fqn {
+	declared := make(map[string]ast.Node, len(e.names.FQN))
+	for node, fqn := range e.names.FQN {
 		declared[fqn] = node
 	}
 	memberAliases, targetAliases := parserAliases(want.references)
@@ -205,6 +215,23 @@ func chooseNames(name, library string, text []byte, want *wanted, previous *name
 	if err := e.checkVariants(want.variants, declared); err != nil {
 		return nil, false, err
 	}
+	if len(want.dones) > 0 {
+		owners := make(map[string]ast.Node, len(e.names.FQN))
+		for node, fqn := range e.names.FQN {
+			if _, edge := node.(*ast.SuccessionEdge); edge {
+				continue
+			}
+			if _, members := naming.DeclaredNameAndMembers(node); len(members) > 0 {
+				owners[fqn] = node
+			}
+		}
+		for key := range want.dones {
+			if !e.donesReach(owners[key.member], key.target) {
+				names.namedDones[key] = true
+				changed = true
+			}
+		}
+	}
 	for key := range want.references {
 		if _, ok := occurrences[key]; !ok {
 			// A reference written but never read back cannot be checked to reach
@@ -285,8 +312,8 @@ func parserAliases(references map[nameKey]wantedReference) (map[string]string, m
 	members := map[string]string{}
 	targets := map[string]string{}
 	for key := range references {
-		addParserAlias(members, parserQualifiedName(key.member), key.member)
-		addParserAlias(targets, parserQualifiedName(key.target), key.target)
+		addParserAlias(members, mappingQualifiedNameFromSpec(key.member), key.member)
+		addParserAlias(targets, mappingQualifiedNameFromSpec(key.target), key.target)
 	}
 	return members, targets
 }
@@ -303,7 +330,7 @@ func addParserAlias(aliases map[string]string, parsed, identity string) {
 // declaration itself, or the one whose expression body declares that declaration.
 func (e *encoder) memberOf(ref resolve.Reference) string {
 	if ref.Within != nil {
-		return e.fqn[ref.Within]
+		return e.names.FQN[ref.Within]
 	}
 	if member := e.triggerMembers[ref.Member]; member != "" {
 		return member
@@ -312,11 +339,11 @@ func (e *encoder) memberOf(ref resolve.Reference) string {
 	// owns, which the graph states it from.
 	if u, ok := ref.Member.(*ast.Usage); ok && u.FlowEnds != nil && u.FlowEnds.PayloadDecl == nil &&
 		ref.QN != nil && ast.Node(ref.QN) == u.FlowEnds.Payload {
-		if payload := e.payloadOf(u); payload != nil {
-			return e.fqn[payload]
+		if payload := e.names.PayloadOf(u); payload != nil {
+			return e.names.FQN[payload]
 		}
 	}
-	return e.fqn[ref.Member]
+	return e.names.FQN[ref.Member]
 }
 
 func (e *encoder) memberOfCandidates(ref resolve.Reference) [][]string {
@@ -328,7 +355,7 @@ func (e *encoder) memberOfCandidates(ref resolve.Reference) [][]string {
 	}
 	if u, ok := ref.Member.(*ast.Usage); ok && u.FlowEnds != nil && u.FlowEnds.PayloadDecl == nil &&
 		ref.QN != nil && ast.Node(ref.QN) == u.FlowEnds.Payload {
-		if payload := e.payloadOf(u); payload != nil {
+		if payload := e.names.PayloadOf(u); payload != nil {
 			return [][]string{e.memberNameCandidates(payload), e.memberNameCandidates(ref.Member)}
 		}
 	}
@@ -338,8 +365,8 @@ func (e *encoder) memberOfCandidates(ref resolve.Reference) [][]string {
 // memberNameCandidates are the names a graph may key a member's references by:
 // the qualified name the encoder writes, or the one a graph stating no effective names gives it.
 func (e *encoder) memberNameCandidates(node ast.Node) []string {
-	fqn := e.fqn[node]
-	if positional, ok := e.positional[node]; ok {
+	fqn := e.names.FQN[node]
+	if positional, ok := e.names.Positional[node]; ok {
 		return []string{fqn, positional}
 	}
 	return []string{fqn}
@@ -466,7 +493,7 @@ func (e *encoder) segmentReads(refs []resolve.Reference, spelling, target string
 // referenceSpellings are the spellings tried for a reference written fully
 // qualified as qname: its qualifications shortest first, then its global form.
 func referenceSpellings(qname string) []string {
-	return append(qualifications(identitySegments(qname)), "$::"+qname)
+	return append(qualifications(naming.Segments(qname)), "$::"+qname)
 }
 
 // qualifications are the ways of naming the last of parts through some of the
@@ -507,7 +534,7 @@ const maxSkippedQualifiers = 8
 // global form.
 func segmentSpellings(name, target string) []string {
 	spellings := []string{name}
-	parts := identitySegments(target)
+	parts := naming.Segments(target)
 	for _, spelling := range qualifications(parts) {
 		if spelling != name {
 			spellings = append(spellings, spelling)
@@ -522,7 +549,7 @@ func segmentSpellings(name, target string) []string {
 func qualifiedSpellings(spellings []string) []string {
 	var out []string
 	for _, spelling := range spellings {
-		if len(identitySegments(strings.TrimPrefix(spelling, "$::"))) > 1 || strings.HasPrefix(spelling, "$::") {
+		if len(naming.Segments(strings.TrimPrefix(spelling, "$::"))) > 1 || strings.HasPrefix(spelling, "$::") {
 			out = append(out, spelling)
 		}
 	}
@@ -635,6 +662,38 @@ func (e *encoder) checkStarts(starts map[string]string, declared map[string]ast.
 	return nil
 }
 
+// donesReach reports whether every `then done;` among owner's members, read back, reaches the feature
+// target names: the `done` owner inherits, which is not every library feature of that name.
+func (e *encoder) donesReach(owner ast.Node, target string) bool {
+	if owner == nil {
+		return false
+	}
+	_, members := naming.DeclaredNameAndMembers(owner)
+	for _, member := range members {
+		edge, ok := member.(*ast.SuccessionEdge)
+		if !ok || !thenDone(edge) {
+			continue
+		}
+		related := e.ids.model.ConnectorRelatedFeaturesByEnd(e.ids.declSym[edge])
+		if len(related) != 2 {
+			return false
+		}
+		if _, reached, ok := e.linked(related[1], true); !ok || reached != target {
+			return false
+		}
+	}
+	return true
+}
+
+// thenDone reports whether edge is written `then done;`, with or without multiplicities.
+func thenDone(edge *ast.SuccessionEdge) bool {
+	if _, final := edge.TargetMember.(*ast.FinalNode); final {
+		return true
+	}
+	name := edge.Target
+	return name != nil && len(name.Parts) == 1 && name.Parts[0].Text == "done"
+}
+
 // checkVariants refuses a `variant x;` written for a variant whose x does not
 // reach, from the variation, the feature the variant references.
 func (e *encoder) checkVariants(variants map[string]string, declared map[string]ast.Node) error {
@@ -663,7 +722,7 @@ func (e *encoder) checkVariants(variants map[string]string, declared map[string]
 // the alias it is written through, else what it resolves to, else its text.
 func (e *encoder) writtenTarget(ref resolve.Reference) string {
 	if alias, ok := e.res.PartAlias(ref.QN, len(ref.QN.Parts)-1); ok {
-		if fqn, ok := e.fqn[alias.Decl]; ok {
+		if fqn, ok := e.names.FQN[alias.Decl]; ok {
 			return fqn
 		}
 	}
@@ -703,7 +762,7 @@ func spelledName(text string) *ast.QualifiedName {
 	if rest, ok := strings.CutPrefix(text, "$::"); ok {
 		qn.Global, text = true, rest
 	}
-	for _, segment := range identitySegments(text) {
+	for _, segment := range naming.Segments(text) {
 		qn.Parts = append(qn.Parts, ast.NameSegment{Text: identityName(segment)})
 	}
 	return qn

@@ -170,6 +170,9 @@ type Exploration struct {
 	// in one order without a choice point, so fewer orders were run than the
 	// library admits; none when the exploration is complete.
 	Unenumerated []CoverageGap
+	// Coverage is every state entered and transition taken over all the runs,
+	// not only the witness of each outcome, with how many runs did so.
+	Coverage Coverage
 	// Scope is the distinct reasons the runs' outcomes were observed short of quiescence.
 	Scope    []ObservationReason
 	weighted bool
@@ -512,21 +515,16 @@ func (s exploreSlot) describePlan() string {
 	return fmt.Sprintf("alternative %d of %d", s.taken+1, s.alternatives)
 }
 
-// unexplored is the prefixes this run leaves to explore, earliest first: for each choice
-// the run owns — the last its prefix planned and every one it made below — the record up
-// to that choice taking its next alternative, when one is untried within depth. The
-// choices before the last planned one belong to the runs that planned them.
-func (r *exploreRun) unexplored() [][]exploreSlot {
-	var next [][]exploreSlot
+// unexplored indexes the record's choices the run leaves to explore, earliest first: those it
+// owns (the last planned and every one below) with an alternative untried within depth.
+func (r *exploreRun) unexplored() []int {
+	var next []int
 	for i := max(len(r.prefix)-1, 0); i < len(r.record); i++ {
 		slot := r.record[i]
 		if slot.beyond || slot.taken+1 >= slot.alternatives {
 			continue
 		}
-		prefix := make([]exploreSlot, i+1)
-		copy(prefix, r.record[:i+1])
-		prefix[i].taken++
-		next = append(next, prefix)
+		next = append(next, i)
 	}
 	return next
 }

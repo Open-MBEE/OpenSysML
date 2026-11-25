@@ -116,7 +116,7 @@ func TestImplicitUsageBaseTypes(t *testing.T) {
 		{"attribute x;", "Base::DataValue", "Base::dataValues"},
 		{"item x;", "Items::Item", "Items::items"},
 		{"occurrence x;", "Occurrences::Occurrence", "Occurrences::occurrences"},
-		{"individual occurrence x;", "Occurrences::Life", "Occurrences::occurrences"},
+		{"individual occurrence x;", "Occurrences::Occurrence", "Occurrences::occurrences"},
 		{"port x;", "Ports::Port", "Ports::ports"},
 		{"connection x;", "Connections::Connection", "Connections::connections"},
 		{"interface x;", "Interfaces::Interface", "Interfaces::interfaces"},

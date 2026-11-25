@@ -5,7 +5,7 @@ part tank
 part spare
 timeslice filling
 snapshot full
-occurrence startup
+event occurrence startup
 requirement def LevelReq
 require constraint keepLevel
 assume constraint lowLevel
@@ -21,6 +21,7 @@ relationships:
   Plant @-- filling
   Plant @-- full
   Plant -> startup: event
+  LevelReq o-- Plant: plant
   LevelReq -> bounded: require
   LevelReq -> tight: assume
   LevelReq -> keepLevel: require

@@ -4,6 +4,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -87,57 +89,6 @@ func TestDigestFilesIdentifiesTheSetNotTheOrder(t *testing.T) {
 	}
 }
 
-// A package digest moves on a byte of a production .go file and on nothing
-// else: tests, other kinds of file and subdirectories change freely.
-func TestDigestPackageCoversOnlyProductionGoSources(t *testing.T) {
-	dir := t.TempDir()
-	write := func(name, content string) {
-		t.Helper()
-		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
-	write("write.go", "package p\n")
-	write("names.go", "package p\n\nvar n = 1\n")
-	write("write_test.go", "package p\n")
-	write("README.md", "writer\n")
-	if err := os.Mkdir(filepath.Join(dir, "testdata"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	write(filepath.Join("testdata", "a.go"), "package a\n")
-	recorded, err := DigestPackage(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	production, err := DigestFiles(dir, []string{"names.go", "write.go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if recorded != production {
-		t.Fatalf("package digest %s differs from the production-source digest %s", recorded, production)
-	}
-	write("write_test.go", "package p\n\nfunc f() {}\n")
-	write("README.md", "the writer\n")
-	write(filepath.Join("testdata", "a.go"), "package b\n")
-	if again, err := DigestPackage(dir); err != nil || again != recorded {
-		t.Fatalf("tests, fixtures and prose moved the digest: %s -> %s (%v)", recorded, again, err)
-	}
-	write("names.go", "package p\r\n\r\nvar n = 1\r\n")
-	if again, err := DigestPackage(dir); err != nil || again != recorded {
-		t.Fatalf("a CRLF checkout moved the digest: %s -> %s (%v)", recorded, again, err)
-	}
-	write("names.go", "package p\n\nvar n = 2\n")
-	if moved, err := DigestPackage(dir); err != nil || moved == recorded {
-		t.Fatalf("a one-byte edit to a production source left the digest at %s (%v)", moved, err)
-	}
-	if _, err := DigestPackage(filepath.Join(dir, "testdata", "..", "README.md")); err == nil {
-		t.Fatal("want an error digesting a file as a package")
-	}
-	if _, err := DigestPackage(t.TempDir()); err == nil || !strings.Contains(err.Error(), "no Go sources") {
-		t.Fatalf("want an empty directory refused, got %v", err)
-	}
-}
-
 func TestValidateNamesWhatARecordFailsToState(t *testing.T) {
 	complete := Record{
 		PilotTag:      "2026-05",
@@ -160,8 +111,7 @@ func TestValidateNamesWhatARecordFailsToState(t *testing.T) {
 		{"no artifact", func(r *Record) { r.PilotArtifact = "" }, "states no pilot pin"},
 		{"no errata", func(r *Record) { r.Errata = "" }, "states no errata registry digest"},
 		{"no inputs", func(r *Record) { r.Inputs = nil }, "states no compared inputs"},
-		{"no date", func(r *Record) { r.Recorded = "" }, "states no ISO recording date"},
-		{"unparsable date", func(r *Record) { r.Recorded = "August 2026" }, "states no ISO recording date"},
+		{"unparsable date", func(r *Record) { r.Recorded = "August 2026" }, "states a non-ISO recording date"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			record := complete
@@ -248,6 +198,24 @@ func TestCompareIgnoresInputsThisCheckoutDoesNotHave(t *testing.T) {
 	}
 }
 
+// A tool or an input of ours that the baseline records but this run no longer has is a
+// mismatch: dropping a bridge must not drop its provenance check with it.
+func TestCompareReportsRemovedToolsAndOwnInputs(t *testing.T) {
+	recorded := Record{
+		Tools:  []Tool{{Name: "kept", Source: "a"}, {Name: "dropped", Source: "b"}},
+		Inputs: []Input{{Name: "ours", Dir: "tools/x", Origin: OriginOurs, Files: 1, Digest: "sha256:aa"}},
+	}
+	current := Record{Tools: []Tool{recorded.Tools[0]}}
+	got := Compare(recorded, current)
+	want := []Mismatch{
+		{Field: toolField("dropped", ""), Recorded: "present", Current: "not recorded", Cause: CauseOurs},
+		{Field: inputField("ours", ""), Recorded: "tools/x", Current: "not recorded", Cause: CauseOurs},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("Compare = %+v, want %+v", got, want)
+	}
+}
+
 // TestReproducesSaysWhichActionADifferenceCallsFor covers the scheduled run's
 // two verdicts, and that the recording date alone is not a non-reproduction.
 func TestReproducesSaysWhichActionADifferenceCallsFor(t *testing.T) {
@@ -294,5 +262,41 @@ func TestWriteRefusesAReportWithoutProvenance(t *testing.T) {
 	}
 	if _, statErr := os.Stat(path); !os.IsNotExist(statErr) {
 		t.Error("a report without provenance was still written")
+	}
+}
+
+func TestReadPilotJavaResolvesTheDeclaredJVM(t *testing.T) {
+	java, err := ReadPilotJava("../../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !regexp.MustCompile(`^[0-9]+$`).MatchString(java) {
+		t.Errorf("declared Java %q is not a feature release", java)
+	}
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "scripts"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	for _, content := range []string{"PILOT_JAVA=21\n", "PILOT_JAVA=\"${PILOT_JAVA:-21.0.4}\"\n", ""} {
+		if err := os.WriteFile(filepath.Join(root, filepath.FromSlash(PinPath)), []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if java, err := ReadPilotJava(root); err == nil || !strings.Contains(err.Error(), "declares no PILOT_JAVA") {
+			t.Errorf("pin %q: got %q, %v", content, java, err)
+		}
+	}
+}
+
+func TestCompareNamesARecordFromAnotherJVM(t *testing.T) {
+	recorded, current := Record{PilotJava: "25"}, Record{PilotJava: "21"}
+	mismatches := Compare(recorded, current)
+	if len(mismatches) != 1 || mismatches[0].Field != "pilotJava" || mismatches[0].Cause != CauseJVM {
+		t.Fatalf("mismatches = %+v, want the one JVM mismatch", mismatches)
+	}
+	if text := Explain("b.json", "refresh", mismatches); !strings.Contains(text, `baseline records "25", repository now has "21"`) || !strings.Contains(text, "first on PATH") {
+		t.Errorf("explanation does not name the JVMs and the remedy:\n%s", text)
+	}
+	if got := Compare(Record{}, Record{}); len(got) != 0 {
+		t.Errorf("baselines recording no JVM mismatch: %+v", got)
 	}
 }

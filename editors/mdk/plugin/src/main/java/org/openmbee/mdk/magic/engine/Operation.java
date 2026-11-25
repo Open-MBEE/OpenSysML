@@ -6,7 +6,8 @@ public enum Operation {
   EXECUTE_STATE("Execute state"),
   VERIFY("Verify"),
   EVALUATE_CALC("Evaluate calc"),
-  RUN_ANALYSIS("Run analysis");
+  RUN_ANALYSIS("Run analysis"),
+  RUN_QUERY("Run query");
 
   private final String label;
 

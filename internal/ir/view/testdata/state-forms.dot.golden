@@ -1,0 +1,38 @@
+// view: FurnaceViews::burner
+// kind: state
+// stated: view def StateTransitionView
+// layout: dot
+digraph "FurnaceViews::burner" {
+  graph [fontname="Helvetica", compound=true];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  subgraph "cluster_frame" {
+    label=<<font point-size="10"><i>«view»</i></font> <b>FurnaceViews::burner</b> : StateTransitionView>;
+    labeljust=l;
+    labelloc=t;
+    penwidth=0.5;
+    margin=8;
+    subgraph "cluster_n0" {
+      label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="10"><i>«state def»</i></font><br/><b>Burner</b></td></tr><hr/><tr><td><font point-size="10">state transition</font></td></tr></table>>;
+      color=black;
+      penwidth=0.5;
+      "n0" [shape=point, style=invis, width=0, height=0, label=""];
+      "n8" [shape=point, fillcolor=black, label=""];
+      "n1" [style="rounded,filled", label=<<font point-size="10"><i>«state»</i></font><br/><b>off</b><br/>initial>];
+      subgraph "cluster_n2" {
+        label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="10"><i>«state»</i></font><br/><b>running</b><br/><font point-size="10"><i>«parallel»</i></font></td></tr><hr/><tr><td><font point-size="10">entry</font></td></tr><tr><td align="left">action ignite : Ignite</td></tr><hr/><tr><td><font point-size="10">do</font></td></tr><tr><td align="left">flame := true</td></tr><hr/><tr><td><font point-size="10">exit</font></td></tr><tr><td align="left">action : Purge</td></tr><hr/><tr><td><font point-size="10">state transition</font></td></tr></table>>;
+        color=black;
+        penwidth=0.5;
+        "n2" [shape=point, style=invis, width=0, height=0, label=""];
+        "n9" [style="rounded,filled", label=<<font point-size="10"><i>«entry action»</i></font><br/><b>ignite</b>>];
+        "n10" [style="rounded,filled", label=<<b>flame := true</b>>];
+        "n6" [style="rounded,filled", label=<<font point-size="10"><i>«region»</i></font><br/><b>low</b>>];
+        "n7" [style="rounded,filled", label=<<font point-size="10"><i>«region»</i></font><br/><b>high</b>>];
+      }
+    }
+    { rank=min; "frame_tr" [shape=none, margin=0, label=<<font point-size="10">expose Furnace::Burner</font>>]; }
+  }
+  "n8" -> "n1" [arrowhead=vee];
+  "n1" -> "n2" [arrowhead=vee, lhead="cluster_n2"];
+  "n2" -> "n1" [arrowhead=vee, ltail="cluster_n2"];
+}

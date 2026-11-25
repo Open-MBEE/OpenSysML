@@ -84,12 +84,12 @@ Ask for the total and the rollup has no answer:
 
 ```
 ✓ MassRollup::saturnVWithIU.totalMass
-  = <undetermined>
+  = <undetermined>: mass has no value in the model
 ```
 
 The model states no value for the instrument unit's `mass`, so nothing it
-rolls up to is determined: the runtime answers `<undetermined>` rather than a
-number it would have to invent. The model was never wrong; it was incomplete
+rolls up to is determined: the runtime answers `<undetermined>`, naming the
+valueless feature, rather than a number it would have to invent. The model was never wrong; it was incomplete
 in a way only an attempt to use it reveals.
 
 The fix is where SysML puts it, in the usage: `saturnVComplete` is the same

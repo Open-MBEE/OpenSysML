@@ -1,0 +1,6 @@
+{
+	"rpc": "GetSymbol",
+	"symbol_id": "MetadataAnnotations::Pump::pumpFluid::pressure::@0",
+	"expected_kind": "metadataUsage",
+	"expected_metadata": {"type": "FailureMode"}
+}

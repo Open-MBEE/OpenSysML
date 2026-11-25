@@ -65,7 +65,7 @@ func (s *Service) RecordRun(ctx context.Context, req *pb.RecordRunRequest) (*pb.
 		}
 	case req.Runs > 0:
 		kind = record.KindRuns
-		resp.Sample, runs, resp.Skipped, resp.Reasons, err = s.recordSample(ctx, v, sym, req)
+		resp.Sample, runs, resp.Skipped, resp.Reasons, err = s.recordSample(ctx, v, req)
 		if resp.Sample != nil {
 			resp.Error, resp.FailureReason = resp.Sample.Error, resp.Sample.FailureReason
 		}
@@ -102,7 +102,10 @@ func (s *Service) RecordRun(ctx context.Context, req *pb.RecordRunRequest) (*pb.
 		return resp, nil
 	}
 	resp.Package, resp.Definition, resp.Records, resp.Source = placed.Package, res.Definition, res.Records, res.Source
-	if err := s.mergeRecord(v.cached, res.Source, resp); err != nil {
+	if err := s.mergeRecord(ctx, v.cached, res.Source, resp); err != nil {
+		if gone := ctx.Err(); gone != nil {
+			return nil, gone
+		}
 		resp.Error = err.Error()
 		resp.Content, resp.Documents, resp.ModelHash = "", nil, ""
 	}
@@ -199,7 +202,7 @@ func (s *Service) recordSweep(ctx context.Context, v *verifyContext, sym *symbol
 
 // recordSample runs the Monte Carlo case the request's number of times and
 // makes a record of each completed run and one of the sample's conclusion.
-func (s *Service) recordSample(ctx context.Context, v *verifyContext, sym *symbols.Symbol, req *pb.RecordRunRequest) (*pb.RunRunsResponse, []record.Run, int64, []string, error) {
+func (s *Service) recordSample(ctx context.Context, v *verifyContext, req *pb.RecordRunRequest) (*pb.RunRunsResponse, []record.Run, int64, []string, error) {
 	runsReq := &pb.RunRunsRequest{
 		ModelHash: req.ModelHash, AnalysisSymbolId: req.AnalysisSymbolId, SubjectSymbolId: req.SubjectSymbolId,
 		Arguments: req.Arguments, NamedArguments: req.NamedArguments, Runs: req.Runs, Seed: req.Seed, Engine: req.Engine,
@@ -264,10 +267,13 @@ func (s *Service) recordSample(ctx context.Context, v *verifyContext, sym *symbo
 // document already holding the deepest prefix of the target package's nesting,
 // or as a document of their own, then analyzes the result and refuses one that
 // errors or drops a declaration, so the model is left unchanged.
-func (s *Service) mergeRecord(cached *CachedModel, src string, resp *pb.RecordRunResponse) error {
+func (s *Service) mergeRecord(ctx context.Context, cached *CachedModel, src string, resp *pb.RecordRunResponse) error {
 	describe := func(n ast.Node) string {
 		m := libs.TopMemberOf(n)
-		return strings.TrimSpace(m.Kind + " " + m.Name)
+		if !m.Named {
+			return m.Kind
+		}
+		return m.Kind + " " + source.NameText(m.Name)
 	}
 	root := parser.New(source.New("<record>", []byte(src))).ParseFile()
 	inputs := make([]sourceInput, 0, len(cached.Documents)+1)
@@ -306,7 +312,10 @@ func (s *Service) mergeRecord(cached *CachedModel, src string, resp *pb.RecordRu
 	before := errorCounts(s.modelDiagnostics(cached))
 	// The edited model is staged, and cached only once it is known to be valid,
 	// so a refused recording evicts nothing.
-	hash, model := s.parseModelKeeping(inputs, cached.Mode, true, false)
+	hash, model, err := s.parseModelKeeping(ctx, inputs, cached.Mode, true, false)
+	if err != nil {
+		return err
+	}
 	after := s.modelDiagnostics(model)
 	if problems := newErrors(before, after); len(problems) > 0 {
 		resp.Diagnostics = after

@@ -1,6 +1,7 @@
 package export
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
@@ -12,6 +13,24 @@ import (
 // there a boolean at the value the graph implies is the writer's, not a statement.
 const apiJSONStatedDefaultsKey = "sysx:statedDefaults"
 
+// xStatedDefaults is the same marker as a triple of the graph: a graph stating
+// it of any element is this mapping's, whatever else its elements state.
+const xStatedDefaults = "statedDefaults"
+
+// externalElementForm reports whether graph is another writer's element form:
+// one stating Element::isImpliedIncluded that this mapping's marker does not claim.
+func externalElementForm(graph *rdf.Graph) bool {
+	subjects := graph.SubjectsView()
+	if !slices.ContainsFunc(subjects, func(subject rdf.Term) bool {
+		return graph.HasProperty(subject, rdf.SysML+pIsImpliedIncluded)
+	}) {
+		return false
+	}
+	return !slices.ContainsFunc(subjects, func(subject rdf.Term) bool {
+		return graph.BoolValue(subject, rdf.OpenSysML+xStatedDefaults)
+	})
+}
+
 // apiJSONExplicitDefaultsKey lists, on an element object of a marked document,
 // the booleans the graph itself states at the value it would imply anyway, so
 // the reader keeps them as the statements they are.
@@ -21,23 +40,17 @@ const apiJSONExplicitDefaultsKey = "sysx:explicitDefaults"
 // the element form reserves for its own markers and so never writes as a graph fact.
 func apiJSONReservedPredicate(predicate string) bool {
 	return predicate == rdf.OpenSysML+strings.TrimPrefix(apiJSONStatedDefaultsKey, "sysx:") ||
-		predicate == rdf.OpenSysML+strings.TrimPrefix(apiJSONExplicitDefaultsKey, "sysx:")
+		predicate == rdf.OpenSysML+strings.TrimPrefix(apiJSONExplicitDefaultsKey, "sysx:") ||
+		predicate == rdf.OpenSysML+strings.TrimPrefix(apiJSONCompletedPropertiesKey, "sysx:")
 }
 
-// apiJSONExternalForm reports whether the graph is already an external
-// writer's element form — one stating Element::isImpliedIncluded, which this
-// mapping never does — and so is written as it is: nothing completed, no marker.
+// apiJSONExternalForm reports whether the graph is an external writer's element
+// form (externalElementForm), written as it is: nothing completed, no marker.
 func apiJSONExternalForm(graph *rdf.Graph, scratch *apiJSONWriteScratch) bool {
 	if scratch != nil && scratch.externalForm != nil {
 		return *scratch.externalForm
 	}
-	external := false
-	for _, subject := range graph.SubjectsView() {
-		if graph.HasProperty(subject, rdf.SysML+"isImpliedIncluded") {
-			external = true
-			break
-		}
-	}
+	external := externalElementForm(graph)
 	if scratch != nil {
 		scratch.externalForm = &external
 	}

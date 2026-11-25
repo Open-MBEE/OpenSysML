@@ -120,6 +120,9 @@ func TestGoldenRenderings(t *testing.T) {
 		{"state-entry", "state-entry.sysml", "MachineViews::thermostat", KindState},
 		{"state-pseudostates", "cameo-behavior.sysml", "NotationViews::alignmentView", KindState},
 		{"action", "action.sysml", "FlowViews::driveView", KindAction},
+		{"action-forms", "action-forms.sysml", "ActionFormViews::monitorView", KindAction},
+		{"state-forms", "state-forms.sysml", "FurnaceViews::burner", KindState},
+		{"state-forms-tree", "state-forms.sysml", "FurnaceViews::burnerTree", KindTree},
 		{"calc-action-view", "calc-action-view.sysml", "CalcViews::calcFlows", KindAction},
 		{"case", "case.sysml", "CaseExamples::caseDiagram", KindCase},
 		{"mixed", "mixed.sysml", "MixedExamples::mixedDiagram", KindMixed},
@@ -161,6 +164,9 @@ func TestGoldenRenderings(t *testing.T) {
 		{"general-requirement", "general.sysml", "GeneralViews::requirementView", KindRequirement},
 		{"general-definition", "general.sysml", "GeneralViews::definitionView", KindDefinition},
 		{"general-package", "general.sysml", "GeneralViews::packageView", KindPackage},
+		{"annotations-tree", "annotations.sysml", "AnnotationViews::tree", KindTree},
+		{"annotations-definitions", "annotations.sysml", "AnnotationViews::definitions", KindDefinition},
+		{"annotations-placed", "annotations.sysml", "AnnotationViews::placed", KindTree},
 		{"general-plain", "general.sysml", "GeneralViews::plainView", KindTree},
 		{"general-unrecognized", "general-robust.sysml", "RobustViews::unrecognized", KindTree},
 		{"general-cycle-definition", "general-robust.sysml", "RobustViews::loopDefinitions", KindDefinition},
@@ -175,7 +181,12 @@ func TestGoldenRenderings(t *testing.T) {
 		{"glyphs-tree", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::treeGlyphs", KindTree},
 		{"calc-parameters", "calc-parameters.sysml", "ParameterCalcViews::calculations", KindTree},
 		{"calc-parameter-definitions", "calc-parameters.sysml", "ParameterCalcViews::definitions", KindTree},
+		{"spec-compartments", "spec-compartments.sysml", "HeadingViews::headings", KindTree},
+		{"spec-node-forms", "spec-compartments.sysml", "HeadingViews::nodes", KindTree},
 		{"glyphs-interconnection", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::lineGlyphs", KindInterconnection},
+		{"action-swimlanes-performed", "action-swimlanes.sysml", "SwimLanes::performedView", KindAction},
+		{"action-swimlanes-action", "action-swimlanes.sysml", "SwimLanes::actionView", KindAction},
+		{"action-swimlanes-shapes", "action-swimlanes.sysml", "LaneShapes::assembleView", KindAction},
 		{"glyphs-action", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::fillGlyphs", KindAction},
 		{"glyphs-mixed", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::mixedGlyphs", KindMixed},
 	}
@@ -556,7 +567,7 @@ func TestActionRenderingSaysNothingOfANodePerformingStatements(t *testing.T) {
 }
 
 // The rendering is of the real exposed set: a filtered recursive expose and the
-// exposes inherited from the view definition, and nothing else.
+// exposes inherited from the view it specializes, and nothing else.
 func TestRenderingUsesFilteredAndInheritedExposure(t *testing.T) {
 	rendering := render(t, "filters.sysml", "FilteredViews::safetyView")
 	var roots []string

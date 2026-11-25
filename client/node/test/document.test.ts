@@ -7,14 +7,17 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { before, test } from "node:test";
 import {
+  CAPABILITY_INLINE_DOCUMENT_QUERY,
   DocumentEvent,
   DocumentState,
   DocumentVerdict,
   ElementRef,
+  MissingCapabilityError,
   ObjectRef,
   SymbolNotFoundError,
   connect,
 } from "../src/node/index.js";
+import { fakeConnection } from "./support/fake.js";
 import { repoRoot, useServiceBinary } from "./support/service.js";
 import { RenderViewResponseSchema } from "../src/generated/sysml_pb.js";
 import { renderedViewOf } from "../src/core/render-view.js";
@@ -58,8 +61,10 @@ test("rendered view decoder preserves wire fields and message presence", () => {
       type: "Demo::Part",
       detail: "detail",
       text: "text",
+      arrow: "left",
       standIn: true,
       inherited: true,
+      parallel: true,
       parent: "",
       ports: [{ id: "n0.0", name: "api", type: "Demo::API", direction: "inout", inherited: true }],
       origin: { file: "views.sysml", startLine: 4 },
@@ -83,12 +88,15 @@ test("rendered view decoder preserves wire fields and message presence", () => {
     notes: [{ text: "note", anchor: "n0", edgeFrom: "n0", edgeTo: "n1", x: 1, y: 2, width: 3, height: 4, hasSize: true }],
     notices: ["notice"],
     shown: ["port-symbols", "typings"],
+    frame: { name: "Demo::view", type: "ViewDef", exposes: ["expose Demo::car"] },
   });
   const rendered = renderedViewOf(response);
   assert.equal(rendered.view, "Demo::view");
   assert.equal(rendered.nodes[0]?.nameSynthesized, true);
   assert.equal(rendered.nodes[0]?.ports[0]?.direction, "inout");
   assert.equal(rendered.nodes[0]?.inherited, true);
+  assert.equal(rendered.nodes[0]?.arrow, "left");
+  assert.equal(rendered.nodes[0]?.parallel, true);
   assert.equal(rendered.nodes[0]?.ports[0]?.inherited, true);
   assert.equal(rendered.nodes[0]?.origin?.startLine, 4);
   assert.equal(rendered.nodes[0]?.geometry?.collapsed, true);
@@ -101,7 +109,12 @@ test("rendered view decoder preserves wire fields and message presence", () => {
   assert.equal(rendered.notes[0]?.edgeTo, "n1");
   assert.deepEqual(rendered.notices, ["notice"]);
   assert.deepEqual(rendered.shown, ["port-symbols", "typings"]);
-  assert.equal(renderedViewOf(create(RenderViewResponseSchema, {})).canvas, undefined);
+  assert.deepEqual(rendered.frame, {
+    name: "Demo::view", type: "ViewDef", exposes: ["expose Demo::car"], filters: [], annotations: [],
+  });
+  const bare = renderedViewOf(create(RenderViewResponseSchema, {}));
+  assert.equal(bare.canvas, undefined);
+  assert.equal(bare.frame, undefined);
   const sparse = renderedViewOf(create(RenderViewResponseSchema, {
     nodes: [{}],
     edges: [{}],
@@ -115,6 +128,31 @@ test("rendered view decoder preserves wire fields and message presence", () => {
   assert.equal(sparse.edges[0]?.style, undefined);
   assert.equal(sparse.rows[0]?.origin, undefined);
   assert.equal(sparse.notes[0]?.origin, undefined);
+});
+
+test("a query expression runs in place of a named query", async () => {
+  await using connection = await connect();
+  const model = await connection.loads(readFileSync(REPORT_FIXTURE, "utf8"));
+  const rows = await model.runInlineDocumentQuery(
+    'Project(WhereType(Descendants(Observatory::telescope), "PartUsage"), ("name", "mass"))',
+  );
+  assert.deepEqual(rows.columns, ["name", "mass"]);
+  assert.equal(rows.length, 4);
+  await assert.rejects(
+    model.runInlineDocumentQuery('Project(Named("Observatory") ("name"))'),
+    (error: Error) => error.message.includes("inline query 1:"),
+  );
+});
+
+test("a query expression a service cannot run is refused by rejection, not by a throw", async () => {
+  await using connection = await fakeConnection(["document_query"]);
+  const pending = connection.model("hash").runInlineDocumentQuery('Project(Named("Observatory") ("name"))');
+  assert.ok(pending instanceof Promise);
+  await assert.rejects(pending, (error: unknown) => {
+    assert.ok(error instanceof MissingCapabilityError);
+    assert.equal(error.capability, CAPABILITY_INLINE_DOCUMENT_QUERY);
+    return true;
+  });
 });
 
 test("states and events over the object instantiate built", async () => {

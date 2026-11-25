@@ -1,0 +1,20 @@
+{
+  "libraries": true,
+  "type": "calcUsage",
+  "evaluate": "test::probe",
+  "result": {"type": "Sequence", "elements": [{"type": "Integer", "value": 2}]},
+  "outputs": {
+    "actorCount": {"type": "Sequence", "elements": [{"type": "Integer", "value": 2}]},
+    "stakeholderCount": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]},
+    "plainActorCount": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]},
+    "concernCount": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]},
+    "subrequirementCount": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]},
+    "bareActorCount": {"type": "Sequence", "elements": [{"type": "Integer", "value": 0}]},
+    "driverIsActor": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]},
+    "passengerIsActor": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]},
+    "ownerIsStakeholder": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]},
+    "caseActorIsOp": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]},
+    "actorIds": {"type": "Sequence", "elements": [{"type": "Integer", "value": 3}, {"type": "Integer", "value": 5}]},
+    "plainActorIds": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]}
+  }
+}

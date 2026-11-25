@@ -8,6 +8,7 @@ every violation, divergence and final outcome witnessed as a replay schedule.
 from dataclasses import dataclass, field
 
 from opensysml.engines import Standing
+from opensysml.exploration import Coverage
 
 #: The verdicts a check answers.
 VERDICT_HOLDS = "holds"
@@ -123,11 +124,13 @@ class CheckSearch:
     notes: tuple = field(default_factory=tuple)
     scope: tuple = field(default_factory=tuple)
     status: str = ""
+    coverage: Coverage = field(default_factory=Coverage)
 
     @classmethod
     def of(cls, pb):
         return cls(int(pb.states), int(pb.moves), int(pb.max_depth), tuple(pb.bounds_hit), pb.horizon,
-                   pb.horizon_set, pb.mass_bounded, tuple(pb.notes), tuple(pb.scope), pb.status)
+                   pb.horizon_set, pb.mass_bounded, tuple(pb.notes), tuple(pb.scope), pb.status,
+                   Coverage.of(pb.coverage))
 
 
 @dataclass(frozen=True)

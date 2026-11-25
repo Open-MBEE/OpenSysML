@@ -11,13 +11,20 @@ class Instance:
     lists and nested Instance objects. The protobuf messages remain reachable
     through ``get_feature()`` and ``raw_features``.
 
+    A feature is also an attribute (``inst.engine``), but a real attribute
+    always wins: a feature named like one of the class's own members —
+    ``id``, ``type_symbol_id``, ``features``, ``owner``, ``feature``,
+    ``feature_symbol_id``, ``index``, ``path``, ``reached_by``, ``paths``,
+    ``get`` or any other method — is read by name instead, ``inst["path"]``
+    or ``inst.get("path")``.
+
     Attributes:
         id (int): Unique instance identifier
         type_symbol_id (str): FQN of the def/usage this instantiates
         features (dict): Feature name → Python value
     """
 
-    def __init__(self, pb_instance, graph=None, _wrappers=None):
+    def __init__(self, pb_instance, graph=None, _wrappers=None, _connection=None, _model_hash=None):
         """Initialize from protobuf Instance message.
 
         Args:
@@ -25,8 +32,13 @@ class Instance:
             graph: optional {instance_id: sysml_pb2.Instance} of reachable
                 instances, as returned by InstantiateResponse.instances
             _wrappers: internal cache shared by all instances of one graph
+            _connection: the connection that instantiated the graph, which
+                ``paths()`` asks for every path to the object
+            _model_hash: the model the graph was instantiated in
         """
         self._pb = pb_instance
+        self._connection = _connection
+        self._model_hash = _model_hash
         # The graph is shared by every instance of one response, never mutated.
         if not graph:
             self._graph = {pb_instance.id: pb_instance}
@@ -103,7 +115,76 @@ class Instance:
         pb_child = self._graph.get(instance_id)
         if pb_child is None:
             return InstanceRef(instance_id)
-        return Instance(pb_child, self._graph, self._wrappers)
+        return Instance(pb_child, self._graph, self._wrappers, self._connection, self._model_hash)
+
+    @property
+    def reached_by(self):
+        """The ``InstanceReach`` message saying how the traversal that produced
+        this graph reached the object, or ``None`` for the root (and from a
+        service without the ``instance_paths`` capability)."""
+        if not self._pb.HasField("reached_by"):
+            return None
+        return self._pb.reached_by
+
+    @property
+    def owner(self):
+        """The Instance holding this one along the path the traversal reached
+        it by, or ``None`` for the root.
+
+        One object is often a value of several features (a port and the
+        connector end referencing it are one object); this is the holder the
+        traversal came through, and ``paths()`` lists every path to it.
+        """
+        reach = self.reached_by
+        if reach is None:
+            return None
+        return self._resolve_instance(reach.instance_id)
+
+    @property
+    def feature(self):
+        """The name of the owner's feature this object is a value of, or
+        ``None`` for the root. ``feature_symbol_id`` is its qualified name."""
+        reach = self.reached_by
+        return reach.feature_name if reach is not None else None
+
+    @property
+    def feature_symbol_id(self):
+        """The qualified name of the feature ``feature`` names, as declared."""
+        reach = self.reached_by
+        return reach.feature_symbol_id if reach is not None else None
+
+    @property
+    def index(self):
+        """The position among the values of a multi-valued feature, counted
+        from 1 as an object path indexes them (``wheels[2]``); 0 for a
+        single-valued feature, ``None`` for the root."""
+        reach = self.reached_by
+        return reach.index if reach is not None else None
+
+    @property
+    def path(self):
+        """The path from the root the traversal reached this object by: the
+        feature names, indexed within a multi-valued feature, joined by dots
+        (``powertrain.engine.fuelIn``, ``wheels[2].hub``); ``""`` for the root.
+        """
+        reach = self.reached_by
+        return reach.path if reach is not None else ""
+
+    def paths(self):
+        """Every root-relative path that reaches this object, aliases through
+        connector ends and reference usages included, as InstancePath objects
+        in traversal order: the roots the service holds in id order and, from
+        each, depth-first over the features of an object in name order. The
+        list is an InstancePaths, whose ``truncated`` says whether the service
+        bounded its search short of every path.
+
+        Raises:
+            RuntimeError: the instance was not produced by a connection
+            MissingCapabilityError: the service predates ``instance_paths``
+        """
+        if self._connection is None or self._model_hash is None:
+            raise RuntimeError("paths() needs the connection that instantiated the object")
+        return self._connection.instance_paths(self.id, self._model_hash)
 
     def __getattr__(self, name):
         """Expose feature values as attributes. Real attributes always win."""
@@ -198,3 +279,75 @@ class Instance:
             return escape(str(value_to_python(pb_value)))
         except Exception:  # pragma: no cover - display must not fail
             return '<em>unknown</em>'
+
+
+class InstancePaths(list):
+    """The root-relative paths to one object, a list of InstancePath in
+    traversal order, and whether the service cut the list short.
+
+    Attributes:
+        truncated (bool): the service bounded its search — more paths than it
+            lists, or deeper ones, may reach the object
+    """
+
+    def __init__(self, paths=(), truncated=False):
+        super().__init__(paths)
+        self.truncated = truncated
+
+    def __repr__(self):
+        return "InstancePaths(%s%s)" % (list.__repr__(self), ", truncated=True" if self.truncated else "")
+
+
+class InstancePath:
+    """One root-relative path to an object, as InstancePaths answers it.
+
+    Attributes:
+        root_id (int): the root object the path starts from
+        root_symbol_id (str): the qualified name the root was instantiated as,
+            ``""`` when the name no longer binds it and ``#<id>`` addresses it
+        path (str): the steps as an object path (``powertrain.tank.fuelOut``),
+            ``""`` when the object is the root
+        steps (list): PathStep per feature walked
+    """
+
+    def __init__(self, pb_path):
+        self._pb = pb_path
+        self.root_id = pb_path.root.instance_id
+        self.root_symbol_id = pb_path.root.symbol_id
+        self.path = pb_path.path
+        self.steps = [PathStep(step) for step in pb_path.steps]
+
+    def __str__(self):
+        root = self.root_symbol_id or "#%d" % self.root_id
+        return root + "." + self.path if self.path else root
+
+    def __repr__(self):
+        return "InstancePath(%r)" % str(self)
+
+    def __eq__(self, other):
+        return isinstance(other, InstancePath) and self._pb == other._pb
+
+    def __hash__(self):
+        return hash(str(self))
+
+
+class PathStep:
+    """One feature walked along an InstancePath.
+
+    Attributes:
+        feature_name (str): the holder's feature
+        feature_symbol_id (str): the qualified name of the feature as declared
+        index (int): position within a multi-valued feature from 1; 0 for a
+            single-valued one
+        instance_id (int): the object the step reaches
+    """
+
+    def __init__(self, pb_step):
+        self.feature_name = pb_step.feature_name
+        self.feature_symbol_id = pb_step.feature_symbol_id
+        self.index = pb_step.index
+        self.instance_id = pb_step.instance_id
+
+    def __repr__(self):
+        suffix = "[%d]" % self.index if self.index else ""
+        return "PathStep(%s%s -> #%d)" % (self.feature_name, suffix, self.instance_id)

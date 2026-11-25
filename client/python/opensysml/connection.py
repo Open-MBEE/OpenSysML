@@ -16,14 +16,21 @@ from opensysml.model import Model
 from opensysml.action_run import ActionOutputs
 from opensysml.binary import ensure_binary, resolve_latest_version
 from opensysml.capabilities import (
+    CAPABILITY_ELEMENT_PROPERTIES,
+    CAPABILITY_INLINE_DOCUMENT_QUERY,
+    CAPABILITY_QUERY_RESULT_VIEW,
     CAPABILITY_CONVERT_CHECK_DIAGNOSTICS,
     CAPABILITY_CONVERT_COMPACT,
+    CAPABILITY_CONVERT_INHERITED_MEMBERS,
     CAPABILITY_CONVERT_LIBRARY_STUBS,
     CAPABILITY_OSLC_QUERY,
     CAPABILITY_APPLY_EDITS,
     CAPABILITY_AUTHORING,
     CAPABILITY_CONNECTION_AUTHORING,
     CAPABILITY_MEMBER_MODIFIERS,
+    CAPABILITY_SYMBOL_LOOKUP_KIND,
+    CAPABILITY_SYMBOL_MEMBER_DIRECTION,
+    CAPABILITY_SYMBOL_NAME_RESOLUTION,
     CAPABILITY_CONSTRAINT_BODY_AUTHORING,
     CAPABILITY_STATE_ACTION_AUTHORING,
     CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING,
@@ -48,6 +55,7 @@ from opensysml.capabilities import (
     CAPABILITY_ENGINES,
     CAPABILITY_EVALUATE_SUBJECT,
     CAPABILITY_FEATURE_VALUES,
+    CAPABILITY_INSTANCE_PATHS,
     CAPABILITY_FUNCTION_VALUES,
     CAPABILITY_IMPLICIT_PARAMETERS,
     CAPABILITY_BIG_INT_VALUES,
@@ -67,6 +75,7 @@ from opensysml.capabilities import (
     CAPABILITY_RENDER_DOCUMENT_HTML,
     CAPABILITY_RENDER_DOCUMENT_ASCIIDOC,
     CAPABILITY_RENDER_VIEW,
+    CAPABILITY_RENDER_VIEW_FORM,
     CAPABILITY_CHECK,
     CAPABILITY_EXPORT_GRAPHS,
     CAPABILITY_SCHEDULE,
@@ -111,7 +120,7 @@ from opensysml.document import (
 from opensysml.edit import EditedDocument, error_for_failure, failure_name, referrers_of, result_of
 from opensysml.importcompare import comparison_result, import_result
 from opensysml.enumeration import EnumLiteral
-from opensysml.exploration import Exploration, Outcome
+from opensysml.exploration import Coverage, Exploration, Outcome
 from opensysml.errors import (
     AnalysisRunError,
     ConnectionError,
@@ -130,6 +139,7 @@ from opensysml.errors import (
     from_rpc_error,
     translate_rpc_errors,
 )
+from opensysml.element_properties import element_properties_of
 from opensysml.query import QueryError, build_query, elements_of
 from opensysml.sources import source_documents
 from opensysml.values import (
@@ -1574,7 +1584,8 @@ class Connection:
     def convert(self, to_format, file_path=None, content=None, model_hash=None,
                 from_format='', tolerate_syntax_errors=False, id_form='',
                 include_library_stubs=False, compact=False, omit_derived=False,
-                keep_derived=(), include_check_diagnostics=False):
+                keep_derived=(), include_check_diagnostics=False,
+                inherited_members=False):
         """Write a model out in another of the formats OpenSysML writes.
 
         The source is a loaded model, named by its hash, or one named the way
@@ -1607,6 +1618,13 @@ class Connection:
                 library stubs written before 0.11.0; by default library
                 elements remain bare references, not roots. Needs the
                 ``convert_library_stubs`` capability.
+            inherited_members (bool): For api-json, also write on every
+                Namespace and Type the derived lists that repeat its inherited
+                and imported members (``membership``, ``member``,
+                ``inheritedMembership``, ``importedMembership``,
+                ``featureMembership``, ``feature``, ``inheritedFeature``); by
+                default an element carries its owned
+                structure. Needs the ``convert_inherited_members`` capability.
             compact (bool): For notation converted to api-json, write the
                 compact document (``api-json-compact/1``) in place of the
                 element array. Needs the ``convert_compact`` capability.
@@ -1683,6 +1701,12 @@ class Connection:
                 CAPABILITY_CONVERT_LIBRARY_STUBS,
                 upgrade_remedy(CAPABILITY_CONVERT_LIBRARY_STUBS),
             )
+        if inherited_members:
+            require(
+                self.server_info(),
+                CAPABILITY_CONVERT_INHERITED_MEMBERS,
+                upgrade_remedy(CAPABILITY_CONVERT_INHERITED_MEMBERS),
+            )
         keep_derived = list(keep_derived)
         if compact or omit_derived or keep_derived:
             require(
@@ -1703,6 +1727,7 @@ class Connection:
             tolerate_syntax_errors=tolerate_syntax_errors,
             id_form=id_form,
             include_library_stubs=include_library_stubs,
+            inherited_members=inherited_members,
             compact=compact,
             omit_derived=omit_derived,
             keep_derived=keep_derived,
@@ -1746,7 +1771,8 @@ class Connection:
             experimental=experimental,
             experimental_notice=notice,
             library_references=[
-                LibraryReference(id=ref.id, qualified_name=ref.qualified_name, type=ref.type)
+                LibraryReference(id=ref.id, qualified_name=ref.qualified_name, type=ref.type,
+                                 library_path=ref.library_path)
                 for ref in response.library_references
             ],
         )
@@ -1928,7 +1954,7 @@ class Connection:
         return result_of(response)
 
     def query(self, model_hash, payload=None, scope=None, select=None, where=None,
-              order_by=None, oslc=None):
+              order_by=None, oslc=None, as_view=False):
         """Run a SysML v2 API & Services Query over a loaded model.
 
         The query is the standard's JSON object, so a cookbook payload works
@@ -1949,9 +1975,13 @@ class Connection:
                 place of the standard's Query; not combined with the others.
                 An empty string is no OSLC at all, so the structured query
                 (empty, answering every element) is sent instead
+            as_view (bool): Also answer the selection as a ``QVTS::QueryResult``
+                view, the answer's ``result_view``; a query that ends in a
+                path error then raises with the view as the error's
+                ``result_view``. Needs the ``query_result_view`` capability
 
         Returns:
-            list[QueryElement]: The elements selected, in ``order_by`` order,
+            QueryElements: The elements selected, a list in ``order_by`` order,
             or declaration order without one
 
         Raises:
@@ -1970,9 +2000,11 @@ class Connection:
                     "Provide either oslc or the standard's Query (payload or keywords), not both"
                 )
             needed = (CAPABILITY_QUERY, CAPABILITY_OSLC_QUERY)
+            if as_view:
+                needed += (CAPABILITY_QUERY_RESULT_VIEW,)
             for capability in needed:
                 require(self.server_info(), capability, upgrade_remedy(capability))
-            request = sysml_pb2.QueryRequest(model_hash=model_hash, oslc_query=oslc)
+            request = sysml_pb2.QueryRequest(model_hash=model_hash, oslc_query=oslc, as_view=as_view)
             with translate_rpc_errors(
                 unimplemented=self._capability_refusal(needed)
             ):
@@ -1982,50 +2014,142 @@ class Connection:
                             order_by=order_by)
         needed = (CAPABILITY_QUERY, CAPABILITY_QUERY_ORDER_BY) if query.order_by \
             else (CAPABILITY_QUERY,)
+        if as_view:
+            needed += (CAPABILITY_QUERY_RESULT_VIEW,)
         for capability in needed:
             require(self.server_info(), capability, upgrade_remedy(capability))
-        request = sysml_pb2.QueryRequest(model_hash=model_hash, query=query)
+        request = sysml_pb2.QueryRequest(model_hash=model_hash, query=query, as_view=as_view)
         with translate_rpc_errors(
             unimplemented=self._capability_refusal(needed)
         ):
             response = self._stub.Query(request)
         return elements_of(response)
 
-    def run_document_query(self, model_hash, query_id, bindings=None):
-        """Run a named document query and answer its typed rows.
+    def get_element_properties(self, model_hash, element=None, properties=(), *, name=None, id=None):
+        """Read the metamodel properties of one element by their specification names.
+
+        See :mod:`opensysml.element_properties`. The answer is what the model's
+        API element form (``convert`` to ``api-json``) holds for the element,
+        read without converting the whole model.
+
+        Args:
+            model_hash (str): Hash of the loaded model
+            element (str, optional): Legacy form, one string for either kind:
+                read as the element form's ``@id`` first, then as a qualified
+                name, then as the positional id of an unnamed member. A name
+                declared like a generated id is shadowed by that id's element
+            name (str, optional): The element's qualified name, never read as an id
+            id (str, optional): The element form's ``@id`` or an id ``get_symbol``
+                reports (``Symbol.id``, a child's, a member's), never read as a
+                name. A service without ``symbol_lookup_kind`` is sent ``name``
+                or ``id`` in the legacy form
+            properties (Sequence[str], optional): Specification names to read
+                (``"inheritedFeature"``, ``"connectorEnd"``); empty reads every
+                property the element form carries for the element
+
+        Returns:
+            ElementProperties: The element and one entry per property
+
+        Raises:
+            MissingCapabilityError: If the service lacks ``element_properties``
+            SymbolNotFoundError: If the model has no such element
+            ConversionError: If the model has no element form, because a
+                document of it could not be read whole
+            ModelNotFoundError: If the model is no longer cached
+            ValueError: Unless exactly one of ``element``, ``name`` and ``id`` is given
+        """
+        asked = _one_lookup("element", element, name, id)
+        require(
+            self.server_info(),
+            CAPABILITY_ELEMENT_PROPERTIES,
+            upgrade_remedy(CAPABILITY_ELEMENT_PROPERTIES),
+        )
+        request = sysml_pb2.GetElementPropertiesRequest(
+            model_hash=model_hash, element_id=asked, properties=list(properties)
+        )
+        if element is None and self.server_info().has(CAPABILITY_SYMBOL_LOOKUP_KIND):
+            request.lookup = _lookup_kind(name)
+        with translate_rpc_errors(
+            unimplemented=self._capability_refusal((CAPABILITY_ELEMENT_PROPERTIES,))
+        ):
+            response = self._stub.GetElementProperties(request)
+        if response.error:
+            if response.error.startswith("element not found"):
+                raise SymbolNotFoundError(asked)
+            raise ConversionError(
+                response.error,
+                excluded_documents=[(d.document, d.error) for d in response.excluded_documents],
+            )
+        return element_properties_of(response)
+
+    def run_document_query(self, model_hash, query_id=None, bindings=None, inline_query=None,
+                           as_view=False):
+        """Run a document query, named or written in place, and answer its typed rows.
 
         The query is the model's own — a calc def specializing
         ``DocumentQueries::Query`` — not the standard's Query object that
-        :meth:`query` evaluates. See :mod:`opensysml.document`.
+        :meth:`query` evaluates. See :mod:`opensysml.document`. Exactly one of
+        ``query_id`` and ``inline_query`` is given.
 
         Args:
             model_hash (str): Hash of the model holding the query
-            query_id (str): Qualified name of the document query
+            query_id (str, optional): Qualified name of the document query
             bindings (Mapping, optional): Parameter name to a value or list of
                 values; an :class:`~opensysml.document.ElementRef` binds a
                 model element, an :class:`~opensysml.document.ObjectRef` an
                 object ``instantiate`` built, by id or by path
+            inline_query (str, optional): A query expression run in place of
+                a named query — the result expression of such a calc def,
+                ``Project(WhereType(Descendants(Named("Vehicles")),
+                "PartUsage"), ("name", "mass"))`` — with the
+                ``DocumentQueries`` library in scope and the model's own names
+                reachable; needs the ``inline_document_query`` capability
+            as_view (bool): Also answer as a ``QVTS::QueryResult`` view, the
+                result's ``result_view``; a query that ends in a path or model
+                error then raises with the view as the error's
+                ``result_view``. Needs the ``query_result_view`` capability
 
         Returns:
             DocumentQueryResult: Projected columns and typed rows, in the
             engine's deterministic order
 
         Raises:
-            MissingCapabilityError: If the service cannot run document queries
-            InvalidRequestError: If the query is not one, or a binding is wrong
+            MissingCapabilityError: If the service cannot run document queries,
+                or inline ones
+            InvalidRequestError: If the query is not one, a binding is wrong,
+                or the inline expression does not parse or plan (the message
+                positions the fault: ``inline query <line>:<column>``)
             SymbolNotFoundError: If the model does not declare the query, or
                 an object binding names an object the model does not hold
             ModelNotFoundError: If the model is no longer cached
+            ValueError: If both or neither of ``query_id`` and
+                ``inline_query`` are given
         """
+        if (query_id is None) == (inline_query is None):
+            raise ValueError("run_document_query takes query_id or inline_query, not both and not neither")
         require(
             self.server_info(),
             CAPABILITY_DOCUMENT_QUERY,
             upgrade_remedy(CAPABILITY_DOCUMENT_QUERY),
         )
+        if inline_query is not None:
+            require(
+                self.server_info(),
+                CAPABILITY_INLINE_DOCUMENT_QUERY,
+                upgrade_remedy(CAPABILITY_INLINE_DOCUMENT_QUERY),
+            )
+        if as_view:
+            require(
+                self.server_info(),
+                CAPABILITY_QUERY_RESULT_VIEW,
+                upgrade_remedy(CAPABILITY_QUERY_RESULT_VIEW),
+            )
         request = sysml_pb2.RunDocumentQueryRequest(
             model_hash=model_hash,
-            query_id=query_id,
+            query_id=query_id or "",
+            inline_query=inline_query or "",
             bindings=build_bindings(bindings),
+            as_view=as_view,
         )
         if any(binding_holds_big_int(binding) for binding in request.bindings):
             require(
@@ -2046,7 +2170,9 @@ class Connection:
             )
         with translate_rpc_errors(
             not_found=SymbolNotFoundError,
-            unimplemented=self._capability_refusal((CAPABILITY_DOCUMENT_QUERY,)),
+            unimplemented=self._capability_refusal(
+                (CAPABILITY_DOCUMENT_QUERY, CAPABILITY_INLINE_DOCUMENT_QUERY)
+            ),
         ):
             response = self._stub.RunDocumentQuery(request)
         return document_result(response)
@@ -2132,15 +2258,27 @@ class Connection:
         return [Diagnostic(d) for d in response.diagnostics]
 
     def render_view(self, model_hash, view_name, ports="minimal", show=None, depth=0,
-                    compartments="positioned"):
-        """Render a named view with minimal or full ports, the optional notation elements named, above 0 a depth bound and the compartment folding named."""
+                    compartments="positioned", form=None, palette=None, style=None,
+                    lines=None, direction=None, link=None, unplaced=None):
+        """Render a named view with minimal or full ports, the optional notation elements named, above 0 a depth bound and the compartment folding named; ``form`` also writes it as text with the writer options named."""
         if ports not in ("minimal", "full"):
             raise ValueError("ports must be 'minimal' or 'full'")
         if compartments not in ("positioned", "most", "ports"):
             raise ValueError("compartments must be 'positioned', 'most' or 'ports'")
         if not isinstance(depth, int) or isinstance(depth, bool) or depth < 0:
             raise ValueError("depth must be a non-negative integer")
-        require(self.server_info(), CAPABILITY_RENDER_VIEW, upgrade_remedy(CAPABILITY_RENDER_VIEW))
+        written = {
+            "form": form, "palette": palette, "style": style, "lines": lines,
+            "direction": direction, "link": link, "unplaced": unplaced,
+        }
+        written = {name: value for name, value in written.items() if value}
+        capabilities = [CAPABILITY_RENDER_VIEW]
+        if written:
+            capabilities.append(CAPABILITY_RENDER_VIEW_FORM)
+        if form in ("html", "asciidoc"):
+            capabilities.append(CAPABILITY_QUERY_RESULT_VIEW)
+        for capability in capabilities:
+            require(self.server_info(), capability, upgrade_remedy(capability))
         request = sysml_pb2.RenderViewRequest(
             model_hash=model_hash,
             view=view_name,
@@ -2148,12 +2286,13 @@ class Connection:
             show=list(show or ()),
             depth=depth,
             compartments="" if compartments == "positioned" else compartments,
+            **written,
         )
         with translate_rpc_errors(
             not_found=lambda message, code: ViewNotFoundError(
                 view_name, message, code=code
             ),
-            unimplemented=self._capability_refusal((CAPABILITY_RENDER_VIEW,)),
+            unimplemented=self._capability_refusal(tuple(capabilities)),
         ):
             response = self._stub.RenderView(request)
         return render_view_result(response)
@@ -2305,20 +2444,67 @@ class Connection:
             response, lambda rows, instances: [self._sweep_row(row, instances, diagnostics) for row in rows],
         )
 
-    def get_symbol(self, model_hash, symbol_id):
-        """Fetch symbol by ID from cached model.
-        
+    def get_symbol(
+        self, model_hash, symbol_id=None, include_library_members=False, resolve_name=False, *, name=None, id=None,
+        member_of="",
+    ):
+        """Fetch a symbol of a cached model by qualified name or by element id.
+
+        Say which the string is: ``get_symbol(h, name="Demo::Vehicle")`` or
+        ``get_symbol(h, id=child_id)``. The two share spellings — a package may
+        be declared ``Col__V__c_pend0``, the id generated for an unnamed
+        connector end, and a member ``'@3'`` beside the unnamed member listed as
+        ``Owner::@3`` — and only the kind tells them apart.
+
         Args:
             model_hash (str): Model content hash
-            symbol_id (str): Fully-qualified symbol ID
-        
+            symbol_id (str, optional): Legacy form, one string for either kind:
+                read as a qualified name first, then as an id, so a declaration
+                shadows the element an id of the same spelling was reported for
+            include_library_members (bool): List the members inherited from
+                standard-library content in ``members`` instead of counting
+                them in ``withheld_library_members``
+            resolve_name (bool): With ``symbol_id`` only: resolve it from the
+                root namespace the way ``name`` is, before reading it as an id
+            name (str, optional): A qualified name, resolved from the root
+                namespace the way the notation resolves one: through imports,
+                an alias answered by the element it names, and no symbol where
+                a member on the way is not visible from outside its namespace.
+                Never read as an id
+            id (str, optional): An id the service reported (``Symbol.id``, a
+                child's, a member's, an element reference's), naming that
+                element whatever its visibility. Never read as a name. A
+                service without ``symbol_lookup_kind`` is sent ``name`` or
+                ``id`` in the legacy form, and reads it name first
+            member_of (str): Fully-qualified ID of the type the symbol is read
+                as a feature of; ``metadata["direction"]`` is then the direction
+                relative to that type, which a conjugated port typing reverses.
+                Empty reports the feature's own direction
+
         Returns:
             sysml_pb2.SymbolInfo or None: Symbol protobuf, or None if not found
+
+        Raises:
+            ValueError: Unless exactly one of ``symbol_id``, ``name`` and ``id`` is given
+            MissingCapabilityError: ``member_of`` is given and the service
+                does not report ``symbol_member_direction``
         """
+        asked = _one_lookup("symbol_id", symbol_id, name, id)
+        if member_of:
+            require(
+                self.server_info(),
+                CAPABILITY_SYMBOL_MEMBER_DIRECTION,
+                upgrade_remedy(CAPABILITY_SYMBOL_MEMBER_DIRECTION),
+            )
         request = sysml_pb2.GetSymbolRequest(
-            model_hash=model_hash,
-            symbol_id=symbol_id,
+            model_hash=model_hash, symbol_id=asked, include_library_members=include_library_members,
+            member_of=member_of,
         )
+        if symbol_id is None and self.server_info().has(CAPABILITY_SYMBOL_LOOKUP_KIND):
+            request.lookup = _lookup_kind(name)
+        # The legacy form of the lookup, which a service with the capability ignores under a kind.
+        if resolve_name or name is not None:
+            request.resolve_name = self.server_info().has(CAPABILITY_SYMBOL_NAME_RESOLUTION)
         with translate_rpc_errors():
             response = self._stub.GetSymbol(request)
         
@@ -2415,7 +2601,47 @@ class Connection:
             raise ExecutionError(response.error, diagnostics=wrapped_diags)
         
         graph = {inst.id: inst for inst in response.instances}
-        return Instance(response.instance, graph)
+        return Instance(response.instance, graph, _connection=self, _model_hash=model_hash)
+
+    def instance_paths(self, instance, model_hash):
+        """List every root-relative usage path that reaches one object the
+        service holds for the model (the InstancePaths RPC): from each object
+        ``instantiate`` created, the features walked to reach it, aliases
+        through connector ends and reference usages included.
+
+        Args:
+            instance (int | str): the object by id, or by path: the qualified
+                name it was instantiated as (``Garage::car``), its id (``#2``),
+                or a path through feature values from either
+                (``Garage::car.wheels[2]``; indexes count from 1)
+            model_hash (str): Hash from ParseFile response
+
+        Returns:
+            InstancePaths: a list of InstancePath in traversal order (the roots
+            in id order and, from each, depth-first over features in name order
+            and the values of a feature in their order) whose ``truncated``
+            says whether the service bounded its search short of every path
+
+        Raises:
+            SymbolNotFoundError: no object has the id or the name
+            ValueError: neither id nor path is given, or the path reaches no object
+            ModelNotFoundError: If the service no longer holds the model
+            MissingCapabilityError: If the service predates ``instance_paths``
+        """
+        from opensysml.instance import InstancePath, InstancePaths
+
+        self._require_instance_paths()
+        if isinstance(instance, str):
+            obj = sysml_pb2.DocumentObject(path=instance)
+        else:
+            obj = sysml_pb2.DocumentObject(instance_id=int(instance))
+        req = sysml_pb2.InstancePathsRequest(model_hash=model_hash, object=obj)
+        with translate_rpc_errors():
+            response = self._stub.InstancePaths(req)
+        if response.error:
+            wrapped_diags = [Diagnostic(d) for d in response.diagnostics]
+            raise ExecutionError(response.error, diagnostics=wrapped_diags)
+        return InstancePaths((InstancePath(path) for path in response.paths), truncated=response.truncated)
     
     def execute_action(self, action_symbol_id, model_hash, inputs=None,
                        schedule=None, performer=None, advance=None, seed=None,
@@ -2695,6 +2921,7 @@ class Connection:
             probabilities_lower_bound=status.probabilities_lower_bound,
             failed_linearizations=status.failed_linearizations,
             unenumerated=list(status.unenumerated),
+            coverage=Coverage.of(status.coverage),
         )
 
     def _outcome_of(self, pb):
@@ -3792,6 +4019,14 @@ class Connection:
             upgrade_remedy(CAPABILITY_FEATURE_VALUES),
         )
 
+    def _require_instance_paths(self):
+        """Refuse to list paths from a service without the InstancePaths RPC."""
+        require(
+            self.server_info(),
+            CAPABILITY_INSTANCE_PATHS,
+            upgrade_remedy(CAPABILITY_INSTANCE_PATHS),
+        )
+
     def _instances_of(self, response):
         """Wrap the instance graph a verification returned, roots first."""
         from opensysml.instance import Instance
@@ -3982,3 +4217,18 @@ class Connection:
             if _private_services.get(service.key) is service:
                 del _private_services[service.key]
         service.stop()
+
+
+def _lookup_kind(name):
+    """The ``LookupKind`` of a lookup by ``name``, or else by id."""
+    if name is not None:
+        return sysml_pb2.LOOKUP_KIND_QUALIFIED_NAME
+    return sysml_pb2.LOOKUP_KIND_ELEMENT_ID
+
+
+def _one_lookup(legacy, single, name, id):
+    """The one string a lookup names its element by, of the legacy form or a stated kind."""
+    given = [value for value in (single, name, id) if value is not None]
+    if len(given) != 1:
+        raise ValueError(f"give exactly one of {legacy}, name and id")
+    return given[0]

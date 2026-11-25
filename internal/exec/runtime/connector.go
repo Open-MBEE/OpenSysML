@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -291,9 +292,44 @@ func (ctx *Context) materializeConnectorAs(owner *Instance, connSym, base *symbo
 	return ctx.materializeConnectorStarting(owner, connSym, base, id, true, keep)
 }
 
+// connectorFeatureName returns the name owner holds the connector usage connSym
+// under, so the nested redefinitions written on owner reach the connector's object.
+func connectorFeatureName(owner *Instance, connSym *symbols.Symbol) string {
+	if owner == nil {
+		return ""
+	}
+	if fv := owner.FeatureValues[connSym.Name]; fv != nil && fv.Feature != nil && fv.Feature.Symbol == connSym {
+		return connSym.Name
+	}
+	name := ""
+	for held, fv := range owner.FeatureValues {
+		if fv.Feature != nil && fv.Feature.Symbol == connSym && (name == "" || held < name) {
+			name = held
+		}
+	}
+	return name
+}
+
+// ownerFeatureValue is the feature value owner holds under feature, nil when it holds none.
+func ownerFeatureValue(owner *Instance, feature string) *FeatureValue {
+	if owner == nil || feature == "" {
+		return nil
+	}
+	return owner.FeatureValues[feature]
+}
+
 // materializeConnectorStarting is materializeConnectorAs, its classifier behaviors started only
 // when start is set: a namespace path records what the usage denotes first, then starts them.
 func (ctx *Context) materializeConnectorStarting(owner *Instance, connSym, base *symbols.Symbol, id int64, start bool, keep func(*Instance)) error {
+	attach := func(end semantics.ConnectorEndAttachment) (Value, error) {
+		return ctx.attachConnectorEnd(owner, connSym, end)
+	}
+	return ctx.materializeConnectorAttaching(owner, connSym, base, id, start, attach, keep)
+}
+
+// materializeConnectorAttaching is materializeConnectorStarting with each end read by attach.
+func (ctx *Context) materializeConnectorAttaching(owner *Instance, connSym, base *symbols.Symbol, id int64, start bool,
+	attach func(semantics.ConnectorEndAttachment) (Value, error), keep func(*Instance)) error {
 	ends := ctx.model.semantics.ConnectorObjectEnds(connSym)
 	if len(ends) == 0 {
 		return fmt.Errorf("%w: %s declares no end to attach", errConnectorEnd, connectorName(connSym))
@@ -319,23 +355,29 @@ func (ctx *Context) materializeConnectorStarting(owner *Instance, connSym, base 
 		endBoundary()
 		rollback()
 	}
-	inst, err := ctx.materialize(base, id, nil, "")
+	feature := connectorFeatureName(owner, connSym)
+	inst, err := ctx.materialize(base, id, owner, feature)
 	if err != nil {
 		abandon()
 		return err
+	}
+	// Only a composite usage makes owner the object's home: a `ref connection` takes the
+	// nested redefinitions written on owner, and is no portion that ends with it.
+	if fv := ownerFeatureValue(owner, feature); fv == nil || fv.Feature == nil || !ctx.ownsHeld(fv.Feature) {
+		inst.owner, inst.ownerFeature = nil, ""
 	}
 
 	var unnamed []Value
 	ctx.behaviorRunDepth++
 	for _, end := range ends {
-		val, err := ctx.attachConnectorEnd(owner, connSym, end)
+		val, err := attach(end)
 		if err != nil {
 			ctx.behaviorRunDepth--
 			abandon()
 			return err
 		}
 		inst.Ends = append(inst.Ends, ConnectorEnd{Name: end.Name, Feature: end.Declared, Value: val})
-		if end.Name == "" {
+		if !end.Named {
 			unnamed = append(unnamed, val)
 			continue
 		}
@@ -423,14 +465,22 @@ func (ctx *Context) attachConnectorEnd(owner *Instance, connSym *symbols.Symbol,
 	if end.Attachment == nil {
 		return Value{}, ctx.connectorEndError(connSym, end, errors.New("names no feature"))
 	}
+	// An inherited end names features where the redefined usage declares it.
 	scope := connSym.OwnerScope
+	if origin := ctx.model.semantics.ConnectorEndsOrigin(connSym); origin != nil {
+		scope = origin.OwnerScope
+	}
 	if owner == nil && (scope == nil || !namespaceScope(scope)) {
 		return Value{}, ctx.connectorEndError(connSym, end, errors.New("no object owns the connector"))
 	}
 	if scope == nil {
 		scope = owner.Type.OwnerScope
 	}
-	ec := NewEvalContextIn(ctx, scope, owner)
+	return ctx.readConnectorEnd(NewEvalContextIn(ctx, scope, owner), connSym, end)
+}
+
+// readConnectorEnd evaluates what one end attaches to in ec, the environment its names are read in.
+func (ctx *Context) readConnectorEnd(ec *EvalContext, connSym *symbols.Symbol, end semantics.ConnectorEndAttachment) (Value, error) {
 	defer ec.beginStep()()
 	// An indexed end holds the one element its index selects, read as the
 	// `#(` expression it was written as, so an index that selects nothing
@@ -727,9 +777,9 @@ func (ctx *Context) anonymousConnectors(typeSym *symbols.Symbol) []*symbols.Symb
 		if decl != typeSym && ctx.libraryDeclared(decl) {
 			continue
 		}
-		for _, member := range unwrappedDeclMembers(decl.Decl) {
+		for _, member := range lower.UnwrappedDeclMembers(decl.Decl) {
 			usage, ok := member.(*ast.Usage)
-			if !ok || usage.Ident.Name != "" || usage.Ident.ShortName != "" {
+			if !ok || usage.Ident.Declared() {
 				continue
 			}
 			// A succession or transition carries ends too, and relates its ends in
@@ -758,6 +808,9 @@ func anonymousConnectorSymbol(typeSym *symbols.Symbol, usage *ast.Usage) *symbol
 		kind = symbols.SymbolAllocationUsage
 	case ast.UsageFlow:
 		kind = symbols.SymbolFlowUsage
+		if usage.IsSuccessionFlow() {
+			kind = symbols.SymbolSuccessionFlowUsage
+		}
 	case ast.UsageBinding:
 		kind = symbols.SymbolBindingUsage
 	}
@@ -776,7 +829,7 @@ func connectorName(sym *symbols.Symbol) string {
 	if sym == nil {
 		return "connector"
 	}
-	if sym.Name != "" {
+	if sym.Named() {
 		return sym.Name
 	}
 	if usage, ok := sym.Decl.(*ast.Usage); ok && usage.Keyword != "" {
@@ -850,4 +903,88 @@ func (ctx *Context) connectorEndError(connSym *symbols.Symbol, end semantics.Con
 		Location:  ctx.sourceLocation(file, span),
 		Err:       cause,
 	}
+}
+
+// performedConnector reads a connection usage a behavior being performed declares as the
+// performance's own connectors, its lower bound attached on first read to what its ends name there.
+func (ec *EvalContext) performedConnector(sym *symbols.Symbol) (Value, bool, error) {
+	ctx := ec.ctx
+	if sym == nil || sym.OwnerScope == nil || !ctx.model.semantics.IsConnectorObjectUsage(sym) {
+		return Value{}, false, nil
+	}
+	var perf *actionFrame
+	for i := len(ec.frames) - 1; i >= 0 && perf == nil; i-- {
+		if f := ec.frames[i].perf; f != nil && ctx.performanceDeclares(f, sym) {
+			perf = f
+		}
+	}
+	if perf == nil {
+		return Value{}, false, nil
+	}
+	// A performance run as an occurrence already holding the connection reads the occurrence's.
+	if perf.parent == nil {
+		if val, ok, err := ec.performanceFeatureOf(sym); ok || err != nil {
+			return val, true, err
+		}
+	}
+	// Held in the performance's own data, a parent's read of the step and a held image carry it.
+	if val, ok, err := ctx.readBodyValue(perf.cells, perf.data, sym.Name); ok || err != nil {
+		return val, true, err
+	}
+	mult := ctx.featureMultiplicity(sym, ctx.findOwnerType(sym))
+	scope := sym.OwnerScope
+	if origin := ctx.model.semantics.ConnectorEndsOrigin(sym); origin != nil && origin.OwnerScope != nil {
+		scope = origin.OwnerScope
+	}
+	attach := func(end semantics.ConnectorEndAttachment) (Value, error) {
+		if end.Attachment == nil {
+			return Value{}, ctx.connectorEndError(sym, end, errors.New("names no feature"))
+		}
+		return ctx.readConnectorEnd(ec.evalIn(scope), sym, end)
+	}
+	count, err := ctx.lowerBoundCount(mult, 0, SymbolText(sym))
+	if err != nil {
+		return Value{}, true, err
+	}
+	release := ctx.elementScope()
+	if err := ctx.chargeElements(count); err != nil {
+		release()
+		return Value{}, true, err
+	}
+	mark := len(ctx.created)
+	commit, rollback := ctx.beginJournal()
+	fail := func(err error) (Value, bool, error) {
+		rollback()
+		ctx.abandonInstancesSince(mark)
+		release()
+		return Value{}, true, err
+	}
+	elements := make([]Value, 0, count)
+	for range count {
+		var conn *Instance
+		if err := ctx.materializeConnectorAttaching(nil, sym, sym, 0, true, attach, func(c *Instance) { conn = c }); err != nil {
+			return fail(err)
+		}
+		val, err := ctx.objectValue(conn)
+		if err != nil {
+			return fail(err)
+		}
+		elements = append(elements, val)
+	}
+	commit()
+	val := sequenceOf(elements)
+	if one, _ := mult.HasBounds(1, 1); one {
+		val = elements[0]
+	}
+	ctx.writeBodyValue(perf.cells, perf.data, sym.Name, val)
+	return val, true, nil
+}
+
+// performanceDeclares reports whether perf performs the behavior declaring sym, or one inheriting it.
+func (ctx *Context) performanceDeclares(perf *actionFrame, sym *symbols.Symbol) bool {
+	if perf.scope == nil || perf.scope == sym.OwnerScope {
+		return perf.scope != nil
+	}
+	performed, declaring := perf.scope.Owner(), sym.OwnerScope.Owner()
+	return performed != nil && declaring != nil && ctx.model.semantics.Conforms(performed, declaring)
 }

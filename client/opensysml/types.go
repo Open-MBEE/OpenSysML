@@ -16,13 +16,24 @@ const (
 	CapabilityMigrate                        = sysmlgrpc.CapabilityMigrate
 	CapabilityVerification                   = sysmlgrpc.CapabilityVerification
 	CapabilityVerificationQuestions          = sysmlgrpc.CapabilityVerificationQuestions
+	CapabilityVerdictNotes                   = sysmlgrpc.CapabilityVerdictNotes
 	CapabilityVerificationArguments          = sysmlgrpc.CapabilityVerificationArguments
 	CapabilityQuery                          = sysmlgrpc.CapabilityQuery
 	CapabilityOSLCQuery                      = sysmlgrpc.CapabilityOSLCQuery
+	CapabilityQueryOrderBy                   = sysmlgrpc.CapabilityQueryOrderBy
 	CapabilityDocumentQuery                  = sysmlgrpc.CapabilityDocumentQuery
+	CapabilityInlineDocumentQuery            = sysmlgrpc.CapabilityInlineDocumentQuery
+	CapabilityQueryResultView                = sysmlgrpc.CapabilityQueryResultView
 	CapabilityRenderDocument                 = sysmlgrpc.CapabilityRenderDocument
 	CapabilityRenderView                     = sysmlgrpc.CapabilityRenderView
+	CapabilityRenderViewForm                 = sysmlgrpc.CapabilityRenderViewForm
 	CapabilityExportGraphs                   = sysmlgrpc.CapabilityExportGraphs
+	CapabilityInstancePaths                  = sysmlgrpc.CapabilityInstancePaths
+	CapabilitySymbolMembers                  = sysmlgrpc.CapabilitySymbolMembers
+	CapabilitySymbolNameResolution           = sysmlgrpc.CapabilitySymbolNameResolution
+	CapabilitySymbolAnnotatingMetadata       = sysmlgrpc.CapabilitySymbolAnnotatingMetadata
+	CapabilitySymbolLookupKind               = sysmlgrpc.CapabilitySymbolLookupKind
+	CapabilitySymbolMemberDirection          = sysmlgrpc.CapabilitySymbolMemberDirection
 	CapabilityImportData                     = sysmlgrpc.CapabilityImportData
 	CapabilityCompareResults                 = sysmlgrpc.CapabilityCompareResults
 	CapabilityCheck                          = sysmlgrpc.CapabilityCheck
@@ -72,8 +83,10 @@ const (
 	CapabilityRecordRun                      = sysmlgrpc.CapabilityRecordRun
 	CapabilityStateTrace                     = sysmlgrpc.CapabilityStateTrace
 	CapabilityActionTrace                    = sysmlgrpc.CapabilityActionTrace
+	CapabilityElementProperties              = sysmlgrpc.CapabilityElementProperties
 	CapabilityEngines                        = sysmlgrpc.CapabilityEngines
 	CapabilityUndeterminedValue              = sysmlgrpc.CapabilityUndeterminedValue
+	CapabilityCoordinateFrameValues          = sysmlgrpc.CapabilityCoordinateFrameValues
 	CapabilityBigIntValues                   = sysmlgrpc.CapabilityBigIntValues
 	CapabilityRationalValues                 = sysmlgrpc.CapabilityRationalValues
 	CapabilityConvertDocuments               = sysmlgrpc.CapabilityConvertDocuments
@@ -81,8 +94,14 @@ const (
 	CapabilityConvertCheckDiagnostics        = sysmlgrpc.CapabilityConvertCheckDiagnostics
 	CapabilityConvertLibraryReferences       = sysmlgrpc.CapabilityConvertLibraryReferences
 	CapabilityConvertLibraryStubs            = sysmlgrpc.CapabilityConvertLibraryStubs
+	CapabilityConvertInheritedMembers        = sysmlgrpc.CapabilityConvertInheritedMembers
 	CapabilityParseSourcesAffected           = sysmlgrpc.CapabilityParseSourcesAffected
 	CapabilityRenderDocumentFileName         = sysmlgrpc.CapabilityRenderDocumentFileName
+	CapabilityRenderDocumentHTML             = sysmlgrpc.CapabilityRenderDocumentHTML
+	CapabilityRenderDocumentAsciiDoc         = sysmlgrpc.CapabilityRenderDocumentAsciiDoc
+	CapabilityEnginesExternal                = sysmlgrpc.CapabilityEnginesExternal
+	CapabilityInfinityValue                  = sysmlgrpc.CapabilityInfinityValue
+	CapabilityOrderDependence                = sysmlgrpc.CapabilityOrderDependence
 )
 
 // ServerInfo describes the implementation answering a Client's calls.
@@ -145,25 +164,58 @@ type Symbol struct {
 	// ID is the fully qualified name, the identifier the other calls take.
 	ID   string
 	Name string
-	// Kind of the element ("PartDefinition", "AttributeUsage", …).
-	Kind     string
+	// Kind is the declaration keyword kind ("partDef", "attributeUsage", …):
+	// the written syntax, not the metaclass ElementProperties reports.
+	Kind string
+	// Metadata summarises what is written: "type" and "specializes" are the
+	// first written edge of each (Specializations has them all), "direction"
+	// the direction written on the feature (the derived Feature::direction is
+	// ElementProperties' "direction"), plus "multiplicity", "abstract", ….
 	Metadata map[string]string
-	// ChildIDs are the fully qualified names of the element's children.
+	// ChildIDs are the ids of the element's owned members, each one LookupSymbol
+	// takes: a qualified name, a positional id, or an unnamed connector end's element id.
 	ChildIDs []string
 	// Attributes of the element, absent without the symbol_attributes
 	// capability.
 	Attributes []Attribute
 	// Type facts, nil when the element is not a def/usage or the type_facts
-	// capability is absent.
+	// capability is absent. Declared is the written typing, Types the derived
+	// Feature::type (ElementProperties' "type").
 	Type *TypeInfo
 	// Multiplicity as declared, nil when none is declared.
 	Multiplicity *Multiplicity
-	// Specializations are every generalization edge declared, in declaration
-	// order.
+	// Specializations are every generalization edge written, in declaration
+	// order: what ElementProperties' "ownedSpecialization" reflects, without
+	// the implied ones the metamodel adds.
 	Specializations []Specialization
 	// WithheldLibraryAttributes counts attributes inherited from
 	// standard-library content, which Attributes leaves out.
 	WithheldLibraryAttributes int
+	// Members are every member of the element, own then inherited, absent
+	// without the symbol_members capability. ChildIDs stays the owned ones.
+	Members []SymbolMember
+	// WithheldLibraryMembers counts members inherited from standard-library
+	// content, which Members leaves out.
+	WithheldLibraryMembers int
+	// AnnotatingMetadataIDs name the metadata usages annotating the element: its
+	// own prefix and body ones, then those naming it with `about` elsewhere.
+	AnnotatingMetadataIDs []string
+}
+
+// SymbolMember is one member of a symbol, own or inherited.
+type SymbolMember struct {
+	// ID is the member's fully qualified name.
+	ID   string
+	Name string
+	Kind string
+	// Inherited is true when the symbol inherits the member rather than
+	// declaring it.
+	Inherited bool
+	// InheritedFrom is the fully qualified name of the type declaring an
+	// inherited member; empty for an own member.
+	InheritedFrom string
+	// Library is true when the member is declared in standard-library content.
+	Library bool
 }
 
 // Attribute is one attribute of a symbol, with its declared value.
@@ -177,12 +229,17 @@ type Attribute struct {
 
 // TypeInfo is the static type of a usage, or the classification of a
 // definition, as far as the service derives it without running the model.
+// Declared, ResolvedID and ResolvedKind are the typing as written (": T");
+// Types is the derived KerML Feature::type, which the typing of every feature
+// the usage subsets, references or redefines contributes to.
 type TypeInfo struct {
 	// Declared is the type name as written; empty when none is declared.
 	Declared string
-	// ResolvedID is the FQN of the resolved type; empty when unresolved.
+	// ResolvedID is the element id of the resolved written type; empty when unresolved.
 	ResolvedID string
-	// ResolvedKind is the symbol kind of the resolved type ("partDef", …).
+	// ResolvedQualifiedName is the qualified name of the resolved written type, for display.
+	ResolvedQualifiedName string
+	// ResolvedKind is the symbol kind of the resolved written type ("partDef", …).
 	ResolvedKind string
 	// Primitive is the library scalar the type reduces to ("Boolean",
 	// "Integer", "Real", …); empty when it is not a scalar value type.
@@ -194,6 +251,17 @@ type TypeInfo struct {
 	Quantity bool
 	// Unit as written when the default value names one ("m/s"), else empty.
 	Unit string
+	// Types are the derived types, most specific first with redundant
+	// supertypes removed; empty for a definition or when none derives.
+	Types []TypeRef
+}
+
+// TypeRef names one derived type of a feature.
+type TypeRef struct {
+	// ID is the FQN of the type.
+	ID string
+	// Kind is the symbol kind of the type ("partDef", "attributeDef", …).
+	Kind string
 }
 
 // Multiplicity is a declared multiplicity range. A bound the service cannot
@@ -205,12 +273,15 @@ type Multiplicity struct {
 
 // Specialization is one generalization edge an element declares.
 type Specialization struct {
-	// Kind of relationship: "specializes", "subsets", "redefines" or "typing".
+	// Kind of relationship: "specializes", "subsets", "redefines", "typing" or
+	// "references" (reference subsetting, "::>" and "include").
 	Kind string
 	// Declared is the target as written ("Engine", "Demo::Engine").
 	Declared string
-	// TargetID is the FQN of the resolved target; empty when unresolved.
+	// TargetID is the element id of the resolved target; empty when unresolved.
 	TargetID string
+	// TargetQualifiedName is the qualified name of the resolved target, for display.
+	TargetQualifiedName string
 	// TargetKind is the symbol kind of the resolved target; empty when
 	// unresolved.
 	TargetKind string
@@ -263,6 +334,73 @@ type Instance struct {
 	// FeatureValues are what the object holds for each feature of its type,
 	// by feature name.
 	FeatureValues map[string]FeatureValue
+	// ReachedBy is how the traversal that produced the Instantiation reached
+	// this object: the holding instance, its feature and the path from the
+	// root. Nil for the root, and under a service without the instance_paths
+	// capability.
+	ReachedBy *Reach
+}
+
+// Reach is how a traversal of an object graph reached one object. The
+// traversal is depth-first from the root, over the features of an object in
+// name order and the values of a feature in their order, reaching an object
+// once; one object may be a value of several features, and InstancePaths
+// lists every path to it.
+type Reach struct {
+	// InstanceID is the object holding this one.
+	InstanceID int64
+	// FeatureName is the holder's feature, a key of its FeatureValues, and
+	// FeatureSymbolID the FQN of the feature as declared.
+	FeatureName     string
+	FeatureSymbolID string
+	// Index is the position among the values of a multi-valued feature,
+	// counted from 1 as an object path indexes them; 0 for a single-valued one.
+	Index int
+	// Path is the path from the root, the feature names joined by dots and
+	// indexed within a multi-valued feature (`powertrain.engine.fuelIn`).
+	Path string
+}
+
+// ObjectRef names an object the service holds for a model: by the id
+// Instantiate answered, or by path — the qualified name it was instantiated
+// as (`Garage::car`), its id (`#2`), or a path through feature values from
+// either (`Garage::car.wheels[2]`; indexes count from 1).
+type ObjectRef struct {
+	InstanceID int64
+	Path       string
+}
+
+// InstancePaths is every root-relative path reaching one object.
+type InstancePaths struct {
+	// Paths, in traversal order: the roots in id order and, from each,
+	// depth-first over features in name order and values in their order.
+	Paths []InstancePath
+	// Truncated reports the paths were cut short: more reach the object than
+	// the service lists, or one deeper than it walks.
+	Truncated bool
+}
+
+// InstancePath is one root-relative path to an object.
+type InstancePath struct {
+	// RootInstanceID is the root the path starts from, and RootSymbolID the
+	// qualified name it was instantiated as; empty when the name no longer
+	// binds it and `#<id>` addresses it.
+	RootInstanceID int64
+	RootSymbolID   string
+	// Path is the steps as an object path; empty when the object is the root.
+	Path  string
+	Steps []PathStep
+}
+
+// PathStep is one feature walked along a path.
+type PathStep struct {
+	FeatureName     string
+	FeatureSymbolID string
+	// Index is the position within a multi-valued feature, from 1; 0 for a
+	// single-valued one.
+	Index int
+	// InstanceID is the object the step reaches.
+	InstanceID int64
 }
 
 // FeatureValue is what an object holds for one feature of its type.

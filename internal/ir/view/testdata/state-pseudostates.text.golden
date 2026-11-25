@@ -3,14 +3,31 @@ NotationViews::alignmentView - state rendering (view def StateTransitionView)
 canvas size 1000×400
 
 state def Alignment at (0, 0) size 1000×400
+  state transition
   start at (40, 30) size 15×15
-  state Initializing (initial, do / Initialize) at (20, 100) size 140×70
-  state Aligning (entry / prime, do / align, exit / Settle) at (260, 100) size 200×110
-  state Phasing (entry / Initialize) at (520, 20) size 460×360
+  state Initializing (initial) at (20, 100) size 140×70
+    do
+      action : Initialize
+  state Aligning at (260, 100) size 200×110
+    entry
+      action prime
+    do
+      action align : Align
+    exit
+      action : Settle
+  state Phasing at (520, 20) size 460×360
+    entry
+      action : Initialize
+    state transition
     start at (560, 60) size 15×15
-    state Coarse (initial, do / Align) at (540, 120) size 120×60
-    state Fine (do / Align) at (700, 200) size 120×60
-    state Tracking at (790, 270) size 120×100
+    state Coarse (initial) at (540, 120) size 120×60
+      do
+        action : Align
+    state Fine at (700, 200) size 120×60
+      do
+        action : Align
+    state Tracking parallel at (790, 270) size 120×100
+      state transition
       region Guiding at (790, 290) size 120×40
         state guide at (810, 295) size 80×30
       region Focusing at (790, 330) size 120×40

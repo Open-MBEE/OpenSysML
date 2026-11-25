@@ -1,5 +1,6 @@
 @startuml
 ' ParameterCalcViews::definitions — tree rendering (render asTreeDiagram)
+mainframe <size:10>//«view»//</size> **ParameterCalcViews::definitions**\n<size:10>expose ParameterCalcs::Add</size>\n<size:10>expose ParameterCalcs::Scale</size>\n<size:10>expose ParameterCalcs::Heat</size>\n<size:10>expose ParameterCalcs::Between</size>
 <style>
 root {
   BackGroundColor white

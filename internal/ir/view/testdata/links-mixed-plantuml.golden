@@ -1,5 +1,6 @@
 @startuml
 ' MixedExamples::mixedDiagram — mixed rendering (render asMixedDiagram)
+mainframe <size:10>//«view»//</size> **MixedExamples::mixedDiagram**\n<size:10>expose MixedExamples</size>
 <style>
 root {
   BackGroundColor white
@@ -58,11 +59,11 @@ package "<size:10>//«package»//</size>\n**MixedExamples**" as n0 <<package>> [
     }
   }
   rectangle "<size:10>//«connection def»//</size>\n**Connection**" as n28 <<connection def>> [[https://example.test/src/mixed.sysml#L22]] {
-    rectangle "<size:10>//«part»//</size>\n**a**" as n29 <<part>> <<usage>> [[https://example.test/src/mixed.sysml#L23]]
-    rectangle "<size:10>//«part»//</size>\n**b**" as n30 <<part>> <<usage>> [[https://example.test/src/mixed.sysml#L24]]
+    rectangle "<size:10>//«end part»//</size>\n**a**" as n29 <<end part>> <<usage>> [[https://example.test/src/mixed.sysml#L23]]
+    rectangle "<size:10>//«end part»//</size>\n**b**" as n30 <<end part>> <<usage>> [[https://example.test/src/mixed.sysml#L24]]
   }
   rectangle "<size:10>//«state def»//</size>\n**Ready**\ndeclares no states" as n1 <<state def>> [[https://example.test/src/mixed.sysml#L27]]
-  rectangle "<size:10>//«state def»//</size>\n**Modes**" as n2 <<state def>> [[https://example.test/src/mixed.sysml#L29]] {
+  rectangle "<size:10>//«state def»//</size>\n**Modes**\nstate transition" as n2 <<state def>> [[https://example.test/src/mixed.sysml#L29]] {
     circle "**start**" as n4 <<start>> <<usage>>
     rectangle "<size:10>//«state»//</size>\n**ready**\ninitial" as n3 <<state>> <<usage>> [[https://example.test/src/mixed.sysml#L31]]
   }
@@ -79,7 +80,7 @@ package "<size:10>//«package»//</size>\n**MixedExamples**" as n0 <<package>> [
     [[https://example.test/src/mixed.sysml#L45 Inspect the plant and report its operating state.]]
   end note
   rectangle "<size:10>//«perform action»//</size>\n**run**\ndeclares no nodes" as n13 <<perform action>> <<usage>> [[https://example.test/src/mixed.sysml#L48]]
-  rectangle "<size:10>//«exhibit state»//</size>\n**mode**" as n14 <<exhibit state>> <<usage>> [[https://example.test/src/mixed.sysml#L49]] {
+  rectangle "<size:10>//«exhibit state»//</size>\n**mode**\nstate transition" as n14 <<exhibit state>> <<usage>> [[https://example.test/src/mixed.sysml#L49]] {
     circle "**start**" as n16 <<start>> <<usage>>
     rectangle "<size:10>//«state»//</size>\n**^ready**\ninitial" as n15 <<state>> <<usage>> [[https://example.test/src/mixed.sysml#L31]]
   }

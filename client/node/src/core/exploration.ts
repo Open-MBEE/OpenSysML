@@ -1,6 +1,7 @@
 // What exploring a behavior under the `explore` scheduling policy found: every
 // distinct outcome the runs reached, rather than one run's result.
 
+import type { Coverage as PbCoverage, CoverageEntry as PbCoverageEntry } from "../generated/sysml_pb.js";
 import { byCodeUnit } from "./capabilities.js";
 import { ExecutionError, type ModelDiagnostic, type UnsupportedValueError } from "./errors.js";
 import type { SysMLValue } from "./values.js";
@@ -79,6 +80,31 @@ export class Outcome {
   }
 }
 
+/**
+ * One state entered or one transition taken: `path` qualifies it by the instance
+ * running the machine (`Cov::Sys#1.m.run: s0 -> viaB`), `declaration` by its
+ * declaration (`Cov::M::run::s0 -> viaB`), and `runs` counts the runs
+ * (schedules, under the check engine) that did so.
+ */
+export interface CoverageEntry {
+  path: string;
+  declaration: string;
+  runs: number;
+}
+
+/** What every run of an exploration, or every schedule of a check, entered and took. */
+export interface Coverage {
+  states: readonly CoverageEntry[];
+  transitions: readonly CoverageEntry[];
+}
+
+/** Reads a wire coverage; an absent one covered nothing. */
+export function coverageOf(pb: PbCoverage | undefined): Coverage {
+  const entries = (list: readonly PbCoverageEntry[]): CoverageEntry[] =>
+    list.map((e) => ({ path: e.path, declaration: e.declaration, runs: e.runs }));
+  return { states: entries(pb?.states ?? []), transitions: entries(pb?.transitions ?? []) };
+}
+
 /** Every distinct outcome a behavior reached under `explore`, and how the exploration ended. */
 export class Exploration {
   /** The distinct outcomes reached, in the service's canonical order. */
@@ -100,6 +126,11 @@ export class Exploration {
   readonly depthBudget: number;
   /** Whether the outcomes' probabilities are lower bounds. */
   readonly probabilitiesLowerBound: boolean;
+  /**
+   * Every state entered and transition taken over all the runs, not only the
+   * witness of each outcome, with how many runs did so.
+   */
+  readonly coverage: Coverage;
 
   constructor(init: {
     outcomes: readonly Outcome[];
@@ -110,6 +141,7 @@ export class Exploration {
     depthBudget: number;
     probabilitiesLowerBound?: boolean;
     unenumerated?: readonly string[];
+    coverage?: Coverage;
   }) {
     this.outcomes = init.outcomes;
     this.complete = init.complete;
@@ -119,6 +151,7 @@ export class Exploration {
     this.depthBudget = init.depthBudget;
     this.probabilitiesLowerBound = init.probabilitiesLowerBound ?? false;
     this.unenumerated = init.unenumerated ?? [];
+    this.coverage = init.coverage ?? { states: [], transitions: [] };
   }
 
   get length(): number {

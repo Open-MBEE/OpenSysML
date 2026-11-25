@@ -30,14 +30,34 @@ func (r *Renderer) treeDepth() int {
 // relationships between the drawn elements — specialization, composition and
 // typing — are drawn as edges once every node is (treeEdges).
 func (r *Renderer) renderTree(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
+	fold := r.prepareExpansionFold(view, exposed, out, KindTree)
 	ids := &nodeIDs{}
+	query := r.treeQuery(view, out, exposed)
 	out.sites = map[*Node]treeSite{}
-	descendants := r.exposedDescendants(view, exposed, func(sym *symbols.Symbol) []*symbols.Symbol { return r.walkMembers(view, sym) })
+	members := func(sym *symbols.Symbol) []*symbols.Symbol {
+		return append(r.walkMembers(view, sym), r.annotatingMembers(sym)...)
+	}
+	var descendants map[symbols.ElementKey]bool
+	if query != nil {
+		descendants = query.exposedDescendants(exposed, true)
+	} else if fold != nil {
+		descendants = fold.q.exposedDescendants(exposed, true)
+	} else {
+		descendants = r.exposedDescendants(view, exposed, members)
+	}
 	for _, elem := range exposed {
 		if descendants[symbols.KeyOf(elem)] {
 			continue
 		}
-		walk := treeWalk{view: view, ids: ids, path: expansion{}, out: out}
+		// An annotation exposed on its own is the note of §8.2.3.4, named as a root is.
+		if annotatingSymbol(elem) {
+			if node := r.annotationNode(ids, view, elem, out); node != nil {
+				node.Name = r.notationName(elem)
+				out.Roots = append(out.Roots, node)
+			}
+			continue
+		}
+		walk := treeWalk{view: view, ids: ids, path: expansion{}, out: out, query: query, fold: fold}
 		out.Roots = append(out.Roots, r.treeNode(walk, elem, nil, 0, true))
 	}
 	out.Roots = append(out.Roots, r.nestedViewNodes(view, ids, map[*symbols.Symbol]bool{view: true}, out)...)
@@ -141,12 +161,21 @@ func (r *Renderer) nestedViewNodes(view *symbols.Symbol, ids *nodeIDs, rendered 
 		r.dress(view, sub, node, out)
 		exposed, err := r.model.ExposedElements(sub)
 		if err == nil {
-			descendants := r.exposedDescendants(sub, exposed, func(sym *symbols.Symbol) []*symbols.Symbol { return r.walkMembers(sub, sym) })
+			query := r.treeQuery(sub, out, exposed)
+			var descendants map[symbols.ElementKey]bool
+			if query != nil {
+				descendants = query.exposedDescendants(exposed, false)
+			} else {
+				descendants = r.exposedDescendants(sub, exposed, func(sym *symbols.Symbol) []*symbols.Symbol { return r.walkMembers(sub, sym) })
+			}
 			for _, elem := range exposed {
 				if descendants[symbols.KeyOf(elem)] {
 					continue
 				}
-				walk := treeWalk{view: sub, ids: ids, path: expansion{}, out: out}
+				walk := treeWalk{view: sub, ids: ids, path: expansion{}, out: out, query: query, fold: out.expansionPlans[sub]}
+				if !out.expansionFolding {
+					walk.fold = nil
+				}
 				node.Children = append(node.Children, r.treeNode(walk, elem, nil, 0, true))
 			}
 		}
@@ -162,20 +191,46 @@ func (r *Renderer) nestedViewNodes(view *symbols.Symbol, ids *nodeIDs, rendered 
 // treeWalk is what one walk down a tree shares between its nodes: the view
 // (nil outside any view), the node ids, the expansion path and the rendering.
 type treeWalk struct {
-	view *symbols.Symbol
-	ids  *nodeIDs
-	path expansion
-	out  *Rendering
+	view       *symbols.Symbol
+	ids        *nodeIDs
+	path       expansion
+	out        *Rendering
+	query      *treeQuery
+	fold       *expansionFold
+	occurrence string
+	insideFold bool
 }
 
 // treeNode renders one element and what it declares. qualified names the node by
 // qualified name, which is what an exposed element is reported by; a member
 // nested in it is named as it was declared.
 func (r *Renderer) treeNode(walk treeWalk, sym, owner *symbols.Symbol, depth int, qualified bool) *Node {
+	walk.occurrence = r.occurrenceName(walk.occurrence, sym)
+	var foldKey treeQueryKey
+	var representative expansionRepresentative
+	canFold := false
+	if walk.fold != nil {
+		foldKey, representative, canFold = walk.fold.representative(sym, owner, walk.path, depth, qualified)
+	}
+	key, previous := walk.queried(sym, owner, depth, qualified)
+	if previous != nil {
+		return previous
+	}
 	view, out := walk.view, walk.out
 	node := r.treeNodeShallow(walk, sym, owner, qualified)
+	if walk.query != nil {
+		defer walk.query.remember(key, depth, node)
+	}
 	if walk.path[sym] {
 		return node
+	}
+	if walk.query != nil {
+		walk.query.ancestors[sym] = true
+		defer delete(walk.query.ancestors, sym)
+	}
+	if walk.fold != nil {
+		walk.fold.q.ancestors[sym] = true
+		defer delete(walk.fold.q.ancestors, sym)
 	}
 	recursive, added := r.enter(walk.path, sym)
 	defer leave(walk.path, added)
@@ -185,9 +240,12 @@ func (r *Renderer) treeNode(walk treeWalk, sym, owner *symbols.Symbol, depth int
 	// A parameter is a pin of its owner's node, drawn at every depth. At the depth
 	// bound, or collapsed, an element keeps its ports and pins — they count at
 	// their owner's depth — and nothing else nested is drawn.
-	bound, cut := r.walkBound(view), 0
+	bound, cut := walk.bound(r), 0
 	folded := depth >= bound || collapsed(node)
-	for _, member := range r.walkMembers(view, sym) {
+	skipped := false
+	foldsBefore := out.foldedOccurrences
+	insideFold := walk.insideFold
+	for _, member := range walk.members(r, sym) {
 		if recursive != nil && member.Owner() != sym {
 			continue
 		}
@@ -201,6 +259,11 @@ func (r *Renderer) treeNode(walk treeWalk, sym, owner *symbols.Symbol, depth int
 			}
 			continue
 		}
+		if canFold && walk.fold.omits(sym, member) {
+			skipped = true
+			continue
+		}
+		walk.insideFold = insideFold || canFold
 		child := r.treeNode(walk, member, sym, depth+1, false)
 		child.Inherited = member.Owner() != sym
 		node.Children = append(node.Children, child)
@@ -209,13 +272,84 @@ func (r *Renderer) treeNode(walk treeWalk, sym, owner *symbols.Symbol, depth int
 		node.Detail = detailWith(node.Detail, cutNote(bound))
 		out.depthCut += cut
 	}
+	if recursive == nil && !folded {
+		node.Children = append(node.Children, r.annotationChildren(walk.ids, view, sym, out)...)
+	}
+	if walk.fold != nil {
+		walk.recordFold(sym, node, representative, foldKey, depth, skipped, !insideFold && out.foldedOccurrences == foldsBefore)
+	}
 	return node
+}
+
+// occurrenceName is the name of sym's occurrence under the occurrence named outer, sym's own notation name at a root.
+func (r *Renderer) occurrenceName(outer string, sym *symbols.Symbol) string {
+	if outer == "" {
+		return r.notationName(sym)
+	}
+	return outer + "::" + localName(sym)
+}
+
+// queried is sym's key in the walk's query and the node the query already drew for it at depth, if any.
+func (walk treeWalk) queried(sym, owner *symbols.Symbol, depth int, qualified bool) (treeQueryKey, *Node) {
+	if walk.query == nil {
+		return treeQueryKey{}, nil
+	}
+	key := walk.query.key(sym, owner, walk.path, qualified)
+	return key, walk.query.node(key, depth)
+}
+
+// bound is the depth the walk draws to: its query's, else the view's.
+func (walk treeWalk) bound(r *Renderer) int {
+	if walk.query != nil {
+		return walk.query.bound
+	}
+	return r.walkBound(walk.view)
+}
+
+// members is the members of sym the walk draws: its query's, else the view's.
+func (walk treeWalk) members(r *Renderer, sym *symbols.Symbol) []*symbols.Symbol {
+	if walk.query != nil {
+		return walk.query.members(sym)
+	}
+	return r.walkMembers(walk.view, sym)
+}
+
+// recordFold notes the fold of sym's node when a member was skipped, else remembers the occurrence,
+// drawn whole, as the representative of its key.
+func (walk treeWalk) recordFold(sym *symbols.Symbol, node *Node, representative expansionRepresentative, key treeQueryKey, depth int, skipped, whole bool) {
+	if skipped {
+		walk.fold.note(walk.out, sym, node, representative)
+	} else if whole {
+		walk.fold.remember(key, depth, walk.occurrence)
+	}
+}
+
+// annotationChildren are the annotation nodes of what sym declares in its body
+// (§8.2.3.4), nested under its node so a folding lists them as its `doc`
+// compartment; the tree's edges join each to the elements it annotates.
+func (r *Renderer) annotationChildren(ids *nodeIDs, view, sym *symbols.Symbol, out *Rendering) []*Node {
+	var nodes []*Node
+	filters := r.walkFilters(view)
+	for _, member := range r.annotatingMembers(sym) {
+		if len(filters) > 0 && !r.admits(filters, member) {
+			continue
+		}
+		if node := r.annotationNode(ids, view, member, out); node != nil {
+			nodes = append(nodes, node)
+		}
+	}
+	return nodes
 }
 
 // treeNodeShallow draws sym without recursively drawing its members; one on
 // the path being expanded above it is noted as already shown.
 func (r *Renderer) treeNodeShallow(walk treeWalk, sym, owner *symbols.Symbol, qualified bool) *Node {
 	view, out := walk.view, walk.out
+	if walk.query != nil {
+		node := &Node{ID: walk.ids.take(), Origin: symbolOrigin(sym), Geometry: walk.query.geometryOf(sym, owner, out)}
+		out.noteTreeSite(node, view, sym)
+		return node
+	}
 	name := r.notationName(sym)
 	if !qualified {
 		name = localName(sym)
@@ -224,12 +358,56 @@ func (r *Renderer) treeNodeShallow(walk treeWalk, sym, owner *symbols.Symbol, qu
 		Type: r.headType(sym), Typings: r.headTypings(sym), Value: r.declValue(sym), Origin: symbolOrigin(sym), Geometry: r.inheritedGeometryOf(view, owner, sym, out),
 		Style: r.inheritedStyleOf(view, owner, sym, out), Referential: r.referenceRow(sym)}
 	out.noteTreeSite(node, view, sym)
+	node.Text = r.successionText(sym)
 	if walk.path[sym] {
 		node.Detail = detailWith(node.Detail, "already shown")
 		return node
 	}
 	r.notesOf(view, sym, node.ID, out)
 	return node
+}
+
+// successionText is the `first a then b` a succession row of a compartment
+// reads (SysML v2.1 §8.2.3.18, the successions compartment); "" for anything else.
+func (r *Renderer) successionText(sym *symbols.Symbol) string {
+	doc := symbolOrigin(sym).Doc
+	switch decl := sym.Decl.(type) {
+	case *ast.Usage:
+		if decl.Kind != ast.UsageSuccession || len(decl.ConnectorEnds) != 2 {
+			return ""
+		}
+		first, then := r.nodeText(doc, decl.ConnectorEnds[0].Target), r.nodeText(doc, decl.ConnectorEnds[1].Target)
+		if first == "" || then == "" {
+			return ""
+		}
+		return "first " + first + " then " + then
+	case *ast.EntryMember:
+		return "entry"
+	case *ast.DoMember:
+		return "do"
+	case *ast.ExitMember:
+		return "exit"
+	case *ast.SuccessionEdge:
+		// A `then b` edge reads as written: its source only where the author named one; a
+		// member-attached `then action b` names the member it sequences to.
+		then := endName(decl.Target)
+		if _, final := decl.TargetMember.(*ast.FinalNode); then == "" && final {
+			then = "done"
+		}
+		if then == "" && decl.TargetMember != nil && sym.OwnerScope != nil {
+			if member := sym.OwnerScope.MemberDeclaring(decl.TargetMember); member != nil {
+				then = localName(member)
+			}
+		}
+		if then == "" {
+			return ""
+		}
+		if decl.SourceImplied || decl.Source == nil {
+			return "then " + then
+		}
+		return "first " + endName(decl.Source) + " then " + then
+	}
+	return ""
 }
 
 // expansion is what a walk is drawing above the element at hand: each element
@@ -242,7 +420,7 @@ type expansion map[*symbols.Symbol]bool
 // leave undoes. A type of sym already being expanded above is returned as well,
 // and then sym alone is marked: the walk shows its own members and no inherited one.
 func (r *Renderer) enter(path expansion, sym *symbols.Symbol) (recursive *symbols.Symbol, added []*symbols.Symbol) {
-	types := r.model.DeclaredTypes(sym)
+	types := r.drawnTypes(sym)
 	for _, typ := range types {
 		if path[typ] {
 			recursive, types = typ, nil
@@ -330,8 +508,8 @@ func (r *Renderer) effectiveMembers(sym *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
-// standIns maps each inherited feature an own member masks (KerML 7.4.7) to that member;
-// a redefinition masking nothing, such as a parameter's positional one, stands in for none.
+// standIns maps each inherited feature an own member masks (KerML 7.4.7), by clause or by
+// parameter position, to that member; a redefinition masking nothing stands in for none.
 func (r *Renderer) standIns(sym *symbols.Symbol, own []*symbols.Symbol) map[*symbols.Symbol]*symbols.Symbol {
 	out := map[*symbols.Symbol]*symbols.Symbol{}
 	for _, member := range own {
@@ -417,6 +595,10 @@ func (r *Renderer) contentKind(sym *symbols.Symbol) bool {
 	if !containedKind(sym) {
 		return false
 	}
+	// A `#M` prefix is drawn in its element's heading («#M part def»), not as a member.
+	if sym.IsPrefixMetadata() {
+		return false
+	}
 	if sym.Kind == symbols.SymbolRenderingUsage && sym.OwnerScope != nil {
 		if owner := sym.OwnerScope.Owner(); owner != nil && semantics.IsView(owner) {
 			return false
@@ -430,6 +612,10 @@ func (r *Renderer) contentKind(sym *symbols.Symbol) bool {
 // structure: documentation, comments, aliases and the ends of a connect clause,
 // which are shown as the connection itself.
 func containedKind(sym *symbols.Symbol) bool {
+	if sym.Name == "" && semantics.IsFlowPayload(sym) {
+		// The payload an `of T` clause implies is the flow's typing, not a nested member.
+		return false
+	}
 	switch sym.Kind {
 	case symbols.SymbolComment, symbols.SymbolDocumentation, symbols.SymbolTextualRepresentation,
 		symbols.SymbolAlias, symbols.SymbolDependency, symbols.SymbolRelationship,

@@ -71,9 +71,12 @@ func TestW11AAttributeTypedByStructure(t *testing.T) {
 		attribute a : A;
 		attribute v : V;
 		in attribute p : A;
+		in attribute q : V;
 	}
 }`
-	w11aWantMessages(t, src, true, "An attribute must be typed by attribute definitions.")
+	w11aWantMessages(t, src, true,
+		"An attribute must be typed by attribute definitions.",
+		"An attribute must be typed by attribute definitions.")
 }
 
 // An action, a port and a state are typed by definitions of their own kind,

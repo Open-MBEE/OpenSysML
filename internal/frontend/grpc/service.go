@@ -3,10 +3,13 @@ package grpc
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"hash"
 	"math"
 	"os"
+	"slices"
 	"strings"
 
 	"connectrpc.com/connect"
@@ -25,6 +28,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 // msgModelNotFound formats the not-found status for an unknown model hash.
@@ -88,6 +92,10 @@ const CapabilityQueryOrderBy = "query_order_by"
 // which runs a named document query and answers with typed rows.
 const CapabilityDocumentQuery = "document_query"
 
+// CapabilityInlineDocumentQuery names RunDocumentQueryRequest.inline_query: a
+// query expression run in place of a named query, planned by the same compiler.
+const CapabilityInlineDocumentQuery = "inline_document_query"
+
 // CapabilityRenderDocument names the capability of the RenderDocument RPC,
 // which renders a named document to Markdown.
 const CapabilityRenderDocument = "render_document"
@@ -104,6 +112,10 @@ const CapabilityRenderDocumentAsciiDoc = "render_document_asciidoc"
 // renders a declared or targeted pseudo-view as machine-readable diagram data.
 const CapabilityRenderView = "render_view"
 
+// CapabilityRenderViewForm names the capability of RenderViewRequest's form
+// field and writer options, answered in RenderViewResponse.text.
+const CapabilityRenderViewForm = "render_view_form"
+
 // CapabilityExportGraphs names the capability of the ExportGraphs RPC, which
 // exports the lowered graph of an action or state machine as `graphs:1` JSON.
 const CapabilityExportGraphs = "export_graphs"
@@ -111,6 +123,11 @@ const CapabilityExportGraphs = "export_graphs"
 // CapabilityImportData names the ImportData RPC, which sets the feature values
 // a CSV, TSV, JSON or JSON Lines file assigns, one row per element.
 const CapabilityImportData = "import_data"
+
+// CapabilityInstancePaths names the InstancePaths RPC, which lists every
+// root-relative path reaching an object, and the `reached_by` of an Instance
+// in an instantiated graph, which says how the traversal reached it.
+const CapabilityInstancePaths = "instance_paths"
 
 // CapabilityCompareResults names the CompareResults RPC, which runs the
 // configurations a tool's results sidecar indexes and tables the tool's
@@ -135,6 +152,27 @@ const CapabilityEvaluateSubject = "evaluate_subject"
 // CapabilitySymbolAttributes names the capability of populating
 // SymbolInfo.attributes, rather than always reporting none.
 const CapabilitySymbolAttributes = "symbol_attributes"
+
+// CapabilitySymbolMembers names the capability of populating
+// SymbolInfo.members, the element's members own and inherited with their
+// provenance, and of honouring GetSymbolRequest.include_library_members.
+const CapabilitySymbolMembers = "symbol_members"
+
+// CapabilitySymbolNameResolution names the capability of honouring GetSymbolRequest.resolve_name;
+// without it symbol_id is read as an id the service reported, as a service predating the field reads it.
+const CapabilitySymbolNameResolution = "symbol_name_resolution"
+
+// CapabilitySymbolAnnotatingMetadata names the capability of populating
+// SymbolInfo.annotating_metadata_ids, the metadata usages annotating the element.
+const CapabilitySymbolAnnotatingMetadata = "symbol_annotating_metadata"
+
+// CapabilitySymbolLookupKind names the capability of honouring the lookup of GetSymbolRequest and
+// GetElementPropertiesRequest: a qualified name read only as a name, an element id only as an id.
+const CapabilitySymbolLookupKind = "symbol_lookup_kind"
+
+// CapabilitySymbolMemberDirection names the capability of honouring
+// GetSymbolRequest.member_of, reporting a feature's direction relative to that type.
+const CapabilitySymbolMemberDirection = "symbol_member_direction"
 
 // CapabilityUnsetValue names the capability of reporting a valueless feature of
 // a value type as Value.unset, rather than as the empty object it materializes.
@@ -232,6 +270,10 @@ const CapabilityConvertCompact = "convert_compact"
 
 // CapabilityConvertLibraryReferences names ConvertResponse.library_references.
 const CapabilityConvertLibraryReferences = "convert_library_references"
+
+// CapabilityConvertInheritedMembers names ConvertRequest.inherited_members; a service
+// without it writes the inherited member lists on every api-json element.
+const CapabilityConvertInheritedMembers = "convert_inherited_members"
 
 // CapabilityConvertLibraryStubs names ConvertRequest.include_library_stubs.
 const CapabilityConvertLibraryStubs = "convert_library_stubs"
@@ -350,6 +392,14 @@ const CapabilityMetaobjectValues = "metaobject_values"
 // leaves open as Value.undetermined rather than as an unsupported null.
 const CapabilityUndeterminedValue = "undetermined_value"
 
+// CapabilityCoordinateFrameValues names the capability of carrying a coordinate frame
+// and a coordinate transformation on their own Value arms rather than as unsupported nulls.
+const CapabilityCoordinateFrameValues = "coordinate_frame_values"
+
+// CapabilityElementProperties names the GetElementProperties RPC, which reads
+// the metamodel properties of one element by their specification names.
+const CapabilityElementProperties = "element_properties"
+
 // capabilities is what this build supports, in report order. A capability is
 // only ever added: renaming or dropping one breaks clients that require it.
 var capabilities = []string{
@@ -363,7 +413,7 @@ var capabilities = []string{
 	CapabilityTensorValues, CapabilityVerificationVerdicts, CapabilityInfinityValue,
 	CapabilityDiagnosticCodes, CapabilitySchedule, CapabilityCaseEvaluations,
 	CapabilityScheduleExplore, CapabilityFinalTime, CapabilityEngines,
-	CapabilityMetaobjectValues,
+	CapabilityMetaobjectValues, CapabilitySymbolMembers,
 	CapabilityUndeterminedValue,
 	CapabilityEnginesExternal,
 	CapabilityEditDocuments,
@@ -401,16 +451,27 @@ var capabilities = []string{
 	CapabilityExportGraphs,
 	CapabilityImportData,
 	CapabilityCompareResults,
+	CapabilityInstancePaths,
 	CapabilityCheck,
 	CapabilityConvertDocuments,
 	CapabilityConvertCompact,
 	CapabilityConvertLibraryReferences,
 	CapabilityConvertLibraryStubs,
+	CapabilityConvertInheritedMembers,
 	CapabilityConvertCheckDiagnostics,
 	CapabilityParseSourcesAffected,
 	CapabilityRenderDocumentFileName,
 	CapabilityOrderDependence,
 	CapabilityVerdictNotes,
+	CapabilityElementProperties,
+	CapabilityInlineDocumentQuery,
+	CapabilitySymbolNameResolution,
+	CapabilityRenderViewForm,
+	CapabilitySymbolAnnotatingMetadata,
+	CapabilitySymbolLookupKind,
+	CapabilitySymbolMemberDirection,
+	CapabilityCoordinateFrameValues,
+	CapabilityQueryResultView,
 }
 
 type capabilityAvailability struct {
@@ -426,6 +487,9 @@ func newCapabilityAvailability(withheld []string) (capabilityAvailability, error
 		if _, ok := available[capability]; !ok {
 			return capabilityAvailability{}, fmt.Errorf("unknown capability %q", capability)
 		}
+		delete(available, capability)
+	}
+	for _, capability := range unlinkedCapabilities {
 		delete(available, capability)
 	}
 	return capabilityAvailability{available: available}, nil
@@ -451,13 +515,17 @@ func (a capabilityAvailability) names() []string {
 
 // Capabilities returns the capability names this build of the service reports.
 func Capabilities() []string {
-	return append([]string(nil), capabilities...)
+	return slices.DeleteFunc(append([]string(nil), capabilities...), func(capability string) bool {
+		return slices.Contains(unlinkedCapabilities, capability)
+	})
 }
 
 // Service implements SysMLServiceServer
 type Service struct {
 	pb.UnimplementedSysMLServiceServer
 	cache *Cache
+	// fileRoot confines the files a request names (ConfineFilesTo); nil reads any path.
+	fileRoot *fileRoot
 	// libIndexes hands each model an overlay over the one standard library index
 	// the service holds: the library does not depend on the model, so no model
 	// pays for loading it, and no model keeps a copy of it.
@@ -485,6 +553,9 @@ type Service struct {
 	// lineages are the incremental workspaces of the document sets parsed more
 	// than once (lineage.go).
 	lineages *lineages
+	// records persists what the analysis of a model reported, for the next process
+	// that parses it (modelrecord.go); nil holds nothing across processes.
+	records *libs.Cache
 }
 
 // Option adjusts how NewService builds a service.
@@ -493,6 +564,21 @@ type Option func(*serviceOptions)
 type serviceOptions struct {
 	unavailable []string
 	serve       []string
+	records     *libs.Cache
+	fileRoot    string
+	confined    bool
+}
+
+// ConfineFilesTo has the service read a file a request names by path only under dir,
+// symbolic links followed; without it the service reads any path its privileges reach.
+func ConfineFilesTo(dir string) Option {
+	return func(o *serviceOptions) { o.fileRoot, o.confined = dir, true }
+}
+
+// WithRecordCache has the service read a parsed model's analysis from cache when one is
+// recorded there, and record what it analyzes itself; a nil cache is none.
+func WithRecordCache(cache *libs.Cache) Option {
+	return func(o *serviceOptions) { o.records = cache }
 }
 
 // ServeExternalEngines names the manifest engines the service runs, as
@@ -580,7 +666,16 @@ func newService(cacheSize int, version string, opts []Option) (*Service, error) 
 	if len(options.serve) == 0 {
 		availability.withhold(CapabilityEnginesExternal)
 	}
+	var confinedTo *fileRoot
+	if options.confined {
+		root, err := newFileRoot(options.fileRoot)
+		if err != nil {
+			return nil, err
+		}
+		confinedTo = root
+	}
 	return &Service{
+		fileRoot:       confinedTo,
 		cache:          cache,
 		libIndexes:     newLibraryBase(buildLibraryIndex),
 		lineages:       newLineages(maxLineages),
@@ -592,18 +687,26 @@ func newService(cacheSize int, version string, opts []Option) (*Service, error) 
 		engines:        engines,
 		version:        version,
 		capabilities:   availability,
+		records:        options.records,
 	}, nil
 }
 
 // Prewarm starts building the service's standard library index in the
 // background, so the first model to arrive is not the one that pays for the
 // library. It returns immediately and is safe to call more than once.
-func (s *Service) Prewarm() {
+func (s *Service) Prewarm() <-chan struct{} {
 	if !s.prewarm {
-		return
+		return closedChannel
 	}
-	s.libIndexes.prewarm()
+	return s.libIndexes.prewarm()
 }
+
+// closedChannel is what Prewarm answers when there is nothing to wait for.
+var closedChannel = func() chan struct{} {
+	done := make(chan struct{})
+	close(done)
+	return done
+}()
 
 // Close waits for a background library build in flight and releases the
 // service's reference to the shared index. The service still answers
@@ -786,7 +889,7 @@ func (s *Service) ParseFile(ctx context.Context, req *pb.ParseFileRequest) (*pb.
 	case *pb.ParseFileRequest_Content:
 		input, err = inlineInput("<content>", req.Language, src.Content)
 	case *pb.ParseFileRequest_FilePath:
-		input, err = fileInput(src.FilePath)
+		input, err = s.fileInput(src.FilePath)
 	default:
 		return nil, statusError(connect.CodeInvalidArgument, "source must be file_path or content")
 	}
@@ -795,7 +898,10 @@ func (s *Service) ParseFile(ctx context.Context, req *pb.ParseFileRequest) (*pb.
 	}
 
 	mode := diag.ConformanceModeOf(req.StrictConformance)
-	modelHash, model := s.parseModel([]sourceInput{input}, mode, false)
+	modelHash, model, err := s.parseModel(ctx, []sourceInput{input}, mode, false)
+	if err != nil {
+		return nil, err
+	}
 	return s.buildParseResponse(modelHash, model), nil
 }
 
@@ -822,6 +928,9 @@ func (s *Service) ParseSources(ctx context.Context, req *pb.ParseSourcesRequest)
 	inputs := make([]sourceInput, 0, len(req.Documents))
 	named := make(map[string]int, len(req.Documents))
 	for position, doc := range req.Documents {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		input, err := s.documentInput(doc, position)
 		if err != nil {
 			return nil, err
@@ -835,7 +944,10 @@ func (s *Service) ParseSources(ctx context.Context, req *pb.ParseSourcesRequest)
 		inputs = append(inputs, input)
 	}
 
-	modelHash, model := s.parseModel(inputs, diag.ConformanceModeOf(req.StrictConformance), true)
+	modelHash, model, err := s.parseModel(ctx, inputs, diag.ConformanceModeOf(req.StrictConformance), true)
+	if err != nil {
+		return nil, err
+	}
 	roots := make([]*pb.SymbolInfo, 0, len(model.Documents))
 	for _, doc := range model.Documents {
 		roots = append(roots, s.rootSymbol(model, doc))
@@ -871,7 +983,7 @@ func (s *Service) documentInput(doc *pb.SourceDocument, position int) (sourceInp
 		}
 		return inlineInput(name, doc.Language, src.Content)
 	case *pb.SourceDocument_FilePath:
-		return fileInput(src.FilePath)
+		return s.fileInput(src.FilePath)
 	default:
 		return sourceInput{}, statusErrorf(connect.CodeInvalidArgument,
 			"document %d must carry file_path or content", position)
@@ -893,14 +1005,33 @@ func inlineInput(name, language, content string) (sourceInput, error) {
 	return sourceInput{name: name, language: language, content: content, kind: kind}, nil
 }
 
-// fileInput reads a document from the path the client named.
-func fileInput(path string) (sourceInput, error) {
-	// #nosec G304 -- the client names the model file it wants parsed; reading
-	// arbitrary paths is the service's purpose, and it runs with the caller's
-	// own privileges.
+// readNamedFile reads the file a request names by path: any path when the service
+// is not confined, and otherwise only one under the root it is confined to.
+func (s *Service) readNamedFile(path string) ([]byte, error) {
+	if s.fileRoot != nil {
+		return s.fileRoot.read(path)
+	}
+	// #nosec G304 -- reading the file the client names is the point of an unconfined service.
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return sourceInput{}, statusErrorf(connect.CodeNotFound, "file not found: %v", err)
+		return nil, statusErrorf(connect.CodeNotFound, msgFileNotFound, err)
+	}
+	return data, nil
+}
+
+// namedFilePath is the path readNamedFile reads for path, for what opens the file again.
+func (s *Service) namedFilePath(path string) string {
+	if s.fileRoot != nil {
+		return s.fileRoot.path(path)
+	}
+	return path
+}
+
+// fileInput reads a document from the path the client named.
+func (s *Service) fileInput(path string) (sourceInput, error) {
+	data, err := s.readNamedFile(path)
+	if err != nil {
+		return sourceInput{}, err
 	}
 	var warnings []string
 	text, converted, err := convert.ModelSource(path, data, func(message string) {
@@ -930,13 +1061,13 @@ func fileInput(path string) (sourceInput, error) {
 // With incremental, a document set parsed before is answered from its lineage
 // (lineage.go): ParseSources, whose model of many documents is reparsed after
 // each edit. ParseFile's one document is cheap to parse whole.
-func (s *Service) parseModel(inputs []sourceInput, mode diag.ConformanceMode, incremental bool) (string, *CachedModel) {
-	return s.parseModelKeeping(inputs, mode, incremental, true)
+func (s *Service) parseModel(ctx context.Context, inputs []sourceInput, mode diag.ConformanceMode, incremental bool) (string, *CachedModel, error) {
+	return s.parseModelKeeping(ctx, inputs, mode, incremental, true)
 }
 
 // parseModelKeeping is parseModel, caching the model only when keep is set: a
 // model staged on the way to another is not kept, so it evicts nothing.
-func (s *Service) parseModelKeeping(inputs []sourceInput, mode diag.ConformanceMode, incremental, keep bool) (string, *CachedModel) {
+func (s *Service) parseModelKeeping(ctx context.Context, inputs []sourceInput, mode diag.ConformanceMode, incremental, keep bool) (string, *CachedModel, error) {
 	store := func(hash string, model *CachedModel) *CachedModel {
 		if !keep {
 			return model
@@ -950,29 +1081,38 @@ func (s *Service) parseModelKeeping(inputs []sourceInput, mode diag.ConformanceM
 	// different question in each mode, so one mode's diagnostics may not serve
 	// the other. Every field is length-delimited, so no document set can spell
 	// the key of another whose names or contents carry the delimiter.
-	var key strings.Builder
-	fmt.Fprintf(&key, "%s\x00%d", mode.String(), len(inputs))
+	key := newModelKey()
+	key.format("%s\x00%d", mode.String(), len(inputs))
 	for _, input := range inputs {
 		for _, field := range []string{input.name, input.language, input.content} {
-			fmt.Fprintf(&key, "\x00%d\x00%s", len(field), field)
+			key.field(field)
 		}
 		if len(input.warnings) > 0 {
-			fmt.Fprintf(&key, "\x00%d", len(input.warnings))
+			key.format("\x00%d", len(input.warnings))
 			for _, warning := range input.warnings {
-				fmt.Fprintf(&key, "\x00%d\x00%s", len(warning), warning)
+				key.field(warning)
 			}
 		}
 	}
-	modelHash := computeHash(key.String())
+	modelHash := key.sum()
 	if cached, ok := s.cache.Get(modelHash); ok {
-		return modelHash, cached
+		return modelHash, cached, nil
+	}
+	// A done ctx stops the parse at its next document or analysis pass, as its
+	// error; what was parsed so far is dropped, never cached.
+	if err := ctx.Err(); err != nil {
+		return "", nil, err
 	}
 
 	// A document set parsed before is answered from its lineage: only what
 	// changed is parsed and analyzed again (lineage.go).
 	if incremental {
-		if model, ok := s.parseFromLineage(inputs, mode); ok {
-			return modelHash, store(modelHash, model)
+		model, ok, err := s.parseFromLineage(ctx, inputs, mode)
+		if err != nil {
+			return "", nil, err
+		}
+		if ok {
+			return modelHash, store(modelHash, model), nil
 		}
 	}
 
@@ -985,6 +1125,9 @@ func (s *Service) parseModelKeeping(inputs []sourceInput, mode diag.ConformanceM
 	documents := make([]*CachedDocument, 0, len(inputs))
 	parsedClean := true
 	for _, input := range inputs {
+		if err := ctx.Err(); err != nil {
+			return "", nil, err
+		}
 		srcFile := source.NewWithKind(input.name, []byte(input.content), input.kind)
 		p := parser.New(srcFile)
 		root := p.ParseFile()
@@ -999,6 +1142,9 @@ func (s *Service) parseModelKeeping(inputs []sourceInput, mode diag.ConformanceM
 	// Registers what a wildcard import re-exports, so a qualified name reaches a
 	// symbol another document imported. Only sound once every document is in.
 	idx.ExpandWildcardImports()
+	if err := ctx.Err(); err != nil {
+		return "", nil, err
+	}
 
 	if parsedClean {
 		// One batch over the model, as a workspace analyzes one: the index is
@@ -1010,9 +1156,22 @@ func (s *Service) parseModelKeeping(inputs []sourceInput, mode diag.ConformanceM
 		}
 		batch := &passes.Batch{Documents: names, Gathers: passes.NewGathers()}
 		passes.PrepareBatch(idx, batch)
-		for i, doc := range documents {
-			doc.Unfiltered, _ = passes.AnalyzeInBatch(inputs[i].name, inputs[i].kind, doc.Root,
-				doc.Diagnostics, idx, passes.Options{Conformance: mode}, batch)
+		if !s.analysisFromRecord(modelHash, idx, documents) {
+			for i, doc := range documents {
+				if err := ctx.Err(); err != nil {
+					return "", nil, err
+				}
+				doc.Unfiltered, _ = passes.AnalyzeInBatch(inputs[i].name, inputs[i].kind, doc.Root,
+					doc.Diagnostics, idx, passes.Options{Conformance: mode, Context: ctx}, batch)
+			}
+			// An analysis its context stopped between passes holds part of a report,
+			// which is neither recorded nor answered.
+			if err := ctx.Err(); err != nil {
+				return "", nil, err
+			}
+			s.recordAnalysis(modelHash, idx, documents)
+		}
+		for _, doc := range documents {
 			doc.Diagnostics = passes.WithoutLints(doc.Unfiltered, nil, nil)
 		}
 	}
@@ -1020,10 +1179,11 @@ func (s *Service) parseModelKeeping(inputs []sourceInput, mode diag.ConformanceM
 	// A parse racing another of the same model keeps the entry already cached,
 	// so the objects held on it stay reachable under the hash.
 	model := &CachedModel{Documents: documents, Index: idx, Library: library, Mode: mode, Findings: checkws.DuplicateLibraries(idx)}
-	return modelHash, store(modelHash, model)
+	return modelHash, store(modelHash, model), nil
 }
 
-// GetSymbol retrieves symbol information by FQN
+// GetSymbol retrieves symbol information by qualified name or by element id, as the
+// request's lookup states; without one, symbol_id is read name first, then id.
 func (s *Service) GetSymbol(ctx context.Context, req *pb.GetSymbolRequest) (*pb.SymbolResponse, error) {
 	// Lookup cached model
 	cached, ok := s.cache.Get(req.ModelHash)
@@ -1031,17 +1191,27 @@ func (s *Service) GetSymbol(ctx context.Context, req *pb.GetSymbolRequest) (*pb.
 		return nil, statusErrorf(connect.CodeNotFound, msgModelNotFound, req.ModelHash)
 	}
 
-	// Lookup symbol by FQN
-	syms := symbolfacts.LookupNamed(cached.Index, req.SymbolId)
+	syms := s.lookupSymbol(cached, req)
 	if len(syms) == 0 {
 		return &pb.SymbolResponse{
 			Error: fmt.Sprintf("symbol not found: %s", req.SymbolId),
 		}, nil
 	}
 
+	opts := symbolfacts.Options{IncludeLibraryMembers: req.IncludeLibraryMembers}
+	if req.MemberOf != "" && s.capabilities.has(CapabilitySymbolMemberDirection) {
+		owners := cached.LookupElementID(req.MemberOf)
+		if len(owners) == 0 {
+			return &pb.SymbolResponse{
+				Error: fmt.Sprintf("symbol not found: %s", req.MemberOf),
+			}, nil
+		}
+		opts.MemberOf = owners[0]
+	}
+
 	// Convert first match to proto
 	return &pb.SymbolResponse{
-		Symbol: s.symbolToProto(syms[0], cached.SymbolContext()),
+		Symbol: s.symbolToProtoWith(syms[0], cached.SymbolContext(), opts),
 	}, nil
 }
 
@@ -1199,7 +1369,7 @@ func (s *Service) Evaluate(ctx context.Context, req *pb.EvaluateRequest) (*pb.Ev
 	// prompt evaluates in the context it pinned.
 	var subject *symbols.Symbol
 	if req.SubjectSymbolId != "" {
-		syms := symbolfacts.LookupNamed(cached.Index, req.SubjectSymbolId)
+		syms := cached.LookupSymbol(req.SubjectSymbolId)
 		if len(syms) == 0 {
 			return &pb.EvaluateResponse{
 				Error: fmt.Sprintf("subject not found: %s", req.SubjectSymbolId),
@@ -1212,7 +1382,7 @@ func (s *Service) Evaluate(ctx context.Context, req *pb.EvaluateRequest) (*pb.Ev
 	var scope *symbols.Scope
 	if req.ContextSymbolId != "" {
 		// Lookup context symbol
-		syms := symbolfacts.LookupNamed(cached.Index, req.ContextSymbolId)
+		syms := cached.LookupSymbol(req.ContextSymbolId)
 		if len(syms) > 0 && syms[0].Scope != nil {
 			scope = syms[0].Scope
 		}
@@ -1252,7 +1422,7 @@ func (s *Service) Evaluate(ctx context.Context, req *pb.EvaluateRequest) (*pb.Ev
 	}
 
 	return &pb.EvaluateResponse{
-		Result: s.valueToProto(runtimeCtx, result, cached.Index),
+		Result: s.valueToProto(runtimeCtx, result, cached),
 	}, nil
 }
 
@@ -1281,7 +1451,7 @@ func (s *Service) Instantiate(ctx context.Context, req *pb.InstantiateRequest) (
 	}
 
 	// Lookup symbol
-	syms := symbolfacts.LookupNamed(cached.Index, req.SymbolId)
+	syms := cached.LookupSymbol(req.SymbolId)
 	if len(syms) == 0 {
 		return &pb.InstantiateResponse{
 			Error: fmt.Sprintf("symbol not found: %s", req.SymbolId),
@@ -1299,7 +1469,7 @@ func (s *Service) Instantiate(ctx context.Context, req *pb.InstantiateRequest) (
 	// part of the creation: past the held-objects bound, none of them stays.
 	var graph protoconv.InstanceGraph
 	inst, err := runtimeCtx.InstantiateRead(sym, func(inst *runtime.Instance) error {
-		graph = s.instanceGraphToProto(runtimeCtx, inst, cached.Index)
+		graph = s.instanceGraphToProto(runtimeCtx, inst, cached)
 		for _, err := range graph.Errors {
 			if errors.Is(err, runtime.ErrInstanceLimitExceeded) {
 				return err
@@ -1362,7 +1532,7 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	}
 
 	// An inherited action is named by the subtype too (Sub::inherited).
-	syms := cached.LookupNamedMember(req.ActionSymbolId)
+	syms := cached.LookupDeclaredMember(req.ActionSymbolId)
 	if len(syms) == 0 {
 		return &pb.ExecuteActionResponse{
 			Error: fmt.Sprintf("action not found: %s", req.ActionSymbolId),
@@ -1390,7 +1560,7 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 			if err := s.requireValueCapabilities(pv); err != nil {
 				return nil, nil, err
 			}
-			val, cerr := protoconv.ProtoToRuntimeValue(ctx, pv, cached.Index, ctx.Semantics())
+			val, cerr := protoconv.ProtoToRuntimeValueWith(ctx, pv, cached.Index, ctx.Semantics(), cached.SymbolContext())
 			if cerr != nil {
 				return nil, &pb.ExecuteActionResponse{
 					Error: fmt.Sprintf("input %q could not be read: %v", name, cerr),
@@ -1439,12 +1609,12 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	}
 	self, err := s.performer(cached, runtimeCtx, req.PerformerSymbolId)
 	if err != nil {
-		trace, dropped := s.traceToProto(runtimeCtx, cached.Index, traceRecorder)
+		trace, dropped := s.traceToProto(runtimeCtx, cached, traceRecorder)
 		return &pb.ExecuteActionResponse{Error: err.Error(), Trace: trace, TraceDropped: dropped}, nil
 	}
 	events, err := eventMessages(cached, runtimeCtx, action, req.Events, self)
 	if err != nil {
-		trace, dropped := s.traceToProto(runtimeCtx, cached.Index, traceRecorder)
+		trace, dropped := s.traceToProto(runtimeCtx, cached, traceRecorder)
 		return &pb.ExecuteActionResponse{Error: err.Error(), Trace: trace, TraceDropped: dropped}, nil
 	}
 
@@ -1458,7 +1628,7 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	// The choices the run made are reported with its outcome, failed or not: a
 	// failure may hang on the order taken.
 	diags := s.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(runtimeCtx.Notes(), cached))
-	trace, dropped := s.traceToProto(runtimeCtx, cached.Index, traceRecorder)
+	trace, dropped := s.traceToProto(runtimeCtx, cached, traceRecorder)
 	if err != nil {
 		return &pb.ExecuteActionResponse{
 			Error:        fmt.Sprintf("action execution failed: %v", err),
@@ -1470,10 +1640,10 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	}
 
 	return &pb.ExecuteActionResponse{
-		Outputs:             s.valuesToProto(runtimeCtx, ran.outputs, cached.Index),
+		Outputs:             s.valuesToProto(runtimeCtx, ran.outputs, cached),
 		Diagnostics:         diags,
 		FinalTime:           s.finalTime(runtimeCtx),
-		PerformerAttributes: s.valuesToProto(runtimeCtx, ran.performer, cached.Index),
+		PerformerAttributes: s.valuesToProto(runtimeCtx, ran.performer, cached),
 		OrderDependent:      s.orderDependent(runtimeCtx, ran.outputs),
 		Trace:               trace,
 		TraceDropped:        dropped,
@@ -1568,7 +1738,7 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	}
 
 	// An inherited state machine is named by the subtype too (Sub::inherited).
-	syms := cached.LookupNamedMember(req.StateMachineSymbolId)
+	syms := cached.LookupDeclaredMember(req.StateMachineSymbolId)
 	if len(syms) == 0 {
 		return &pb.ExecuteStateResponse{
 			Error: fmt.Sprintf("state machine not found: %s", req.StateMachineSymbolId),
@@ -1606,7 +1776,7 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	}
 	self, err := s.performer(cached, runtimeCtx, req.PerformerSymbolId)
 	if err != nil {
-		trace, dropped := s.traceToProto(runtimeCtx, cached.Index, traceRecorder)
+		trace, dropped := s.traceToProto(runtimeCtx, cached, traceRecorder)
 		return &pb.ExecuteStateResponse{Error: err.Error(), Trace: trace, TraceDropped: dropped}, nil
 	}
 
@@ -1621,7 +1791,7 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	}
 	finalContext, statesVisited := ran.final, ran.visited
 	diags := s.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(runtimeCtx.Notes(), cached))
-	trace, dropped := s.traceToProto(runtimeCtx, cached.Index, traceRecorder)
+	trace, dropped := s.traceToProto(runtimeCtx, cached, traceRecorder)
 	if err != nil {
 		return &pb.ExecuteStateResponse{
 			Error:        fmt.Sprintf("state machine execution failed: %v", err),
@@ -1635,7 +1805,7 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	// Convert final context to protobuf
 	pbContext := make(map[string]*pb.Value)
 	for name, val := range finalContext {
-		pbContext[name] = s.valueToProto(runtimeCtx, val, cached.Index)
+		pbContext[name] = s.valueToProto(runtimeCtx, val, cached)
 	}
 
 	return &pb.ExecuteStateResponse{
@@ -1649,16 +1819,16 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	}, nil
 }
 
-func (s *Service) traceToProto(rt *runtime.Context, idx *symbols.Index, recorder *runtime.TraceRecorder) ([]*pb.DocumentEvent, int32) {
+func (s *Service) traceToProto(rt *runtime.Context, cached *CachedModel, recorder *runtime.TraceRecorder) ([]*pb.DocumentEvent, int32) {
 	if recorder == nil {
 		return nil, 0
 	}
 	events := queryexec.EventsFromTrace(rt, recorder.Records())
 	trace := make([]*pb.DocumentEvent, len(events))
 	for i, event := range events {
-		trace[i] = documentEvent(idx, event)
+		trace[i] = documentEvent(cached.Index, event)
 		if _, value, ok := event.Assigned(); ok {
-			trace[i].Value = s.valueToProto(rt, value, idx)
+			trace[i].Value = s.valueToProto(rt, value, cached)
 		}
 	}
 	dropped, _ := recorder.Dropped()
@@ -1695,11 +1865,31 @@ func (s *Service) rootSymbol(model *CachedModel, doc *CachedDocument) *pb.Symbol
 	return s.symbolInfoToProto(symbolfacts.Root(model.SymbolContext(), rootScope), model.Index)
 }
 
-// computeHash generates SHA-256 hash of content
-func computeHash(content string) string {
-	hash := sha256.Sum256([]byte(content))
-	return fmt.Sprintf("%x", hash)
+// modelKey hashes a model's cache key as its fields arrive, so no copy of the
+// source text is built to be hashed.
+type modelKey struct {
+	hash  hash.Hash
+	chunk [4096]byte
 }
+
+func newModelKey() *modelKey { return &modelKey{hash: sha256.New()} }
+
+func (k *modelKey) format(layout string, args ...any) {
+	fmt.Fprintf(k.hash, layout, args...)
+}
+
+// field writes one length-delimited field.
+func (k *modelKey) field(text string) {
+	k.format("\x00%d\x00", len(text))
+	for len(text) > 0 {
+		n := copy(k.chunk[:], text)
+		k.hash.Write(k.chunk[:n])
+		text = text[n:]
+	}
+}
+
+// sum is the key in hexadecimal.
+func (k *modelKey) sum() string { return hex.EncodeToString(k.hash.Sum(nil)) }
 
 // resolveEvent finds the definition an event name denotes: as written, else as
 // each namespace enclosing action sees it, innermost first; nil for none.
@@ -1713,4 +1903,20 @@ func resolveEvent(lookup func(string) []*symbols.Symbol, action *symbols.Symbol,
 		}
 	}
 	return nil
+}
+
+// lookupSymbol finds what a GetSymbol request names, as the kind it states or name first.
+func (s *Service) lookupSymbol(cached *CachedModel, req *pb.GetSymbolRequest) []*symbols.Symbol {
+	if s.capabilities.has(CapabilitySymbolLookupKind) {
+		switch req.Lookup {
+		case pb.LookupKind_LOOKUP_KIND_QUALIFIED_NAME:
+			return cached.ResolveQualifiedName(req.SymbolId)
+		case pb.LookupKind_LOOKUP_KIND_ELEMENT_ID:
+			return cached.LookupElementID(req.SymbolId)
+		}
+	}
+	if req.ResolveName && s.capabilities.has(CapabilitySymbolNameResolution) {
+		return cached.ResolveName(req.SymbolId)
+	}
+	return cached.LookupSymbol(req.SymbolId)
 }

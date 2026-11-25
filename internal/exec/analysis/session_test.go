@@ -71,7 +71,7 @@ func standinEntry(t *testing.T) EngineEntry {
 // standinSession starts a session with the stand-in under a short timeout.
 func standinSession(t *testing.T, entry EngineEntry, timeout time.Duration) *session {
 	t.Helper()
-	s, err := startSession(entry, DefaultOutputLimit, timeout)
+	s, err := startSession(context.Background(), entry, DefaultOutputLimit, timeout)
 	if err != nil {
 		t.Fatalf("startSession: %v", err)
 	}
@@ -132,7 +132,7 @@ func TestSessionHandshakeMismatchIsTypedPerField(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.field, func(t *testing.T) {
 			t.Setenv(engineStandinDescribe, c.describe)
-			_, err := startSession(standinEntry(t), DefaultOutputLimit, 5*time.Second)
+			_, err := startSession(context.Background(), standinEntry(t), DefaultOutputLimit, 5*time.Second)
 			var mismatch *HandshakeError
 			if !errors.As(err, &mismatch) || mismatch.Field != c.field {
 				t.Fatalf("got %v, want a HandshakeError on %s", err, c.field)
@@ -148,7 +148,7 @@ func TestSessionHandshakeMismatchIsTypedPerField(t *testing.T) {
 func TestSessionStartupFailuresAreTyped(t *testing.T) {
 	t.Run("exit at start", func(t *testing.T) {
 		t.Setenv(engineStandinMode, "exit-at-start")
-		_, err := startSession(standinEntry(t), DefaultOutputLimit, 5*time.Second)
+		_, err := startSession(context.Background(), standinEntry(t), DefaultOutputLimit, 5*time.Second)
 		var exited *EngineExitedError
 		if !errors.As(err, &exited) || exited.Started || !strings.Contains(exited.Stderr, "cannot load formalism") {
 			t.Fatalf("got %v", err)
@@ -156,7 +156,7 @@ func TestSessionStartupFailuresAreTyped(t *testing.T) {
 	})
 	t.Run("silent describe", func(t *testing.T) {
 		t.Setenv(engineStandinMode, "silent-describe")
-		_, err := startSession(standinEntry(t), DefaultOutputLimit, 200*time.Millisecond)
+		_, err := startSession(context.Background(), standinEntry(t), DefaultOutputLimit, 200*time.Millisecond)
 		var timeout *EngineTimeoutError
 		if !errors.As(err, &timeout) || timeout.Method != enginewire.MethodDescribe {
 			t.Fatalf("got %v", err)
@@ -165,7 +165,7 @@ func TestSessionStartupFailuresAreTyped(t *testing.T) {
 	t.Run("absent program", func(t *testing.T) {
 		entry := standinEntry(t)
 		entry.Executable = filepath.Join(t.TempDir(), "missing")
-		_, err := startSession(entry, DefaultOutputLimit, time.Second)
+		_, err := startSession(context.Background(), entry, DefaultOutputLimit, time.Second)
 		if !errors.Is(err, ErrProcessAbsent) {
 			t.Fatalf("got %v", err)
 		}
@@ -234,7 +234,7 @@ func TestSessionProtocolBreaksEndTheSession(t *testing.T) {
 func TestSessionLineOverTheBoundEndsTheSession(t *testing.T) {
 	t.Setenv(engineStandinMode, "overflow")
 	entry := standinEntry(t)
-	s, err := startSession(entry, 64<<10, 5*time.Second)
+	s, err := startSession(context.Background(), entry, 64<<10, 5*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -251,7 +251,7 @@ func TestSessionStderrOverTheBoundEndsTheSession(t *testing.T) {
 	for _, mode := range []string{"stderr-flood", "stderr-flood-exit"} {
 		t.Run(mode, func(t *testing.T) {
 			t.Setenv(engineStandinMode, mode)
-			s, err := startSession(standinEntry(t), 64<<10, 5*time.Second)
+			s, err := startSession(context.Background(), standinEntry(t), 64<<10, 5*time.Second)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -434,7 +434,7 @@ func TestEnginePoolHonorsConcurrent(t *testing.T) {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					s, err := pool.acquire()
+					s, err := pool.acquire(context.Background())
 					if err != nil {
 						failures.Add(1)
 						return
@@ -461,7 +461,7 @@ func TestEnginePoolHonorsConcurrent(t *testing.T) {
 				t.Fatalf("a nonconcurrent entry started %d processes for 8 concurrent requests", started)
 			}
 			pool.close()
-			if _, err := pool.acquire(); !errors.Is(err, ErrSessionEnded) {
+			if _, err := pool.acquire(context.Background()); !errors.Is(err, ErrSessionEnded) {
 				t.Fatalf("acquire after close got %v", err)
 			}
 			data, _ := os.ReadFile(record)
@@ -476,7 +476,7 @@ func TestEnginePoolHonorsConcurrent(t *testing.T) {
 func TestEnginePoolEndsTheEngineForThePlanAtTheFirstFault(t *testing.T) {
 	t.Setenv(engineStandinMode, "not-json")
 	pool := newEnginePool(standinEntry(t), DefaultOutputLimit, 5*time.Second)
-	s, err := pool.acquire()
+	s, err := pool.acquire(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -484,7 +484,7 @@ func TestEnginePoolEndsTheEngineForThePlanAtTheFirstFault(t *testing.T) {
 		t.Fatalf("got %v", err)
 	}
 	pool.put(s)
-	if _, err := pool.acquire(); !errors.Is(err, ErrSessionEnded) || !errors.Is(err, ErrProtocol) {
+	if _, err := pool.acquire(context.Background()); !errors.Is(err, ErrSessionEnded) || !errors.Is(err, ErrProtocol) {
 		t.Fatalf("acquire after the fault got %v", err)
 	}
 	pool.close()

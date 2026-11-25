@@ -24,6 +24,8 @@ type UndeclaredSignalPass struct{}
 // all it reads.
 func (UndeclaredSignalPass) Level() PassLevel { return LevelNameResolution }
 
+func (UndeclaredSignalPass) ElementScoped() { /* marker: per-element gating */ }
+
 // Run checks the signal triggers of one workspace document.
 func (UndeclaredSignalPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil || ctx.Index.IsLibraryDocument(name) {
@@ -187,7 +189,7 @@ func noteSentReference(ctx *Context, scope *symbols.Scope, e ast.Node, sent map[
 
 func noteTypeNames(types []*symbols.Symbol, sent map[string]bool) {
 	for _, typ := range types {
-		if typ != nil && typ.Name != "" {
+		if typ != nil && typ.Named() {
 			sent[typ.Name] = true
 		}
 	}
@@ -210,7 +212,7 @@ func noteSentDefinition(ctx *Context, scope *symbols.Scope, name *ast.QualifiedN
 
 // isDefinition reports whether sym is a named definition, which a message is typed by.
 func isDefinition(sym *symbols.Symbol) bool {
-	if sym == nil || sym.Name == "" {
+	if sym == nil || !sym.Named() {
 		return false
 	}
 	_, ok := sym.DefinitionKind()

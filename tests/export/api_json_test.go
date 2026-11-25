@@ -56,6 +56,7 @@ func tripleSet(g *rdf.Graph) map[rdf.Triple]bool {
 // it and reading it back must yield the graph's triple set exactly, and writing
 // the graph it read must spell the document the same way again.
 func TestAPIJSONInverseOverAllFixtures(t *testing.T) {
+	t.Parallel()
 	refused := 0
 	for _, path := range apiJSONModels(t) {
 		name, _ := fixtureName(path)
@@ -89,9 +90,15 @@ func TestAPIJSONInverseOverAllFixtures(t *testing.T) {
 					delete(want, triple)
 				}
 			}
-			if !sameTriples(want, tripleSet(reread)) {
-				missing := diffTriples(want, tripleSet(reread))
-				added := diffTriples(tripleSet(reread), want)
+			got := tripleSet(reread)
+			for triple := range got {
+				if export.LibraryReference(reread, triple.Subject) {
+					delete(got, triple)
+				}
+			}
+			if !sameTriples(want, got) {
+				missing := diffTriples(want, got)
+				added := diffTriples(got, want)
 				t.Fatalf("the graph changed through the element form\nmissing: %v\nadded: %v", missing, added)
 			}
 			again, err := export.WriteAPIJSON(reread)
@@ -182,6 +189,7 @@ var apiJSONDevelopStandardRouteParityFixtures = []string{
 }
 
 func TestAPIJSONConvertRoutesMatchTurtleOnDevelopPassingFixtures(t *testing.T) {
+	t.Parallel()
 	expected := make(map[string]struct{}, len(apiJSONDevelopStandardRouteParityFixtures))
 	for _, path := range apiJSONDevelopStandardRouteParityFixtures {
 		expected[filepath.Clean(path)] = struct{}{}
@@ -207,10 +215,16 @@ func TestAPIJSONConvertRoutesMatchTurtleOnDevelopPassingFixtures(t *testing.T) {
 			if err != nil {
 				t.Fatalf("write standard API JSON: %v", err)
 			}
-			got, err := convert.Convert(path+".json", document, convert.FormatAPIJSON, convert.FormatTurtle)
+			turtle, err := convert.Convert(path+".json", document, convert.FormatAPIJSON, convert.FormatTurtle)
 			if err != nil {
 				t.Fatalf("read standard API JSON as Turtle: %v", err)
 			}
+			// The reader names the library members the completed lists reference; the model is compared.
+			read, err := rdf.ParseTurtle(turtle)
+			if err != nil {
+				t.Fatalf("parse the read Turtle: %v", err)
+			}
+			got := rdf.WriteTurtle(apiJSONGraphWithoutLibraryReferences(read))
 			if !bytes.Equal(got, want) {
 				offset := firstDifferentByte(got, want)
 				start := max(0, offset-120)
@@ -386,8 +400,7 @@ func TestAPIJSONWritersNeverEmitNameReferences(t *testing.T) {
 
 func assertAPIJSONUnresolvedValuesOmitted(
 	t *testing.T,
-	path string,
-	format string,
+	path, format string,
 	document []byte,
 	omissions []export.APIJSONOmission,
 ) {
@@ -898,6 +911,13 @@ func TestReadAPIJSONRejectsNonElements(t *testing.T) {
 		"empty scope qualifier":            `{"@type": "Package", "@id": ":X"}`,
 		"equivalent ids":                   `[{"@type": "Package", "@id": "X"}, {"@type": "Package", "@id": ":X"}]`,
 		"trailing JSON":                    `[{"@type": "Package", "@id": "X"}] 42`,
+		"@id closing an IRI":               `{"@type": "PartUsage", "@id": "x> <urn:evil:p"}`,
+		"@id with a control":               "{\"@type\": \"PartUsage\", \"@id\": \"x\\ny\"}",
+		"@type with a space":               `{"@type": "Part Usage", "@id": "X"}`,
+		"sysx: @type closing an IRI":       `{"@type": "sysx:A> <urn:evil:p", "@id": "X"}`,
+		"key closing an IRI":               `{"@type": "Package", "@id": "X", "a> <urn:evil:p": true}`,
+		"reference id closing an IRI":      `{"@type": "Package", "@id": "X", "ownedMember": {"@id": "y> <urn:evil:p> <urn:evil:o"}}`,
+		"reference IRI with a space":       `{"@type": "Package", "@id": "X", "ownedMember": {"@id": "https://opensysml.org/element#a b"}}`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			if _, err := export.ReadAPIJSON([]byte(data)); err == nil {
@@ -1086,7 +1106,7 @@ func TestWriteAPIJSONRefuses(t *testing.T) {
 		},
 		"language tag": func() *rdf.Graph {
 			g := typed(rdf.SysMLTerm("Package"))
-			g.Add(element, rdf.SysMLTerm("declaredName"), rdf.Term{Kind: rdf.TermLiteral, Value: "x", Lang: "en"})
+			g.Add(element, rdf.SysMLTerm("declaredName"), rdf.LangString("x", "en"))
 			return g
 		},
 		"foreign subject": func() *rdf.Graph {
@@ -1209,7 +1229,7 @@ func TestAPIJSONRoundTripSingleMemberCollections(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SysMLToRDF: %v", err)
 	}
-	document, err := export.WriteAPIJSON(graph)
+	document, err := export.WriteAPIJSONWithOptions(graph, export.APIJSONOptions{InheritedMembers: true})
 	if err != nil {
 		t.Fatalf("WriteAPIJSON: %v", err)
 	}

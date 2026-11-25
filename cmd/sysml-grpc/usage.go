@@ -1,8 +1,10 @@
 package main
 
 import (
+	"errors"
 	"flag"
 
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard/flags"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
 )
 
@@ -13,11 +15,11 @@ type options struct {
 	host                 string
 	port                 int
 	healthPort           int
-	tokenFile            string
-	token                string
+	auth                 *flags.Options
 	allowUnauthenticated bool
 	allowInsecureToken   bool
 	cacheSize            int
+	noRecordCache        bool
 	logLevel             string
 	showVersion          bool
 	showMan              bool
@@ -28,6 +30,7 @@ type options struct {
 	tlsCert              string
 	tlsKey               string
 	serveExternal        string
+	fileRoot             string
 }
 
 // registerFlags declares the command's flags on fs, so a run, the help and the
@@ -41,12 +44,7 @@ func registerFlags(fs *flag.FlagSet) *options {
 			"or -allow-unauthenticated")
 	fs.IntVar(&o.port, "port", 50051, "gRPC server port")
 	fs.IntVar(&o.healthPort, "health-port", 8081, "Health check HTTP port")
-	fs.StringVar(&o.tokenFile, "token-file", "",
-		"File holding the bearer token every call must carry as Authorization: Bearer TOKEN "+
-			"(one trailing line break is dropped); with it the token stays out of the process list")
-	fs.StringVar(&o.token, "token", "",
-		"The bearer token itself, for a shell whose command line is private; -token-file keeps "+
-			"it out of the process list, and "+tokenEnv+" is read when neither flag names one")
+	o.auth = flags.Register(fs, tokenEnv)
 	fs.BoolVar(&o.allowUnauthenticated, "allow-unauthenticated", false,
 		"Serve an address other machines reach with no token at all: every host that can "+
 			"open the port may parse, run and edit models here, and the log shows peers but "+
@@ -57,6 +55,8 @@ func registerFlags(fs *flag.FlagSet) *options {
 			"-tls-key: the token crosses the network in clear, so anyone observing it can "+
 			"replay it. Only behind a TLS-terminating proxy on a trusted network; never implied")
 	fs.IntVar(&o.cacheSize, "cache-size", 100, "Maximum number of cached parsed files")
+	fs.BoolVar(&o.noRecordCache, "no-record-cache", false,
+		"Analyze every model parsed, reading no model record from the record cache and writing none; default off, or OPENSYSML_RECORD_CACHE=0")
 	fs.StringVar(&o.logLevel, "log-level", "info", "Log level (debug, info, warn, error)")
 	fs.BoolVar(&o.showVersion, "version", false, "Show version and exit")
 	fs.BoolVar(&o.showMan, "man", false, "Write this command's manual page, in roff, to stdout and exit")
@@ -76,6 +76,17 @@ func registerFlags(fs *flag.FlagSet) *options {
 		"Comma-separated names of the OPENSYSML_ENGINES manifest engines this service runs "+
 			"for its clients, or all; without it they are listed by ListEngines but a request "+
 			"naming one is refused, since it would run a program on the server")
+	fs.Func("file-root",
+		"Directory the files a request names by path (file_path, layout_path) must lie "+
+			"under, relative paths taken from it; without it the service reads any path "+
+			"its own privileges reach",
+		func(dir string) error {
+			if dir == "" {
+				return errors.New("needs a directory")
+			}
+			o.fileRoot = dir
+			return nil
+		})
 	return &o
 }
 

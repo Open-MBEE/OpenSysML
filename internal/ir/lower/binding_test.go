@@ -275,6 +275,12 @@ func TestEndValueBindingsLowerEndBodyValues(t *testing.T) {
 		if got.Decl == nil || got.Decl.Value != got.Ends[1].Expr {
 			t.Errorf("binding %d is declared by %v, want the end's attribute", i, got.Decl)
 		}
+		if got.Origin.Doc != "ends.sysml" || got.Origin.Span != got.Decl.Span() || got.Origin.Kind != "binding" {
+			t.Errorf("binding %d origin = %#v, want the end attribute's document, span and kind binding", i, got.Origin)
+		}
+	}
+	if bindings[0].Origin == bindings[1].Origin {
+		t.Errorf("the two end value bindings share the origin %#v; a run tells bindings apart by it", bindings[0].Origin)
 	}
 	through, ok := bindings[0].ThroughEnds(map[string]string{"a": "s.src", "b": "k.dst"}, nil, Hop{Feature: "i"})
 	if !ok || through.Ends[0].Path != "k.dst.voltage" || !slices.Equal(through.Ends[1].Via, []Hop{{Feature: "i"}}) {

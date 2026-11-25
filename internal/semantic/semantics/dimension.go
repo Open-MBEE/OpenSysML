@@ -12,6 +12,9 @@ import (
 const (
 	fqnScalarQuantityValue = "Quantities::ScalarQuantityValue"
 	fqnMeasurementScale    = "MeasurementReferences::MeasurementScale"
+	fqnIntervalScale       = "MeasurementReferences::IntervalScale"
+	fqnCyclicRatioScale    = "MeasurementReferences::CyclicRatioScale"
+	fqnLogarithmicScale    = "MeasurementReferences::LogarithmicScale"
 
 	memberQuantityDimension    = "quantityDimension"
 	memberQuantityPowerFactors = "quantityPowerFactors"
@@ -19,6 +22,7 @@ const (
 	memberExponent             = "exponent"
 	memberMRef                 = "mRef"
 	memberUnit                 = "unit"
+	memberReferenceQuantity    = "referenceQuantity"
 )
 
 // Dimension is the quantity dimension of a measurement: a product of powers of
@@ -190,6 +194,10 @@ func (m *Model) dimensionOfPoint(scope *symbols.Scope, n *ast.IndexExpr) (Dimens
 	if !ok {
 		return Dimension{}, false
 	}
+	if m.IsCyclicRatioScale(sym) {
+		// A ratio scale's value is a magnitude in the scale's unit, no point.
+		return Dimension{Term: dim, Unit: UnitExprText(n.Index)}, true
+	}
 	return Dimension{Term: dim, Unit: UnitExprText(n.Index), Scale: sym}, true
 }
 
@@ -351,6 +359,16 @@ func (m *Model) quantityValueTypeOf(sym *symbols.Symbol) *symbols.Symbol {
 	return m.quantityValueTypeIn(m.AllSupertypes(sym))
 }
 
+// IsQuantityValueType reports a type properly specializing ScalarQuantityValue: the types a
+// quantity is held as, ScalarQuantityValue itself being what every quantity already is.
+func (m *Model) IsQuantityValueType(sym *symbols.Symbol) bool {
+	if m == nil || sym == nil || sym.IsFeature() {
+		return false
+	}
+	quantity := m.libSymbol(fqnScalarQuantityValue)
+	return quantity != nil && sym != quantity && m.Conforms(sym, quantity)
+}
+
 // quantityValueTypeIn returns the first candidate that is a ScalarQuantityValue
 // definition, or nil. ScalarQuantityValue itself does not count: its measurement
 // reference is any unit, so it fixes no dimension.
@@ -435,12 +453,23 @@ func (m *Model) deriveDimension(sym *symbols.Symbol) (UnitTerm, bool) {
 	return m.inheritedDimension(sym)
 }
 
-// scaleDimension reports the dimension a measurement scale (a TimeScale) measures
-// in: the one of the unit its points are counted in.
+// scaleDimension reports the dimension a measurement scale measures in: its unit's, or for
+// a logarithmic scale its referenceQuantity's, unknown when it binds none.
 func (m *Model) scaleDimension(sym *symbols.Symbol) (UnitTerm, bool) {
 	scale := m.libSymbol(fqnMeasurementScale)
 	if scale == nil || !m.Conforms(sym, scale) {
 		return UnitTerm{}, false
+	}
+	if m.IsLogarithmicScale(sym) {
+		ref, ok := m.LookupMember(sym, memberReferenceQuantity)
+		if !ok || usageValue(ref) == nil || m.referencing[sym] {
+			// A reference written on its own scale (`= 1 [s]` in `s`) measures nothing.
+			return UnitTerm{}, false
+		}
+		m.referencing[sym] = true
+		dim, ok := m.DimensionOfExpr(scopeOf(ref), usageValue(ref))
+		delete(m.referencing, sym)
+		return dim.Term, ok && dim.IsMagnitude()
 	}
 	unit, ok := m.LookupMember(sym, memberUnit)
 	if !ok {

@@ -85,6 +85,24 @@ class ApiIntegrationTest {
   }
 
   @Test
+  void readsAStringAsTheKindOfLookupStated() {
+    Model model =
+        connection.parse(
+            "package Col__V__c_pend0 { part marker; } package Col { port def P; part def V { port q : P; port r : P; connection c connect q to r; } }");
+    String spelling = "Col__V__c_pend0";
+    assertEquals(
+        "package", model.symbol(spelling, SymbolOptions.defaults().lookup(Lookup.QUALIFIED_NAME)).kind());
+    Symbol end = model.symbol(spelling, SymbolOptions.defaults().lookup(Lookup.ELEMENT_ID));
+    assertEquals("connectorEnd", end.kind());
+    assertEquals(spelling, end.id());
+    assertEquals(
+        List.of("connectorEnd", "connectorEnd"),
+        model.symbol("Col::V::c").childIds().stream()
+            .map(id -> model.symbol(id, SymbolOptions.defaults().lookup(Lookup.ELEMENT_ID)).kind())
+            .toList());
+  }
+
+  @Test
   void parsesAFileTheServiceReads() throws Exception {
     Path file = Files.createTempFile("opensysml", ".sysml");
     try {
@@ -1490,6 +1508,79 @@ class ApiIntegrationTest {
   }
 
   @Test
+  void runInlineDocumentQueryAnswersTypedRows() {
+    Model model = connection.load(fixture("document.sysml"));
+    DocumentQueryResult result =
+        model.runInlineDocumentQuery(
+            "Project(WhereType(Descendants(Observatory::telescope), \"PartUsage\"), (\"name\", \"mass\"))");
+    assertEquals(List.of("name", "mass"), result.columns());
+    assertEquals(4, result.rows().size());
+    ServiceException failed =
+        assertThrows(
+            ServiceException.class,
+            () -> model.runInlineDocumentQuery("Project(Named(\"Observatory\") (\"name\"))"));
+    assertTrue(failed.getMessage().contains("inline query 1:"), failed.getMessage());
+  }
+
+  private static Path resultViewFixture() {
+    return Path.of(System.getProperty("user.dir"))
+        .resolve("../../../tests/grpc/testdata/conformance/query_result_view.sysml")
+        .normalize();
+  }
+
+  @Test
+  void queriesAnswerAsResultViews() {
+    Model model = connection.load(resultViewFixture());
+    DocumentQueryResult named =
+        model.runDocumentQueryAsView(
+            "Probe::Self",
+            Map.of("root", List.of(new DocumentValue.ElementRef("Probe::probe::antenna", ""))));
+    assertTrue(named.resultView().contains("view self : QueryResult"), named.resultView());
+    assertTrue(named.resultView().contains("expose Probe::probe::antenna;"), named.resultView());
+    assertEquals("", model.runDocumentQuery("Probe::NoStates").resultView());
+
+    QuerySelection selected = model.queryOslcAsView("oslc.where=sysml:name=\"camera\"");
+    assertEquals(1, selected.elements().size());
+    assertTrue(selected.resultView().contains("expose Probe::probe::camera;"), selected.resultView());
+
+    QueryOutcomeException unknown =
+        assertThrows(
+            QueryOutcomeException.class,
+            () -> model.queryOslcAsView("oslc.where=sysml:nme=\"camera\""));
+    assertTrue(unknown.resultView().contains("Outcome::pathError"), unknown.resultView());
+    QueryOutcomeException twin =
+        assertThrows(
+            QueryOutcomeException.class,
+            () -> model.runDocumentQueryAsView("Probe::Twin", Map.of()));
+    assertTrue(twin.resultView().contains("Outcome::modelError"), twin.resultView());
+    QueryOutcomeException unasked =
+        assertThrows(QueryOutcomeException.class, () -> model.runDocumentQuery("Probe::Twin"));
+    assertEquals("", unasked.resultView());
+  }
+
+  @Test
+  void renderViewRendersAResultViewAsADocument() {
+    Model model = connection.load(resultViewFixture());
+    RenderedView rendered = model.renderView("Probe::heavy", DocumentForm.MARKDOWN);
+    assertEquals(
+        List.of(
+            new RenderedView.HeaderField("query", "Probe::Self root=Probe::probe::antenna"),
+            new RenderedView.HeaderField("source", "probe.sysml"),
+            new RenderedView.HeaderField("outcome", "established"),
+            new RenderedView.HeaderField("provenance", "urn:prov:bundle:heavy")),
+        rendered.header());
+    assertEquals("Probe::probe::antenna", rendered.rows().get(0).cells().get(0));
+    assertTrue(
+        rendered.text().contains("| Probe::probe::antenna | part | Payload | Probe::probe |"),
+        rendered.text());
+    assertEquals("", model.renderView("Probe::heavy").text());
+    ServiceException refused =
+        assertThrows(
+            ServiceException.class, () -> model.renderView("Probe::plain", DocumentForm.HTML));
+    assertTrue(refused.getMessage().contains("unknown rendering form \"html\""));
+  }
+
+  @Test
   void renderDocumentRendersTheNamedDocument() {
     Model model = connection.load(fixture("document.sysml"));
     RenderedDocument rendered = model.renderDocument("Observatory::MassReport");
@@ -2275,5 +2366,223 @@ class ApiIntegrationTest {
     List<String> listed = connection.listEngines().stream().map(EngineInfo::name).toList();
     assertEquals(listed, probed);
     assertTrue(probed.containsAll(List.of("run", "explore", "solve", "sweep")), probed.toString());
+  }
+
+  private static final String ANNOTATED =
+      """
+      package D10 {
+        metadata def FailureMode { attribute severity : ScalarValues::Integer; }
+        #FailureMode part def PumpP;
+        part def PumpB { @FailureMode { severity = 3; } }
+        part def PumpA;
+        metadata pumpA_fm : FailureMode about PumpA { severity = 2; }
+      }
+      """;
+
+  @Test
+  void aSymbolNamesTheMetadataUsagesAnnotatingIt() {
+    assertTrue(connection.capabilities().has(Capabilities.SYMBOL_ANNOTATING_METADATA));
+    Model model = connection.parse(ANNOTATED);
+    assertEquals(List.of("D10::PumpP::@0"), model.symbol("D10::PumpP").annotatingMetadataIds());
+    assertEquals(List.of("D10::PumpB::@0"), model.symbol("D10::PumpB").annotatingMetadataIds());
+    assertEquals(List.of(), model.symbol("D10::pumpA_fm").annotatingMetadataIds());
+
+    Symbol pump = model.symbol("D10::PumpA");
+    assertEquals(List.of(), pump.childIds());
+    assertEquals(List.of("D10::pumpA_fm"), pump.annotatingMetadataIds());
+
+    Symbol usage = model.symbol(pump.annotatingMetadataIds().get(0));
+    assertEquals("metadataUsage", usage.kind());
+    assertEquals(Optional.of("D10::FailureMode"), usage.typeFacts().orElseThrow().resolvedId());
+    Symbol.Attribute severity = usage.attributes().get(0);
+    assertEquals("severity", severity.name());
+    assertEquals(Optional.of(new Value.IntegerValue(2)), severity.value());
+  }
+
+  private static final String MEMBERS =
+      """
+      package Demo {
+        part def Base { part p; }
+        part def Mid :> Base;
+        part m : Mid;
+      }
+      """;
+
+  @Test
+  void aUsageListsTheMembersItInheritsThroughItsType() {
+    assertTrue(connection.capabilities().has(Capabilities.SYMBOL_MEMBERS));
+    Model model = connection.parse(MEMBERS);
+    Symbol m = model.symbol("Demo::m");
+    assertEquals(List.of(), m.childIds());
+    assertEquals(List.of(), m.ownMembers());
+    Symbol.Member p = m.inheritedMembers().get(0);
+    assertEquals("Demo::Base::p", p.id());
+    assertEquals("p", p.name());
+    assertEquals("partUsage", p.kind());
+    assertEquals(Optional.of("Demo::Base"), p.inheritedFrom());
+    assertFalse(p.library());
+    assertTrue(m.members().stream().noneMatch(Symbol.Member::library));
+    assertTrue(m.withheldLibraryMembers() > 0);
+
+    Symbol base = model.symbol("Demo::Base");
+    assertEquals(List.of("Demo::Base::p"), base.childIds());
+    assertEquals(
+        List.of(new Symbol.Member("Demo::Base::p", "p", "partUsage", false, Optional.empty(), false)),
+        base.ownMembers());
+
+    Symbol full = model.symbol("Demo::m", SymbolOptions.defaults().withLibraryMembers(true));
+    assertEquals(0, full.withheldLibraryMembers());
+    // Inheritance order interleaves the library's members with the model's.
+    assertEquals(m.members(), full.members().stream().filter(member -> !member.library()).toList());
+    List<Symbol.Member> library = full.members().stream().filter(Symbol.Member::library).toList();
+    assertEquals(m.withheldLibraryMembers(), library.size());
+    assertTrue(library.stream().allMatch(member -> member.inheritedFrom().isPresent()));
+    // An unnamed library member is listed under a positional id of the type that declares it.
+    Symbol.Member unnamed =
+        library.stream().filter(member -> member.name().isEmpty()).findFirst().orElseThrow();
+    String declaring = unnamed.inheritedFrom().orElseThrow();
+    assertTrue(unnamed.id().startsWith(declaring + "::@"), unnamed.id());
+    assertEquals(unnamed.id(), model.symbol(unnamed.id()).id());
+    assertEquals(unnamed.kind(), model.symbol(unnamed.id()).kind());
+    assertEquals(
+        Optional.of(full),
+        model.findSymbol("Demo::m", SymbolOptions.defaults().withLibraryMembers(true)));
+  }
+
+  private static final String PROPERTIES =
+      """
+      package EP {
+        port def CmdPort { out attribute cmd : ScalarValues::Integer; }
+        part def Unit { port p : CmdPort; }
+        part def Pair :> Unit {
+          part u1 : Unit;
+          part u2 : Unit;
+          connect u1 to u2;
+        }
+      }
+      """;
+
+  @Test
+  void readsAnElementsPropertiesBySpecificationNameAndAcceptsTheIdsBack() {
+    assertTrue(connection.capabilities().has(Capabilities.ELEMENT_PROPERTIES));
+    Model model = connection.parse(PROPERTIES);
+    ElementProperties read =
+        model.elementProperties("EP::Pair", "inheritedFeature", "isAbstract", "connectorEnd");
+    assertEquals("EP::Pair", read.element().qualifiedName());
+    assertEquals("PartDefinition", read.element().metaclass());
+    assertFalse(read.element().id().isEmpty());
+    assertEquals(
+        List.of("inheritedFeature", "isAbstract", "connectorEnd"),
+        read.properties().stream().map(ElementProperties.Property::name).toList());
+    ElementProperties.Property inherited = read.get("inheritedFeature").orElseThrow();
+    assertTrue(inherited.many() && inherited.derived() && inherited.supported());
+    assertEquals("Type", inherited.definingClass());
+    assertEquals("EP::Unit::p", inherited.elements().get(0).qualifiedName());
+    assertEquals(
+        Optional.of(new ElementProperties.PropertyValue.Bool(false)),
+        read.get("isAbstract").orElseThrow().value());
+    ElementProperties.Property none = read.get("connectorEnd").orElseThrow();
+    assertFalse(none.supported());
+    assertTrue(none.unsupported().orElseThrow().contains("declares no property connectorEnd"));
+
+    ElementProperties byId = model.elementProperties(read.element().id(), "isAbstract");
+    assertEquals(read.element(), byId.element());
+    ElementProperties port = model.elementProperties(inherited.elements().get(0).id(), "direction");
+    assertEquals("EP::Unit::p", port.element().qualifiedName());
+    ElementProperties connector = model.elementProperties("EP::Pair::@2", "connectorEnd");
+    assertEquals("ConnectionUsage", connector.element().metaclass());
+    assertEquals(2, connector.get("connectorEnd").orElseThrow().elements().size());
+    ElementProperties whole = model.elementProperties("EP::CmdPort::cmd");
+    assertTrue(whole.has("direction") && whole.has("isComposite") && whole.has("owner"));
+
+    SymbolNotFoundException missing =
+        assertThrows(
+            SymbolNotFoundException.class, () -> model.elementProperties("EP::Nope", "name"));
+    assertEquals("EP::Nope", missing.name());
+  }
+
+  @Test
+  void anObjectSaysHowItWasReachedAndEveryPathToIt() {
+    assertTrue(connection.capabilities().has(Capabilities.INSTANCE_PATHS));
+    Model model = connection.parse(VEHICLE);
+    Instantiation built = model.instantiate("Demo::sedan");
+    Instance root = built.root();
+    assertEquals(Optional.empty(), root.reachedBy());
+    assertEquals(Optional.empty(), built.owner(root));
+    assertEquals("", root.path());
+    Value.InstanceReference reference =
+        (Value.InstanceReference) root.featureValues().get("engine").value().orElseThrow();
+    Instance engine = built.resolve(reference).orElseThrow();
+    Instance.Reach reach = engine.reachedBy().orElseThrow();
+    assertEquals(root.id(), reach.instanceId());
+    assertEquals("engine", reach.featureName());
+    assertEquals("Demo::Vehicle::engine", reach.featureSymbolId());
+    assertEquals(0, reach.index());
+    assertEquals("engine", reach.path());
+    assertEquals("engine", engine.path());
+    assertEquals(Optional.of(new Value.InstanceReference(root.id())), engine.owner());
+    assertEquals(Optional.of(root), built.owner(engine));
+
+    InstancePaths paths = model.instancePaths(engine);
+    assertFalse(paths.truncated());
+    InstancePaths.Path path = paths.paths().get(0);
+    assertEquals(root.id(), path.rootInstanceId());
+    assertEquals(Optional.of("Demo::sedan"), path.rootSymbolId());
+    assertEquals("engine", path.path());
+    assertEquals(
+        List.of(new InstancePaths.Step("engine", "Demo::Vehicle::engine", 0, engine.id())),
+        path.steps());
+    assertEquals(paths, model.instancePaths(engine.id()));
+    assertEquals(paths, model.instancePaths("Demo::sedan.engine"));
+    assertEquals("", model.instancePaths(root).paths().get(0).path());
+
+    ServiceException missing =
+        assertThrows(ServiceException.class, () -> model.instancePaths(Long.MAX_VALUE));
+    assertEquals(StatusCode.NOT_FOUND, missing.status());
+  }
+
+  @Test
+  void theNewReadsAreRefusedBeforeAskingAServiceWithoutTheirCapabilities() throws Exception {
+    HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+    server.createContext(
+        "/",
+        exchange -> {
+          exchange.getRequestBody().readAllBytes();
+          if (!exchange.getRequestURI().getPath().endsWith("/GetServerInfo")) {
+            throw new IllegalStateException("the client asked " + exchange.getRequestURI());
+          }
+          byte[] body =
+              org.openmbee.opensysml.proto.ServerInfoResponse.newBuilder()
+                  .setVersion("test")
+                  .build()
+                  .toByteArray();
+          exchange.getResponseHeaders().add("Content-Type", "application/proto");
+          exchange.sendResponseHeaders(200, body.length);
+          try (OutputStream output = exchange.getResponseBody()) {
+            output.write(body);
+          }
+        });
+    server.start();
+    try (Connection older =
+        Connection.open(
+            ConnectionOptions.builder()
+                .service("127.0.0.1", server.getAddress().getPort())
+                .build())) {
+      Model model = new Model(older, "hash", List.of(), List.of());
+      SymbolOptions library = SymbolOptions.defaults().withLibraryMembers(true);
+      assertEquals(
+          Capabilities.SYMBOL_MEMBERS,
+          assertThrows(CapabilityException.class, () -> model.symbol("Demo::m", library))
+              .capability());
+      assertEquals(
+          Capabilities.ELEMENT_PROPERTIES,
+          assertThrows(CapabilityException.class, () -> model.elementProperties("Demo::m"))
+              .capability());
+      assertEquals(
+          Capabilities.INSTANCE_PATHS,
+          assertThrows(CapabilityException.class, () -> model.instancePaths(1)).capability());
+    } finally {
+      server.stop(0);
+    }
   }
 }

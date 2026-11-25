@@ -27,13 +27,14 @@ config:
     transitionLabelColor: "#000000"
     labelBackgroundColor: "#FFFFFF"
     specialStateColor: "#181818"
+title: "«view» FoldedBehaviors::states : StateTransitionView"
 ---
 %% FoldedBehaviors::states — state rendering (view def StateTransitionView)
 %% layout: n2 collapsed
 stateDiagram-v2
-  state "«state def» Machine" as n0 {
+  state "«state def» Machine<br>state transition" as n0 {
     state "«state»<br>idle<br>initial" as n1
-    state "«state»<br>running" as n2
+    state "«state»<br>running<br>state transition" as n2
       note right of n2
         runs until hot
       end note

@@ -1,0 +1,19 @@
+FurnaceViews::burnerTree - tree rendering (view def GeneralView)
+
+state def Burner
+  attribute flame
+  action usage
+  succession usage
+  state off
+  state running
+    entry action ignite
+    exit action
+    do action
+      assignment action usage
+    state low
+    state high
+  transition
+  succession
+
+relationships:
+  Burner o-- flame

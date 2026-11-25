@@ -3420,7 +3420,7 @@ number rather than quoting the table.
   than trusting either. Count **first-level** subtests: `variant_connection_per_owner` registers one
   sub-subtest per owner, so counting every `=== RUN` line reported 299 conformance cases where 297
   fixtures exist, and inflated the robustness row from 173 to 199. Four documents are allowed to
-  state counts (`docs/project/spec-compliance.md`, `README.md`, `docs/project/roadmap.md`,
+  state counts (the `docs/project/spec-compliance/` sources, `README.md`, `docs/project/roadmap.md`,
   `docs/project/training-examples.md`) and must be updated in one commit; anywhere else, link to
   spec-compliance rather than adding a fifth copy.
 - **Error-class claims: check the export path.** A class can exist in `opensysml.errors` and be absent
@@ -4019,10 +4019,12 @@ for f in $(grep -rl 'state def\|state .*{' --include=*.sysml examples \
 done
 ```
 
-Error-timing contract worth re-checking whenever this area moves: a structurally empty
-`state def Empty { }` must `-validate` **clean** (exit 0) and only fail at
-`-state Empty` with `failed to create executor: initialize state machine: no initial state found in
-state machine Empty`. A check-time complaint there would be the regression.
+Error-timing contract worth re-checking whenever this area moves: a machine that
+declares substates and no entry into them (`state def NoEntry { state a; state b; }`) must `-validate`
+**clean** (exit 0) and only fail at `-state NoEntry` with `failed to create executor: initialize state
+machine: no initial state found in state machine NoEntry`. A check-time complaint there would be the
+regression. A structurally empty `state def Empty { }` declares no substate and starts: it is active in
+itself, with `Current state: <none>`.
 
 Two message hygiene probes: grep the diagnostics for `ast\.|StateNode|%!` (must be zero hits — the
 messages come from `lower.NotAVertexFormat`/`VertexKind`, not `%T`), and endpoints written as deep
@@ -4401,7 +4403,7 @@ part def Machine {
 
 `%state …::modes`, `%advance 5`, `%current` → still `Current state: idle` (nothing in
 `RunToCompletion` polls change events; documented as ⚠️ Approximate in
-`docs/project/spec-compliance.md`). A unit-carrying time trigger (`accept after 5 [SI::s]`) fails
+the `docs/project/spec-compliance/` sources). A unit-carrying time trigger (`accept after 5 [SI::s]`) fails
 with the typed `initialize state machine: schedule events: time duration must be constant, got
 quantity`, while the unitless `accept after 5` fires at t=5 — that pair is the cheapest way to show
 the feature is absent-but-typed rather than half-present.
@@ -4570,7 +4572,11 @@ below was observed at 41dc35cb with `/usr/bin/z3` 4.8.12; `bin/sysml` needs no e
 - **Quantities come back in base units**, as with `%check`: `10 [kg] .. 90 [kg]` minimized reads
   `10000.0 [gram]`. Mixed units in one case (`>= 500 [g]`, `<= 2 [kg]`) are reconciled correctly
   (`2000.0 [gram]`) — a good adversarial case that a naive translation would get wrong.
-- **Bad input:** `%optimize` alone → `usage: %optimize <name>`; an unknown name →
+- **`-json`:** `%optimize <name> -json` and `%configure <name> ... -json` (the flag anywhere after
+  the command) print one JSON document and no prose: `command`, and per report `subject`, `status`,
+  `solver`, `values` (a quantity's magnitude with `unit`/`dimension` apart), `lines`, plus `optima`
+  or `selections`/`truncated`. Compare `lines` with the text run to see nothing is lost.
+- **Bad input:** `%optimize` alone → `usage: %optimize <name> [-json]`; an unknown name →
   `error: unresolved reference: X`; a package/part def/constraint def →
   `error: not an analysis case: X is a <kind>, not an analysis case definition or usage`
   (the article follows the kind's first letter, `articleFor` in `internal/exec/runtime/describe.go`).
@@ -5084,7 +5090,7 @@ wildcard `import R::Widget::*;` (must not change), a same-named member in an unr
 (`bin/sysml -validate`) and that it is *not* byte-identical to the input (catches a silent no-op).
 
 **Query property names are JSON-LD-ish:** `@id` and `@type`, not `id`/`type`. Requesting an unknown
-property returns an error listing the valid set. `isIndividual` is **not** in `QueryPropertyNames()`
+property returns an error listing the valid set. `isIndividual` is **not** in `query.PropertyNames()`
 — individual status is only observable through `@type` = `OccurrenceDefinition`/`OccurrenceUsage`.
 If a PR description claims `isIndividual`, verify whether it is a queryable property or only a
 type refinement, and report the difference.
@@ -5955,17 +5961,20 @@ The shape that actually distinguishes working from broken:
 
 ## The embedded stdlib snapshot: proving the fast path and the fallback are both live (PR #776)
 
-`libs.SharedBase()` decodes `internal/workspace/libs/stdlib.snapshot` instead of parsing the 97 bundled
-library files, and falls back to parsing when the snapshot's recorded digest, format version or
-stream structure does not match. `bin/sysml -memstats -e '2+3' model.sysml` is the whole
-instrument: the two paths differ by an order of magnitude in allocations, so the memstats line
-tells you which one ran without any debug flag.
+`libs.SharedBase()` decodes `internal/workspace/libs/stdlib.snapshot` instead of parsing the 97
+bundled library files, and falls back to parsing when the snapshot's recorded digest, format version
+or stream structure does not match. The snapshot is generated, not committed: `make build-sysml`
+(every Makefile build and test target) runs `make stdlib-snapshot` first, while a plain `go build` or a
+`go install …@version` from the module proxy embeds none and always parses. `bin/sysml -memstats -e
+'2+3' model.sysml` is the whole instrument: the two paths differ by an order of magnitude in
+allocations, so the memstats line tells you which one ran without any debug flag.
 
 | path | how to force it | expected memstats (b7cfcf19) |
 |---|---|---|
-| snapshot | default, or `OPENSYSML_LIBRARY_PATH=<byte-identical copy of internal/workspace/libs/stdlib>` | 13–17 ms, ~67k allocations |
+| snapshot | `make build-sysml`, or `OPENSYSML_LIBRARY_PATH=<byte-identical copy of internal/workspace/libs/stdlib>` | 13–17 ms, ~67k allocations |
 | parse fallback | `OPENSYSML_LIBRARY_PATH=<copy with one comment appended to any .kerml>` | ~70 ms warm / ~220 ms cold cache, ~455k allocations |
-| structurally corrupt blob | worktree, truncate `stdlib.snapshot`, `make build-sysml` | `WARN stdlib snapshot unreadable … pack: corrupt stream`, then the fallback numbers |
+| no snapshot embedded | `rm internal/workspace/libs/stdlib.snapshot internal/workspace/libs/snapshot_embedded.go && go build -o /tmp/sysml ./cmd/sysml` (what `go install` ships) | the fallback numbers and no WARN from `sysml`; `sysml-grpc -log-level debug` logs `no stdlib snapshot embedded` |
+| structurally corrupt blob | truncate `internal/workspace/libs/stdlib.snapshot`, then `go build` (not `make`, which regenerates it) | `WARN stdlib snapshot unreadable … pack: corrupt stream`, then the fallback numbers |
 
 - The unmodified-copy case is the one that catches a digest computed over the *path* instead of
   the *content*: it must be as fast as the default, not as slow as the edited copy.

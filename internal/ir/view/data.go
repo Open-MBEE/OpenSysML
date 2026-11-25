@@ -23,12 +23,16 @@ type Data struct {
 	// Columns and Rows are the tabular rendering, empty for every other kind.
 	Columns []string
 	Rows    []RowData
+	// Header is what a query-result rendering states about its run.
+	Header []HeaderField `json:",omitempty"`
 	// Lanes are a run timeline's object machines.
 	Lanes []Lane
 	// Canvas is the drawing surface the view states, nil for none.
 	Canvas *Canvas
 	// Notes are the note boxes drawn on the canvas, anchored to a node ID or free.
 	Notes []Note
+	// Frame is the view frame drawn round the rendering, nil for none.
+	Frame *Frame `json:",omitempty"`
 	// Shown names the optional notation elements the rendering draws.
 	Shown []string
 	// Notices are what the rendering could not represent and, when it has no
@@ -55,6 +59,10 @@ type NodeData struct {
 	// typing, subclassification or subsetting rather than declares; the notation
 	// prefixes its name with `^`. Name stays the bare name.
 	Inherited bool `json:",omitempty"`
+	// Arrow is "right" or "left" on an item box drawn on a connection line.
+	Arrow string `json:",omitempty"`
+	// Parallel marks a state whose substates run in parallel, «parallel» in its name compartment.
+	Parallel bool `json:",omitempty"`
 	// Ports are the pins drawn on the node's border, which an edge may end at.
 	Ports []Port
 	// Parent is the ID of the node this one is nested in, "" for a root.
@@ -124,14 +132,16 @@ func (r *Rendering) data(ports *portView) Data {
 		Run:      r.Run,
 		RunUntil: r.RunUntil,
 		Columns:  r.Columns,
+		Header:   r.Header,
 		Lanes:    r.Lanes,
 		Canvas:   r.Canvas,
 		Notes:    r.Notes,
+		Frame:    r.Frame,
 		Shown:    r.Shown.Names(),
-		Notices:  r.Notices,
+		Notices:  r.notices(),
 	}
 	if refusals := refusedPictureNotices(r.Pictures, r.pictureRefusals()); len(refusals) > 0 {
-		out.Notices = append(append([]string(nil), r.Notices...), refusals...)
+		out.Notices = append(append([]string(nil), out.Notices...), refusals...)
 	}
 	// A consumer given no node, edge, row or lane is told why, rather than left to show nothing.
 	if r.blank() {
@@ -166,8 +176,8 @@ func appendNodeData(out []NodeData, node *Node, parent string, ports *portView) 
 	}
 	out = append(out, NodeData{
 		ID: node.ID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized, Type: node.Type, Detail: node.Detail,
-		Text: node.Text, StandIn: node.StandIn, Inherited: node.Inherited, Ports: nodePorts, Parent: parent, Origin: node.Origin,
-		Geometry: node.Geometry, Style: node.Style, Verdict: node.Verdict,
+		Text: node.Text, StandIn: node.StandIn, Inherited: node.Inherited, Parallel: node.Parallel, Ports: nodePorts, Parent: parent, Origin: node.Origin,
+		Geometry: node.Geometry, Style: node.Style, Verdict: node.Verdict, Arrow: node.Arrow,
 	})
 	for _, compartment := range node.Compartments {
 		for _, row := range compartment.Rows {

@@ -2,8 +2,9 @@
 
 `sysml-lsp` implements the Language Server Protocol over standard input and output, so any editor
 with a generic LSP client can use it. The VS Code extension in
-[editors/vscode](../../editors/vscode) also adds `.sysml` and `.kerml` syntax
-highlighting; editors built on Tree-sitter get theirs from
+[editors/vscode](../../editors/vscode) and the [Emacs package](#emacs) in
+[editors/emacs](../../editors/emacs) also add `.sysml` and `.kerml` syntax
+highlighting, generated from the same keyword lists; editors built on Tree-sitter get theirs from
 [tree-sitter-sysml](https://github.com/Open-MBEE/tree-sitter-sysml), see
 [Helix, Neovim and Zed](#helix-neovim-and-zed).
 
@@ -12,13 +13,16 @@ highlighting; editors built on Tree-sitter get theirs from
 The VS Code extension in [editors/vscode](../../editors/vscode) provides
 syntax highlighting for `.sysml` and `.kerml` and an LSP client that launches
 `sysml-lsp`. It is not published to any marketplace, so you side-load it: either
-the `opensysml-sysml.vsix` the [nightly snapshot](../project/nightly.md) attaches,
-packaged from `develop` every night,
+the `opensysml.vsix` of the [latest release](../downloads.md#editor-plugins) (or the one the
+[nightly snapshot](../project/nightly.md) attaches, packaged from `develop` every night),
 
 ```bash
-curl -fsSLO https://github.com/Open-MBEE/OpenSysML/releases/download/nightly/opensysml-sysml.vsix
-code --install-extension opensysml-sysml.vsix
+curl -fsSLO https://github.com/Open-MBEE/OpenSysML/releases/latest/download/opensysml.vsix   # or releases/download/nightly/opensysml.vsix
+code --install-extension opensysml.vsix
 ```
+
+An install of the extension's former id, `open-mbee.opensysml-sysml`, is a different extension
+to VS Code: uninstall it first (`code --uninstall-extension open-mbee.opensysml-sysml`).
 
 or one you build yourself from a checkout:
 
@@ -26,8 +30,8 @@ or one you build yourself from a checkout:
 make build                                    # builds bin/sysml-lsp
 cd editors/vscode
 npm install
-npm run package                               # -> opensysml-sysml.vsix
-code --install-extension opensysml-sysml.vsix
+npm run package                               # -> opensysml.vsix
+code --install-extension opensysml.vsix
 ```
 
 Opening any `.sysml` file highlights it immediately, and the extension starts the first server it
@@ -71,6 +75,17 @@ stays on one line and only indentation and spacing are fixed — turn on the ext
 `sysml.keepLineBreaks` ([LSP extensions](../reference/lsp.md#keep-line-breaks-setting)) at
 start and again whenever it changes, with no restart. Another editor sets the same setting, or
 starts the server with `sysml-lsp -keep-line-breaks`.
+
+### Member summaries in hovers
+
+Hovering a definition or usage — or a reference to one, such as the type of a usage being
+written — lists its members under its signature and documentation: kind, name, type and
+multiplicity, one per line. The extension's `opensysml.hover.memberLimit` setting (default 10)
+caps the list, a closing line counting what was left out, and 0 turns the summary off;
+`opensysml.hover.inheritedMembers` adds the members the element inherits, grouped under the
+type each comes from. Both reach the running server with no restart, as `sysml.hoverMemberLimit`
+and `sysml.hoverInheritedMembers` ([LSP extensions](../reference/lsp.md#hover-member-summary-settings)),
+which another editor sets directly. Notebook cells show the same summary.
 
 ### Working inside a package-manager project
 
@@ -260,8 +275,8 @@ import resolves as it does in the editor. A file outside every folder runs alone
 binary is looked for beside the `sysml-lsp` in use,
 then in an open workspace's `bin/`, then on `PATH`. Inside a call's argument list the
 parameter list of what it calls appears as you type, and inlay hints show the type a feature
-declared without one is inferred to have and the constant a value evaluates to from the model
-alone (<kbd>Ctrl</kbd>+<kbd>Alt</kbd> toggles them when `editor.inlayHints.enabled` is
+declared without one inherits from what it redefines or subsets (else the type of its value)
+and the constant a value evaluates to from the model alone (<kbd>Ctrl</kbd>+<kbd>Alt</kbd> toggles them when `editor.inlayHints.enabled` is
 `offUnlessPressed`).
 
 #### Importing a layout from draw.io
@@ -279,6 +294,57 @@ is not valid or already taken, an emptied note and a picture given embedded data
 the view's directory. The same import is
 `sysml model.sysml -import-diagram view.drawio -dry-run` on the command line, which prints the
 planned edits and a diff first.
+
+## Emacs
+
+The Emacs package in [editors/emacs](../../editors/emacs) has three parts, each
+usable without the next: `sysml-mode` and `kerml-mode` (highlighting, indentation,
+comments, imenu; Emacs 29.1+), `sysml-lsp` (an
+[lsp-mode](https://emacs-lsp.github.io/lsp-mode/) client for `sysml-lsp`), and
+`sysml-diagram` (a buffer showing a view of the model). It is loaded from the
+checkout rather than installed from MELPA:
+
+```elisp
+(use-package sysml-mode
+  :load-path "~/src/OpenSysML/editors/emacs"
+  :mode (("\\.sysml\\'" . sysml-mode)
+         ("\\.kerml\\'" . kerml-mode)))
+
+(use-package sysml-lsp
+  :load-path "~/src/OpenSysML/editors/emacs"
+  :after lsp-mode
+  :demand t
+  :hook ((sysml-mode kerml-mode) . lsp-deferred))
+
+(use-package sysml-diagram
+  :load-path "~/src/OpenSysML/editors/emacs"
+  :after sysml-lsp
+  :bind (:map sysml-base-mode-map ("C-c C-v" . sysml-diagram-show)))
+```
+
+The server is found as the VS Code extension finds it: `sysml-lsp-server-path`,
+then `bin/sysml-lsp` in the project root, then `sysml-lsp` on `exec-path`.
+
+- **Highlighting** colours each keyword group — declarations, behaviour,
+  modifiers, relationships, word operators — with its own customizable face, plus
+  declared names, type references and quoted names. With the server attached, its
+  semantic tokens colour names by what they resolve to, and leave the keyword
+  groups their faces.
+- **Indentation** follows the formatter's rule, so `TAB` and
+  `lsp-format-buffer` agree: one level per brace, one more for a line continuing
+  the statement above.
+- **Strict conformance** is `sysml-lsp-strict-conformance`, sent as
+  `sysml.strictConformance`; setting it republishes every open document's
+  diagnostics without a restart.
+- **`M-x sysml-diagram-show`** is the counterpart of [the diagram
+  panel](#the-diagram-panel): the same renderings, drawn as a tree of elements
+  with their edges and what could not be represented. `RET` on an element visits
+  its declaration, moving point in the model highlights the element around it,
+  and it redraws as the model is typed, keeping the last good view when a
+  keystroke breaks it. `i` draws a picture with the Mermaid CLI when one is
+  installed.
+
+`editors/emacs/README.md` documents every face, setting and key.
 
 ## Helix, Neovim and Zed
 
@@ -381,7 +447,11 @@ same way, so its imports of sibling files resolve rather than being reported unr
 
 - ✅ Document synchronization, incremental (`textDocumentSync.change: 2`)
 - ✅ Diagnostics (syntax + semantic errors, published on open and on change)
-- ✅ Hover (symbol info, type, multiplicity)
+- ✅ Hover (symbol info, type, multiplicity, and the element's documentation: the bodies of the
+  `doc` members it owns, in declaration order, then any `//` or `//* ... */` notes written directly
+  above its declaration; a bare `/* ... */` there is a comment of the enclosing namespace, not shown;
+  then a summary of its members up to a configurable limit, optionally with the inherited ones
+  under their origin)
 - ✅ Go-to-definition (cross-document navigation, into the bundled standard library as
   `sysml-stdlib:` documents)
 - ✅ Find references (workspace-wide search)
@@ -444,9 +514,11 @@ same way, so its imports of sibling files resolve rather than being reported unr
   `opensysml.runElement` with the document URI, the element's qualified name and its kind;
   the VS Code extension implements it, and another client registers a command of that name
 - ✅ Inlay hints (`textDocument/inlayHint`): after the name of a feature declared without a
-  type, the type it is inferred to have — that of its value, else what the features it
-  redefines or subsets give it — when it is more specific than `DataValue`, the result the
-  `DataFunctions` operators declare for arithmetic; after a feature's non-literal value, the constant it
+  type, the types the features it redefines, subsets or references give it (KerML 8.3.3.3.4
+  `deriveFeatureType`, the most specific of them, comma-separated when there are several), else
+  the type of its value when that is more specific than `DataValue`, the result the
+  `DataFunctions` operators declare for arithmetic; the tooltip says which of the two it is. Hover
+  on such a declaration and its completion detail state the same inherited types; after a feature's non-literal value, the constant it
   evaluates to from the model alone (`attribute twice = base * 2;` shows `= 20.0` when `base`
   is a package-level `10.0`). A value that reads an instance's feature gets no hint, since
   the model alone does not fix it. Only the declarations in the requested range are read, so

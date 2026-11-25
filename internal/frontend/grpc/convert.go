@@ -19,6 +19,12 @@ func SymbolToProtoIn(sym *symbols.Symbol, sc *symbolfacts.Context) *pb.SymbolInf
 	return infoToProto(symbolfacts.Of(sym, sc), sc.Index)
 }
 
+// SymbolToProtoWith is SymbolToProtoIn with the options selecting what else
+// the facts report.
+func SymbolToProtoWith(sym *symbols.Symbol, sc *symbolfacts.Context, opts symbolfacts.Options) *pb.SymbolInfo {
+	return infoToProto(symbolfacts.OfWith(sym, sc, opts), sc.Index)
+}
+
 func infoToProto(info *symbolfacts.Info, idx *symbols.Index) *pb.SymbolInfo {
 	if info == nil {
 		return nil
@@ -30,19 +36,35 @@ func infoToProto(info *symbolfacts.Info, idx *symbols.Index) *pb.SymbolInfo {
 		Metadata:                  info.Metadata,
 		ChildIds:                  info.ChildIds,
 		WithheldLibraryAttributes: info.WithheldLibraryAttributes,
+		WithheldLibraryMembers:    info.WithheldLibraryMembers,
+		AnnotatingMetadataIds:     info.AnnotatingMetadataIds,
+	}
+	for _, member := range info.Members {
+		out.Members = append(out.Members, &pb.MemberInfo{
+			Id:            member.Id,
+			Name:          member.Name,
+			Kind:          member.Kind,
+			Inherited:     member.Inherited,
+			InheritedFrom: member.InheritedFrom,
+			Library:       member.Library,
+		})
 	}
 	if info.Attributes != nil {
 		out.Attributes = make([]*pb.AttributeInfo, 0, len(info.Attributes))
 	}
 	if t := info.TypeInfo; t != nil {
 		out.TypeInfo = &pb.TypeInfo{
-			Declared:        t.Declared,
-			ResolvedId:      t.ResolvedId,
-			ResolvedKind:    t.ResolvedKind,
-			Primitive:       t.Primitive,
-			PrimitiveSource: t.PrimitiveSource,
-			Quantity:        t.Quantity,
-			Unit:            t.Unit,
+			Declared:              t.Declared,
+			ResolvedId:            t.ResolvedId,
+			ResolvedQualifiedName: t.ResolvedQualifiedName,
+			ResolvedKind:          t.ResolvedKind,
+			Primitive:             t.Primitive,
+			PrimitiveSource:       t.PrimitiveSource,
+			Quantity:              t.Quantity,
+			Unit:                  t.Unit,
+		}
+		for _, ref := range t.Types {
+			out.TypeInfo.Types = append(out.TypeInfo.Types, &pb.TypeRef{Id: ref.Id, Kind: ref.Kind})
 		}
 	}
 	if m := info.Multiplicity; m != nil {
@@ -51,6 +73,7 @@ func infoToProto(info *symbolfacts.Info, idx *symbols.Index) *pb.SymbolInfo {
 	for _, spec := range info.Specializations {
 		out.Specializations = append(out.Specializations, &pb.Specialization{
 			Kind: spec.Kind, Declared: spec.Declared, TargetId: spec.TargetId, TargetKind: spec.TargetKind,
+			TargetQualifiedName: spec.TargetQualifiedName,
 		})
 	}
 	for _, attribute := range info.Attributes {

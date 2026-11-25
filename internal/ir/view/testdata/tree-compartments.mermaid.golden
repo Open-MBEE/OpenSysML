@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» AmplifierViews::positioned"
 ---
 %% AmplifierViews::positioned — tree rendering (render asTreeDiagram)
 %% not represented: 10 node(s) without a position, drawn as compartment rows of the node above them, and 1 node(s) under them left undrawn
@@ -53,7 +54,7 @@ Slot`"]
 **Housing**`"]
   n13["`*«enum def»*
 **Band**
-enumerations
+enums
 low
 high`"]
   n0 ---|"◆"| n5

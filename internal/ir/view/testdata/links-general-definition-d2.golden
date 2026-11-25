@@ -33,3 +33,5 @@ n11 -> n8: { class: specialization; link: "https://example.test/src/general.sysm
 n5 <- n11: { class: reference; link: "https://example.test/src/general.sysml#L15" }
 n12 -> n8: { class: specialization; link: "https://example.test/src/general.sysml#L18" }
 n6 <- n12: { class: reference; link: "https://example.test/src/general.sysml#L18" }
+frame_name: "«view» GeneralViews::definitionView : GeneralView" { shape: text; near: top-left }
+frame_tr: "expose VehicleStructure**[@SysML::Definition or @SysML::Usage]" { shape: text; near: top-right }

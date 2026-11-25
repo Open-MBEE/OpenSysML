@@ -88,6 +88,9 @@ func runMigrate(files []string) (int, error) {
 	if err := writeConverted(input, to, made); err != nil {
 		return 0, err
 	}
+	if made.empty != "" {
+		return exitPartial, nil
+	}
 	return exitHolds, nil
 }
 
@@ -115,7 +118,7 @@ func migrateFlagsMisuse(input string) error {
 
 // migrateInput runs the migration -migrate asks for. Its report and results
 // are written by the sidecars, once the destination has taken the model.
-func migrateInput(name string, data []byte, _ convert.Format, to convert.Format) (produced, error) {
+func migrateInput(name string, data []byte, _, to convert.Format) (produced, error) {
 	migOpts, err := migrationOptions()
 	if err != nil {
 		return produced{}, err
@@ -127,6 +130,7 @@ func migrateInput(name string, data []byte, _ convert.Format, to convert.Format)
 	return produced{
 		out:   migrated.Output,
 		files: migrated.Files,
+		empty: migrated.Report.NothingWritten(),
 		sidecars: func() error {
 			if err := writeMigrationReport(migrated.Report); err != nil {
 				return err

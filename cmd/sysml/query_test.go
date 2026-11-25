@@ -41,6 +41,26 @@ func TestQueryFlagIdentifiesUnnamedSatisfyAndItsEnds(t *testing.T) {
 	}
 }
 
+// A member declared `'@2'` and the unnamed member at position 2 are reported under identities of their own.
+func TestQueryFlagKeepsDeclaredPositionalNameApartFromUnnamedMember(t *testing.T) {
+	binary := buildCLI(t)
+	model := filepath.Join(t.TempDir(), "model.sysml")
+	const queryModel = `package C { part def A; part '@2' : A; part : A; part 'it\'s' : A; }`
+	if err := os.WriteFile(model, []byte(queryModel), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out := run(t, binary, "-query", `oslc.where=rdf:type="PartUsage"&oslc.select=sysml:elementId,sysml:qualifiedName`, model)
+	for _, want := range []string{
+		"C::'@2'  PartUsage  sysml:elementId=C___27_402_27  sysml:qualifiedName=C::@2\n",
+		"C::@2  PartUsage  sysml:elementId=C___402\n",
+		"sysml:qualifiedName=C::it's\n",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("query output = %s, want it to contain %q", out, want)
+		}
+	}
+}
+
 func TestQueryFlagReportsNoMatchOnStderr(t *testing.T) {
 	binary := buildCLI(t)
 	model := filepath.Join(t.TempDir(), "model.sysml")
@@ -87,11 +107,11 @@ func TestQueryFlagRefusesWildcardValue(t *testing.T) {
 		t.Fatal(err)
 	}
 	outcome := runCommand(t, exec.Command(binary, "-query", `sysml:name=*`, model))
-	if outcome.status == 0 || !strings.Contains(outcome.stderr, "value wildcards are not implemented") {
+	if outcome.status == 0 || !strings.Contains(outcome.stderr, "'*' value on \"name\" is a wildcard") {
 		t.Fatalf("outcome = %#v", outcome)
 	}
-	out := run(t, binary, "-query", `oslc.where=sysml:multiplicityUpper%3D*&oslc.select=sysml:multiplicityUpper`, model)
-	if !strings.Contains(out, "Demo::wheel  PartUsage  sysml:multiplicityUpper=*") {
+	out := run(t, binary, "-query", `oslc.where=sysx:multiplicityUpper%3D*&oslc.select=sysx:multiplicityUpper`, model)
+	if !strings.Contains(out, "Demo::wheel  PartUsage  sysx:multiplicityUpper=*") {
 		t.Fatalf("query output = %s", out)
 	}
 }
@@ -106,5 +126,45 @@ func TestQueryFlagRejectsConversion(t *testing.T) {
 	outcome := runCommand(t, exec.Command(binary, "-query", `rdf:type="PartUsage"`, "-convert", "ttl", model))
 	if outcome.status == 0 || !strings.Contains(outcome.stderr, "mutually exclusive") {
 		t.Fatalf("outcome = %#v", outcome)
+	}
+}
+
+// A doc or rep element reports its own body (and locale or language), and the
+// element owning it reports the body as its documentation or textualRepresentation.
+func TestQueryFlagReportsAnnotationBodies(t *testing.T) {
+	binary := buildCLI(t)
+	model := filepath.Join(t.TempDir(), "model.sysml")
+	const queryModel = `package Model {
+    metadata def m {
+        attribute a default "a";
+    }
+    part <a> aaaa {
+        doc /*Documentation*/
+        @m {
+            a := "aa";
+        }
+        port p;
+    }
+    part <b> bbb {
+        rep language "rus"
+            /*Textual representation*/
+        port p;
+    }
+    interface connect (a.p, b.p);
+}`
+	if err := os.WriteFile(model, []byte(queryModel), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out := run(t, binary, "-query", `oslc.select=sysml:textualRepresentation,sysml:documentation,sysml:body,sysml:language,sysml:locale`, model)
+	for _, want := range []string{
+		"Model::aaaa  PartUsage  sysml:documentation=Documentation\n",
+		"Model::aaaa::@0  Documentation  sysml:body=Documentation\n",
+		"Model::bbb  PartUsage  sysml:textualRepresentation=Textual representation\n",
+		"Model::bbb::@0  TextualRepresentation  sysml:body=Textual representation  sysml:language=rus\n",
+		"Model::m  MetadataDefinition\n",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("query output = %s, want it to contain %q", out, want)
+		}
 	}
 }

@@ -22,6 +22,13 @@ console.log('GetSymbol', globalThis.sysmlCore.call('GetSymbol', JSON.stringify({
 	modelHash: parsed.modelHash,
 	symbolId: 'CoreValidation::two',
 })));
+const unnamed = JSON.parse(globalThis.sysmlCore.call('ParseSources', JSON.stringify({
+	documents: [{ name: 'unnamed.sysml', content: 'package Demo { part def Item; part : Item; }' }],
+}))).result;
+console.log('GetSymbolPositional', globalThis.sysmlCore.call('GetSymbol', JSON.stringify({
+	modelHash: unnamed.modelHash,
+	symbolId: 'Demo',
+})));
 console.log('malformed', globalThis.sysmlCore.call('ParseSources', '{'));
 console.log('afterMalformed', globalThis.sysmlCore.call('GetDiagnostics', JSON.stringify({ modelHash: parsed.modelHash })));
 console.log('Evaluate', globalThis.sysmlCore.call('Evaluate', '{}'));

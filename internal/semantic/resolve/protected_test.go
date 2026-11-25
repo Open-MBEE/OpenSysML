@@ -249,21 +249,21 @@ func TestExposeReachesASpecializingView(t *testing.T) {
 	idx := indexOf(t, map[string]string{
 		"lib.sysml": protectedLib,
 		"app.sysml": `package App {
-			view def V { expose Lib::*; }
-			view def W :> V;
-			view w : V;
+			view v { expose Lib::*; }
+			view w :> v;
+			view x :> w;
 		}`,
 	})
 	app := scopeOf(t, idx.DocumentRoot("app.sysml"), "App")
 
 	r := resolverWithSpecializations(idx)
-	if _, ok := r.ResolveName(scopeOf(t, app, "W"), "Pub", ident("Pub")); !ok {
-		t.Fatalf("an exposed element is not visible in the specializing view def W; "+
+	if _, ok := r.ResolveName(scopeOf(t, app, "w"), "Pub", ident("Pub")); !ok {
+		t.Fatalf("an exposed element is not visible in the specializing view w; "+
 			"diags=%v", r.Diagnostics)
 	}
 	r2 := resolverWithSpecializations(idx)
-	if _, ok := r2.ResolveName(scopeOf(t, app, "w"), "Pub", ident("Pub")); !ok {
-		t.Fatalf("an exposed element is not visible in the view usage w : V; diags=%v",
+	if _, ok := r2.ResolveName(scopeOf(t, app, "x"), "Pub", ident("Pub")); !ok {
+		t.Fatalf("an exposed element is not visible in the view x, which specializes w; diags=%v",
 			r2.Diagnostics)
 	}
 }

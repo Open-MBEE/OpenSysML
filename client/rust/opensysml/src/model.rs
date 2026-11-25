@@ -9,8 +9,9 @@ use crate::conversion::{
     FORMAT_TURTLE,
 };
 use crate::document::{DocumentForm, DocumentQueryResult, DocumentValue};
-use crate::domain::{Model, Symbol, Value};
+use crate::domain::{Lookup, Model, Symbol, SymbolOptions, Value};
 use crate::edit::Editor;
+use crate::element_properties::ElementProperties;
 use crate::error::Error;
 use crate::operations::{
     AnalysisOptions, RecordOptions, RunOptions, RunsOptions, SweepOptions, VerifyOptions,
@@ -45,7 +46,7 @@ impl Model {
     }
     /// Convert the model to `to_format` with explicit options, as
     /// [`crate::Connection::convert`] does for a model the service holds: `id_form`,
-    /// `include_library_stubs` and `documents` are gated and sent as it gates and sends them.
+    /// `include_library_stubs`, `inherited_members` and `documents` are gated and sent as it gates and sends them.
     pub fn convert_with(
         &self,
         to_format: &str,
@@ -117,6 +118,25 @@ impl Model {
     pub fn query(&self, query: &Query) -> Result<Vec<QueryElement>, Error> {
         self.connection.query(self.hash(), query)
     }
+    /// Read the metamodel properties of one element by their specification names.
+    pub fn element_properties(
+        &self,
+        element: &str,
+        properties: &[&str],
+    ) -> Result<ElementProperties, Error> {
+        self.connection
+            .element_properties(self.hash(), element, properties)
+    }
+    /// Read the metamodel properties of the element `element` names as the stated kind.
+    pub fn element_properties_of(
+        &self,
+        element: &str,
+        lookup: Lookup,
+        properties: &[&str],
+    ) -> Result<ElementProperties, Error> {
+        self.connection
+            .element_properties_of(self.hash(), element, lookup, properties)
+    }
     /// Select elements with OSLC Query 3.0 parameter text.
     pub fn query_oslc(&self, oslc: &str) -> Result<Vec<QueryElement>, Error> {
         self.connection.query_oslc(self.hash(), oslc)
@@ -129,6 +149,15 @@ impl Model {
     ) -> Result<DocumentQueryResult, Error> {
         self.connection
             .run_document_query(self.hash(), query_id, bindings)
+    }
+    /// Run a query expression written in place of a named query.
+    pub fn run_inline_document_query<K: AsRef<str>>(
+        &self,
+        expression: &str,
+        bindings: &[(K, Vec<DocumentValue>)],
+    ) -> Result<DocumentQueryResult, Error> {
+        self.connection
+            .run_inline_document_query(self.hash(), expression, bindings)
     }
     /// Render a named document the model declares.
     pub fn render_document(&self, document_id: &str, form: DocumentForm) -> Result<String, Error> {
@@ -255,7 +284,7 @@ impl Model {
         self.symbol_by_id(name)
     }
 
-    /// The symbol a qualified name names; `None` when the model declares none.
+    /// The symbol carrying this id; `None` when none does. [`Model::symbol`] resolves a name.
     pub fn get(&self, fqn: &str) -> Result<Option<Symbol>, Error> {
         if let Some(root) = self.roots().iter().find(|r| r.id() == fqn) {
             return Ok(Some(root.clone()));
@@ -280,7 +309,10 @@ impl Model {
     }
 
     fn symbol_by_id(&self, fqn: &str) -> Result<Option<Symbol>, Error> {
-        match self.connection.get_symbol(self.hash(), fqn) {
+        match self
+            .connection
+            .get_symbol(self.hash(), fqn, &SymbolOptions::element_id())
+        {
             Ok(symbol) if symbol.id() == fqn => Ok(Some(symbol)),
             Ok(_) | Err(Error::Model(_)) => Ok(None),
             Err(error) => Err(error),

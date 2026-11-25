@@ -3,6 +3,7 @@ package export
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 
@@ -14,43 +15,75 @@ type APIJSONLibraryReference struct {
 	ID            string `json:"@id"`
 	Type          string `json:"@type"`
 	QualifiedName string `json:"qualifiedName"`
+	// LibraryPath names an unnamed member by position, owner/Metaclass[i], where it has no qualified name.
+	LibraryPath string `json:"libraryPath,omitempty"`
 }
 
-func apiJSONReferencedLibraryIDs(elements []apiJSONObject) map[string]bool {
-	referenced := map[string]bool{}
-	for _, element := range elements {
-		subject := rdf.ReferenceIRI(rdf.Term{}, element[1].value.(string))
-		for _, member := range element {
-			walkCompactValue(member.value, func(value any) {
-				if ref, ok := value.(apiJSONReference); ok {
-					id, _ := rdf.SubjectID(rdf.ReferenceIRI(subject, ref.ID))
-					referenced[id] = true
-				}
-			})
-		}
-	}
-	return referenced
-}
-
-func apiJSONLibraryReferences(graph *rdf.Graph, elements []apiJSONObject) ([]APIJSONLibraryReference, error) {
-	referenced := apiJSONReferencedLibraryIDs(elements)
-	out := make([]APIJSONLibraryReference, 0)
-	for _, subject := range graph.SubjectsView() {
-		id, ok := rdf.SubjectID(subject)
-		if !ok || !referenced[id] || !LibraryReference(graph, subject) {
-			continue
-		}
-		types := graph.ObjectsView(subject, rdf.RDFType)
-		if len(types) != 1 || !types[0].IsIRI() || (!strings.HasPrefix(types[0].Value, rdf.SysML) && !strings.HasPrefix(types[0].Value, rdf.OpenSysML)) {
-			return nil, &UnsupportedError{What: fmt.Sprintf("library subject <%s> must have exactly one metamodel rdf:type", subject.Value)}
-		}
-		out = append(out, APIJSONLibraryReference{ID: id,
-			Type:          apiJSONType(types[0]),
-			QualifiedName: apiJSONLibraryName(graph, subject, "qualifiedName"),
+// apiJSONNoteReferencedIDs adds the ids one element object references to referenced.
+func apiJSONNoteReferencedIDs(referenced map[string]bool, element apiJSONObject) {
+	subject := rdf.ReferenceIRI(rdf.Term{}, element[1].value.(string))
+	for _, member := range element {
+		walkCompactValue(member.value, func(value any) {
+			if ref, ok := value.(APIJSONReference); ok {
+				id, _ := rdf.SubjectID(rdf.ReferenceIRI(subject, ref.ID))
+				referenced[id] = true
+			}
 		})
+	}
+}
+
+func apiJSONLibraryReferences(graph *rdf.Graph, referenced map[string]bool) ([]APIJSONLibraryReference, error) {
+	out := make([]APIJSONLibraryReference, 0)
+	named := make(map[string]bool, len(referenced))
+	collect := func(graph *rdf.Graph) error {
+		for _, subject := range graph.SubjectsView() {
+			id, ok := rdf.SubjectID(subject)
+			if !ok || !referenced[id] || named[id] || !LibraryReference(graph, subject) {
+				continue
+			}
+			types := graph.ObjectsView(subject, rdf.RDFType)
+			if len(types) != 1 || !types[0].IsIRI() || (!strings.HasPrefix(types[0].Value, rdf.SysML) && !strings.HasPrefix(types[0].Value, rdf.OpenSysML)) {
+				return &UnsupportedError{What: fmt.Sprintf("library subject <%s> must have exactly one metamodel rdf:type", subject.Value)}
+			}
+			reference := APIJSONLibraryReference{ID: id,
+				Type:          apiJSONType(types[0]),
+				QualifiedName: apiJSONLibraryName(graph, subject, "qualifiedName"),
+			}
+			for _, value := range graph.ObjectsView(subject, rdf.OpenSysML+xLibraryPath) {
+				if value.IsLiteral() {
+					reference.LibraryPath = value.Value
+				}
+			}
+			named[id] = true
+			out = append(out, reference)
+		}
+		return nil
+	}
+	if err := collect(graph); err != nil {
+		return nil, err
+	}
+	if err := collect(apiJSONUnheldLibraryStubs(graph, referenced)); err != nil {
+		return nil, err
 	}
 	slices.SortFunc(out, func(a, b APIJSONLibraryReference) int { return strings.Compare(a.ID, b.ID) })
 	return out, nil
+}
+
+// apiJSONUnheldLibraryStubs states the library elements among referenced that graph has no
+// subject for: the ones only a completed property names, which no triple links to.
+func apiJSONUnheldLibraryStubs(graph *rdf.Graph, referenced map[string]bool) *rdf.Graph {
+	stubs := rdf.NewGraph()
+	index := sharedLibraryIndex()
+	held := make(map[string]bool, len(graph.SubjectsView()))
+	for _, subject := range graph.SubjectsView() {
+		held[subject.Value] = true
+	}
+	for _, id := range slices.Sorted(maps.Keys(referenced)) {
+		if subject := rdf.ElementIRIForID(id); !held[subject.Value] {
+			addLibraryStub(stubs, index, subject, id)
+		}
+	}
+	return stubs
 }
 
 func apiJSONLibraryName(graph *rdf.Graph, subject rdf.Term, property string) string {
@@ -79,12 +112,12 @@ func readAPIJSONLibraryReferences(decoder *json.Decoder) ([]APIJSONLibraryRefere
 		if err != nil {
 			return nil, err
 		}
-		if len(entry) != 3 {
+		if len(entry) != 3 && len(entry) != 4 {
 			return nil, fmt.Errorf("compact API libraryReferences entries require @id, @type and qualifiedName")
 		}
 		var reference APIJSONLibraryReference
 		for _, member := range entry {
-			if member.key != "@id" && member.key != "@type" && member.key != "qualifiedName" {
+			if member.key != "@id" && member.key != "@type" && member.key != "qualifiedName" && member.key != "libraryPath" {
 				return nil, fmt.Errorf("compact API libraryReferences has unknown key %q", member.key)
 			}
 			value, ok := member.value.(string)
@@ -98,6 +131,8 @@ func readAPIJSONLibraryReferences(decoder *json.Decoder) ([]APIJSONLibraryRefere
 				reference.Type = value
 			case "qualifiedName":
 				reference.QualifiedName = value
+			case "libraryPath":
+				reference.LibraryPath = value
 			}
 		}
 		if ids[reference.ID] {
@@ -111,6 +146,9 @@ func readAPIJSONLibraryReferences(decoder *json.Decoder) ([]APIJSONLibraryRefere
 }
 
 func addAPIJSONLibraryReferences(graph *rdf.Graph, references []APIJSONLibraryReference) error {
+	// Every entry states its type before any stub is filled in, so a membership's
+	// member is typed as the document says, not as the library index would.
+	var stubs []rdf.Term
 	for _, reference := range references {
 		subject := rdf.ReferenceIRI(rdf.Term{}, reference.ID)
 		typ, err := apiJSONTypeIRI(reference.Type)
@@ -128,6 +166,20 @@ func addAPIJSONLibraryReferences(graph *rdf.Graph, references []APIJSONLibraryRe
 		} else {
 			graph.Add(subject, rdf.IRI(rdf.RDFType), typ)
 			graph.Add(subject, rdf.SysMLTerm("isLibraryElement"), rdf.Bool(true))
+			stubs = append(stubs, subject)
+		}
+	}
+	for _, subject := range stubs {
+		id, _ := rdf.SubjectID(subject)
+		addLibraryStub(graph, sharedLibraryIndex(), subject, id)
+	}
+	for _, reference := range references {
+		subject := rdf.ReferenceIRI(rdf.Term{}, reference.ID)
+		if reference.LibraryPath != "" {
+			if !graph.HasProperty(subject, rdf.OpenSysML+xLibraryPath) {
+				graph.Add(subject, rdf.OpenSysMLTerm(xLibraryPath), rdf.String(reference.LibraryPath))
+			}
+			continue
 		}
 		if !graph.HasProperty(subject, rdf.SysML+"qualifiedName") {
 			graph.Add(subject, rdf.SysMLTerm("qualifiedName"), rdf.String(reference.QualifiedName))

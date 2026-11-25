@@ -55,7 +55,7 @@ const FEATURE_KINDS = new Set([
 
 // The generalization edges that make one element a kind of another. A typing
 // edge is the element's type, not a supertype of it, so it is not one of these.
-const GENERALIZATION_KINDS = new Set(["specializes", "subsets", "redefines"]);
+const GENERALIZATION_KINDS = new Set(["specializes", "subsets", "redefines", "references"]);
 
 // How far a generalization chain is followed for a fact a declaration leaves out.
 const MAX_GENERALIZATION_DEPTH = 16;
@@ -246,7 +246,9 @@ function resolvedFeature(feature: Feature, factsById: Map<string, FeatureFacts>)
   const specializations = owner?.specializations ?? [];
 
   let typeFacts = feature.type;
-  if (!namesAType(typeFacts)) {
+  if (!namesAType(typeFacts) && typeFacts !== undefined && typeFacts.types.length > 0) {
+    typeFacts = derivedType(typeFacts);
+  } else if (!namesAType(typeFacts)) {
     const inherited = inheritedFact(
       { specializations },
       factsById,
@@ -302,6 +304,12 @@ function namesAType(typeFacts: TypeFacts | undefined): boolean {
   return typeFacts !== undefined && (typeFacts.resolvedId !== "" || typeFacts.declared !== "");
 }
 
+/** Resolve the type to the most specific of the service's derived types. */
+function derivedType(typeFacts: TypeFacts): TypeFacts {
+  const derived = typeFacts.types[0];
+  return { ...typeFacts, resolvedId: derived.id, resolvedQualifiedName: derived.id, resolvedKind: derived.kind };
+}
+
 function mergedType(own: TypeFacts | undefined, inherited: TypeFacts): TypeFacts {
   if (own === undefined) {
     return inherited;
@@ -309,11 +317,13 @@ function mergedType(own: TypeFacts | undefined, inherited: TypeFacts): TypeFacts
   return {
     declared: inherited.declared,
     resolvedId: inherited.resolvedId,
+    resolvedQualifiedName: inherited.resolvedQualifiedName,
     resolvedKind: inherited.resolvedKind,
     primitive: own.primitive !== "" ? own.primitive : inherited.primitive,
     primitiveSource: own.primitiveSource !== "" ? own.primitiveSource : inherited.primitiveSource,
     quantity: own.quantity || inherited.quantity,
     unit: own.unit !== "" ? own.unit : inherited.unit,
+    types: own.types,
   };
 }
 
@@ -428,7 +438,7 @@ export function elementType(
     return {
       annotation: "_t.SysMLValue",
       decoder: OBJECT_DECODER,
-      comment: `SysML type ${typeFacts.resolvedId} has no generated class`,
+      comment: `SysML type ${typeFacts.resolvedQualifiedName || typeFacts.resolvedId} has no generated class`,
     };
   }
 

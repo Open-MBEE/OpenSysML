@@ -241,6 +241,16 @@ tracker and never by re-reading declarations in the runtime:
   parameter standing on that and on the control at the accept (`Context.acceptMarks`, from
   `awaitSignal` and `bindAcceptPayload`): the transfer carries the dependence from the sender's
   side to the receiver's.
+- **Representation.** A set of choice points is a sorted, duplicate-free `[]int64` whose elements
+  are never written once shared: `unionSerials` merges its two operands once and hands back an
+  operand that already is the union, so a value computed from one marked read stands on its
+  source's set itself, a capture's clone (`orderMarks.clone`) shares every set with the run it
+  copies, and a seed joins its serial once for every place that stood on one set. A choice point's
+  serial is above every serial of the sets it joins, so `appendSerial` grows a set by one serial
+  in place where it is the longest set of its array, by an atomic claim of the zero slot past it
+  (no serial is 0, and another set may be the same slice, a capture restored alongside); the
+  shorter sets of that array never read past their own length, and where the slot is taken the
+  serial goes into a fresh array with room for what joins next.
 - **The clock.** A choice among the moves of one instant of the shared clock (a transition
   drawn among several, region, due, dispatch, entry, exit and step order) orders none of that
   instant's other writes after its alternatives, so a seed it left stands on the places it touched

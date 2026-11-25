@@ -242,12 +242,10 @@ async function section(node, base) {
   });
 }
 
-// listStart reads an ordered list's `start` attribute: 1 when absent or not a
-// number (Asciidoctor then numbers from 1), the number written otherwise.
+// listStart reads an ordered list's `start` attribute, which Asciidoctor leaves off a
+// list numbered from 1 and otherwise holds as an integer: 0 when the value is not a number.
 function listStart(attribute) {
-  if (attribute === undefined || attribute === null) return 1;
-  const start = Number(attribute);
-  return Number.isInteger(start) ? start : 1;
+  return attribute ?? 1;
 }
 
 async function listItem(item) {

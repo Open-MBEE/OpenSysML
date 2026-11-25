@@ -116,11 +116,20 @@ func TestContextualWordsAreLanguageSpecific(t *testing.T) {
 	}
 }
 
-// A word cannot be reserved and contextual at once: were one to be added to
-// source.Keywords(), generation must fail rather than reserve it quietly.
-func TestRenderRejectsAReservedContextualWord(t *testing.T) {
-	if err := checkUnreserved(lexer.ContextualWords(source.KindUnknown), map[string]bool{"chain": true}); err == nil {
-		t.Error("checkUnreserved accepted a contextual word the lexer reserves, want an error")
+// `library package Foo` declares Foo: the declaration-name rule must not read
+// `package` as the name `library` introduces.
+func TestLibraryPackageNamesThePackage(t *testing.T) {
+	repo, err := repository(source.KindSysML)
+	if err != nil {
+		t.Fatalf("repository err = %v", err)
+	}
+	re, err := regexp.Compile(repo["declaration-names"].Match)
+	if err != nil {
+		t.Fatalf("declaration-names regex: %v", err)
+	}
+	m := re.FindStringSubmatch("standard library package Foo {")
+	if m == nil || m[2] != "Foo" {
+		t.Errorf("declaration name in `standard library package Foo` = %q, want Foo", m)
 	}
 }
 

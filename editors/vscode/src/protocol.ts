@@ -94,9 +94,15 @@ export interface RenderNode {
   name: string;
   type: string;
   detail: string;
+  /** Heads a node whose name is not shown — a value specification's literal, an accept's event, an item box's payload, what an unnamed statement does (`count := count + 1`) under its «keyword» — with its escapes decoded. */
+  text?: string;
+  /** Set on an item box drawn on a connection line: `right` when the item goes toward the line's second end, `left` toward its first. */
+  arrow?: string;
   parent?: string;
   /** The owner the node is drawn or listed under has the usage through typing, subclassification or subsetting rather than declares it; the label prefixes `name` with `^`. */
   inherited?: boolean;
+  /** The state's substates run in parallel; the label writes «parallel» under the name. */
+  parallel?: boolean;
   /** The qualified name a model edit targets the declaration by, in whichever workspace document declares it; absent for a node with none, and for a library's. */
   fqn?: string;
   /** The requested document declares the node, so every edit reaches it; absent, only a layout does. */
@@ -158,6 +164,19 @@ export interface RenderCanvas {
   unit?: string;
   width?: number;
   height?: number;
+}
+
+/** RenderFrame is the view frame drawn round a diagram: its name compartment and the info compartments at its corners. */
+export interface RenderFrame {
+  name: string;
+  /** The view definition the view is typed by; absent for an untyped view. */
+  type?: string;
+  /** The view's expose statements, the top-right info compartment. */
+  exposes?: string[];
+  /** The view's element filters, the bottom-left info compartment. */
+  filters?: string[];
+  /** The comments and documentation annotating the view, the bottom-right info compartment. */
+  annotations?: string[];
 }
 
 /** RenderOwner is a namespace declaring a node: its qualified name, and whether it is a feature an end path chains through with `.`. */
@@ -224,6 +243,8 @@ export interface RenderResult {
   columns?: string[];
   notices: string[];
   canvas?: RenderCanvas;
+  /** The view frame drawn round the diagram; absent from a frameless rendering or a server predating frames. */
+  frame?: RenderFrame;
   /** What the server lets a diagram of this kind edit; absent when the rendering is not editable. */
   palette?: EditPalette;
   version: number;

@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» Site::mixedView"
 ---
 %% Site::mixedView — interconnection rendering (render asInterconnectionDiagram)
 %% canvas: unit=px w=900 h=600

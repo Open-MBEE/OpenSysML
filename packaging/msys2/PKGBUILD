@@ -34,6 +34,8 @@ build() {
   export GOFLAGS="-trimpath -mod=readonly -modcacherw"
 
   local ldflags="-s -w -X main.Version=v${_tagver} -X main.Commit=release -X main.BuildTime=$(date -u '+%Y-%m-%d_%H:%M:%S') -X main.GoVersion=$(go version | awk '{print $3}')"
+  # The library snapshot the binaries embed is generated, not in the source archive.
+  go generate ./internal/workspace/libs
   go build -ldflags "${ldflags}" -o sysml.exe ./cmd/sysml
   go build -ldflags "${ldflags}" -o sysml-lsp.exe ./cmd/sysml-lsp
 }

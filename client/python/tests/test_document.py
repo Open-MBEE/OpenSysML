@@ -16,11 +16,14 @@ import grpc
 import pytest
 
 from opensysml.capabilities import (
+    CAPABILITY_INLINE_DOCUMENT_QUERY,
+    CAPABILITY_QUERY_RESULT_VIEW,
     CAPABILITY_DOCUMENT_QUERY,
     CAPABILITY_RENDER_DOCUMENT,
     CAPABILITY_RENDER_DOCUMENT_ASCIIDOC,
     CAPABILITY_RENDER_DOCUMENT_HTML,
     CAPABILITY_RENDER_VIEW,
+    CAPABILITY_RENDER_VIEW_FORM,
     CAPABILITY_EXPORT_GRAPHS,
     MissingCapabilityError,
 )
@@ -42,6 +45,7 @@ from opensysml.document import (
 )
 from opensysml.errors import (
     InvalidRequestError,
+    OpenSysMLError,
     ModelNotFoundError,
     SymbolNotFoundError,
     UnsupportedValueError,
@@ -85,11 +89,17 @@ STATE_FIXTURE = os.path.join(
     "document_query_states.sysml",
 )
 VIEW_FIXTURE = os.path.join(REPO_ROOT, "conformance", "fixtures", "views.sysml")
+#: The service's result-view fixture: a probe, queries over it and two
+#: ``QVTS::QueryResult`` views.
+RESULT_VIEW_FIXTURE = os.path.join(
+    REPO_ROOT, "tests", "grpc", "testdata", "conformance", "query_result_view.sysml",
+)
 
 CAPABILITIES = (
-    CAPABILITY_DOCUMENT_QUERY, CAPABILITY_RENDER_DOCUMENT, CAPABILITY_RENDER_DOCUMENT_HTML,
+    CAPABILITY_DOCUMENT_QUERY, CAPABILITY_INLINE_DOCUMENT_QUERY, CAPABILITY_RENDER_DOCUMENT, CAPABILITY_RENDER_DOCUMENT_HTML,
     CAPABILITY_RENDER_DOCUMENT_ASCIIDOC,
     CAPABILITY_RENDER_VIEW,
+    CAPABILITY_QUERY_RESULT_VIEW,
 )
 
 
@@ -152,6 +162,42 @@ def fake_service():
     yield start
     for server in servers:
         server.stop(None)
+
+
+def test_a_result_view_requires_its_own_capability(fake_service):
+    """A service that cannot write the view is not asked for one."""
+    port, service = fake_service(capabilities=(CAPABILITY_DOCUMENT_QUERY, CAPABILITY_RENDER_VIEW))
+    with Connection(port=port, auto_start=False) as conn:
+        model = conn.load_from_content("package Demo;")
+        with pytest.raises(MissingCapabilityError) as excinfo:
+            model.run_document_query("Demo::Q", as_view=True)
+        assert excinfo.value.capability == CAPABILITY_QUERY_RESULT_VIEW
+        with pytest.raises(MissingCapabilityError) as excinfo:
+            model.render_view("Demo::v", form="markdown")
+        assert excinfo.value.capability == CAPABILITY_RENDER_VIEW_FORM
+    assert service.requests == []
+
+
+def test_a_result_view_document_form_requires_both_capabilities(fake_service):
+    """Only a QVTS::QueryResult view is written in html or asciidoc, so those ask for its capability too."""
+    port, service = fake_service(capabilities=(CAPABILITY_RENDER_VIEW, CAPABILITY_RENDER_VIEW_FORM))
+    with Connection(port=port, auto_start=False) as conn:
+        model = conn.load_from_content("package Demo;")
+        for form in ("html", "asciidoc"):
+            with pytest.raises(MissingCapabilityError) as excinfo:
+                model.render_view("Demo::v", form=form)
+            assert excinfo.value.capability == CAPABILITY_QUERY_RESULT_VIEW
+    assert service.requests == []
+
+
+def test_a_result_view_is_asked_for_and_carried(fake_service):
+    port, service = fake_service(
+        response=sysml_pb2.RunDocumentQueryResponse(result_view="package QResult {}\n"))
+    with Connection(port=port, auto_start=False) as conn:
+        model = conn.load_from_content("package Demo;")
+        assert model.run_document_query("Demo::Q", as_view=True).result_view == "package QResult {}\n"
+        model.run_document_query("Demo::Q")
+    assert [r.as_view for r in service.requests] == [True, False]
 
 
 def test_bindings_translate_to_typed_values():
@@ -277,6 +323,28 @@ def test_document_query_requires_the_capability(fake_service):
     assert service.requests == []
 
 
+def test_inline_document_query_requires_its_own_capability(fake_service):
+    """A service that runs named queries only is not asked for an expression."""
+    port, service = fake_service(capabilities=(CAPABILITY_DOCUMENT_QUERY,))
+    with Connection(port=port, auto_start=False) as conn:
+        model = conn.load_from_content("package Demo;")
+        with pytest.raises(MissingCapabilityError) as excinfo:
+            model.run_document_query(inline_query='Named("Demo")')
+        assert excinfo.value.capability == CAPABILITY_INLINE_DOCUMENT_QUERY
+        with pytest.raises(ValueError, match="not both"):
+            model.run_document_query("Demo::Q", inline_query='Named("Demo")')
+        with pytest.raises(ValueError, match="not neither"):
+            model.run_document_query()
+    assert service.requests == []
+
+
+def test_inline_document_query_is_sent_in_inline_query(fake_service):
+    port, service = fake_service()
+    with Connection(port=port, auto_start=False) as conn:
+        conn.load_from_content("package Demo;").run_document_query(inline_query='Named("Demo")')
+    assert [(r.query_id, r.inline_query) for r in service.requests] == [("", 'Named("Demo")')]
+
+
 def test_render_document_requires_the_capability(fake_service):
     """A service that cannot render documents is named, not asked."""
     port, service = fake_service(capabilities=())
@@ -362,7 +430,7 @@ def test_render_view_decodes_all_fields_and_optional_messages():
     response.canvas.has_size = True
     node = response.nodes.add(
         id="n0", kind="part", name="root", name_synthesized=True, type="Demo::Part",
-        detail="detail", text="text", stand_in=True, parent="", inherited=True,
+        detail="detail", text="text", stand_in=True, parent="", inherited=True, parallel=True,
     )
     node.ports.add(id="n0.0", name="api", type="Demo::API", direction="inout", inherited=True)
     node.origin.file = "views.sysml"
@@ -395,6 +463,9 @@ def test_render_view_decodes_all_fields_and_optional_messages():
         x=1, y=2, width=3, height=4, has_size=True,
         origin=sysml_pb2.Span(file="views.sysml"),
     )
+    response.frame.name = "Demo::view"
+    response.frame.type = "ViewDef"
+    response.frame.exposes.append("expose Demo::car")
 
     rendered = render_view_result(response)
     assert isinstance(rendered, RenderedView)
@@ -402,6 +473,7 @@ def test_render_view_decodes_all_fields_and_optional_messages():
         "Demo::view", "interconnection", "rendered",
     )
     assert rendered.nodes[0].ports[0].direction == "inout"
+    assert rendered.nodes[0].parallel
     assert rendered.nodes[0].origin.start_line == 4
     assert rendered.nodes[0].geometry.collapsed
     assert rendered.nodes[0].geometry.unplaced
@@ -414,6 +486,9 @@ def test_render_view_decodes_all_fields_and_optional_messages():
     assert rendered.notes[0].origin.file == "views.sysml"
     assert rendered.notices == ("notice",)
     assert rendered.shown == ("port-symbols", "typings")
+    assert (rendered.frame.name, rendered.frame.type) == ("Demo::view", "ViewDef")
+    assert rendered.frame.exposes == ("expose Demo::car",)
+    assert rendered.frame.filters == ()
 
     sparse = render_view_result(sysml_pb2.RenderViewResponse(
         nodes=[sysml_pb2.RenderNode()],
@@ -428,8 +503,12 @@ def test_render_view_decodes_all_fields_and_optional_messages():
     assert sparse.rows[0].origin is None
     assert sparse.notes[0].origin is None
 
+    assert rendered.text == ""
+    assert render_view_result(sysml_pb2.RenderViewResponse(text="graph\n")).text == "graph\n"
+
     empty = render_view_result(sysml_pb2.RenderViewResponse())
     assert empty.canvas is None
+    assert empty.frame is None
     assert empty.nodes == ()
 
 
@@ -461,6 +540,109 @@ def test_render_view_sends_the_compartment_folding(fake_service):
         with pytest.raises(ValueError, match="compartments"):
             model.render_view("Demo::View", compartments="rows")
     assert [request.compartments for request in service.requests] == ["", "", "most", "ports"]
+
+
+def test_render_view_sends_the_form_and_decodes_its_text(fake_service):
+    response = sysml_pb2.RenderViewResponse(view="Demo::View", text="digraph {}\n")
+    port, service = fake_service(
+        capabilities=(CAPABILITY_RENDER_VIEW, CAPABILITY_RENDER_VIEW_FORM), response=response,
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        model = conn.load_from_content("package Demo;")
+        rendered = model.render_view(
+            "Demo::View", form="dot", palette="okabe-ito", style="cameo", lines="ortho",
+            direction="LR", link="https://example.test/{file}#L{line}", unplaced="strip",
+        )
+        model.render_view("Demo::View")
+    assert rendered.text == "digraph {}\n"
+    written, data = service.requests
+    assert (
+        written.form, written.palette, written.style, written.lines,
+        written.direction, written.link, written.unplaced,
+    ) == ("dot", "okabe-ito", "cameo", "ortho", "LR", "https://example.test/{file}#L{line}", "strip")
+    assert (
+        data.form, data.palette, data.style, data.lines, data.direction, data.link, data.unplaced,
+    ) == ("", "", "", "", "", "", "")
+
+
+@pytest.mark.parametrize(
+    "option",
+    [
+        {"form": "dot"}, {"palette": "okabe-ito"}, {"style": "cameo"}, {"lines": "ortho"},
+        {"direction": "LR"}, {"link": "{file}"}, {"unplaced": "strip"},
+    ],
+)
+def test_render_view_form_requires_its_own_capability(fake_service, option):
+    """A service that would drop the form unanswered is not asked for one; the data still is."""
+    response = sysml_pb2.RenderViewResponse(view="Demo::View")
+    port, service = fake_service(capabilities=(CAPABILITY_RENDER_VIEW,), response=response)
+    with Connection(port=port, auto_start=False) as conn:
+        model = conn.load_from_content("package Demo;")
+        with pytest.raises(MissingCapabilityError) as excinfo:
+            model.render_view("Demo::View", **option)
+        assert excinfo.value.capability == CAPABILITY_RENDER_VIEW_FORM
+        assert service.requests == []
+        assert model.render_view("Demo::View").text == ""
+    assert len(service.requests) == 1
+
+
+VIEW_FORM_SOURCE = """package FormDemo {
+    private import Views::*;
+    part def Wheel;
+    part def Vehicle {
+        part wheel : Wheel;
+    }
+    view structure {
+        expose Vehicle;
+        expose Wheel;
+        render asTreeDiagram;
+    }
+    view parts {
+        expose Vehicle;
+        render asElementTable;
+    }
+}
+"""
+
+
+def test_render_view_writes_every_form_the_service_has(real_service):
+    forms = {
+        "text": ("FormDemo::structure", "FormDemo::structure - tree rendering (render asTreeDiagram)\n"),
+        "mermaid": ("FormDemo::structure", "flowchart TD\n"),
+        "dot": ("FormDemo::structure", 'digraph "FormDemo::structure" {\n'),
+        "plantuml": ("FormDemo::structure", "@startuml\n"),
+        "d2": ("FormDemo::structure", "n0 <- n1: { class: composition }\n"),
+        "drawio": ("FormDemo::structure", '<mxfile host="OpenSysML"'),
+        "markdown": ("FormDemo::parts", "| wheel | part | Wheel | FormDemo::Vehicle |\n"),
+        "csv": ("FormDemo::parts", "wheel,part,Wheel,FormDemo::Vehicle\n"),
+        "tsv": ("FormDemo::parts", "wheel\tpart\tWheel\tFormDemo::Vehicle\n"),
+    }
+    with Connection(port=real_service, auto_start=False) as conn:
+        model = conn.load_from_content(VIEW_FORM_SOURCE)
+        for form, (view, want) in forms.items():
+            rendered = model.render_view(view, form=form)
+            assert want in rendered.text, form
+            assert rendered.text.endswith("\n"), form
+            assert not rendered.text.endswith("\n\n"), form
+            assert rendered.view == view, form
+            assert rendered.nodes or rendered.rows, form
+        assert model.render_view("FormDemo::structure").text == ""
+        styled = model.render_view(
+            "FormDemo::structure", form="dot", palette="okabe-ito", lines="ortho", direction="LR",
+        )
+        assert "rankdir=LR, splines=ortho" in styled.text
+        assert 'fillcolor="#E69F00"' in styled.text
+
+
+def test_render_view_refuses_a_form_the_service_cannot_write(real_service):
+    with Connection(port=real_service, auto_start=False) as conn:
+        model = conn.load_from_content(VIEW_FORM_SOURCE)
+        with pytest.raises(InvalidRequestError, match='unknown rendering form "svg"; the forms are text,'):
+            model.render_view("FormDemo::structure", form="svg")
+        with pytest.raises(InvalidRequestError, match="a table rendering is not written as dot"):
+            model.render_view("FormDemo::parts", form="dot")
+        with pytest.raises(InvalidRequestError, match='unknown palette "neon"'):
+            model.render_view("FormDemo::structure", palette="neon")
 
 
 def test_the_request_names_the_model_query_and_bindings(fake_service):
@@ -1046,6 +1228,63 @@ class TestDocumentsAgainstRealService:
         ]
         assert [row[1] for row in result] == [(1.5,), (15.0,), (8.5,), (20.0,)]
         assert {row.element.type for row in result} == {"PartUsage"}
+
+    def test_queries_answer_as_result_views(self, real_service):
+        with open(RESULT_VIEW_FIXTURE, encoding="utf-8") as f:
+            source = f.read()
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(source)
+            named = model.run_document_query(
+                "Probe::Self", bindings={"root": ElementRef("Probe::probe::antenna")}, as_view=True)
+            assert "view self : QueryResult" in named.result_view
+            assert "expose Probe::probe::antenna;" in named.result_view
+            assert 'attribute :>> query = "Probe::Self root=Probe::probe::antenna";' in named.result_view
+            assert model.run_document_query("Probe::NoStates").result_view == ""
+
+            selected = model.query(oslc='sysml:name="camera"', as_view=True)
+            assert [e.id for e in selected] == ["Probe::probe::camera"]
+            assert "expose Probe::probe::camera;" in selected.result_view
+            assert model.query(oslc='sysml:name="camera"').result_view == ""
+
+            # A path or model error is an outcome: its view rides the error.
+            with pytest.raises(InvalidRequestError) as unknown:
+                model.query(oslc='sysml:nme="camera"', as_view=True)
+            assert "Outcome::pathError" in unknown.value.result_view
+            with pytest.raises(OpenSysMLError) as twin:
+                model.run_document_query("Probe::Twin", as_view=True)
+            assert "Outcome::modelError" in twin.value.result_view
+            with pytest.raises(OpenSysMLError) as unasked:
+                model.run_document_query("Probe::Twin")
+            assert not hasattr(unasked.value, "result_view")
+
+    def test_a_result_view_renders_as_a_document(self, real_service):
+        with open(RESULT_VIEW_FIXTURE, encoding="utf-8") as f:
+            source = f.read()
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(source)
+            rendered = model.render_view("Probe::heavy", form="markdown")
+            assert [(f.name, f.value) for f in rendered.header] == [
+                ("query", "Probe::Self root=Probe::probe::antenna"),
+                ("source", "probe.sysml"),
+                ("outcome", "established"),
+                ("provenance", "urn:prov:bundle:heavy"),
+            ]
+            assert rendered.rows[0].cells[0] == "Probe::probe::antenna"
+            assert "| Probe::probe::antenna | part | Payload | Probe::probe |" in rendered.text
+            assert model.render_view("Probe::heavy").text == ""
+            with pytest.raises(InvalidRequestError, match='unknown rendering form "html"'):
+                model.render_view("Probe::plain", form="html")
+
+    def test_a_query_expression_runs_in_place_of_a_name(self, real_service, telescope):
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(telescope)
+            result = model.run_document_query(
+                inline_query='Project(WhereType(Descendants(Observatory::telescope), "PartUsage"), ("name", "mass"))'
+            )
+            assert result.columns == ("name", "mass")
+            assert len(result) == 4
+            with pytest.raises(InvalidRequestError, match=r"inline query 1:\d+"):
+                model.run_document_query(inline_query='Project(Named("Observatory") ("name"))')
 
     def test_a_query_matching_nothing_answers_columns_and_no_rows(
         self, real_service, telescope

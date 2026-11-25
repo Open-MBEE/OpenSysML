@@ -47,7 +47,6 @@ def on_files(files, config):
     # A page excluded from the site stays in `files`, so publication is what is asked:
     # a template link to an excluded page would 404 exactly like a renamed one.
     published = {file.src_uri for file in files if file.inclusion.is_included()}
-    docs_dir = Path(config["docs_dir"])
     for template in sorted(overrides.glob("**/*.html")):
         text = template.read_text()
         name = template.relative_to(overrides)
@@ -55,7 +54,8 @@ def on_files(files, config):
             if not any(candidate in published for candidate in _source_candidates(target)):
                 log.warning("%s links to %r, which no page publishes", name, target)
         for target in dict.fromkeys(RECORD.findall(text)):
-            if not (docs_dir / target).is_file():
+            # Generated pages (the compliance map) are in `files` without being on disk.
+            if files.get_file_from_path(target) is None:
                 log.warning("%s links to the record %r, which does not exist", name, target)
     return files
 

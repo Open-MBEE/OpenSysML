@@ -36,8 +36,8 @@ package Model {
         perform action run ::> analysed.settle;
         attribute :>> observed : ScalarValues::Real = analysed.settleTime;
         return Mean : ScalarValues::Real[1] = mean;
-        out Deviation : ScalarValues::Real[0..1] = deviation;
-        out OutOfSpec : ScalarValues::Integer[1] = outOfSpec;
+        out Deviation : ScalarValues::Real[0..1] :>> deviation;
+        out OutOfSpec : ScalarValues::Integer[1] :>> outOfSpec;
     }
     part 'settling analysis' : 'Settling Analysis';
     part def 'Retried Settling' :> 'Settling Analysis' {
@@ -48,9 +48,9 @@ package Model {
         perform action run ::> analysed.settle;
         attribute :>> observed : ScalarValues::Real = analysed.settleTime;
         return Mean : ScalarValues::Real[1] = mean;
-        out N : ScalarValues::Integer[1] = runs;
-        out OutOfSpec : ScalarValues::Integer[1] = outOfSpec;
-        out Deviation : ScalarValues::Real[0..1] = deviation;
+        out N : ScalarValues::Integer[1] :>> runs;
+        out OutOfSpec : ScalarValues::Integer[1] :>> outOfSpec;
+        out Deviation : ScalarValues::Real[0..1] :>> deviation;
     }
     part 'retried settling' : 'Retried Settling';
     action def 'Retried Group' {
@@ -68,10 +68,10 @@ package Model {
             attribute :>> settleTime = 2.9;
             analysis 'Monte Carlo' : 'Retried Settling Monte Carlo' {
                 subject :>> analysed = 'retried settling of 3 runs';
-                out :>> runs = 3;
+                out :>> N = 3;
                 out :>> mean = 2.9;
-                out :>> deviation = 0.4;
-                out :>> outOfSpec = 1;
+                out :>> Deviation = 0.4;
+                out :>> OutOfSpec = 1;
             }
         }
     }
@@ -97,8 +97,8 @@ package Model {
                 subject :>> analysed = 'settling of 5 runs';
                 out :>> runs = 5;
                 out :>> mean = 3.1;
-                out :>> deviation = 0.6;
-                out :>> outOfSpec = 0;
+                out :>> Deviation = 0.6;
+                out :>> OutOfSpec = 0;
             }
         }
     }

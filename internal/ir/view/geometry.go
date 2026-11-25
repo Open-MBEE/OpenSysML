@@ -247,9 +247,9 @@ func (r *Renderer) memberGeometryOf(view, owner *symbols.Symbol, name string, ou
 // memberDress gives node the Style of, and adds the Notes anchored to, the
 // member owner has under name in view, resolved as memberGeometryOf resolves
 // its Layout.
-func (r *Renderer) memberDress(view, owner *symbols.Symbol, name string, node *Node, out *Rendering) *Node {
+func (r *Renderer) memberDress(view, owner *symbols.Symbol, name string, node *Node, out *Rendering) {
 	if owner == nil {
-		return node
+		return
 	}
 	if site, ok := r.model.MemberStyleOf(view, owner, name); ok {
 		r.noteLayoutProblems(site, owner, out)
@@ -258,7 +258,6 @@ func (r *Renderer) memberDress(view, owner *symbols.Symbol, name string, node *N
 		}
 	}
 	r.memberNotesOf(view, owner, name, node.ID, out)
-	return node
 }
 
 // memberNotesOf adds to out the Notes about the member owner has under name in
@@ -276,8 +275,15 @@ func (r *Renderer) memberNotesOf(view, owner *symbols.Symbol, name, anchor strin
 // routeOf is the waypoints the edge declared as elem follows in view, nil when
 // no Route annotation gives any, resolved as geometryOf resolves a Layout.
 func (r *Renderer) routeOf(view, elem *symbols.Symbol, out *Rendering) []Point {
-	out.drawn.note(elem, true)
 	out.drawn.noteSteered(elem)
+	return r.unsteeredRoute(view, elem, out)
+}
+
+// unsteeredRoute is the waypoints a Route about elem states while the edges
+// drawn for elem cannot follow them; elem is not marked steered, so a round
+// trip refuses to reroute it instead of writing a Route nothing follows.
+func (r *Renderer) unsteeredRoute(view, elem *symbols.Symbol, out *Rendering) []Point {
+	out.drawn.note(elem, true)
 	site, ok := r.model.RouteOf(view, elem)
 	if !ok {
 		return nil
@@ -319,7 +325,39 @@ func (r *Renderer) declaredRouteOf(view, elem *symbols.Symbol, decl ast.Node, ou
 	if !ok {
 		return nil
 	}
+	if !annotatable(edge) {
+		return r.unsteeredRoute(view, edge, out)
+	}
 	return r.routeOf(view, edge, out)
+}
+
+// annotatable reports whether an annotation can be stated about sym at all: in a view's
+// body by its qualified name, or in its own body where its production admits one.
+func annotatable(sym *symbols.Symbol) bool {
+	if sym == nil || sym.Decl == nil {
+		return false
+	}
+	if qualifiedName(sym) {
+		return true
+	}
+	edge, isEdge := sym.Decl.(*ast.SuccessionEdge)
+	if !isEdge || sym.OwnerScope == nil || sym.OwnerScope.Node() == nil {
+		return true
+	}
+	return ast.SuccessionAdmitsBody(sym.OwnerScope.Node(), edge)
+}
+
+// qualifiedName reports whether sym and every owner up to its document declare a name.
+func qualifiedName(sym *symbols.Symbol) bool {
+	if !sym.Named() {
+		return false
+	}
+	for scope := sym.OwnerScope; scope != nil && scope.Owner() != nil; scope = scope.Owner().OwnerScope {
+		if !scope.Owner().Named() {
+			return false
+		}
+	}
+	return true
 }
 
 // declaredNameSynthesized reports whether a migration made up the name of the

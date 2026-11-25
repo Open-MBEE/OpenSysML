@@ -482,6 +482,9 @@ pub struct RenderNode {
     /// subclassification or subsetting rather than declares it; the notation
     /// draws `^` before `name`.
     pub inherited: bool,
+    /// The state's substates run in parallel; the notation writes «parallel»
+    /// under the name.
+    pub parallel: bool,
     /// Parent node identifier.
     pub parent: String,
     /// The compartment of the parent this node is a row of ("attributes",
@@ -544,6 +547,21 @@ pub struct RenderRow {
     pub origin: Option<RenderSpan>,
 }
 
+/// The view frame of SysML v2 §8.2.3.26 round a graph-shaped rendering.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct RenderFrame {
+    /// The view's name, in the name compartment.
+    pub name: String,
+    /// The view definition named after the name, when typed.
+    pub type_name: String,
+    /// The lines of the top-right compartment: the exposes.
+    pub exposes: Vec<String>,
+    /// The lines of the bottom-left compartment: the filters.
+    pub filters: Vec<String>,
+    /// The lines of the bottom-right compartment: the view's annotations.
+    pub annotations: Vec<String>,
+}
+
 /// A rendered note and its optional node or edge anchor.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct RenderNote {
@@ -594,6 +612,8 @@ pub struct RenderedView {
     pub notices: Vec<String>,
     /// The optional notation elements the rendering drew.
     pub shown: Vec<String>,
+    /// The view frame; `None` for a frameless rendering.
+    pub frame: Option<RenderFrame>,
     wire: wire::RenderViewResponse,
 }
 
@@ -639,6 +659,7 @@ pub(crate) fn rendered_view_of(response: wire::RenderViewResponse) -> RenderedVi
                 text: node.text,
                 stand_in: node.stand_in,
                 inherited: node.inherited,
+                parallel: node.parallel,
                 parent: node.parent,
                 compartment: node.compartment,
                 ports: node
@@ -721,6 +742,13 @@ pub(crate) fn rendered_view_of(response: wire::RenderViewResponse) -> RenderedVi
             .collect(),
         notices: response.notices,
         shown: response.shown,
+        frame: response.frame.map(|frame| RenderFrame {
+            name: frame.name,
+            type_name: frame.r#type,
+            exposes: frame.exposes,
+            filters: frame.filters,
+            annotations: frame.annotations,
+        }),
         wire,
     }
 }
@@ -745,6 +773,7 @@ mod render_view_tests {
                     detail: "detail".to_owned(),
                     text: "text".to_owned(),
                     stand_in: true,
+                    parallel: true,
                     ports: vec![wire::RenderPort {
                         id: "n0.0".to_owned(),
                         name: "api".to_owned(),
@@ -809,6 +838,13 @@ mod render_view_tests {
             }],
             notices: vec!["notice".to_owned()],
             shown: vec!["port-symbols".to_owned(), "compartments".to_owned()],
+            frame: Some(wire::RenderFrame {
+                name: "Demo::view".to_owned(),
+                r#type: "ViewDef".to_owned(),
+                exposes: vec!["expose Demo::car".to_owned()],
+                ..Default::default()
+            }),
+            ..Default::default()
         };
 
         let rendered = rendered_view_of(response);
@@ -817,6 +853,7 @@ mod render_view_tests {
         assert_eq!(rendered.nodes[0].ports[0].direction, "inout");
         assert!(rendered.nodes[0].ports[0].inherited);
         assert!(!rendered.nodes[0].inherited);
+        assert!(rendered.nodes[0].parallel);
         assert_eq!(rendered.nodes[0].origin.as_ref().unwrap().start_line, 4);
         assert!(rendered.nodes[0].geometry.as_ref().unwrap().collapsed);
         assert!(rendered.nodes[0].geometry.as_ref().unwrap().unplaced);
@@ -839,8 +876,17 @@ mod render_view_tests {
             vec!["port-symbols".to_owned(), "compartments".to_owned()]
         );
 
+        let frame = rendered.frame.as_ref().unwrap();
+        assert_eq!(
+            (frame.name.as_str(), frame.type_name.as_str()),
+            ("Demo::view", "ViewDef")
+        );
+        assert_eq!(frame.exposes, vec!["expose Demo::car".to_owned()]);
+        assert!(frame.filters.is_empty());
+
         let empty = rendered_view_of(wire::RenderViewResponse::default());
         assert!(empty.canvas.is_none());
+        assert!(empty.frame.is_none());
         assert!(empty.nodes.is_empty());
     }
 }
@@ -1152,6 +1198,7 @@ mod tests {
                 DocumentValue::Object(ObjectRef::at("v.e")),
                 DocumentValue::Integer(3),
                 DocumentValue::Quantity(Quantity {
+                    value_type: String::new(),
                     magnitude: Magnitude::Integer(2),
                     unit: String::new(),
                     unit_term: None,
@@ -1181,6 +1228,7 @@ mod tests {
         let magnitude = bindings_to_wire(&[(
             "m",
             vec![DocumentValue::Quantity(Quantity {
+                value_type: String::new(),
                 magnitude: Magnitude::BigInteger(wide),
                 unit: String::new(),
                 unit_term: None,
@@ -1210,6 +1258,7 @@ mod tests {
         let magnitude = bindings_to_wire(&[(
             "m",
             vec![DocumentValue::Quantity(Quantity {
+                value_type: String::new(),
                 magnitude: Magnitude::Rational(third),
                 unit: String::new(),
                 unit_term: None,
@@ -1227,6 +1276,7 @@ mod tests {
             DocumentValue::Infinity,
             DocumentValue::Object(ObjectRef::default()),
             DocumentValue::Quantity(Quantity {
+                value_type: String::new(),
                 magnitude: Magnitude::Real(1.0),
                 unit: "kg".to_owned(),
                 unit_term: None,
@@ -1283,6 +1333,7 @@ mod tests {
                     }],
                 }],
             }],
+            result_view: String::new(),
         };
         let result = result_of(response).unwrap();
         assert_eq!(result.columns, ["status"]);

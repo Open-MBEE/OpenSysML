@@ -25,6 +25,8 @@ pub const CAPABILITY_QUERY_ORDER_BY: &str = "query_order_by";
 pub const CAPABILITY_OSLC_QUERY: &str = "oslc_query";
 /// The `RunDocumentQuery` RPC.
 pub const CAPABILITY_DOCUMENT_QUERY: &str = "document_query";
+/// `RunDocumentQueryRequest.inline_query`: a query expression run in place of a named query.
+pub const CAPABILITY_INLINE_DOCUMENT_QUERY: &str = "inline_document_query";
 /// The `RenderDocument` RPC, rendering Markdown.
 pub const CAPABILITY_RENDER_DOCUMENT: &str = "render_document";
 /// `RenderDocumentRequest.form`, asking for the HTML page instead of Markdown.
@@ -33,6 +35,8 @@ pub const CAPABILITY_RENDER_DOCUMENT_HTML: &str = "render_document_html";
 pub const CAPABILITY_RENDER_DOCUMENT_ASCIIDOC: &str = "render_document_asciidoc";
 /// The `RenderView` RPC, rendering named views as machine-readable diagram data.
 pub const CAPABILITY_RENDER_VIEW: &str = "render_view";
+/// `form` and the writer options on `RenderViewRequest`, answered in `text`.
+pub const CAPABILITY_RENDER_VIEW_FORM: &str = "render_view_form";
 /// The `ExportGraphs` RPC, exporting a behavior's lowered graph as `graphs:1` JSON.
 pub const CAPABILITY_EXPORT_GRAPHS: &str = "export_graphs";
 /// The ImportData RPC, which sets the feature values data files assign.
@@ -47,6 +51,17 @@ pub const CAPABILITY_ENUM_VALUES: &str = "enum_values";
 pub const CAPABILITY_EVALUATE_SUBJECT: &str = "evaluate_subject";
 /// Populated `SymbolInfo.attributes`.
 pub const CAPABILITY_SYMBOL_ATTRIBUTES: &str = "symbol_attributes";
+/// Populated `SymbolInfo.members`: every member, own and inherited, with its provenance.
+pub const CAPABILITY_SYMBOL_MEMBERS: &str = "symbol_members";
+/// `GetSymbolRequest.resolve_name` honoured; without it every id is read as one the service reported.
+pub const CAPABILITY_SYMBOL_NAME_RESOLUTION: &str = "symbol_name_resolution";
+/// Populated `SymbolInfo.annotating_metadata_ids`: the metadata usages annotating a symbol.
+pub const CAPABILITY_SYMBOL_ANNOTATING_METADATA: &str = "symbol_annotating_metadata";
+/// The `lookup` of `GetSymbolRequest` and `GetElementPropertiesRequest` honoured: a name read
+/// only as a name, an id only as an id.
+pub const CAPABILITY_SYMBOL_LOOKUP_KIND: &str = "symbol_lookup_kind";
+/// The `GetElementProperties` RPC: an element's metamodel properties by their specification names.
+pub const CAPABILITY_ELEMENT_PROPERTIES: &str = "element_properties";
 /// A valueless feature of a value type as `Value.unset`.
 pub const CAPABILITY_UNSET_VALUE: &str = "unset_value";
 /// An object's values as `Instance.feature_values`.
@@ -135,6 +150,9 @@ pub const CAPABILITY_ENGINES: &str = "engines";
 pub const CAPABILITY_ENGINES_EXTERNAL: &str = "engines_external";
 /// A model-level result the model leaves open, as `Value.undetermined`.
 pub const CAPABILITY_UNDETERMINED_VALUE: &str = "undetermined_value";
+/// A coordinate frame as `Value.coordinate_frame` and a coordinate transformation as
+/// `Value.coordinate_transformation`; without it each crosses as an unsupported null.
+pub const CAPABILITY_COORDINATE_FRAME_VALUES: &str = "coordinate_frame_values";
 /// An Integer beyond int64 as `Value.big_int_value`, `Quantity.big_int_magnitude` and
 /// `DocumentValue.big_int_value`; a service without it reads one sent to it as null.
 pub const CAPABILITY_BIG_INT_VALUES: &str = "big_int_values";
@@ -153,6 +171,9 @@ pub const CAPABILITY_CONVERT_LIBRARY_REFERENCES: &str = "convert_library_referen
 /// `ConvertRequest.include_library_stubs`: api-json written with the ownerless library stubs of
 /// releases before 0.11.0 restored.
 pub const CAPABILITY_CONVERT_LIBRARY_STUBS: &str = "convert_library_stubs";
+/// `ConvertRequest.inherited_members`: api-json written with the derived lists that repeat each
+/// Namespace's and Type's inherited and imported members; a service without it always writes them.
+pub const CAPABILITY_CONVERT_INHERITED_MEMBERS: &str = "convert_inherited_members";
 /// `ConvertRequest.include_check_diagnostics`: the semantic check's diagnostics, each with its
 /// own severity, reported alongside the converted output.
 pub const CAPABILITY_CONVERT_CHECK_DIAGNOSTICS: &str = "convert_check_diagnostics";

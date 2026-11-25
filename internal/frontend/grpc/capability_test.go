@@ -330,6 +330,14 @@ func TestCapabilityGatedRequestsAreRefused(t *testing.T) {
 			})
 			return err
 		}},
+		{"render view form", CapabilityRenderViewForm, func(s *Service) error {
+			_, err := s.RenderView(ctx, &pb.RenderViewRequest{ModelHash: "any", View: "Any", Form: "dot"})
+			return err
+		}},
+		{"render view writer option", CapabilityRenderViewForm, func(s *Service) error {
+			_, err := s.RenderView(ctx, &pb.RenderViewRequest{ModelHash: "any", View: "Any", Palette: "okabe-ito"})
+			return err
+		}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -444,10 +452,17 @@ func TestRenderDocumentFileNameIsWithheldWithoutItsCapability(t *testing.T) {
 	}
 }
 
-// The capability is the newest, appended after every one before it.
-func TestVerdictNotesCapabilityIsTheNewest(t *testing.T) {
-	if all := Capabilities(); all[len(all)-1] != CapabilityVerdictNotes {
-		t.Errorf("capabilities %v do not end with %q, the newest", all, CapabilityVerdictNotes)
+// A capability is appended after every one before it: the newest ends the
+// list, directly after the ones that were newest before it.
+func TestQueryResultViewCapabilityIsTheNewest(t *testing.T) {
+	all := Capabilities()
+	want := []string{
+		CapabilityInlineDocumentQuery, CapabilitySymbolNameResolution, CapabilityRenderViewForm,
+		CapabilitySymbolAnnotatingMetadata, CapabilitySymbolLookupKind, CapabilitySymbolMemberDirection,
+		CapabilityCoordinateFrameValues, CapabilityQueryResultView,
+	}
+	if len(all) < len(want) || !slices.Equal(all[len(all)-len(want):], want) {
+		t.Errorf("capabilities %v do not end with %q, the newest last", all, want)
 	}
 }
 

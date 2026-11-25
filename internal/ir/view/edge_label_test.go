@@ -148,7 +148,7 @@ func TestEdgeLabelsYieldToTheEdgesOwnText(t *testing.T) {
 			[]string{"start -> a: 'start to a'", "a -> b: [true]", "b -> c: 'b to c'", "a.o => b.i: 'a.o to b.i'"},
 			[]string{"'a to b'", "o to i"}},
 		{"Labels::loopView",
-			[]string{"pump.outlet -- tank.inlet: supply", "pump.level == tank.level: 'pump.level = tank.level'", "pump.outlet => tank.inlet: of Water"},
+			[]string{"pump.outlet -- flow n", "-- tank.inlet", ": supply", "pump.level == tank.level: 'pump.level = tank.level'", "flow of Water"},
 			[]string{"'pump.outlet to tank.inlet'"}},
 	}
 	for _, tc := range cases {

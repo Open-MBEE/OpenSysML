@@ -1,0 +1,53 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+title: "«view» NaryViews::wheelLinks"
+---
+%% NaryViews::wheelLinks — interconnection rendering (render asInterconnectionDiagram)
+flowchart LR
+  subgraph n0 ["`*«part def»* **Wheel**`"]
+    direction LR
+    n1("`*«part»*
+**hub**`")
+    n2("`*«part»*
+**leftSpoke**`")
+    n3("`*«part»*
+**rightSpoke**`")
+    n4@{ shape: f-circ, label: "" }
+    n5@{ shape: f-circ, label: "" }
+    note0@{ shape: notch-rect, label: "three spokes" }
+  end
+  n4 ===|"hub"| n1
+  n4 ===|"left"| n2
+  n4 ===|"right"| n3
+  n5 === n1
+  n5 === n2
+  n5 === n3
+  note0 -.- n4
+  classDef note fill:#FEFFDD,stroke:#181818
+  class note0 note
+  linkStyle 0 stroke-width:3px
+  linkStyle 1 stroke-width:3px
+  linkStyle 2 stroke-width:3px
+  linkStyle 3 stroke-width:3px
+  linkStyle 4 stroke-width:3px
+  linkStyle 5 stroke-width:3px

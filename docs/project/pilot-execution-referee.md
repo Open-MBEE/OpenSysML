@@ -10,10 +10,10 @@ The answer is narrow, and deliberately stated as such. The pinned artifact evalu
 machines, and has no notion of a step, a token or a trace. Three of the four behavior areas
 are therefore **out of its reach**, and no amount of harness work changes that.
 
-Pin: tag `2026-09`, artifact `jupyter-sysml-kernel 0.63.0` (`scripts/pilot-pin.sh`). Every
+Pin: tag `2026-09.1`, artifact `jupyter-sysml-kernel 0.63.1` (`scripts/pilot-pin.sh`). Every
 command below was run against the shaded jar that `scripts/download-pilot-validator.sh`
 unpacks, at
-`build/pilot-validator/target/sysml-download/sysml/jupyter-sysml-kernel-0.63.0-all.jar`.
+`build/pilot-validator/target/sysml-download/sysml/jupyter-sysml-kernel-0.63.1-all.jar`.
 
 ## Capability map
 
@@ -32,7 +32,7 @@ unpacks, at
 The magics in the pinned jar:
 
 ```
-$ unzip -Z1 build/pilot-validator/.../jupyter-sysml-kernel-0.63.0-all.jar \
+$ unzip -Z1 build/pilot-validator/.../jupyter-sysml-kernel-0.63.1-all.jar \
     | grep -i 'jupyter/kernel/magic/[A-Za-z]*\.class'
 org/omg/sysml/jupyter/kernel/magic/Load.class
 org/omg/sysml/jupyter/kernel/magic/Projects.class
@@ -218,7 +218,8 @@ No compliance row's status flag is changed on the strength of this work.
 - **UUID identity is the only thing normalized away** on the pilot side.
 
 Run it with `go run -C tools ./cmd/pilot-exec-diff` after `./scripts/download-pilot-evaluator.sh`; with the
-execution artifact absent it prints a provisioning instruction, exits 0 and writes nothing, so
+execution artifact absent it prints a provisioning instruction, exits 0 and writes nothing (under
+`OPENSYSML_REQUIRE_PILOT_EVALUATOR` it fails instead, as it does when the launcher is there but cannot run, so a run that must compare cannot pass empty), so
 `tools/referee/diff` and its committed baseline are untouched. The bucket counts below are as measured
 when this record was last updated and are not the current baseline — `go run -C tools ./cmd/pilot-exec-diff`
 prints the current ones. State of the 514 committed cases, the original 32, the 62 the
@@ -871,18 +872,19 @@ The cases that were `ours-error` before that round, and what closed them:
 
 KerML 1.0 §8.3.4.8.11 types a `LiteralInfinity` as a `Positive`, §8.2.5.8.4 calls its result "a
 number from the DataType ScalarValues::Positive that is greater than all the integers", and
-§9.3.2 extends `Natural`, `Integer`, `Rational` and `Real` with it. The Kernel Function Library
-(§9.4) defines no arithmetic result over it. `unbounded_arithmetic.cases` (44 cases over
+§9.3.2 extends `Natural`, `Integer`, `Rational` and `Real` with it — the last three with a
+negative infinity too (§9.3.2.2.3, §9.3.2.2.8, §9.3.2.2.9). The Kernel Function Library
+(§9.4) states no operation table over them. `unbounded_arithmetic.cases` (44 cases over
 `unbounded_arithmetic.sysml`) measures what each side does with it; the pinned pilot validator is
 silent on the whole model, as our checker is, so every probe is a well-typed expression and the
 difference is entirely in evaluation.
 
 | Probe (feature value and `%eval`) | Pilot evaluator | Ours |
 |---|---|---|
-| `* + 1`, `1 + *`, `* + 1.5`, `* - 1`, `1 - *`, `* - *`, `2 * *`, `* * 0`, `* / 2`, `2 / *`, `* % 2`, `* ** 2`, `2 ** *`, `* ^ 2` | unevaluated (the `OperatorExpression` comes back) | typed error naming the operator (`operator '+' is not defined for the unbounded value '*'`) |
-| `-*` | silent (no output) | typed error (`unary '-' is not defined for *`) |
-| `1..*`, `sum((1, *))` | unevaluated | typed error naming the function |
-| `hi + 1` for `attribute hi : Natural = *`; `Bump(*)` for a calc adding one; a calc whose body is `* + 1` | unevaluated | the same operator error, raised where the arithmetic is |
+| `* + 1`, `1 + *`, `* + 1.5`, `* - 1`, `1 - *`, `* - *`, `2 * *`, `* * 0`, `* / 2`, `2 / *`, `* % 2`, `* ** 2`, `2 ** *`, `* ^ 2` | unevaluated (the `OperatorExpression` comes back) | the extended reals' value — `*`, `*`, `*`, `*`, `-*`, error, `*`, error, `*`, `0`, error, `*`, `*`, `*` — an indeterminate form being `arithmetic domain error` |
+| `-*` | silent (no output) | `-*`, the negative infinity |
+| `1..*`, `sum((1, *))` | unevaluated | `arithmetic domain error` (a range wants finite bounds), `*` |
+| `hi + 1` for `attribute hi : Natural = *`; `Bump(*)` for a calc adding one; a calc whose body is `* + 1` | unevaluated | `*` |
 | `* > 1`, `* < 1`, `* >= 3`, `* <= *` | unevaluated | `true`, `false`, `true`, `true` |
 | `* == *`, `* == 1`, `* != 1` | `true`, `false`, `true` | the same — the only probes both sides answer |
 | `'>'(*, 1)`, `'=='(*, 1)` | unevaluated (`InvocationExpression`) | `true`, `false`: the function form answers as the operator form does |
@@ -894,13 +896,14 @@ difference is entirely in evaluation.
 | `attribute hi : Natural = *`; `Same(*)` for the identity calc | `LiteralInfinity *` | `*` |
 | `attribute many : Integer[0..hi]` | unevaluated (the usage) | `<undetermined>` |
 
-The pilot therefore defines nothing over `*` beyond equality, and the specification states only
-the ordering. The contract this record pins is: the checker accepts every expression above (no
+The pilot therefore defines nothing over `*` beyond equality; the specification names the values
+— the extended numbers — and so their ordering and arithmetic. The contract this record pins is: the checker accepts every expression above (no
 clause states a static rule, and a diagnostic the specification does not imply is not added);
 the evaluator answers what the ordering decides — comparisons and equality in both notations,
-`max`, `min`, `abs`, `ToString`, unary `+` — and reports arithmetic over `*` as an undefined
-value at evaluation, as it reports a division by zero. The 20 arithmetic probes bucket
-`pilot-unevaluated` with our error recorded beside them, the three equality probes and the two
+`max`, `min`, `abs`, `ToString`, unary `+` — answers arithmetic over `*` as the affinely extended
+reals do, and reports an indeterminate form at evaluation, as it reports a division by zero. Here
+the pilot only corroborates that nothing contradicts those values: it computes none. The 20
+arithmetic probes bucket `pilot-unevaluated` with our value or error recorded beside them, the three equality probes and the two
 sequence probes `agree`, and the two `LiteralInfinity` reads `agree` since `parseOurValue` reads
 our `*` as the infinity the pilot prints.
 

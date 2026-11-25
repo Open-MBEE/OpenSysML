@@ -19,7 +19,7 @@ A consumer developing against a checkout takes it from a path or from git:
 opensysml = { git = "https://github.com/Open-MBEE/OpenSysML.git", branch = "main" }
 ```
 
-The minimum supported Rust version is **1.83**, and there is no asynchronous
+The minimum supported Rust version is **1.85**, and there is no asynchronous
 runtime: every call blocks. A caller that needs concurrency owns that decision —
 threads, or its own runtime's blocking pool — rather than inheriting one from a
 client library.
@@ -65,7 +65,7 @@ and is started without `$OPENSYSML_GRPC_TOKEN` in its environment.
 | `server_info()`, `capabilities()` | what `GetServerInfo` reported, asked once at connect |
 | `private_service_pid()` | the child's pid, or `None` for an external service |
 | `parse_sources(&[SourceDocument], &SourcesOptions)` | parses files and named inline content as one model; `SourcesOptions::base_model_hash` relates the parse to a previous model and the `Model`'s `affected()` names the documents whose results may differ from it (needs `parse_sources_affected`) |
-| `convert(to_format, &ConvertSource, &ConvertOptions)` | converts a file, content or held model; `IdForm` spells derived ids, `include_library_stubs` restores the pre-0.11.0 library stubs in API JSON (needs `convert_library_stubs`), `compact` writes the `api-json-compact/1` document with `omit_derived`/`keep_derived` trimming its derived properties (needs `convert_compact`), `include_check_diagnostics` reports the semantic check's diagnostics with their severities beside the output (needs `convert_check_diagnostics`), and a `Conversion` lists the `library_references` API JSON names beside its elements; a SysML v1 model is refused with `InvalidRequest` — it is migrated |
+| `convert(to_format, &ConvertSource, &ConvertOptions)` | converts a file, content or held model; `IdForm` spells derived ids, `include_library_stubs` restores the pre-0.11.0 library stubs in API JSON (needs `convert_library_stubs`), `inherited_members` also writes there the derived lists that repeat each Namespace's and Type's inherited and imported members (needs `convert_inherited_members`), `compact` writes the `api-json-compact/1` document with `omit_derived`/`keep_derived` trimming its derived properties (needs `convert_compact`), `include_check_diagnostics` reports the semantic check's diagnostics with their severities beside the output (needs `convert_check_diagnostics`), and a `Conversion` lists the `library_references` API JSON names beside its elements; a SysML v1 model is refused with `InvalidRequest` — it is migrated |
 | `migrate(to_format, &MigrateSource, &MigrateOptions)` | migrates a SysML v1 model (`.mdzip`, `.xmi`, `.uml`, as a file or inline bytes) to notation or Turtle, answering a `Migration` whose `report` gives every element's verdict and whose `write(path)` puts the image files beside the model |
 | `query(hash, &Query)`, `query_oslc(hash, text)` | selects elements, structured or as OSLC Query 3.0 text |
 | `run_document_query`, `render_document` | runs a named document query, renders a named document as Markdown or HTML |
@@ -104,6 +104,11 @@ model.root();                          // Option<&Symbol>
 
 let car = model.symbol("Demo::Car")?;
 for child in car.children()? { }       // one call per level
+car.members();                         // own then inherited, each with inherited_from and library
+car.withheld_library_members();        // standard-library members left out, until:
+model.symbol_with("Demo::Car", &SymbolOptions { include_library_members: true })?;
+model.symbol_by_name("Demo::Car")?;            // only as a qualified name
+model.symbol_by_element_id("Demo::Car::@3")?;  // only as an id the service reported
 
 let value: Value = model.eval("2 + 2")?;
 let evaluation = model.evaluate("mass", &EvalOptions { .. })?;   // subject, context
@@ -113,7 +118,18 @@ for instance in built.instances() {
 }
 ```
 
-`Symbol` exposes `id()`, `name()`, `kind()` and `children()`; `Instance` exposes
+A qualified name and an element id can be spelled alike (`package Col__V__c_pend0` beside the
+unnamed connector end reported under that id), so `symbol_by_name` and `symbol_by_element_id`, or
+`SymbolOptions::lookup` and `element_properties_of` with a `Lookup`, state which the string is;
+`Lookup::Either`, the default, is the legacy form that reads a name first. Navigation over
+children, members and specialization targets asks by element id, and a service without
+`symbol_lookup_kind` is asked in the legacy form.
+
+`Symbol` exposes `id()`, `name()`, `kind()`, `children()`, `members()`, `own_members()`,
+`inherited_members()`, `withheld_library_members()`, `annotating_metadata_ids()` and
+`annotating_metadata()`, the metadata usages annotating it, `about` ones written elsewhere
+included (`symbol_with` and `include_library_members` need the `symbol_members` capability,
+`annotating_metadata()` needs `symbol_annotating_metadata`); `Instance` exposes
 `id()`, `type_symbol_id()`, `feature_values()` and `feature(name)`; `FeatureValue`
 exposes `name()`, `value()`, `values()`, `materialized()` and `error()`, which is
 how a feature the service could not compute is told apart from one it computed as
@@ -142,7 +158,11 @@ and the `FailureReason` when it could not be decided. `Satisfaction` holds one p
 satisfaction assertion; `Validation` one per assertion about an object. `CalcResult` and
 `AnalysisResult` carry their value, named outputs, verdicts and case evaluations; an
 `ActionRun` or `StateRun` its outputs, the states visited and the final clock instant; an
-`Exploration` its distinct `Outcome`s and whether it explored every order. A `SweepTable`
+`Exploration` its distinct `Outcome`s, whether it explored every order and, in `coverage`, the
+`Coverage` of every run — the states entered and transitions taken as `CoverageEntry`s
+(`path` under the running instance, `declaration` under the machine, `runs` that did), not
+only each outcome's witness; `CheckSearch.coverage` carries the same over every schedule of
+a check. A `SweepTable`
 is one `SweepRow` per point, and a failed row keeps the outputs and verdicts it reached.
 `RunOptions` also carries the run options of the `sysml` command — `advance` (simulated seconds to
 run for, reported back in `final_time`, on `Error::Execution` too when the run stops short), `seed`, `draws` (`"min"`, `"max"`, `"average"` or
@@ -211,10 +231,12 @@ match value {
     Value::Unset => (),                // a materialized feature with no value
     Value::Undetermined(u) => (),      // left open by the model: u.reason, u.count_lower, u.count_upper
     Value::Infinity => (),             // the unbounded `*`
+    Value::CoordinateFrame(f) => (),   // f.axes, f.scale, f.transformation
+    Value::CoordinateTransformation(t) => (), // t.source, t.target, t.shape, t.pose
 }
 ```
 
-Every variant but `Unset` and `Undetermined` — answers the service gives, never
+Every variant but `Unset`, `Undetermined`, `CoordinateFrame` and `CoordinateTransformation` — answers the service gives, never
 arguments — can be sent, nested to a bounded depth. A request value is checked before it
 is sent: a quantity's unit must be reduced and its scale exact, an array, vector or tensor
 must fill its dimensions, and a function or metaobject must name its element; anything

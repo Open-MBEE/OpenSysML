@@ -15,6 +15,7 @@ import org.openmbee.opensysml.Migration;
 import org.openmbee.opensysml.MigrationEntry;
 import org.openmbee.opensysml.MigrationOptions;
 import org.openmbee.opensysml.SourceDocument;
+import org.openmbee.mdk.magic.identity.QualifiedNames;
 import org.openmbee.mdk.magic.model.ModelPath;
 
 /**
@@ -28,6 +29,8 @@ public final class V1MdzipSource implements ModelSource {
   private final Optional<Path> layout;
   private List<Diagnostic> diagnostics = List.of();
   private List<String> rootPackages = List.of();
+  private List<MigrationEntry> entries = List.of();
+  private List<SourceDocument> documents;
   private Map<String, byte[]> files = Map.of();
   private Optional<String> reportText = Optional.empty();
 
@@ -63,8 +66,14 @@ public final class V1MdzipSource implements ModelSource {
     return ModelPath.V1_MDZIP;
   }
 
+  /** Migrates once; the archive does not change while the source lives, so later calls answer the same text. */
   @Override
   public List<SourceDocument> sources(Connection connection) {
+    if (documents == null) documents = migrate(connection);
+    return documents;
+  }
+
+  private List<SourceDocument> migrate(Connection connection) {
     MigrationOptions options = MigrationOptions.defaults().withReport(true);
     if (layout.isPresent()) options = options.withLayoutFile(layout.get());
     Migration migration = connection.migrateFile(mdzip, "sysml", options);
@@ -76,7 +85,8 @@ public final class V1MdzipSource implements ModelSource {
       collected.add(new Diagnostic(Diagnostic.Severity.INFO, migration.report().summary(), "migration-report", Optional.empty()));
     }
     diagnostics = List.copyOf(collected);
-    rootPackages = migration.report().entries().stream()
+    entries = List.copyOf(migration.report().entries());
+    rootPackages = entries.stream()
         .filter(entry -> "Model".equals(entry.kind()) && !entry.target().isBlank())
         .map(MigrationEntry::target)
         .toList();
@@ -118,6 +128,17 @@ public final class V1MdzipSource implements ModelSource {
       if (subjectName.startsWith(root + "::")) return subjectName.substring(root.length() + 2);
     }
     return subjectName;
+  }
+
+  /** The report names an element below its root Model, as Cameo does; every entry of the name counts. */
+  @Override
+  public List<String> mappedTargets(String qualifiedName) {
+    String wanted = QualifiedNames.normalize(qualifiedName);
+    return entries.stream()
+        .filter(entry -> !entry.target().isBlank() && QualifiedNames.normalize(entry.name()).equals(wanted))
+        .map(MigrationEntry::target)
+        .distinct()
+        .toList();
   }
 
   @Override

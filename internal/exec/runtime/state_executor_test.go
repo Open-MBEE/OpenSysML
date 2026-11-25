@@ -474,7 +474,7 @@ func TestStateExecutor_GuardCondition(t *testing.T) {
 		ID:        2,
 		Type:      eventTime,
 		Timestamp: exec.CurrentTime() + 1.0,
-		Payload:   transition,
+		Payload:   exec.graph.Transitions[stateA][0],
 	})
 
 	// Process second event (guard should pass)
@@ -758,7 +758,7 @@ func TestStateExecutor_HierarchicalEntryExit(t *testing.T) {
 	}
 
 	transition := &ast.TransitionEdge{
-		Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "childState"}}},
+		Source: chainedName("parentState.childState"),
 		Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "siblingState"}}},
 		Trigger: &ast.TimeEvent{
 			Duration: &ast.LiteralInteger{Value: "1"},
@@ -849,7 +849,7 @@ func TestStateExecutor_StateStackTracking(t *testing.T) {
 	}
 
 	transition := &ast.TransitionEdge{
-		Source:  &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "deepNested"}}},
+		Source:  chainedName("composite.nested.deepNested"),
 		Target:  &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "standalone"}}},
 		Trigger: &ast.TimeEvent{Duration: &ast.LiteralInteger{Value: "1"}},
 	}
@@ -881,8 +881,8 @@ func TestStateExecutor_StateStackTracking(t *testing.T) {
 	}
 
 	for i, expected := range expectedStack {
-		if exec.stateStack[i] != expected {
-			t.Errorf("stateStack[%d]: expected %s, got %s", i, expected.Name, exec.stateStack[i].Name)
+		if got := exec.stateDecl(exec.stateStack[i]); got != expected {
+			t.Errorf("stateStack[%d]: expected %s, got %s", i, expected.Name, got.Name)
 		}
 	}
 
@@ -897,8 +897,8 @@ func TestStateExecutor_StateStackTracking(t *testing.T) {
 		t.Errorf("expected stateStack length 1, got %d", len(exec.stateStack))
 	}
 
-	if len(exec.stateStack) > 0 && exec.stateStack[0] != standalone {
-		t.Errorf("expected stateStack[0] = standalone, got %s", exec.stateStack[0].Name)
+	if len(exec.stateStack) > 0 && exec.stateDecl(exec.stateStack[0]) != standalone {
+		t.Errorf("expected stateStack[0] = standalone, got %s", exec.stateDecl(exec.stateStack[0]).Name)
 	}
 
 	if exec.getCurrentState() != standalone {
@@ -985,19 +985,19 @@ func TestStateExecutor_Integration_HierarchicalWorkflow(t *testing.T) {
 	}
 
 	trans1 := &ast.TransitionEdge{
-		Source:  &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "ready"}}},
-		Target:  &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "validate"}}},
+		Source:  chainedName("workflow.ready"),
+		Target:  chainedName("workflow.processing.validate"),
 		Trigger: &ast.TimeEvent{Duration: &ast.LiteralInteger{Value: "1"}},
 	}
 
 	trans2 := &ast.TransitionEdge{
-		Source:  &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "validate"}}},
-		Target:  &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "execute"}}},
+		Source:  chainedName("workflow.processing.validate"),
+		Target:  chainedName("workflow.processing.execute"),
 		Trigger: &ast.TimeEvent{Duration: &ast.LiteralInteger{Value: "1"}},
 	}
 
 	trans3 := &ast.TransitionEdge{
-		Source:  &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "execute"}}},
+		Source:  chainedName("workflow.processing.execute"),
 		Target:  &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "finish"}}},
 		Trigger: &ast.TimeEvent{Duration: &ast.LiteralInteger{Value: "1"}},
 	}

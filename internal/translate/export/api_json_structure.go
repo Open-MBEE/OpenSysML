@@ -9,6 +9,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
@@ -26,11 +27,131 @@ type apiJSONGraphStructure struct {
 	owningRelationshipByOwned   [][]rdf.Term
 	owningMembershipByMember    [][]rdf.Term
 	owningRelatedByRelationship [][]rdf.Term
+	metaclassByPosition         []apiJSONMetaclass
+	ownedRelationshipsCache     []*apiJSONOwnedRelationships
+	annotationsOnce             sync.Once
+	annotationsByAnnotated      map[int][]metamodel.Element
+	annotationsByLibrary        map[*symbols.Symbol][]metamodel.Element
+	annotationsOutside          bool
+	annotationsComplete         bool
+	catalogOnce                 sync.Once
+	catalog                     *identity.Catalog
+}
+
+// apiJSONOwnedRelationships memoizes an element's owned relationships, which
+// every owned collection the evaluator derives starts from.
+type apiJSONOwnedRelationships struct {
+	relationships []metamodel.Element
+	ok            bool
+}
+
+// libraryCatalog is the catalog of normative library ids, built once per structure.
+func (s *apiJSONGraphStructure) libraryCatalog() *identity.Catalog {
+	s.catalogOnce.Do(func() {
+		s.catalog = identity.LibraryCatalogWithOpenSysML(libs.SharedBase())
+	})
+	return s.catalog
+}
+
+// Annotations lists the Annotation relationships whose annotatedElement is element, in
+// graph order; nothing is answered when an annotation's annotated element is not placed.
+func (s *apiJSONGraphStructure) Annotations(element metamodel.Element) ([]metamodel.Element, bool) {
+	position, placed := s.position(element)
+	if !placed && element.Symbol == nil {
+		return nil, false
+	}
+	s.annotationsOnce.Do(s.indexAnnotations)
+	if !s.annotationsComplete {
+		return nil, false
+	}
+	if !placed {
+		// A library element the evaluator reached through the library, not the graph.
+		return s.annotationsByLibrary[element.Symbol], !s.annotationsOutside
+	}
+	if s.annotationsOutside && LibraryReference(s.graph, s.index.subjects[position]) {
+		return nil, false
+	}
+	return s.annotationsByAnnotated[position], true
+}
+
+func (s *apiJSONGraphStructure) indexAnnotations() {
+	s.annotationsByAnnotated = make(map[int][]metamodel.Element)
+	s.annotationsByLibrary = make(map[*symbols.Symbol][]metamodel.Element)
+	for _, subject := range s.index.subjects {
+		class, ok := s.metaclass(subject)
+		if !ok || !s.Specializes(class, "Annotation") {
+			continue
+		}
+		annotation, ok := s.element(subject)
+		if !ok {
+			return
+		}
+		for _, object := range s.graph.ObjectsView(subject, apiJSONSysMLPredicate("annotatedElement")) {
+			if object.IsLiteral() {
+				// A name the graph does not resolve is no element of the graph, so the
+				// annotation is about an element outside it.
+				s.annotationsOutside = true
+				continue
+			}
+			target, ok := s.element(object)
+			if !ok {
+				return
+			}
+			position, ok := s.position(target)
+			if !ok {
+				return
+			}
+			s.annotationsByAnnotated[position] = append(s.annotationsByAnnotated[position], annotation)
+			if symbol, ok := s.LibrarySymbol(target); ok {
+				s.annotationsByLibrary[symbol] = append(s.annotationsByLibrary[symbol], annotation)
+			}
+		}
+	}
+	s.annotationsComplete = true
+}
+
+// LibraryMember is the library symbol whose membership a library reference names: the member
+// an owning membership owns, or the alias a Membership is.
+func (s *apiJSONGraphStructure) LibraryMember(membership metamodel.Element) (*symbols.Symbol, bool) {
+	subject, ok := s.subject(membership)
+	if !ok || !LibraryReference(s.graph, subject) {
+		return nil, false
+	}
+	id, ok := rdf.SubjectID(subject)
+	if !ok {
+		return nil, false
+	}
+	if library, ok := s.libraryCatalog().OwningMembership(id); ok && library != nil && library.Symbol != nil {
+		return library.Symbol, true
+	}
+	// An alias is the Membership itself, which an import of it imports (KerML 8.2.3.5).
+	if alias, ok := sharedLibraryIndex().anonymous.AliasMembership(id); ok {
+		return alias.Symbol, true
+	}
+	return nil, false
+}
+
+// LibrarySymbol resolves a library reference the graph states by id to the library symbol.
+func (s *apiJSONGraphStructure) LibrarySymbol(element metamodel.Element) (*symbols.Symbol, bool) {
+	subject, ok := s.subject(element)
+	if !ok || !LibraryReference(s.graph, subject) {
+		return nil, false
+	}
+	id, ok := rdf.SubjectID(subject)
+	if !ok {
+		return nil, false
+	}
+	library, ok := s.libraryCatalog().Element(id)
+	if !ok || library == nil || library.Symbol == nil {
+		return nil, false
+	}
+	return library.Symbol, true
 }
 
 type apiJSONEvaluation struct {
 	structure *apiJSONGraphStructure
 	evaluator *metamodel.Evaluator
+	model     *semantics.Model
 }
 
 func newAPIJSONEvaluation(graph *rdf.Graph) *apiJSONEvaluation {
@@ -40,9 +161,11 @@ func newAPIJSONEvaluation(graph *rdf.Graph) *apiJSONEvaluation {
 func newAPIJSONEvaluationWithIndex(index *apiJSONGraphIndex) *apiJSONEvaluation {
 	structure := newAPIJSONGraphStructure(index)
 	resolver := resolve.New(libs.SharedBase())
+	model := semantics.NewModel(resolver)
 	return &apiJSONEvaluation{
 		structure: structure,
-		evaluator: metamodel.New(resolver, semantics.NewModel(resolver), metamodel.Options{Structure: structure}),
+		evaluator: metamodel.New(resolver, model, metamodel.Options{Structure: structure}),
+		model:     model,
 	}
 }
 
@@ -90,11 +213,11 @@ func apiJSONEvaluationGraph(graph *rdf.Graph) *rdf.Graph {
 		add(subject, rdf.IRI(rdf.RDFType), rdf.SysMLTerm(metaclass))
 		add(subject, rdf.SysMLTerm("elementId"), rdf.String(id))
 		add(subject, rdf.SysMLTerm("isLibraryElement"), rdf.Bool(true))
-		if library.Symbol.Name != "" {
+		if library.Symbol.Named() {
 			add(subject, rdf.SysMLTerm("declaredName"), rdf.String(library.Symbol.Name))
 		}
 		if library.FQN != "" {
-			add(subject, rdf.SysMLTerm(pQualifiedName), rdf.String(library.FQN))
+			stateAddress(add, subject, library.FQN)
 		}
 	}
 	triples := make([]rdf.Triple, 0, graph.Len()+len(additions))
@@ -122,6 +245,8 @@ func newAPIJSONGraphStructure(index *apiJSONGraphIndex) *apiJSONGraphStructure {
 		}
 	}
 	s.elements = make([]metamodel.Element, len(subjects))
+	s.metaclassByPosition = make([]apiJSONMetaclass, len(subjects))
+	s.ownedRelationshipsCache = make([]*apiJSONOwnedRelationships, len(subjects))
 	s.ownedRelationshipsByEnd = make([][]rdf.Term, len(subjects))
 	s.owningRelationshipByOwned = make([][]rdf.Term, len(subjects))
 	s.owningMembershipByMember = make([][]rdf.Term, len(subjects))
@@ -138,7 +263,9 @@ func newAPIJSONGraphStructure(index *apiJSONGraphIndex) *apiJSONGraphStructure {
 // placeElement makes the element at position stand for subject and files the
 // position under the subject's id.
 func (s *apiJSONGraphStructure) placeElement(position int, subject rdf.Term) {
-	if class, ok := s.metaclass(subject); ok {
+	class, ok := s.metaclass(subject)
+	s.metaclassByPosition[position] = apiJSONMetaclass{class, ok}
+	if ok {
 		aspect := apiJSONGraphAspectPrefix + strconv.Itoa(position)
 		element := metamodel.Element{Aspect: aspect}
 		if ontology.IsAncestorOrSelf(class, "Membership") {
@@ -209,25 +336,36 @@ func (s *apiJSONGraphStructure) typeMetaclass(typ string) (string, bool) {
 	if class := apiJSONOwnedAbsenceMetaclassInGraph(s.graph, typ); class != "" {
 		return class, true
 	}
-	if strings.HasPrefix(typ, rdf.OpenSysML) {
+	if strings.HasPrefix(typ, rdf.OpenSysML) && rdf.LocalName(typ) != mNote {
+		// A note is a node of the element whose lines hold it, not an element.
 		return metamodel.ExtensionMetaclassPrefix + strings.TrimPrefix(typ, rdf.OpenSysML), true
 	}
 	return "", false
 }
 
 func (s *apiJSONGraphStructure) subject(element metamodel.Element) (rdf.Term, bool) {
+	position, ok := s.position(element)
+	if !ok {
+		return rdf.Term{}, false
+	}
+	return s.index.subjects[position], true
+}
+
+// position is the graph position an element's aspect names, when the element
+// placed there is this one.
+func (s *apiJSONGraphStructure) position(element metamodel.Element) (int, bool) {
 	aspect := element.Aspect
 	if element.IsMembership {
 		aspect = element.Membership.Aspect
 	}
 	if !strings.HasPrefix(aspect, apiJSONGraphAspectPrefix) {
-		return rdf.Term{}, false
+		return 0, false
 	}
 	position, err := strconv.Atoi(strings.TrimPrefix(aspect, apiJSONGraphAspectPrefix))
 	if err != nil || position < 0 || position >= len(s.elements) || s.elements[position].Key() != element.Key() {
-		return rdf.Term{}, false
+		return 0, false
 	}
-	return s.index.subjects[position], true
+	return position, true
 }
 
 func (s *apiJSONGraphStructure) element(subject rdf.Term) (metamodel.Element, bool) {
@@ -251,11 +389,12 @@ func (s *apiJSONGraphStructure) relatedBySubject(index [][]rdf.Term, subject rdf
 }
 
 func (s *apiJSONGraphStructure) Metaclass(element metamodel.Element) (string, bool) {
-	subject, ok := s.subject(element)
+	position, ok := s.position(element)
 	if !ok {
 		return "", false
 	}
-	return s.metaclass(subject)
+	cached := s.metaclassByPosition[position]
+	return cached.class, cached.ok
 }
 
 func (s *apiJSONGraphStructure) DerivedName(element metamodel.Element) (string, bool) {
@@ -271,8 +410,20 @@ func (*apiJSONGraphStructure) Specializes(sub, super string) bool {
 }
 
 func (s *apiJSONGraphStructure) OwnedRelationships(element metamodel.Element) ([]metamodel.Element, bool) {
-	subject, ok := s.subject(element)
-	if !ok || LibraryReference(s.graph, subject) {
+	position, ok := s.position(element)
+	if !ok {
+		return nil, false
+	}
+	if cached := s.ownedRelationshipsCache[position]; cached != nil {
+		return cached.relationships, cached.ok
+	}
+	relationships, ok := s.computeOwnedRelationships(s.index.subjects[position])
+	s.ownedRelationshipsCache[position] = &apiJSONOwnedRelationships{relationships: relationships, ok: ok}
+	return relationships, ok
+}
+
+func (s *apiJSONGraphStructure) computeOwnedRelationships(subject rdf.Term) ([]metamodel.Element, bool) {
+	if LibraryReference(s.graph, subject) {
 		return nil, false
 	}
 	terms := append([]rdf.Term(nil), s.graph.ObjectsView(subject, rdf.SysML+"ownedRelationship")...)
@@ -464,6 +615,9 @@ func (s *apiJSONGraphStructure) Attribute(element metamodel.Element, property st
 	}
 	objects := s.graph.ObjectsView(subject, apiJSONSysMLPredicate(graphProperty))
 	if len(objects) == 0 {
+		if definition.HasDefault && !definition.Many {
+			return apiJSONGraphAttributeDefault(definition), true
+		}
 		if definition.Lower > 0 {
 			return metamodel.Value{}, false
 		}
@@ -486,11 +640,20 @@ func (s *apiJSONGraphStructure) Attribute(element metamodel.Element, property st
 	return metamodel.Value{Kind: metamodel.SequenceValue, Values: values, Success: true}, true
 }
 
+// apiJSONGraphAttributeDefault is the metamodel default an unstated attribute
+// takes (KerML 8.3.2.4.3 Membership::visibility = public, Import = private).
+func apiJSONGraphAttributeDefault(definition ontology.Property) metamodel.Value {
+	if definition.Range == rdf.XSD+"boolean" {
+		return metamodel.Value{Kind: metamodel.BooleanValue, Boolean: definition.Default == "true", Success: true}
+	}
+	return metamodel.Value{Kind: metamodel.StringValue, String: definition.Default, Success: true}
+}
+
 func apiJSONGraphAttributeValue(object rdf.Term) (metamodel.Value, bool) {
-	if object.Kind == rdf.TermIRI {
+	if object.Kind() == rdf.TermIRI {
 		return metamodel.Value{}, false
 	}
-	switch object.Datatype {
+	switch object.Datatype() {
 	case rdf.XSD + "boolean":
 		return metamodel.Value{Kind: metamodel.BooleanValue, Boolean: object.Value == "true" || object.Value == "1", Success: true}, true
 	case rdf.XSD + "integer", rdf.XSD + "int", rdf.XSD + "long", rdf.XSD + "short", rdf.XSD + "byte":

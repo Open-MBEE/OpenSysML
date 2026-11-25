@@ -148,11 +148,14 @@ class LibraryReference:
         id: The element's id, as the conversion's references spell it.
         qualified_name: The element's qualified name, such as ``SI::second``.
         type: The element's metaclass, as API JSON's ``@type`` spells it.
+        library_path: The positional path ``owner/Metaclass[i]`` of an unnamed
+            member, which has no qualified name; empty for a named element.
     """
 
     id: str
     qualified_name: str
     type: str
+    library_path: str = ""
 
 
 @dataclass(frozen=True)

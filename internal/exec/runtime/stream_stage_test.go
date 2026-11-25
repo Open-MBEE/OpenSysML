@@ -17,7 +17,7 @@ func intConst(i int64) Value {
 // flow: a source's next write to a pin replaces its own earlier value however many other
 // sources wrote in between, and taking a delivery shifts what every source left waiting.
 func TestStagedStreamsAreKeptPerSource(t *testing.T) {
-	target := &ast.Usage{NodeBase: ast.NodeBase{NodeSpan: source.Span{Offset: 10, Len: 1}}, Kind: ast.UsageAction}
+	target := NodeRef{ID: 1}
 	flow := &ast.Usage{NodeBase: ast.NodeBase{NodeSpan: source.Span{Offset: 20, Len: 1}}, Kind: ast.UsageFlow}
 	frame, a, b := &actionFrame{}, &actionFrame{}, &actionFrame{}
 	queue := func() []int64 {
@@ -206,7 +206,7 @@ func TestPerformedOutputDefaultStreamsAtOnce(t *testing.T) {
 		heard = append(heard, name+"="+FormatValue(value))
 		return nil
 	}}
-	if _, err := ctx.beginCallee(producer, producer, nil, nil, listener); err != nil {
+	if _, err := ctx.beginCallee(producer, producer, nil, nil, nil, listener); err != nil {
 		t.Fatalf("beginCallee: %v", err)
 	}
 	if want := []string{"value=[5]"}; !slices.Equal(heard, want) {

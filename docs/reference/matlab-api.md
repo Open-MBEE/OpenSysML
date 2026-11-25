@@ -79,6 +79,7 @@ there are any, and `raiseForErrors()` raises with the diagnostics and model in t
 | Verification | `verifyConstraint`, `verifyRequirement`, `verifySatisfaction`, `satisfied`, `validateInstance` |
 | Analysis | `calc`, `runAnalysis`, `exploreAnalysis`, `runSweep` |
 | Query and documents | `query`, `runDocumentQuery`, `renderDocument` |
+| Element properties | `elementProperties` |
 | Notation | `convert`, `toSysml`, `toTurtle`, `toApiJson`, `save` |
 | Migration | `opensysml.migrate`, `Migration.write`, `Migration.byVerdict` |
 
@@ -104,7 +105,7 @@ scenario requests exactly as written.
 
 ## Values
 
-`opensysml.decodeValue` reads all twenty-three Connect-JSON `Value` arms and `opensysml.encodeValue`
+`opensysml.decodeValue` reads all twenty-five Connect-JSON `Value` arms and `opensysml.encodeValue`
 writes supported request values. `intValue` uses decimal JSON strings and exact `int64`
 accumulation, including `-9223372036854775808`; an Integer beyond `int64`
 arrives as `bigIntValue` and decodes to `struct('bigInteger', digits)`, its decimal digits kept as
@@ -139,7 +140,11 @@ and include `inputs`, `events`, `schedule`, `performer`, `trace`, `subject`, `ar
 `namedArguments`, `engine`, and `question`. Explore schedules return an `Exploration`; a normal
 `executeAction`, `executeState`, or `runAnalysis` request answers one run. Exploration entry
 points are `opensysml.exploreAction`, `opensysml.exploreState`, and
-`opensysml.exploreAnalysis`.
+`opensysml.exploreAnalysis`. An `Exploration`'s `coverage` holds the states entered and
+transitions taken across every run, not only each outcome's witness, as cell arrays
+`states` and `transitions` of structs with `path` (under the running instance),
+`declaration` (under the machine) and `runs`; a check result's `search.coverage` holds the
+same over every schedule.
 
 `executeState(..., 'trace', true)` returns typed `DocumentEvent` entries in
 `trace` and the discarded-record count in `traceDropped`; it checks the
@@ -193,7 +198,9 @@ saved = model.save('model.ttl');
 `filePath`, `content`, or `modelHash`. Optional fields are `fromFormat`,
 `tolerateSyntaxErrors`, `idForm` (`'qualified'`, the default, or `'uuid'`, how a graph spells
 its derived ids) and `includeLibraryStubs` (restore the pre-0.11.0 library stubs in API JSON;
-needs the `convert_library_stubs` capability). For notation converted to API JSON, `compact`
+needs the `convert_library_stubs` capability) and `inheritedMembers` (also write, in API JSON,
+the derived lists that repeat each Namespace's and Type's inherited and imported members; needs
+`convert_inherited_members`). For notation converted to API JSON, `compact`
 writes the compact document (`api-json-compact/1`, see [the compact form](api-json-compact.md)),
 `omitDerived` leaves out every derived property of the metamodel and `keepDerived` (a cell
 array of names) names the ones still written — all three need the `convert_compact`
@@ -274,6 +281,28 @@ lists the elements drawn), and `'depth', n` to draw only `n` levels of nested
 elements below each exposed element (`0`, the default, draws every level the
 view allows). The call requires `render_view`. `'compartments', 'most'` (or `'positioned'`, the default, or `'ports'`) says how a tree
 rendering folds owned members into compartment rows; a folded node names its `compartment`.
+
+## Element properties by specification name
+
+`model.elementProperties(element, names...)` (also `opensysml.elementProperties(model, ...)`)
+reads an element's metamodel properties by their KerML/SysML specification names, as the
+model's api-json export spells them; with no names every property the element form carries.
+The element is a qualified name, the positional id of an unnamed member (`'Owner::@2'`) or the
+id an earlier answer carried. The answer carries `element` (`id`, `qualifiedName`,
+`metaclass`), `properties` (a cell in the order asked for) and `byName`, a `containers.Map`
+from property name to a record with `definingClass`, `many`, `derived`, `values` — an element
+record, a char, a logical, an `int64`, a double or the decimal text of a wider number — and
+`unsupported`, the reason when the property has no answer:
+
+```matlab
+read = model.elementProperties('Demo::Pair', 'inheritedFeature', 'isAbstract');
+inherited = read.byName('inheritedFeature');
+inherited.values{1}.qualifiedName     % 'Demo::Unit::p'
+read.byName('isAbstract').values{1}   % false
+```
+
+It requires the `element_properties` capability (`opensysml.capabilities().elementProperties`);
+a service without it is refused before the call with `opensysml:missingCapability`.
 
 ## Edit builder
 

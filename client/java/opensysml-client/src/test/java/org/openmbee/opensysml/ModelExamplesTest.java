@@ -133,18 +133,21 @@ class ModelExamplesTest {
         connection.parse(
             """
             package G {
-              private import SI::*;
-              private import MeasurementReferences::*;
-              part def Body {
-                attribute datum : CartesianSpatial3dCoordinateFrame[1] { :>> mRefs = (mm, mm, mm); }
+              calc def Unary { in v : Real[1]; return : Real; }
+              calc def Outer {
+                in k : Real[1];
+                calc inner :> Unary { in :>> v; return : Real = v * k; }
+                return : Unary = inner;
               }
+              calc outer : Outer;
             }
             """);
-    Value datum = model.evalInContext("datum", "G::Body");
+    Value closed = ((Value.Sequence) model.eval("G::outer(3.0)")).elements().get(0);
     assertEquals(
-        new Value.NullValue("unsupported: coordinate frame datum [mm, mm, mm]"), datum);
-    assertTrue(((Value.NullValue) datum).isUnsupported());
-    assertFalse(new Value.NullValue().sameValue(datum));
+        new Value.NullValue("unsupported: function G::Outer::inner closing over a body's bindings"),
+        closed);
+    assertTrue(((Value.NullValue) closed).isUnsupported());
+    assertFalse(new Value.NullValue().sameValue(closed));
     assertFalse(((Value.NullValue) model.eval("null")).isUnsupported());
   }
 
@@ -221,7 +224,8 @@ class ModelExamplesTest {
         leaf.attributes().stream()
             .collect(Collectors.toMap(Symbol.Attribute::name, attribute -> attribute.value().orElseThrow())));
     assertEquals(
-        List.of(new Symbol.Specialization("specializes", "Mid", Optional.of("Inherit::Mid"), Optional.of("partDef"))),
+        List.of(new Symbol.Specialization(
+                "specializes", "Mid", Optional.of("Inherit::Mid"), Optional.of("partDef"), Optional.of("Inherit::Mid"))),
         leaf.specializations());
   }
 
@@ -298,6 +302,14 @@ class ModelExamplesTest {
     assertEquals(Optional.of("Tank"), facts.declared());
     assertEquals(Optional.of("Kinds::Tank"), facts.resolvedId());
     assertEquals(Optional.of("partDef"), facts.resolvedKind());
+    assertEquals(
+        List.of(new Symbol.TypeRef("Kinds::Tank", Optional.of("partDef"))), facts.types());
+    Symbol.TypeFacts redefined = model.symbol("Kinds::tank::level").typeFacts().orElseThrow();
+    assertEquals(Optional.empty(), redefined.declared());
+    assertEquals(
+        List.of(new Symbol.TypeRef("ScalarValues::Real", Optional.of("attributeDef"))),
+        redefined.types());
+    assertEquals("redefines", model.symbol("Kinds::tank::level").specializations().get(0).kind());
     Symbol.TypeFacts primitive = model.symbol("Kinds::Temp").typeFacts().orElseThrow();
     assertEquals(Optional.of("Real"), primitive.primitive());
   }

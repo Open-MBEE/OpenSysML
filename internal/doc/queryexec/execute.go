@@ -26,6 +26,11 @@ type Context struct {
 	// ElementID reads the elementId a conversion of the model writes for an
 	// element, or why the model has none; without one, elementId is absent.
 	ElementID func(sym *symbols.Symbol) (string, error)
+	// Identity names an element where a frontend reports it under another
+	// identity than its qualified name; nil keeps the qualified name.
+	Identity func(sym *symbols.Symbol) string
+	// ElementAddress is the address the conversion stated for an elementId it wrote (ElementIDReader.ReadAddress).
+	ElementAddress func(id string) (string, bool)
 	// Runtime holds the objects the query may read; nil makes object bindings
 	// and Objects typed errors.
 	Runtime *runtime.Context
@@ -105,8 +110,9 @@ type executor struct {
 	// metadataTypes memoizes the metadata def each property-string spelling
 	// names, shared by every executor of one execution.
 	metadataTypes map[string]*symbols.Symbol
-	// metaclassFeatures memoizes each metaclass's properties (metaclassProperties).
-	metaclassFeatures map[*symbols.Symbol]map[string]metaclassProperty
+	// reflection memoizes what the metamodel declares, shared by every
+	// executor of one execution.
+	reflection *reflectionMemo
 	// elementIDErr is why the model has no elementIds, once a read asked for
 	// one: the conversion that writes them refused the model.
 	elementIDErr error
@@ -154,21 +160,24 @@ func Execute(program *queryplan.Program, context Context, bindings Bindings, opt
 		related = NewRelationshipTables()
 	}
 	execution := &executor{
-		definition:        definition,
-		context:           context,
-		reader:            query.NewPropertyReader(context.Index, context.Resolver, context.Model),
-		bindings:          make(map[string]sequence),
-		program:           compiled,
-		budget:            &visitBudget{remaining: budget},
-		calls:             &visitBudget{remaining: calls},
-		related:           related,
-		derived:           &derivedValues{},
-		metadataTypes:     make(map[string]*symbols.Symbol),
-		metaclassFeatures: make(map[*symbols.Symbol]map[string]metaclassProperty),
-		depthLeft:         depth,
-		stack:             []string{definition.Name()},
+		definition:    definition,
+		context:       context,
+		reader:        query.NewPropertyReader(context.Index, context.Resolver, context.Model),
+		bindings:      make(map[string]sequence),
+		program:       compiled,
+		budget:        &visitBudget{remaining: budget},
+		calls:         &visitBudget{remaining: calls},
+		related:       related,
+		derived:       &derivedValues{},
+		metadataTypes: make(map[string]*symbols.Symbol),
+		reflection:    &reflectionMemo{},
+		depthLeft:     depth,
+		stack:         []string{definition.Name()},
 	}
 	execution.reader.WithElementID(execution.elementID)
+	if context.Identity != nil {
+		execution.reader.WithIdentity(context.Identity)
+	}
 	if err := execution.bind(bindings); err != nil {
 		return nil, err
 	}
@@ -533,6 +542,7 @@ func (e *executor) evaluateInvoke(expression queryplan.Expression) (sequence, er
 		related:       e.related,
 		derived:       e.derived,
 		metadataTypes: e.metadataTypes,
+		reflection:    e.reflection,
 		depthLeft:     e.depthLeft - 1,
 		stack:         append(append([]string(nil), e.stack...), target),
 	}

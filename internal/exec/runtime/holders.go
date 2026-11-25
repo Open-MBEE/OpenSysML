@@ -219,7 +219,8 @@ func (ctx *Context) returnedArguments(scope *symbols.Scope, call *ast.Invocation
 	if chain := semantics.ChainCallee(call); chain != nil {
 		target = ctx.chainTarget(scope, chain, call.NamedArgs)
 	} else {
-		target = newEvalContext(ctx, scope).invocationTarget(call)
+		ec := newEvalContext(ctx, scope)
+		target = ec.invocationTarget(ec.lowered(call))
 	}
 	positional := semantics.InvocationArgs(call)
 	var args []ast.Node
@@ -275,7 +276,7 @@ type returnedAnalysis struct {
 // of: those its return expressions pass on, a `for` variable standing for its collection.
 // Memoized per shape; a call within a cycle reads the set as far as it is known, and the
 // cycle's root iterates every shape of it until none grows.
-func (ctx *Context) returnedParameters(shape *calcShape) map[string]bool {
+func (ctx *Context) returnedParameters(shape *loadedCalc) map[string]bool {
 	a, ok := ctx.model.returnedParams[shape]
 	if !ok {
 		a = &returnedAnalysis{passed: make(map[string]bool), active: -1}
@@ -328,81 +329,96 @@ type valueSource struct {
 
 // collectReturnedParameters adds to passed the parameters of shape its returns and result
 // binding pass on, directly or through the locals its body writes them to.
-func (ctx *Context) collectReturnedParameters(shape *calcShape, passed, params map[string]bool) {
-	var returns []valueSource
-	locals := make(map[*symbols.Symbol][]valueSource)
-	written := func(in *symbols.Scope, name string, source valueSource) {
-		if source.expr == nil {
-			return
-		}
-		if sym, ok := ctx.lookupName(in, name); ok {
-			locals[sym] = append(locals[sym], source)
-		}
-	}
-	var walk func(stmts []lower.Statement)
-	walk = func(stmts []lower.Statement) {
-		for _, stmt := range stmts {
-			switch s := stmt.(type) {
-			case lower.Return:
-				returns = append(returns, valueSource{scope: s.Scope, expr: s.Value})
-			case lower.Declare:
-				written(s.Scope, s.Name, valueSource{scope: s.Scope, expr: s.Value})
-			case lower.Assign:
-				if s.Chain == nil {
-					written(s.Scope, s.Target, valueSource{scope: s.Scope, expr: s.Value})
-				}
-			case lower.If:
-				walk(s.Then.Steps())
-				if s.Else != nil {
-					walk(s.Else.Steps())
-				}
-			case lower.Loop:
-				if s.Variable != "" {
-					written(s.Body.Scope, s.Variable, valueSource{scope: s.Scope, expr: s.Collection})
-				}
-				walk(s.Body.Steps())
-			case lower.Block:
-				walk(s.Steps())
-			}
-		}
-	}
-	walk(shape.Body)
+func (ctx *Context) collectReturnedParameters(shape *loadedCalc, passed, params map[string]bool) {
+	w := returnedWalk{ctx: ctx, shape: shape, passed: passed, params: params,
+		locals: make(map[*symbols.Symbol][]valueSource), following: make(map[*symbols.Symbol]bool)}
+	w.walk(shape.Body)
 	for _, binding := range shape.Bindings {
 		for i := range binding.Ends {
 			if binding.Ends[i].Path == "result" && binding.Ends[1-i].Expr != nil {
-				returns = append(returns, valueSource{scope: binding.Scope, expr: binding.Ends[1-i].Expr})
+				w.returns = append(w.returns, valueSource{scope: binding.Scope, expr: binding.Ends[1-i].Expr})
 			}
 		}
 	}
+	for _, ret := range w.returns {
+		w.follow(ret, nil)
+	}
+}
 
-	// A chain from a parameter passes on objects the parameter holds, not the parameter;
-	// a local written from itself is followed once.
-	following := make(map[*symbols.Symbol]bool)
-	var follow func(source valueSource, members []string)
-	follow = func(source valueSource, members []string) {
-		if source.scope == nil {
-			return
-		}
-		for _, ref := range readThrough(ctx.passedFeatureReferences(source.scope, source.expr), members) {
-			sym := ref.symbol(ctx)
-			if sym == nil || following[sym] {
-				continue
+// returnedWalk is one pass of collectReturnedParameters: what shape's body returns, what it writes
+// to each local, and the locals being followed.
+type returnedWalk struct {
+	ctx            *Context
+	shape          *loadedCalc
+	passed, params map[string]bool
+	returns        []valueSource
+	locals         map[*symbols.Symbol][]valueSource
+	following      map[*symbols.Symbol]bool
+}
+
+// written notes source as a value of the local name resolves to in scope in.
+func (w *returnedWalk) written(in *symbols.Scope, name string, source valueSource) {
+	if source.expr == nil {
+		return
+	}
+	if sym, ok := w.ctx.lookupName(in, name); ok {
+		w.locals[sym] = append(w.locals[sym], source)
+	}
+}
+
+// walk collects the returns and the writes of stmts and of the statements nested in them.
+func (w *returnedWalk) walk(stmts []lower.Statement) {
+	for _, stmt := range stmts {
+		switch s := stmt.(type) {
+		case lower.Return:
+			w.returns = append(w.returns, valueSource{scope: s.Scope, expr: s.Value})
+		case lower.Declare:
+			w.written(s.Scope, s.Name, valueSource{scope: s.Scope, expr: s.Value})
+		case lower.Assign:
+			if s.Chain == nil {
+				w.written(s.Scope, s.Target, valueSource{scope: s.Scope, expr: s.Value})
 			}
-			if name, ok := ctx.denotedFeature(shape.Sym, sym); ok && params[name] {
-				if len(ref.members) == 0 {
-					passed[name] = true
+		case lower.If:
+			w.walk(s.Then.Steps())
+			if s.Else != nil {
+				w.walk(s.Else.Steps())
+			}
+		case lower.Loop:
+			if s.Bound {
+				w.written(s.Body.Scope, s.Variable, valueSource{scope: s.Scope, expr: s.Collection})
+				if s.Alias != "" {
+					w.written(s.Body.Scope, s.Alias, valueSource{scope: s.Scope, expr: s.Collection})
 				}
-				continue
 			}
-			following[sym] = true
-			for _, from := range locals[sym] {
-				follow(from, ref.members)
-			}
-			delete(following, sym)
+			w.walk(s.Body.Steps())
+		case lower.Block:
+			w.walk(s.Steps())
 		}
 	}
-	for _, ret := range returns {
-		follow(ret, nil)
+}
+
+// follow marks the parameters source passes on. A chain from a parameter passes on objects the
+// parameter holds, not the parameter; a local written from itself is followed once.
+func (w *returnedWalk) follow(source valueSource, members []string) {
+	if source.scope == nil {
+		return
+	}
+	for _, ref := range readThrough(w.ctx.passedFeatureReferences(source.scope, source.expr), members) {
+		sym := ref.symbol(w.ctx)
+		if sym == nil || w.following[sym] {
+			continue
+		}
+		if name, ok := w.ctx.denotedFeature(w.shape.Sym, sym); ok && w.params[name] {
+			if len(ref.members) == 0 {
+				w.passed[name] = true
+			}
+			continue
+		}
+		w.following[sym] = true
+		for _, from := range w.locals[sym] {
+			w.follow(from, ref.members)
+		}
+		delete(w.following, sym)
 	}
 }
 

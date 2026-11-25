@@ -17,3 +17,5 @@ n0: "«action def»\nFill" {
   }
 }
 n0.n1."n1.0" -> n0.n2."n2.0": "«succession flow»" { class: successionflow }
+frame_name: "«view» NotationGlyphs::Diagrams::fillGlyphs : ActionFlowView" { shape: text; near: top-left }
+frame_tr: "expose Fill" { shape: text; near: top-right }

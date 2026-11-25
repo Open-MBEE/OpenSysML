@@ -173,7 +173,42 @@ against the metaclass the position requires, which is a cross-cutting change to 
 
 ## Conformance policy we keep
 
-### A redefinition's declared types are checked for direct conformance
+### Implied generalizations follow §8.4 where the pilot's map differs
+
+The pilot's `ImplicitGeneralizationMap` (commit `38665073`) is a convenient oracle for the implied
+generalizations, but the normative tables are KerML 1.1 §8.4 and SysML v2 1.1 §8.4, and the two
+differ in a few places. The row-by-row audit is
+[implicit-specialization-audit.md](implicit-specialization-audit.md); the divergences kept are:
+
+- **Adjudicated divergence — a flow usage without ends is a message, not a flow.** The pilot gives
+  every `FlowUsage` `Flows::flows`; `checkFlowUsageSpecialization` asks for `Flows::messages` of
+  every flow usage and `checkFlowUsageFlowSpecialization` for `flows` only when it has
+  `ownedEndFeatures`. We imply `messages` always and `flows` when the usage has end features —
+  `from`/`to` or owned `end` members (`semantics/implicit.go` `flowDeclaresEnds`); the KerML `flow` is treated the same way
+  (`Transfers::transfers`, `flowTransfers` with ends). A flow typed by a flow definition still
+  reaches `Flow` through its type.
+- **Our defect, closed — a definition where the specification names a feature.** Control nodes
+  specialized `Actions::ForkAction` and the like directly, accept and send actions
+  `Actions::AcceptAction`/`SendAction`, every flow usage `Flows::Message`, and an `individual`
+  usage `Occurrences::Life`. The clauses name the features (`Actions::Action::forks`,
+  `Actions::acceptActions`, `Flows::messages`) and `Life` only for an individual *definition*; the
+  features are implied now and their types arrive as types.
+- **Pilot limitation — role entries no clause requires.** `Multiplicity feature → Base::exactlyOne`
+  and `classifier → Base::zeroOrOne` (the spec names `Base::naturals`, and `zeroOrOne` only for an
+  individual occurrence definition), `Step incomingTransfer`/`featureWrite`, `Feature
+  startingAt`/`accessedFeature` (the spec places these on `AssignmentActionUsage`), and
+  `IncludeUseCaseUsage performedAction → Parts::Part::performedActions` (the spec's
+  `checkPerformActionUsageSpecialization` is about `PerformActionUsage`). None is implied here; the
+  audit lists each with the clause it approximates.
+- **Unimplemented obligation — elements that are not symbols.** Expressions (literal, null,
+  constructor, metadata-access and invocation evaluations and their result redefinitions),
+  multiplicities (`Base::naturals`), the `assign`/`if`/`while`/`for`/bare `terminate` statements and
+  their `Action::assignments`/`ifSubactions`/`loops`/`terminateSubactions`, a transition's trigger,
+  guard and effect (`TransitionAction::accepter`/`guard`/`effect`), and the chain subsettings of
+  decision/merge successions and transition payloads have no symbol to carry a general. The audit
+  carries a reproducer for each; the type checker and lowering handle their semantics directly.
+
+### A redefinition's declared types were checked for direct conformance
 
 ```kerml
 classifier Try specializes B {
@@ -190,13 +225,21 @@ one: the redefining feature is typed by its own typings *and* the redefined feat
 under `faces : StructuredSurface`). The pilot leaves the consequence to model semantics or a
 reasoner; we apply the direct pairwise test as an advisory check.
 
-**Adjudicated divergence, kept as a warning.** `redefinition-type-mismatch` reports a redefinition
-typed by two unrelated types, because it is almost always a slip, but as a warning, so no model the
-specification admits is rejected. The two `Import3` `noErrors` rows in
-[pilot-xpect.md](pilot-xpect.md#noerrors--266-of-277-agree) closed with that severity; calling them
-wording-only would have been false — the pilot emits nothing there. (The same check once caught the
-non-conforming individual redefinition in `Individuals Examples/AnalysisIndividualExample.sysml`,
-fixed upstream at `2026-07`.)
+**Adjudicated divergence, replaced.** `redefinition-type-mismatch` reported a redefinition typed by
+two types that did not conform, as a warning so that no model the specification admits was rejected.
+It could not tell disjoint types from merely unrelated ones: `class B;` and `class B disjoint from A;`
+drew the same report under `feature f : A`, though the first is a legal feature typed by the
+intersection of `A` and `B` and only the second can have no values (issue #1887). It was withdrawn
+in favour of `disjoint-feature-types`, which reports a feature — redefining, subsetting or directly
+typed — two of whose effective types are provably disjoint: declared `disjoint from` (KerML 7.3.2.5,
+8.3.3.1.4), inherited along their specializations (7.3.2.4), through a union of types each disjoint
+from the other (7.3.2.3), or established by the kernel library's `Occurrence … disjoint from
+DataValue` (8.4.4.2, 8.4.4.3). Mere unrelatedness is never reported. The two `Import3` `noErrors`
+rows in [pilot-xpect.md](pilot-xpect.md#noerrors--266-of-277-agree) closed when the old report
+became a warning; `A::a1` and `A` there are unrelated, not disjoint, so we now emit nothing on them,
+as the pilot does. (The old check once caught the non-conforming individual redefinition in
+`Individuals Examples/AnalysisIndividualExample.sysml`, fixed upstream at `2026-07`; that pair was
+unrelated too, and is not reported today.)
 
 ### A specialization cycle is reported, and the pilot has no such check
 
@@ -235,19 +278,83 @@ it, three ends typed by `BinaryInterface` do.
 
 **Pilot limitation** for the fixture that declares the rule universally.
 
-### Three lints report models the specification accepts
+### Two lints report models the specification accepts
 
 `undeclared-signal` reports a `when <name>` — an OpenSysML spelling — whose
-name no visible declaration and no `send` in the workspace accounts for, `port-type-mismatch`
-reports a `connect`, interface usage or `flow` joining ports whose definitions are unrelated and
-whose directed features are not conjugate (SysML v2 §7.12.2), and `deferred-keeper-unmarked`
+name no visible declaration and no `send` in the workspace accounts for, and `deferred-keeper-unmarked`
 reports an accept of a deferred signal at the root of a `MigrationMetadata::DeferredEvent`
 state's do action that the `MigrationMetadata::DeferredKeeper` marker does not name as the
-keeping loop. None is a rule of the
-specification, and the pilot reports none, so all are **warnings in every mode**: `-strict`
+keeping loop. Neither is a rule of the
+specification, and the pilot reports neither, so both are **warnings in every mode**: `-strict`
 promotes notation, and no lint is about notation. Each has a code a surface can switch off
-([diagnostics reference](../reference/diagnostics.md)), and none fires on a model of the four OMG
-corpora, the gate every new warning passes.
+([diagnostics reference](../reference/diagnostics.md)), and neither fires on a model of the four OMG
+corpora, the gate every new warning passes. A third lint, `port-type-mismatch`, was withdrawn; the
+next section records why.
+
+---
+
+### Connecting ports of unrelated or disjoint definitions draws no report
+
+**Question.** `connect x.p1 to y.p2;` joins `port p1 : P1` to `port p2 : P2`, two port definitions
+that neither specialize one another nor a common definition of the model, and whose directed
+features (`out attribute a` against `in attribute b`) are not conjugate. Is the connection
+ill-formed?
+
+**Specification.** No clause constrains the types at the two ends of a connector against one
+another:
+
+- KerML 1.1 §8.3.4.5.3 `Connector` states `checkConnectorTypeFeaturing` (each related feature is
+  featured by the connector's featuring types), `validateConnectorRelatedFeatures` (a concrete
+  connector relates at least two features), `validateConnectorBinarySpecialization` and the
+  `checkConnector*Specialization` library bindings; a connector's `relatedFeature`s are the features
+  its ends reference-subset (`relatedFeature = connectorEnd.ownedReferenceSubsetting.referencedFeature`),
+  and nothing relates one related feature's types to another's.
+- KerML §8.3.4.5.2 `BindingConnector` adds only `validateBindingConnectorIsBinary` and
+  `checkBindingConnectorSpecialization`; a binding makes its two ends one value, which is why
+  `bound-feature-types` judges a `bind` and nothing judges a `connect` the same way.
+- KerML §8.3.4.9.2–3 `Flow`, `FlowEnd` constrain the payload (`validateFlowPayloadFeature`), the ends'
+  shape (`validateFlowEndIsEnd`, `validateFlowEndNestedFeature`, `validateFlowEndOwningType`) and the
+  library bindings (`checkFlowSpecialization`, `checkFlowWithEndsSpecialization`).
+- SysML v2 §8.3.12.5–6 `PortDefinition`, `PortUsage` constrain conjugation structure
+  (`validatePortDefinitionConjugatedPortDefinition`), composition
+  (`validatePortDefinitionOwnedUsagesNotComposite`, `validatePortUsageIsReference`) and the library
+  bindings; §8.3.13.4 `ConnectionUsage` and §8.3.14.3 `InterfaceUsage` add the library bindings and
+  §8.3.14 restricts an interface's ends to ports (§7.14.2: "All the end features of an interface
+  definition or usage must be port usages"); §8.3.16.3 `FlowUsage` adds `validateFlowDefinitionFlowEnds`.
+- SysML v2 §7.12.2 defines the relation the lint tested — "Two ports are said to conform if each
+  feature of one port has a matching feature on the other port" — and gives its consequence: "In this
+  case, if the two ports are connected, it is possible to have a flow between every directed feature
+  of one port and the matching feature on the other port." It then adds "Bindings can also be used to
+  relate features of connected ports". Conformance is the condition under which every directed
+  feature can be paired, not a requirement on a connection; §7.14.1 describes an interface as "a
+  connection all of whose ends are ports" without constraining them further.
+
+**Pilot.** The pinned validator's `checkConnector` (arity, binary specialization, type featuring),
+`checkInterfaceDefinitionEnds`/`checkInterfaceUsageEnds` (ends must be port usages) and
+`checkFlowEnd` are the whole of what it checks on these constructs; run on the fixture above
+(as a `connect`, an interface usage and a `flow`), and on a KerML `connector` between features of
+two classes declared `disjoint from` one another, it reports nothing.
+
+**Reasoning.** The two ends of a link are distinct features with distinct values (a `connect`
+relates two ports, it does not identify them), so neither unrelated nor disjoint definitions at the
+two ends make the connector unsatisfiable. What *is* provably empty is one feature typed by two
+disjoint types (KerML §8.3.3.3.4: a feature's types are its typings' and its subsetted features'),
+and a connector end reaches that when the connector is typed by an interface or connection
+definition: the end redefines that definition's end (SysML v2 §7.13.2, implicitly by position) and
+reference-subsets the port it attaches to, so `interface : Link connect y.p3 to y.p1c` with `end a :
+P1` in `Link` and `P3 disjoint from P1` has an end typed by both `P1` and `P3`.
+`disjoint-feature-types` already reports that end (issue #1887's principle: disjoint, not unrelated);
+it now names it by its connector and the feature it attaches to (*the end of this interface at
+y.p3*) rather than by its empty name.
+
+**Adjudicated, lint withdrawn.** `port-type-mismatch` reported a `connect`, interface usage or
+`flow` between ports of unrelated definitions whose directed features were not conjugate, as a
+warning. Like `redefinition-type-mismatch` before it, it conflated "unrelated" with "incompatible":
+the specification states no rule for the case, so there is no rule to implement at any severity, and
+the lint is removed rather than narrowed. `port-conjugation`, the one-sided warning on an interface
+*definition* whose two port-typed ends have non-conjugate directed features, is a separate check
+with its own row in [spec-compliance.md](spec-compliance.md) and is unchanged. The four OMG corpora drew no `port-type-mismatch`
+report, so no corpus expectation moves.
 
 ---
 
@@ -277,11 +384,10 @@ inherited one, for a name inherited from two supertypes, and from a library base
 `Type::inheritedMembership` "subsets membership" (8.3.3.1.10) and 7.3.2.1 requires inherited member
 names to be "distinct from each other and from the member names of all owned memberships". The
 finding, its wording and its position are those of the default mode; only the severity moves.
-`Duplicate of imported member name` is not escalated: 7.2.5.4 hides a colliding imported membership
+An imported collision is reported in neither mode: 7.2.5.4 hides a colliding imported membership
 from the importing namespace, so the namespace keeps no indistinguishable membership and is
-well-formed, and the warning marks only that OpenSysML binds the first import's member where the
-specification binds none. The tests are `TestIndistinguishableMembershipsAreErrorsUnderStrictConformance`
-and `TestImportedNameCollisionStaysAWarningUnderStrictConformance` in `internal/check/passes`.
+well-formed. The tests are `TestIndistinguishableMembershipsAreErrorsUnderStrictConformance`
+and `TestImportedNameCollisionIsNoConflictUnderStrictConformance` in `internal/check/passes`.
 
 ## Metadata and model-level evaluability
 

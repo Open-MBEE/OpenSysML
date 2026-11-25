@@ -3,6 +3,9 @@
 package docir
 
 import (
+	"maps"
+	"slices"
+
 	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -281,11 +284,12 @@ func (c Content) Ports() view.Ports { return c.ports }
 // Options returns what a diagram's rendering is written with: its stated
 // direction and palette.
 func (c Content) Options() view.Options {
-	return view.Options{Direction: c.direction, Palette: c.palette, Ports: c.ports, Show: c.shown}
+	return view.Options{Direction: c.direction, Palette: c.palette, Ports: c.ports, Show: maps.Clone(c.shown)}
 }
 
-// Children returns the nested content of a section in declaration order.
-func (c Content) Children() []Content { return cloneContent(c.children) }
+// Children returns the nested content of a section in declaration order. The
+// slice is the caller's; its nodes copy what they hand out themselves.
+func (c Content) Children() []Content { return slices.Clone(c.children) }
 
 // Query returns the fully-qualified name of the query behind a query-backed
 // node, empty for sections and static paragraphs.
@@ -296,40 +300,6 @@ func (c Content) QueryOrigin() symbols.Origin { return c.queryOrigin }
 
 // Origin returns the source declaration behind the node.
 func (c Content) Origin() symbols.Origin { return c.origin }
-
-func cloneContent(content []Content) []Content {
-	out := make([]Content, len(content))
-	for i, child := range content {
-		out[i] = Content{
-			kind:        child.kind,
-			name:        child.name,
-			title:       child.title,
-			source:      child.source,
-			caption:     child.caption,
-			alt:         child.alt,
-			file:        child.file,
-			style:       child.style,
-			anchor:      child.anchor,
-			groupBy:     child.groupBy,
-			runs:        append([]TextRun(nil), child.runs...),
-			columns:     append([]queryexec.Column(nil), child.columns...),
-			rows:        append([]queryexec.Row(nil), child.rows...),
-			groups:      cloneGroups(child.groups),
-			items:       child.Items(),
-			definitions: child.Definitions(),
-			rendering:   child.rendering.Clone(),
-			sites:       child.sites,
-			direction:   child.direction,
-			palette:     child.palette,
-			ports:       child.ports,
-			children:    cloneContent(child.children),
-			query:       child.query,
-			queryOrigin: child.queryOrigin,
-			origin:      child.origin,
-		}
-	}
-	return out
-}
 
 // Document is an immutable evaluated document.
 type Document struct {
@@ -353,7 +323,7 @@ func elementName(model *semantics.Model, sym *symbols.Symbol) string {
 		if name := model.EffectiveNameOf(sym); name != "" {
 			return name
 		}
-	} else if sym.Name != "" {
+	} else if sym.Named() {
 		return sym.Name
 	}
 	return symbols.FQNOf(sym)
@@ -366,7 +336,7 @@ func (d *Document) Name() string { return d.name }
 func (d *Document) Title() string { return d.title }
 
 // Content returns the evaluated top-level content in declaration order.
-func (d *Document) Content() []Content { return cloneContent(d.content) }
+func (d *Document) Content() []Content { return slices.Clone(d.content) }
 
 // Origin returns the source declaration behind the document.
 func (d *Document) Origin() symbols.Origin { return d.origin }

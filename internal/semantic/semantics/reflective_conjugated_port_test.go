@@ -141,13 +141,13 @@ func TestConjugatedPortDefinitionNamesFollowTheOriginalName(t *testing.T) {
 	}
 	// Reflective qualifiedName is unquoted for all names; evaluator escaping is tested by TestConjugatedPortQualifiedNamesUseEvaluatorEscaping.
 	for feature, want := range map[string]string{
-		"name": "~Q", "declaredName": "~Q", "shortName": "", "declaredShortName": "",
+		"name": "~Q", "declaredName": "", "shortName": "", "declaredShortName": "",
 		"qualifiedName": "P::Q::~Q",
 	} {
 		assertReflectiveString(t, m, namedConjugate, feature, want)
 	}
 	for feature, want := range map[string]string{
-		"name": "~R", "declaredName": "~R", "shortName": "", "declaredShortName": "",
+		"name": "~R", "declaredName": "", "shortName": "", "declaredShortName": "",
 	} {
 		assertReflectiveString(t, m, plainConjugate, feature, want)
 	}
@@ -169,8 +169,16 @@ func TestConjugatedPortDefinitionNamesFollowTheOriginalName(t *testing.T) {
 		if got, ok := m.ReflectiveElements(rels[0], "portDefinition"); !ok || len(got) != 1 || got[0] != tc.original {
 			t.Errorf("%s portDefinition = %v, want original %s", tc.port, got, tc.original.Name)
 		}
-		if got, conjugated := m.portTypeOf(port); got != tc.original || !conjugated {
-			t.Errorf("%s port type = %v (conjugated %t), want conjugated %s", tc.port, got, conjugated, tc.original.Name)
+		conjugate := m.ConjugatedPortDefinitionOf(tc.original)
+		if conjugate == nil {
+			t.Fatalf("%s implies no ConjugatedPortDefinition", tc.original.Name)
+		}
+		// The typing's type is the conjugate, whose own edge conjugates the original.
+		if got, conjugated := m.portTypeOf(port); got != conjugate || conjugated {
+			t.Errorf("%s port type = %v (conjugated %t), want ~%s", tc.port, got, conjugated, tc.original.Name)
+		}
+		if !m.IsConjugated(port) {
+			t.Errorf("IsConjugated(%s) = false, want true", tc.port)
 		}
 	}
 	if len(m.resolver.Diagnostics) != 0 {

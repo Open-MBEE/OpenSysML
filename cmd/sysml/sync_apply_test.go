@@ -235,11 +235,11 @@ func sparqlResultsOf(g *rdf.Graph) map[string]any {
 			return map[string]string{"type": "uri", "value": t.Value}
 		}
 		out := map[string]string{"type": "literal", "value": t.Value}
-		if t.Datatype != "" {
-			out["datatype"] = t.Datatype
+		if t.Datatype() != "" {
+			out["datatype"] = t.Datatype()
 		}
-		if t.Lang != "" {
-			out["xml:lang"] = t.Lang
+		if t.Lang() != "" {
+			out["xml:lang"] = t.Lang()
 		}
 		return out
 	}
@@ -292,6 +292,7 @@ func liveGraph(t *testing.T, src string) *rdf.Graph {
 }
 
 func TestSyncApplyWritesAndRecordsTheCommit(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 	dir := t.TempDir()
@@ -338,6 +339,7 @@ func TestSyncApplyWritesAndRecordsTheCommit(t *testing.T) {
 }
 
 func TestSyncApplyRefusesUnconfirmedDeletes(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, renamedModel))
 	model := writeModel(t, t.TempDir(), "model.sysml", syncedModel)
@@ -364,6 +366,7 @@ func TestSyncApplyRefusesUnconfirmedDeletes(t *testing.T) {
 }
 
 func TestSyncApplyRefusesConflicts(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, `package P {
 	@IdentityMetadata::ProjectRef { projectId = "proj-1"; branch = "main"; }
@@ -382,6 +385,7 @@ func TestSyncApplyRefusesConflicts(t *testing.T) {
 }
 
 func TestSyncApplyReportsARefusedCommit(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 	stack.set(func(s *fakeStack) { s.refuse = true })
@@ -400,6 +404,7 @@ func TestSyncApplyReportsARefusedCommit(t *testing.T) {
 }
 
 func TestSyncApplyWritesTheAnnotationOnlyOnceTheCommitLands(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 	stack.set(func(s *fakeStack) { s.refuse = true })
@@ -441,6 +446,7 @@ func TestSyncApplyWritesTheAnnotationOnlyOnceTheCommitLands(t *testing.T) {
 }
 
 func TestSyncApplyRefusesMintedIDsItCannotWriteBack(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 	dir := t.TempDir()
@@ -476,6 +482,7 @@ func TestSyncApplyRefusesMintedIDsItCannotWriteBack(t *testing.T) {
 }
 
 func TestSyncApplyUsesTheLastSeenCommitAsBaseline(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 	dir := t.TempDir()
@@ -492,6 +499,7 @@ func TestSyncApplyUsesTheLastSeenCommitAsBaseline(t *testing.T) {
 }
 
 func TestSyncApplyRecordsTheHeadWhenNothingChanges(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 	model := writeModel(t, t.TempDir(), "model.sysml", syncedModel)
@@ -521,6 +529,7 @@ func TestSyncApplyRecordsTheHeadWhenNothingChanges(t *testing.T) {
 }
 
 func TestSyncApplyRefusesAHeadThatMoved(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 	stack.set(func(s *fakeStack) { s.drift = true })
@@ -539,6 +548,7 @@ func TestSyncApplyRefusesAHeadThatMoved(t *testing.T) {
 }
 
 func TestSyncReportsAnUnreadableRepositoryAsFailed(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 	dir := t.TempDir()
@@ -566,6 +576,7 @@ func TestSyncReportsAnUnreadableRepositoryAsFailed(t *testing.T) {
 }
 
 func TestSyncApplyNeedsALiveEndpoint(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 	dir := t.TempDir()
@@ -592,5 +603,45 @@ func TestSyncApplyNeedsALiveEndpoint(t *testing.T) {
 	}
 	if len(stack.posted()) != 0 {
 		t.Errorf("a refused invocation wrote %d commit(s)", len(stack.posted()))
+	}
+}
+
+// pseudostateModel states a `choice`, a sysx:Pseudostate: an element the
+// SysML v2 API has no metaclass for, which the transition references.
+const pseudostateModel = `package P {
+	@IdentityMetadata::ProjectRef { projectId = "proj-1"; branch = "main"; }
+	part def Vehicle {
+		@IdentityMetadata::ElementId { id = "8f3a41d0"; }
+	}
+	state def S {
+		state a;
+		choice c;
+		transition first a then c;
+	}
+}
+`
+
+func TestSyncRefusesAnElementTheRepositoryHasNoMetaclassFor(t *testing.T) {
+	needs(t, syncFeature)
+	binary := buildCLI(t)
+	stack := newFakeStack(t, liveGraph(t, syncedModel))
+	model := writeModel(t, t.TempDir(), "model.sysml", pseudostateModel)
+
+	for _, verb := range []string{"-sync-diff", "-sync-apply"} {
+		out, code := exitCode(t, syncCommand(stack, binary, model, verb, stack.server.URL))
+		if code != exitUnevaluable {
+			t.Errorf("%s must exit %d, got %d:\n%s", verb, exitUnevaluable, code, out)
+		}
+		for _, want := range []string{"P::S::c", "Pseudostate", "no metaclass"} {
+			if !strings.Contains(out, want) {
+				t.Errorf("%s does not state %q:\n%s", verb, want, out)
+			}
+		}
+	}
+	if n := len(stack.posted()); n != 0 {
+		t.Errorf("%d commit(s) were posted for a model the repository cannot hold", n)
+	}
+	if _, err := os.Stat(model + ".sync.json"); !os.IsNotExist(err) {
+		t.Error("a refused sync recorded a sync state")
 	}
 }

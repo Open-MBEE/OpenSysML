@@ -2,5 +2,11 @@
   "type": "instance",
   "libraries": true,
   "instantiate": "test::Mission",
-  "startFailures": ["exhibited state machine phases of Mission: no initial state found in state machine StateAction"]
+  "objects": [
+    {
+      "slots": {
+        "mass": {"type": "Integer", "value": 12}
+      }
+    }
+  ]
 }

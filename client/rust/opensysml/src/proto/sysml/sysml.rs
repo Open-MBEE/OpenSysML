@@ -694,7 +694,7 @@ pub struct Outcome {
 }
 /// ExplorationStatus is how an exploration ended: whether every linearization
 /// within the budget was run, and which budget stopped it when not.
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ExplorationStatus {
     /// True when every linearization the library admits was run, so `outcomes`
     /// is the whole set: no budget was hit and nothing was left unenumerated.
@@ -724,6 +724,33 @@ pub struct ExplorationStatus {
     /// listed, since fewer orders were run than the library admits.
     #[prost(string, repeated, tag="8")]
     pub unenumerated: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Every state entered and transition taken over all the runs, not only the
+    /// witness of each outcome, with how many runs did so.
+    #[prost(message, optional, tag="9")]
+    pub coverage: ::core::option::Option<Coverage>,
+}
+/// Coverage is what every run of an exploration, or every schedule of a check,
+/// entered and took, with how many did so.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Coverage {
+    #[prost(message, repeated, tag="1")]
+    pub states: ::prost::alloc::vec::Vec<CoverageEntry>,
+    #[prost(message, repeated, tag="2")]
+    pub transitions: ::prost::alloc::vec::Vec<CoverageEntry>,
+}
+/// CoverageEntry is one state entered or one transition taken.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CoverageEntry {
+    /// Qualified by the instance running the machine: `Cov::Sys#1.m.run: viaA`,
+    /// `Cov::Sys#1.m.run: s0 -> viaB`.
+    #[prost(string, tag="1")]
+    pub path: ::prost::alloc::string::String,
+    /// Qualified by the declaration: `Cov::M::run::viaA`, `Cov::M::run::s0 -> viaB`.
+    #[prost(string, tag="2")]
+    pub declaration: ::prost::alloc::string::String,
+    /// How many runs (schedules, under the check engine) entered or took it.
+    #[prost(int32, tag="3")]
+    pub runs: i32,
 }
 /// CheckBehaviorRequest searches every schedule of a behavior, as the `sysml`
 /// command's -check-* flags do about `-action`/`-state`.
@@ -883,6 +910,10 @@ pub struct CheckSearch {
     /// How the search ended, as `sysml` reports it.
     #[prost(string, tag="10")]
     pub status: ::prost::alloc::string::String,
+    /// Every state entered and transition taken over all the searched schedules,
+    /// not only the witness of each final, with how many schedules did so.
+    #[prost(message, optional, tag="11")]
+    pub coverage: ::core::option::Option<Coverage>,
 }
 /// CheckBehaviorResponse is what the search found.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1122,9 +1153,28 @@ pub struct ParseFileResponse {
 pub struct GetSymbolRequest {
     #[prost(string, tag="1")]
     pub model_hash: ::prost::alloc::string::String,
-    /// Fully qualified name
+    /// A qualified name or an element id, as lookup states; with none stated, read as a
+    /// name first, then an id, so a name declared like a generated id shadows that element.
     #[prost(string, tag="2")]
     pub symbol_id: ::prost::alloc::string::String,
+    /// List the members inherited from standard-library content in
+    /// SymbolInfo.members, each marked library, instead of counting them in
+    /// withheld_library_members.
+    #[prost(bool, tag="3")]
+    pub include_library_members: bool,
+    /// Resolve symbol_id as a qualified name from the root namespace (KerML 8.2.3.5), through visible
+    /// memberships and to an alias's element; unset, or without the
+    /// symbol_name_resolution capability, it is an id the service reported, whatever its visibility.
+    #[prost(bool, tag="4")]
+    pub resolve_name: bool,
+    /// What symbol_id is, stated rather than guessed; read with the "symbol_lookup_kind"
+    /// capability, and resolve_name is then ignored.
+    #[prost(enumeration="LookupKind", tag="5")]
+    pub lookup: i32,
+    /// Id of the type the symbol is read as a feature of: metadata\["direction"\] is then relative to
+    /// it (KerML Type::directionOf), reversed by a conjugation; capability "symbol_member_direction".
+    #[prost(string, tag="6")]
+    pub member_of: ::prost::alloc::string::String,
 }
 /// SymbolResponse contains symbol information
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1134,13 +1184,128 @@ pub struct SymbolResponse {
     #[prost(string, tag="2")]
     pub error: ::prost::alloc::string::String,
 }
+/// GetElementPropertiesRequest names one element of a parsed model and the
+/// metamodel properties to read of it.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GetElementPropertiesRequest {
+    #[prost(string, tag="1")]
+    pub model_hash: ::prost::alloc::string::String,
+    /// A qualified name or an id, as lookup states; with none stated, the "@id" of the model's
+    /// API element form first, then a qualified name, then a positional id (Owner::@3).
+    #[prost(string, tag="2")]
+    pub element_id: ::prost::alloc::string::String,
+    /// The properties to read, by specification name. Empty reads every property
+    /// the element form carries for the element.
+    #[prost(string, repeated, tag="3")]
+    pub properties: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// What element_id is, stated rather than guessed; read with the "symbol_lookup_kind"
+    /// capability. An alias named by qualified name answers as its membership.
+    #[prost(enumeration="LookupKind", tag="4")]
+    pub lookup: i32,
+}
+/// GetElementPropertiesResponse is one property entry per requested name, in
+/// the request's order, or every property the element carries when none was
+/// named, in the element form's order.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetElementPropertiesResponse {
+    #[prost(message, optional, tag="1")]
+    pub element: ::core::option::Option<ElementRef>,
+    #[prost(message, repeated, tag="2")]
+    pub properties: ::prost::alloc::vec::Vec<ElementProperty>,
+    /// Why there is no answer: the model or the element was not found, or the
+    /// element belongs to an excluded document.
+    #[prost(string, tag="3")]
+    pub error: ::prost::alloc::string::String,
+    /// The documents the model is read without, each with why; empty when the whole model is read.
+    /// Any other element is answered and may name one of theirs; asking for theirs answers its document's error.
+    #[prost(message, repeated, tag="4")]
+    pub excluded_documents: ::prost::alloc::vec::Vec<ExcludedDocument>,
+}
+/// ExcludedDocument is a document GetElementProperties leaves out of a model: one the parser could not
+/// read whole, one the element form cannot write, or one declaring an element an earlier document declares.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExcludedDocument {
+    /// The document's name as the parse request gave it.
+    #[prost(string, tag="1")]
+    pub document: ::prost::alloc::string::String,
+    /// Why it is left out, as Convert would refuse the model for it.
+    #[prost(string, tag="2")]
+    pub error: ::prost::alloc::string::String,
+}
+/// ElementRef identifies an element the element form knows: an element of
+/// the model or a standard-library element it references.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ElementRef {
+    /// The "@id" of the API element form.
+    #[prost(string, tag="1")]
+    pub id: ::prost::alloc::string::String,
+    /// The qualified name; empty for an unnamed element. An unnamed
+    /// standard-library member carries its library path (owner/Metaclass\[i\]).
+    #[prost(string, tag="2")]
+    pub qualified_name: ::prost::alloc::string::String,
+    /// The metaclass ("ConnectionUsage"); empty when the id is known to nothing.
+    #[prost(string, tag="3")]
+    pub metaclass: ::prost::alloc::string::String,
+}
+/// ElementProperty is one metamodel property of an element.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ElementProperty {
+    /// The specification name ("connectorEnd").
+    #[prost(string, tag="1")]
+    pub name: ::prost::alloc::string::String,
+    /// The metaclass declaring the property ("Connector"); empty when the
+    /// element's metaclass declares no such property.
+    #[prost(string, tag="2")]
+    pub defining_class: ::prost::alloc::string::String,
+    /// Whether the property holds a collection; a single-valued property has at
+    /// most one value.
+    #[prost(bool, tag="3")]
+    pub many: bool,
+    /// Whether the specification derives the property rather than stating it.
+    #[prost(bool, tag="4")]
+    pub derived: bool,
+    /// The values, in the collection's order; none for an empty or null property.
+    #[prost(message, repeated, tag="5")]
+    pub values: ::prost::alloc::vec::Vec<ElementPropertyValue>,
+    /// Set when values cannot be answered: the element's metaclass declares no
+    /// such property, or OpenSysML does not derive it yet (and why). Empty for a
+    /// property that is answered, with or without values.
+    #[prost(string, tag="6")]
+    pub unsupported: ::prost::alloc::string::String,
+}
+/// ElementPropertyValue is one value of a metamodel property, in the shape the
+/// API element form spells it.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ElementPropertyValue {
+    #[prost(oneof="element_property_value::Value", tags="1, 2, 3, 4, 5, 6")]
+    pub value: ::core::option::Option<element_property_value::Value>,
+}
+/// Nested message and enum types in `ElementPropertyValue`.
+pub mod element_property_value {
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Value {
+        #[prost(message, tag="1")]
+        Element(super::ElementRef),
+        #[prost(string, tag="2")]
+        StringValue(::prost::alloc::string::String),
+        #[prost(bool, tag="3")]
+        BoolValue(bool),
+        #[prost(int64, tag="4")]
+        IntValue(i64),
+        #[prost(double, tag="5")]
+        RealValue(f64),
+        /// A number beyond int64 and float64, in decimal.
+        #[prost(string, tag="6")]
+        Number(::prost::alloc::string::String),
+    }
+}
 /// DiagnosticsRequest gets all diagnostics for a model
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct DiagnosticsRequest {
     #[prost(string, tag="1")]
     pub model_hash: ::prost::alloc::string::String,
     /// Lints left out of the diagnostics, by code (`sysml -disable-lint`): one of
-    /// undeclared-signal, port-type-mismatch, deferred-keeper-unmarked or
+    /// undeclared-signal, deferred-keeper-unmarked or
     /// rounded-real-literal. A code naming no lint is INVALID_ARGUMENT.
     #[prost(string, repeated, tag="2")]
     pub disable_lint: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
@@ -1196,6 +1361,38 @@ pub struct Instance {
     /// What the object holds for each feature of its type, by feature name.
     #[prost(map="string, message", tag="4")]
     pub feature_values: ::std::collections::HashMap<::prost::alloc::string::String, FeatureValue>,
+    /// How the traversal that serialized the graph reached this object: the object
+    /// holding it, the feature of that holder it is a value of, and the path from
+    /// the root. Unset for the root. The traversal is depth-first from the root,
+    /// over the features of an object in name order (those the model declares
+    /// first, then those the standard library derives, such as `subparts`) and the
+    /// values of a feature in their order, and reaches an object once, the first
+    /// time; one object is often a value of several features (a port and the
+    /// connector end referencing it are one object), and InstancePaths lists every
+    /// path to it.
+    #[prost(message, optional, tag="5")]
+    pub reached_by: ::core::option::Option<InstanceReach>,
+}
+/// InstanceReach is how a traversal of an object graph reached one object.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct InstanceReach {
+    /// the object holding this one
+    #[prost(int64, tag="1")]
+    pub instance_id: i64,
+    /// the holder's feature, a key of its feature_values
+    #[prost(string, tag="2")]
+    pub feature_name: ::prost::alloc::string::String,
+    /// FQN of the feature as declared
+    #[prost(string, tag="3")]
+    pub feature_symbol_id: ::prost::alloc::string::String,
+    /// Position among the values of a multi-valued feature, counted from 1 as an
+    /// object path indexes them (`wheels\[2\]`); 0 for a single-valued feature.
+    #[prost(int32, tag="4")]
+    pub index: i32,
+    /// The path from the root: the feature names, indexed within a multi-valued
+    /// feature, joined by dots (`powertrain.engine.fuelIn`, `wheels\[2\].hub`).
+    #[prost(string, tag="5")]
+    pub path: ::prost::alloc::string::String,
 }
 /// FeatureValue is what an object holds for one feature of its type.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1246,6 +1443,82 @@ pub struct InstantiateResponse {
     /// client can resolve an `instance_id` feature value without a follow-up RPC.
     #[prost(message, repeated, tag="4")]
     pub instances: ::prost::alloc::vec::Vec<Instance>,
+}
+/// InstancePathsRequest asks for every root-relative usage path that reaches
+/// one object: the paths by which a client can address it, and so the parts
+/// that share it. A port and the connector end referencing it, or an object and
+/// a reference usage bound to it, are one object reached by several paths.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct InstancePathsRequest {
+    #[prost(string, tag="1")]
+    pub model_hash: ::prost::alloc::string::String,
+    /// The object, by id or by path. Fails with NOT_FOUND when no object of the
+    /// model's population has the id or the name, INVALID_ARGUMENT when neither
+    /// is given or the path reaches no object.
+    #[prost(message, optional, tag="2")]
+    pub object: ::core::option::Option<DocumentObject>,
+}
+/// InstancePathsResponse lists the paths, in traversal order: the roots the
+/// population holds in id order and, from each, depth-first over the features
+/// of an object in name order and the values of a feature in their order. A
+/// path visits no object twice, and steps through the features the model
+/// declares only: the collections the standard library derives (`subparts`,
+/// `ownedPorts`) hold the same objects and are not paths of their own. An
+/// object no root reaches has no path.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct InstancePathsResponse {
+    #[prost(message, repeated, tag="1")]
+    pub paths: ::prost::alloc::vec::Vec<InstancePath>,
+    /// The paths are cut short: more than `limit` of them reach the object, or
+    /// one would be deeper than the service walks.
+    #[prost(bool, tag="2")]
+    pub truncated: bool,
+    #[prost(string, tag="3")]
+    pub error: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="4")]
+    pub diagnostics: ::prost::alloc::vec::Vec<Diagnostic>,
+}
+/// InstancePath is one root-relative path to an object: the root it starts
+/// from and the features walked from it, each with the object it reaches.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct InstancePath {
+    #[prost(message, optional, tag="1")]
+    pub root: ::core::option::Option<InstanceRoot>,
+    /// The steps joined as an object path (`powertrain.engine.fuelIn`); empty when
+    /// the object is the root itself. `<root label>.<path>` addresses the object
+    /// in a DocumentObject.
+    #[prost(string, tag="2")]
+    pub path: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="3")]
+    pub steps: ::prost::alloc::vec::Vec<InstancePathStep>,
+}
+/// InstanceRoot is an object the population holds on its own: one Instantiate
+/// created, by the identity it answered and the name it was created under.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct InstanceRoot {
+    #[prost(int64, tag="1")]
+    pub instance_id: i64,
+    /// The qualified name the object was instantiated as, the label a path from
+    /// it starts with; empty for an object the name no longer binds, which `#<id>`
+    /// addresses.
+    #[prost(string, tag="2")]
+    pub symbol_id: ::prost::alloc::string::String,
+}
+/// InstancePathStep is one feature walked along a path.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct InstancePathStep {
+    /// feature of the object before this step
+    #[prost(string, tag="1")]
+    pub feature_name: ::prost::alloc::string::String,
+    /// FQN of the feature as declared
+    #[prost(string, tag="2")]
+    pub feature_symbol_id: ::prost::alloc::string::String,
+    /// 1-based within a multi-valued feature, 0 for a single-valued one
+    #[prost(int32, tag="3")]
+    pub index: i32,
+    /// the object the step reaches
+    #[prost(int64, tag="4")]
+    pub instance_id: i64,
 }
 /// ExecuteActionRequest requests action execution
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1515,6 +1788,10 @@ pub struct ConvertRequest {
     /// Default false: library elements remain bare references, not roots.
     #[prost(bool, tag="13")]
     pub include_library_stubs: bool,
+    /// For api-json, also write each Namespace's and Type's derived lists of inherited and imported members;
+    /// default false writes owned structure. Capability "convert_inherited_members"; a service without it always writes them.
+    #[prost(bool, tag="14")]
+    pub inherited_members: bool,
     #[prost(oneof="convert_request::Source", tags="1, 2, 6")]
     pub source: ::core::option::Option<convert_request::Source>,
 }
@@ -1575,6 +1852,9 @@ pub struct LibraryReference {
     /// Metaclass, as API JSON's @type spells it.
     #[prost(string, tag="3")]
     pub r#type: ::prost::alloc::string::String,
+    /// Positional path owner/Metaclass\[i\] of an unnamed member, which has no qualified_name.
+    #[prost(string, tag="4")]
+    pub library_path: ::prost::alloc::string::String,
 }
 /// MigrateRequest asks for a SysML v1 model migrated to v2. The source is a
 /// file_path the service reads, or the document carried inline as content —
@@ -2287,66 +2567,131 @@ pub struct AppliedEdit {
     pub document: ::prost::alloc::string::String,
 }
 /// SymbolInfo represents any SysML element
+/// SymbolInfo is the symbol table's summary of an element. Several fields
+/// restate metamodel properties that GetElementProperties derives in full; each
+/// such field names the property it summarises, and element_properties is the
+/// surface whose answer the specification defines.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SymbolInfo {
-    /// Unique identifier (fully qualified name)
+    /// The element id, this element's alone: its qualified name (`Owner::'@3'`), a positional id
+    /// (`Owner::@3`), or its element-form "@id" where another's generated id is spelled like the name.
     #[prost(string, tag="1")]
     pub id: ::prost::alloc::string::String,
     #[prost(string, tag="2")]
     pub name: ::prost::alloc::string::String,
-    /// "PartDefinition", "AttributeUsage", etc
+    /// Declaration keyword kind ("partDef", "attributeUsage", "actionUsage", ...):
+    /// the written syntax, not the element's metaclass. GetElementProperties
+    /// reports the metaclass and every property that classifies the element.
     #[prost(string, tag="3")]
     pub kind: ::prost::alloc::string::String,
-    /// multiplicity, type, etc
+    /// Summary entries: "type" and "specializes" (the first written edge of each,
+    /// kept for compatibility; `specializations` has them all), "multiplicity",
+    /// "direction" (the direction written on the feature; the derived
+    /// Feature::direction is GetElementProperties' `direction`), "abstract",
+    /// "variation", "variant" and the like.
     #[prost(map="string, string", tag="4")]
     pub metadata: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
-    /// References to children
+    /// The owned members' ids, each naming its member under LOOKUP_KIND_ELEMENT_ID: a qualified name, a positional id
+    /// (`Owner::@3`), or an unnamed connector end's GetElementProperties element id (`Owner__c_pend0`).
     #[prost(string, repeated, tag="5")]
     pub child_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(message, repeated, tag="6")]
     pub attributes: ::prost::alloc::vec::Vec<AttributeInfo>,
-    /// Static type facts; unset when the element is not a def/usage.
+    /// Static type facts; unset when the element is not a def/usage. `declared`
+    /// is the written typing and `types` the derived Feature::type, the `type`
+    /// property of GetElementProperties.
     #[prost(message, optional, tag="7")]
     pub type_info: ::core::option::Option<TypeInfo>,
     /// Declared multiplicity; unset when none is declared.
     #[prost(message, optional, tag="8")]
     pub multiplicity: ::core::option::Option<MultiplicityInfo>,
-    /// Every generalization edge declared, in declaration order. metadata\["type"\]
-    /// and metadata\["specializes"\] report only the first, kept for compatibility.
+    /// Every generalization edge declared, in declaration order: the written
+    /// relationships Type::ownedSpecialization of GetElementProperties reflects
+    /// (typing, subsetting, reference subsetting, redefinition, specialization),
+    /// but not the implied ones the metamodel adds. metadata\["type"\] and
+    /// metadata\["specializes"\] report only the first, kept for compatibility.
     #[prost(message, repeated, tag="9")]
     pub specializations: ::prost::alloc::vec::Vec<Specialization>,
     /// Attributes inherited from standard-library content, which `attributes`
     /// leaves out. Their absence is stated here rather than silent.
     #[prost(int32, tag="10")]
     pub withheld_library_attributes: i32,
+    /// Every member the element has (KerML Type::member): its owned members, in
+    /// declaration order, then the members it inherits, in inheritance order, a
+    /// redefinition masking what it redefines and a private member of a supertype
+    /// not inherited. Members inherited from standard-library content are left
+    /// out unless GetSymbolRequest.include_library_members asks for them, and are
+    /// counted in withheld_library_members. Reported with the "symbol_members"
+    /// capability; child_ids stays the owned members only.
+    #[prost(message, repeated, tag="11")]
+    pub members: ::prost::alloc::vec::Vec<MemberInfo>,
+    /// Members inherited from standard-library content that `members` leaves out.
+    #[prost(int32, tag="12")]
+    pub withheld_library_members: i32,
+    /// Ids of the metadata usages annotating the element: its own prefix and body
+    /// ones, then the `about` ones written elsewhere, which child_ids leaves out.
+    #[prost(string, repeated, tag="13")]
+    pub annotating_metadata_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// MemberInfo is one member of an element, own or inherited.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct MemberInfo {
+    /// The member's element id, as SymbolInfo.id spells it, library members included.
+    #[prost(string, tag="1")]
+    pub id: ::prost::alloc::string::String,
+    /// Declared name; empty for an unnamed member such as `bind a = b;`.
+    #[prost(string, tag="2")]
+    pub name: ::prost::alloc::string::String,
+    /// Symbol kind of the member ("partUsage", "bindingConnectorAsUsage", ...).
+    #[prost(string, tag="3")]
+    pub kind: ::prost::alloc::string::String,
+    /// True when the member is inherited rather than declared by the element.
+    #[prost(bool, tag="4")]
+    pub inherited: bool,
+    /// FQN of the type declaring an inherited member; empty for an own member.
+    #[prost(string, tag="5")]
+    pub inherited_from: ::prost::alloc::string::String,
+    /// True when the member is declared in standard-library content.
+    #[prost(bool, tag="6")]
+    pub library: bool,
 }
 /// Specialization is one generalization edge an element declares.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct Specialization {
-    /// Relationship kind: "specializes", "subsets", "redefines" or "typing".
+    /// Relationship kind: "specializes", "subsets", "redefines", "typing" or
+    /// "references" (reference subsetting, `::>` and `include`).
     #[prost(string, tag="1")]
     pub kind: ::prost::alloc::string::String,
     /// The target as written in the source ("Engine", "Demo::Engine").
     #[prost(string, tag="2")]
     pub declared: ::prost::alloc::string::String,
-    /// FQN of the resolved target; empty when the name does not resolve.
+    /// Element id of the resolved target, as GetSymbol reports it, for lookup; empty when the name does not resolve.
+    /// A "references" feature chain (`x.p`) is one entry per chaining feature, each with the chain as `declared`.
     #[prost(string, tag="3")]
     pub target_id: ::prost::alloc::string::String,
     /// Symbol kind of the resolved target ("partDef", ...); empty when unresolved.
     #[prost(string, tag="4")]
     pub target_kind: ::prost::alloc::string::String,
+    /// Qualified name of the resolved target, for display; empty when the name does not resolve.
+    #[prost(string, tag="5")]
+    pub target_qualified_name: ::prost::alloc::string::String,
 }
 /// TypeInfo is the static type of a usage, or the classification of a
 /// definition, as far as the service derives it without running the model.
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+/// TypeInfo summarises an element's typing. `declared`, `resolved_id` and
+/// `resolved_kind` are the typing the declaration writes (`: T`); `types` is
+/// the feature's semantic type as the metamodel derives it, the `type` property
+/// of GetElementProperties (KerML Feature::type), which the typing of every
+/// feature it subsets, references or redefines contributes to.
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TypeInfo {
     /// Type name as written; empty when none is declared.
     #[prost(string, tag="1")]
     pub declared: ::prost::alloc::string::String,
-    /// FQN of the resolved type; empty when unresolved or undeclared.
+    /// Element id of the resolved written type, as GetSymbol reports it, for lookup; empty when unresolved or undeclared.
     #[prost(string, tag="2")]
     pub resolved_id: ::prost::alloc::string::String,
-    /// Symbol kind of the resolved type ("partDef", "attributeDef", ...).
+    /// Symbol kind of the resolved written type ("partDef", "attributeDef", ...).
     #[prost(string, tag="3")]
     pub resolved_kind: ::prost::alloc::string::String,
     /// Library scalar the type reduces to ("Boolean", "Integer", "Real", ...);
@@ -2363,6 +2708,24 @@ pub struct TypeInfo {
     /// Unit as written when the default value names one ("m/s"), else empty.
     #[prost(string, tag="7")]
     pub unit: ::prost::alloc::string::String,
+    /// The feature's derived types (Feature::type), most specific first, with the
+    /// redundant supertypes removed: `part pBoth : V :> q` with `q : T` reports V
+    /// and T. Empty when the element is not a feature or none derives.
+    #[prost(message, repeated, tag="8")]
+    pub types: ::prost::alloc::vec::Vec<TypeRef>,
+    /// Qualified name of the resolved written type, for display; empty when unresolved or undeclared.
+    #[prost(string, tag="9")]
+    pub resolved_qualified_name: ::prost::alloc::string::String,
+}
+/// TypeRef names one derived type of a feature.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct TypeRef {
+    /// FQN of the type.
+    #[prost(string, tag="1")]
+    pub id: ::prost::alloc::string::String,
+    /// Symbol kind of the type ("partDef", "attributeDef", ...).
+    #[prost(string, tag="2")]
+    pub kind: ::prost::alloc::string::String,
 }
 /// MultiplicityInfo is a declared multiplicity range. A bound the service cannot
 /// evaluate statically is empty.
@@ -2390,7 +2753,7 @@ pub struct AttributeInfo {
 /// Value represents a runtime-evaluable value
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Value {
-    #[prost(oneof="value::Kind", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23")]
+    #[prost(oneof="value::Kind", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25")]
     pub kind: ::core::option::Option<value::Kind>,
 }
 /// Nested message and enum types in `Value`.
@@ -2467,7 +2830,195 @@ pub mod value {
         /// any exact Rational here, and an inbound real_value is always a Real.
         #[prost(message, tag="23")]
         RationalValue(super::Rational),
+        /// A coordinate frame or measurement scale held as a value: its axes and the
+        /// placement relating it to another frame. Sent, never accepted.
+        #[prost(message, tag="24")]
+        CoordinateFrame(::prost::alloc::boxed::Box<super::CoordinateFrame>),
+        /// A placement of one frame in another, with the frames it relates. Sent,
+        /// never accepted.
+        #[prost(message, tag="25")]
+        CoordinateTransformation(::prost::alloc::boxed::Box<super::CoordinateTransformation>),
     }
+}
+/// CoordinateFrame is a MeasurementReferences::VectorMeasurementReference held
+/// as a value: a coordinate frame's axes, or the one axis a measurement scale
+/// is. Two frames read from objects are the same exactly when instance_id is; a
+/// frame composed by arithmetic (`spatialCF / s`) is its content.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CoordinateFrame {
+    /// The frame as a reader writes it: "datum", or "spatialCF / s" for one composed.
+    #[prost(string, tag="1")]
+    pub name: ::prost::alloc::string::String,
+    /// The id a client keeps for the usage declaring the frame ("Frames::datum");
+    /// empty for a frame composed by arithmetic or made of a definition.
+    #[prost(string, tag="2")]
+    pub frame_id: ::prost::alloc::string::String,
+    /// FQN of the type the frame is a value of
+    /// ("MeasurementReferences::CartesianSpatial3dCoordinateFrame"); empty for none.
+    #[prost(string, tag="3")]
+    pub type_id: ::prost::alloc::string::String,
+    /// The object the frame was read from; 0 for a frame composed by arithmetic.
+    #[prost(int64, tag="4")]
+    pub instance_id: i64,
+    /// `dimensions`: \[3\] for a three-dimensional frame, empty for a scale.
+    #[prost(int64, repeated, tag="5")]
+    pub dimensions: ::prost::alloc::vec::Vec<i64>,
+    /// `mRefs` in row-major order under dimensions: one unit per axis.
+    #[prost(message, repeated, tag="6")]
+    pub axes: ::prost::alloc::vec::Vec<MeasurementRef>,
+    /// `transformation`: the placement of this frame in another; unset when the
+    /// model states none. Its target is this frame and is not repeated.
+    #[prost(message, optional, boxed, tag="7")]
+    pub transformation: ::core::option::Option<::prost::alloc::boxed::Box<CoordinateTransformation>>,
+    /// Set exactly when the frame is a MeasurementReferences::MeasurementScale.
+    #[prost(message, optional, tag="8")]
+    pub scale: ::core::option::Option<MeasurementScale>,
+}
+/// MeasurementScale is what a scale states beyond its one axis.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MeasurementScale {
+    /// The unit a magnitude on the scale is expressed in.
+    #[prost(message, optional, tag="1")]
+    pub unit: ::core::option::Option<MeasurementRef>,
+    /// `quantityValueMapping`: one point given on the scale and on the reference
+    /// the scale is defined against; unset when the model states none.
+    #[prost(message, optional, tag="2")]
+    pub mapping: ::core::option::Option<QuantityValueMapping>,
+}
+/// QuantityValueMapping is one point on a scale and the same point on the
+/// measurement reference the scale is defined against.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct QuantityValueMapping {
+    /// the point on the scale, in the scale's unit
+    #[prost(message, optional, tag="1")]
+    pub mapped: ::core::option::Option<Quantity>,
+    /// the same point on the reference
+    #[prost(message, optional, tag="2")]
+    pub reference: ::core::option::Option<Quantity>,
+}
+/// CoordinateTransformation is a MeasurementReferences::CoordinateTransformation
+/// held as a value: the placement of the target frame in the source frame, in
+/// the library shape the model states it in. A transformation of no library
+/// shape carries its frames alone.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CoordinateTransformation {
+    /// The transformation as a reader names it: its declared name, else its type.
+    #[prost(string, tag="1")]
+    pub name: ::prost::alloc::string::String,
+    /// The id a client keeps for the usage declaring it; empty for one constructed.
+    #[prost(string, tag="2")]
+    pub transformation_id: ::prost::alloc::string::String,
+    /// FQN of the type it is a value of
+    /// ("MeasurementReferences::TranslationRotationSequence"); empty for none.
+    #[prost(string, tag="3")]
+    pub type_id: ::prost::alloc::string::String,
+    /// The object the transformation was read from; 0 for none.
+    #[prost(int64, tag="4")]
+    pub instance_id: i64,
+    /// `source`; unset when the model states none.
+    #[prost(message, optional, boxed, tag="5")]
+    pub source: ::core::option::Option<::prost::alloc::boxed::Box<CoordinateFrame>>,
+    /// `target`; unset inside the CoordinateFrame whose transformation this is.
+    /// A target whose own transformation is this one does not repeat it.
+    #[prost(message, optional, boxed, tag="6")]
+    pub target: ::core::option::Option<::prost::alloc::boxed::Box<CoordinateFrame>>,
+    /// The pose the shape resolves to, as VectorCalculations::transform applies
+    /// it. Unset when the model states no source, or the shape resolves to none.
+    #[prost(message, optional, tag="10")]
+    pub pose: ::core::option::Option<FramePose>,
+    #[prost(oneof="coordinate_transformation::Shape", tags="7, 8, 9")]
+    pub shape: ::core::option::Option<coordinate_transformation::Shape>,
+}
+/// Nested message and enum types in `CoordinateTransformation`.
+pub mod coordinate_transformation {
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Shape {
+        /// a CoordinateFramePlacement
+        #[prost(message, tag="7")]
+        Placement(::prost::alloc::boxed::Box<super::FramePlacement>),
+        #[prost(message, tag="8")]
+        Sequence(super::TranslationRotationSequence),
+        /// an AffineTransformationMatrix3d
+        #[prost(message, tag="9")]
+        Affine(super::AffineTransformation3d),
+    }
+}
+/// FramePose is where a transformation's target frame sits in its source frame,
+/// as bare numbers in the source's axis units: the point with target
+/// coordinates v lies at `origin + basis · v` in the source.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct FramePose {
+    /// one per source axis
+    #[prost(double, repeated, tag="1")]
+    pub origin: ::prost::alloc::vec::Vec<f64>,
+    /// n×n over the source's n axes, row-major: column j is the direction of
+    /// target axis j in the source.
+    #[prost(double, repeated, tag="2")]
+    pub basis: ::prost::alloc::vec::Vec<f64>,
+}
+/// FramePlacement is a MeasurementReferences::CoordinateFramePlacement.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct FramePlacement {
+    /// The target's origin in the source frame: a vector_quantity, or a quantity
+    /// for a one-dimensional frame.
+    #[prost(message, optional, boxed, tag="1")]
+    pub origin: ::core::option::Option<::prost::alloc::boxed::Box<Value>>,
+    /// The target's basis directions in the source frame, one vector_quantity per
+    /// target axis; empty for the source's own orientation.
+    #[prost(message, repeated, tag="2")]
+    pub basis_directions: ::prost::alloc::vec::Vec<Value>,
+}
+/// TranslationRotationSequence is the `elements` of a
+/// MeasurementReferences::TranslationRotationSequence, in the order applied.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TranslationRotationSequence {
+    #[prost(message, repeated, tag="1")]
+    pub steps: ::prost::alloc::vec::Vec<FrameStep>,
+}
+/// FrameStep is one Translation or Rotation of a TranslationRotationSequence.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct FrameStep {
+    /// The Translation or Rotation object the step was read from.
+    #[prost(int64, tag="3")]
+    pub instance_id: i64,
+    #[prost(oneof="frame_step::Step", tags="1, 2")]
+    pub step: ::core::option::Option<frame_step::Step>,
+}
+/// Nested message and enum types in `FrameStep`.
+pub mod frame_step {
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Step {
+        /// `translationVector`, a vector_quantity
+        #[prost(message, tag="1")]
+        Translation(super::Value),
+        #[prost(message, tag="2")]
+        Rotation(super::FrameRotation),
+    }
+}
+/// FrameRotation is a MeasurementReferences::Rotation.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct FrameRotation {
+    /// `axisDirection`, a vector_quantity
+    #[prost(message, optional, tag="1")]
+    pub axis_direction: ::core::option::Option<Value>,
+    /// `angle`, an angular measure in the unit written
+    #[prost(message, optional, tag="2")]
+    pub angle: ::core::option::Option<Quantity>,
+    /// `isIntrinsic`: about the axes as already rotated (true, the library's
+    /// default) or about the source frame's fixed axes (false).
+    #[prost(bool, tag="3")]
+    pub is_intrinsic: bool,
+}
+/// AffineTransformation3d is a MeasurementReferences::AffineTransformationMatrix3d
+/// as bare numbers.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AffineTransformation3d {
+    /// `rotationMatrix`: 9, row-major
+    #[prost(double, repeated, tag="1")]
+    pub rotation: ::prost::alloc::vec::Vec<f64>,
+    /// `translationVector`: 3
+    #[prost(double, repeated, tag="2")]
+    pub translation: ::prost::alloc::vec::Vec<f64>,
 }
 /// Rational is an exact rational number in lowest terms: numerator over a
 /// positive denominator, each written as big_int_value is. The server rejects one
@@ -2487,7 +3038,8 @@ pub struct Rational {
 /// (`declaredName`, `ownedFeature`, ...) are read in the model, not carried.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct Metaobject {
-    /// FQN of the element reflected on ("Vehicle::seatBelt"). Its identity.
+    /// The id a client keeps for the element: its FQN ("Vehicle::seatBelt"), an unnamed member's
+    /// positional id ("Vehicle::@2") or a synthesized element's form @id ("Vehicle__send___400_pvalue").
     #[prost(string, tag="1")]
     pub element_id: ::prost::alloc::string::String,
     /// FQN of the element's own reflective metaclass ("SysML::Systems::PartUsage"),
@@ -2637,6 +3189,10 @@ pub struct Quantity {
     /// is rejected rather than read as dimension one.
     #[prost(message, optional, tag="4")]
     pub unit_term: ::core::option::Option<UnitTerm>,
+    /// Qualified name of the quantity value type the quantity is held as, empty for
+    /// none: sent back, it is held as that type still, which a sibling type refuses.
+    #[prost(string, tag="7")]
+    pub value_type: ::prost::alloc::string::String,
     /// Magnitude, keeping Integer and Real apart as the rest of Value does.
     #[prost(oneof="quantity::Magnitude", tags="1, 2, 5, 6")]
     pub magnitude: ::core::option::Option<quantity::Magnitude>,
@@ -2845,6 +3401,8 @@ pub struct ServerInfoResponse {
     ///                   and the response carries the document in `asciidoc`.
     ///    "render_view" - the RenderView RPC renders a declared view or targeted
     ///                   pseudo-view as machine-readable diagram data.
+    ///    "query_result_view" - as_view writes a query's answer as a QVTS::QueryResult view: result_view on success, a
+    ///                   QueryResultView detail on failure; RenderView answers such a view's header and, for form, a document.
     ///    "export_graphs" - the ExportGraphs RPC exports the lowered graph of an
     ///                   action or state machine as canonical graphs:1 JSON.
     ///    "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
@@ -2896,6 +3454,10 @@ pub struct QueryRequest {
     /// OSLC Query 3.0 parameter text, mutually exclusive with query.
     #[prost(string, tag="3")]
     pub oslc_query: ::prost::alloc::string::String,
+    /// Also write the answer as a QVTS::QueryResult view, in result_view or a failure's
+    /// QueryResultView detail. Under the "query_result_view" capability.
+    #[prost(bool, tag="4")]
+    pub as_view: bool,
 }
 /// QueryResponse contains the elements the query selected, in the order they are
 /// declared in the model. A query that matches nothing answers with no elements;
@@ -2905,6 +3467,10 @@ pub struct QueryRequest {
 pub struct QueryResponse {
     #[prost(message, repeated, tag="1")]
     pub elements: ::prost::alloc::vec::Vec<QueryResultElement>,
+    /// The answer as SysML text when the request set as_view, as RunDocumentQueryResponse.result_view;
+    /// its query is the OSLC text, or the API query written as `scope=…; select=…; where=…; orderBy=…`.
+    #[prost(string, tag="2")]
+    pub result_view: ::prost::alloc::string::String,
 }
 /// Query is the standard's Query resource (SysML v2 API & Services). Its `@type`
 /// is fixed and carries no information on the wire, and its identity fields
@@ -2976,8 +3542,10 @@ pub struct CompositeConstraint {
 }
 /// QueryResultElement is one matched element. `id` and `type` are always
 /// reported, since an element record is not usable without them; `properties`
-/// carries what `select` asked for, omitting a property the element does not
-/// have.
+/// carries what `select` asked for, omitting a property the element has no
+/// value of. An OSLC query selecting held objects (`rdf:type=elmt:<id>`) answers
+/// one record per object: `id` and `type` name the element the object is an
+/// instance of, and `path` the object itself.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QueryResultElement {
     /// qualified name, the identity this service reports
@@ -2988,6 +3556,10 @@ pub struct QueryResultElement {
     pub r#type: ::prost::alloc::string::String,
     #[prost(map="string, string", tag="3")]
     pub properties: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+    /// The path the session holds an object under (`car.wheels\[2\]`, `#7`); empty
+    /// for a model element.
+    #[prost(string, tag="4")]
+    pub path: ::prost::alloc::string::String,
 }
 /// SweepRange is one parameter's range: the endpoints a swept run advances
 /// between and the step it advances by, typed by the parameter it binds rather
@@ -3453,12 +4025,8 @@ pub struct RunRunsResponse {
     #[prost(uint64, optional, tag="15")]
     pub seed: ::core::option::Option<u64>,
 }
-/// RunDocumentQueryRequest runs a named document query — a calc def
-/// specializing DocumentQueries::Query — against a model the service already
-/// parsed, binding its entry parameters. It answers as %run-query does, but with
-/// typed rows rather than formatted lines. The query runs over the objects
-/// Instantiate created for the model, which a binding may name (DocumentObject)
-/// and `DocumentQueries::Objects` and `Verdicts` reach.
+/// RunDocumentQueryRequest runs a DocumentQueries::Query the model declares (query_id) or one
+/// written in inline_query over a parsed model and its Instantiate objects, binding its parameters.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RunDocumentQueryRequest {
     /// from ParseFile response
@@ -3466,12 +4034,27 @@ pub struct RunDocumentQueryRequest {
     pub model_hash: ::prost::alloc::string::String,
     /// FQN of the document query to run. Fails with NOT_FOUND when the model does
     /// not declare it, and INVALID_ARGUMENT when it declares something else.
+    /// Exactly one of query_id and inline_query is given.
     #[prost(string, tag="2")]
     pub query_id: ::prost::alloc::string::String,
     /// Entry-parameter bindings. Repeating a parameter appends to its binding, so
     /// a nonscalar parameter can be given several values.
     #[prost(message, repeated, tag="3")]
     pub bindings: ::prost::alloc::vec::Vec<DocumentQueryBinding>,
+    /// A query expression to run in place of a named query — the result
+    /// expression of a `calc def` specializing DocumentQueries::Query, such as
+    /// `Project(WhereType(Descendants(Named("Vehicles")), "PartUsage"), ("name",
+    /// "mass"))` — compiled in the model's context with the DocumentQueries
+    /// library in scope and the model's own names reachable. A fault in the
+    /// expression fails with INVALID_ARGUMENT positioned within it (`inline query
+    /// <line>:<column>`); a path or model error carries a QueryOutcome detail as a
+    /// named query's does. Reported as the "inline_document_query" capability.
+    #[prost(string, tag="4")]
+    pub inline_query: ::prost::alloc::string::String,
+    /// Also write the answer as a QVTS::QueryResult view, in result_view or a failure's
+    /// QueryResultView detail. Under the "query_result_view" capability.
+    #[prost(bool, tag="5")]
+    pub as_view: bool,
 }
 /// DocumentQueryBinding binds one entry parameter of a document query.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -3725,6 +4308,17 @@ pub struct RunDocumentQueryResponse {
     pub columns: ::prost::alloc::vec::Vec<DocumentQueryColumn>,
     #[prost(message, repeated, tag="2")]
     pub rows: ::prost::alloc::vec::Vec<DocumentQueryRow>,
+    /// The answer as SysML text when the request set as_view: a package holding one `view : QVTS::QueryResult`
+    /// that exposes each selected element and states the query, its bindings, the source, the outcome and the provenance.
+    #[prost(string, tag="3")]
+    pub result_view: ::prost::alloc::string::String,
+}
+/// QueryResultView is a failed query written as a QVTS::QueryResult view, an error
+/// detail beside QueryOutcome when the request set as_view: it exposes the frontier and finding elements.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct QueryResultView {
+    #[prost(string, tag="1")]
+    pub text: ::prost::alloc::string::String,
 }
 /// QueryOutcome is the record behind a document query that could not be run, an error
 /// detail of the failed call: a pathError or modelError at its step, as -json's checks\[\].outcome.
@@ -3745,6 +4339,14 @@ pub struct QueryOutcome {
     /// a modelError's path failures from the same fan-out
     #[prost(message, repeated, tag="5")]
     pub path_failures: ::prost::alloc::vec::Vec<QueryFailure>,
+    /// The detail is bounded to fit a status trailer: the lists above hold the first
+    /// few of a fan-out, and these count how many there were in all (the CLI's -json record carries every one).
+    #[prost(int32, tag="6")]
+    pub failures_total: i32,
+    #[prost(int32, tag="7")]
+    pub findings_total: i32,
+    #[prost(int32, tag="8")]
+    pub path_failures_total: i32,
 }
 /// QueryFailure is one failure of one step on one element: what the step
 /// expected, and what the model holds where the path stopped resolving.
@@ -3776,6 +4378,14 @@ pub struct QueryFrontier {
     /// the closest spelling, when a name was expected
     #[prost(string, tag="5")]
     pub nearest: ::prost::alloc::string::String,
+    /// Bounded to fit a status trailer: members, features and kinds hold the nearest spellings
+    /// only, and these count how many there were in all (the CLI's -json record carries every one).
+    #[prost(int32, tag="6")]
+    pub members_total: i32,
+    #[prost(int32, tag="7")]
+    pub features_total: i32,
+    #[prost(int32, tag="8")]
+    pub kinds_total: i32,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct QueryFrontierMember {
@@ -3872,6 +4482,34 @@ pub struct RenderViewRequest {
     /// "ports" (the port usages with the ports nested under them).
     #[prost(string, tag="6")]
     pub compartments: ::prost::alloc::string::String,
+    /// Form to also write into RenderViewResponse.text: "text", "mermaid", "markdown", "dot", "plantuml", "d2", "drawio", "csv" or "tsv", and for a
+    /// QVTS::QueryResult view "markdown", "html" or "asciidoc", a document of its header and rows; a wrong-kind form is INVALID_ARGUMENT. Needs render_view_form.
+    #[prost(string, tag="7")]
+    pub form: ::prost::alloc::string::String,
+    /// Palette the dot, mermaid, plantuml, d2 or drawio form fills nodes from,
+    /// as -render-palette names them; empty draws in black and white.
+    #[prost(string, tag="8")]
+    pub palette: ::prost::alloc::string::String,
+    /// Drawing style of the dot or mermaid form, as -render-style names them:
+    /// "" or "pilot" (the default), or "cameo".
+    #[prost(string, tag="9")]
+    pub style: ::prost::alloc::string::String,
+    /// How the dot or plantuml form routes its edges, as -render-lines names
+    /// them: "" or "splines" (the default), "ortho" or "polyline".
+    #[prost(string, tag="10")]
+    pub lines: ::prost::alloc::string::String,
+    /// Flow direction of a graph-shaped form: "TB", "LR", "RL" or "BT"; empty
+    /// leaves each kind's default, which is what the CLI writes.
+    #[prost(string, tag="11")]
+    pub direction: ::prost::alloc::string::String,
+    /// Source link template of each node and edge, as -render-link takes it:
+    /// placeholders {file}, {line}, {col}, {qname} and {id}; empty writes no links.
+    #[prost(string, tag="12")]
+    pub link: ::prost::alloc::string::String,
+    /// Where a graph form of a positioned view puts the nodes no layout places,
+    /// as -render-unplaced names them: "" or "omit" (the default), or "strip".
+    #[prost(string, tag="13")]
+    pub unplaced: ::prost::alloc::string::String,
 }
 /// RenderViewResponse carries all machine-readable fields of the rendering.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -3882,7 +4520,8 @@ pub struct RenderViewResponse {
     pub kind: ::prost::alloc::string::String,
     #[prost(string, tag="3")]
     pub stated: ::prost::alloc::string::String,
-    /// Nodes are flattened with parents before children.
+    /// Nodes are flattened with parents before children; each node is listed once,
+    /// and ids are unique within a rendering.
     #[prost(message, repeated, tag="4")]
     pub nodes: ::prost::alloc::vec::Vec<RenderNode>,
     #[prost(message, repeated, tag="5")]
@@ -3901,6 +4540,41 @@ pub struct RenderViewResponse {
     /// The optional notation elements drawn, in registry order.
     #[prost(string, repeated, tag="11")]
     pub shown: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The view frame round a graph-shaped rendering; unset for a frameless one.
+    #[prost(message, optional, tag="12")]
+    pub frame: ::core::option::Option<RenderFrame>,
+    /// The rendering written in RenderViewRequest.form, byte for byte what the CLI's
+    /// -render writes at no particular width; empty when the request names no form.
+    #[prost(string, tag="13")]
+    pub text: ::prost::alloc::string::String,
+    /// A QVTS::QueryResult view's query, source, outcome and provenance, in that
+    /// order, above its rows; empty for any other view.
+    #[prost(message, repeated, tag="14")]
+    pub header: ::prost::alloc::vec::Vec<RenderHeaderField>,
+}
+/// RenderHeaderField is one stated attribute of a QVTS::QueryResult view.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct RenderHeaderField {
+    #[prost(string, tag="1")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub value: ::prost::alloc::string::String,
+}
+/// RenderFrame is the view frame of SysML v2 §8.2.3.26: the name compartment's
+/// name and view definition, and the lines of the three information
+/// compartments (exposes top right, filters bottom left, annotations bottom right).
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct RenderFrame {
+    #[prost(string, tag="1")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub r#type: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag="3")]
+    pub exposes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="4")]
+    pub filters: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="5")]
+    pub annotations: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// RenderNode is one flattened node of the rendering.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -3941,6 +4615,14 @@ pub struct RenderNode {
     /// prefixes its name with `^`. `name` stays the bare name.
     #[prost(bool, tag="15")]
     pub inherited: bool,
+    /// Set on an item box drawn on a connection line (a flow, succession flow or
+    /// message whose ends are the connection's): "right" when the item goes toward
+    /// the line's second end, "left" toward its first. Empty for every other node.
+    #[prost(string, tag="16")]
+    pub arrow: ::prost::alloc::string::String,
+    /// The state's substates run in parallel; a label writes «parallel» under the name.
+    #[prost(bool, tag="17")]
+    pub parallel: bool,
 }
 /// RenderPort is a feature drawn on a node's border.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -4454,6 +5136,42 @@ impl FailureReason {
             "FAILURE_REASON_WRONG_KIND" => Some(Self::WrongKind),
             "FAILURE_REASON_AMBIGUOUS_SUBJECT" => Some(Self::AmbiguousSubject),
             "FAILURE_REASON_UNDECIDED" => Some(Self::Undecided),
+            _ => None,
+        }
+    }
+}
+/// LookupKind states what the one string naming an element is, as the SysML v2 API keeps
+/// an element's "@id" apart from its qualifiedName (KerML 8.3.2.1).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum LookupKind {
+    /// Not stated: the string is read as either kind, in the order its field documents.
+    Unspecified = 0,
+    /// A qualified name, resolved from the root namespace (KerML 8.2.3.5) through visible
+    /// memberships; never read as an id.
+    QualifiedName = 1,
+    /// An id the service reported for an element (SymbolInfo.id, child_ids, MemberInfo.id,
+    /// ElementRef.id, a metaobject's element_id), whatever its visibility; never read as a name.
+    ElementId = 2,
+}
+impl LookupKind {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "LOOKUP_KIND_UNSPECIFIED",
+            Self::QualifiedName => "LOOKUP_KIND_QUALIFIED_NAME",
+            Self::ElementId => "LOOKUP_KIND_ELEMENT_ID",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "LOOKUP_KIND_UNSPECIFIED" => Some(Self::Unspecified),
+            "LOOKUP_KIND_QUALIFIED_NAME" => Some(Self::QualifiedName),
+            "LOOKUP_KIND_ELEMENT_ID" => Some(Self::ElementId),
             _ => None,
         }
     }

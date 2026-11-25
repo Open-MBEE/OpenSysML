@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"container/list"
+	"context"
 	"slices"
 	"sort"
 	"strings"
@@ -122,12 +123,87 @@ func (ls *lineages) drop(key string) {
 // parse of a document set only notes the set, so a one-off parse never pays
 // for a workspace it will not reuse, and a document that does not parse clean
 // leaves the model to the fresh path, which does not analyze it.
-func (s *Service) parseFromLineage(inputs []sourceInput, mode diag.ConformanceMode) (*CachedModel, bool) {
+func (s *Service) parseFromLineage(ctx context.Context, inputs []sourceInput, mode diag.ConformanceMode) (*CachedModel, bool, error) {
 	key := lineageKey(inputs, mode)
 	l, _ := s.lineages.get(key, func() *lineage { return &lineage{held: map[string]string{}} })
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	// The wait for the lineage may have outlasted the caller.
+	if err := ctx.Err(); err != nil {
+		return nil, false, err
+	}
 
+	if !s.bringLineageCurrent(l, inputs, mode) {
+		return nil, false, nil
+	}
+
+	// A document that versions a bundled library file is indexed by the
+	// workspace under the library's tier, which changes what the passes report
+	// about it; a fresh parse indexes it as the request's own. The set is
+	// answered fresh while those documents stay as they are, so the two never
+	// disagree.
+	standIns := map[string]string{}
+	for _, input := range inputs {
+		if l.ws.StandsIn(input.name) {
+			standIns[input.name] = input.content
+		}
+	}
+	if len(standIns) > 0 {
+		l.fresh, l.standIns, l.ws, l.held, l.answered = true, standIns, nil, nil, nil
+		return nil, false, nil
+	}
+	names := make([]string, len(inputs))
+	for i, input := range inputs {
+		names[i] = input.name
+		if doc := l.ws.Document(input.name); doc == nil || len(doc.ParseDiagnostics) > 0 {
+			return nil, false, nil
+		}
+	}
+	// One document at a time, in the workspace's shared context, which records
+	// what each analysis read: an edit then drops only the documents whose reads
+	// it changed. DiagnosticsAll analyzes in contexts of their own, which any
+	// edit drops entirely, so it is not incremental.
+	diagnostics := make([][]diag.Diagnostic, len(names))
+	unfiltered := make([][]diag.Diagnostic, len(names))
+	for i, name := range names {
+		// A caller gone stops here; the workspace keeps what it analyzed for the next call.
+		if err := ctx.Err(); err != nil {
+			return nil, false, err
+		}
+		diagnostics[i] = l.ws.Diagnostics(name)
+		unfiltered[i] = l.ws.UnfilteredDiagnostics(name)
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, false, err
+	}
+	detached, err := l.ws.Detach()
+	if err != nil {
+		// A workspace that cannot be detached is not trusted for the next call.
+		s.lineages.drop(key)
+		return nil, false, nil
+	}
+
+	documents := make([]*CachedDocument, len(inputs))
+	for i, input := range inputs {
+		doc := l.ws.Document(input.name)
+		documents[i] = newCachedDocument(doc.AST, detached.Source(input.name), doc.ParseDiagnostics,
+			diagnostics[i], input.warnings)
+		documents[i].Unfiltered = unfiltered[i]
+	}
+	stamps := make(map[string]uint64, len(names))
+	for _, name := range names {
+		stamps[name] = l.ws.AnalysisStamp(name)
+	}
+	l.shareConvertedDiagnostics(documents, stamps)
+	return &CachedModel{
+		Documents: documents, Index: detached.Index(), Library: l.library, Mode: mode, Findings: l.ws.WorkspaceFindings(),
+		analysis: &analysisSnapshot{workspace: l.ws, stamps: stamps, scoped: declaresIdentityScope(inputs)},
+	}, true, nil
+}
+
+// bringLineageCurrent notes inputs in l and reports whether l's workspace now holds them; a set first
+// seen, or answered fresh for its library stand-ins, has none. The caller holds l.mu.
+func (s *Service) bringLineageCurrent(l *lineage, inputs []sourceInput, mode diag.ConformanceMode) bool {
 	switch {
 	case l.fresh:
 		for _, input := range inputs {
@@ -141,13 +217,13 @@ func (s *Service) parseFromLineage(inputs []sourceInput, mode diag.ConformanceMo
 				break
 			}
 		}
-		return nil, false
+		return false
 	case l.ws == nil && len(l.held) == 0:
 		// First seen: noted, answered fresh.
 		for _, input := range inputs {
 			l.held[input.name] = input.content
 		}
-		return nil, false
+		return false
 	case l.ws == nil:
 		// Seen again: the workspace is built over every document now.
 		idx, library := s.libIndexes.get()
@@ -169,62 +245,7 @@ func (s *Service) parseFromLineage(inputs []sourceInput, mode diag.ConformanceMo
 			l.held[input.name] = input.content
 		}
 	}
-
-	// A document that versions a bundled library file is indexed by the
-	// workspace under the library's tier, which changes what the passes report
-	// about it; a fresh parse indexes it as the request's own. The set is
-	// answered fresh while those documents stay as they are, so the two never
-	// disagree.
-	standIns := map[string]string{}
-	for _, input := range inputs {
-		if l.ws.StandsIn(input.name) {
-			standIns[input.name] = input.content
-		}
-	}
-	if len(standIns) > 0 {
-		l.fresh, l.standIns, l.ws, l.held, l.answered = true, standIns, nil, nil, nil
-		return nil, false
-	}
-	names := make([]string, len(inputs))
-	for i, input := range inputs {
-		names[i] = input.name
-		if doc := l.ws.Document(input.name); doc == nil || len(doc.ParseDiagnostics) > 0 {
-			return nil, false
-		}
-	}
-	// One document at a time, in the workspace's shared context, which records
-	// what each analysis read: an edit then drops only the documents whose reads
-	// it changed. DiagnosticsAll analyzes in contexts of their own, which any
-	// edit drops entirely, so it is not incremental.
-	diagnostics := make([][]diag.Diagnostic, len(names))
-	unfiltered := make([][]diag.Diagnostic, len(names))
-	for i, name := range names {
-		diagnostics[i] = l.ws.Diagnostics(name)
-		unfiltered[i] = l.ws.UnfilteredDiagnostics(name)
-	}
-	detached, err := l.ws.Detach()
-	if err != nil {
-		// A workspace that cannot be detached is not trusted for the next call.
-		s.lineages.drop(key)
-		return nil, false
-	}
-
-	documents := make([]*CachedDocument, len(inputs))
-	for i, input := range inputs {
-		doc := l.ws.Document(input.name)
-		documents[i] = newCachedDocument(doc.AST, detached.Source(input.name), doc.ParseDiagnostics,
-			diagnostics[i], input.warnings)
-		documents[i].Unfiltered = unfiltered[i]
-	}
-	stamps := make(map[string]uint64, len(names))
-	for _, name := range names {
-		stamps[name] = l.ws.AnalysisStamp(name)
-	}
-	l.shareConvertedDiagnostics(documents, stamps)
-	return &CachedModel{
-		Documents: documents, Index: detached.Index(), Library: l.library, Mode: mode, Findings: l.ws.WorkspaceFindings(),
-		analysis: &analysisSnapshot{workspace: l.ws, stamps: stamps, scoped: declaresIdentityScope(inputs)},
-	}, true
+	return true
 }
 
 // shareConvertedDiagnostics hands a document the converted diagnostics answered under

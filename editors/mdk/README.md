@@ -8,6 +8,16 @@ queries (see *MDK DocGen bridge* below). The capability-by-capability comparison
 the order the gaps are being closed in, is
 [`docs/project/mdk-parity.md`](../../docs/project/mdk-parity.md).
 
+## Install
+
+Download `Magic_MDK.zip` from the [latest release](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/Magic_MDK.zip)
+(or the [nightly snapshot](https://github.com/Open-MBEE/OpenSysML/releases/download/nightly/Magic_MDK.zip), built from `develop`)
+and import it with Cameo's Resource/Plugin Manager (*Help ▸ Resource/Plugin Manager ▸ Import*).
+It carries the five `sysml-grpc` binaries, so nothing else is installed. The zip is a line of
+the release's signed `SHA256SUMS.txt`; check it first with
+`sha256sum -c --ignore-missing SHA256SUMS.txt` (the
+[downloads page](../../docs/downloads.md#editor-plugins) has the links).
+
 ## Build
 
 Install the Java client and its dependencies before building the plugin:
@@ -29,6 +39,11 @@ the plugin against Java 17:
 ```sh
 CAMEO_HOME=/opt/Cameo editors/mdk/scripts/compile-against-cameo.sh
 ```
+
+The helper compiles the Java client itself, so it needs no prior build.
+`scripts/compile-against-cameo-test.sh` runs it in continuous integration from an uncompiled client
+against a stand-in installation holding only the OpenAPI stubs, which checks the helper's class
+path and not the vendor's signatures.
 
 ## Stubs
 
@@ -62,10 +77,13 @@ The gate is class-level: a member that 2026x added to a class 2024x also has is 
 The v1 path exports a clean existing `.mdzip` directly; otherwise it exports the whole project so
 cross-references survive. This whole-project export is intentional because a selected-element-only
 export can omit required references. V1 identity is qualified-name-only: the plugin does not yet
-read the per-element `id → target` entries of the migration report `Connection.migrateFile`
-returns, so there is no source-ID mapping; ambiguous candidates are retained rather than silently
-discarded. The report's summary line is surfaced as a diagnostic of the run. V2 textual export is used only
-when both the textual service and a v2 selection are available.
+map results through the per-element `id → target` entries of the migration report
+`Connection.migrateFile` returns, so there is no source-ID mapping; ambiguous candidates are
+retained rather than silently discarded. The report's entries are read in one direction only,
+from the selected element's name to the declarations written for it, which is how *Run query*
+finds a migrated DocGen table's query (below). The report's summary line is surfaced as a
+diagnostic of the run. V2 textual export is used only when both the textual service and a v2
+selection are available.
 
 ## Export as SysML v2
 
@@ -84,10 +102,144 @@ vendor keeps outside the text (`docs/internals/design/mdk-mtip.md` §6). The com
 counts the service's diagnostics on the written text: a v1 model that migrates but does not parse
 clean is a migration finding, and the report says what was approximated.
 
+## Publish to a SysML v2 API server
+
+*OpenSysML ▸ Publish to SysML v2 API…* on a selected element commits the whole project to one
+project branch of a server speaking the standard SysML v2 API, such as Flexo MMS. The model
+takes the path the export takes — a v1 project is migrated, a v2 project is read as the tool
+exports it — and the service converts it to the API's JSON (`Convert` to `api-json`); a model
+with errors is refused rather than published in part. The dialog asks for:
+
+| Field | Meaning |
+|---|---|
+| Server URL | The API's base URL. Defaults to `FLEXO_SYSMLV2_URL`, else `http://localhost:8083`, as `sysml -sync-apply` does. |
+| Bearer token | Sent as `Authorization: Bearer …`. Empty uses `FLEXO_INTEROP_TOKEN`, or no token. It is held for the one publication and never stored. |
+| Project id | The project to publish to. Empty creates a project with the name given. |
+| Branch id | Empty is the project's default branch. |
+| Commit message | The commit's description. |
+| Delete elements… | Off by default: elements the branch holds that the model does not are left in place and counted. On, they are deleted in the same commit. |
+
+The plugin reads the branch's elements at its head and posts one commit holding the elements the
+branch lacks or holds differently, so publishing an unchanged model commits nothing. The server,
+project and branch are remembered per Cameo project (in the user's Java preferences), with the
+commit each publication left the branch at: when the branch has moved since, the plugin says so
+and asks before publishing onto it, and a branch that moves between the read and the write is
+refused with nothing written.
+
+The token is only sent to the configured server: a plain `http://` URL to another machine is
+refused unless `FLEXO_ALLOW_PLAIN_HTTP=1`, and a redirect or a linked next page that leaves the
+server, or leaves `https`, is not followed.
+
+Publication is one-way. Nothing on the server is read back into the Cameo project, and there is
+no element-level diff view, branch management or merge: see `docs/project/mdk-parity.md`. The
+`sysx:` extension properties of the conversion have no place in the API and are not sent. The
+standard API has no conditional write, so the head check narrows the window for a concurrent
+commit but cannot close it. The test suite runs the publication against an in-process API
+server, and it has been run by hand against a local Flexo MMS stack (the published compose
+images); the action itself has not yet been run in a licensed Cameo.
+
+## Run query
+
+*OpenSysML ▸ Run query* runs the QVTS document queries a selected element stands for through the
+service's `RunDocumentQuery` ([the QVTS guide](../../docs/guide/qvts.md)). On the v2 path the
+element is a `calc def` specializing `DocumentQueries::Query`, directly or through other
+query definitions. On the v1 path the SysML v1 migrator writes a project's DocGen documents as
+`DocumentQueries::Document` definitions whose tables and lists compute their rows with
+`calc rows : '<Document> <Title> Rows'` members typed by query definitions of its own
+([SysML v1 migration](../../docs/reference/sysml-v1-migration.md) § DocGen documents); the
+plugin follows the migration report from the selected element to what was written for it (a
+`«TableStructure»` node to its `part … table`, a `«Document»` class to its Document definition)
+and runs every query found below that declaration, so a DocGen table runs as one query and a
+Document as all of its. An element that stands for no query — a v1 `«View»` whose document
+section holds no table, say — is reported as an error naming what was looked for.
+
+A query's `in` parameters are asked for first, one field per parameter, read by the declared
+type: an element parameter (`KerML::Root::Element`, or any non-scalar type) takes the qualified
+name of a Cameo element and starts out as the selected element when it is the only element
+parameter without a value of its own; a `String` takes quoted or bare text, the numeric and
+`Boolean` types their literals, and a parameter of many values a `,`-separated list. A parameter
+with a value in its declaration may stay blank. The service checks the bindings against the
+declarations, so a missing or mistyped one is reported in its own words. The same bindings are
+written for the DocGen bridge as `name = value; name = value, value` (or positionally, in
+declaration order) in the `arguments` tag.
+
+The answer is the query's columns and rows, shown as a table under the outcomes in the results
+window: one outcome per query (`n rows of qualifiedName, mass`, or `no rows`), one row per
+element the query selected. Every row names the element it was computed for, and every cell that
+holds one element reference or the `qualifiedName` a column projects names that element, so a
+double-click selects it in the containment tree and each row annotates its element with the
+row's values. No rows is an informational success — in QVTS an empty selection is a value — so
+the run is `INFO`, never a failure.
+
+A query the model has no answer for — a misspelled `Named` source, a feature some selected
+element lacks, a name two elements share — ran and reported, so it is `FAILED`, not `ERROR`. The
+Java client throws a `QueryOutcomeException` carrying the service's structured outcome, and
+`results/QueryFailure` maps it to the query's own outcome (the service's message) followed by
+one outcome per path failure and per model finding, worded as the CLI words them
+([the QVTS guide](../../docs/guide/qvts.md)):
+
+```text
+path error at Named(Lander::lander::cabni): expected exactly one element with that qualified name; at Lander::lander; members: [cabin (PartUsage), cabinEngine (ConnectionUsage), engine (PartUsage), engineBay (ConnectionUsage), scienceBay (PartUsage)]; nearest: cabin
+path error at Feature(mass): expected a feature named mass on the element; at Lander::lander::cabinEngine
+model error at Named(Duplicates::repeated): Duplicates violates ambiguousName: Duplicates::repeated (declared 2 times)
+```
+
+Each of those outcomes names the element the path stopped at (the frontier's `at`) or the
+element the finding is about, so the element is annotated as an error and selected from the
+results window; on the v1 path the name is mapped back to the Cameo element the same way a
+row's is. The service sends at most eight candidates per list and eight failures per step: a
+list that was cut ends `… and N more`, and failures that were left out are counted in a last
+outcome (`… and 3 more path errors at Feature(mass)`). A candidate list with nothing in it is
+left out. The queries beside a failed one still answer and keep their tables. A refusal that
+carries no outcome — a parameter left unbound, say — stays one `ERROR` outcome carrying the
+service's message, and outranks `FAILED` for the run's status.
+
+### The answer as a view
+
+Every query that ran also comes back as a `QVTS::QueryResult` view
+([the QVTS guide](../../docs/guide/qvts.md#write-the-answer-as-a-view)): the selected elements
+exposed, and the query, the source, the outcome and the provenance as its four attributes. A
+query that reported a path or model error has a view too, of that outcome, exposing the
+elements the failure is about. After *Run query* the plugin writes each view to a file named by
+the query, `<model>.<Query.Qualified.Name>.result.sysml`, replacing the one an earlier run of
+that query wrote (a query whose name or text holds more than plain names also carries a short
+digest of it, `…~1a2b3c4d.result.sysml`, so two queries never share a file):
+
+- **v2 project** — next to the project file, so `lander.mdzip` gets
+  `lander.QVTSDemo.CabinMass.result.sysml`.
+- **v1 project** — beside the `.sysml` the project was last written to by *Export as SysML
+  v2…* in this Cameo session, which is where the migration report is, so the view parses with
+  the migrated model it names; before any export, next to the project file.
+
+The results window lists each file as an informational diagnostic. A project that was never
+saved has nowhere to write, which is a warning, as is a file that cannot be written; neither
+changes the run's status.
+
+## Render document
+
+*OpenSysML ▸ Render document…* renders what the selected element stands for as Markdown and
+HTML into a folder you choose, then opens the folder:
+
+- a `part def` specializing `DocumentQueries::Document` (v2), through the service's
+  `RenderDocument`;
+- a v1 DocGen `«Document»`, through the `Document` definition the migration wrote for it,
+  found by the migration report as *Run query* finds a query;
+- a view typed by `QVTS::QueryResult`, through `RenderView`: its four attributes as the header
+  and the elements it exposes as the rows. Add a written `.result.sysml` to the project's
+  model to render it.
+
+A document is written to the file the service plans for it (`QVTSDemo-MassReport.md`,
+`.html`), the name its sibling documents link, so documents rendered into one folder link each
+other; a result view is named by its qualified name (`CabinMassResult.cabinMass.md`). An
+element that is none of these is reported as such, and nothing is written.
+
+Not in scope here: PDF from Cameo (the converters are the CLI's, `sysml -render-document
+-doc-form pdf`), and transformations or proposals, which OpenSysML has no evaluator for yet.
+
 ## Results window and annotations
 
 Each project has one OpenSysML results window. It displays operation metadata, outcomes,
-diagnostics, and state schedules. Result outcomes are mapped to Cameo annotations with passed,
+diagnostics, state schedules, and the rows a query answered. Result outcomes are mapped to Cameo annotations with passed,
 failed, and error severities; annotations from the prior application are removed before new ones
 are added.
 
@@ -96,7 +248,8 @@ are added.
 MDK's DocGen loads «JavaExtension» queries from `plugins/org.openmbee.mdk/extensions/`, so the
 distribution drops `magic-mdk-bridge-<n>.jar` there and nothing extra needs installing. The
 bridge defines one `Query` per operation, in package `org.openmbee.mdk.magic.docgen`:
-`Instantiate`, `ExecuteAction`, `ExecuteState`, `Verify`, `EvaluateCalc` and `RunAnalysis`.
+`Instantiate`, `ExecuteAction`, `ExecuteState`, `Verify`, `EvaluateCalc`, `RunAnalysis` and
+`RunQuery`.
 
 To use one in a document:
 
@@ -104,15 +257,19 @@ To use one in a document:
    and choose *OpenSysML ▸ Add MDK DocGen extension stereotypes*. This creates, once, a profile
    `Magic MDK DocGen` applied to the model, holding a stereotype per operation; each
    specialises MDK's «JavaExtension» and is named after the class MDK must load
-   (e.g. `org.openmbee.mdk.magic.docgen.Verify`). `EvaluateCalc` carries an `arguments` tag,
-   a comma-separated argument list.
+   (e.g. `org.openmbee.mdk.magic.docgen.Verify`). `EvaluateCalc` and `RunQuery` carry an
+   `arguments` tag: a comma-separated argument list for the calc, the query's parameter
+   bindings as `name = value; …` for the query.
 2. In a viewpoint method, apply the stereotype to an activity (or to a call behavior action
    whose behavior carries it) and feed it the elements to run on, exactly as for any other DocGen
    query. Targets may be UML elements (the SysML v1 path) or SysML v2 elements (the textual
    path), as for the context-menu operations.
 
 For every target the generated section gets a one-line summary (operation, element, status,
-elapsed time, final time), a table of outcomes with their status, a table of diagnostics with
+elapsed time, final time), a table of outcomes with their status, for `RunQuery` one table per
+query answered (its columns the properties projected, one row per element selected, shown even
+when empty) and, for a query that reported a path or model error, the same failure text the
+results window shows as rows of the outcome table, a table of diagnostics with
 their source locations, and the state schedule when the operation produced one. A target that
 fails to run yields an error paragraph in its place; the rest of the document is unaffected.
 
@@ -137,9 +294,14 @@ mismatching asset fails the build) and writes `bin/DIGESTS`. `PluginDescriptorWr
 `plugin.xml` with a `<library>` entry for the plugin jar and every runtime jar, so the plugin's
 own classloader (`ownClassloader="true"`, `class-lookup="LocalFirst"`) sees exactly what ships.
 `-Dopensysml.binaries=<dir>` stages the five binaries from a directory instead, for a build the
-caller has already verified — the nightly workflow packages each night's `sysml-grpc` this way,
-under the night's tag, and keeps the zip as the run's `cameo-plugin` artifact (see
-[the snapshot page](../../docs/project/nightly.md#what-it-contains)):
+caller has already verified. Both release pipelines package the plugin this way around the
+binaries they just built and publish the zip as the release asset `Magic_MDK.zip`, listed in the
+signed `SHA256SUMS.txt`: the tagged release (`build-cameo-plugin` in `.circleci/config.yml`,
+versioned by the tag, `v0.12.1` or `v0.13.0-rc.1`) and the nightly snapshot (versioned as the
+`.vsix` is, `<core>-nightly-<yyyymmdd>-<commit>`; see
+[the snapshot page](../../docs/project/nightly.md#what-it-contains)). `ResourceDescriptorWriter`
+packs the version into the integer the Resource Manager orders installs by: a release's nights
+below its `alpha.n`, `beta.n` and `rc.n` candidates, all below the release. The zip's layout:
 
 ```
 plugins/org.openmbee.mdk.magic/plugin.xml

@@ -12,7 +12,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/protoconv"
-	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -126,9 +125,9 @@ func (v *verifyContext) exhausted(err error) error {
 // sem is the semantic model the request's runtime evaluates against.
 func (v *verifyContext) sem() *semantics.Model { return v.runtime.Semantics() }
 
-// lookup resolves an FQN to the symbol it names.
+// lookup resolves an FQN, or the id its element is reported under, to the symbol it names.
 func (v *verifyContext) lookup(symbolID string) (*symbols.Symbol, error) {
-	syms := symbolfacts.LookupNamed(v.cached.Index, symbolID)
+	syms := v.cached.LookupDeclared(symbolID)
 	if len(syms) == 0 {
 		return nil, fmt.Errorf("symbol not found: %s", symbolID)
 	}
@@ -189,11 +188,11 @@ func (v *verifyContext) objectAt(role, path string) (*runtime.Instance, error) {
 	}
 	for i := objref.Head(ref.Segments); i > 0; i-- {
 		name := objref.JoinTyped(ref.Segments[:i])
-		syms := symbolfacts.LookupNamed(v.cached.Index, name)
+		syms := v.cached.LookupDeclared(name)
 		if len(syms) == 0 {
 			continue
 		}
-		if i > 1 && len(symbolfacts.LookupNamed(v.cached.Index, objref.DeclaredRun(ref.Segments[:i]))) == 0 {
+		if i > 1 && len(v.cached.LookupDeclared(objref.DeclaredRun(ref.Segments[:i]))) == 0 {
 			continue
 		}
 		if objref.IsNamespace(syms[0]) {
@@ -240,7 +239,7 @@ func (v *verifyContext) instantiate(role, symbolID string, sym *symbols.Symbol) 
 // is anonymous: such an element has no name a caller can look up.
 func namedFQN(idx *symbols.Index, sym *symbols.Symbol) string {
 	for s := sym; s != nil; {
-		if s.Name == "" {
+		if !s.Named() {
 			return ""
 		}
 		if s.OwnerScope == nil {
@@ -308,7 +307,7 @@ func (v *verifyContext) instanceGraph(inst *runtime.Instance) []*pb.Instance {
 	if inst == nil {
 		return nil
 	}
-	return v.service.instanceGraphToProto(v.runtime, inst, v.cached.Index).All
+	return v.service.instanceGraphToProto(v.runtime, inst, v.cached).All
 }
 
 // VerifyConstraint evaluates a constraint definition or usage, as the REPL's
@@ -711,7 +710,7 @@ func (s *Service) EvaluateCalc(ctx context.Context, req *pb.EvaluateCalcRequest)
 		if err := s.requireValueCapabilities(arg); err != nil {
 			return nil, err
 		}
-		val, cerr := protoconv.ProtoToRuntimeValue(v.runtime, arg, v.cached.Index, v.sem())
+		val, cerr := protoconv.ProtoToRuntimeValueWith(v.runtime, arg, v.cached.Index, v.sem(), v.cached.SymbolContext())
 		if cerr != nil {
 			return &pb.EvaluateCalcResponse{
 				Error:         fmt.Sprintf("calc argument could not be read: %v", cerr),
@@ -736,7 +735,7 @@ func (s *Service) EvaluateCalc(ctx context.Context, req *pb.EvaluateCalcRequest)
 			FailureReason: failureReason(err),
 		}, st), nil
 	}
-	return calcResponse(&pb.EvaluateCalcResponse{Result: v.service.valueToProto(v.runtime, result, v.cached.Index)}, st), nil
+	return calcResponse(&pb.EvaluateCalcResponse{Result: v.service.valueToProto(v.runtime, result, v.cached)}, st), nil
 }
 
 // calcResponse writes on a calc's response the standing of the plan that answered it.
@@ -768,7 +767,7 @@ func (v *verifyContext) calcUsageOutputs(ctx context.Context, subject string, sy
 	for _, out := range outputs {
 		pbOutputs = append(pbOutputs, &pb.CalcOutput{
 			Name:  out.Name,
-			Value: v.service.valueToProto(v.runtime, out.Value, v.cached.Index),
+			Value: v.service.valueToProto(v.runtime, out.Value, v.cached),
 		})
 	}
 	return pbOutputs, true, plan, nil

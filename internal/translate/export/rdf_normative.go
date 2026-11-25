@@ -28,6 +28,13 @@ const (
 	mSubsetting                        = "Subsetting"
 	mSpecialization                    = "Specialization"
 	mRedefinition                      = "Redefinition"
+	mCrossSubsetting                   = "CrossSubsetting"
+	mUnioning                          = "Unioning"
+	mIntersecting                      = "Intersecting"
+	mDifferencing                      = "Differencing"
+	mDisjoining                        = "Disjoining"
+	mFeatureInverting                  = "FeatureInverting"
+	mTypeFeaturing                     = "TypeFeaturing"
 	mFlow                              = "Flow"
 	mFlowUsage                         = "FlowUsage"
 	mSuccessionFlow                    = "SuccessionFlow"
@@ -50,6 +57,7 @@ const (
 	mRequirementVerificationMembership = "RequirementVerificationMembership"
 	mConstraintUsage                   = "ConstraintUsage"
 	mReferenceUsage                    = "ReferenceUsage"
+	mUsage                             = "Usage"
 	pMultiplicity                      = "multiplicity"
 	pCondition                         = "condition"
 	pConjugatedPortDefinition          = "conjugatedPortDefinition"
@@ -66,8 +74,10 @@ const (
 	pGuardExpression                   = "guardExpression"
 	pTriggerAction                     = "triggerAction"
 	pPayloadParameter                  = "payloadParameter"
+	pLoopVariable                      = "loopVariable"
 	pPayloadArgument                   = "payloadArgument"
 	pReceiverArgument                  = "receiverArgument"
+	pSenderArgument                    = "senderArgument"
 	pConjugatedType                    = "conjugatedType"
 	pOriginalType                      = "originalType"
 	pOriginalPortDefinition            = "originalPortDefinition"
@@ -135,7 +145,9 @@ type headItem struct {
 // emits relationship elements for, in the order a head no notation spelled
 // states them.
 var materializedKinds = []ast.RelationshipKind{
-	ast.RelTyping, ast.RelSpecializes, ast.RelSubsets, ast.RelRedefines, ast.RelReferences,
+	ast.RelTyping, ast.RelSpecializes, ast.RelSubsets, ast.RelRedefines, ast.RelReferences, ast.RelCrosses,
+	ast.RelUnions, ast.RelIntersects, ast.RelDifferences, ast.RelDisjoint, ast.RelInverseOf, ast.RelFeaturedBy,
+	ast.RelAnnotates,
 }
 
 // materializeRelationships emits one relationship element per target of each
@@ -148,21 +160,7 @@ func (e *encoder) materializeRelationships(subject rdf.Term) {
 	if ontology.IsAncestorOrSelf(e.metaclassOf(subject), "Membership") {
 		return
 	}
-	type pending struct {
-		kind   ast.RelationshipKind
-		target rdf.Term
-		count  int
-		index  int
-	}
-	var targets []pending
-	position := map[headItem]int{}
-	for _, kind := range materializedKinds {
-		objects := e.graph.Objects(subject, rdf.SysML+relationshipProperty[kind])
-		for i, target := range objects {
-			position[headItem{kind: kind, element: target}] = len(targets)
-			targets = append(targets, pending{kind, target, len(objects), i})
-		}
-	}
+	targets, position := e.pendingRelationships(subject)
 	emitted := make([]bool, len(targets))
 	var block []rdf.Term
 	emit := func(at int) {
@@ -192,7 +190,7 @@ func (e *encoder) materializeRelationships(subject rdf.Term) {
 				block = append(block, item.element)
 				continue
 			}
-			if at, ok := position[headItem{kind: item.kind, element: item.element}]; ok {
+			if at, ok := pendingAt(item, position); ok {
 				emit(at)
 			}
 		}
@@ -203,6 +201,108 @@ func (e *encoder) materializeRelationships(subject rdf.Term) {
 	if head != nil {
 		e.seatHead(subject, head.anchor, block)
 	}
+}
+
+// pendingRelationship is one target of a collapsed head property awaiting its
+// relationship element: the clause kind and the target's place among that kind's.
+type pendingRelationship struct {
+	kind   ast.RelationshipKind
+	target rdf.Term
+	count  int
+	index  int
+}
+
+// pendingRelationships lists the relationships every collapsed head property of subject
+// awaits, kind by kind, with the positions each head item's clauses take among them in order.
+func (e *encoder) pendingRelationships(subject rdf.Term) (targets []pendingRelationship, position map[headItem][]int) {
+	position = map[headItem][]int{}
+	for _, kind := range materializedKinds {
+		if kind == ast.RelAnnotates {
+			// Each `about` entry is its own Annotation, a repeated name included (KerML
+			// 8.3.2.3.2); the collapsed annotatedElement states each target once.
+			items := e.aboutItems(subject)
+			for i, item := range items {
+				position[item] = append(position[item], len(targets))
+				targets = append(targets, pendingRelationship{kind, item.element, len(items), i})
+			}
+			continue
+		}
+		if kind == ast.RelFeaturedBy && ontology.IsAncestorOrSelf(e.metaclassOf(subject), mTypeFeaturing) {
+			// A TypeFeaturing's featuringType is its own end, not a `featured by` clause.
+			continue
+		}
+		// A clause repeating a target (`: T, T`) is a relationship of its own, which the
+		// collapsed property cannot state: it follows the property's targets, in head order.
+		objects := e.graph.Objects(subject, rdf.SysML+relationshipProperty[kind])
+		repeats := e.repeatedTargets(subject, kind)
+		count := len(objects) + len(repeats)
+		for i, target := range slices.Concat(objects, repeats) {
+			key := headItem{kind: kind, element: target}
+			position[key] = append(position[key], len(targets))
+			targets = append(targets, pendingRelationship{kind, target, count, i})
+		}
+	}
+	return targets, position
+}
+
+// repeatedTargets are the targets subject's head spelled again under kind, once per
+// clause after the first naming the target, in head order.
+func (e *encoder) repeatedTargets(subject rdf.Term, kind ast.RelationshipKind) []rdf.Term {
+	head := e.heads[subject]
+	if head == nil {
+		return nil
+	}
+	var repeats []rdf.Term
+	seen := map[rdf.Term]bool{}
+	for _, item := range head.spelled() {
+		if item.multiplicity || item.kind != kind {
+			continue
+		}
+		if seen[item.element] {
+			repeats = append(repeats, item.element)
+		}
+		seen[item.element] = true
+	}
+	return repeats
+}
+
+// pendingAt takes the next pending relationship a spelled head item names: an `about`
+// entry by the item itself, a specialization clause by its kind and object.
+func pendingAt(item headItem, position map[headItem][]int) (int, bool) {
+	key := item
+	if item.kind != ast.RelAnnotates {
+		key = headItem{kind: item.kind, element: item.element}
+	}
+	if len(position[key]) == 0 {
+		return 0, false
+	}
+	at := position[key][0]
+	position[key] = position[key][1:]
+	return at, true
+}
+
+// aboutItems are the `about` entries an annotating element's head spelled, in
+// order, one per name; a head nothing spelled states each collapsed
+// annotatedElement target once. An Annotation's own annotatedElement is its end.
+func (e *encoder) aboutItems(subject rdf.Term) []headItem {
+	if !ontology.IsAncestorOrSelf(e.metaclassOf(subject), "AnnotatingElement") {
+		return nil
+	}
+	var items []headItem
+	if head := e.heads[subject]; head != nil {
+		for _, item := range head.spelled() {
+			if item.kind == ast.RelAnnotates {
+				items = append(items, item)
+			}
+		}
+	}
+	if len(items) > 0 {
+		return items
+	}
+	for _, target := range e.graph.Objects(subject, rdf.SysML+pAnnotatedElement) {
+		items = append(items, headItem{kind: ast.RelAnnotates, element: target, offset: -1})
+	}
+	return items
 }
 
 // headClauseAmbiguous reports whether subject states target under another
@@ -269,14 +369,12 @@ func (e *encoder) seatHead(subject rdf.Term, anchor int, block []rdf.Term) {
 	}
 }
 
-// relationshipSpec picks the materialization of one collapsed property on
-// subject: the relationship class a target takes depends on what the element
-// is, and a `subsets` a satisfy or other end-binding head states is written
-// as an OwnedReferenceSubsetting (SysML.xtext).
+// relationshipSpec picks the materialization of one collapsed property on subject: the
+// relationship class a target takes depends on what the element is.
 func (e *encoder) relationshipSpec(subject rdf.Term, kind ast.RelationshipKind, count, i int) (normativeRelationship, bool) {
 	metaclass := e.metaclassOf(subject)
-	classifier := ontology.IsAncestorOrSelf(metaclass, "Classifier")
-	suffix := relationshipSuffix(kind, classifier, e.referenceSubsettingForm(subject), count, i)
+	classifier := isClassifier(metaclass)
+	suffix := relationshipSuffix(kind, classifier, count, i)
 	switch kind {
 	case ast.RelTyping:
 		return normativeRelationship{mFeatureTyping, suffix,
@@ -304,9 +402,6 @@ func (e *encoder) relationshipSpec(subject rdf.Term, kind ast.RelationshipKind, 
 				[]string{pOwnedSpecialization, pOwnedRelationship}}, true
 		}
 	case ast.RelSubsets:
-		if e.referenceSubsettingForm(subject) {
-			return referenceSubsettingSpec(suffix), true
-		}
 		return normativeRelationship{mSubsetting, suffix,
 			[]string{pSubsettingFeature, pOwningFeature, pSpecific, pSource, pOwningRelatedElement},
 			[]string{pSubsettedFeature, pGeneral, pTarget},
@@ -318,32 +413,77 @@ func (e *encoder) relationshipSpec(subject rdf.Term, kind ast.RelationshipKind, 
 			[]string{"ownedRedefinition", pOwnedSubsetting, pOwnedSpecialization, pOwnedRelationship}}, true
 	case ast.RelReferences:
 		return referenceSubsettingSpec(suffix), true
+	case ast.RelCrosses:
+		// `crosses` names the feature an end's cross feature subsets through the
+		// CrossSubsetting the end owns (KerML 8.3.3.3.2, 8.2.4.3.1 Crosses).
+		return normativeRelationship{mCrossSubsetting, suffix,
+			[]string{"crossingFeature", pSubsettingFeature, pOwningFeature, pSpecific, pSource, pOwningRelatedElement},
+			[]string{"crossedFeature", pSubsettedFeature, pGeneral, pTarget},
+			[]string{"ownedCrossSubsetting", pOwnedSubsetting, pOwnedSpecialization, pOwnedRelationship}}, true
+	case ast.RelUnions:
+		return typeOperandSpec(mUnioning, suffix, "typeUnioned", "unioningType", "ownedUnioning"), true
+	case ast.RelIntersects:
+		return typeOperandSpec(mIntersecting, suffix, "typeIntersected", "intersectingType", "ownedIntersecting"), true
+	case ast.RelDifferences:
+		return typeOperandSpec(mDifferencing, suffix, "typeDifferenced", "differencingType", "ownedDifferencing"), true
+	case ast.RelDisjoint:
+		return ownedEndSpec(mDisjoining, suffix, "typeDisjoined", pOwningType, "disjoiningType", "ownedDisjoining"), true
+	case ast.RelInverseOf:
+		return ownedEndSpec(mFeatureInverting, suffix, "featureInverted", pOwningFeature, "invertingFeature", "ownedFeatureInverting"), true
+	case ast.RelFeaturedBy:
+		return ownedEndSpec(mTypeFeaturing, suffix, "featureOfType", "owningFeatureOfType", "featuringType", "ownedTypeFeaturing"), true
+	case ast.RelAnnotates:
+		// An `about` names an element the annotating element annotates through an
+		// Annotation it owns (KerML 8.3.2.3.2 AnnotatingElement::ownedAnnotatingRelationship).
+		return normativeRelationship{mAnnotation, suffix,
+			[]string{pAnnotatingElement, pOwningAnnotatingElement, pSource, pOwningRelatedElement},
+			[]string{pAnnotatedElement, pTarget},
+			[]string{pOwnedAnnotatingRelationship, pOwnedRelationship}}, true
 	}
 	return normativeRelationship{}, false
+}
+
+// isClassifier reports whether a metaclass is a Classifier, whose `specializes` is a
+// Subclassification: the one test the writer and the identity reader share.
+func isClassifier(metaclass string) bool {
+	return ontology.IsAncestorOrSelf(metaclass, mClassifier)
 }
 
 // relationshipSuffix names the relationship element materialized for the i-th of count
 // targets of a head clause of kind, after its owner's id: the one rule the writer and the
 // identity reader (writtenRelationships) share. Empty for a kind no element is made for.
-func relationshipSuffix(kind ast.RelationshipKind, classifier, referenceForm bool, count, i int) string {
+func relationshipSuffix(kind ast.RelationshipKind, classifier bool, count, i int) string {
 	index := fmt.Sprintf("%d", i)
 	switch kind {
 	case ast.RelTyping:
 		return "_ft" + index
+	case ast.RelAnnotates:
+		return AnnotationSuffix + index
 	case ast.RelSpecializes:
 		if classifier {
 			return "_sc" + index
 		}
 		return "_sp" + index
 	case ast.RelSubsets:
-		if referenceForm {
-			return referenceSubsettingSuffix(count, i)
-		}
 		return "_ss" + index
 	case ast.RelRedefines:
 		return "_rd" + index
 	case ast.RelReferences:
 		return referenceSubsettingSuffix(count, i)
+	case ast.RelCrosses:
+		return crossSubsettingSuffix(count, i)
+	case ast.RelUnions:
+		return "_un" + index
+	case ast.RelIntersects:
+		return "_is" + index
+	case ast.RelDifferences:
+		return "_df" + index
+	case ast.RelDisjoint:
+		return "_dj" + index
+	case ast.RelInverseOf:
+		return "_iv" + index
+	case ast.RelFeaturedBy:
+		return "_tf" + index
 	}
 	return ""
 }
@@ -357,17 +497,35 @@ func referenceSubsettingSuffix(count, i int) string {
 	return "_rs"
 }
 
-// referenceSubsettingForm reports whether a `subsets` subject states is an
-// OwnedReferenceSubsetting: the satisfy head writes the requirement it subsets
-// bare, and the other end-binding forms (`perform`, `exhibit`, `include`,
-// `assert`, `satisfy`) state their targets through `references`.
-func (e *encoder) referenceSubsettingForm(subject rdf.Term) bool {
-	return e.metaclassOf(subject) == "SatisfyRequirementUsage" || e.verifiedReferences[subject] ||
-		e.graph.HasProperty(subject, rdf.OpenSysML+xEndForm)
+// crossSubsettingSuffix is `_cs` for the one CrossSubsetting a feature owns
+// (KerML 8.3.3.3.4 validateFeatureOwnedCrossSubsetting) and `_cs<i>` when a head states several.
+func crossSubsettingSuffix(count, i int) string {
+	if count > 1 {
+		return fmt.Sprintf("_cs%d", i)
+	}
+	return "_cs"
 }
 
-// referenceSubsettingSpec is the materialization of a `references` target or
-// an end-form `subsets` one: a ReferenceSubsetting per target, under suffix.
+// typeOperandSpec is the materialization of one operand of a type's `unions`,
+// `intersects` or `differences`: the relationship the type owns per operand (KerML 8.2.4.1.1 UnioningPart).
+func typeOperandSpec(metaclass, suffix, source, target, owned string) normativeRelationship {
+	return normativeRelationship{metaclass, suffix,
+		[]string{source, pSource, pOwningRelatedElement},
+		[]string{target, pTarget},
+		[]string{owned, pOwnedRelationship}}
+}
+
+// ownedEndSpec is the materialization of one target of `disjoint from`, `inverse of` or
+// `featured by`: the relationship the declared element owns, naming it as source and as owner.
+func ownedEndSpec(metaclass, suffix, source, owner, target, owned string) normativeRelationship {
+	return normativeRelationship{metaclass, suffix,
+		[]string{source, owner, pSource, pOwningRelatedElement},
+		[]string{target, pTarget},
+		[]string{owned, pOwnedRelationship}}
+}
+
+// referenceSubsettingSpec is the materialization of a `references` target: a
+// ReferenceSubsetting per target, under suffix.
 func referenceSubsettingSpec(suffix string) normativeRelationship {
 	return normativeRelationship{mReferenceSubsetting, suffix,
 		[]string{pReferencingFeature, pSubsettingFeature, pOwningFeature, pSpecific, pSource, pOwningRelatedElement},
@@ -375,18 +533,22 @@ func referenceSubsettingSpec(suffix string) normativeRelationship {
 		[]string{pOwnedReferenceSubsetting, pOwnedSubsetting, pOwnedSpecialization, pOwnedRelationship}}
 }
 
-// emitConjugatedPortTyping materializes `: ~P` as a ConjugatedPortTyping whose
-// type is P's ConjugatedPortDefinition and whose portDefinition is P itself
-// (SysML v2 1.0 § 8.3.12 Ports); an external P is named `~P` by the literal.
+// emitConjugatedPortTyping materializes `: ~P` as a ConjugatedPortTyping typing by P's
+// ConjugatedPortDefinition with portDefinition P (SysML v2 § 8.3.12); an external P is named `~P`.
 func (e *encoder) emitConjugatedPortTyping(subject, target rdf.Term, spec normativeRelationship) rdf.Term {
 	spec.metaclass = mConjugatedPortTyping
 	spec.targetEnds = append([]string{pConjugatedPortDefinition}, spec.targetEnds...)
-	conjugated := rdf.String("~" + target.Value)
+	conjugated, original := rdf.String("~"+target.Value), target
 	if target.IsIRI() {
-		conjugated = e.ids.minted(rdf.RelationshipIRI(target, "_conjugated"), target, "_conjugated")
+		conjugated = target
+		if stated, ok := e.conjugateOriginals[target.Value]; ok {
+			original = stated
+		} else {
+			conjugated = e.ids.minted(rdf.RelationshipIRI(target, "_conjugated"), target, "_conjugated")
+		}
 	}
 	relation := e.emitRelationship(subject, conjugated, spec)
-	e.graph.Add(relation, e.sysml(pPortDefinition), target)
+	e.graph.Add(relation, e.sysml(pPortDefinition), original)
 	return relation
 }
 
@@ -468,7 +630,7 @@ func (e *encoder) featureChainings(chain rdf.Term, links []rdf.Term) {
 const conjugateSegment = "@conjugated"
 
 // conjugatedPortDefinition emits a port definition's implied conjugate and its
-// PortConjugation; only an original name gives the conjugate a declared name.
+// PortConjugation; it declares no name, `~P` being its derived name (SysML 8.3.12.2 effectiveName).
 func (e *encoder) conjugatedPortDefinition(subject rdf.Term, fqn string, n *ast.Definition) {
 	conjugated := e.ids.minted(rdf.RelationshipIRI(subject, "_conjugated"), subject, "_conjugated")
 	membership := e.ids.minted(rdf.OwningMembershipIRIOf(conjugated), conjugated, rdf.OwningMembershipSuffix)
@@ -488,16 +650,13 @@ func (e *encoder) conjugatedPortDefinition(subject rdf.Term, fqn string, n *ast.
 	e.typed(conjugated, mConjugatedPortDefinition)
 	e.graph.Add(conjugated, e.sysml(pElementID), rdf.String(rdf.LocalName(conjugated.Value)))
 	address := fqn + "::" + conjugateSegment
-	named := n.Ident.Name != ""
+	named := n.Ident.HasName()
 	name := ""
 	if named {
 		name = "~" + n.Ident.Name
 		address = fqn + "::" + identity.EscapeName(name)
 	}
-	e.graph.Add(conjugated, addressTerm(address), rdf.String(address))
-	if named {
-		e.graph.Add(conjugated, e.sysml(pDeclaredName), rdf.String(name))
-	}
+	stateAddress(e.graph.Add, conjugated, address)
 	e.emitMembershipCore(membership, conjugated, subject, mOwningMembership, true)
 	if named {
 		e.graph.Add(membership, e.sysml(pMemberName), rdf.String(name))
@@ -544,13 +703,13 @@ func (e *encoder) subjectParameter(subject rdf.Term, owner string, ownerSym *sym
 	}
 	e.typed(usage, mReferenceUsage)
 	e.graph.Add(usage, e.sysml(pElementID), rdf.String(rdf.LocalName(usage.Value)))
-	e.graph.Add(usage, addressTerm(owner), rdf.String(owner+"::_subject"))
+	stateAddress(e.graph.Add, usage, owner+"::_subject")
 	// The subject is a referential usage owned by the satisfy usage, an Occurrence.
 	if e.ids.model.UsageMayTimeVaryUnder(ownerSym) {
 		e.flags(usage, []boolProperty{{"isVariable", true}, {"mayTimeVary", true}})
 	}
 	e.emitMembershipCore(membership, usage, subject, mSubjectMembership, true)
-	e.subjectMemberNames(membership, ownerSym, rel)
+	e.subjectMemberNames(usage, membership, ownerSym, rel)
 	e.graph.Add(membership, e.sysml(pOwnedSubjectParameter), usage)
 	e.graph.Add(membership, e.sysml(pOwnedMemberParameter), usage)
 	e.graph.Add(membership, e.sysml(pOwnedMemberFeature), usage)
@@ -594,7 +753,7 @@ func (e *encoder) subjectFeatureChainValue(usage rdf.Term, target ast.Node, chai
 
 // subjectMemberNames states the SubjectMembership's memberName and memberShortName: the effective
 // names of the subject parameter the `by` clause rel declares (RequirementCheck::subj, redefined).
-func (e *encoder) subjectMemberNames(membership rdf.Term, ownerSym *symbols.Symbol, rel *ast.Relationship) {
+func (e *encoder) subjectMemberNames(usage, membership rdf.Term, ownerSym *symbols.Symbol, rel *ast.Relationship) {
 	if ownerSym == nil {
 		return
 	}
@@ -603,7 +762,10 @@ func (e *encoder) subjectMemberNames(membership rdf.Term, ownerSym *symbols.Symb
 		if subject.Decl != ast.Node(rel) {
 			continue
 		}
+		// The nameless subject is named by the parameter it redefines (KerML 1.1 §8.3.3.3.4
+		// Feature::namingFeature): derived, so stated by sysml:name alone.
 		if name := e.ids.model.EffectiveNameOf(subject); name != "" {
+			e.graph.Add(usage, e.sysml(pName), rdf.String(name))
 			e.graph.Add(membership, e.sysml(pMemberName), rdf.String(name))
 		}
 		if short := e.ids.model.EffectiveShortNameOf(subject); short != "" {

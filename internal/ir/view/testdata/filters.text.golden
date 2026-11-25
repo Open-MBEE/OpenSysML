@@ -1,5 +1,5 @@
 FilteredViews::safetyView - tree rendering (the view states no rendering; a tree is the default)
 
 part def Radio
-part def Airbag
-part def Brake
+#Safety part def Airbag
+#Safety part def Brake

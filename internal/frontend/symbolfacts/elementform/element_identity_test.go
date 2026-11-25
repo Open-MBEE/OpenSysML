@@ -1,0 +1,328 @@
+package elementform_test
+
+import (
+	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts/elementform"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
+)
+
+const identityModel = `
+package D {
+  private import ScalarValues::*;
+  part def V;
+  part outer : V { part : V; part named : V; }
+  part def M {
+    port p;
+    state sm { entry; then a; state a;
+      transition t first a accept when 1 > 0 if 2 > 1 then a;
+      transition u first a accept sig : Integer via p then a;
+    }
+    attribute z : Integer = 1 + 2;
+  }
+  connection def C;
+  constraint def K { attribute x : Integer; x > 0 }
+  calc def Q { attribute x : Integer; x + 1 }
+  part holder { part a { part b; } part c; connection : C connect a.b to c; }
+  part def W { attribute a; }
+  part w1 : W;
+  part w2 : W;
+  flow fl from w1.a to w2.a;
+  package F { metadata def K; filter @K; }
+}
+package D__outer___400 { part spelledLikeAFormID; }
+`
+
+// identityContext indexes one document over the standard library with the
+// positional and element-form ids a service's symbol context carries.
+func identityContext(t *testing.T) *symbolfacts.Context {
+	t.Helper()
+	return identityContextOf(t, identityModel)
+}
+
+// identityContextOf is identityContext over model.
+func identityContextOf(t *testing.T, model string) *symbolfacts.Context {
+	t.Helper()
+	base, _ := libs.SharedLibrary()
+	idx := symbols.NewOverlay(base)
+	file := source.New("model.sysml", []byte(model))
+	p := parser.New(file)
+	root := p.ParseFile()
+	if len(p.Diagnostics) > 0 {
+		t.Fatalf("fixture does not parse: %v", p.Diagnostics)
+	}
+	idx.AddDocument("model.sysml", root)
+	idx.ExpandWildcardImports()
+	sc := symbolfacts.NewContext(idx)
+	sc.Positional = symbolfacts.NewPositional(idx, func() []symbolfacts.PositionalDocument {
+		return []symbolfacts.PositionalDocument{{File: file, Root: root, Scope: idx.DocumentRoot("model.sysml")}}
+	})
+	reader := export.NewElementIDReader([]export.ElementIDDocument{{File: file, Root: root}})
+	sc.ElementForm = func() symbolfacts.ElementForm { return elementform.New(reader) }
+	return sc
+}
+
+// reflect follows a path of reflective features from the symbol id names.
+func reflect(t *testing.T, sc *symbolfacts.Context, id string, path ...string) *symbols.Symbol {
+	t.Helper()
+	syms := sc.Lookup(id)
+	if len(syms) != 1 {
+		t.Fatalf("Lookup(%s) = %v", id, syms)
+	}
+	sym := syms[0]
+	for _, feature := range path {
+		elements, ok := sc.Semantics.ReflectiveElements(sym, feature)
+		if !ok || len(elements) == 0 {
+			t.Fatalf("%s.%s derives nothing", id, feature)
+		}
+		sym = elements[0]
+	}
+	return sym
+}
+
+// Every element reflection reaches is named by an id the tree already has, and
+// that id resolves back to the very symbol in the semantic model it was read from.
+func TestElementIdentityIsTheTreesIDAndRoundTrips(t *testing.T) {
+	sc := identityContext(t)
+	cases := []struct {
+		name string
+		path []string
+		want string
+	}{
+		{"D::outer::named", nil, "D::outer::named"},
+		{"D::outer::@0", nil, "D::outer::@0"},
+		{"D::M::sm::t", []string{"triggerAction"}, "D__M__sm__t___40trigger"},
+		{"D::M::sm::t", []string{"triggerAction", "payloadParameter"}, "D__M__sm__t___40trigger___400"},
+		{"D::M::sm::t", []string{"triggerAction", "payloadArgument"}, "D__M__sm__t___40trigger___400_pvalue"},
+		{"D::M::sm::t", []string{"guardExpression"}, "D__M__sm__t_pguard"},
+		{"D::M::sm::t", []string{"guardExpression", "argument"}, "D__M__sm__t_pguard_pa0"},
+		{"D::M::sm::u", []string{"triggerAction", "payloadParameter"}, "D::M::sm::u::sig"},
+		{"D::M::sm::u", []string{"triggerAction", "receiverArgument"}, "D__M__sm__u___40trigger___401_pvalue"},
+		{"D::M::z", []string{"valuation", "value"}, "D__M__z_pvalue"},
+		{"D::M::z", []string{"valuation", "value", "parameter"}, "D__M__z_pvalue_pin0"},
+		{"D::M::z", []string{"valuation", "value", "result"}, "D__M__z_pvalue_pout"},
+		{"D::holder::@2", []string{"connectorEnd"}, "D__holder___402_pend0"},
+		{"D::holder::@2", []string{"connectorEnd", "ownedElement"}, "D__holder___402_pend0_pchain"},
+		{"D::fl", []string{"ownedEndFeature"}, "D__fl_pend0"},
+		{"D::holder::@2", []string{"connectorEnd", "ownedReferenceSubsetting"}, "D__holder___402_pend0_prs"},
+		{"D::fl", []string{"ownedEndFeature", "ownedReferenceSubsetting"}, "D__fl_pend0_prs"},
+		{"D::M::sm::t", []string{"ownedElement"}, "D__M__sm__t_linkparam"},
+		{"D::M::sm::t", []string{"succession"}, "D__M__sm__t_succession"},
+	}
+	for _, tc := range cases {
+		sym := reflect(t, sc, tc.name, tc.path...)
+		got := sc.ElementIdentity(sym)
+		if got != tc.want {
+			t.Errorf("ElementIdentity(%s%v) = %q, want %q", tc.name, tc.path, got, tc.want)
+			continue
+		}
+		back := sc.ResolveElement(got, sc.Semantics)
+		if len(back) != 1 || back[0] != sym {
+			t.Errorf("ResolveElement(%s) = %v, want the one symbol it was read from", got, back)
+		}
+	}
+	// A named payload is the declared symbol, which the `@id` the tree writes for it names too.
+	payload := reflect(t, sc, "D::M::sm::u", "triggerAction", "payloadParameter")
+	if back := sc.ResolveElement("D__M__sm__u___40trigger__sig", sc.Semantics); payload != reflect(t, sc, "D::M::sm::u::sig") ||
+		len(back) != 1 || back[0] != payload || sc.FormID(payload) != "D__M__sm__u___40trigger__sig" {
+		t.Errorf("ResolveElement(D__M__sm__u___40trigger__sig) = %v, want the declared payload", back)
+	}
+	owned, _ := sc.Semantics.ReflectiveElements(reflect(t, sc, "D::M::sm::t"), "ownedElement")
+	if back := sc.ResolveElement("D__M__sm__t_triggerparam", sc.Semantics); len(owned) < 2 ||
+		len(back) != 1 || back[0] != owned[1] || sc.ElementIdentity(owned[1]) != "D__M__sm__t_triggerparam" {
+		t.Errorf("ResolveElement(D__M__sm__t_triggerparam) = %v, want the transition's second owned element", back)
+	}
+}
+
+// A `filter` condition is minted under its ElementFilterMembership, which no symbol
+// stands for: its id is read from the conversion by node and still resolves back.
+func TestElementIdentityReadsAFilterConditionByNode(t *testing.T) {
+	sc := identityContext(t)
+	members, _ := sc.Semantics.ReflectiveElements(reflect(t, sc, "D::F"), "ownedMember")
+	var condition *symbols.Symbol
+	for _, member := range members {
+		if member.Expr != nil && member.Expr.Role == symbols.ExpressionFilterCondition {
+			condition = member
+		}
+	}
+	if condition == nil {
+		t.Fatalf("D::F owns no filter condition among %d members", len(members))
+	}
+	got := sc.ElementIdentity(condition)
+	if got != "D__F___401_pfilter" {
+		t.Fatalf("ElementIdentity(filter condition) = %q, want D__F___401_pfilter", got)
+	}
+	if back := sc.ResolveElement(got, sc.Semantics); len(back) != 1 || back[0] != condition {
+		t.Errorf("ResolveElement(%s) = %v, want the condition", got, back)
+	}
+}
+
+// A constraint body's closing bare condition carries the id of the member stating
+// it, as the conversion writes it and the query leg reads it, and its parts hang off that id.
+func TestConstraintResultIdentityIsTheMembersID(t *testing.T) {
+	sc := identityContext(t)
+	owned, _ := sc.Semantics.ReflectiveElements(reflect(t, sc, "D::K"), "ownedMember")
+	if len(owned) != 2 {
+		t.Fatalf("D::K ownedMember = %v, want the parameter and the closing condition", owned)
+	}
+	result := owned[1]
+	for _, tc := range []struct {
+		sym  *symbols.Symbol
+		want string
+	}{
+		{result, "D__K___401"},
+		{reflectFrom(t, sc, result, "parameter"), "D__K___401_pin0"},
+		{reflectFrom(t, sc, result, "result"), "D__K___401_pout"},
+	} {
+		if got := sc.ElementIdentity(tc.sym); got != tc.want {
+			t.Errorf("ElementIdentity = %q, want %q", got, tc.want)
+			continue
+		}
+		if back := sc.ResolveElement(tc.want, sc.Semantics); len(back) != 1 || back[0] != tc.sym {
+			t.Errorf("ResolveElement(%s) = %v, want the one symbol it was read from", tc.want, back)
+		}
+	}
+}
+
+// A calc body's closing expression is written as the member stating it too, with its parts under that id.
+func TestCalcResultIdentityIsTheMembersID(t *testing.T) {
+	sc := identityContext(t)
+	owned, _ := sc.Semantics.ReflectiveElements(reflect(t, sc, "D::Q"), "ownedMember")
+	if len(owned) != 2 {
+		t.Fatalf("D::Q ownedMember = %v, want the attribute and the result expression", owned)
+	}
+	result := owned[1]
+	for _, tc := range []struct {
+		sym  *symbols.Symbol
+		want string
+	}{
+		{result, "D__Q___401"},
+		{reflectFrom(t, sc, result, "parameter"), "D__Q___401_pin0"},
+		{reflectFrom(t, sc, result, "result"), "D__Q___401_pout"},
+		{reflectFrom(t, sc, result, "argument"), "D__Q___401_pa0"},
+	} {
+		if got := sc.ElementIdentity(tc.sym); got != tc.want {
+			t.Errorf("ElementIdentity = %q, want %q", got, tc.want)
+			continue
+		}
+		if back := sc.ResolveElement(tc.want, sc.Semantics); len(back) != 1 || back[0] != tc.sym {
+			t.Errorf("ResolveElement(%s) = %v, want the one symbol it was read from", tc.want, back)
+		}
+	}
+}
+
+// reflectFrom follows one reflective feature from sym.
+func reflectFrom(t *testing.T, sc *symbolfacts.Context, sym *symbols.Symbol, feature string) *symbols.Symbol {
+	t.Helper()
+	elements, ok := sc.Semantics.ReflectiveElements(sym, feature)
+	if !ok || len(elements) == 0 {
+		t.Fatalf("%s derives nothing", feature)
+	}
+	return elements[0]
+}
+
+func TestResolveElementReadsEveryIDFormOfANamedElement(t *testing.T) {
+	sc := identityContext(t)
+	named := sc.Lookup("D::outer::named")
+	for _, id := range []string{"D::outer::named", "D__outer__named"} {
+		if got := sc.ResolveElement(id, sc.Semantics); len(got) != 1 || got[0] != named[0] {
+			t.Errorf("ResolveElement(%s) = %v, want D::outer::named", id, got)
+		}
+	}
+	for _, id := range []string{"", "D::outer::@7", "D__outer___407", "D__M__sm__t___40trigger_pnowhere", "D__M__sm__a_succession", "not an id!"} {
+		if got := sc.ResolveElement(id, sc.Semantics); len(got) != 0 {
+			t.Errorf("ResolveElement(%q) = %v, want nothing", id, got)
+		}
+	}
+}
+
+// Without the element form's ids a synthesized element has no identity, and no
+// semantic model to walk resolves a form id; neither is read as another element.
+func TestResolveElementKeepsADeclarationSpelledLikeAFormIDOnlyAsItsOwn(t *testing.T) {
+	sc := identityContext(t)
+	got := sc.ResolveElement("D__outer___400", sc.Semantics)
+	if len(got) != 1 || got[0] != reflect(t, sc, "D::outer::@0") {
+		t.Fatalf("ResolveElement(D__outer___400) = %v, want D::outer::@0 alone", got)
+	}
+	pkg := sc.ResolveName("D__outer___400")
+	if len(pkg) != 1 || sc.ElementIdentity(pkg[0]) != "D_5f_5fouter_5f_5f_5f400" {
+		t.Fatalf("ResolveName(D__outer___400) = %v, want the package under its own form id", pkg)
+	}
+	if got := sc.ResolveElement("D_5f_5fouter_5f_5f_5f400", sc.Semantics); len(got) != 1 || got[0] != pkg[0] {
+		t.Errorf("ResolveElement(D_5f_5fouter_5f_5f_5f400) = %v, want the package", got)
+	}
+	if got := sc.LookupID("D__outer___400"); len(got) != 1 || got[0] != reflect(t, sc, "D::outer::@0") {
+		t.Errorf("LookupID(D__outer___400) = %v, want D::outer::@0 alone", got)
+	}
+	part := sc.Lookup("D__outer___400::spelledLikeAFormID")[0]
+	formID := sc.ElementIdentity(part)
+	if got := sc.ResolveElement(formID, sc.Semantics); got == nil || got[0] != part {
+		t.Errorf("ResolveElement(%s) = %v, want the package's part", formID, got)
+	}
+}
+
+func TestElementIdentityNeedsTheFormForSynthesizedElements(t *testing.T) {
+	sc := identityContext(t)
+	value := reflect(t, sc, "D::M::z", "valuation", "value")
+	if got := sc.ResolveElement("D__M__z_pvalue", nil); len(got) != 0 {
+		t.Errorf("ResolveElement without a model = %v, want nothing", got)
+	}
+	sc.ElementForm = nil
+	if got := sc.ElementIdentity(value); got != "" {
+		t.Errorf("ElementIdentity without the form = %q, want none", got)
+	}
+	if got := sc.ElementIdentity(reflect(t, sc, "D::outer::@0")); got != "D::outer::@0" {
+		t.Errorf("positional identity without the form = %q", got)
+	}
+}
+
+// An unnamed connector end resolves under its element id on a host that converts
+// no form too: the id composed there is the one the conversion mints.
+func TestUnnamedConnectorEndIDIsTheSameWithoutTheForm(t *testing.T) {
+	sc := identityContext(t)
+	connector := reflect(t, sc, "D::holder::@2")
+	ends, _ := sc.Semantics.OwnedConnectorEnds(connector)
+	if len(ends) != 2 {
+		t.Fatalf("OwnedConnectorEnds = %v, want two ends", ends)
+	}
+	ids := make([]string, len(ends))
+	for i, end := range ends {
+		ids[i] = sc.ElementIdentity(end)
+	}
+	for _, converts := range []bool{true, false} {
+		if !converts {
+			sc.ElementForm = nil
+		}
+		for i, end := range ends {
+			if got := sc.LookupElement(ids[i]); len(got) != 1 || got[0] != end {
+				t.Errorf("form %v: LookupElement(%s) = %v, want end %d", converts, ids[i], got, i)
+			}
+		}
+		if got := sc.LookupElement("D__holder___402_pend2"); len(got) != 0 {
+			t.Errorf("form %v: LookupElement of a third end = %v, want none", converts, got)
+		}
+	}
+}
+
+// The chain Feature a flow's end references ahead of its payload carries the id the conversion mints under
+// the FlowEnd, each end its own; the element form has no FlowEnd to walk back to it from.
+func TestChainedFlowEndRelatedFeatureIsNamedAsTheConversionWritesIt(t *testing.T) {
+	sc := identityContextOf(t, `package P {
+		part def S { port p { out item q; } }
+		part def T { part a : S; part b : S; flow f from a.p.q to b.p.q; }
+	}`)
+	related, ok := sc.Semantics.ReflectiveElements(reflect(t, sc, "P::T::f"), "relatedFeature")
+	if !ok || len(related) != 2 {
+		t.Fatalf("relatedFeature = %v (%v), want the chains a.p and b.p", related, ok)
+	}
+	for i, want := range []string{"P__T__f_pend0_pchain", "P__T__f_pend1_pchain"} {
+		if got := sc.ElementIdentity(related[i]); got != want {
+			t.Errorf("ElementIdentity(relatedFeature[%d]) = %q, want %q", i, got, want)
+		}
+	}
+}

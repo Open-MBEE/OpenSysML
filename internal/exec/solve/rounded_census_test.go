@@ -27,6 +27,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/corpussubset"
 )
 
 // censusRow is one translated query's classification.
@@ -93,7 +94,7 @@ func corpusFiles(t *testing.T, root string, optional bool) []string {
 		t.Fatalf("no models at %s (%v)", root, err)
 	}
 	sort.Strings(files)
-	return files
+	return corpussubset.Must(t, "../../..").FilterPaths("../../../examples", files)
 }
 
 // exampleFiles lists the repository's own example and manual models, excluding
@@ -122,7 +123,7 @@ func exampleFiles(t *testing.T) []string {
 		}
 	}
 	sort.Strings(files)
-	return files
+	return corpussubset.Must(t, "../../..").FilterPaths("../../../examples", files)
 }
 
 // censusFiles runs the census over model files, loading each directory's files

@@ -1,0 +1,9 @@
+{
+	"rpc": "GetSymbol",
+	"symbol_id": "DerivedTypes::tuned::a",
+	"expected_kind": "attributeUsage",
+	"expected_type_info": {"declared": "", "resolved_id": "", "types": ["ScalarValues::Real"]},
+	"expected_specializations": [
+		{"kind": "redefines", "declared": "a", "target_id": "DerivedTypes::Owner::a"}
+	]
+}

@@ -57,7 +57,7 @@ func writtenName(fqn string) string {
 	parts := strings.Split(fqn, "::")
 	for i, part := range parts {
 		if !source.IsIdentifier(part) || source.IsKeywordIn(part, source.KindKerML) {
-			parts[i] = "'" + part + "'"
+			parts[i] = source.UnrestrictedNameText(part)
 		}
 	}
 	return strings.Join(parts, "::")
@@ -239,33 +239,114 @@ func registerOrderedFunction(name string, params []string, apply func([]semantic
 	undeterminedAware[name] = true
 }
 
-// orderedOverUnbounded extends finite, an `abs`, `max` or `min` over numbers, to
-// the unbounded `*`, which KerML 1.0 §8.2.5.8.4 places above every integer: the
-// absolute value of `*` is `*`, a maximum beside it is `*`, and a minimum (least)
-// beside it is the other operand, held as the function holds that operand alone.
-// A call without `*` is finite's, as is the check of the other operand's domain.
+// orderedOverUnbounded extends finite (an `abs`, `max` or `min`) to `*` above and `-*` below every number:
+// either's absolute value is `*`, an extremum the infinity or the number as finite alone holds it.
 func orderedOverUnbounded(finite libraryApply, least bool) libraryApply {
-	unbounded := func(arg Value) bool { return isUnbounded(soleElement(arg)) }
+	infinite := func(arg Value) bool { return isInfinity(soleElement(arg)) }
 	return func(name string, ctx *Context, args []Value) (Value, error) {
 		switch {
-		case len(args) == 1 && unbounded(args[0]):
-			return soleElement(args[0]), nil
-		case len(args) == 2 && (unbounded(args[0]) || unbounded(args[1])):
+		case len(args) == 1 && infinite(args[0]):
+			return Value{Kind: ValConst, Const: semantics.PositiveInfinity()}, nil
+		case len(args) == 2 && (infinite(args[0]) || infinite(args[1])):
 		default:
+			// A call without an infinity is finite's, as is the check of the other operand's domain.
 			return finite(name, ctx, args)
 		}
-		other := args[1]
-		if unbounded(args[1]) {
-			other = args[0]
+		x, y := soleElement(args[0]), soleElement(args[1])
+		for _, operand := range []Value{x, y} {
+			// `-*` is an Integer and no Natural (KerML 9.3.2.2.3, 9.3.2.2.4).
+			if strings.HasPrefix(name, "NaturalFunctions::") && isInfinity(operand) && operand.Const.IsNegativeInfinity() {
+				return Value{}, fmt.Errorf("%w: function %s requires Natural arguments, got -*", ErrTypeMismatch, name)
+			}
 		}
-		if unbounded(other) {
-			return soleElement(other), nil
+		if infinite(args[0]) && infinite(args[1]) {
+			if (x.Const.Sign() < y.Const.Sign()) == least {
+				return x, nil
+			}
+			return y, nil
+		}
+		infinity, other := x, args[1]
+		if infinite(args[1]) {
+			infinity, other = y, args[0]
 		}
 		held, err := finite(name, ctx, []Value{other, other})
-		if err != nil || least {
+		if err != nil || infinity.Const.IsNegativeInfinity() != least {
 			return held, err
 		}
-		return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInfinity}}, nil
+		return infinity, nil
+	}
+}
+
+// infinityLimits is a scalar function's limit at an infinite argument, computed over the IEEE infinities,
+// which are exact for these; a function absent here has no value at an infinity (a sine, a gcd).
+var infinityLimits = map[string]func(args []float64) float64{
+	"RealFunctions::sqrt":             func(a []float64) float64 { return math.Sqrt(a[0]) },
+	"RealFunctions::floor":            func(a []float64) float64 { return a[0] },
+	"RealFunctions::round":            func(a []float64) float64 { return a[0] },
+	"RationalFunctions::floor":        func(a []float64) float64 { return a[0] },
+	"RationalFunctions::round":        func(a []float64) float64 { return a[0] },
+	"OpenSysMLMathFunctions::ceiling": func(a []float64) float64 { return a[0] },
+	"OpenSysMLMathFunctions::exp":     func(a []float64) float64 { return math.Exp(a[0]) },
+	"OpenSysMLMathFunctions::ln":      func(a []float64) float64 { return math.Log(a[0]) },
+	"OpenSysMLMathFunctions::log":     func(a []float64) float64 { return math.Log(a[0]) / math.Log(a[1]) },
+	"OpenSysMLMathFunctions::atan2": func(a []float64) float64 {
+		// math.Atan2 answers a quarter turn's half for two infinities, where no limit exists.
+		if math.IsInf(a[0], 0) && math.IsInf(a[1], 0) {
+			return math.NaN()
+		}
+		return math.Atan2(a[0], a[1])
+	},
+	"TrigFunctions::arctan": func(a []float64) float64 { return math.Atan(a[0]) },
+	"TrigFunctions::deg":    func(a []float64) float64 { return a[0] },
+	"TrigFunctions::rad":    func(a []float64) float64 { return a[0] },
+}
+
+// limitAtInfinity answers scalar function name where a value is an infinity: an infinite limit is that
+// infinity, a finite one a Real, and no limit ErrArithmeticDomain. No infinity is zero or one.
+func limitAtInfinity(name string, values []semantics.Value) (semantics.Value, error) {
+	switch name {
+	case "NumericalFunctions::isZero", "NumericalFunctions::isUnit":
+		return semantics.Value{Kind: semantics.ValBool}, nil
+	case "RationalFunctions::rat":
+		// rat(numer, denum) is numer / denum, over an infinity as over an Integer.
+		return semantics.InfinityArith(ast.OpDiv, values[0], values[1])
+	case "OpenSysMLMathFunctions::quotient":
+		// The quotient truncated toward zero: an infinity is whole, a vanishing one zero.
+		q, err := semantics.InfinityArith(ast.OpDiv, values[0], values[1])
+		if err != nil || q.IsInfinite() {
+			return q, err
+		}
+		return semantics.IntValue(0), nil
+	}
+	undefined := func() (semantics.Value, error) {
+		shown := make([]string, len(values))
+		for i, v := range values {
+			shown[i] = semantics.FormatConst(v)
+		}
+		return semantics.Value{}, fmt.Errorf("%w: function %s is undefined at (%s)",
+			semantics.ErrArithmeticDomain, name, strings.Join(shown, ", "))
+	}
+	limit, ok := infinityLimits[name]
+	if !ok {
+		return undefined()
+	}
+	args := make([]float64, len(values))
+	for i, v := range values {
+		if v.IsInfinite() {
+			args[i] = math.Inf(v.Sign())
+		} else {
+			args[i] = asReal(v)
+		}
+	}
+	switch res := limit(args); {
+	case math.IsNaN(res):
+		return undefined()
+	case math.IsInf(res, 1):
+		return semantics.PositiveInfinity(), nil
+	case math.IsInf(res, -1):
+		return semantics.NegativeInfinity(), nil
+	default:
+		return semantics.Value{Kind: semantics.ValReal, Real: res}, nil
 	}
 }
 
@@ -334,6 +415,7 @@ type contextApply func(ctx *Context, name string, values []semantics.Value) (sem
 func numericScalars(params []string, apply contextApply, domains []scalarDomain) libraryApply {
 	return func(name string, ctx *Context, args []Value) (Value, error) {
 		values := make([]semantics.Value, len(args))
+		infinite := false
 		for i, arg := range args {
 			if u := arg.Undetermined(); u != nil {
 				if err := openScalar(name, parameterLabel(params, i), u); err != nil {
@@ -348,6 +430,10 @@ func numericScalars(params []string, apply contextApply, domains []scalarDomain)
 				continue
 			}
 			arg = soleElement(arg)
+			if isInfinity(arg) {
+				values[i], infinite = arg.Const, true
+				continue
+			}
 			if arg.Kind != ValConst || !arg.Const.IsNumeric() {
 				return Value{}, fmt.Errorf(
 					"%w: function %s parameter %s requires a numeric value, got %s",
@@ -363,6 +449,10 @@ func numericScalars(params []string, apply contextApply, domains []scalarDomain)
 		}
 		if val, open := ctx.openInvocation(name, args...); open {
 			return val, nil
+		}
+		if infinite {
+			result, err := limitAtInfinity(name, values)
+			return Value{Kind: ValConst, Const: result}, err
 		}
 		result, err := apply(ctx, name, values)
 		if err != nil {

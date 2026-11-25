@@ -35,9 +35,11 @@ func TestRenderDocumentAsciiDocFlag(t *testing.T) {
 		t.Errorf("written artifact is not an AsciiDoc document:\n%s", written)
 	}
 
-	wantReport(t, check(t, binary, documentModel,
-		"-render-document", "Reports::MassReport", "-doc-form", "asciidoc", "-html-fragment"),
-		2, "ask for it with -doc-form html")
+	if !leftOut("-html-fragment") {
+		wantReport(t, check(t, binary, documentModel,
+			"-render-document", "Reports::MassReport", "-doc-form", "asciidoc", "-html-fragment"),
+			2, "ask for it with -doc-form html")
+	}
 	wantReport(t, check(t, binary, documentModel,
 		"-render-document", "Reports::MassReport", "-doc-form", "asciidoctor"),
 		2, `unknown document form "asciidoctor"; -doc-form takes markdown, asciidoc, html or pdf`)

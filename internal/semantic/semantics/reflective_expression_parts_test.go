@@ -247,8 +247,9 @@ func TestScopelessValuedSymbolOwnsItsFeatureValue(t *testing.T) {
 	scopeless := *x
 	scopeless.Scope = nil
 	memberships := m.OwnedMemberships(&scopeless)
-	if len(memberships) != 1 || m.MetaclassOf(memberships[0]).Name != "FeatureValue" {
-		t.Fatalf("OwnedMemberships(scope-less x) = %d, want the FeatureValue", len(memberships))
+	if len(memberships) != 2 || m.MetaclassOf(memberships[0]).Name != "FeatureValue" ||
+		!IsDefaultMultiplicity(memberships[1].Implicit.Member) {
+		t.Fatalf("OwnedMemberships(scope-less x) = %d, want the FeatureValue then the implied default Multiplicity's", len(memberships))
 	}
 	if m.ValueExpression(&scopeless) != memberships[0].Implicit.Member {
 		t.Error("the FeatureValue owns another expression")
@@ -319,6 +320,14 @@ func TestInvocationOwnsItsArgumentParameters(t *testing.T) {
 			t.Fatalf("%s: value expression %v", c.name, expr)
 		}
 		params, args := m.ExpressionParameters(expr), m.ExpressionArguments(expr)
+		if c.metaclass == "ConstructorExpression" {
+			// A constructor owns only its result, which owns the argument
+			// features (KerML 8.3.4.8.3).
+			if len(params) != 0 {
+				t.Errorf("%s: constructor owns %d parameters, want none", c.name, len(params))
+			}
+			params = m.constructorResultFeatures(m.ExpressionResult(expr))
+		}
 		if len(params) != len(c.args) || len(args) != len(c.args) {
 			t.Errorf("%s: %d parameters, %d arguments, want %d", c.name, len(params), len(args), len(c.args))
 			continue
@@ -337,9 +346,17 @@ func TestInvocationOwnsItsArgumentParameters(t *testing.T) {
 		if m.ExpressionResult(expr) == nil {
 			t.Errorf("%s: no result parameter", c.name)
 		}
-		// The Membership to the function, the parameters, the result.
-		if got := len(m.OwnedMemberships(expr)); got != len(c.args)+2 {
-			t.Errorf("%s owns %d memberships, want %d", c.name, got, len(c.args)+2)
+		// The Membership to the function, the parameters, the result; a
+		// constructor's result owns the parameters instead.
+		want := len(c.args) + 2
+		if c.metaclass == "ConstructorExpression" {
+			want = 2
+			if got := len(m.OwnedMemberships(m.ExpressionResult(expr))); got != len(c.args) {
+				t.Errorf("%s: the result owns %d memberships, want %d", c.name, got, len(c.args))
+			}
+		}
+		if got := len(m.OwnedMemberships(expr)); got != want {
+			t.Errorf("%s owns %d memberships, want %d", c.name, got, want)
 		}
 	}
 }
@@ -425,7 +442,7 @@ func TestExpressionOwnsTheMembershipToWhatItNames(t *testing.T) {
 			if got, ok := m.reflectiveFeatureValue(membership, "visibility"); !ok || !strings.HasSuffix(got.RefFQN, "::public") {
 				t.Errorf("%s: Membership.visibility = %v (%v), want the public literal", c.name, got, ok)
 			}
-			// Only an alias specifies a plain Membership's names (KerML 8.3.2.3.5, 8.2.5.8.3).
+			// Only an alias specifies a plain Membership's names (KerML 8.3.2.4.3, 8.2.5.8.3).
 			if got, ok := m.reflectiveFeatureValue(membership, "memberName"); !ok || got.Str != "" {
 				t.Errorf("%s: Membership.memberName = %v (%v), want none", c.name, got, ok)
 			}
@@ -449,9 +466,14 @@ func TestExpressionOwnsTheMembershipToWhatItNames(t *testing.T) {
 			t.Errorf("Membership.%s = %v (%v), want empty", feature, names(got), ok)
 		}
 	}
+	// An unresolved reference still owns the Membership it is written with (KerML 8.2.5.8.3
+	// FeatureReferenceMember); it names no member, so memberElement stays underived.
 	dangling := m.ValueExpression(member(t, m, d, "dangling"))
-	if got := names(m.OwnedMemberships(dangling)); len(got) != 1 || got[0] != "ReturnParameterMembership" {
-		t.Errorf("an unresolved reference owns %v, want its result only", got)
+	if got := names(m.OwnedMemberships(dangling)); len(got) != 2 || got[0] != "Membership" || got[1] != "ReturnParameterMembership" {
+		t.Errorf("an unresolved reference owns %v, want a Membership naming nothing, then its result", got)
+	}
+	if got, ok := m.ReflectiveElements(m.OwnedMemberships(dangling)[0], "memberElement"); ok {
+		t.Errorf("an unresolved reference's Membership.memberElement = %v, want underived", names(got))
 	}
 	if got, ok := m.ReflectiveElements(dangling, "referent"); !ok || len(got) != 0 {
 		t.Errorf("an unresolved reference's referent = %v (%v)", names(got), ok)

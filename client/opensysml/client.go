@@ -49,9 +49,9 @@ type Client interface {
 	// semantic passes combined — the same list the Model already carries.
 	Diagnostics(ctx context.Context, model *Model, opts ...DiagnosticsOption) ([]Diagnostic, error)
 
-	// LookupSymbol looks a symbol up by fully qualified name. An unknown name
-	// is a FailureError; an unknown model is CodeNotFound.
-	LookupSymbol(ctx context.Context, model *Model, symbolID string) (*Symbol, error)
+	// LookupSymbol finds a symbol by ByQualifiedName or ByElementID; with neither, one string read name
+	// first, then as an id. An unknown name is a FailureError, an unknown model CodeNotFound.
+	LookupSymbol(ctx context.Context, model *Model, symbolID string, opts ...SymbolOption) (*Symbol, error)
 
 	// Evaluate evaluates a SysML expression against the parsed model. An
 	// expression that does not parse or evaluate is a FailureError carrying
@@ -62,6 +62,14 @@ type Client interface {
 	// instance and everything reachable from it. An unknown symbol or a failed
 	// instantiation is a FailureError; an unknown model is CodeNotFound.
 	Instantiate(ctx context.Context, model *Model, symbolID string) (*Instantiation, error)
+
+	// InstancePaths lists every root-relative path reaching the object ref
+	// names among those the service holds for the model: from each object
+	// Instantiate created, the features walked to reach it, aliases through
+	// connector ends and reference usages included. An object no id or path
+	// names is CodeNotFound, a malformed ref CodeInvalidArgument; requires the
+	// instance_paths capability.
+	InstancePaths(ctx context.Context, model *Model, ref ObjectRef) (*InstancePaths, error)
 
 	// ExecuteAction executes the named action with the inputs given, bound by
 	// parameter name, and reports the outputs it produced. A Complex input
@@ -150,6 +158,9 @@ type Client interface {
 	// repeatedly and table what the runs observed (runs capability).
 	RunAction(ctx context.Context, model *Model, actionID string, count int64, opts ...RunsOption) (*Runs, error)
 	RunMonteCarlo(ctx context.Context, model *Model, caseID string, count int64, opts ...RunsOption) (*Runs, error)
+	// Sweep runs an analysis case or calc once per row of a parameter sweep; a
+	// failed run is a row carrying its error. Requires the verification capability.
+	Sweep(ctx context.Context, model *Model, symbolID string, ranges []SweepRange, opts ...SweepOption) (*Sweep, error)
 	// SelfCheck applies the reflective SysMLValidation constraints to every
 	// element of the model (self_check capability).
 	SelfCheck(ctx context.Context, model *Model, rulePackages ...string) (*SelfCheck, error)
@@ -165,19 +176,47 @@ type Client interface {
 	// the oslc_query capability.
 	QueryOSLC(ctx context.Context, model *Model, oslc string) ([]QueryElement, error)
 
+	// QueryAsView is Query answering the selection with its QVTS::QueryResult view; a path error
+	// carries its view in the StatusError. Requires query_result_view.
+	QueryAsView(ctx context.Context, model *Model, query Query) (*QueryAnswer, error)
+
+	// QueryOSLCAsView is QueryOSLC answering as QueryAsView does.
+	QueryOSLCAsView(ctx context.Context, model *Model, oslc string) (*QueryAnswer, error)
+
+	// ElementProperties reads the named metamodel properties of one element, or all it carries, element being
+	// the legacy one string: the form's own id first, then a name. Requires the element_properties capability.
+	ElementProperties(ctx context.Context, model *Model, element string, properties ...string) (*ElementProperties, error)
+	// ElementPropertiesByName is ElementProperties of the element a qualified name
+	// resolves to, the name never read as an id.
+	ElementPropertiesByName(ctx context.Context, model *Model, name string, properties ...string) (*ElementProperties, error)
+	// ElementPropertiesByID is ElementProperties of the element carrying an element form
+	// id or a symbol id, the id never read as a name.
+	ElementPropertiesByID(ctx context.Context, model *Model, id string, properties ...string) (*ElementProperties, error)
+
 	// RunDocumentQuery runs the named document query, binding its entry
 	// parameters — to elements, scalars, or objects the service holds for the
 	// model since Instantiate (Object) — and answers typed rows. Requires the
 	// document_query capability.
 	RunDocumentQuery(ctx context.Context, model *Model, queryID string, bindings ...Binding) (*Rows, error)
 
-	// RenderDocument renders the named document to Markdown. Requires the
-	// render_document capability.
-	RenderDocument(ctx context.Context, model *Model, documentID string) (string, error)
+	// RunInlineDocumentQuery runs a query expression written in place of a named
+	// query, as RunDocumentQuery runs one. Requires inline_document_query.
+	RunInlineDocumentQuery(ctx context.Context, model *Model, expression string, bindings ...Binding) (*Rows, error)
 
-	// RenderView renders a declared view or targeted pseudo-view as diagram
-	// data. Ports are minimal by default; WithFullPorts requests all ports.
-	// Requires the render_view capability.
+	// RunDocumentQueryAsView is RunDocumentQuery whose Rows also carry the answer as a QVTS::QueryResult
+	// view; a path or model error carries its view in the StatusError. Requires query_result_view.
+	RunDocumentQueryAsView(ctx context.Context, model *Model, queryID string, bindings ...Binding) (*Rows, error)
+
+	// RunInlineDocumentQueryAsView is RunInlineDocumentQuery with the view, as
+	// RunDocumentQueryAsView carries it.
+	RunInlineDocumentQueryAsView(ctx context.Context, model *Model, expression string, bindings ...Binding) (*Rows, error)
+
+	// RenderDocument renders the named document to Markdown, or to the form
+	// WithDocumentForm names. Requires the render_document capability.
+	RenderDocument(ctx context.Context, model *Model, documentID string, opts ...RenderDocumentOption) (string, error)
+
+	// RenderView renders a declared view or targeted pseudo-view as diagram data, and with
+	// WithForm as diagram source or a table too. Requires the render_view capability.
 	RenderView(ctx context.Context, model *Model, viewName string, opts ...RenderViewOption) (*RenderedView, error)
 
 	// ExportGraphs exports the lowered graph of an action or state machine,
@@ -287,13 +326,11 @@ type parseOptions struct {
 // WithBaseModel relates ParseDocuments to a previous model of the same documents, so
 // Model.Affected names the documents whose results may differ; requires parse_sources_affected.
 func WithBaseModel(base *Model) ParseOption {
-	return func(o *parseOptions) {
-		if base == nil {
-			o.base = ""
-			return
-		}
-		o.base = base.Hash
+	hash := ""
+	if base != nil {
+		hash = base.Hash
 	}
+	return func(o *parseOptions) { o.base = hash }
 }
 
 // WithLanguage names the notation of inline content: LanguageSysML (the
@@ -343,6 +380,7 @@ type caller interface {
 	getDiagnostics(ctx context.Context, req *pb.DiagnosticsRequest) (*pb.DiagnosticsResponse, error)
 	evaluate(ctx context.Context, req *pb.EvaluateRequest) (*pb.EvaluateResponse, error)
 	instantiate(ctx context.Context, req *pb.InstantiateRequest) (*pb.InstantiateResponse, error)
+	instancePaths(ctx context.Context, req *pb.InstancePathsRequest) (*pb.InstancePathsResponse, error)
 	executeAction(ctx context.Context, req *pb.ExecuteActionRequest) (*pb.ExecuteActionResponse, error)
 	executeState(ctx context.Context, req *pb.ExecuteStateRequest) (*pb.ExecuteStateResponse, error)
 	verifyConstraint(ctx context.Context, req *pb.VerifyConstraintRequest) (*pb.VerifyConstraintResponse, error)
@@ -351,10 +389,12 @@ type caller interface {
 	validateInstance(ctx context.Context, req *pb.ValidateInstanceRequest) (*pb.ValidateInstanceResponse, error)
 	evaluateCalc(ctx context.Context, req *pb.EvaluateCalcRequest) (*pb.EvaluateCalcResponse, error)
 	runAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (*pb.RunAnalysisResponse, error)
+	runSweep(ctx context.Context, req *pb.RunSweepRequest) (*pb.RunSweepResponse, error)
 	runRuns(ctx context.Context, req *pb.RunRunsRequest) (*pb.RunRunsResponse, error)
 	selfCheck(ctx context.Context, req *pb.SelfCheckRequest) (*pb.SelfCheckResponse, error)
 	recordRun(ctx context.Context, req *pb.RecordRunRequest) (*pb.RecordRunResponse, error)
 	query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResponse, error)
+	getElementProperties(ctx context.Context, req *pb.GetElementPropertiesRequest) (*pb.GetElementPropertiesResponse, error)
 	runDocumentQuery(ctx context.Context, req *pb.RunDocumentQueryRequest) (*pb.RunDocumentQueryResponse, error)
 	renderDocument(ctx context.Context, req *pb.RenderDocumentRequest) (*pb.RenderDocumentResponse, error)
 	renderView(ctx context.Context, req *pb.RenderViewRequest) (*pb.RenderViewResponse, error)
@@ -474,6 +514,16 @@ func (c *client) ParseDocuments(ctx context.Context, documents []Document, opts 
 		}
 		req.Documents = append(req.Documents, pbDoc)
 	}
+	needed := []string{CapabilityParseSources}
+	if req.StrictConformance {
+		needed = append(needed, CapabilityStrictConformance)
+	}
+	if slices.ContainsFunc(req.Documents, func(doc *pb.SourceDocument) bool { return doc.Language != "" }) {
+		needed = append(needed, CapabilityInlineLanguage)
+	}
+	if err := c.requireCapabilities(ctx, needed...); err != nil {
+		return nil, err
+	}
 	resp, err := c.caller.parseSources(ctx, req)
 	if err != nil {
 		return nil, err
@@ -511,6 +561,18 @@ func parseRequest(opts []ParseOption) (*pb.ParseFileRequest, error) {
 }
 
 func (c *client) parse(ctx context.Context, req *pb.ParseFileRequest) (*Model, error) {
+	var needed []string
+	if req.StrictConformance {
+		needed = append(needed, CapabilityStrictConformance)
+	}
+	if _, inline := req.Source.(*pb.ParseFileRequest_Content); inline && req.Language != "" {
+		needed = append(needed, CapabilityInlineLanguage)
+	}
+	if len(needed) > 0 {
+		if err := c.requireCapabilities(ctx, needed...); err != nil {
+			return nil, err
+		}
+	}
 	resp, err := c.caller.parseFile(ctx, req)
 	if err != nil {
 		return nil, err
@@ -562,7 +624,40 @@ func (c *client) Diagnostics(ctx context.Context, model *Model, opts ...Diagnost
 	return diagnosticsFromProto(resp.Diagnostics), nil
 }
 
-func (c *client) LookupSymbol(ctx context.Context, model *Model, symbolID string) (*Symbol, error) {
+// SymbolOption widens what LookupSymbol asks the service to report.
+type SymbolOption func(*pb.GetSymbolRequest)
+
+// WithLibraryMembers lists the members inherited from standard-library content
+// too, which are otherwise only counted in Symbol.WithheldLibraryMembers.
+func WithLibraryMembers() SymbolOption {
+	return func(req *pb.GetSymbolRequest) { req.IncludeLibraryMembers = true }
+}
+
+// ByReportedID is the legacy form of ByElementID: the string is read as a declared name
+// first, then as an id, so a declaration spelled like a generated id shadows its element.
+func ByReportedID() SymbolOption {
+	return func(req *pb.GetSymbolRequest) { req.ResolveName = false }
+}
+
+// ByQualifiedName has LookupSymbol read the string as a qualified name and nothing else,
+// resolved from the root namespace; a service without the capability reads it name first.
+func ByQualifiedName() SymbolOption {
+	return func(req *pb.GetSymbolRequest) { req.Lookup = pb.LookupKind_LOOKUP_KIND_QUALIFIED_NAME }
+}
+
+// ByElementID has LookupSymbol read the string as an id the service reported (a child's, a
+// member's) and nothing else; a service without the capability reads it as ByReportedID does.
+func ByElementID() SymbolOption {
+	return func(req *pb.GetSymbolRequest) { req.Lookup = pb.LookupKind_LOOKUP_KIND_ELEMENT_ID }
+}
+
+// AsMemberOf reports the symbol's direction relative to the type with the given id, which a
+// conjugated port typing reverses; it needs the "symbol_member_direction" capability.
+func AsMemberOf(typeID string) SymbolOption {
+	return func(req *pb.GetSymbolRequest) { req.MemberOf = typeID }
+}
+
+func (c *client) LookupSymbol(ctx context.Context, model *Model, symbolID string, opts ...SymbolOption) (*Symbol, error) {
 	if err := c.live(); err != nil {
 		return nil, err
 	}
@@ -570,7 +665,34 @@ func (c *client) LookupSymbol(ctx context.Context, model *Model, symbolID string
 	if err != nil {
 		return nil, err
 	}
-	resp, err := c.caller.getSymbol(ctx, &pb.GetSymbolRequest{ModelHash: hash, SymbolId: symbolID})
+	req := &pb.GetSymbolRequest{ModelHash: hash, SymbolId: symbolID, ResolveName: true}
+	for _, opt := range opts {
+		opt(req)
+	}
+	if req.IncludeLibraryMembers {
+		if err := c.requireCapabilities(ctx, CapabilitySymbolMembers); err != nil {
+			return nil, err
+		}
+	}
+	info, err := c.serverInfo(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if req.Lookup != pb.LookupKind_LOOKUP_KIND_UNSPECIFIED {
+		// The legacy form of a stated kind, for a service that ignores it.
+		req.ResolveName = req.Lookup == pb.LookupKind_LOOKUP_KIND_QUALIFIED_NAME
+		if !info.Has(CapabilitySymbolLookupKind) {
+			req.Lookup = pb.LookupKind_LOOKUP_KIND_UNSPECIFIED
+		}
+	}
+	// A service without the capability reads every id as one it reported.
+	req.ResolveName = req.ResolveName && info.Has(CapabilitySymbolNameResolution)
+	if req.MemberOf != "" {
+		if err := c.requireCapabilities(ctx, CapabilitySymbolMemberDirection); err != nil {
+			return nil, err
+		}
+	}
+	resp, err := c.caller.getSymbol(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -591,6 +713,11 @@ func (c *client) Evaluate(ctx context.Context, model *Model, expression string, 
 	var options evaluateOptions
 	for _, opt := range opts {
 		opt(&options)
+	}
+	if options.subjectSymbolID != "" {
+		if err := c.requireCapabilities(ctx, CapabilityEvaluateSubject); err != nil {
+			return nil, err
+		}
 	}
 	resp, err := c.caller.evaluate(ctx, &pb.EvaluateRequest{
 		ModelHash:       hash,
@@ -631,6 +758,30 @@ func (c *client) Instantiate(ctx context.Context, model *Model, symbolID string)
 		Instances:   instances,
 		Diagnostics: diagnosticsFromProto(resp.Diagnostics),
 	}, nil
+}
+
+func (c *client) InstancePaths(ctx context.Context, model *Model, ref ObjectRef) (*InstancePaths, error) {
+	if err := c.live(); err != nil {
+		return nil, err
+	}
+	hash, err := modelHash(model)
+	if err != nil {
+		return nil, err
+	}
+	if err := c.requireCapabilities(ctx, CapabilityInstancePaths); err != nil {
+		return nil, err
+	}
+	resp, err := c.caller.instancePaths(ctx, &pb.InstancePathsRequest{
+		ModelHash: hash,
+		Object:    &pb.DocumentObject{InstanceId: ref.InstanceID, Path: ref.Path},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if resp.Error != "" {
+		return nil, &FailureError{Op: "InstancePaths", Message: resp.Error, Diagnostics: diagnosticsFromProto(resp.Diagnostics)}
+	}
+	return instancePathsFromProto(resp), nil
 }
 
 // Close releases the implementation once: a second call is a no-op, so a

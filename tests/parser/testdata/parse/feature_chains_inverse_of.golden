@@ -1,0 +1,58 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="P" library=false standard=false
+      (Membership visibility="default"
+        (Usage kind="class" name="T" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Membership visibility="default"
+            (Usage kind="attribute" name="b" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="feature"))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="c" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="feature"
+              (Membership visibility="default"
+                (Usage kind="attribute" name="d" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="feature"))))))
+      (Membership visibility="default"
+        (Usage kind="class" name="U" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))
+      (Membership visibility="default"
+        (Usage kind="attribute" name="a" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="feature"
+          (Relationship kind="typing" target=T
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Usage kind="attribute" name="x" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="feature"
+          (Relationship kind="chains" target=(expr)
+            (FeatureChainExpr member="b"
+              (FeatureReference name="a")))))
+      (Membership visibility="default"
+        (Usage kind="attribute" name="deep" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="feature"
+          (Relationship kind="chains" target=(expr)
+            (FeatureChainExpr member="d"
+              (FeatureChainExpr member="c"
+                (FeatureReference name="a"))))))
+      (Membership visibility="default"
+        (Usage kind="attribute" name="one" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="feature"
+          (Relationship kind="chains" target=a
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Usage kind="attribute" name="parents" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="feature"
+          (Relationship kind="typing" target=T
+            (*ast.QualifiedName))
+          (Relationship kind="inverse" target=a
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Usage kind="attribute" name="children" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="feature"
+          (Relationship kind="typing" target=T
+            (*ast.QualifiedName))
+          (Relationship kind="inverse" target=(expr)
+            (FeatureChainExpr member="c"
+              (FeatureReference name="a")))))
+      (Membership visibility="default"
+        (Usage kind="attribute" name="both" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="feature"
+          (Relationship kind="typing" target=T
+            (*ast.QualifiedName))
+          (Relationship kind="chains" target=(expr)
+            (FeatureChainExpr member="b"
+              (FeatureReference name="a")))
+          (Relationship kind="inverse" target=x
+            (*ast.QualifiedName))
+          (Relationship kind="featured by" target=T
+            (*ast.QualifiedName))
+          (Relationship kind="featured by" target=U
+            (*ast.QualifiedName)))))))

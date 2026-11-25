@@ -24,7 +24,7 @@ func TestCrossRegionTransitionExitsSourceOnly(t *testing.T) {
 				state ls;
 				state lidle { exit { assign sourceExits := sourceExits + 1; } }
 				succession first ls then lidle;
-				transition first lidle if crossed == 0 then rtarget;
+				transition first lidle if crossed == 0 then right.rtarget;
 			}
 			state right {
 				entry; then rs;
@@ -85,7 +85,7 @@ func TestCrossRegionTransitionIntoNestedTargetExitsTheAbandonedState(t *testing.
 				state lidle;
 				succession first ls then lmid;
 				succession first lmid then lidle;
-				transition first lidle if crossed == 0 then rtarget;
+				transition first lidle if crossed == 0 then right.wrapper.inner.rtarget;
 			}
 			state right {
 				entry; then rs;
@@ -139,7 +139,7 @@ func TestCrossRegionTransitionIntoInactiveCompositeRecordsTheEnteredState(t *tes
 				state ls;
 				state lidle;
 				succession first ls then lidle;
-				transition first lidle if crossed == 0 then rtarget;
+				transition first lidle if crossed == 0 then right.wrapper.inner.rtarget;
 			}
 			state right {
 				entry; then rs;
@@ -163,7 +163,7 @@ func TestCrossRegionTransitionIntoInactiveCompositeRecordsTheEnteredState(t *tes
 		state done;
 
 		succession first init then running;
-		transition first rtarget if crossed == 1 then done;
+		transition first running.right.wrapper.inner.rtarget if crossed == 1 then done;
 	}
 }`)
 
@@ -207,7 +207,7 @@ func TestCrossRegionTransitionFromDeeperRegionExitsUpToTheSharedLevel(t *testing
 						state is;
 						state ideep { exit { assign deepExits := deepExits + 1; } }
 						succession first is then ideep;
-						transition first ideep if lidleExits == 0 then lstate;
+						transition first ideep if lidleExits == 0 then left.lstate;
 					}
 				}
 				succession first rs then wrapper;
@@ -260,11 +260,11 @@ func TestCrossRegionTransitionFromARegionOwnedByASubstate(t *testing.T) {
 							state is;
 							state ideep;
 							succession first is then ideep;
-							transition first ideep if lidleExits == 0 then lstate;
+							transition first ideep if lidleExits == 0 then left.lstate;
 						}
 					}
 				}
-				succession first rs then mid;
+				succession first rs then wrapper.mid;
 			}
 		}
 
@@ -298,8 +298,8 @@ func TestNestedTransitionExitsUpToTheLCA(t *testing.T) {
 		}
 		state done;
 
-		succession first init then inner;
-		transition first inner then done;
+		succession first init then outer.inner;
+		transition first outer.inner then done;
 	}
 }`)
 
@@ -399,7 +399,7 @@ func TestTransitionOutOfCompositeStateExitsNestedStatesOnce(t *testing.T) {
 						}
 					}
 				}
-				succession first rs then mid;
+				succession first rs then wrapper.mid;
 			}
 		}
 		state done;

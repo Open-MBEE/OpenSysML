@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -35,6 +36,18 @@ type ActionGraph struct {
 
 	// Nodes in the graph (InitialNode, FinalNode, ExecutionNode, etc.)
 	Nodes []ast.Node
+
+	// ID is each node's graph-local id, dense from 1 in the order of Nodes.
+	ID map[ast.Node]program.NodeID
+
+	// Origins is each node's origin by id; Origins[0] is unused.
+	Origins []program.Origin
+
+	// Kinds is each node's kind by id; Kinds[0] is unused.
+	Kinds []program.NodeKind
+
+	// Provenance maps the ids back to the declarations they were lowered from.
+	Provenance Provenance
 
 	// Edges: source node → successions in declaration order.
 	Edges map[ast.Node][]ActionEdge
@@ -134,6 +147,9 @@ type ActionGraph struct {
 	resolver *resolve.Resolver
 	sem      *semantics.Model
 
+	// Exprs is the table the graph's ExprIDs index, shared with the flows of its blocks.
+	Exprs *ExprTable
+
 	// lowering holds the declarations whose action content is being lowered on
 	// this path.
 	lowering []ast.Node
@@ -154,6 +170,12 @@ type ActionGraph struct {
 
 	replacedByIncompatible map[ast.Node]ast.Node
 
+	// impliedSteps: chained action → the step a succession end chaining to it
+	// through an object implies, where the body states no step performing it.
+	impliedSteps map[chainKey]ast.Node
+	// generals are the bodies of the actions the action specializes, nearest first.
+	generals []*symbols.Scope
+
 	// declaredIn: inherited node, flow or binding declaration → the scope of the
 	// general's body it was written in, which says which document declares it.
 	declaredIn map[ast.Node]*symbols.Scope
@@ -163,7 +185,10 @@ type ActionGraph struct {
 // redefinition, resolved where the redefined node was declared.
 type PerformedType struct {
 	Target *ast.QualifiedName
-	Scope  *symbols.Scope
+	// Referrer is the redefined node when it performs by reference subsetting
+	// (`perform v.close;`) rather than by typing; Target is then nil.
+	Referrer *ast.Usage
+	Scope    *symbols.Scope
 }
 
 // Incoming returns the successions into node, in the declaration order of the
@@ -237,9 +262,13 @@ func (g *ActionGraph) Inherited() []Inherited {
 // Probability is the weight its `@Probability` states, nil for an unweighted succession.
 // Name is the name the succession was declared with, "" for an anonymous one.
 type ActionEdge struct {
-	Source             ast.Node
-	Target             ast.Node
+	Source ast.Node
+	Target ast.Node
+	// SourceID and TargetID are Source and Target in the graph's identity table.
+	SourceID, TargetID program.NodeID
 	Guard              ast.Node
+	// GuardID is Guard in the table of the flow the succession was lowered for.
+	GuardID            program.ExprID
 	Decl               ast.Node
 	Probability        *Probability
 	Name               string
@@ -254,6 +283,9 @@ type ActionEdge struct {
 	// Gate is the succession that leads to a succession flow, whose guard and name the
 	// edge takes; nil when the flow follows its source unconditionally.
 	Gate ast.Node
+	// Else marks the `else <target>;` branch of a decision, taken when no guarded
+	// branch of the same decision is (ControlFlowEdge.IsElse).
+	Else bool
 }
 
 // Statement is one lowered statement in an action node's body. Statements are
@@ -276,7 +308,9 @@ type Statement interface {
 // port a behavior declares under a connected port's name shadows that port.
 // It is nil where the scope tree alone does not resolve the path.
 type Send struct {
-	Message   ast.Node
+	Message ast.Node
+	// MessageID is Message in the table of the flow or body the statement was lowered for.
+	MessageID program.ExprID
 	Target    string
 	TargetSym *symbols.Symbol
 	Node      ast.Node
@@ -286,7 +320,9 @@ type Send struct {
 	// TargetExpr is the receiver expression of an addressed send as written; the
 	// runtime evaluates it to objects where Target carries no name or path.
 	TargetExpr ast.Node
-	IsVia      bool
+	// TargetExprID is TargetExpr in the table of the flow or body the statement was lowered for.
+	TargetExprID program.ExprID
+	IsVia        bool
 	// ViaSelf records a via path written from `this`, whose root is a feature of
 	// the sender even where the behavior binds that name to another object.
 	ViaSelf bool
@@ -296,7 +332,9 @@ type Send struct {
 	// ReceiverExpr is the `to` expression of a routed send, likewise evaluated to
 	// objects where Receiver carries no name the sender resolves.
 	ReceiverExpr ast.Node
-	Scope        *symbols.Scope // the scope the statement was declared in
+	// ReceiverExprID is ReceiverExpr in the table of the flow or body the statement was lowered for.
+	ReceiverExprID program.ExprID
+	Scope          *symbols.Scope // the scope the statement was declared in
 }
 
 func (Send) statement() { /* marker: closed Statement set */ }
@@ -317,8 +355,10 @@ type Assign struct {
 	// nil when the target was a plain name the body's host binds.
 	Chain *AssignTarget
 	Value ast.Node
-	Node  ast.Node       // the statement itself, for diagnostics
-	Scope *symbols.Scope // the scope the statement was declared in
+	// ValueID is Value in the table of the flow or body the statement was lowered for.
+	ValueID program.ExprID
+	Node    ast.Node       // the statement itself, for diagnostics
+	Scope   *symbols.Scope // the scope the statement was declared in
 }
 
 func (Assign) statement() { /* marker: closed Statement set */ }
@@ -329,6 +369,8 @@ type AssignTarget struct {
 	// Base is the expression the chain starts from, evaluated in the statement's
 	// own scope.
 	Base ast.Node
+	// BaseID is Base in the table of the flow or body the statement was lowered for.
+	BaseID program.ExprID
 	// Steps are the features walked from Base to the object written, in order.
 	Steps []string
 	// Text is the target as written (`a.b.c`), for diagnostics.
@@ -390,8 +432,10 @@ func flattenChain(chain *ast.FeatureChainExpr) (ast.Node, []string) {
 // that block, so the executor binds it in the block's own frame and discards it
 // when the block exits. Value is nil when the declaration carried none.
 type Declare struct {
-	Name     string
-	Value    ast.Node
+	Name  string
+	Value ast.Node
+	// ValueID is Value in the table of the flow or body the statement was lowered for.
+	ValueID  program.ExprID
 	Binding  bool
 	BodyData bool           // expression-valued state action execution stored as state data
 	Node     ast.Node       // the declaration itself, for diagnostics
@@ -457,14 +501,22 @@ func (Block) statement() { /* marker: closed Statement set */ }
 type Loop struct {
 	Kind      ast.LoopKind
 	Condition ast.Node // nil for `for`, and for a `loop` written without `until`
+	// ConditionID is Condition in the table of the flow or body the statement was lowered for.
+	ConditionID program.ExprID
 	// Until is the condition a `while` loop's `until` clause tests after each
 	// iteration (`while c { … } until d;`), nil when it carries none.
-	Until      ast.Node
+	Until ast.Node
+	// UntilID is Until in the table of the flow or body the statement was lowered for.
+	UntilID    program.ExprID
 	Variable   string   // `for` only: the name each element is bound to
+	Alias      string   // `for` only: the variable's short name, where it declares a name as well
+	Bound      bool     // `for` only: a variable is declared, the empty name included
 	Collection ast.Node // `for` only: the collection iterated over
-	Body       Block
+	// CollectionID is Collection in the table of the flow or body the statement was lowered for.
+	CollectionID program.ExprID
+	Body         Block
 	// BodyAction is the action usage the loop declares as its body (`loop action
-	// body { … }`), nil for a body of statements alone.
+	// body { … }`, `loop action { … }`), nil for a body of statements alone.
 	BodyAction *symbols.Symbol
 	Node       ast.Node // the loop itself, for diagnostics
 	// Scope is the scope the loop was declared in, which its collection resolves
@@ -475,15 +527,18 @@ type Loop struct {
 func (Loop) statement() { /* marker: closed Statement set */ }
 
 // loopBodyAction is the action usage a loop declares as its body (`loop action body
-// { … }`), resolved in the body's scope; nil for a body of statements alone.
+// { … }`, named or not), a member of the body's scope; nil for a body of statements alone.
 func loopBodyAction(m *ast.WhileLoopActionNode, bodyScope *symbols.Scope) *symbols.Symbol {
 	if bodyScope == nil {
 		return nil
 	}
 	for _, member := range m.Body {
 		usage, ok := unwrapMembership(member).(*ast.Usage)
-		if !ok || !usage.IsBodyParameter || usage.Ident.Name == "" {
+		if !ok || !usage.IsBodyParameter {
 			continue
+		}
+		if usage.Ident.Name == "" {
+			return anonymousMemberOf(bodyScope, usage)
 		}
 		if sym, found := bodyScope.LookupLocal(usage.Ident.Name); found && sym != nil && sym.Decl == usage {
 			return sym
@@ -492,14 +547,28 @@ func loopBodyAction(m *ast.WhileLoopActionNode, bodyScope *symbols.Scope) *symbo
 	return nil
 }
 
+// anonymousMemberOf is the member of scope the unnamed declaration decl declares, nil if none.
+func anonymousMemberOf(scope *symbols.Scope, decl ast.Node) *symbols.Symbol {
+	var member *symbols.Symbol
+	scope.ForEachAnonymousMember(func(sym *symbols.Symbol) bool {
+		if sym.Decl == decl {
+			member = sym
+		}
+		return member == nil
+	})
+	return member
+}
+
 // If is a lowered conditional. The condition is evaluated in the enclosing
 // body, outside both branches. Else is nil when the conditional declared none.
 type If struct {
 	Condition ast.Node
-	Then      Block
-	Else      *Block
-	Node      ast.Node       // the conditional itself, for diagnostics
-	Scope     *symbols.Scope // the scope the conditional, and so its condition, was declared in
+	// ConditionID is Condition in the table of the flow or body the statement was lowered for.
+	ConditionID program.ExprID
+	Then        Block
+	Else        *Block
+	Node        ast.Node       // the conditional itself, for diagnostics
+	Scope       *symbols.Scope // the scope the conditional, and so its condition, was declared in
 }
 
 func (If) statement() { /* marker: closed Statement set */ }
@@ -508,8 +577,10 @@ func (If) statement() { /* marker: closed Statement set */ }
 // possibly from inside a block. Value is nil when it named no expression.
 type Return struct {
 	Value ast.Node
-	Node  ast.Node       // the return itself, for diagnostics
-	Scope *symbols.Scope // the scope the returned expression was written in
+	// ValueID is Value in the table of the flow or body the statement was lowered for.
+	ValueID program.ExprID
+	Node    ast.Node       // the return itself, for diagnostics
+	Scope   *symbols.Scope // the scope the returned expression was written in
 }
 
 func (Return) statement() { /* marker: closed Statement set */ }
@@ -554,6 +625,8 @@ type Effect struct {
 	Terminates TerminateTarget
 	Target     ast.Node
 	TargetExpr ast.Node
+	// TargetExprID is TargetExpr in the table of the flow or body the statement was lowered for.
+	TargetExprID program.ExprID
 }
 
 // performEffect lowers a `perform`: one naming the `start` of a behavior held by
@@ -700,6 +773,9 @@ type Accept struct {
 	ViaSelf      bool // ViaPort was written from `this`, as Send.ViaSelf
 	SubsetsEvent ast.Node
 	Trigger      ast.Node
+	// TriggerExprID is the condition of a change Trigger or the time of a timed one in
+	// the table of the flow, lowered in the flow's scope; 0 for a trigger stating none.
+	TriggerExprID program.ExprID
 	// Scope is the scope the accept was declared in, in which SignalType resolves.
 	Scope *symbols.Scope
 	// Keeper reports the accept keeps the signal for a state deferring it, as a
@@ -721,8 +797,10 @@ type Attribute struct {
 	Direction ast.FeatureDirection
 	IsResult  bool // a `return` parameter, what the behavior yields
 	// Type is the declared type as written (`Natural`, `Vehicle::Mode`), "" without one.
-	Type    string
-	Value   ast.Node
+	Type  string
+	Value ast.Node
+	// ValueID is Value in the table of the flow or machine the attribute was lowered for.
+	ValueID program.ExprID
 	Binding bool
 	Node    ast.Node // the declaration itself, for diagnostics
 	// Scope is the scope the declaration was written in, in which its default
@@ -748,7 +826,7 @@ func ShadowedKey(sym *symbols.Symbol) string {
 		return ""
 	}
 	if sym.OwnerScope != nil {
-		if owner := sym.OwnerScope.Owner(); owner != nil && owner.Name != "" {
+		if owner := sym.OwnerScope.Owner(); owner != nil && owner.Named() {
 			return owner.Name + "::" + sym.Name
 		}
 	}
@@ -791,10 +869,12 @@ type Feature struct {
 	Name      string
 	Direction ast.FeatureDirection
 	IsResult  bool // a `return` parameter, what the node stands for read as a value
-	Value     ast.Node
-	Binding   bool
-	Node      ast.Node // the declaration, for diagnostics
-	Scope     *symbols.Scope
+	// ValueID is Value in the table of the flow or machine the feature was lowered for.
+	ValueID program.ExprID
+	Value   ast.Node
+	Binding bool
+	Node    ast.Node // the declaration, for diagnostics
+	Scope   *symbols.Scope
 	// Shadowed marks an inherited feature a same-named nearer feature hides without
 	// redefining it; Name is then its ShadowedKey (see Attribute.Shadowed).
 	Shadowed bool
@@ -816,13 +896,17 @@ func (f Feature) Output() bool {
 // Node leg, Path [inner], Pin v). Other is the other end as written; OtherNode,
 // OtherPath and OtherPin name the node pin it addresses, if any.
 type PinBinding struct {
-	Node      ast.Node
-	Path      []ast.Node
-	Pin       string
-	Other     ast.Node
+	Node  ast.Node
+	Path  []ast.Node
+	Pin   string
+	Other ast.Node
+	// OtherID is Other in the table of the flow the binding was lowered for.
+	OtherID   program.ExprID
 	OtherNode ast.Node
 	OtherPath []ast.Node
-	OtherPin  string
+	// NodeID and OtherNodeID are Node and OtherNode in the graph's identity table, 0 for none.
+	NodeID, OtherNodeID program.NodeID
+	OtherPin            string
 	// OtherChain is the chain the other end walks to the object whose feature
 	// OtherFeature it names (`holder.inner.mark`); nil for a node's pin or a plain name.
 	OtherChain   *AssignTarget
@@ -872,6 +956,8 @@ type ObjectFlow struct {
 	SourcePin string
 	TargetPin string
 	Target    ast.Node
+	// SourceID and TargetID are the node the flow leaves and Target, in the graph's identity table.
+	SourceID, TargetID program.NodeID
 	// Kind is how the flow carries its values, as its declaration designated.
 	Kind FlowKind
 	// Decl is the declaration the flow was written as, for a consumer that
@@ -926,7 +1012,7 @@ func toActionGraphWithTypingAndAncestors(
 	if err != nil {
 		return nil, err
 	}
-	graph, err := lowerActionFlowWithTypingAndAncestors(members, scope, resolver, typing, ancestors)
+	graph, err := lowerActionFlowWithTypingAndAncestors(members, scope, resolver, nil, typing, ancestors)
 	if err != nil {
 		return nil, err
 	}
@@ -938,25 +1024,34 @@ func lowerActionFlow(members []ast.Node, scope *symbols.Scope, resolver *resolve
 }
 
 func lowerActionFlowWithTyping(members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, typing bool) (*ActionGraph, error) {
-	return lowerActionFlowWithTypingAndAncestors(members, scope, resolver, typing, nil)
+	return lowerActionFlowWithTypingAndAncestors(members, scope, resolver, nil, typing, nil)
 }
 
 func lowerActionFlowWithTypingAndAncestors(
-	members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, typing bool, ancestors []ast.Node,
-) (*ActionGraph, error) {
+	members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, exprs *ExprTable, typing bool, ancestors []ast.Node,
+) (graph *ActionGraph, err error) {
+	if exprs == nil {
+		exprs = NewExprTable(resolver)
+	}
+	defer func() {
+		if graph != nil {
+			graph.assignIDs()
+		}
+	}()
 	generals, cyclic := resolve.ActionGeneralization(scope, typing)
 	if cyclic {
-		graph := newActionGraph(scope)
-		graph.resolver = resolver
+		graph = newActionGraph(scope)
+		graph.resolver, graph.Exprs = resolver, exprs
 		graph.lowering = actionLoweringAncestors(scope, ancestors)
 		return graph, fmt.Errorf("%w: %s", ErrCyclicSpecialization, actionDescription(scope))
 	}
-	graph, err := collectActionNodesWithAncestors(members, scope, resolver, ancestors)
+	graph, err = collectActionNodesWithAncestors(members, scope, resolver, exprs, ancestors)
 	if err != nil {
 		return graph, err
 	}
 	// The initial node is optional at graph construction time; the executor's
 	// initialize() reports its absence.
+	graph.generals = generals
 	edges := &actionEdgeLowerer{graph: graph, scope: scope, weights: &probabilityReader{resolver: resolver, scope: scope}}
 	for _, member := range members {
 		if err := edges.member(unwrapMembership(member)); err != nil {
@@ -1013,6 +1108,10 @@ type actionEdgeLowerer struct {
 	// gates are the successions leading to a name no node answers to, resolved
 	// against the succession flows once every flow is lowered.
 	gates []pendingGate
+	// unconditional indexes, per source node, the edges addEdge compares against.
+	unconditional map[ast.Node]*unconditionalEdges
+	// model evaluates the multiplicities addEdge compares, built on first need.
+	model *semantics.Model
 }
 
 // pendingGate is a succession whose target names no node: the edge it states,
@@ -1061,27 +1160,25 @@ func (l *actionEdgeLowerer) initial(n *ast.InitialNode) error {
 }
 
 func (l *actionEdgeLowerer) successionEdge(n *ast.SuccessionEdge) error {
-	sourceNode, err := l.endpoint(n.Source, n.SourceMember, true)
+	sources, err := l.ends(n.Source, n.SourceMember, true)
 	if err != nil {
 		return err
 	}
-	targetNode, err := l.endpoint(n.Target, n.TargetMember, false)
+	targets, err := l.ends(n.Target, n.TargetMember, false)
 	if err != nil {
 		return err
 	}
-	if sourceNode == nil {
+	if sources == nil {
 		return fmt.Errorf("succession edge references undefined source node %s", edgeEnd(n.Source, n.SourceMember))
 	}
-	if targetNode == nil {
+	if targets == nil {
 		return fmt.Errorf("succession edge references undefined target node %s", edgeEnd(n.Target, n.TargetMember))
 	}
 	weight, err := l.weights.read(n.Members)
 	if err != nil {
 		return err
 	}
-	l.addEdge(ActionEdge{
-		Source:             sourceNode,
-		Target:             targetNode,
+	l.addEdges(sources, targets, ActionEdge{
 		Decl:               n,
 		Probability:        weight,
 		SourceMultiplicity: n.SourceMultiplicity,
@@ -1091,39 +1188,34 @@ func (l *actionEdgeLowerer) successionEdge(n *ast.SuccessionEdge) error {
 }
 
 func (l *actionEdgeLowerer) controlFlowEdge(n *ast.ControlFlowEdge) error {
-	sourceNode, err := l.endpoint(n.Source, n.SourceMember, true)
+	sources, err := l.ends(n.Source, n.SourceMember, true)
 	if err != nil {
 		return err
 	}
-	targetNode, err := l.endpoint(n.Target, n.TargetMember, false)
+	targets, err := l.ends(n.Target, n.TargetMember, false)
 	if err != nil {
 		return err
 	}
-	if sourceNode == nil {
+	if sources == nil {
 		return fmt.Errorf("control flow edge references undefined source %s", edgeEnd(n.Source, n.SourceMember))
 	}
-	if targetNode == nil {
+	if targets == nil {
 		return fmt.Errorf("control flow edge references undefined target %s", edgeEnd(n.Target, n.TargetMember))
 	}
-	l.addEdge(ActionEdge{
-		Source: sourceNode,
-		Target: targetNode,
-		Guard:  n.Guard,
-		Decl:   n,
-	})
+	l.addEdges(sources, targets, ActionEdge{Guard: n.Guard, Decl: n, Else: n.IsElse})
 	return nil
 }
 
 func (l *actionEdgeLowerer) transition(n *ast.TransitionMember) error {
-	sourceNode, err := l.endpoint(n.Source, nil, true)
+	sources, err := l.ends(n.Source, nil, true)
 	if err != nil {
 		return err
 	}
-	targetNode, err := l.endpoint(n.Target, nil, false)
+	targets, err := l.ends(n.Target, nil, false)
 	if err != nil {
 		return err
 	}
-	if sourceNode == nil {
+	if sources == nil {
 		return fmt.Errorf("succession references undefined source node %s", edgeEndName(n.Source))
 	}
 	weight, err := l.weights.read(n.Members)
@@ -1131,29 +1223,28 @@ func (l *actionEdgeLowerer) transition(n *ast.TransitionMember) error {
 		return err
 	}
 	edge := ActionEdge{
-		Source:             sourceNode,
 		Guard:              n.Guard,
 		Decl:               n,
 		Probability:        weight,
 		Name:               n.Name,
 		TargetMultiplicity: n.TargetMultiplicity,
 	}
-	if targetNode == nil {
+	if targets == nil {
 		if n.Target != nil && ast.SimpleName(n.Target) != "" {
-			l.gates = append(l.gates, pendingGate{edge: edge, target: n.Target, scope: l.scope})
+			l.addGates(sources, edge, n.Target)
 			return nil
 		}
 		return fmt.Errorf("succession references undefined target node %s", edgeEndName(n.Target))
 	}
-	edge.Target = targetNode
-	l.addEdge(edge)
+	l.addEdges(sources, targets, edge)
 	return nil
 }
 
 func (l *actionEdgeLowerer) addEdge(edge ActionEdge) {
-	if l.nodes != nil {
-		for _, existing := range l.graph.Edges[edge.Source] {
-			if sameUnconditionalActionEdge(l.graph, existing, edge) && l.graph.declaredIn[existing.Decl] == nil {
+	if l.nodes != nil && unconditionalActionEdge(edge) {
+		edges := l.graph.Edges[edge.Source]
+		for _, i := range l.edgesTo(edge.Source, edge.Target) {
+			if existing := edges[i]; l.sameMultiplicities(existing, edge) && l.graph.declaredIn[existing.Decl] == nil {
 				return
 			}
 		}
@@ -1161,23 +1252,54 @@ func (l *actionEdgeLowerer) addEdge(edge ActionEdge) {
 	l.graph.Edges[edge.Source] = append(l.graph.Edges[edge.Source], edge)
 }
 
-func sameUnconditionalActionEdge(graph *ActionGraph, existing, edge ActionEdge) bool {
-	return existing.Source == edge.Source &&
-		existing.Target == edge.Target &&
-		existing.Guard == nil && edge.Guard == nil &&
-		existing.Probability == nil && edge.Probability == nil &&
-		existing.Name == "" && edge.Name == "" &&
-		existing.Gate == nil && edge.Gate == nil &&
-		!existing.Carries && !edge.Carries &&
-		sameActionEdgeMultiplicities(graph, existing, edge)
+// unconditionalActionEdge reports whether edge states nothing but its ends, so
+// that a second edge between the same ends repeats it.
+func unconditionalActionEdge(edge ActionEdge) bool {
+	return edge.Guard == nil && edge.Probability == nil && edge.Name == "" && edge.Gate == nil && !edge.Carries
 }
 
-func sameActionEdgeMultiplicities(graph *ActionGraph, existing, edge ActionEdge) bool {
-	model := semantics.NewModel(graph.resolver)
+// unconditionalEdges indexes the unconditional out-edges of one node by target.
+type unconditionalEdges struct {
+	byTarget map[ast.Node][]int
+	// indexed is how many of the node's out-edges byTarget covers.
+	indexed int
+}
+
+// edgesTo is the positions among source's out-edges of the unconditional ones
+// leading to target, indexing the edges appended since it was last asked.
+func (l *actionEdgeLowerer) edgesTo(source, target ast.Node) []int {
+	index := l.unconditional[source]
+	if index == nil {
+		if l.unconditional == nil {
+			l.unconditional = make(map[ast.Node]*unconditionalEdges)
+		}
+		index = &unconditionalEdges{byTarget: make(map[ast.Node][]int)}
+		l.unconditional[source] = index
+	}
+	edges := l.graph.Edges[source]
+	for i := index.indexed; i < len(edges); i++ {
+		if unconditionalActionEdge(edges[i]) {
+			index.byTarget[edges[i].Target] = append(index.byTarget[edges[i].Target], i)
+		}
+	}
+	index.indexed = len(edges)
+	return index.byTarget[target]
+}
+
+// sameMultiplicities reports whether two edges state the same crossing ranges
+// at both ends, evaluating them only when an end states one.
+func (l *actionEdgeLowerer) sameMultiplicities(existing, edge ActionEdge) bool {
+	if existing.SourceMultiplicity == nil && edge.SourceMultiplicity == nil &&
+		existing.TargetMultiplicity == nil && edge.TargetMultiplicity == nil {
+		return true
+	}
+	if l.model == nil {
+		l.model = semantics.NewModel(l.graph.resolver)
+	}
 	source := func(e ActionEdge) *ast.Multiplicity { return e.SourceMultiplicity }
 	target := func(e ActionEdge) *ast.Multiplicity { return e.TargetMultiplicity }
-	return sameActionEdgeEndMultiplicity(graph, model, existing, edge, source) &&
-		sameActionEdgeEndMultiplicity(graph, model, existing, edge, target)
+	return sameActionEdgeEndMultiplicity(l.graph, l.model, existing, edge, source) &&
+		sameActionEdgeEndMultiplicity(l.graph, l.model, existing, edge, target)
 }
 
 // sameActionEdgeEndMultiplicity compares the end multiplicity that end selects on both edges.
@@ -1194,7 +1316,7 @@ func sameActionEdgeEndMultiplicity(graph *ActionGraph, model *semantics.Model, e
 	return err == nil && existingBounds == edgeBounds
 }
 
-func (l *actionEdgeLowerer) endpoint(ref ast.Node, member ast.Node, source bool) (ast.Node, error) {
+func (l *actionEdgeLowerer) endpoint(ref, member ast.Node, source bool) (ast.Node, error) {
 	if l.nodes == nil {
 		if member != nil {
 			return resolveActionEndpointForEdge(l.graph, ref, member, source), nil
@@ -1202,100 +1324,177 @@ func (l *actionEdgeLowerer) endpoint(ref ast.Node, member ast.Node, source bool)
 		return resolveActionEndpoint(l.graph, ref, source), nil
 	}
 	if member != nil {
-		for _, node := range l.graph.Nodes {
-			if node == member {
-				return node, nil
-			}
-		}
-		matches := inheritedNodeMatches(l.graph, l.scope, member)
-		if len(matches) > 1 {
-			return nil, fmt.Errorf("%w: %s", ErrAmbiguousInheritedStep, getNodeName(member))
-		}
-		if len(matches) == 1 {
-			return matches[0], nil
-		}
-		if replacement := l.incompatible[member]; replacement != nil {
-			return nil, fmt.Errorf("%w: succession end %q is replaced by %s, which is not an action step",
-				ErrIncompatibleRedefinedStep, getNodeName(member), ast.SimpleName(replacement))
-		}
-		if final, ok := member.(*ast.FinalNode); ok {
-			return ensureInheritedDone(l.graph, final, l.scope), nil
-		}
-		if name := getNodeName(member); name != "" {
-			if node := l.nodes(name); node != nil {
-				return node, nil
-			}
-			if name == "start" && source {
-				if l.graph.Initial != nil {
-					return l.graph.Initial, nil
-				}
-				return resolveActionEndpoint(l.graph, ref, true), nil
-			}
+		if node, found, err := l.memberEndpoint(ref, member, source); found || err != nil {
+			return node, err
 		}
 	}
+	return l.namedEndpoint(ref, source)
+}
+
+// memberEndpoint is the node the resolved member of an edge end stands for; found is false
+// when the end is left to the name ref writes.
+func (l *actionEdgeLowerer) memberEndpoint(ref, member ast.Node, source bool) (node ast.Node, found bool, err error) {
+	if slices.Contains(l.graph.Nodes, member) {
+		return member, true, nil
+	}
+	name := getNodeName(member)
+	if node, err := l.inheritedEndpoint(member, name); node != nil || err != nil {
+		return node, node != nil, err
+	}
+	if final, ok := member.(*ast.FinalNode); ok {
+		return ensureInheritedDone(l.graph, final, l.scope), true, nil
+	}
+	if name == "" {
+		return nil, false, nil
+	}
+	if node := l.nodes(name); node != nil {
+		return node, true, nil
+	}
+	if name != "start" || !source {
+		return nil, false, nil
+	}
+	if l.graph.Initial != nil {
+		return l.graph.Initial, true, nil
+	}
+	return resolveActionEndpoint(l.graph, ref, true), true, nil
+}
+
+// inheritedEndpoint is the one node of the graph standing for the inherited step decl, or
+// the error of a step that is ambiguous or replaced by something that is no action step.
+func (l *actionEdgeLowerer) inheritedEndpoint(decl ast.Node, name string) (ast.Node, error) {
+	matches := inheritedNodeMatches(l.graph, l.scope, decl)
+	if len(matches) > 1 {
+		return nil, fmt.Errorf("%w: %s", ErrAmbiguousInheritedStep, name)
+	}
+	if len(matches) == 1 {
+		return matches[0], nil
+	}
+	if replacement := l.incompatible[decl]; replacement != nil {
+		return nil, incompatibleStepError(name, replacement)
+	}
+	return nil, nil
+}
+
+func incompatibleStepError(name string, replacement ast.Node) error {
+	return fmt.Errorf("%w: succession end %q is replaced by %s, which is not an action step",
+		ErrIncompatibleRedefinedStep, name, ast.SimpleName(replacement))
+}
+
+// namedEndpoint is the node the name ref writes stands for, or nil.
+func (l *actionEdgeLowerer) namedEndpoint(ref ast.Node, source bool) (ast.Node, error) {
 	qn := actionEndpointQualifiedName(ref)
-	if qn != nil && len(qn.Parts) > 0 {
-		name := qn.Parts[len(qn.Parts)-1].Text
-		if node := l.nodes(name); node != nil {
-			return node, nil
-		}
-		if name == "start" && source {
-			return ensureImpliedStart(l.graph, ref), nil
-		}
-		if name == "done" && !source {
-			return ensureInheritedDone(l.graph, &ast.FinalNode{NodeBase: ast.NodeBase{NodeSpan: ref.Span()}}, l.scope), nil
-		}
-		decl, _, found, _ := resolve.ActionNodeInScope(l.scope, qn)
-		if !found {
-			decl, found = resolve.ActionNodeOfBody(l.scope, name)
-		}
-		if found {
-			matches := inheritedNodeMatches(l.graph, l.scope, decl)
-			if len(matches) > 1 {
-				return nil, fmt.Errorf("%w: %s", ErrAmbiguousInheritedStep, name)
-			}
-			if len(matches) == 1 {
-				return matches[0], nil
-			}
-			if replacement := l.incompatible[decl]; replacement != nil {
-				return nil, fmt.Errorf("%w: succession end %q is replaced by %s, which is not an action step",
-					ErrIncompatibleRedefinedStep, name, ast.SimpleName(replacement))
-			}
-			return nil, nil
-		}
-		for target, replacement := range l.incompatible {
-			if getNodeName(target) == name {
-				return nil, fmt.Errorf("%w: succession end %q is replaced by %s, which is not an action step",
-					ErrIncompatibleRedefinedStep, name, ast.SimpleName(replacement))
-			}
+	if qn == nil || len(qn.Parts) == 0 {
+		return nil, nil
+	}
+	name := qn.Parts[len(qn.Parts)-1].Text
+	if node := l.nodes(name); node != nil {
+		return node, nil
+	}
+	if name == "start" && source && !isChainEnd(ref) {
+		return ensureImpliedStart(l.graph, ref), nil
+	}
+	if name == "done" && !source && !isChainEnd(ref) {
+		return ensureInheritedDone(l.graph, &ast.FinalNode{NodeBase: ast.NodeBase{NodeSpan: ref.Span()}}, l.scope), nil
+	}
+	decl, _, found, _ := resolve.ActionNodeInScope(l.scope, qn)
+	if !found {
+		decl, found = resolve.ActionNodeOfBody(l.scope, name)
+	}
+	if found {
+		return l.inheritedEndpoint(decl, name)
+	}
+	for target, replacement := range l.incompatible {
+		if getNodeName(target) == name {
+			return nil, incompatibleStepError(name, replacement)
 		}
 	}
 	return nil, nil
 }
 
 func (l *actionEdgeLowerer) succession(sourceRef, targetRef ast.Node, edge ActionEdge) error {
-	sourceNode, err := l.endpoint(sourceRef, nil, true)
+	sources, err := l.ends(sourceRef, nil, true)
 	if err != nil {
 		return err
 	}
-	targetNode, err := l.endpoint(targetRef, nil, false)
+	targets, err := l.ends(targetRef, nil, false)
 	if err != nil {
 		return err
 	}
-	if sourceNode == nil {
+	if sources == nil {
 		return fmt.Errorf("action succession references undefined source node %s", successionEndText(sourceRef))
 	}
-	if targetNode == nil {
+	if targets == nil {
 		if ast.AsQualifiedName(targetRef) != nil && ast.SimpleName(targetRef) != "" {
-			edge.Source = sourceNode
-			l.gates = append(l.gates, pendingGate{edge: edge, target: targetRef, scope: l.scope})
+			l.addGates(sources, edge, targetRef)
 			return nil
 		}
 		return fmt.Errorf("action succession references undefined target node %s", successionEndText(targetRef))
 	}
-	edge.Source, edge.Target = sourceNode, targetNode
-	l.addEdge(edge)
+	l.addEdges(sources, targets, edge)
 	return nil
+}
+
+// ends resolves an edge end to the nodes it names: its one node, or the steps
+// performing the action a feature chain reaches through an object.
+func (l *actionEdgeLowerer) ends(ref, member ast.Node, source bool) ([]ast.Node, error) {
+	node, err := l.endpoint(ref, member, source)
+	if err != nil {
+		return nil, err
+	}
+	if node != nil {
+		return []ast.Node{node}, nil
+	}
+	if member != nil {
+		return nil, nil
+	}
+	switch kind, _ := ClassifyChainEnd(l.graph.Nodes, l.scope, l.graph.resolver, ref); kind {
+	case ChainEndAction:
+		return l.graph.chainSteps(ref, l.scope), nil
+	case ChainEndOccurrence:
+		return nil, fmt.Errorf("%w: %s", ErrSuccessionEndNotPerformed, FeaturePath(ref))
+	}
+	return nil, nil
+}
+
+// takesOneSuccession reports whether a succession out of node is one branch of it:
+// a decision chooses one, and a merge or join passes its token along one.
+func takesOneSuccession(node ast.Node) bool {
+	switch node.(type) {
+	case *ast.DecisionNode, *ast.MergeNode, *ast.JoinNode:
+		return true
+	}
+	return false
+}
+
+// addEdges states edge from every source to every target. A decision, merge or join
+// has one succession per branch, so one reaching several steps does so through a fork.
+func (l *actionEdgeLowerer) addEdges(sources, targets []ast.Node, edge ActionEdge) {
+	for _, source := range sources {
+		if len(targets) > 1 && takesOneSuccession(source) {
+			fork := &ast.ForkNode{}
+			fork.NodeSpan = edge.Decl.Span()
+			l.graph.Nodes = append(l.graph.Nodes, fork)
+			l.graph.recordDeclaredIn(fork, l.scope)
+			edge.Source, edge.Target = source, fork
+			l.addEdge(edge)
+			for _, target := range targets {
+				l.addEdge(ActionEdge{Source: fork, Target: target, Decl: edge.Decl})
+			}
+			continue
+		}
+		for _, target := range targets {
+			edge.Source, edge.Target = source, target
+			l.addEdge(edge)
+		}
+	}
+}
+
+// addGates defers edge from every source until the flows its target may name are lowered.
+func (l *actionEdgeLowerer) addGates(sources []ast.Node, edge ActionEdge, target ast.Node) {
+	for _, source := range sources {
+		edge.Source = source
+		l.gates = append(l.gates, pendingGate{edge: edge, target: target, scope: l.scope})
+	}
 }
 
 func (l *actionEdgeLowerer) objectFlowEdge(n *ast.ObjectFlowEdge) error {
@@ -1504,7 +1703,7 @@ func inheritedNodeLookup(graph *ActionGraph, body *symbols.Scope) nodeLookup {
 // not a node of the graph.
 func resolveFirstNode(graph *ActionGraph) error {
 	initial, ok := graph.Initial.(*ast.InitialNode)
-	if !ok || initial.Name() == "" {
+	if !ok || !initial.Named() {
 		return nil
 	}
 	var named ast.Node
@@ -1635,7 +1834,7 @@ func lowerPinBindings(graph *ActionGraph, nodes nodeLookup, u *ast.Usage, scope 
 			}
 			binding.OtherParameter = ownParameter(scope, graph.Scope, other)
 		}
-		out = append(out, binding)
+		out = append(out, withBindingExprs(binding, graph.Exprs))
 	}
 	return out, nil
 }
@@ -1741,7 +1940,7 @@ func lowerEffectiveActionNodeFeatures(graph *ActionGraph, node *ast.Usage, scope
 		}
 		if m.IsAccept {
 			// A message payload is the accept's output pin; `accept when/at/after` binds none.
-			if m.Value == nil && m.Ident.Name != "" {
+			if m.Value == nil && m.Ident.HasName() {
 				features = append(features, Feature{Name: m.Ident.Name, Direction: ast.DirOut, Node: m, Scope: featureScope})
 			}
 			continue
@@ -1756,7 +1955,7 @@ func lowerEffectiveActionNodeFeatures(graph *ActionGraph, node *ast.Usage, scope
 			bindingScope = bindingScope.Parent()
 		}
 		if binding, ok := inoutValueBinding(node, m, feature.Name, bindingScope); ok {
-			graph.Bindings = append(graph.Bindings, binding)
+			graph.Bindings = append(graph.Bindings, withBindingExprs(binding, graph.Exprs))
 		}
 	}
 	if typedBody, _ := mergedTypedActionBody(node, scope); typedBody {
@@ -1848,7 +2047,7 @@ func redefinesFeature(resolver *resolve.Resolver, features []Feature, name strin
 
 // redefinitionResolver resolves what a redefinition clause names.
 type redefinitionResolver interface {
-	RedefinitionTarget(scope *symbols.Scope, decl ast.Node, target ast.Node) (*symbols.Symbol, bool)
+	RedefinitionTarget(scope *symbols.Scope, decl, target ast.Node) (*symbols.Symbol, bool)
 }
 
 // redefinesByClause reports whether usage, declared in scope, redefines target by
@@ -1924,7 +2123,7 @@ func lowerValueBindings(graph *ActionGraph) {
 			} else {
 				binding.OtherParameter = ownParameter(feature.Scope, graph.Scope, binding.Other)
 			}
-			graph.ValueBindings = append(graph.ValueBindings, binding)
+			graph.ValueBindings = append(graph.ValueBindings, withBindingExprs(binding, graph.Exprs))
 		}
 	}
 }
@@ -2090,7 +2289,7 @@ func DeclaresNodeFeature(m *ast.Usage) bool {
 func lowerNodeBody(graph *ActionGraph, node ast.Node, members []ast.Node, scope *symbols.Scope) {
 	body := childScope(scope, node)
 	for _, member := range BodyStatementMembers(members) {
-		graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(unwrapMembership(member), body, graph.resolver, graph.lowering))
+		graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(unwrapMembership(member), body, graph.resolver, graph.Exprs, graph.lowering))
 	}
 }
 
@@ -2156,22 +2355,29 @@ func BodyStatementMembers(members []ast.Node) []ast.Node {
 // lowerStatement lowers one executable body statement, in the scope it was
 // written in. Every form it recognizes is lowered losslessly; a form it does not
 // becomes Unsupported, so the executor reports it rather than skipping it.
-func lowerStatement(member ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, ancestors []ast.Node) Statement {
+func lowerStatement(member ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, exprs *ExprTable, ancestors []ast.Node) Statement {
+	return withExprs(statementOf(member, scope, resolver, exprs, ancestors), exprs)
+}
+
+// statementOf is lowerStatement before the statement's own expressions are interned.
+func statementOf(member ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, exprs *ExprTable, ancestors []ast.Node) Statement {
 	switch m := member.(type) {
 	case *ast.SendStatement:
 		return lowerSend(m, scope)
 	case *ast.AssignmentActionNode:
 		return lowerAssignment(m, scope)
 	case *ast.WhileLoopActionNode:
-		variable, _ := m.Variable.DeclaredName()
+		variable, alias := loopVariableNames(m)
 		bodyScope := childScope(scope, m)
 		return Loop{
 			Kind:       m.Kind,
 			Condition:  m.Condition,
 			Until:      m.Until,
 			Variable:   variable,
+			Alias:      alias,
+			Bound:      m.Variable.Declared(),
 			Collection: m.Collection,
-			Body:       lowerBlock(m, m.Body, bodyScope, resolver, ancestors),
+			Body:       lowerBlock(m, m.Body, bodyScope, resolver, exprs, ancestors),
 			BodyAction: loopBodyAction(m, bodyScope),
 			Node:       m,
 			Scope:      scope,
@@ -2179,10 +2385,10 @@ func lowerStatement(member ast.Node, scope *symbols.Scope, resolver *resolve.Res
 	case *ast.IfActionNode:
 		lowered := If{Condition: m.Condition, Node: m, Scope: scope}
 		if m.Then != nil {
-			lowered.Then = lowerBlock(m.Then, m.Then.Body, childScope(scope, m.Then), resolver, ancestors)
+			lowered.Then = lowerBlock(m.Then, m.Then.Body, childScope(scope, m.Then), resolver, exprs, ancestors)
 		}
 		if m.Else != nil {
-			block := lowerBlock(m.Else, m.Else.Body, childScope(scope, m.Else), resolver, ancestors)
+			block := lowerBlock(m.Else, m.Else.Body, childScope(scope, m.Else), resolver, exprs, ancestors)
 			lowered.Else = &block
 		}
 		return lowered
@@ -2192,7 +2398,7 @@ func lowerStatement(member ast.Node, scope *symbols.Scope, resolver *resolve.Res
 		target, terminates := terminateTarget(m, scope)
 		return Effect{Kind: EffectTerminate, Node: m, Scope: scope, Terminates: terminates, Target: target, TargetExpr: m.Target}
 	case *ast.Usage:
-		return lowerUsageStatement(m, scope, resolver, ancestors)
+		return lowerUsageStatement(m, scope, resolver, exprs, ancestors)
 	default:
 		return Unsupported{Description: statedFlowKeyword(member), Node: member, Scope: scope}
 	}
@@ -2289,7 +2495,7 @@ func lowerAssignment(m *ast.AssignmentActionNode, scope *symbols.Scope) Statemen
 // (`loop action charging { … } until charging.done`). An action usage naming
 // the action it performs is a performed action, which the host executes or
 // rejects as its own purity demands.
-func lowerUsageStatement(m *ast.Usage, scope *symbols.Scope, resolver *resolve.Resolver, ancestors []ast.Node) Statement {
+func lowerUsageStatement(m *ast.Usage, scope *symbols.Scope, resolver *resolve.Resolver, exprs *ExprTable, ancestors []ast.Node) Statement {
 	if m.IsTerminate {
 		return terminateUsageEffect(m, scope)
 	}
@@ -2297,7 +2503,7 @@ func lowerUsageStatement(m *ast.Usage, scope *symbols.Scope, resolver *resolve.R
 		return stmt
 	}
 	if m.Kind.IsAction() && m.IsBodyParameter {
-		return lowerBlock(m, m.Members, childScope(scope, m), resolver, ancestors)
+		return lowerBlock(m, m.Members, childScope(scope, m), resolver, exprs, ancestors)
 	}
 	if m.Kind.IsAction() && performsAction(m) {
 		return performEffect(m, scope)
@@ -2375,12 +2581,12 @@ func redefinedNames(u *ast.Usage) []string {
 // lowerBlock lowers the body of a loop or of one branch of a conditional. owner
 // is the node the block belongs to, which is the element that owns the block's
 // body-local namespace, and scope is the namespace it owns.
-func lowerBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, ancestors []ast.Node) Block {
+func lowerBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, exprs *ExprTable, ancestors []ast.Node) Block {
 	if statesOwnFlow(members) {
-		return lowerStatedBlock(owner, members, scope, resolver, ancestors)
+		return lowerStatedBlock(owner, members, scope, resolver, exprs, ancestors)
 	}
 	if blockNeedsFlow(members) {
-		graph := lowerBlockFlow(members, scope, false, resolver, ancestors)
+		graph := lowerBlockFlow(members, scope, false, resolver, exprs, ancestors)
 		return Block{Node: owner, Scope: scope, Graph: graph, Stated: flowStated(graph)}
 	}
 	block := Block{Node: owner, Scope: scope}
@@ -2389,7 +2595,7 @@ func lowerBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope, resolv
 		if actual == nil || isAnnotation(actual) {
 			continue
 		}
-		block.Statements = append(block.Statements, lowerStatement(actual, scope, resolver, ancestors))
+		block.Statements = append(block.Statements, lowerStatement(actual, scope, resolver, exprs, ancestors))
 	}
 	return block
 }
@@ -2553,7 +2759,7 @@ func resolveEnd(nodes []ast.Node, qname *ast.QualifiedName, member ast.Node) ast
 
 // resolveActionEndpointForEdge resolves an edge end, which the notation may have
 // bound to a member by position rather than named.
-func resolveActionEndpointForEdge(graph *ActionGraph, ref ast.Node, member ast.Node, source bool) ast.Node {
+func resolveActionEndpointForEdge(graph *ActionGraph, ref, member ast.Node, source bool) ast.Node {
 	if member != nil {
 		return resolveEnd(graph.Nodes, nil, member)
 	}
@@ -2568,7 +2774,7 @@ func resolveActionEndpoint(graph *ActionGraph, ref ast.Node, source bool) ast.No
 		return node
 	}
 	name := ast.SimpleName(ref)
-	if impliedMarker(name, source, graph.Initial == nil) {
+	if !isChainEnd(ref) && impliedMarker(name, source, graph.Initial == nil) {
 		if source {
 			return ensureImpliedStart(graph, ref)
 		}
@@ -2609,7 +2815,7 @@ func ensureImpliedDone(graph *ActionGraph, ref ast.Node) ast.Node {
 // A chain attaches to the node whose body contains that feature.
 func findNodeByReference(nodes []ast.Node, ref ast.Node) ast.Node {
 	if qname := ast.AsQualifiedName(ref); qname != nil {
-		return findNodeByName(nodes, qname)
+		return findNodeByName(nodes, chainRoot(qname))
 	}
 	chain, ok := ref.(*ast.FeatureChainExpr)
 	if !ok {
@@ -2655,9 +2861,22 @@ func sequencedMembers(members []ast.Node) map[ast.Node]bool {
 	return sequenced
 }
 
+// declaresAssertion reports whether any of members is an `assert constraint`.
+func declaresAssertion(members []ast.Node) bool {
+	for _, member := range members {
+		if u, ok := unwrapMembership(member).(*ast.Usage); ok && resolve.IsAssertion(u) {
+			return true
+		}
+	}
+	return false
+}
+
 // orderedAssertions collects the `assert constraint` members of a body that one
 // of its successions names or binds by position, each a step of the flow.
 func orderedAssertions(members []ast.Node) map[*ast.Usage]bool {
+	if !declaresAssertion(members) {
+		return nil
+	}
 	named := make(map[string]bool)
 	name := func(ends ...*ast.QualifiedName) {
 		for _, end := range ends {
@@ -2717,44 +2936,54 @@ func findNodeByName(nodes []ast.Node, qname *ast.QualifiedName) ast.Node {
 // name is a name of its own, so `action <s> :>> takePhoto;` is reachable as
 // both `s` and `takePhoto`.
 func nodeAnswersTo(node ast.Node, name string) bool {
-	if name == "" {
-		return false
-	}
-	if getNodeName(node) == name {
+	if own, named := nodeName(node); named && own == name {
 		return true
 	}
 	u, ok := node.(*ast.Usage)
-	return ok && u.Ident.ShortName == name
+	return ok && u.Ident.HasShortName() && u.Ident.ShortName == name
+}
+
+// nodeHasName reports whether a node has a name to answer to, the empty
+// unrestricted name included (KerML §8.2.2.3).
+func nodeHasName(node ast.Node) bool {
+	_, named := nodeName(node)
+	return named
 }
 
 // getNodeName extracts the name from a node.
 func getNodeName(node ast.Node) string {
+	name, _ := nodeName(node)
+	return name
+}
+
+// nodeName is a node's name and whether it has one, read in one pass: finding a
+// succession's end asks both of every node of the graph.
+func nodeName(node ast.Node) (string, bool) {
 	switch n := node.(type) {
 	case *ast.InitialNode:
-		return n.Name()
+		name := n.Name()
+		return name, name != ""
 	case *ast.FinalNode:
 		// The node declares no name of its own: a succession reaches it by the
 		// name of the library feature it is, `done`.
-		return "done"
+		return "done", true
 	case *ast.ForkNode:
-		return n.Name
+		return n.Name, n.Name != "" || n.NameSpan.Len > 0
 	case *ast.JoinNode:
-		return n.Name
+		return n.Name, n.Name != "" || n.NameSpan.Len > 0
 	case *ast.MergeNode:
-		return n.Name
+		return n.Name, n.Name != "" || n.NameSpan.Len > 0
 	case *ast.DecisionNode:
-		return n.Name
+		return n.Name, n.Name != "" || n.NameSpan.Len > 0
 	case *ast.ActionExecutionNode:
-		return n.Name
+		return n.Name, n.Name != ""
 	case *ast.Usage:
 		// An unnamed usage is named after the feature it references or redefines
 		// (`perform increment;` is a node named increment).
-		if name, _ := ast.EffectiveName(n); name != "" {
-			return name
-		}
-		return n.Ident.ShortName
+		name, span := ast.EffectiveName(n)
+		return name, name != "" || span.Len > 0
 	}
-	return ""
+	return "", false
 }
 
 // lowerFlow lowers a flow declared among an action's members
@@ -2917,4 +3146,14 @@ func statementKeyword(node ast.Node) string {
 	default:
 		return "a member the body declares"
 	}
+}
+
+// loopVariableNames are the names a `for` loop's body reads its variable by: the declared
+// name, and the short name where the variable declares both.
+func loopVariableNames(loop *ast.WhileLoopActionNode) (name, alias string) {
+	name, _ = loop.Variable.DeclaredName()
+	if loop.Variable.HasShortName() && loop.Variable.ShortName != name {
+		alias = loop.Variable.ShortName
+	}
+	return name, alias
 }

@@ -8,18 +8,23 @@ package mcp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"slices"
 	"strings"
+	"sync"
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
 	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/catalog"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/lsptools"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/runtimetools"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/sessiontools"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/toolkit"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
@@ -65,11 +70,17 @@ type Config struct {
 	Groups []Group
 	// Version is what the server reports as its version.
 	Version string
-	// Workspace is the language server's workspace; nil makes a default one.
+	// Workspace is the language server's workspace; nil makes one with NewWorkspace.
 	Workspace *model.Workspace
+	// NewWorkspace makes the workspace of a further principal, configured as
+	// Workspace is; nil makes a default one.
+	NewWorkspace func() *model.Workspace
 	// CacheSize bounds the runtime service's parsed-model cache; 0 is the
 	// service's default of 100.
 	CacheSize int
+	// Records is the record cache the runtime service keeps the analysis of the
+	// models it parses in; nil keeps none.
+	Records *libs.Cache
 	// UnavailableCapabilities are capabilities the runtime service deliberately
 	// lacks, for conformance testing of a client's fallbacks; nil lacks none.
 	UnavailableCapabilities []string
@@ -85,10 +96,47 @@ type Config struct {
 type Server struct {
 	sdk      *sdk.Server
 	logger   *slog.Logger
+	served   map[string]catalog.Entry
 	lsp      *lsptools.Host
 	runtime  *sysmlgrpc.Service
 	sessions *sessiontools.Manager
+	// prewarmed closes when the runtime's library index is built; closed from
+	// the start when there is no runtime group.
+	prewarmed <-chan struct{}
+
+	cfg    Config
+	groups []Group
+	// mu guards tenants: the protocol server and workspace of each principal other
+	// than the operator's, keyed by guard.Principal.ID and made on its first session.
+	mu      sync.Mutex
+	tenants map[string]*tenant
+	// closed is set by Close: a workspace still indexing then is shut down, not held.
+	closed bool
 }
+
+// tenant is one principal's protocol server over its own language server
+// workspace, so a document it holds open is no other principal's to read.
+type tenant struct {
+	sdk *sdk.Server
+	lsp *lsptools.Host
+	// ready closes once the workspace is indexed or could not be, which leaves sdk nil.
+	ready chan struct{}
+}
+
+// MaxPrincipalWorkspaces bounds the principals holding a workspace of their
+// own at once; a further principal's session is refused until the server restarts.
+const MaxPrincipalWorkspaces = 32
+
+// nothingToWait is Prewarmed for a server without the runtime group.
+var nothingToWait = func() <-chan struct{} {
+	done := make(chan struct{})
+	close(done)
+	return done
+}()
+
+// Prewarmed returns the channel that closes once the runtime's library index is
+// built, when a first runtime call does not pay for it; closed without the runtime group.
+func (s *Server) Prewarmed() <-chan struct{} { return s.prewarmed }
 
 // New builds a server from cfg, indexing the workspace and preparing the
 // runtime before it returns, so a client's first call is answered in full.
@@ -98,27 +146,15 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 		groups = AllGroups
 	}
 	groups = slices.Compact(slices.Sorted(slices.Values(groups)))
-	s := &Server{sdk: sdk.NewServer(&sdk.Implementation{
-		Name:       "sysml-mcp",
-		Title:      "OpenSysML",
-		Version:    cfg.Version,
-		WebsiteURL: "https://github.com/Open-MBEE/OpenSysML",
-	}, &sdk.ServerOptions{Logger: cfg.Logger, Instructions: cfg.Instructions}), logger: cfg.Logger}
+	s := &Server{logger: cfg.Logger, prewarmed: nothingToWait, cfg: cfg, groups: groups, tenants: map[string]*tenant{}}
+	s.served = map[string]catalog.Entry{}
+	for _, e := range catalog.Entries(groups...) {
+		s.served[e.Name] = e
+	}
 
 	for _, g := range groups {
 		switch g {
 		case GroupLSP:
-			ws := cfg.Workspace
-			if ws == nil {
-				ws = model.NewWorkspace()
-			}
-			host, err := lsptools.NewHost(ctx, cfg.Root, ws, cfg.Version)
-			if err != nil {
-				s.Close(ctx)
-				return nil, err
-			}
-			s.lsp = host
-			lsptools.Register(s.sdk, host)
 		case GroupRuntime:
 			size := cfg.CacheSize
 			if size == 0 {
@@ -127,20 +163,17 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 			var svc *sysmlgrpc.Service
 			var err error
 			if len(cfg.UnavailableCapabilities) == 0 {
-				svc, err = sysmlgrpc.NewService(size, cfg.Version)
+				svc, err = sysmlgrpc.NewService(size, cfg.Version, sysmlgrpc.WithRecordCache(cfg.Records))
 			} else {
-				svc, err = sysmlgrpc.NewServiceWithUnavailableCapabilitiesForTesting(size, cfg.Version, cfg.UnavailableCapabilities)
+				svc, err = sysmlgrpc.NewServiceWithUnavailableCapabilitiesForTesting(size, cfg.Version, cfg.UnavailableCapabilities,
+					sysmlgrpc.WithRecordCache(cfg.Records))
 			}
 			if err != nil {
 				s.Close(ctx)
 				return nil, fmt.Errorf("starting the runtime service: %w", err)
 			}
-			svc.Prewarm()
+			s.prewarmed = svc.Prewarm()
 			s.runtime = svc
-			if err := runtimetools.Register(s.sdk, svc, cfg.Root); err != nil {
-				s.Close(ctx)
-				return nil, err
-			}
 		case GroupSession:
 			if cfg.NewSession == nil {
 				s.Close(ctx)
@@ -152,18 +185,153 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 				return nil, err
 			}
 			s.sessions = sessions
-			sessiontools.Register(s.sdk, s.sessions)
 		default:
 			s.Close(ctx)
 			return nil, fmt.Errorf("unknown tool group %q", g)
 		}
 	}
-	registerCatalog(s.sdk, groups)
+	ws := cfg.Workspace
+	if ws == nil {
+		ws = s.newWorkspace()
+	}
+	own, err := s.build(ctx, ws)
+	if err != nil {
+		s.Close(ctx)
+		return nil, err
+	}
+	s.sdk, s.lsp = own.sdk, own.lsp
 	return s, nil
 }
 
+// build is a protocol server with the groups' tools registered over the server's
+// runtime service and sessions, and over a language server of its own on ws.
+func (s *Server) build(ctx context.Context, ws *model.Workspace) (*tenant, error) {
+	t := &tenant{sdk: sdk.NewServer(&sdk.Implementation{
+		Name:       "sysml-mcp",
+		Title:      "OpenSysML",
+		Version:    s.cfg.Version,
+		WebsiteURL: "https://github.com/Open-MBEE/OpenSysML",
+	}, &sdk.ServerOptions{Logger: s.cfg.Logger, Instructions: s.cfg.Instructions})}
+	t.sdk.AddReceivingMiddleware(s.authorize)
+	for _, g := range s.groups {
+		switch g {
+		case GroupLSP:
+			host, err := lsptools.NewHost(ctx, s.cfg.Root, ws, s.cfg.Version)
+			if err != nil {
+				return nil, err
+			}
+			t.lsp = host
+			lsptools.Register(t.sdk, host)
+		case GroupRuntime:
+			if err := runtimetools.Register(t.sdk, s.runtime, s.cfg.Root); err != nil {
+				t.close(ctx)
+				return nil, err
+			}
+		case GroupSession:
+			sessiontools.Register(t.sdk, s.sessions)
+		}
+	}
+	registerCatalog(t.sdk, s.groups)
+	return t, nil
+}
+
+// newWorkspace is a workspace configured as the one the server started over.
+func (s *Server) newWorkspace() *model.Workspace {
+	if s.cfg.NewWorkspace != nil {
+		return s.cfg.NewWorkspace()
+	}
+	return model.NewWorkspace()
+}
+
+func (t *tenant) close(ctx context.Context) {
+	if t.lsp != nil {
+		_ = t.lsp.Close(ctx)
+	}
+}
+
+// operates reports whether p is the operator's own principal, served by the server built
+// at start: the local caller, or the static token's holder; one transport has only one.
+func operates(p guard.Principal) bool {
+	return p.Source == toolkit.LocalSource || p.Source == guard.SourceStaticToken
+}
+
+// serverFor is the protocol server for p's new session: with the workspace group, one per
+// authenticated principal, made on first use; nil when it cannot be indexed or the bound is met.
+func (s *Server) serverFor(ctx context.Context, p guard.Principal) *sdk.Server {
+	if s.lsp == nil || operates(p) {
+		return s.sdk
+	}
+	logger := s.logger
+	if logger == nil {
+		logger = slog.Default()
+	}
+	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
+		return nil
+	}
+	t, held := s.tenants[p.ID()]
+	if !held {
+		if len(s.tenants) >= MaxPrincipalWorkspaces {
+			s.mu.Unlock()
+			logger.Warn("refusing a session: the bound on principals holding a workspace is reached", "principal", p.Subject, "source", p.Source, "bound", MaxPrincipalWorkspaces)
+			return nil
+		}
+		t = &tenant{ready: make(chan struct{})}
+		s.tenants[p.ID()] = t
+	}
+	s.mu.Unlock()
+	if held {
+		select {
+		case <-t.ready:
+		case <-ctx.Done():
+			return nil
+		}
+		return t.sdk
+	}
+	// Indexing runs outside the lock, under the request: a client gone stops it.
+	built, err := s.build(ctx, s.newWorkspace())
+	if err == nil && ctx.Err() != nil {
+		built.close(context.WithoutCancel(ctx))
+		err = ctx.Err()
+	}
+	s.mu.Lock()
+	if err == nil && s.closed {
+		built.close(context.WithoutCancel(ctx))
+		err = errors.New("the server is closed")
+	}
+	if err != nil {
+		if s.tenants[p.ID()] == t {
+			delete(s.tenants, p.ID())
+		}
+	} else {
+		t.sdk, t.lsp = built.sdk, built.lsp
+	}
+	s.mu.Unlock()
+	close(t.ready)
+	if err != nil {
+		logger.Error("refusing a session: the principal's workspace could not be indexed", "principal", p.Subject, "source", p.Source, "error", err)
+		return nil
+	}
+	return t.sdk
+}
+
+// protocolServers are the protocol servers built so far: the operator's, then
+// each other principal's.
+func (s *Server) protocolServers() []*sdk.Server {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	servers := []*sdk.Server{s.sdk}
+	for _, t := range s.tenants {
+		if t.sdk != nil {
+			servers = append(servers, t.sdk)
+		}
+	}
+	return servers
+}
+
 // Run serves one client over t until the client ends the session or ctx is
-// cancelled; ServeStreamableHTTP serves many over a listener.
+// cancelled; ServeHTTP serves many over a listener.
 func (s *Server) Run(ctx context.Context, t sdk.Transport) error {
 	return s.sdk.Run(ctx, t)
 }
@@ -179,5 +347,12 @@ func (s *Server) Close(ctx context.Context) {
 	}
 	if s.lsp != nil {
 		_ = s.lsp.Close(ctx)
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.closed = true
+	for id, t := range s.tenants {
+		t.close(ctx)
+		delete(s.tenants, id)
 	}
 }

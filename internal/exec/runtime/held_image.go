@@ -60,6 +60,8 @@ type HeldImage struct {
 
 	activations, runs int64
 	clock             float64
+	// choiceSerial is the last choice serial the context imaged had drawn.
+	choiceSerial int64
 
 	occurrences      map[*symbols.Symbol][]int64
 	usageOccurrences map[calcUsageKey]int64
@@ -86,6 +88,7 @@ type imagedObject struct {
 	typ          *symbols.Symbol
 	classifiers  []*symbols.Symbol
 	explicit     bool
+	performed    bool
 	owner        int64
 	ownerFeature string
 	life         life
@@ -168,6 +171,7 @@ func (ctx *Context) Image(objects ...*Instance) (*HeldImage, error) {
 		activations:      ctx.activations,
 		runs:             ctx.runs,
 		clock:            ctx.clock.now,
+		choiceSerial:     ctx.choiceSerials.last.Load(),
 		occurrences:      make(map[*symbols.Symbol][]int64),
 		usageOccurrences: make(map[calcUsageKey]int64),
 		occurrenceTails:  make(map[*symbols.Symbol]*requiredMembers),
@@ -344,7 +348,7 @@ func (t *imaging) object(inst *Instance) error {
 	}
 	obj := imagedObject{
 		id: inst.ID, typ: inst.Type, classifiers: slices.Clone(inst.classifiers),
-		explicit: inst.explicit, ownerFeature: inst.ownerFeature,
+		explicit: inst.explicit, performed: inst.performed, ownerFeature: inst.ownerFeature,
 		life:      ctx.lives[inst.ID],
 		ends:      slices.Clone(inst.Ends),
 		anonymous: slices.Clone(inst.anonymous),
@@ -826,7 +830,7 @@ func (m *materializing) run() error {
 		inst := &Instance{
 			ID: obj.id, Type: obj.typ, classifiers: slices.Clone(obj.classifiers),
 			FeatureValues: make(map[string]*FeatureValue, len(obj.features)),
-			explicit:      obj.explicit, ownerFeature: obj.ownerFeature,
+			explicit:      obj.explicit, performed: obj.performed, ownerFeature: obj.ownerFeature,
 			anonymous:     slices.Clone(obj.anonymous),
 			keptAnonymous: slices.Clone(obj.keptAnon),
 			nested:        clonePendingRedefinitions(obj.nested),
@@ -854,6 +858,8 @@ func (m *materializing) run() error {
 	dst.livesChanged()
 	dst.activations = max(dst.activations, img.activations)
 	dst.runs = max(dst.runs, img.runs)
+	// The runs made keep the serials they stood on: dst draws above them.
+	dst.choiceSerials.atLeast(img.choiceSerial)
 	dst.setClock(img.clock)
 	for _, run := range img.runStates {
 		m.runs = append(m.runs, m.runState(run))

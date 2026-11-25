@@ -1,5 +1,6 @@
 @startuml
 ' GeneralViews::definitionView — definition rendering (view def GeneralView, filter @Definition or @Usage)
+mainframe <size:10>//«view»//</size> **GeneralViews::definitionView** : GeneralView\n<size:10>expose VehicleStructure<U+002A><U+002A>[@SysML::Definition or @SysML::Usage]</size>
 <style>
 root {
   BackGroundColor white

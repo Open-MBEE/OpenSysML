@@ -64,23 +64,25 @@ Instance: Vehicle (ID: 1)
 Features:
   mass = 1500.0
   wheels = [Instance(ID: 2), Instance(ID: 3), Instance(ID: 4), Instance(ID: 5)]
-    diameter = 16.0
-    width = 7.5
-    ownedPorts = []
-    performedActions = []
-    ownedActions = []
-    exhibitedStates = []
-    ownedStates = []
-    shape = []
-    envelopingShapes = []
-    boundingShapes = []
-    voids = []
-    isSolid = true
-    subitems = []
-    subparts = []
-    checkedConstraints = []
-    diameter = 16.0
-    width = 7.5
+    [1] Instance(ID: 2)
+      diameter = 16.0
+      width = 7.5
+      ownedPorts = []
+      performedActions = []
+      ownedActions = []
+      exhibitedStates = []
+      ownedStates = []
+      shape = []
+      envelopingShapes = []
+      boundingShapes = []
+      voids = []
+      isSolid = true
+      subitems = []
+      subparts = []
+      checkedConstraints = []
+    [2] Instance(ID: 3)
+      diameter = 16.0
+      width = 7.5
 …
   ownedPorts = []
   performedActions = []
@@ -103,8 +105,9 @@ Instances:
 
 After the features the model declares come the ones every part carries from the standard
 library — `ownedPorts`, `subparts`, `isSolid` and the rest that `Parts::Part` and
-`Items::Item` declare — with their defaults; each wheel lists them too (the `…` above stands
-for the three wheels that repeat the first). A listing this size is bounded: `%features
+`Items::Item` declare — with their defaults; each wheel lists them too, under a heading giving
+its place in `wheels` and the object it is (the `…` above stands for the three wheels that
+repeat the first). A listing this size is bounded: `%features
 Vehicle depth 0` names the composite features without expanding them, and `%features Vehicle
 all` reads the whole tree out ([the REPL command reference](../reference/repl-commands.md)).
 
@@ -170,18 +173,23 @@ sysml> %features MyModel::System
 Instance: MyModel::System (ID: 1)
 Features:
   sensors = [Instance(ID: 2), Instance(ID: 3), Instance(ID: 4)]
-    reading = 0.0
-    threshold = 100.0
-    ownedPorts = []
+    [1] Instance(ID: 2)
+      reading = 0.0
+      threshold = 100.0
+      ownedPorts = []
 …
-    checkedConstraints = []
+      checkedConstraints = []
+    [2] Instance(ID: 3)
+      reading = 0.0
+…
   ownedPorts = []
 …
   checkedConstraints = []
 ```
 
 A composite feature lists the features of each of its objects beneath it, in order — the
-model's own first, then the library's, as above.
+model's own first, then the library's, as above. Where it holds several objects, each one's
+features follow a heading naming it: `[2] Instance(ID: 3)` is the second sensor.
 
 ---
 

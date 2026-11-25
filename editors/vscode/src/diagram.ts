@@ -1614,6 +1614,8 @@ function html(
       #diagram .port-shape.container { fill: var(--vscode-sideBar-background, var(--vscode-editor-background)); }
       #diagram .port-shape.filled { fill: var(--vscode-foreground); }
       #diagram .port-label { fill: var(--vscode-foreground); font-size: 0.85em; }
+      #diagram .pin-arrow { fill: var(--vscode-foreground); font-size: 8px; pointer-events: none; }
+      #diagram .shape.mark { stroke: none; }
       #diagram .label { fill: var(--vscode-foreground); }
       #diagram .label .head { font-weight: 600; }
       #diagram .label .keyword { font-size: 0.85em; opacity: 0.8; }
@@ -1622,7 +1624,9 @@ function html(
       #diagram .line { fill: none; stroke: var(--vscode-foreground); stroke-width: 1.25px; }
       #diagram .lifeline { stroke: var(--vscode-foreground); stroke-width: 1px; stroke-dasharray: 6 4; opacity: 0.6; }
       #diagram .succession .line, #diagram .import .line, #diagram .derive .line, #diagram .refine .line,
-      #diagram .dependency .line, #diagram .anchor .line, #diagram .succession-flow .line, #diagram .expose .line { stroke-dasharray: 5 4; }
+      #diagram .dependency .line, #diagram .anchor .line, #diagram .succession-flow .line, #diagram .expose .line,
+      #diagram .dependency-client .line { stroke-dasharray: 5 4; }
+      #diagram .shape.item { fill: none; stroke: none; }
       #diagram .arrow-fill { fill: var(--vscode-foreground); }
       #diagram .arrow-line { fill: none; stroke: var(--vscode-foreground); stroke-width: 1.25px; }
       #diagram .arrow-hollow { fill: var(--vscode-editor-background); stroke: var(--vscode-foreground); stroke-width: 1px; }

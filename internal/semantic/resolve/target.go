@@ -100,6 +100,12 @@ func (r *Resolver) resolveTarget(scope *symbols.Scope, target ast.Node, hide *re
 			return nil, false
 		}
 		return r.memberChain(scope, r.chainedFrom(scope, owner), t.Member, t)
+	case *ast.CastExpr:
+		// `(as T).f` reads f as a member of T (KerML 8.2.5.8.1), as getOperandSymbol does.
+		if t.TargetType == nil {
+			return nil, false
+		}
+		return r.resolveQualified(scope, t.TargetType, hide)
 	default:
 		return nil, false
 	}
@@ -315,14 +321,14 @@ func referenceFilter(decl, target ast.Node) *refFilter {
 
 // ResolveReferenceTarget resolves the target of a reference subsetting owned by
 // decl, which is declared in scope.
-func (r *Resolver) ResolveReferenceTarget(scope *symbols.Scope, decl ast.Node, target ast.Node) (*symbols.Symbol, bool) {
+func (r *Resolver) ResolveReferenceTarget(scope *symbols.Scope, decl, target ast.Node) (*symbols.Symbol, bool) {
 	return r.resolveTarget(scope, target, referenceFilter(decl, target))
 }
 
 // ResolveRedefinitionTarget resolves the target of a redefinition owned by decl:
 // the feature decl's owner inherits, which decl's own redefinition does not
 // mask (KerML 8.3.3.3.6), whatever name decl borrowed from it.
-func (r *Resolver) ResolveRedefinitionTarget(scope *symbols.Scope, decl ast.Node, target ast.Node) (*symbols.Symbol, bool) {
+func (r *Resolver) ResolveRedefinitionTarget(scope *symbols.Scope, decl, target ast.Node) (*symbols.Symbol, bool) {
 	if fr, ok := target.(*ast.FeatureReference); ok {
 		target = fr.Name
 	}
@@ -339,7 +345,7 @@ func (r *Resolver) ResolveRedefinitionTarget(scope *symbols.Scope, decl ast.Node
 // what a feature inherits is asked while other names resolve, some of them
 // imports whose members are suspended meanwhile. A miss there is not the
 // redefinition's to report or remember; the document walk resolves it itself.
-func (r *Resolver) ProbeRedefinitionTarget(scope *symbols.Scope, decl ast.Node, target ast.Node) (*symbols.Symbol, bool) {
+func (r *Resolver) ProbeRedefinitionTarget(scope *symbols.Scope, decl, target ast.Node) (*symbols.Symbol, bool) {
 	var (
 		sym *symbols.Symbol
 		ok  bool
@@ -383,6 +389,9 @@ type Reference struct {
 	// Endpoint is set when QN is a transition end, which names a vertex of the
 	// enclosing machine ahead of anything else it reaches (see ResolveEndpoint).
 	Endpoint bool
+	// AccepterSource is set when QN is the source of a transition with an accepter,
+	// whose kind name resolution does not judge (see ResolveTransitionSource).
+	AccepterSource bool
 	// Import is the import QN is the target of, if any; an `import all` reaches
 	// private members the visibility rule would otherwise hide.
 	Import *ast.Import
@@ -408,11 +417,20 @@ type HeadRelationship struct {
 	// Member is the chain member the reference is a segment of; nil when the
 	// reference is the name decided on.
 	Member *ast.QualifiedName
+	// Lead is the name the chain opens with, which decides the scope of every
+	// segment; nil when the target is no chain.
+	Lead *ast.QualifiedName
 }
 
 // Spelled returns ref as it would be collected had qn been written in its
 // place: the same occurrence, read the way the document walk reads that spelling.
 func (ref Reference) Spelled(qn *ast.QualifiedName) Reference {
+	// The name a head chain opens with places the chain as it is spelled.
+	if ref.Head != nil && ref.Head.Lead != nil && ref.Head.Lead == ref.QN {
+		head := *ref.Head
+		head.Lead = qn
+		ref.Head = &head
+	}
 	ref.QN = qn
 	if ref.Subsetting != nil {
 		if namesDecl(qn, ref.Subsetting) {
@@ -486,7 +504,7 @@ func (r *Resolver) ResolveReference(ref Reference) (*symbols.Symbol, bool) {
 		return r.PartSymbol(ref.QN, len(ref.QN.Parts)-1)
 	}
 	if ref.Endpoint {
-		return r.ResolveEndpoint(ref.Scope, ref.QN)
+		return r.resolveEndpoint(ref.Scope, ref.QN, ref.AccepterSource)
 	}
 	if ref.Import != nil {
 		return r.resolveImportName(ref.Scope, ref.QN, ref.Import)
@@ -545,11 +563,11 @@ func (r *Resolver) resolveConstructedName(ref Reference, hide *refFilter) (*symb
 // headScope is the scope ref, written in a head relationship, resolves in as the
 // document walk reads it; spelled differently, the same occurrence may switch.
 func (r *Resolver) headScope(ref Reference) *symbols.Scope {
-	name, chain := ref.QN, ref.Chain != nil
-	if ref.Head.Member != nil {
-		name, chain = ref.Head.Member, true
+	name := ref.QN
+	if ref.Head.Lead != nil {
+		name = ref.Head.Lead
 	}
-	if r.resolvesInHeader(ref.Head.Scope, name, chain, ref.Head.Kind) {
+	if r.resolvesInHeader(ref.Head.Scope, name, ref.Head.Kind) {
 		return ref.Head.Scope
 	}
 	return ref.Scope

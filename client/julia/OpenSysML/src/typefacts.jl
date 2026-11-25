@@ -1,3 +1,16 @@
+"""One derived type of a feature: its qualified name and symbol kind."""
+struct TypeRef
+    id::String
+    kind::String
+end
+TypeRef(raw::AbstractDict) = TypeRef(String(get(raw, "id", "")), String(get(raw, "kind", "")))
+
+"""
+A feature's type. `declared`, `resolved_id` and `resolved_kind` are the typing as written;
+`types` is the derived KerML `Feature::type` (the `type` property of `element_properties`),
+which the typing of every feature it subsets, references or redefines contributes to.
+`resolved_id` is for lookup, `resolved_qualified_name` for display.
+"""
 struct TypeFacts
     declared::String
     resolved_id::String
@@ -6,12 +19,18 @@ struct TypeFacts
     primitive_source::String
     quantity::Bool
     unit::String
+    types::Vector{TypeRef}
+    resolved_qualified_name::String
 end
+TypeFacts(declared, resolved_id, resolved_kind, primitive, primitive_source, quantity, unit, types) =
+    TypeFacts(declared, resolved_id, resolved_kind, primitive, primitive_source, quantity, unit, types, "")
 TypeFacts(raw::AbstractDict) =
     TypeFacts(String(get(raw, "declared", "")), String(get(raw, "resolvedId", "")),
               String(get(raw, "resolvedKind", "")), String(get(raw, "primitive", "")),
               String(get(raw, "primitiveSource", "")), Bool(get(raw, "quantity", false)),
-              String(get(raw, "unit", "")))
+              String(get(raw, "unit", "")),
+              TypeRef[TypeRef(ref) for ref in get(raw, "types", [])],
+              String(get(raw, "resolvedQualifiedName", "")))
 
 struct Multiplicity
     lower::String
@@ -33,15 +52,24 @@ function is_optional(m::Multiplicity)
     parsed === nothing ? nothing : parsed == 0
 end
 
+"""
+One generalization edge written on a symbol; `kind` is `specializes`, `subsets`, `redefines`,
+`typing` or `references` (reference subsetting, `::>` and `include`). `target_id` is for
+lookup, `target_qualified_name` for display.
+"""
 struct Specialization
     kind::String
     declared::String
     target_id::String
     target_kind::String
+    target_qualified_name::String
 end
+Specialization(kind, declared, target_id, target_kind) =
+    Specialization(kind, declared, target_id, target_kind, "")
 Specialization(raw::AbstractDict) =
     Specialization(String(get(raw, "kind", "")), String(get(raw, "declared", "")),
-                   String(get(raw, "targetId", "")), String(get(raw, "targetKind", "")))
+                   String(get(raw, "targetId", "")), String(get(raw, "targetKind", "")),
+                   String(get(raw, "targetQualifiedName", "")))
 
 struct AttributeFacts
     name::String

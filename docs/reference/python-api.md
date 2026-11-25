@@ -36,6 +36,18 @@ connecting to models.
     options:
       heading_level: 3
 
+::: opensysml.CAPABILITY_ELEMENT_PROPERTIES
+    options:
+      heading_level: 3
+
+::: opensysml.CAPABILITY_INLINE_DOCUMENT_QUERY
+    options:
+      heading_level: 3
+
+::: opensysml.CAPABILITY_QUERY_RESULT_VIEW
+    options:
+      heading_level: 3
+
 ::: opensysml.CAPABILITY_CONSTRAINT_BODY_AUTHORING
     options:
       heading_level: 3
@@ -207,7 +219,13 @@ A parsed model is the entry point for symbol lookup, evaluation and execution.
 `Model.render_view(view_name, ports="minimal", show=None, depth=0)` returns a typed
 `RenderedView`; pass `ports="full"` to include every declared port, `show` to draw
 optional notation elements (the result's `shown` lists the ones drawn) and `depth`
-to bound how deep nested elements are drawn.
+to bound how deep nested elements are drawn. `form="dot"` (or `"text"`, `"mermaid"`,
+`"markdown"`, `"plantuml"`, `"d2"`, `"drawio"`, `"csv"`, `"tsv"`) also writes the view in
+that form into the result's `text`, as `sysml -render-form` does, under the writer options
+`palette`, `style`, `lines`, `direction`, `link` and `unplaced`; it needs the
+`render_view_form` capability.
+A `QVTS::QueryResult` view is written in `"markdown"`, `"html"` or `"asciidoc"` instead, a document of its
+header and rows; `"html"` and `"asciidoc"` need `query_result_view` as well.
 `Model.diagnostics` is what the parse answered under the default lint selection;
 `Model.refresh_diagnostics(disable_lint=(), enable_lint=())` asks the service again,
 leaving out the lints `disable_lint` names and keeping the opt-in ones `enable_lint`
@@ -258,6 +276,41 @@ handshake before listing it.
 
 Symbols represent declarations and their resolved facts in a model.
 
+A symbol's members are what the service enumerates for it (KerML `Type::member`):
+`children()` lists the members the symbol itself declares, its owned members, in
+declaration order; `children(inherited=True)` adds the members inherited through
+specialization and typing, in inheritance order, a redefining member hiding the one it
+redefines and a private member of a supertype left out. `parts()`, `ports()`,
+`bindings()`, `connections()` and `attributes()` are `members(kind=...)` filtered to a
+kind, and take the same `inherited` and `library` arguments; `attributes()` alone
+includes inherited attributes by default, the set `attribute_facts()` describes. An
+inherited member reports `inherited` and `inherited_from`, the type declaring it.
+Members inherited from standard-library content (the dozens every part has through
+`Parts::Part` and `Base::Anything`) are withheld and counted in the returned list's
+`withheld_library` — of the owned list too — unless `inherited=True, library=True`
+fetches them; an owned member is never withheld, so `library` alone changes nothing.
+Inherited members need the service's `symbol_members` capability; against an older
+service `attributes()` alone still follows the declared specializations itself, as it
+did before the service enumerated members. A member declared without a name
+(`bind a = b;`, `part : P;`) is listed under its positional id (`Owner::@3`), which a
+lookup resolves; one inherited from the standard library carries the positional id of
+the library type declaring it (`Occurrences::Occurrence::@47`).
+
+`annotating_metadata()` lists the metadata usages annotating the symbol (the inverse of
+KerML `AnnotatingElement::annotatedElement`): the ones it owns, written as a `#M` prefix
+or as `@M` / `metadata m : M` in its body, then the ones naming it in an `about` clause
+elsewhere (`metadata m : M about Pump;`). An `about` usage is a member of the namespace
+it is written in, not of what it annotates, so `children()` and `members()` do not list
+it. Each result is a `Symbol` of kind `metadataUsage`: `type_facts` names the metadata
+definition and `attribute_facts()` reads the values the annotation binds. It needs the
+service's `symbol_annotating_metadata` capability.
+
+A member is fetched as a feature of the symbol that lists it, so its
+`metadata["direction"]` is the direction relative to that symbol: `cmd`, declared `out` in
+`port def CmdPort`, reads `in` among the members of `port pIn : ~CmdPort`, and `out` when
+looked up on its own with `model.symbol("Demo::CmdPort::cmd")`. This needs the service's
+`symbol_member_direction` capability; an older service reports the declared direction.
+
 ::: opensysml.Symbol
     options:
       heading_level: 3
@@ -280,9 +333,45 @@ An enum literal carries its declaration identity and any scalar value.
 
 ## opensysml.instance
 
-An instance exposes feature values decoded from the service response.
+An instance exposes feature values decoded from the service response, and says how the
+graph it belongs to reached it: `owner` is the instance holding it along the path the
+traversal came by, `feature` the holder's feature it is a value of and `path` the whole
+path from the root (`powertrain.engine.fuelIn`, `wheels[2]`), none for the root. One
+object is often a value of several features — a port and the connector end referencing it
+are one object — so `paths()` asks the service for every root-relative path that reaches
+it, aliases through connector ends and reference usages included, in traversal order.
+The service bounds that search (1000 paths, 8 steps deep); the list it returns is an
+`InstancePaths` whose `truncated` says when the bound cut it short. Both need the
+`instance_paths` capability. These are attributes of the instance, and a real attribute
+always wins over a feature of the same name: a model feature called `owner`, `feature`,
+`index`, `path` or `paths` (like one called `id` or `get`) is read by name,
+`inst["path"]` or `inst.get("path")`, not as `inst.path`.
+
+```python
+with Connection() as conn:
+    model = conn.load("vehicle.sysml")
+    vehicle = conn.instantiate(model.hash, "Fuel::vehicle")
+    port = vehicle.powertrain.engine.fuelIn
+    port.owner is vehicle.powertrain.engine   # True
+    port.feature                              # 'fuelIn'
+    port.path                                 # 'powertrain.engine.fuelIn'
+    [str(p) for p in port.paths()]
+    # ['Fuel::vehicle.fuelLine.consumer', 'Fuel::vehicle.powertrain.engine.fuelIn']
+```
 
 ::: opensysml.Instance
+    options:
+      heading_level: 3
+
+::: opensysml.InstancePaths
+    options:
+      heading_level: 3
+
+::: opensysml.InstancePath
+    options:
+      heading_level: 3
+
+::: opensysml.PathStep
     options:
       heading_level: 3
 
@@ -299,6 +388,10 @@ The generated-class base supplies a typed view over an `Instance`.
 Static type, multiplicity and specialization facts resolved for symbols.
 
 ::: opensysml.TypeFacts
+    options:
+      heading_level: 3
+
+::: opensysml.TypeRef
     options:
       heading_level: 3
 
@@ -343,6 +436,38 @@ Decoded value kinds carried by the service wire format.
       heading_level: 3
 
 ::: opensysml.Undetermined
+    options:
+      heading_level: 3
+
+::: opensysml.CoordinateFrame
+    options:
+      heading_level: 3
+
+::: opensysml.CoordinateTransformation
+    options:
+      heading_level: 3
+
+::: opensysml.MeasurementScale
+    options:
+      heading_level: 3
+
+::: opensysml.FramePlacement
+    options:
+      heading_level: 3
+
+::: opensysml.FrameStep
+    options:
+      heading_level: 3
+
+::: opensysml.FrameRotation
+    options:
+      heading_level: 3
+
+::: opensysml.AffineTransformation3d
+    options:
+      heading_level: 3
+
+::: opensysml.FramePose
     options:
       heading_level: 3
 
@@ -594,6 +719,10 @@ The public exception hierarchy for client, service, model and edit failures.
     options:
       heading_level: 3
 
+::: opensysml.UnresolvedChildError
+    options:
+      heading_level: 3
+
 ::: opensysml.ViewNotFoundError
     options:
       heading_level: 3
@@ -742,6 +871,14 @@ Outcomes and search metadata returned by behavior exploration.
     options:
       heading_level: 3
 
+::: opensysml.Coverage
+    options:
+      heading_level: 3
+
+::: opensysml.CoverageEntry
+    options:
+      heading_level: 3
+
 ## opensysml.action_run
 
 Action outputs decoded from a completed run.
@@ -774,7 +911,28 @@ Results and errors from the standard query model.
     options:
       heading_level: 3
 
+::: opensysml.QueryElements
+    options:
+      heading_level: 3
+
 ::: opensysml.QueryError
+    options:
+      heading_level: 3
+
+## opensysml.element_properties
+
+An element's metamodel properties by their specification names, as
+`Model.element_properties` and `Symbol.properties` answer them.
+
+::: opensysml.ElementProperties
+    options:
+      heading_level: 3
+
+::: opensysml.ElementProperty
+    options:
+      heading_level: 3
+
+::: opensysml.ElementIdentity
     options:
       heading_level: 3
 
@@ -819,6 +977,14 @@ Typed query rows, document values, and document and view render results.
       heading_level: 3
 
 ::: opensysml.RenderNote
+    options:
+      heading_level: 3
+
+::: opensysml.RenderFrame
+    options:
+      heading_level: 3
+
+::: opensysml.RenderHeaderField
     options:
       heading_level: 3
 

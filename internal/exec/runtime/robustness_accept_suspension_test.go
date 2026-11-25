@@ -444,6 +444,7 @@ func acceptSuspensionCheckAndExploreWith(t *testing.T, model *exploreModel, star
 }
 
 func TestRuntimeRobustnessAcceptSuspension(t *testing.T) {
+	t.Parallel()
 	t.Run("deadlocks_name_nested_accept_and_call_chain", func(t *testing.T) {
 		want := []string{
 			"accept deadlock in action Main: nothing can post the awaited message " +

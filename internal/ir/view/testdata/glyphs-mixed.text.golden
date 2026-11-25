@@ -1,7 +1,7 @@
 NotationGlyphs::Diagrams::mixedGlyphs - mixed rendering (render asMixedDiagram)
 
 requirement def LevelReq
-  frame safety
+  frame concern safety
 requirement NotationGlyphs::levelReq
 requirement capacity
   require constraint capacity::levelReq

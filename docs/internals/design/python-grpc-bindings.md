@@ -528,11 +528,19 @@ class Symbol:
     def kind(self) -> str:
         """PartDefinition, AttributeUsage, etc."""
         
-    def children(self) -> List[Symbol]:
-        """All children (lazy loaded)."""
+    def members(self, kind=None, inherited=False, library=False) -> Members:
+        """Members as the service enumerates them: own, then inherited on request."""
+
+    def children(self, inherited=False, library=False) -> Members:
+        """Owned members (lazy loaded); inherited ones with inherited=True."""
         
-    def attributes(self) -> List[Symbol]:
-        """Children filtered to attributes."""
+    def attributes(self, inherited=True, library=False) -> Members:
+        """Members filtered to attributes, inherited ones included."""
+
+    def parts(self, inherited=False, library=False) -> Members: ...
+    def ports(self, inherited=False, library=False) -> Members: ...
+    def bindings(self, inherited=False, library=False) -> Members: ...
+    def connections(self, inherited=False, library=False) -> Members: ...
         
     def get_attr(self, name: str) -> Optional[Symbol]:
         """Lookup attribute by name."""

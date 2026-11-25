@@ -1,0 +1,19 @@
+FurnaceViews::burnerTree - tree rendering (view def GeneralView)
+
+state def Burner
+  attributes
+    attribute flame : ScalarValues::Boolean
+  states
+    state off
+    state running
+  action usages
+    action usage entry
+  succession usages
+    succession usage then off
+  transitions
+    transition
+  successions
+    succession first running then off
+
+not represented:
+  - 7 member(s) drawn as compartment rows of their owner, and 6 node(s) under them left undrawn

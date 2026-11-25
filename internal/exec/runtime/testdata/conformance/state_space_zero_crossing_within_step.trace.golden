@@ -1,0 +1,261 @@
+materialize: probe #1
+start: performed action advance of #1
+materialize: advance #2
+  eval literal 1.0 -> 1.0
+  enter calc VectorFunctions::VectorOf
+    bind components = 1.0 [argument]
+  exit calc VectorFunctions::VectorOf -> ⟨1.0⟩
+eval invoke VectorOf -> ⟨1.0⟩
+  eval literal 0.0 -> 0.0
+  enter calc VectorFunctions::VectorOf
+    bind components = 0.0 [argument]
+  exit calc VectorFunctions::VectorOf -> ⟨0.0⟩
+eval invoke VectorOf -> ⟨0.0⟩
+  eval literal 1 -> 1
+eval index -> 1 [s]
+  eval literal 2 -> 2
+eval index -> 2 [s]
+run: performed action advance of #1
+enter calc test::Probe::advance::getOutput
+  bind input = ⟨1.0⟩ [argument]
+  bind stateSpace = ⟨0.0⟩ [argument]
+  stmt return
+          eval feature stateSpace -> ⟨0.0⟩
+        eval chain elements -> (0.0)
+        eval literal 1 -> 1
+      eval index -> 0.0
+      enter calc VectorFunctions::VectorOf
+        bind components = 0.0 [argument]
+      exit calc VectorFunctions::VectorOf -> ⟨0.0⟩
+    eval invoke VectorOf -> ⟨0.0⟩
+exit calc test::Probe::advance::getOutput -> (⟨0.0⟩)
+state: advance t=0.0 x=⟨0.0⟩ y=[⟨0.0⟩]
+        eval feature stateSpace -> ⟨0.0⟩
+      eval chain elements -> (0.0)
+      eval literal 1 -> 1
+    eval index -> 0.0
+    eval literal 0.3 -> 0.3
+  eval operator - -> -0.3
+        eval feature stateSpace -> ⟨0.0⟩
+      eval chain elements -> (0.0)
+      eval literal 1 -> 1
+    eval index -> 0.0
+    eval literal 0.4 -> 0.4
+  eval operator - -> -0.4
+eval operator * -> 0.12
+step 1: token 1@advance
+eval literal 0.0 -> 0.0
+eval literal 0.0 -> 0.0
+enter: outside
+  eval literal 10 -> 10
+eval index -> 10 [s]
+run: performed action advance of #1
+enter calc test::Probe::advance::getDerivative
+  bind input = ⟨1.0⟩ [argument]
+  bind stateSpace = ⟨0.0⟩ [argument]
+  stmt return
+            eval feature input -> ⟨1.0⟩
+          eval chain elements -> (1.0)
+          eval literal 1 -> 1
+        eval index -> 1.0
+        enter calc VectorFunctions::VectorOf
+          bind components = 1.0 [argument]
+        exit calc VectorFunctions::VectorOf -> ⟨1.0⟩
+      eval invoke VectorOf -> ⟨1.0⟩
+        eval literal 1 -> 1
+      eval index -> 1 [s]
+    eval operator / -> ⟨1.0⟩ [1/s]
+exit calc test::Probe::advance::getDerivative -> (⟨1.0⟩ [1/s])
+enter calc test::Probe::advance::getDerivative
+  bind input = ⟨1.0⟩ [argument]
+  bind stateSpace = ⟨0.15⟩ [argument]
+  stmt return
+            eval feature input -> ⟨1.0⟩
+          eval chain elements -> (1.0)
+          eval literal 1 -> 1
+        eval index -> 1.0
+        enter calc VectorFunctions::VectorOf
+          bind components = 1.0 [argument]
+        exit calc VectorFunctions::VectorOf -> ⟨1.0⟩
+      eval invoke VectorOf -> ⟨1.0⟩
+        eval literal 1 -> 1
+      eval index -> 1 [s]
+    eval operator / -> ⟨1.0⟩ [1/s]
+exit calc test::Probe::advance::getDerivative -> (⟨1.0⟩ [1/s])
+enter calc test::Probe::advance::getDerivative
+  bind input = ⟨1.0⟩ [argument]
+  bind stateSpace = ⟨0.15⟩ [argument]
+  stmt return
+            eval feature input -> ⟨1.0⟩
+          eval chain elements -> (1.0)
+          eval literal 1 -> 1
+        eval index -> 1.0
+        enter calc VectorFunctions::VectorOf
+          bind components = 1.0 [argument]
+        exit calc VectorFunctions::VectorOf -> ⟨1.0⟩
+      eval invoke VectorOf -> ⟨1.0⟩
+        eval literal 1 -> 1
+      eval index -> 1 [s]
+    eval operator / -> ⟨1.0⟩ [1/s]
+exit calc test::Probe::advance::getDerivative -> (⟨1.0⟩ [1/s])
+enter calc test::Probe::advance::getDerivative
+  bind input = ⟨1.0⟩ [argument]
+  bind stateSpace = ⟨0.3⟩ [argument]
+  stmt return
+            eval feature input -> ⟨1.0⟩
+          eval chain elements -> (1.0)
+          eval literal 1 -> 1
+        eval index -> 1.0
+        enter calc VectorFunctions::VectorOf
+          bind components = 1.0 [argument]
+        exit calc VectorFunctions::VectorOf -> ⟨1.0⟩
+      eval invoke VectorOf -> ⟨1.0⟩
+        eval literal 1 -> 1
+      eval index -> 1 [s]
+    eval operator / -> ⟨1.0⟩ [1/s]
+exit calc test::Probe::advance::getDerivative -> (⟨1.0⟩ [1/s])
+enter calc test::Probe::advance::getOutput
+  bind input = ⟨1.0⟩ [argument]
+  bind stateSpace = ⟨0.3⟩ [argument]
+  stmt return
+          eval feature stateSpace -> ⟨0.3⟩
+        eval chain elements -> (0.3)
+        eval literal 1 -> 1
+      eval index -> 0.3
+      enter calc VectorFunctions::VectorOf
+        bind components = 0.3 [argument]
+      exit calc VectorFunctions::VectorOf -> ⟨0.3⟩
+    eval invoke VectorOf -> ⟨0.3⟩
+exit calc test::Probe::advance::getOutput -> (⟨0.3⟩)
+state: advance t=0.3 x=⟨0.3⟩ y=[⟨0.3⟩]
+        eval feature stateSpace -> ⟨0.3⟩
+      eval chain elements -> (0.3)
+      eval literal 1 -> 1
+    eval index -> 0.3
+    eval literal 0.3 -> 0.3
+  eval operator - -> 0.0
+        eval feature stateSpace -> ⟨0.3⟩
+      eval chain elements -> (0.3)
+      eval literal 1 -> 1
+    eval index -> 0.3
+    eval literal 0.4 -> 0.4
+  eval operator - -> -0.10000000000000003
+eval operator * -> -0.0
+eval literal false -> false
+event: zero crossing band of advance (t=0.3)
+step 2: token 1@advance
+exit: outside
+enter: inside (entry action)
+stmt action body
+  stmt assign entered
+        eval feature advance -> instance#2
+      eval chain elements -> (0.3)
+      eval literal 1 -> 1
+    eval index -> 0.3
+  eval literal 10 -> 10
+eval index -> 10 [s]
+transition: outside -> inside (event: accept InBand)
+run: performed action advance of #1
+enter calc test::Probe::advance::getDerivative
+  bind input = ⟨1.0⟩ [argument]
+  bind stateSpace = ⟨0.3⟩ [argument]
+  stmt return
+            eval feature input -> ⟨1.0⟩
+          eval chain elements -> (1.0)
+          eval literal 1 -> 1
+        eval index -> 1.0
+        enter calc VectorFunctions::VectorOf
+          bind components = 1.0 [argument]
+        exit calc VectorFunctions::VectorOf -> ⟨1.0⟩
+      eval invoke VectorOf -> ⟨1.0⟩
+        eval literal 1 -> 1
+      eval index -> 1 [s]
+    eval operator / -> ⟨1.0⟩ [1/s]
+exit calc test::Probe::advance::getDerivative -> (⟨1.0⟩ [1/s])
+enter calc test::Probe::advance::getDerivative
+  bind input = ⟨1.0⟩ [argument]
+  bind stateSpace = ⟨0.35⟩ [argument]
+  stmt return
+            eval feature input -> ⟨1.0⟩
+          eval chain elements -> (1.0)
+          eval literal 1 -> 1
+        eval index -> 1.0
+        enter calc VectorFunctions::VectorOf
+          bind components = 1.0 [argument]
+        exit calc VectorFunctions::VectorOf -> ⟨1.0⟩
+      eval invoke VectorOf -> ⟨1.0⟩
+        eval literal 1 -> 1
+      eval index -> 1 [s]
+    eval operator / -> ⟨1.0⟩ [1/s]
+exit calc test::Probe::advance::getDerivative -> (⟨1.0⟩ [1/s])
+enter calc test::Probe::advance::getDerivative
+  bind input = ⟨1.0⟩ [argument]
+  bind stateSpace = ⟨0.35⟩ [argument]
+  stmt return
+            eval feature input -> ⟨1.0⟩
+          eval chain elements -> (1.0)
+          eval literal 1 -> 1
+        eval index -> 1.0
+        enter calc VectorFunctions::VectorOf
+          bind components = 1.0 [argument]
+        exit calc VectorFunctions::VectorOf -> ⟨1.0⟩
+      eval invoke VectorOf -> ⟨1.0⟩
+        eval literal 1 -> 1
+      eval index -> 1 [s]
+    eval operator / -> ⟨1.0⟩ [1/s]
+exit calc test::Probe::advance::getDerivative -> (⟨1.0⟩ [1/s])
+enter calc test::Probe::advance::getDerivative
+  bind input = ⟨1.0⟩ [argument]
+  bind stateSpace = ⟨0.39999999999999997⟩ [argument]
+  stmt return
+            eval feature input -> ⟨1.0⟩
+          eval chain elements -> (1.0)
+          eval literal 1 -> 1
+        eval index -> 1.0
+        enter calc VectorFunctions::VectorOf
+          bind components = 1.0 [argument]
+        exit calc VectorFunctions::VectorOf -> ⟨1.0⟩
+      eval invoke VectorOf -> ⟨1.0⟩
+        eval literal 1 -> 1
+      eval index -> 1 [s]
+    eval operator / -> ⟨1.0⟩ [1/s]
+exit calc test::Probe::advance::getDerivative -> (⟨1.0⟩ [1/s])
+enter calc test::Probe::advance::getOutput
+  bind input = ⟨1.0⟩ [argument]
+  bind stateSpace = ⟨0.4⟩ [argument]
+  stmt return
+          eval feature stateSpace -> ⟨0.4⟩
+        eval chain elements -> (0.4)
+        eval literal 1 -> 1
+      eval index -> 0.4
+      enter calc VectorFunctions::VectorOf
+        bind components = 0.4 [argument]
+      exit calc VectorFunctions::VectorOf -> ⟨0.4⟩
+    eval invoke VectorOf -> ⟨0.4⟩
+exit calc test::Probe::advance::getOutput -> (⟨0.4⟩)
+state: advance t=0.39999999999999997 x=⟨0.4⟩ y=[⟨0.4⟩]
+        eval feature stateSpace -> ⟨0.4⟩
+      eval chain elements -> (0.4)
+      eval literal 1 -> 1
+    eval index -> 0.4
+    eval literal 0.3 -> 0.3
+  eval operator - -> 0.10000000000000003
+        eval feature stateSpace -> ⟨0.4⟩
+      eval chain elements -> (0.4)
+      eval literal 1 -> 1
+    eval index -> 0.4
+    eval literal 0.4 -> 0.4
+  eval operator - -> 0.0
+eval operator * -> 0.0
+eval literal false -> false
+event: zero crossing band of advance (t=0.39999999999999997)
+step 3: token 1@advance
+exit: inside
+enter: beyond (entry action)
+stmt action body
+  stmt assign left
+        eval feature advance -> instance#2
+      eval chain elements -> (0.4)
+      eval literal 1 -> 1
+    eval index -> 0.4
+transition: inside -> beyond (event: accept InBand)

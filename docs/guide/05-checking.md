@@ -208,10 +208,11 @@ integer is reported, while `n as Natural` on `attribute n : Natural = 7` keeps `
 as `*`, and whatever that ordering decides is answered, in the operator notation and the function
 notation alike: `* > 1`, `'>'(*, 1)`, `* == *`, `max(*, 1)` (`*`), `min(*, 1)` (`1`), `abs(*)`,
 `ToString(*)` (`"*"`) and unary `+`. Beside a feature the model leaves open, `max(*, u)` is still `*`
-and the ordering stays open. The Kernel Function Library defines no arithmetic result over
-it, so `+`, `-`, `*`, `/`, `%`, `**`, `^`, unary `-`, `..`, `sum` and `product` over `*` are well
-typed — the checker accepts them, as the pilot does — and evaluating one is an error naming the
-operator, as a division by zero is.
+and the ordering stays open. `*` is the positive infinity of KerML's extended numbers and `-*` the
+negative one, below every number: an `Integer`, a `Rational` and a `Real`, but no `Natural`.
+Arithmetic over them answers what the extended reals determine — `* + 1` is `*`, `1 - *` is `-*`,
+`2 / *` is the Rational `0.0`, `(-*) ** 3` is `-*` — and an indeterminate form (`* - *`, `0 * *`, `* / *`,
+`* ** 0`, any `%`) is an error naming it, as a division by zero is.
 
 ```sysml
 sysml> package Budget {
@@ -225,8 +226,12 @@ sysml> %eval Budget::withinLimit
 ✓ Budget::withinLimit
   = true
 
-sysml> %eval * + 1
-error: evaluation failed: type mismatch: operator '+' is not defined for the unbounded value '*': * + 1
+sysml> %eval 1 - *
+✓ 1 - *
+  = -*
+
+sysml> %eval * - *
+error: evaluation failed: arithmetic domain error: * - * is undefined in the extended reals
 ```
 
 **Metadata:** `elem.metadata` is the sequence of metadata annotating `elem`, one object per
@@ -717,7 +722,10 @@ sysml> %validate car.wheels[1]
 
 The verdicts come root first, then each held object as the walk reaches it, and each names the
 object it is about by the path from the one validated, a collection element by its position
-(`wheels[2]`, counted from 1). The object is valid only when every assertion holds *and* every
+(`wheels[2]`, counted from 1). A failed condition is printed as the tree that was evaluated, an
+operand parenthesised only where its operator binds looser than the enclosing one — `a and (b or c)`
+keeps its parentheses, `(a and b) or c` prints without them — so the text reads back as the
+condition that was checked. The object is valid only when every assertion holds *and* every
 object it holds was reached: an assertion that could not be evaluated — a feature no value
 reaches — is reported as undecided with the reason, not as false, and leaves the object undecided
 rather than valid; so does a walk cut short by an object graph that goes on without end. An
@@ -730,10 +738,18 @@ name, not an assertion about the object, and is not swept. The command line make
 **Derived values under the solver:**
 
 `%check`, `%solve`, `%explain` and `%configure` ask an external SMT solver what the conditions
-*permit* (see [installing a solver](01-install.md#installing-a-solver-optional)), so a declared
-value is not asserted there — except a *derived* one, written as an expression over other
-features of the same element, which is asserted as the defining equation of its variable: the
-model states not a value but how the value follows from the others.
+*permit* (see [installing a solver](01-install.md#installing-a-solver-optional)), so a `default`
+value is not asserted there: it is what the feature holds unless something overrides it, and the
+question is what the conditions allow. A value written with `=` is different — the feature is
+bound to it at all times (KerML 1.1 §7.3.4.5) — so it is fixed as declared; and a *derived* one,
+written as an expression over other features of the same element, is asserted as the defining
+equation of its variable: the model states not a value but how the value follows from the
+others. Both hold whether the element checked is a part, a constraint or a requirement, and an
+equation a redefinition supplies for an inherited feature counts too. A value written through a
+chain rooted in one of the element's own features is derived too when no object is held for the
+root — `attribute :>> ok = s.amount > 2.0 and s.amount < 1.0;` over the requirement's subject
+`s`, a parameter of the requirement (SysML v2 §7.21.2), binds `ok` to the expression's result
+(KerML 1.1 §7.3.4.5), so the requirement answers as one stating the condition directly does.
 
 ```sysml
 sysml> package Box {
@@ -795,10 +811,12 @@ sysml> %solve Box::Crate::fits
   standing: unsatisfiable (proved over inputs: 1 query by solve)
 ```
 
-A literal default (`attribute height = 0.1 [m]`) stays a fixed value, as before, so `%check`'s
+A literal bound with `=` (`attribute height = 0.1 [m]`) stays a fixed value, so `%check`'s
 answers over one do not move; a derived value the object has already materialized is fixed as
-held; and one read through another object (`crate.volume` from a part that holds a `Crate`) is
-the value that object derives, since the equation is over the held object's features. Where
+held; and one read through another object (`crate.volume` from a part that holds a `Crate`, or
+`s.amount` once an object is held for the subject `s`) is the value that object derives, since
+the equation is over the held object's features. A qualified or imported name (`test::scale * r`)
+stays a value the evaluator derives, as does a chain whose leaf the solver cannot carry. Where
 nothing can state the equation — the expression is outside the solver's subset and a feature it
 reads holds nothing — the value is left free and listed under `Left free, since their declared
 value could not be read:` with the reason.

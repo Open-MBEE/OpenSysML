@@ -1,0 +1,26 @@
+{
+  "rpc": "GetElementProperties",
+  "model": "element_properties_feature.sysml",
+  "element_id": "FeatureFamily::Derived::primary",
+  "properties": [
+    "isComposite",
+    "isReference"
+  ],
+  "expected_properties": [
+    {
+      "name": "isComposite",
+      "defining_class": "Feature",
+      "values": [
+        "true"
+      ]
+    },
+    {
+      "name": "isReference",
+      "defining_class": "Usage",
+      "derived": true,
+      "values": [
+        "false"
+      ]
+    }
+  ]
+}

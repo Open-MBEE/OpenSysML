@@ -869,6 +869,7 @@ func (e *Encoder) encodeFields(node ast.Node) {
 		e.node(n.Type)
 		e.nodes(n.Args)
 		e.namedArgs(n.NamedArgs)
+		e.w.Bool(n.BareArgument)
 	case *ast.JoinNode:
 		e.base(&n.NodeBase)
 		e.w.String(n.Name)
@@ -957,6 +958,7 @@ func (e *Encoder) encodeFields(node ast.Node) {
 		e.base(&n.NodeBase)
 		e.w.Int(int64(n.Kind))
 		e.w.String(n.Name)
+		e.span(n.NameSpan)
 		e.w.String(n.Keyword)
 	case *ast.QualifiedName:
 		e.base(&n.NodeBase)
@@ -1384,6 +1386,7 @@ func (d *Decoder) decodeFields(node ast.Node) {
 		n.Type = typed[*ast.QualifiedName](d)
 		n.Args = d.nodes()
 		n.NamedArgs = d.namedArgs()
+		n.BareArgument = d.r.Bool()
 	case *ast.JoinNode:
 		d.base(&n.NodeBase)
 		n.Name = d.r.String()
@@ -1472,6 +1475,7 @@ func (d *Decoder) decodeFields(node ast.Node) {
 		d.base(&n.NodeBase)
 		n.Kind = ast.PseudostateKind(d.r.Int())
 		n.Name = d.r.String()
+		n.NameSpan = d.span()
 		n.Keyword = d.r.String()
 	case *ast.QualifiedName:
 		d.base(&n.NodeBase)

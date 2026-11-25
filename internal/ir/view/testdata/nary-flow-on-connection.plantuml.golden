@@ -1,0 +1,64 @@
+@startuml
+' NaryViews::carLinks — interconnection rendering (render asInterconnectionDiagram)
+' not represented: 4 note(s); the dot form draws notes
+mainframe <size:10>//«view»//</size> **NaryViews::carLinks**\n<size:10>expose Nary::Car</size>
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+rectangle "<size:10>//«part def»//</size>\n**Car**" as n0 <<part def>> {
+  rectangle "<size:10>//«part»//</size>\n**tank**" as n1 <<part>> <<usage>> {
+    port "^fuelOut" as n1.0
+  }
+  rectangle "<size:10>//«part»//</size>\n**engine**" as n2 <<part>> <<usage>> {
+    port "^fuelIn" as n2.0
+  }
+  rectangle "<size:10>//«part»//</size>\n**gauge**" as n3 <<part>> <<usage>> {
+    port "^fuelIn" as n3.0
+  }
+  label "<size:10>//«flow»//</size>\n—▶" as n4
+  label "<size:10>//«flow»//</size>\n◀—" as n5
+  label "<size:10>//«message»//</size>\n—<U+003E>" as n6
+}
+n1.0 -[thickness=3]- n4
+n4 -[thickness=3]- n5
+n5 -[thickness=3]- n6
+n6 -[thickness=3]- n2.0
+n1.0 --> n3.0
+@enduml

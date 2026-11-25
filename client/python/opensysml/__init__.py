@@ -21,7 +21,7 @@ from opensysml.check import (
 )
 from opensysml.diagnostic import Diagnostic
 from opensysml.enumeration import EnumLiteral
-from opensysml.instance import Instance
+from opensysml.instance import Instance, InstancePath, InstancePaths, PathStep
 from opensysml.typed import TypedObject
 from opensysml.typefacts import (
     AttributeFacts,
@@ -29,8 +29,12 @@ from opensysml.typefacts import (
     Specialization,
     SymbolFacts,
     TypeFacts,
+    TypeRef,
 )
 from opensysml.capabilities import (
+    CAPABILITY_ELEMENT_PROPERTIES,
+    CAPABILITY_INLINE_DOCUMENT_QUERY,
+    CAPABILITY_QUERY_RESULT_VIEW,
     CAPABILITY_RECORD_RUN,
     CAPABILITY_RUNS,
     CAPABILITY_SELF_CHECK,
@@ -52,6 +56,8 @@ from opensysml.capabilities import (
 from opensysml.values import (
     UNSET, Array, Function, InstanceRef, MeasurementRef, Metaobject, SetValue, TensorQuantity,
     Undetermined, UnsetType,
+    AffineTransformation3d, CoordinateFrame, CoordinateTransformation, FramePlacement, FramePose,
+    FrameRotation, FrameStep, MeasurementScale,
     Vector, VectorQuantity,
 )
 from opensysml.importcompare import (
@@ -62,7 +68,7 @@ from opensysml.verdict import (
     AnalysisResult, CalcResult, CaseEvaluation, SweepRow, SweepTable, ToolDryRun, Validation,
     Verdict, VerificationVerdict,
 )
-from opensysml.exploration import Exploration, Outcome
+from opensysml.exploration import Coverage, CoverageEntry, Exploration, Outcome
 from opensysml.action_run import ActionOutputs
 from opensysml.engines import Bound, EngineInfo, Standing
 from opensysml.runs import (
@@ -76,13 +82,14 @@ from opensysml.runs import (
     SelfCheckFinding,
     SelfCheckResult,
 )
-from opensysml.query import QueryElement, QueryError
+from opensysml.query import QueryElement, QueryElements, QueryError
+from opensysml.element_properties import ElementIdentity, ElementProperties, ElementProperty
 from opensysml.sources import SourceDocument
 from opensysml.document import (
     DocumentEvent, DocumentQueryError, DocumentQueryResult, DocumentRow, DocumentState,
     DocumentVerdict, ElementRef, Graphs, INFINITY, ObjectRef, RenderCanvas, RenderEdge,
-    RenderGeometry, RenderNode, RenderNote, RenderPoint, RenderPort, RenderRow,
-    RenderSpan, RenderStyle, RenderedView,
+    RenderFrame, RenderGeometry, RenderNode, RenderNote, RenderPoint, RenderPort, RenderRow,
+    RenderHeaderField, RenderSpan, RenderStyle, RenderedView,
 )
 from opensysml.conversion import (
     FORMAT_API_JSON, FORMAT_SYSML, FORMAT_TURTLE, ID_FORM_QUALIFIED, ID_FORM_UUID, Conversion,
@@ -101,7 +108,7 @@ from opensysml.errors import (
     InstanceTypeError, InvalidRequestError, ManifestSignatureError, ModelError,
     ModelFileNotFoundError, ModelNotFoundError, ServiceError,
     ServiceTimeoutError, SigstoreUnavailableError, StaleServiceError, SymbolNotFoundError,
-    ViewNotFoundError,
+    UnresolvedChildError, ViewNotFoundError,
     TypeMismatchError, UnpinnedReleaseError, UnsignedReleaseError,
     UnsupportedOperationError, UnsupportedValueError, WrongKindError,
 )
@@ -128,11 +135,13 @@ __all__ = [
     "CheckSearch",
     "CheckViolation",
     "CheckWitness",
-    "Connection", "Model", "Symbol", "Diagnostic", "EnumLiteral", "Instance",
-    "TypedObject", "TypeFacts", "Multiplicity", "Specialization", "SymbolFacts",
+    "Connection", "Model", "Symbol", "Diagnostic", "EnumLiteral", "Instance", "InstancePath", "InstancePaths", "PathStep",
+    "TypedObject", "TypeFacts", "TypeRef", "Multiplicity", "Specialization", "SymbolFacts",
     "AttributeFacts",
     "ServerInfo",
     "UNSET", "UnsetType", "Undetermined",
+    "CoordinateFrame", "CoordinateTransformation", "MeasurementScale", "FramePlacement", "FrameStep",
+    "FrameRotation", "AffineTransformation3d", "FramePose",
     "Array", "Vector", "VectorQuantity", "MeasurementRef", "Function", "Metaobject", "SetValue",
     "TensorQuantity", "InstanceRef",
     "Conversion", "FORMAT_API_JSON", "FORMAT_SYSML", "FORMAT_TURTLE", "LibraryReference",
@@ -144,13 +153,15 @@ __all__ = [
     "Verdict", "CalcResult", "AnalysisResult", "CaseEvaluation", "SweepRow", "SweepTable",
     "ToolDryRun",
     "Validation", "VerificationVerdict",
-    "Exploration", "Outcome", "ActionOutputs",
+    "Exploration", "Outcome", "ActionOutputs", "Coverage", "CoverageEntry",
     "Bound", "EngineInfo", "Standing",
     "QueryElement", "QueryError",
+    "ElementIdentity", "ElementProperties", "ElementProperty", "CAPABILITY_ELEMENT_PROPERTIES", "CAPABILITY_INLINE_DOCUMENT_QUERY",
+    "CAPABILITY_QUERY_RESULT_VIEW", "QueryElements", "RenderHeaderField",
     "SourceDocument",
     "DocumentEvent", "DocumentQueryError", "DocumentQueryResult", "DocumentRow",
     "DocumentState", "DocumentVerdict", "ElementRef", "INFINITY", "ObjectRef",
-    "RenderCanvas", "RenderEdge", "RenderGeometry", "RenderNode", "RenderNote",
+    "RenderCanvas", "RenderEdge", "RenderFrame", "RenderGeometry", "RenderNode", "RenderNote",
     "RenderPoint", "RenderPort", "RenderRow", "RenderSpan", "RenderStyle", "RenderedView",
     "Graphs",
     "CaseStatistic", "CaseStatistics", "ComparedDistribution", "Comparison", "ConfigurationComparison",
@@ -173,7 +184,7 @@ __all__ = [
     "ModelError", "ModelFileNotFoundError", "ModelNotFoundError",
     "ServiceError", "ServiceTimeoutError", "SigstoreUnavailableError", "StaleServiceError",
     "SymbolNotFoundError",
-    "ViewNotFoundError",
+    "UnresolvedChildError", "ViewNotFoundError",
     "TypeMismatchError", "UnpinnedReleaseError", "UnsignedReleaseError",
     "UnsupportedOperationError", "UnsupportedValueError",
     "WrongKindError",
@@ -361,7 +372,8 @@ def connect(host='localhost', port=None, auto_start=True, version=None,
 def convert(to_format, file_path=None, content=None, model_hash=None,
             from_format='', tolerate_syntax_errors=False, host='localhost',
             port=None, id_form='', include_library_stubs=False, compact=False,
-            omit_derived=False, keep_derived=(), include_check_diagnostics=False):
+            omit_derived=False, keep_derived=(), include_check_diagnostics=False,
+            inherited_members=False):
     """Write a model out in another format (module-level convenience).
 
     Args:
@@ -389,6 +401,10 @@ def convert(to_format, file_path=None, content=None, model_hash=None,
             library stubs written before 0.11.0; by default library elements
             remain bare references, not roots. Needs the
             ``convert_library_stubs`` capability
+        inherited_members (bool): For api-json, also write the derived lists
+            that repeat each Namespace's and Type's inherited and imported
+            members; by default an element carries its owned structure. Needs
+            the ``convert_inherited_members`` capability
         compact (bool): For notation converted to api-json, write the compact
             document (``api-json-compact/1``) in place of the element array.
             Needs the ``convert_compact`` capability
@@ -436,6 +452,7 @@ def convert(to_format, file_path=None, content=None, model_hash=None,
         tolerate_syntax_errors=tolerate_syntax_errors,
         id_form=id_form,
         include_library_stubs=include_library_stubs,
+        inherited_members=inherited_members,
         compact=compact,
         omit_derived=omit_derived,
         keep_derived=keep_derived,

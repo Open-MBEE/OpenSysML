@@ -202,6 +202,22 @@ func TestWalkCollapsedRootKeepsExposedChildAsRoot(t *testing.T) {
 	}
 }
 
+// In a mixed diagram too, an element exposed beneath a collapsed owner stays a
+// root of its own rather than being folded away inside the owner.
+func TestWalkMixedCollapsedOwnerKeepsExposedChildAsRoot(t *testing.T) {
+	rendering := render(t, "layout-collapsed.sysml", "FoldedViews::bothMixed")
+	var roots []string
+	for _, root := range rendering.Roots {
+		roots = append(roots, root.Name)
+		if root.Name == "vehicle" && len(root.Children) != 0 {
+			t.Errorf("collapsed vehicle draws %d children, want none", len(root.Children))
+		}
+	}
+	if len(rendering.Roots) != 2 || !nodeNames(rendering.Roots)["piston"] {
+		t.Errorf("roots = %v (piston drawn: %v); want vehicle and engine, engine with its members", roots, nodeNames(rendering.Roots)["piston"])
+	}
+}
+
 // A mixed diagram's structural subtrees carry their depth cuts into the notices.
 func TestWalkMixedCarriesDepthCuts(t *testing.T) {
 	r, idx := loadFixtures(t, "depth-tree.sysml")

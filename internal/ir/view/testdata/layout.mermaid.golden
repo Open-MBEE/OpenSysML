@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» PlantViews::placedView"
 ---
 %% PlantViews::placedView — interconnection rendering (render asInterconnectionDiagram)
 %% canvas: unit=px w=1200 h=800

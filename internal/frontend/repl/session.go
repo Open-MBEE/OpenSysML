@@ -4,7 +4,6 @@ package repl
 
 import (
 	"fmt"
-	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -12,6 +11,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
@@ -97,6 +98,10 @@ type Session struct {
 	// while it runs (exploreVerdict). Lower-case helpers assume the caller holds both.
 	mu    sync.Mutex
 	state sync.Mutex
+	// resultViews makes each document query write its answer as a QVTS::QueryResult view.
+	resultViews bool
+	// resultViewNames holds the view names SetResultViews has written, nil when a command asks per query.
+	resultViewNames map[string]bool
 	// elementIDs is the reader the session's queries share (elementIDReader).
 	elementIDs sessionElementIDs
 
@@ -118,6 +123,9 @@ type Session struct {
 	// libraryRoots are the directories installed projects are looked for
 	// under, besides the well-known ones beneath a loaded file's project.
 	libraryRoots []string
+	// loadScan is what the library roots hold, for the load in progress: its
+	// discoveries share one walk of each root. Nil between loads.
+	loadScan *project.Scan
 	// workspaceRoot is the directory the root namespaces a typed submission
 	// leaves unresolved are looked for under, empty to look nowhere; workspace
 	// indexes its model files, built on first use.
@@ -1562,7 +1570,7 @@ func (s *Session) runtimeModel() (*runtime.Model, error) {
 	sem.SetSourceFile(s.sessionSourceFile)
 	sem.ShareAbout(s.about)
 	model := runtime.NewModel(sem, resolver)
-	model.SetExpressionParser(parser.ParseOneExpression)
+	model.SetExpressionParser(lower.ExpressionReader(parser.ParseOneExpression, model.Resolver()))
 	// Give the runtime the buffer's text, so an error about a declaration reports
 	// the line it was submitted on rather than a byte offset, and the buffer's
 	// scope tree, so a carried object is rebound to the symbols the prompt reaches.

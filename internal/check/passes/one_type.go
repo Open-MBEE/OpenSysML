@@ -1,43 +1,47 @@
 package passes
 
 import (
+	"slices"
+
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 const msgEnumerationAttributeTypes = "An enumeration attribute cannot have more than one type."
 
+// msgRequirementOneType is the one message of every usage kind that is a RequirementUsage.
+const msgRequirementOneType = "A requirement must be typed by one requirement definition."
+
 // Pilot SysMLValidator (2026-05) checkOneType: these usage kinds are typed by
-// exactly one definition, so a second declared type is an error. Messages are
-// the reference's, per kind.
+// exactly one definition, so a second declared type is an error. Messages are the
+// reference's, per metaclass: a concern, objective or satisfy is a RequirementUsage.
 var oneTypeUsageMessages = map[ast.UsageKind]string{
 	ast.UsageCalc:             "A calculation must be typed by one calculation definition.",
 	ast.UsageConstraint:       "A constraint must be typed by one constraint definition.",
-	ast.UsageRequirement:      "A requirement must be typed by one requirement definition.",
+	ast.UsageRequirement:      msgRequirementOneType,
+	ast.UsageObjective:        msgRequirementOneType,
+	ast.UsageSatisfy:          msgRequirementOneType,
+	ast.UsageConcern:          msgRequirementOneType,
+	ast.UsageFramedConcern:    msgRequirementOneType,
 	ast.UsageCase:             "A case must be typed by one case definition.",
 	ast.UsageAnalysisCase:     "An analysis case must be typed by one analysis case definition.",
 	ast.UsageVerificationCase: "A verification case must be typed by one verification case definition.",
 	ast.UsageUseCase:          "A use case must be typed by one use case definition.",
 	ast.UsageEnumeration:      "An enumeration must be typed by one enumeration definition.",
 	ast.UsageRendering:        "A rendering must be typed by one rendering definition.",
+	ast.UsageViewRendering:    "A rendering must be typed by one rendering definition.",
 	ast.UsageViewpoint:        "A viewpoint must be typed by one viewpoint definition.",
 	ast.UsageView:             "A view must be typed by one view definition.",
 	ast.UsageMetadata:         "A metadata usage must be typed by one metadata definition.",
 }
 
-// checkOneType reports a usage that declares more than one type where the
-// reference admits one. A usage declaring none is silent: the reference counts
-// the type its library base supplies, so there is exactly one.
+// checkOneType reports a usage whose effective types are more than one where
+// the reference admits one; a usage declaring none has its library base's.
 func (tc *typeChecker) checkOneType(scope *symbols.Scope, d featureDecl) {
-	typings := 0
-	for _, rel := range d.relationships {
-		if rel != nil && rel.Kind == ast.RelTyping {
-			typings++
-		}
-	}
-	if typings <= 1 && !tc.enumeratedValueTypeDiffers(scope, d) {
+	if tc.effectiveDeclaredTypes(scope, d) <= 1 && !tc.enumeratedValueTypeDiffers(scope, d) {
 		return
 	}
 	msg, ok := oneTypeUsageMessages[d.kind]
@@ -56,6 +60,40 @@ func (tc *typeChecker) checkOneType(scope *symbols.Scope, d featureDecl) {
 		Code:     "one-type",
 		Source:   "type",
 	})
+}
+
+// effectiveDeclaredTypes counts the declared types plus the kind's implied base,
+// redundant supertypes dropped (KerML 1.1 §8.3.3.3.4); an unresolved one counts as its own.
+func (tc *typeChecker) effectiveDeclaredTypes(scope *symbols.Scope, d featureDecl) int {
+	resolved := kindBases(tc.expr.model, tc.resolver, scope.MemberDeclaring(d.node), tc.lang == source.KindKerML)
+	unresolved := 0
+	for _, rel := range d.relationships {
+		if rel == nil || rel.Kind != ast.RelTyping {
+			continue
+		}
+		typ := tc.expr.resolveTarget(scope, rel.Target)
+		if typ == nil {
+			unresolved++
+			continue
+		}
+		if !slices.ContainsFunc(resolved, func(seen *symbols.Symbol) bool { return symbols.SameElement(seen, typ) }) {
+			resolved = append(resolved, typ)
+		}
+	}
+	effective := unresolved
+	for i, typ := range resolved {
+		redundant := false
+		for j, other := range resolved {
+			if i != j && tc.expr.model != nil && tc.expr.model.Conforms(other, typ) {
+				redundant = true
+				break
+			}
+		}
+		if !redundant {
+			effective++
+		}
+	}
+	return effective
 }
 
 // enumeratedValueTypeDiffers reports an enumerated value typed — by declaration
@@ -89,7 +127,7 @@ func (tc *typeChecker) enumeratedValueTypes(scope *symbols.Scope, u *ast.Usage) 
 		return nil
 	}
 	for _, rel := range u.Relationships {
-		if rel != nil && semantics.GeneralizationKind(rel.Kind) {
+		if rel != nil && semantics.UsageGeneralization(u.Kind, rel.Kind) {
 			return nil
 		}
 	}

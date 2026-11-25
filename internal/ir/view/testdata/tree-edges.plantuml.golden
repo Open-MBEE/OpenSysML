@@ -1,5 +1,6 @@
 @startuml
 ' FleetViews::structure — tree rendering
+mainframe <size:10>//«view»//</size> **FleetViews::structure**\n<size:10>expose Fleet::Vehicle</size>\n<size:10>expose Fleet::SportsCar</size>\n<size:10>expose Fleet::Chassis</size>\n<size:10>expose Fleet::LightChassis</size>\n<size:10>expose Fleet::Wheel</size>\n<size:10>expose Fleet::Driver</size>\n<size:10>expose Fleet::Mass</size>\n<size:10>expose Fleet::fleetCar</size>
 <style>
 root {
   BackGroundColor white

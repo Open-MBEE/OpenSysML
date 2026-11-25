@@ -22,6 +22,17 @@ func symbolFromProto(sym *pb.SymbolInfo) *Symbol {
 		Name:                      sym.Name,
 		Kind:                      sym.Kind,
 		WithheldLibraryAttributes: int(sym.WithheldLibraryAttributes),
+		WithheldLibraryMembers:    int(sym.WithheldLibraryMembers),
+	}
+	for _, member := range sym.Members {
+		out.Members = append(out.Members, SymbolMember{
+			ID:            member.Id,
+			Name:          member.Name,
+			Kind:          member.Kind,
+			Inherited:     member.Inherited,
+			InheritedFrom: member.InheritedFrom,
+			Library:       member.Library,
+		})
 	}
 	if len(sym.Metadata) > 0 {
 		out.Metadata = make(map[string]string, len(sym.Metadata))
@@ -31,6 +42,9 @@ func symbolFromProto(sym *pb.SymbolInfo) *Symbol {
 	}
 	if len(sym.ChildIds) > 0 {
 		out.ChildIDs = append([]string(nil), sym.ChildIds...)
+	}
+	if len(sym.AnnotatingMetadataIds) > 0 {
+		out.AnnotatingMetadataIDs = append([]string(nil), sym.AnnotatingMetadataIds...)
 	}
 	for _, attr := range sym.Attributes {
 		out.Attributes = append(out.Attributes, Attribute{
@@ -42,13 +56,17 @@ func symbolFromProto(sym *pb.SymbolInfo) *Symbol {
 	}
 	if sym.TypeInfo != nil {
 		out.Type = &TypeInfo{
-			Declared:        sym.TypeInfo.Declared,
-			ResolvedID:      sym.TypeInfo.ResolvedId,
-			ResolvedKind:    sym.TypeInfo.ResolvedKind,
-			Primitive:       sym.TypeInfo.Primitive,
-			PrimitiveSource: sym.TypeInfo.PrimitiveSource,
-			Quantity:        sym.TypeInfo.Quantity,
-			Unit:            sym.TypeInfo.Unit,
+			Declared:              sym.TypeInfo.Declared,
+			ResolvedID:            sym.TypeInfo.ResolvedId,
+			ResolvedQualifiedName: sym.TypeInfo.ResolvedQualifiedName,
+			ResolvedKind:          sym.TypeInfo.ResolvedKind,
+			Primitive:             sym.TypeInfo.Primitive,
+			PrimitiveSource:       sym.TypeInfo.PrimitiveSource,
+			Quantity:              sym.TypeInfo.Quantity,
+			Unit:                  sym.TypeInfo.Unit,
+		}
+		for _, ref := range sym.TypeInfo.Types {
+			out.Type.Types = append(out.Type.Types, TypeRef{ID: ref.Id, Kind: ref.Kind})
 		}
 	}
 	if sym.Multiplicity != nil {
@@ -56,10 +74,11 @@ func symbolFromProto(sym *pb.SymbolInfo) *Symbol {
 	}
 	for _, spec := range sym.Specializations {
 		out.Specializations = append(out.Specializations, Specialization{
-			Kind:       spec.Kind,
-			Declared:   spec.Declared,
-			TargetID:   spec.TargetId,
-			TargetKind: spec.TargetKind,
+			Kind:                spec.Kind,
+			Declared:            spec.Declared,
+			TargetID:            spec.TargetId,
+			TargetQualifiedName: spec.TargetQualifiedName,
+			TargetKind:          spec.TargetKind,
 		})
 	}
 	return out
@@ -144,6 +163,18 @@ func valueFromProto(value *pb.Value) Value {
 			CountLower: kind.Undetermined.GetCount().GetLower(),
 			CountUpper: kind.Undetermined.GetCount().GetUpper(),
 		}
+	case *pb.Value_CoordinateFrame:
+		frame, ok := frameFromProto(kind.CoordinateFrame)
+		if !ok {
+			return Null("unsupported: coordinate frame with a part that cannot be read")
+		}
+		return frame
+	case *pb.Value_CoordinateTransformation:
+		transformation, ok := transformationFromProto(kind.CoordinateTransformation)
+		if !ok {
+			return Null("unsupported: coordinate transformation with a part that cannot be read")
+		}
+		return transformation
 	case *pb.Value_Array:
 		if err := protoconv.CheckArrayShape(kind.Array.GetDimensions(), len(kind.Array.GetElements())); err != nil {
 			return Null("unsupported: " + err.Error())
@@ -377,6 +408,16 @@ func valueToProto(value Value) (*pb.Value, error) {
 			Code:    CodeInvalidArgument,
 			Message: "undetermined is not a value a caller can supply",
 		}
+	case *CoordinateFrame:
+		return nil, &StatusError{
+			Code:    CodeInvalidArgument,
+			Message: "a coordinate frame is not a value a caller can supply",
+		}
+	case *CoordinateTransformation:
+		return nil, &StatusError{
+			Code:    CodeInvalidArgument,
+			Message: "a coordinate transformation is not a value a caller can supply",
+		}
 	default:
 		return nil, &StatusError{Code: CodeInvalidArgument, Message: "unknown value kind"}
 	}
@@ -385,7 +426,7 @@ func valueToProto(value Value) (*pb.Value, error) {
 // quantityToProto marshals a quantity, refusing one without a magnitude —
 // the zero Quantity — which the service would reject.
 func quantityToProto(quantity Quantity) (*pb.Quantity, error) {
-	out := &pb.Quantity{Unit: quantity.Unit}
+	out := &pb.Quantity{Unit: quantity.Unit, ValueType: quantity.ValueType}
 	switch magnitude := quantity.Magnitude.(type) {
 	case Int:
 		out.Magnitude = &pb.Quantity_IntMagnitude{IntMagnitude: int64(magnitude)}
@@ -455,7 +496,7 @@ func instancesFromProto(instances []*pb.Instance) []*Instance {
 // quantityFromProto is false for a quantity carrying no magnitude, which no
 // number stands in for.
 func quantityFromProto(quantity *pb.Quantity) (Quantity, bool) {
-	out := Quantity{Unit: quantity.GetUnit()}
+	out := Quantity{Unit: quantity.GetUnit(), ValueType: quantity.GetValueType()}
 	switch magnitude := quantity.GetMagnitude().(type) {
 	case *pb.Quantity_IntMagnitude:
 		out.Magnitude = Int(magnitude.IntMagnitude)
@@ -499,6 +540,36 @@ func instanceFromProto(inst *pb.Instance) *Instance {
 			}
 			out.FeatureValues[name] = converted
 		}
+	}
+	if reach := inst.ReachedBy; reach != nil {
+		out.ReachedBy = &Reach{
+			InstanceID:      reach.InstanceId,
+			FeatureName:     reach.FeatureName,
+			FeatureSymbolID: reach.FeatureSymbolId,
+			Index:           int(reach.Index),
+			Path:            reach.Path,
+		}
+	}
+	return out
+}
+
+func instancePathsFromProto(resp *pb.InstancePathsResponse) *InstancePaths {
+	out := &InstancePaths{Truncated: resp.Truncated}
+	for _, path := range resp.Paths {
+		converted := InstancePath{
+			RootInstanceID: path.GetRoot().GetInstanceId(),
+			RootSymbolID:   path.GetRoot().GetSymbolId(),
+			Path:           path.Path,
+		}
+		for _, step := range path.Steps {
+			converted.Steps = append(converted.Steps, PathStep{
+				FeatureName:     step.FeatureName,
+				FeatureSymbolID: step.FeatureSymbolId,
+				Index:           int(step.Index),
+				InstanceID:      step.InstanceId,
+			})
+		}
+		out.Paths = append(out.Paths, converted)
 	}
 	return out
 }

@@ -51,7 +51,11 @@ func (m *Model) boundIn(scope *symbols.Scope, n ast.Node) Bound {
 		n, ok := v.Int64()
 		return Bound{Value: n, Known: ok}
 	case ValInfinity:
-		return Bound{Infinite: true, Known: true}
+		// `-*` is no Natural, so it bounds nothing.
+		if v.IsUnbounded() {
+			return Bound{Infinite: true, Known: true}
+		}
+		return Bound{}
 	default:
 		return Bound{}
 	}
@@ -226,8 +230,10 @@ func UsageMultiplicityOf(sym *symbols.Symbol) *ast.Multiplicity {
 		return decl.Multiplicity
 	case *ast.CrossFeatureMember:
 		return decl.Multiplicity
+	case *ast.ConnectorEnd:
+		return decl.Multiplicity
 	}
-	return nil
+	return successionEndMultiplicity(sym)
 }
 
 // AssumedRange is the implicit [1..1]: what SysML v2 §7.6.3 declares for an
@@ -272,13 +278,14 @@ func (m *Model) ImplicitMultiplicityApplies(sym *symbols.Symbol) bool {
 	if usage, ok := sym.Decl.(*ast.Usage); ok && usage.Kind == ast.UsageObjective {
 		return false
 	}
-	if _, ok := implicitMultiplicityMetaclasses[sysmlMetaclassName(sym)]; !ok {
+	if _, ok := implicitMultiplicityMetaclasses[sysmlMetaclassName(sym)]; !ok && !isNamedTriggerPayload(sym) {
+		// A trigger's named payload is a ReferenceUsage that takes the default all the same, as the tree writes it.
 		return false
 	}
 	if sym.Decl == nil {
 		for _, kind := range implicitMultiplicityRelationshipKinds {
 			for _, target := range m.RecordedRelationshipTargets(sym, kind) {
-				if withholdsImplicitMultiplicity(target) {
+				if withholdsImplicitMultiplicityBy(kind, target) {
 					return false
 				}
 			}
@@ -288,7 +295,7 @@ func (m *Model) ImplicitMultiplicityApplies(sym *symbols.Symbol) bool {
 			if rel == nil || rel.Target == nil || !isImplicitMultiplicityRelationship(rel.Kind) {
 				continue
 			}
-			if withholdsImplicitMultiplicity(m.RelationshipTarget(sym, rel)) {
+			if withholdsImplicitMultiplicityBy(rel.Kind, m.RelationshipTarget(sym, rel)) {
 				return false
 			}
 		}
@@ -320,6 +327,17 @@ func isImplicitMultiplicityRelationship(kind ast.RelationshipKind) bool {
 		}
 	}
 	return false
+}
+
+// withholdsImplicitMultiplicityBy reports whether a relationship of kind to target
+// withholds the implicit [1..1]: a redefinition always, whatever it redefines (the
+// redefining feature takes the redefined one's multiplicity, KerML 1.1 §7.3.4.5);
+// a subsetting, reference or cross-subsetting when its target is a type-owned feature.
+func withholdsImplicitMultiplicityBy(kind ast.RelationshipKind, target *symbols.Symbol) bool {
+	if kind == ast.RelRedefines {
+		return target == nil || target.Kind != symbols.SymbolMetadataUsage
+	}
+	return withholdsImplicitMultiplicity(target)
 }
 
 func withholdsImplicitMultiplicity(target *symbols.Symbol) bool {
@@ -369,22 +387,42 @@ func (m *Model) EffectiveParameterRangeAlong(chain []*symbols.Symbol) Range {
 	if len(chain) == 0 {
 		return UnboundedRange()
 	}
-	w := &rangeWalk{m: m, next: make(map[*symbols.Symbol]*symbols.Symbol, len(chain)), visited: map[*symbols.Symbol]bool{}}
-	for i := 0; i+1 < len(chain); i++ {
-		w.next[chain[i]] = chain[i+1]
-	}
-	if r, ok := w.rangeOf(chain[0]); ok {
+	if r, ok := m.rangeWalkAlong(chain).rangeOf(chain[0]); ok {
 		return r
 	}
 	return UnboundedRange()
 }
 
+// InheritedMultiplicityOf is the range a feature declaring no multiplicity takes from the features
+// it redefines or subsets (KerML 1.1 §7.3.4.5), ok=false when none of them declares one.
+func (m *Model) InheritedMultiplicityOf(sym *symbols.Symbol) (Range, bool) {
+	if sym == nil {
+		return Range{}, false
+	}
+	if _, declared := m.MultiplicityOf(sym); declared || m.ImplicitMultiplicityApplies(sym) {
+		return Range{}, false
+	}
+	defer m.own(sym).LeaveDoc()
+	w := m.rangeWalkAlong(m.ParameterRedefinitionChain(sym))
+	r, ok := w.rangeOf(sym)
+	return r, ok && w.declared
+}
+
+func (m *Model) rangeWalkAlong(chain []*symbols.Symbol) *rangeWalk {
+	w := &rangeWalk{m: m, next: make(map[*symbols.Symbol]*symbols.Symbol, len(chain)), visited: map[*symbols.Symbol]bool{}}
+	for i := 0; i+1 < len(chain); i++ {
+		w.next[chain[i]] = chain[i+1]
+	}
+	return w
+}
+
 // rangeWalk intersects ranges along a redefinition chain and its relationships,
-// visiting each feature once.
+// visiting each feature once; declared records that one of them wrote its range.
 type rangeWalk struct {
-	m       *Model
-	next    map[*symbols.Symbol]*symbols.Symbol
-	visited map[*symbols.Symbol]bool
+	m        *Model
+	next     map[*symbols.Symbol]*symbols.Symbol
+	visited  map[*symbols.Symbol]bool
+	declared bool
 }
 
 func (w *rangeWalk) rangeOf(p *symbols.Symbol) (Range, bool) {
@@ -393,6 +431,7 @@ func (w *rangeWalk) rangeOf(p *symbols.Symbol) (Range, bool) {
 	}
 	w.visited[p] = true
 	if r, ok := w.m.MultiplicityOf(p); ok {
+		w.declared = true
 		return r, true
 	}
 	if w.m.ImplicitMultiplicityApplies(p) {

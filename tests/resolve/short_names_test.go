@@ -93,8 +93,8 @@ func TestCollidingDerivedShortNamesAreHidden(t *testing.T) {
 		t.Errorf("tms binds %q, want it hidden", got)
 	}
 	warnings, errs := diagnosticsOf(r)
-	if len(warnings) != 1 || !strings.Contains(warnings[0], "Duplicate of imported member name 'tms'") {
-		t.Errorf("warnings %v, want the duplicate imported member name", warnings)
+	if len(warnings) != 0 {
+		t.Errorf("warnings %v, want none", warnings)
 	}
 	if len(errs) != 1 || !strings.Contains(errs[0], "hidden here") {
 		t.Errorf("errors %v, want the hidden-name diagnostic", errs)

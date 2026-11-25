@@ -95,6 +95,9 @@ package GeneralViews {
 		filter @SysML::RequirementDefinition or @SysML::RequirementUsage;
 		expose VehicleRequirements::**;
 	}
+	view requirementDocs : GeneralView {
+		expose VehicleRequirements::**;
+	}
 	view definitionView : GeneralView {
 		expose VehicleStructure::**[@SysML::Definition or @SysML::Usage];
 	}

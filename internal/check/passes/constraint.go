@@ -89,6 +89,7 @@ func (cc *constraintChecker) check(sym *symbols.Symbol) {
 	cc.checkFlowEndSubsetting(sym)
 	cc.checkInterfaceEndConjugation(sym)
 	cc.checkRedefinition(sym)
+	cc.checkDisjointFeatureTypes(sym)
 	cc.checkW10BRedefinition(sym)
 	cc.checkW10BCrossFeatures(sym)
 	cc.checkSubsettingFeaturingTypes(sym)
@@ -170,7 +171,7 @@ func (cc *constraintChecker) checkSpecializationCycle(sym *symbols.Symbol) {
 		span = selfSpan
 	} else {
 		for _, rel := range semantics.RelationshipsOf(sym) {
-			if rel == nil || rel.Target == nil || !semantics.GeneralizationKind(rel.Kind) {
+			if rel == nil || rel.Target == nil || !semantics.Generalizes(sym, rel.Kind) {
 				continue
 			}
 			span = rel.Target.Span()
@@ -441,17 +442,12 @@ func (cc *constraintChecker) checkUnnamedRedefinitionValue(sym *symbols.Symbol) 
 	})
 }
 
-// checkRedefinition flags a usage that redefines a member without proper
-// inheritance, type conformance, or multiplicity bounds. SysML constraints:
-// (1) redefined member must be inherited, (2) redefining usage must have a type
-// that conforms to the redefined usage's type, (3) multiplicity bounds must be
-// compatible (lower >= redefined.lower, upper <= redefined.upper).
+// checkRedefinition reports a redefined feature the redefining one cannot access: a Redefinition is a
+// Subsetting, so KerML 1.1 §8.3.3.3.10 validateSubsettingFeaturingTypes requires Feature::canAccess of its target.
 func (cc *constraintChecker) checkRedefinition(sym *symbols.Symbol) {
-	rels := semantics.RelationshipsOf(sym)
-	if len(rels) == 0 {
-		return // No relationships
+	if !sym.IsFeature() {
+		return
 	}
-
 	// sym is declared in the scope its owning definition or usage owns; a scope
 	// with no owner is the document root or internal, and only the root features.
 	var owner *symbols.Symbol
@@ -462,116 +458,40 @@ func (cc *constraintChecker) checkRedefinition(sym *symbols.Symbol) {
 	if owner == nil && !packageLevel {
 		return
 	}
-	ownerName := "the root namespace"
-	if owner != nil {
-		ownerName = owner.Name
-	}
-
-	// Extract all redefines relationships
-	for _, rel := range rels {
-		if rel == nil {
+	for _, rel := range semantics.RelationshipsOf(sym) {
+		if rel == nil || rel.Kind != ast.RelRedefines || rel.Target == nil {
 			continue
 		}
-		if rel.Kind != ast.RelRedefines {
+		redefined := cc.redefinedFeature(sym, rel)
+		// A chain is featured as its first chaining feature is (deriveFeatureFeaturingType).
+		accessed := redefined
+		if path := cc.model.ChainTargetPath(sym, rel.Kind, rel.Target); len(path) > 0 {
+			accessed = path[0]
+		}
+		if redefined == nil || redefined == sym || !accessed.IsFeature() || cc.model.CanAccess(sym, accessed) {
 			continue
 		}
-		if rel.Target == nil {
+		// With no featuring type the feature inherits from nothing, so only accessibility is at issue.
+		if len(cc.model.DerivedFeaturingTypes(sym)) == 0 {
+			cc.addRedefineDiag(rel.Target, msgSubsettingFeaturingTypes, "subsetting-featuring-types")
 			continue
 		}
-
-		targetNode := rel.Target
-		if fr, ok := targetNode.(*ast.FeatureReference); ok {
-			targetNode = fr.Name
+		ownerName := "the root namespace"
+		if owner != nil {
+			ownerName = owner.Name
 		}
-		qn, isQN := targetNode.(*ast.QualifiedName)
-		if !isQN {
-			continue
-		}
-		featuringOwners, hasFeaturing := cc.featuringOwners(sym)
-		if !hasFeaturing {
-			if packageLevel {
-				cc.checkPackageLevelRedefinition(sym, rel)
-				continue
-			}
-			featuringOwners = []*symbols.Symbol{owner}
-		}
-		var redefined *symbols.Symbol
-		inherited := false
-		for _, featuringOwner := range featuringOwners {
-			candidate, resolved := cc.resolveInheritedMember(featuringOwner, qn)
-			if !resolved || candidate == nil {
-				continue
-			}
-			if isPackageLevelFeature(candidate) {
-				continue
-			}
-			redefined = candidate
-			inherited = cc.isInheritedMember(featuringOwner, candidate, qn.Parts[len(qn.Parts)-1].Text)
-			if inherited {
-				break
-			}
-		}
-		if redefined == nil {
-			continue
-		}
-
-		// A target that is not an inherited member may still be reachable
-		// through the featuring context (KerML validateRedefinitionFeaturingTypes).
-		if !inherited {
-			inherited = cc.redefinedAccessible(sym, redefined, map[*symbols.Symbol]bool{})
-		}
-
-		if !inherited {
-			cc.diags = append(cc.diags, diag.Diagnostic{
-				Severity: diag.SeverityError,
-				Span:     rel.Target.Span(),
-				Message: fmt.Sprintf(
-					"%s redefines %s, but %s is not an inherited member of %s",
-					sym.Name, redefined.Name, redefined.Name, ownerName),
-				Code:   "redefinition-no-inherited",
-				Source: "constraint",
-			})
-			continue
-		}
-
-		// A redefining feature's declared type is added to the redefined one's,
-		// not checked against it (KerML 8.3.3.3.4), so an unrelated type is advisory.
-		usageType := extractUsageType(cc, sym)
-		redefinedType := extractUsageType(cc, redefined)
-
-		if usageType != nil && redefinedType != nil {
-			if !cc.model.Conforms(usageType, redefinedType) {
-				cc.diags = append(cc.diags, diag.Diagnostic{
-					Severity: diag.SeverityWarning,
-					Span:     rel.Target.Span(),
-					Message: fmt.Sprintf(
-						"%s (typed by %s) redefines %s (typed by %s): types do not conform",
-						sym.Name, usageType.Name, redefined.Name, redefinedType.Name),
-					Code:   "redefinition-type-mismatch",
-					Source: "constraint",
-				})
-			}
-		}
+		cc.addRedefineDiag(rel.Target, fmt.Sprintf(
+			"%s redefines %s, but %s is not an inherited member of %s",
+			sym.Name, redefined.Name, redefined.Name, ownerName), "redefinition-no-inherited")
 	}
 }
 
-// checkPackageLevelRedefinition reports a redefiner with no featuring type reaching
-// a type-featured target (KerML validateSubsettingFeaturingTypes); package-level pairs are W10B's.
-func (cc *constraintChecker) checkPackageLevelRedefinition(sym *symbols.Symbol, rel *ast.Relationship) {
-	target := cc.resolveRelationshipTarget(sym, rel)
-	if target == nil || target == sym || !isUsageKind(target.Kind) {
-		return
+// redefinedFeature resolves the feature a redefinition names, the last feature of a chain.
+func (cc *constraintChecker) redefinedFeature(sym *symbols.Symbol, rel *ast.Relationship) *symbols.Symbol {
+	if path := cc.model.ChainTargetPath(sym, rel.Kind, rel.Target); len(path) > 0 {
+		return path[len(path)-1]
 	}
-	if len(cc.featuringContexts(target)) == 0 {
-		return
-	}
-	cc.diags = append(cc.diags, diag.Diagnostic{
-		Severity: diag.SeverityError,
-		Span:     rel.Target.Span(),
-		Message:  msgSubsettingFeaturingTypes,
-		Code:     "subsetting-featuring-types",
-		Source:   "constraint",
-	})
+	return cc.resolveRelationshipTarget(sym, rel)
 }
 
 func (cc *constraintChecker) featuringOwners(sym *symbols.Symbol) ([]*symbols.Symbol, bool) {
@@ -724,41 +644,6 @@ func (cc *constraintChecker) collectRedefined(sym *symbols.Symbol, into map[*sym
 	}
 }
 
-func (cc *constraintChecker) isInheritedMember(
-	owner, candidate *symbols.Symbol,
-	name string,
-) bool {
-	if owner == nil || candidate == nil {
-		return false
-	}
-
-	for _, supertype := range cc.model.AllSupertypes(owner) {
-		if found, ok := cc.model.LookupMember(supertype, name); ok && found == candidate {
-			return true
-		}
-		for scope := supertype.OwnerScope; scope != nil; scope = scope.Parent() {
-			if scope.Owner() == candidate {
-				return true
-			}
-		}
-	}
-
-	return false
-}
-
-func isPackageLevelFeature(sym *symbols.Symbol) bool {
-	if sym == nil || !isPackageLevelScope(sym.OwnerScope) {
-		return false
-	}
-	// A package-level feature has no featuring type to inherit its redefined member.
-	for _, rel := range semantics.RelationshipsOf(sym) {
-		if rel != nil && rel.Kind == ast.RelFeaturedBy && rel.Target != nil {
-			return false
-		}
-	}
-	return true
-}
-
 // isPackageLevelScope reports whether scope's members are owned by a package or
 // namespace rather than a type, counting the unowned document root as package-level.
 func isPackageLevelScope(scope *symbols.Scope) bool {
@@ -770,58 +655,4 @@ func isPackageLevelScope(scope *symbols.Scope) bool {
 		return scope.Parent() == nil
 	}
 	return owner.Kind == symbols.SymbolPackage || owner.Kind == symbols.SymbolNamespace
-}
-
-// extractUsageType extracts the type of a usage via its RelTyping relationship.
-// Returns nil if no explicit type is found.
-func extractUsageType(cc *constraintChecker, sym *symbols.Symbol) *symbols.Symbol {
-	if sym.Recorded() {
-		for _, typ := range cc.model.RecordedRelationshipTargets(sym, ast.RelTyping) {
-			return typ
-		}
-		return nil
-	}
-	for _, rel := range semantics.RelationshipsOf(sym) {
-		if rel == nil || rel.Target == nil || rel.Kind != ast.RelTyping {
-			continue
-		}
-		targetNode := rel.Target
-		if fr, ok := targetNode.(*ast.FeatureReference); ok {
-			targetNode = fr.Name
-		}
-		if qn, ok := targetNode.(*ast.QualifiedName); ok {
-			resolved, ok := cc.resolver.ResolveQualified(sym.OwnerScope, qn)
-			if ok && resolved != nil {
-				if canonical, aliasOK := cc.resolver.ResolveAliasTarget(resolved); aliasOK {
-					resolved = canonical
-				} else {
-					continue
-				}
-				return resolved
-			}
-		}
-	}
-	return nil
-}
-
-// resolveInheritedMember resolves a qualified name from owner's inherited scopes only,
-// excluding locally declared members. Used for redefines validation where target
-// must be inherited, not local.
-func (cc *constraintChecker) resolveInheritedMember(owner *symbols.Symbol, qn *ast.QualifiedName) (*symbols.Symbol, bool) {
-	// For single-part names, search inherited scopes directly
-	if len(qn.Parts) == 1 {
-		name := qn.Parts[0].Text
-		// Search all supertypes for the member
-		for _, supertype := range cc.model.AllSupertypes(owner) {
-			if supertype.Scope != nil {
-				if members := supertype.Scope.LookupLocalAll(name); len(members) > 0 {
-					return members[0], true
-				}
-			}
-		}
-		return nil, false
-	}
-
-	// For multi-part names, resolve normally (qualifiers won't be local members)
-	return cc.resolver.ResolveQualified(owner.Scope, qn)
 }

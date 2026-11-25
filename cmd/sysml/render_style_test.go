@@ -15,7 +15,7 @@ import (
 func TestRenderStyle(t *testing.T) {
 	binary := buildCLI(t)
 	fixture := filepath.Join("..", "..", "internal", "doc", "docrender", "testdata", "placed_report.sysml")
-	const frame = `subgraph "cluster_frame"`
+	const frame = `color="#5B5B59";` // the Cameo frame colour; the default view frame has none
 	check := func(t *testing.T, path, got string, cameo bool) {
 		t.Helper()
 		if strings.Contains(got, frame) != cameo || strings.Contains(got, `fontname="Arial"`) != cameo {
@@ -58,9 +58,11 @@ func TestRenderStyle(t *testing.T) {
 		}
 		check(t, "-render-document", doc.stdout, cameo)
 
-		page := runFiles(t, binary, []string{fixture}, append([]string{"-render-document", "Placed::PlacedReport", "-doc-form", "html", "-diagram-form", "dot"}, style...)...)
-		if page.status != exitHolds || strings.Contains(page.stdout, `data-style="cameo"`) != cameo {
-			t.Errorf("-doc-form html exit status = %d, states the style = %v\n%s", page.status, !cameo, page.output())
+		if docpdfFeature.linked {
+			page := runFiles(t, binary, []string{fixture}, append([]string{"-render-document", "Placed::PlacedReport", "-doc-form", "html", "-diagram-form", "dot"}, style...)...)
+			if page.status != exitHolds || strings.Contains(page.stdout, `data-style="cameo"`) != cameo {
+				t.Errorf("-doc-form html exit status = %d, states the style = %v\n%s", page.status, !cameo, page.output())
+			}
 		}
 
 		site := filepath.Join(t.TempDir(), "docs")

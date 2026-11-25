@@ -32,25 +32,21 @@ func TestExposedCollisionsAreNoNameConflict(t *testing.T) {
 	}
 }
 
-// A collision that a plain import or an inherited member takes part in is still
-// reported in a view, as it changes what a name written there resolves to.
-func TestExposedCollisionsBesideImportsAreNameConflicts(t *testing.T) {
-	cases := map[string]struct{ src, want string }{
-		"import and expose": {exposedParts + "\tview v { private import a::*; expose b::*; }\n}",
-			"Duplicate of imported member name 'p': V::a::p (import a::*), V::b::p (import all b::*)"},
-		"import of an exposed namespace": {exposedParts + "\tview v { expose a::*; expose b::*; private import a::*; }\n}",
-			"Duplicate of imported member name 'p': V::a::p (import all a::*), V::b::p (import all b::*)"},
-		"inherited member": {"package V {\n\tpart a { part p; }\n\tview def VD { part p; }\n\tview v : VD { expose a::*; }\n}",
-			"Duplicate of imported member name 'p': V::a::p (import all a::*), V::VD::p (inherited)"},
-		"two imports in a package": {exposedParts + "\tpackage U { private import a::*; private import b::*; }\n}",
-			"Duplicate of imported member name 'p': V::a::p (import a::*), V::b::p (import b::*)"},
+// A collision that a plain import or an inherited member takes part in hides
+// the imported membership (KerML 7.2.5.4, 7.3.2); the hiding is no violation
+// and is not reported, in a view as in a package.
+func TestExposedCollisionsBesideImportsAreHidden(t *testing.T) {
+	cases := map[string]string{
+		"import and expose":              exposedParts + "\tview v { private import a::*; expose b::*; }\n}",
+		"import of an exposed namespace": exposedParts + "\tview v { expose a::*; expose b::*; private import a::*; }\n}",
+		"inherited member":               "package V {\n\tpart a { part p; }\n\tview def VD { part p; }\n\tview v : VD { expose a::*; }\n}",
+		"two imports in a package":       exposedParts + "\tpackage U { private import a::*; private import b::*; }\n}",
 	}
-	for name, tc := range cases {
+	for name, src := range cases {
 		t.Run(name, func(t *testing.T) {
-			r, _, _ := resolvedDoc(t, tc.src)
-			warnings, errors := diagnosticsOf(r)
-			if len(warnings) != 1 || warnings[0] != tc.want || len(errors) != 0 {
-				t.Errorf("warnings = %v, errors = %v, want %q", warnings, errors, tc.want)
+			r, _, _ := resolvedDoc(t, src)
+			if warnings, errors := diagnosticsOf(r); len(warnings)+len(errors) != 0 {
+				t.Errorf("warnings = %v, errors = %v, want none", warnings, errors)
 			}
 		})
 	}

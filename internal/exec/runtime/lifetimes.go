@@ -175,8 +175,12 @@ func (ctx *Context) unbegunPerformance(inst *Instance) bool {
 		return false
 	}
 	sym := fv.Feature.Symbol
-	if sym.Kind != symbols.SymbolActionUsage && sym.Kind != symbols.SymbolStateUsage {
+	if !sym.Kind.IsActionUsage() && sym.Kind != symbols.SymbolStateUsage {
 		return false
+	}
+	// A node of an action's flow begins when the performance reaches it, if it does.
+	if owner.performed && declaresFlowNode(sym) {
+		return true
 	}
 	for _, b := range owner.behaviors {
 		if b.member == nil {

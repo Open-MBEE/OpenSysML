@@ -85,7 +85,7 @@ end
     @test occursin("ParseFile failed:", timeout.message)
 end
 
-@testset "live IEEE-754 values use protobuf JSON spellings" begin
+@testset "live IEEE-754 values use protobuf JSON spellings and +Inf answers as `*`" begin
     if !isfile(GRPC_BINARY)
         @test_skip false
     else
@@ -107,6 +107,11 @@ end
             """)
             for input in (NaN, Inf, -Inf, -0.0)
                 output = execute_action(model, "Wire::Echo"; inputs=Dict("data" => input))["result"]
+                # The service reads the real +Inf as `*`, which answers on the infinity arm.
+                if input == Inf
+                    @test output === Infinity()
+                    continue
+                end
                 @test output isa Float64
                 if isnan(input)
                     @test isnan(output)
@@ -202,6 +207,34 @@ end
     try
         @test_throws MissingCapabilityError convert_source(conn, "package P;", "api-json";
             from_format="sysml", include_library_stubs=true)
+        @test all(request -> request.method != "Convert", requests)
+    finally
+        close(conn)
+        close(server)
+    end
+end
+
+@testset "convert sends the inherited members asked for" begin
+    answer = Dict{String,Any}("content" => "[]", "fromFormat" => "sysml", "toFormat" => "api-json")
+    server, requests, address = recording_service(["convert", "convert_inherited_members"];
+                                                  handler=(method, body) -> answer)
+    conn = external(address)
+    try
+        @test_logs (:warn, OpenSysML.EXPERIMENTAL_NOTICE) convert_source(conn, "package P;", "api-json";
+            from_format="sysml", inherited_members=true)
+        @test requests[end].body["inheritedMembers"] === true
+        @test_logs (:warn, OpenSysML.EXPERIMENTAL_NOTICE) convert_source(conn, "package P;", "api-json";
+                                                               from_format="sysml")
+        @test !haskey(requests[end].body, "inheritedMembers")
+    finally
+        close(conn)
+        close(server)
+    end
+    server, requests, address = recording_service(["convert"])
+    conn = external(address)
+    try
+        @test_throws MissingCapabilityError convert_source(conn, "package P;", "api-json";
+            from_format="sysml", inherited_members=true)
         @test all(request -> request.method != "Convert", requests)
     finally
         close(conn)
@@ -750,6 +783,12 @@ end
                 typed_symbol = get_symbol(simple, "Test::SimplePart")
                 @test typed_symbol isa SymbolInfo
                 @test typed_symbol.id == "Test::SimplePart"
+                collision = parse_source(conn, "package Col__V__c_pend0 { part marker; } package Col { port def P; part def V { port q : P; port r : P; connection c connect q to r; } }"; name="collision.sysml")
+                @test get_symbol(collision, "Col__V__c_pend0"; lookup=:qualified_name).kind == "package"
+                by_id = get_symbol(collision, "Col__V__c_pend0"; lookup=:element_id)
+                @test by_id.kind == "connectorEnd"
+                @test by_id.id == "Col__V__c_pend0"
+                @test_throws ArgumentError get_symbol(collision, "Col"; lookup=:name)
                 instance = instantiate(simple, "Test::SimplePart")
                 @test instance.type_symbol_id == "Test::SimplePart"
                 @test instance.graph[instance.id] === instance
@@ -774,9 +813,9 @@ end
                 coordinate_instance = instantiate(coordinate_model,
                     "CoordinateFrameExample::Context")
                 coordinate_value = features(coordinate_instance)["accelarationCF"]
-                @test coordinate_value isa FeatureValueError
-                @test coordinate_value.message ==
-                      "unsupported: coordinate frame accelarationCF [m/s**2, m/s**2, m/s**2]"
+                @test coordinate_value isa CoordinateFrame
+                @test coordinate_value.name == "accelarationCF"
+                @test [axis.unit for axis in coordinate_value.axes] == fill("m/s**2", 3)
 
                 sources = parse_sources(conn, [
                     SourceDocument("a.sysml", "package A {}"),
@@ -784,6 +823,21 @@ end
                 ])
                 @test sources.documents == ["a.sysml", "b.sysml"]
                 @test isok(sources)
+            end
+
+            @testset "find answers an alias, get the element it names" begin
+                aliased = parse_source(conn, """
+                    package Vis {
+                        package Lib {
+                            part def Pump;
+                            alias PumpAlias for Pump;
+                        }
+                    }
+                """)
+                @test get(aliased, "Vis::Lib::PumpAlias").id == "Vis::Lib::Pump"
+                @test find(aliased, "Vis::Lib::PumpAlias").id == "Vis::Lib::PumpAlias"
+                @test find(aliased, "PumpAlias").id == "Vis::Lib::PumpAlias"
+                @test find(aliased, "Pump").id == "Vis::Lib::Pump"
             end
 
             @testset "verification, calculation, analysis, and sweep" begin
@@ -910,6 +964,18 @@ end
                     bindings=Dict("root" => ElementRef("Observatory::telescope")))
                 @test rows.columns == ["name", "mass"]
                 @test length(rows) == 4
+                inline_rows = run_document_query(document_model;
+                    inline_query="Project(WhereType(Descendants(Observatory::telescope), \"PartUsage\"), (\"name\", \"mass\"))")
+                @test inline_rows.columns == ["name", "mass"]
+                @test length(inline_rows) == 4
+                inline_fault = try
+                    run_document_query(document_model; inline_query="Project(Named(\"Observatory\") (\"name\"))")
+                    nothing
+                catch error
+                    error
+                end
+                @test inline_fault isa InvalidRequestError
+                @test occursin("inline query 1:", sprint(showerror, inline_fault))
                 @test !isempty(render_document(document_model, "Observatory::MassReport"))
                 @test !isempty(render_document(document_model, "Observatory::MassReport"; form="html"))
                 @test startswith(render_document(document_model, "Observatory::MassReport"; form="asciidoc"), "= ")
@@ -1282,6 +1348,84 @@ end
         @test verdict.notes[1].kind == "uncovered" && verdict.notes[1].subject == "gear"
         notes[] = Any[]
         @test isempty(verify_constraint(model, "Tanks::nonNegative"; question="holds").notes)
+    finally
+        close(conn)
+        close(server)
+    end
+end
+
+@testset "element_properties reads an element's properties by specification name" begin
+    answer = Dict{String,Any}(
+        "element" => Dict("id" => "Demo__Pair", "qualifiedName" => "Demo::Pair", "metaclass" => "PartDefinition"),
+        "properties" => Any[
+            Dict("name" => "inheritedFeature", "definingClass" => "Type", "many" => true, "derived" => true,
+                 "values" => Any[Dict("element" => Dict("id" => "Demo__Unit__p", "qualifiedName" => "Demo::Unit::p",
+                                                        "metaclass" => "PortUsage")),
+                                 Dict("element" => Dict("id" => "0c53", "metaclass" => "Feature"))]),
+            Dict("name" => "isAbstract", "definingClass" => "Type", "values" => Any[Dict("boolValue" => false)]),
+            Dict("name" => "declaredName", "definingClass" => "Element", "values" => Any[Dict("stringValue" => "Pair")]),
+            Dict("name" => "lowerBound", "values" => Any[Dict("intValue" => "3")]),
+            Dict("name" => "mass", "values" => Any[Dict("realValue" => 1.5)]),
+            Dict("name" => "huge", "values" => Any[Dict("number" => "18446744073709551616")]),
+            Dict("name" => "connectorEnd", "unsupported" => "PartDefinition declares no property connectorEnd")],
+        "excludedDocuments" => Any[Dict("document" => "c.sysml", "error" => "c.sysml: 1 syntax error(s)")])
+    server, requests, address = recording_service(["element_properties"]; handler=(method, body) -> answer)
+    conn = external(address)
+    try
+        model = Model(conn, "a"^64, Diagnostic[])
+        read = element_properties(model, "Demo::Pair", "inheritedFeature", "isAbstract")
+        @test requests[end].method == "GetElementProperties"
+        @test requests[end].body["modelHash"] == "a"^64
+        @test requests[end].body["elementId"] == "Demo::Pair"
+        @test requests[end].body["properties"] == ["inheritedFeature", "isAbstract"]
+        @test read.element == ElementIdentity("Demo__Pair", "Demo::Pair", "PartDefinition")
+        @test length(read) == 7 && haskey(read, "isAbstract") && !haskey(read, "owner")
+        @test [(d.document, d.error) for d in read.excluded_documents] == [("c.sysml", "c.sysml: 1 syntax error(s)")]
+        inherited = read["inheritedFeature"]
+        @test inherited.defining_class == "Type" && inherited.many && inherited.derived && is_answered(inherited)
+        @test property_elements(inherited) == [ElementIdentity("Demo__Unit__p", "Demo::Unit::p", "PortUsage"),
+                                               ElementIdentity("0c53", "", "Feature")]
+        @test string(property_elements(inherited)[2]) == "0c53"
+        @test property_value(read["isAbstract"]) === false
+        @test property_value(read["declaredName"]) == "Pair"
+        @test property_value(read["lowerBound"]) === Int64(3)
+        @test property_value(read["mass"]) === 1.5
+        @test property_value(read["huge"]) == "18446744073709551616"
+        @test !is_answered(read["connectorEnd"]) && property_value(read["connectorEnd"]) === nothing
+        @test occursin("declares no property", read["connectorEnd"].unsupported)
+        @test [p.name for p in read] == ["inheritedFeature", "isAbstract", "declaredName", "lowerBound", "mass", "huge", "connectorEnd"]
+        element_properties(model, "Demo::Pair")
+        @test !haskey(requests[end].body, "properties")
+    finally
+        close(conn)
+        close(server)
+    end
+end
+
+@testset "element_properties is refused before the call without its capability" begin
+    server, requests, address = recording_service(["query"])
+    conn = external(address)
+    try
+        @test_throws MissingCapabilityError element_properties(Model(conn, "a"^64, Diagnostic[]), "Demo::Pair")
+        @test all(request -> request.method == "GetServerInfo", requests)
+    finally
+        close(conn)
+        close(server)
+    end
+end
+
+@testset "element_properties raises the service's in-band error" begin
+    server, _, address = recording_service(["element_properties"];
+                                           handler=(method, body) -> Dict("error" => "element not found: Demo::Missing"))
+    conn = external(address)
+    try
+        err = try
+            element_properties(Model(conn, "a"^64, Diagnostic[]), "Demo::Missing")
+            nothing
+        catch exception
+            exception
+        end
+        @test err !== nothing && occursin("element not found: Demo::Missing", sprint(showerror, err))
     finally
         close(conn)
         close(server)

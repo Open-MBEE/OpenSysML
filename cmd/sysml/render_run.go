@@ -48,8 +48,8 @@ func runRenderModeMisuse() string {
 		return "-render-run cannot be combined with -query"
 	case outputPath != "":
 		return "-render-run names each output path; do not combine it with -output"
-	case renderPalette != "" || renderStyle != "" || renderPorts != "" || renderLines != "" || renderUnplaced != "" || renderCompartments != "":
-		return "-render-palette, -render-style, -render-ports, -render-lines, -render-unplaced and -render-compartments apply to model renderings, not -render-run"
+	case renderPalette != "" || renderStyle != "" || renderPorts != "" || renderLines != "" || renderDirection != "" || renderUnplaced != "" || renderCompartments != "":
+		return "-render-palette, -render-style, -render-ports, -render-lines, -render-direction, -render-unplaced and -render-compartments apply to model renderings, not -render-run"
 	}
 	return ""
 }
@@ -150,7 +150,7 @@ func finishRunCheck(rep *reporter, sess *repl.Session) int {
 		}
 	}
 	for _, target := range targets {
-		rendering, err := sess.RunTraceRendering(target.kind)
+		rendering, err := sess.RunTraceRendering(target.kind, renderLimit)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, errPrefix, err)
 			return 2

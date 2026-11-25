@@ -187,7 +187,7 @@ func TestRecursiveRollupThroughACollectBody(t *testing.T) {
 // measurement-reference supertype, and to no quantity value type; the checker
 // judges each as the runtime's write conformance does. A quantity bound to a
 // unit-typed feature (`hp : PowerUnit = 745.7 [W]` in the OMG examples) is not
-// judged, as the pilot implementation accepts it.
+// judged: the pilot validator reports nothing on it.
 func TestBoundMeasurementUnit(t *testing.T) {
 	wantNoDimensionDiags(t, `attribute u : LengthUnit = m;`)
 	wantNoDimensionDiags(t, `attribute u : LengthUnit = km;`)
@@ -284,6 +284,50 @@ func TestPointOnMeasurementScale(t *testing.T) {
 		"operator '**' on a point on the measurement scale SI::'°C_abs': a point has no multiple and its scale is no unit to compose; convert it to a unit with ConvertQuantity first")
 	wantOneDimensionWarning(t, warm+`attribute a = -(26.85 [SI::'°C_abs']);`,
 		"operator '-' negates a point on the measurement scale SI::'°C_abs', which has no negative; negate a difference between points instead")
+}
+
+// TestScaleKindsStatically: a cyclic value is a magnitude, an ordinal or logarithmic one
+// has no interval, and a logarithmic scale measures what its referenceQuantity does.
+func TestScaleKindsStatically(t *testing.T) {
+	const scales = `private import MeasurementReferences::*;
+		attribute mohs : OrdinalScale { :>> unit = one; }
+		attribute bearing : CyclicRatioScale { :>> unit = '°'; :>> modulus = 360; }
+		attribute dBm : LogarithmicScale { :>> unit = one; :>> logarithmBase = 10; :>> factor = 10; :>> exponent = 1; :>> referenceQuantity = 0.001 [W]; }
+		attribute octave : LogarithmicScale { :>> unit = one; :>> logarithmBase = 2; :>> factor = 1; :>> exponent = 1; }
+		`
+	for _, accepted := range []string{
+		`attribute a = 450 [bearing] + 30 ['°'];`,
+		`attribute a = 450 [bearing] + 30 [bearing];`,
+		`attribute a = 30 ['°'] - 450 [bearing];`,
+		`attribute a = 2 * 450 [bearing];`,
+		`attribute a = 450 [bearing] / 9 [s];`,
+		`attribute a = 450 [bearing] ** 2;`,
+		`attribute a = -(450 [bearing]);`,
+		`attribute a : AngularMeasureValue = 450 [bearing];`,
+		`attribute b : Boolean = 450 [bearing] == 90 ['°'];`,
+		`attribute b : Boolean = 9 [mohs] > 7 [mohs];`,
+		`attribute b : Boolean = 30.0 [dBm] > 1.0 [W];`,
+		`attribute p : PowerValue = 30.0 [dBm];`,
+		`attribute b : Boolean = 3.0 [octave] > 1.0 [W];`,
+		`attribute selfish : LogarithmicScale { :>> unit = one; :>> logarithmBase = 2; :>> factor = 1; :>> exponent = 1; :>> referenceQuantity = 1 [selfish]; }
+		attribute b : Boolean = 1 [selfish] > 0;`,
+	} {
+		wantNoDimensionDiags(t, scales+accepted)
+	}
+	wantOneDimensionWarning(t, scales+`attribute b = 450 [bearing] < 1.0 [m];`,
+		"operator '<' combines incommensurable quantities: bearing (dimensionless) and m (dimension L)")
+	wantOneDimensionWarning(t, scales+`attribute b = 30.0 [dBm] < 1.0 [m];`,
+		"operator '<' combines incommensurable quantities: dBm (dimension L^2·M·T^-3) and m (dimension L)")
+	wantOneDimensionWarning(t, scales+`attribute a = 9 [mohs] - 7 [mohs];`,
+		"operator '-' on a value on the measurement scale mohs, which is no interval scale: its values have no interval between them to add or take")
+	wantOneDimensionWarning(t, scales+`attribute a = 7 [mohs] + 1 [one];`,
+		"operator '+' on a value on the measurement scale mohs, which is no interval scale: its values have no interval between them to add or take")
+	wantOneDimensionWarning(t, scales+`attribute a = 30.0 [dBm] - 20.0 [dBm];`,
+		"operator '-' on a value on the measurement scale dBm, which is no interval scale: its values have no interval between them to add or take")
+	wantOneDimensionWarning(t, scales+`attribute a = 2 * 30.0 [dBm];`,
+		"operator '*' on a point on the measurement scale dBm: a point has no multiple and its scale is no unit to compose; convert it to a unit with ConvertQuantity first")
+	wantOneDimensionWarning(t, scales+`attribute a = 2 * 7 [mohs];`,
+		"operator '*' on a point on the measurement scale mohs: a point has no multiple and its scale is no unit to compose; convert it to a unit with ConvertQuantity first")
 }
 
 func wantOneDimensionWarning(t *testing.T, body, want string) {

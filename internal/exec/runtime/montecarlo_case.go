@@ -4,8 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"math"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
@@ -107,7 +109,7 @@ func (ctx *Context) ObserveMonteCarlo(sym *symbols.Symbol, args AnalysisArgs, sc
 	if err != nil {
 		return nil, err
 	}
-	asUsage := args.Subject == nil && len(args.Positional) == 0 && len(args.Named) == 0 && isCalcUsageSymbol(sym)
+	asUsage := args.Subject == nil && len(args.Positional) == 0 && len(args.Named) == 0 && lower.IsCalcUsageSymbol(sym)
 	var calcArgs calcArgs
 	if !asUsage {
 		if calcArgs, err = shape.analysisArgs(args); err != nil {
@@ -224,6 +226,7 @@ func (ctx *Context) calcUsageObservation(reader *EvalContext, sym *symbols.Symbo
 		return run, err
 	}
 	start.deferResults = true
+	start.judgeAssertions()
 	return ctx.finishCalcUsage(start)
 }
 
@@ -242,7 +245,7 @@ func (ctx *Context) monteCarloObserved(run *calcRun) (Value, error) {
 }
 
 // monteCarloMember is the name the case's run binds the library feature under.
-func (ctx *Context) monteCarloMember(shape *calcShape, feature string) (string, bool) {
+func (ctx *Context) monteCarloMember(shape *loadedCalc, feature string) (string, bool) {
 	if ctx.model.resolver == nil || ctx.model.resolver.Index() == nil {
 		return "", false
 	}
@@ -310,6 +313,10 @@ func MonteCarloSample(runs []*MonteCarloRun) (MonteCarloStatistics, error) {
 				return MonteCarloStatistics{}, fmt.Errorf("%w: run %d of %s: %w", errMonteCarloObserved, run.Number, run.Case, err)
 			}
 			number = drawnReal(magnitude)
+		}
+		if number.Kind != semantics.ValInt && math.IsNaN(number.AsReal()) {
+			return MonteCarloStatistics{}, fmt.Errorf("%w: run %d of %s observed %s, not a number",
+				errMonteCarloObserved, run.Number, run.Case, describeObserved(observed))
 		}
 		numbers = append(numbers, number)
 	}
@@ -523,6 +530,7 @@ func (r *MonteCarloRun) returnResults() error {
 		enclosing = run.shape.bodyEnclosing(run.outer.enclosingRun(run.shape))
 	}
 	engine := newStmtEngineIn(ctx, host, run.env, enclosing)
+	engine.exprs = &run.shape.Exprs
 	for _, body := range run.bodyFrames {
 		body.each(func(name string, value Value) {
 			if engine.env.locals == nil {
@@ -546,10 +554,10 @@ func (r *MonteCarloRun) returnResults() error {
 	if !returned {
 		return nil
 	}
-	if out := run.shape.resultOutput(); out != nil && out.Name != "" {
+	if out := run.shape.ResultOutput(); out != nil && out.Name != "" {
 		run.outputs[out.Name] = result
 	} else if _, anonymous := run.shape.anonymousResult(); anonymous {
-		run.outputs[resultOutputName] = result
+		run.outputs[program.ResultOutputName] = result
 	}
 	run.result, run.returned = result, true
 	return nil

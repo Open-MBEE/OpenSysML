@@ -6,7 +6,6 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
@@ -158,15 +157,6 @@ var (
 	// settle, so the cast fails rather than dropping a value that may be one.
 	errUndecidedClassification = errors.New("classification of a value cannot be decided")
 
-	// errCalcSideEffect is returned when a calc body states an effect on the
-	// world outside it — send, perform, accept, terminate. A calculation
-	// computes a value, so an effect is rejected rather than performed.
-	errCalcSideEffect = errors.New("side effect in a calculation body")
-
-	// errCalcExternalAssignment is returned when a calc body assigns to a name it
-	// does not declare itself, which would make the calculation impure.
-	errCalcExternalAssignment = errors.New("assignment outside the calculation body")
-
 	// errStatementNotExecutable is returned when a body reaches a member the
 	// lowering marked as not executable in that kind of body (lower.Unsupported).
 	errStatementNotExecutable = errors.New("statement not executable")
@@ -246,8 +236,8 @@ var (
 	// event budget.
 	ErrStateEventLimitExceeded = errors.New("state event limit exceeded")
 
-	// errNoInitialState is returned when a state machine initializes with no
-	// entry into its states: it states no `entry; then <state>;`.
+	// errNoInitialState is returned when a state machine declaring substates
+	// initializes with no entry into them: it states no `entry; then <state>;`.
 	errNoInitialState = errors.New("no initial state found")
 
 	// errNoEntryTransitionHolds is returned when a body's guarded entry transitions
@@ -586,9 +576,6 @@ func IsUninitializedFeatureValue(err error) bool {
 // naming the feature so a caller can tell which one is uninitialized.
 type NoValueError struct {
 	Feature string
-	// Ref is the written name whose read found no value, so a caller can tell a
-	// read of its own expression from one made while evaluating a default.
-	Ref *ast.QualifiedName
 	// Symbol is the feature declaration the read reached, when it is known.
 	Symbol *symbols.Symbol
 }

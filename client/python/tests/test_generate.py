@@ -14,7 +14,7 @@ from opensysml.generate import (
     is_feature_kind,
     render_module,
 )
-from opensysml.typefacts import Multiplicity, Specialization, SymbolFacts, TypeFacts
+from opensysml.typefacts import Multiplicity, Specialization, SymbolFacts, TypeFacts, TypeRef
 
 
 def definition(fqn, kind="partDef", features=(), specializations=()):
@@ -648,3 +648,48 @@ def test_render_module_empty_model():
     namespace: dict = {}
     exec(compile(source, "empty_types.py", "exec"), namespace)
     assert "TypedObject" not in namespace
+
+
+def test_collect_definitions_takes_the_type_the_service_derives():
+    """A feature typed only through subsetting resolves to the service's derived
+    type (``TypeFacts.types``) rather than walking what it generalizes."""
+    root = FakeSymbol(
+        SymbolFacts(id="Demo", name="Demo", kind="package"),
+        [
+            FakeSymbol(SymbolFacts(id="Demo::Engine", name="Engine", kind="partDef")),
+            FakeSymbol(
+                SymbolFacts(id="Demo::Car", name="Car", kind="partDef"),
+                [
+                    FakeSymbol(
+                        SymbolFacts(
+                            id="Demo::Car::engine",
+                            name="engine",
+                            kind="partUsage",
+                            type=TypeFacts(declared="Engine", resolved_id="Demo::Engine"),
+                        )
+                    ),
+                    FakeSymbol(
+                        SymbolFacts(
+                            id="Demo::Car::spare",
+                            name="spare",
+                            kind="partUsage",
+                            type=TypeFacts(types=(TypeRef(id="Demo::Engine", kind="partDef"),)),
+                            specializations=(
+                                Specialization(
+                                    kind="references",
+                                    declared="engine",
+                                    target_id="Demo::Car::engine",
+                                ),
+                            ),
+                        )
+                    ),
+                ],
+            ),
+        ],
+    )
+
+    definitions = {d.id: d for d in collect_definitions(root)}
+    spare = definitions["Demo::Car"].features[1]
+    assert spare.facts.type.declared == ""
+    assert spare.facts.type.resolved_id == "Demo::Engine"
+    assert spare.facts.type.resolved_kind == "partDef"

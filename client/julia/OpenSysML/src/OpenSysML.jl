@@ -7,6 +7,8 @@ using SHA
 
 export Connection, Model, Diagnostic, Instance, InstanceRef, Quantity,
        EnumLiteral, Unset, Infinity, FunctionRef, Metaobject, Undetermined,
+       CoordinateFrame, CoordinateTransformation, MeasurementScale, FramePlacement,
+       FrameStep, FrameRotation, AffineTransformation3d, FramePose,
        Unit, UnitFactor, MeasurementRef, ArrayValue, VectorValue, VectorQuantity,
        TensorQuantity, in_unit, to_unit, same_value, value_capabilities,
        OpenSysMLError, ConnectError, ServiceError, TransportError, DiagnosticError,
@@ -23,6 +25,8 @@ export Connection, Model, Diagnostic, Instance, InstanceRef, Quantity,
        QueryError, DocumentQueryError, UnsupportedValueError, FeatureValueError,
        TypeMismatchError, InstanceTypeError, IncommensurableUnitsError,
        QueryElement, build_query, as_dict,
+       ElementIdentity, ElementProperty, ElementProperties, ExcludedDocument, element_properties,
+       property_elements, property_value, is_answered,
        TypeFacts, Multiplicity, Specialization, AttributeFacts, SymbolFacts, SymbolInfo,
        Bound, Standing, EngineInfo, VerificationVerdict, WitnessAssignment, VerdictNote, Verdict,
        Validation, CalcResult, CaseEvaluation, AnalysisResult, ToolDryRun, ToolDryRunFile,
@@ -37,7 +41,7 @@ export Connection, Model, Diagnostic, Instance, InstanceRef, Quantity,
        documents, affected, isok, raise_for_errors, get_feature, features,
        verify_constraint, verify_requirement, verify_satisfaction, satisfied,
        validate_instance, calc, run_analysis, run_sweep, explore_analysis,
-       explore_action, explore_state, Outcome, Exploration, failed,
+       explore_action, explore_state, Outcome, Exploration, Coverage, CoverageEntry, failed,
        raise_for_error, raise_for_incomplete, Conversion, LibraryReference,
        ID_FORM_QUALIFIED, ID_FORM_UUID,
        convert_file, convert_source, convert_model, to_sysml, to_turtle,
@@ -73,6 +77,7 @@ include("connection.jl")
 include("model.jl")
 include("typed.jl")
 include("query.jl")
+include("element_properties.jl")
 include("typefacts.jl")
 include("symbol.jl")
 include("generate.jl")
@@ -80,6 +85,7 @@ include("engines.jl")
 include("verdict.jl")
 include("verification.jl")
 include("document.jl")
+include("coverage.jl")
 include("check.jl")
 include("conversion.jl")
 include("migration.jl")
@@ -111,13 +117,14 @@ end
 for capability in (
     :CAPABILITY_TYPE_FACTS, :CAPABILITY_CONVERT, :CAPABILITY_MIGRATE, :CAPABILITY_VERIFICATION,
     :CAPABILITY_VERIFICATION_QUESTIONS, :CAPABILITY_VERIFICATION_ARGUMENTS, :CAPABILITY_VERDICT_NOTES, :CAPABILITY_QUERY, :CAPABILITY_QUERY_ORDER_BY, :CAPABILITY_OSLC_QUERY,
-    :CAPABILITY_DOCUMENT_QUERY,
+    :CAPABILITY_DOCUMENT_QUERY, :CAPABILITY_INLINE_DOCUMENT_QUERY, :CAPABILITY_ELEMENT_PROPERTIES,
     :CAPABILITY_RENDER_DOCUMENT, :CAPABILITY_RENDER_DOCUMENT_HTML,
-    :CAPABILITY_RENDER_DOCUMENT_ASCIIDOC, :CAPABILITY_RENDER_VIEW,
+    :CAPABILITY_RENDER_DOCUMENT_ASCIIDOC, :CAPABILITY_RENDER_VIEW, :CAPABILITY_RENDER_VIEW_FORM,
     :CAPABILITY_EXPORT_GRAPHS, :CAPABILITY_RUNS, :CAPABILITY_SELF_CHECK, :CAPABILITY_RECORD_RUN,
     :CAPABILITY_IMPORT_DATA, :CAPABILITY_COMPARE_RESULTS,
     :CAPABILITY_CHECK, :CAPABILITY_ENUM_VALUES,
-    :CAPABILITY_EVALUATE_SUBJECT, :CAPABILITY_SYMBOL_ATTRIBUTES, :CAPABILITY_UNSET_VALUE,
+    :CAPABILITY_EVALUATE_SUBJECT, :CAPABILITY_SYMBOL_ATTRIBUTES, :CAPABILITY_SYMBOL_NAME_RESOLUTION, :CAPABILITY_SYMBOL_LOOKUP_KIND,
+    :CAPABILITY_UNSET_VALUE,
     :CAPABILITY_FEATURE_VALUES, :CAPABILITY_APPLY_EDITS, :CAPABILITY_AUTHORING,
     :CAPABILITY_CONNECTION_AUTHORING, :CAPABILITY_SATISFY_AUTHORING,
     :CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING, :CAPABILITY_TRANSITION_AUTHORING,
@@ -135,9 +142,11 @@ for capability in (
     :CAPABILITY_DIAGNOSTIC_CODES, :CAPABILITY_SCHEDULE, :CAPABILITY_CASE_EVALUATIONS,
     :CAPABILITY_SCHEDULE_EXPLORE, :CAPABILITY_PERFORMER, :CAPABILITY_STATE_TRACE, :CAPABILITY_ACTION_TRACE,
     :CAPABILITY_FINAL_TIME,
-    :CAPABILITY_ENGINES, :CAPABILITY_UNDETERMINED_VALUE, :CAPABILITY_BIG_INT_VALUES,
+    :CAPABILITY_ENGINES, :CAPABILITY_UNDETERMINED_VALUE, :CAPABILITY_COORDINATE_FRAME_VALUES,
+    :CAPABILITY_BIG_INT_VALUES,
     :CAPABILITY_RATIONAL_VALUES, :CAPABILITY_CONVERT_DOCUMENTS, :CAPABILITY_CONVERT_COMPACT,
     :CAPABILITY_CONVERT_LIBRARY_REFERENCES, :CAPABILITY_CONVERT_LIBRARY_STUBS,
+    :CAPABILITY_CONVERT_INHERITED_MEMBERS,
     :CAPABILITY_CONVERT_CHECK_DIAGNOSTICS, :CAPABILITY_PARSE_SOURCES_AFFECTED, :CAPABILITY_RENDER_DOCUMENT_FILE_NAME
 )
     @eval export $capability

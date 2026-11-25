@@ -9,6 +9,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/reposync"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/sysmlapi"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
@@ -836,5 +837,176 @@ func TestDependencyPrefixIsNotMinted(t *testing.T) {
 		if _, ok := again.Object(rdf.ElementIRIForID(minted), rdf.RDFType); !ok {
 			t.Errorf("%s, minted %s, is not at that id after write-back:\n%s", old, minted, back)
 		}
+	}
+}
+
+func TestNotesAreNoElementsOfTheRepository(t *testing.T) {
+	local := graphOf(t, scoped(vehicle+`	part def Wheel; // legacy
+`))
+	var notes int
+	for _, subject := range local.Subjects() {
+		if local.Type(subject) == export.NoteClass {
+			notes++
+		}
+	}
+	if notes == 0 {
+		t.Fatal("the fixture states no note")
+	}
+	set, err := reposync.Diff(local, graphOf(t, scoped(vehicle)), reposync.Options{Representation: sysmlapi.Representation{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, change := range byKind(set, reposync.KindCreate) {
+		if strings.Contains(change.ID, "note") {
+			t.Errorf("the note %s is written as an element of the repository:\n%s", change.ID, set.Text())
+		}
+	}
+	var left bool
+	for _, uncarried := range set.Uncarried {
+		left = left || strings.Contains(uncarried.Property, "Note")
+	}
+	if !left {
+		t.Errorf("the note left out of the comparison is not reported:\n%s", set.Text())
+	}
+}
+
+// withExtensionNode adds to the graph a node typed in the sysx: namespace that
+// only a sysx: property of Vehicle references, as a note is referenced.
+func withExtensionNode(t *testing.T, g *rdf.Graph) (node string) {
+	t.Helper()
+	for _, subject := range g.Subjects() {
+		if name, _ := g.Lexical(subject, rdf.SysML+"qualifiedName"); name != "P::Vehicle" {
+			continue
+		}
+		marker := rdf.ExpressionIRI(subject, "marker0")
+		g.Add(subject, rdf.OpenSysMLTerm("marker"), marker)
+		g.Add(marker, rdf.IRI(rdf.RDFType), rdf.OpenSysMLTerm("Marker"))
+		g.Add(marker, rdf.OpenSysMLTerm("markerText"), rdf.String("x"))
+		return marker.Value
+	}
+	t.Fatal("the fixture does not state P::Vehicle")
+	return ""
+}
+
+func TestExtensionTypedNodesAreNoElementsOfTheRepository(t *testing.T) {
+	local := graphOf(t, scoped(vehicle))
+	node := withExtensionNode(t, local)
+	set, err := reposync.Diff(local, graphOf(t, scoped(vehicle)), reposync.Options{Representation: sysmlapi.Representation{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, change := range set.Changes {
+		if change.Subject == node {
+			t.Errorf("the sysx:Marker node is written as an element of the repository:\n%s", set.Text())
+		}
+	}
+	var left bool
+	for _, uncarried := range set.Uncarried {
+		if strings.HasSuffix(uncarried.Property, "Marker") {
+			left = true
+			if uncarried.Triples != 2 {
+				t.Errorf("the node's %d triple(s) are tallied under its class, want 2", uncarried.Triples)
+			}
+		}
+	}
+	if !left {
+		t.Errorf("the node left out of the comparison is not reported under its class:\n%s", set.Text())
+	}
+	// Compared as written, the node is an element like any other.
+	set, err = reposync.Diff(local, graphOf(t, scoped(vehicle)), reposync.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if creates := byKind(set, reposync.KindCreate); len(creates) != 1 || creates[0].Subject != node {
+		t.Errorf("without a representation the node is not the one create:\n%s", set.Text())
+	}
+}
+
+// pseudostate states a `choice`, a sysx:Pseudostate: no SysML metaclass, yet
+// referenced through sysml: properties by the memberships and transitions around it.
+const pseudostate = `	state def S {
+		state a;
+		choice c;
+		transition first a then c;
+	}
+`
+
+func TestReferenceToAnExtensionTypedElementIsRefused(t *testing.T) {
+	local := graphOf(t, scoped(vehicle+pseudostate))
+	_, err := reposync.Diff(local, graphOf(t, scoped(vehicle)), reposync.Options{Representation: sysmlapi.Representation{}})
+	var unheld *reposync.UnheldReferenceError
+	if !errors.As(err, &unheld) {
+		t.Fatalf("a reference to a sysx:Pseudostate was not refused as an UnheldReferenceError: %v", err)
+	}
+	if unheld.Subject != "P::S::c" || !strings.HasSuffix(unheld.Class, "Pseudostate") {
+		t.Errorf("the refusal names %s (%s), want P::S::c (…Pseudostate)", unheld.Subject, unheld.Class)
+	}
+	if unheld.Referrer == "" || unheld.Property == "" {
+		t.Errorf("the refusal does not say who references it: %+v", unheld)
+	}
+	for _, want := range []string{"P::S::c", "Pseudostate", unheld.Referrer, unheld.Property, "no metaclass"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("the message does not state %q: %v", want, err)
+		}
+	}
+	// The repository side is held to the same rule.
+	_, err = reposync.Diff(graphOf(t, scoped(vehicle)), local, reposync.Options{Representation: sysmlapi.Representation{}})
+	if !errors.As(err, &unheld) || !strings.HasPrefix(err.Error(), "repository graph: ") {
+		t.Errorf("a repository graph stating the pseudostate is not refused the same way: %v", err)
+	}
+	// Compared as written, the pseudostate is an element like any other.
+	set, err := reposync.Diff(local, graphOf(t, scoped(vehicle)), reposync.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var created bool
+	for _, change := range byKind(set, reposync.KindCreate) {
+		created = created || change.QualifiedName == "P::S::c"
+	}
+	if !created {
+		t.Errorf("without a representation the pseudostate is not a create:\n%s", set.Text())
+	}
+}
+
+func TestSubjectStatingAHeldClassStaysWhateverElseItStates(t *testing.T) {
+	local := graphOf(t, scoped(vehicle))
+	for _, subject := range local.Subjects() {
+		if name, _ := local.Lexical(subject, rdf.SysML+"qualifiedName"); name == "P::Vehicle" {
+			local.Add(subject, rdf.IRI(rdf.RDFType), rdf.OpenSysMLTerm("Marker"))
+		}
+	}
+	set, err := reposync.Diff(local, graphOf(t, scoped(vehicle)), reposync.Options{Representation: sysmlapi.Representation{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(set.Changes) != 0 {
+		t.Errorf("an element stating a sysx: class beside its metaclass is not the element the repository holds:\n%s", set.Text())
+	}
+	var left bool
+	for _, uncarried := range set.Uncarried {
+		if strings.HasSuffix(uncarried.Property, "Marker") {
+			left = left || uncarried.Triples == 1
+		}
+	}
+	if !left {
+		t.Errorf("the class the repository has no place for is not reported as not carried:\n%s", set.Text())
+	}
+}
+
+func TestSubjectStatingTwoMetaclassesIsRefused(t *testing.T) {
+	local := graphOf(t, scoped(vehicle))
+	for _, subject := range local.Subjects() {
+		if name, _ := local.Lexical(subject, rdf.SysML+"qualifiedName"); name == "P::Vehicle" {
+			local.Add(subject, rdf.IRI(rdf.RDFType), rdf.SysMLTerm("ItemDefinition"))
+		}
+	}
+	_, err := reposync.Diff(local, graphOf(t, scoped(vehicle)), reposync.Options{Representation: sysmlapi.Representation{}})
+	var ambiguous *reposync.AmbiguousMetaclassError
+	if !errors.As(err, &ambiguous) || ambiguous.Subject != "P::Vehicle" || len(ambiguous.Classes) != 2 {
+		t.Fatalf("two metaclasses were not refused naming the element and both: %v", err)
+	}
+	// Compared as written, the graphs still diff.
+	if _, err := reposync.Diff(local, graphOf(t, scoped(vehicle)), reposync.Options{}); err != nil {
+		t.Errorf("without a representation the diff is refused: %v", err)
 	}
 }

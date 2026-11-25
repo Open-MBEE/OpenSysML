@@ -9,7 +9,7 @@ in [reference/environment.md](../reference/environment.md).
 
 **Import errors after building:**
 - Run `go mod tidy`
-- Verify the Go version with `go version` (1.25 or later is required)
+- Verify the Go version with `go version` (1.26 or later is required)
 
 **Execution stops with "limit exceeded" or "exceeded max":**
 - The run used up one of its budgets; the message names the environment variable that raises it (see [reference/environment.md](../reference/environment.md))
@@ -54,7 +54,7 @@ in [reference/environment.md](../reference/environment.md).
 
 - **GitHub Issues:** report defects or request features
 - **Discussions:** questions about SysML v2 usage
-- **Specification reference:** [OMG SysML v2.1 Beta 1 Specification](https://www.omg.org/spec/SysML/2.0) (2026-09 release)
+- **Specification reference:** [OMG SysML v2.1 Beta 1 Specification](https://www.omg.org/spec/SysML/2.0) (2026-09.1 release)
 
 ---
 

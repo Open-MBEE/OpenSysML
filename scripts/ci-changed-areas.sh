@@ -6,14 +6,15 @@
 # Prints one `area=true|false` line per area, in the shape a GitHub Actions job
 # output file takes. A file no area claims turns every area on, so a path this
 # script has not been taught about is never silently untested.
-#
-# CI_TIER=quick (draft pull requests) drops the fan-out from a service change to
-# every client, editor and the docs: each of those runs only when its own paths
-# change. The full tier, which every non-draft push runs, keeps the fan-out.
+
+# The first line is the tier, `tier=quick|queue|full` (CONTRIBUTING.md, "GitHub Actions"): queue for CI_EVENT
+# merge_group, full for schedule, workflow_dispatch, CI_FULL_LABEL=true or an unclaimed path, else quick; CI_TIER forces it.
 set -euo pipefail
 
 base=${1:?usage: ci-changed-areas.sh <base> [head]}
 head=${2:-HEAD}
+# A merge group names its base branch as refs/heads/<branch>, which the checkout holds as origin/<branch>.
+base=${base/#refs\/heads\//origin/}
 
 changed=$(git diff --name-only "$(git merge-base "$base" "$head")" "$head")
 
@@ -22,8 +23,9 @@ changed=$(git diff --name-only "$(git merge-base "$base" "$head")" "$head")
 # The editors' grammar generator and its committed outputs (the VS Code
 # grammars and the JupyterLab syntax table) are here too: the test that holds
 # them together is a Go test, run by the Go suite.
-service_pattern='^(api/proto/|cmd/|internal/|tools/|client/opensysml/|client/release-digests\.json$|conformance/|tests/|scripts/|examples/|editors/vscode/tools/|editors/vscode/syntaxes/|editors/jupyterlab/src/syntax\.json$|Makefile$|go\.mod$|go\.sum$|install\.sh$|install\.ps1$|action\.yml$|\.github/workflows/|\.github/dependabot\.yml$|\.circleci/|packaging/npm/)'
-docs_pattern='^(docs/|overrides/|packaging/man/|mkdocs\.yml$|README\.md$|CHANGELOG\.md$|CONTRIBUTING\.md$|AGENTS\.md$|.*\.md$)'
+service_pattern='^(api/proto/|cmd/|internal/|tools/|client/opensysml/|client/release-digests\.json$|conformance/|tests/|scripts/|examples/|editors/internal/|editors/vscode/tools/|editors/vscode/syntaxes/|editors/jupyterlab/src/syntax\.json$|editors/emacs/tools/|editors/emacs/sysml-mode-keywords\.el$|Makefile$|go\.mod$|go\.sum$|install\.sh$|install\.ps1$|action\.yml$|\.github/workflows/|\.github/actions/|\.github/dependabot\.yml$|\.circleci/|packaging/npm/)'
+# The CI coordination tools under ci/ build nothing; their offline test runs in the docs job with the other script tests.
+docs_pattern='^(docs/|overrides/|packaging/man/|ci/|mkdocs\.yml$|README\.md$|CHANGELOG\.md$|CONTRIBUTING\.md$|AGENTS\.md$|.*\.md$)'
 node_pattern='^client/node/'
 python_pattern='^client/python/'
 java_pattern='^client/java/'
@@ -32,6 +34,7 @@ julia_pattern='^client/julia/'
 matlab_pattern='^client/matlab/'
 vscode_pattern='^editors/vscode/'
 jupyterlab_pattern='^editors/jupyterlab/'
+emacs_pattern='^editors/emacs/'
 mdk_pattern='^editors/mdk/'
 syson_pattern='^editors/syson/'
 # The Go hygiene suite ratchets every tracked test file and fixture, wherever it
@@ -40,8 +43,21 @@ hygiene_pattern='(^|/)testdata/|\.golden\.|_test\.go$'
 # Go tests (the referees' provenance and figure checks, doc-counts) read the committed
 # baselines and figure pages under docs/project, so a change there runs Go as well as docs.
 project_inputs_pattern='^docs/project/.*\.(json|md)$'
+# Go tests read the packaging tree (cmd/*/man_test.go the manual pages, tests/hygiene the MCP manifest and
+# the installer pins), so every path under it runs the Go area; no packaging path is claimed with no area.
+packaging_pattern='^packaging/'
+# The derived-property differential (Java, the pinned pilot jar, 18-25 minutes) runs on what can move its baseline
+# (writer, referee, bridge, pin, baseline, corpora), not on the workflow; the queue tier skips it (the push ran it).
+apijson_pattern='^(internal/translate/export/|tools/referee/apijson/|tools/referee/baseline/|tools/referee/diff/|tools/oracle/baseline/|scripts/pilot-json-exporter/|scripts/pilot-pin\.sh$|scripts/download-pilot-validator\.sh$|scripts/download-pilot-json-exporter\.sh$|docs/project/api-json-differential/|\.github/actions/corpora/|\.github/actions/pilot-validator/)'
+# The reference differential (Java, the pinned pilot validators, about 3 minutes) runs on what can move its baseline: the
+# layers its referee imports, the referee, the validators and pin, its roots, the baseline; the queue tier skips it.
+pilotdiff_pattern='^(internal/syntax/|internal/semantic/|internal/check/|internal/ir/|internal/workspace/|internal/translate/rdf/|internal/frontend/report/|tools/referee/diff/|tools/oracle/|scripts/pilot-pin\.sh$|scripts/pilot-sysml-validator/|scripts/pilot-kerml-validator/|scripts/download-pilot-validator\.sh$|scripts/download-pilot-sysml-validator\.sh$|scripts/download-pilot-kerml-validator\.sh$|scripts/download-training-examples\.sh$|scripts/download-pilot-corpora\.sh$|scripts/download-spec-examples\.sh$|examples/|tests/testdata/|docs/project/pilot-differential-baseline\.json$|\.github/actions/corpora/|\.github/actions/pilot-validator/)'
+# A composite action is a service path (Go tests read it); these three also run the other jobs that use them, even under quick.
+apt_install_action_pattern='^\.github/actions/apt-install/'
+maven_cache_action_pattern='^\.github/actions/maven-cache/'
+pip_install_action_pattern='^\.github/actions/pip-install/'
 
-known_pattern="$service_pattern|$docs_pattern|$node_pattern|$python_pattern|$java_pattern|$rust_pattern|$julia_pattern|$matlab_pattern|$vscode_pattern|$jupyterlab_pattern|$mdk_pattern|$syson_pattern|^\.agents/|^\.gitignore$|^\.gitattributes$|^LICENSE|^packaging/"
+known_pattern="$service_pattern|$docs_pattern|$node_pattern|$python_pattern|$java_pattern|$rust_pattern|$julia_pattern|$matlab_pattern|$vscode_pattern|$jupyterlab_pattern|$emacs_pattern|$mdk_pattern|$syson_pattern|^\.agents/|^\.github/(CODEOWNERS|FUNDING\.yml)$|^\.github/ISSUE_TEMPLATE/|^\.gitignore$|^\.gitattributes$|^LICENSE|$packaging_pattern"
 
 matches() {
   local pattern=$1
@@ -52,7 +68,9 @@ if [[ -z "$changed" ]] || grep -Ev "$known_pattern" <<<"$changed" | grep -q .; t
   unclaimed=$(grep -Ev "$known_pattern" <<<"$changed" || true)
   [[ -n "$unclaimed" ]] && echo "unclaimed paths, so every area runs:" >&2 && echo "$unclaimed" >&2
   service=true
+  everything=true
 else
+  everything=false
   matches "$service_pattern" && service=true || service=false
 fi
 
@@ -61,24 +79,47 @@ emit() {
   echo "$area=$enabled"
 }
 
-fanout=$service
-[[ "${CI_TIER:-full}" = quick ]] && fanout=false
+tier=${CI_TIER:-}
+case "$tier" in
+  full|queue|quick) ;;
+  *)
+    case "${CI_EVENT:-pull_request}" in
+      merge_group) tier=queue ;;
+      schedule|workflow_dispatch) tier=full ;;
+      *)
+        if [[ "${CI_FULL_LABEL:-false}" = true || "$everything" = true ]]; then tier=full; else tier=quick; fi
+        ;;
+    esac
+    ;;
+esac
+emit tier "$tier"
 
-emit go "$( { [[ "$service" = true ]] || matches "$hygiene_pattern" || matches "$project_inputs_pattern"; } && echo true || echo false)"
-emit docs "$( { [[ "$fanout" = true ]] || matches "$docs_pattern"; } && echo true || echo false)"
-emit node "$( { [[ "$fanout" = true ]] || matches "$node_pattern"; } && echo true || echo false)"
+fanout=$service
+[[ "$tier" = quick ]] && fanout=false
+# Every client job fetches from a registry (PyPI, Maven Central, npm, crates.io, Julia, ftp.gnu.org), so a
+# merge group runs a client only on its own paths; the service-wide fan-out is the nightly full tier's.
+client_fanout=$fanout
+[[ "$tier" = queue ]] && client_fanout=false
+
+emit go "$( { [[ "$service" = true ]] || matches "$hygiene_pattern" || matches "$project_inputs_pattern" || matches "$packaging_pattern"; } && echo true || echo false)"
+emit apijson "$( [[ "$tier" != queue ]] && { [[ "$everything" = true && "$fanout" = true ]] || matches "$apijson_pattern"; } && echo true || echo false)"
+emit pilotdiff "$( [[ "$tier" != queue ]] && { [[ "$everything" = true && "$fanout" = true ]] || matches "$pilotdiff_pattern"; } && echo true || echo false)"
+emit docs "$( { [[ "$fanout" = true ]] || matches "$docs_pattern" || matches "$apt_install_action_pattern" || matches "$pip_install_action_pattern"; } && echo true || echo false)"
+emit node "$( { [[ "$client_fanout" = true ]] || matches "$node_pattern" || matches "$apt_install_action_pattern"; } && echo true || echo false)"
 # The client-manifest/Python version lockstep tests live in the Python suite,
 # so the Node, Java and Rust manifests, every editor manifest
 # check_version.py --editors reads, the editors' client references and the
 # Markdown <dependency> snippets that quote the Java client's version have to
 # run it too.
-emit python "$( { [[ "$fanout" = true ]] || matches "$python_pattern" || matches '^packaging/pypi-pysysml/' || matches '^client/node/package\.json$' || matches '^client/java/(pom\.xml|README\.md)$' || matches '^docs/reference/java-api\.md$' || matches '^packaging/agent-skills/skills/opensysml-java/SKILL\.md$' || matches '^client/rust/opensysml/Cargo\.toml$' || matches '^client/rust/Cargo\.lock$' || matches '^editors/(mdk|syson(/backend)?)/pom\.xml$' || matches '^editors/(mdk/(plugin|tools|openapi-stubs|mdk-api-stubs|mdk-bridge|dist)|syson/syson-api-stubs)/pom\.xml$' || matches '^editors/(vscode|jupyterlab|syson/frontend)/package(-lock)?\.json$'; } && echo true || echo false)"
-emit java "$( { [[ "$fanout" = true ]] || matches "$java_pattern"; } && echo true || echo false)"
-emit rust "$( { [[ "$fanout" = true ]] || matches "$rust_pattern"; } && echo true || echo false)"
-emit julia "$( { [[ "$fanout" = true ]] || matches "$julia_pattern"; } && echo true || echo false)"
-emit matlab "$( { [[ "$fanout" = true ]] || matches "$matlab_pattern"; } && echo true || echo false)"
-emit vscode "$( { [[ "$fanout" = true ]] || matches "$vscode_pattern"; } && echo true || echo false)"
-emit jupyterlab "$( { [[ "$fanout" = true ]] || matches "$jupyterlab_pattern"; } && echo true || echo false)"
+emit python "$( { [[ "$client_fanout" = true ]] || matches "$python_pattern" || matches "$apt_install_action_pattern" || matches "$pip_install_action_pattern" || matches '^packaging/pypi-pysysml/' || matches '^client/node/package\.json$' || matches '^client/java/(pom\.xml|README\.md)$' || matches '^docs/reference/java-api\.md$' || matches '^packaging/agent-skills/skills/opensysml-java/SKILL\.md$' || matches '^client/rust/opensysml/Cargo\.toml$' || matches '^client/rust/Cargo\.lock$' || matches '^editors/(mdk|syson(/backend)?)/pom\.xml$' || matches '^editors/(mdk/(plugin|tools|openapi-stubs|mdk-api-stubs|mdk-bridge|dist)|syson/syson-api-stubs)/pom\.xml$' || matches '^editors/(vscode|jupyterlab|syson/frontend)/package(-lock)?\.json$'; } && echo true || echo false)"
+emit java "$( { [[ "$client_fanout" = true ]] || matches "$java_pattern" || matches "$maven_cache_action_pattern"; } && echo true || echo false)"
+emit rust "$( { [[ "$client_fanout" = true ]] || matches "$rust_pattern"; } && echo true || echo false)"
+emit julia "$( { [[ "$client_fanout" = true ]] || matches "$julia_pattern"; } && echo true || echo false)"
+emit matlab "$( { [[ "$client_fanout" = true ]] || matches "$matlab_pattern" || matches "$apt_install_action_pattern"; } && echo true || echo false)"
+emit vscode "$( { [[ "$client_fanout" = true ]] || matches "$vscode_pattern"; } && echo true || echo false)"
+emit jupyterlab "$( { [[ "$client_fanout" = true ]] || matches "$jupyterlab_pattern" || matches "$pip_install_action_pattern"; } && echo true || echo false)"
+emit emacs "$( { [[ "$client_fanout" = true ]] || matches "$emacs_pattern"; } && echo true || echo false)"
 # The MDK plugin builds on the Java client, so a client change re-runs it too.
-emit mdk "$( { [[ "$fanout" = true ]] || matches "$mdk_pattern" || matches "$java_pattern"; } && echo true || echo false)"
-emit syson "$( { [[ "$fanout" = true ]] || matches "$syson_pattern"; } && echo true || echo false)"
+emit mdk "$( { [[ "$client_fanout" = true ]] || matches "$mdk_pattern" || matches "$java_pattern" || matches "$maven_cache_action_pattern"; } && echo true || echo false)"
+# The SysON backend builds on the Java client too, so a client change re-runs it.
+emit syson "$( { [[ "$client_fanout" = true ]] || matches "$syson_pattern" || matches "$java_pattern" || matches "$maven_cache_action_pattern"; } && echo true || echo false)"

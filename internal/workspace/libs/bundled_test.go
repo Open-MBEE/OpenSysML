@@ -97,10 +97,11 @@ func TestBundledSourceHasItsOwnDigest(t *testing.T) {
 	if published == bundled {
 		t.Fatal("the bundled and the published library digest alike")
 	}
-	if _, err := DecodeSnapshot(stdlibSnapshot, published); !errors.Is(err, ErrSnapshotStale) {
+	snapshot := testSnapshot(t)
+	if _, err := DecodeSnapshot(snapshot, published); !errors.Is(err, ErrSnapshotStale) {
 		t.Errorf("the snapshot decoded for the published text: %v", err)
 	}
-	if _, err := DecodeSnapshot(stdlibSnapshot, bundled); err != nil {
+	if _, err := DecodeSnapshot(snapshot, bundled); err != nil {
 		t.Errorf("the snapshot does not decode for the bundled text: %v", err)
 	}
 }

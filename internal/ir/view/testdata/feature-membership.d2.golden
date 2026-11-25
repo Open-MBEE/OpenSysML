@@ -18,3 +18,5 @@ n3 -> n0: { class: specialization }
 n3 <- n4: { class: reference }
 n5 -> n0: { class: specialization }
 n5 <- n6: { class: reference }
+frame_name: "«view» MembershipViews::structure" { shape: text; near: top-left }
+frame_tr: "expose A::APart\nexpose A::APort\nexpose A::part1\nexpose A::part2" { shape: text; near: top-right }

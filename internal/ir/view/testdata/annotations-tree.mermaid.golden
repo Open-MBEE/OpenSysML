@@ -1,0 +1,44 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+title: "«view» AnnotationViews::tree"
+---
+%% AnnotationViews::tree — tree rendering (render asTreeDiagram)
+flowchart TD
+  n0["`*«part def»*
+**Pump**`"]
+    n1("`*«attribute»*
+**rate**`")
+    n2@{ shape: notch-rect, label: "«doc»<br>Moves fluid from the tank to the loop." }
+    n3@{ shape: notch-rect, label: "Sized for the nominal flow." }
+    n4@{ shape: notch-rect, label: "«comment»<br>Safety<br>locale #quot;en#quot;<br>Both are rated for the loop pressure." }
+    n5@{ shape: notch-rect, label: "«rep»<br>inline<br>language #quot;plantuml#quot;<br>component Pump" }
+  n6["`*«part def»*
+**Tank**`"]
+    n7@{ shape: notch-rect, label: "«doc»<br>Capacity<br>locale #quot;en#quot;<br>Holds the working fluid." }
+  n0 ---|"◇"| n1
+  n2 -.- n0
+  n3 -.- n0
+  n4 -.- n0
+  n4 -.- n6
+  n5 -.- n0
+  n7 -.- n6

@@ -30,7 +30,7 @@ inst, err := client.Instantiate(ctx, model, "Demo::Vehicle")
 | --- | --- |
 | Parse one document | `ParseFile`, `ParseSource` |
 | Parse a model of several documents | `ParseFiles`, `ParseDocuments` |
-| Read the model | `LookupSymbol`, `Diagnostics` |
+| Read the model | `LookupSymbol` (`WithLibraryMembers`, `ByReportedID`), `Diagnostics` |
 | Compute with it | `Evaluate`, `Instantiate`, `EvaluateCalc`, `Calculate`, `RunAnalysis` |
 | Run behavior | `ExecuteAction`, `ExecuteState` |
 | Run every linearization of it | `ExploreAction`, `ExploreState`, `ExploreAnalysis` |
@@ -209,6 +209,24 @@ for _, outcome := range exploration.Outcomes {
 fmt.Println(exploration.Status()) // complete (6 runs)
 ```
 
+`Sweep` runs an analysis case or a calc once per row of a parameter sweep
+(the `RunSweep` RPC, the CLI's `-sweep`): each `SweepRange` steps a parameter
+from `Start` through `End` by `Step`, several ranges run their product with the
+first varying slowest, and `SweepSamples` with `SweepSeed` draws the rows
+instead, reproducibly. `SweepSubject`, `SweepArguments`, `SweepArgument` and
+`SweepEngine` bind what every row shares. A run that failed is its row's
+`Error` and `Reason` and the rows after it still run; a sweep refused before
+any run is a `*VerifyError`. The call needs the `verification` capability.
+
+```go
+sweep, err := client.Sweep(ctx, model, "Demo::CostAnalysis",
+	[]opensysml.SweepRange{{Parameter: "limit", Start: opensysml.Real(2), End: opensysml.Real(30), Step: opensysml.Real(14)}},
+	opensysml.SweepSubject("Demo::ship"))
+for _, row := range sweep.Rows {
+	fmt.Println(row.Inputs, row.Outputs, row.Verdicts, row.Evaluations, row.Elapsed, row.Error)
+}
+```
+
 Every verdict, calculation and analysis carries its `Standing`: the analysis
 engine that answered (`run`, `explore`, `sweep` or `solve`), the `Strength` of
 its evidence (`observed`, `witnessed`, `bounded`, `proved`, or `not covered`)
@@ -359,7 +377,25 @@ API JSON names the standard-library elements a model uses in the `Conversion`'s
 `LibraryReferences` (each an `ID`, `QualifiedName` and metaclass `Type`) rather
 than writing them as elements; `WithLibraryStubs()` restores the ownerless
 library stubs releases before 0.11.0 wrote, and needs the service's
-`CapabilityConvertLibraryStubs`.
+`CapabilityConvertLibraryStubs`. An element carries its owned structure;
+`WithInheritedMembers()` also writes the derived lists that repeat each
+Namespace's and Type's inherited and imported members, and needs
+`CapabilityConvertInheritedMembers`.
+
+`Convert` of a model parsed from several documents writes all of them;
+`WithDocuments("app.sysml")` writes only the documents named, as the parse
+named them, and still reads the others for the references into them, so a
+program that edited one document of a large model converts that one. It needs
+`CapabilityConvertDocuments`. `WithCompact()` writes notation as the compact
+API JSON document (`api-json-compact/1`, one table of element ids and every
+reference an index into it) and `WithOmitDerived("owner", "qualifiedName")`
+leaves the metamodel's derived properties out of it, except the ones named;
+both need `CapabilityConvertCompact`, and the service refuses the second
+without the first as `CodeInvalidArgument`. `WithCheckDiagnostics()` adds what
+the semantic check reports of a notation source to the `Conversion`'s
+`Diagnostics`, beside any tolerated syntax errors, each `Diagnostic` with the
+`Severity` and `Code` a parse gives it, and needs
+`CapabilityConvertCheckDiagnostics`.
 
 `ParseDocuments` can relate the model it parses to one the program already
 holds results of: `WithBaseModel(previous)` has the service compare the two
@@ -404,10 +440,13 @@ it worth keeping.
 
 Contexts are honoured as the wire honours them. A call whose context is already
 done is refused with `CodeCanceled` or `CodeDeadlineExceeded`; a context that
-ends while a call is running withholds the answer the same way, because the
-engine — like a service answering a caller who stopped listening — still runs
-the call it started. A deadline therefore bounds how long a caller waits, not
-how long the engine works.
+ends while a call is running withholds the answer the same way. What the engine
+does with the work depends on the call: a parse (`ParseSource`, `ParseFile`,
+`ParseDocuments`) and a conversion of a model of several documents stop at their
+next document or analysis pass and cache nothing, the runs, sweeps, checks and
+explorations stop between runs, and any other call — like a service answering a
+caller who stopped listening — still runs to its end. For those a deadline
+bounds how long a caller waits, not how long the engine works.
 
 After `Close`, every call is refused with `CodeUnavailable`, and closing twice is
 not an error, so a deferred `Close` beside an explicit one is safe.
@@ -436,7 +475,12 @@ encoding time on large responses and is a debugging affordance, per
 machines reach requires a bearer token, which `WithToken` sends as
 `Authorization: Bearer` on every call; without it `Dial` reads
 `$OPENSYSML_GRPC_TOKEN` (`TokenEnv`), and a call without the right token fails
-with `CodeUnauthenticated`. This package never spawns a
+with `CodeUnauthenticated`. `Dial` sends the token over `https`, and over
+`http` to this machine only: an `http` address other machines reach is refused
+with `CodeInvalidArgument` while a token is set, unless
+`WithInsecureTokenTransport` accepts it for a proxy or tunnel that encrypts the
+connection, as `sysml-grpc -allow-insecure-token-transport` does on the serving
+side. This package never spawns a
 service: a Go process that wants the engine in-process uses `New`, which is
 strictly better than a private child — the child's entire job would be to serve
 the code `New` already calls.
@@ -493,7 +537,15 @@ default, or run once, rather than refuse. So is an engine: `WithEngine`,
 `Engine` and `CalcEngine` naming anything but `EngineAuto` need `engines`, since a service without it
 would answer with whichever engine it chose. `WithLibraryStubs` needs `convert_library_stubs`
 and `WithBaseModel` needs `parse_sources_affected`, since a service without them would write
-bare library references, or parse without relating the models, instead of refusing.
+bare library references, or parse without relating the models, instead of refusing; `WithDocuments`
+needs `convert_documents`, `WithCompact` and `WithOmitDerived` `convert_compact`, and
+`WithCheckDiagnostics` `convert_check_diagnostics`, for the same reason. A call the service names a
+capability for is checked before it is sent too: `Convert*` needs `convert`, `Migrate*` `migrate`,
+`ApplyEdits` `apply_edits`, `ParseDocuments` `parse_sources`, the `Verify*` calls, `ValidateInstance`
+and `EvaluateCalc` `verification`, `Query` `query` (with `OrderBy`, `query_order_by`), `QueryOSLC`
+`oslc_query`, `ElementProperties*` `element_properties`, `RunDocumentQuery` `document_query`,
+`RenderDocument` `render_document`, `WithStrictConformance` `strict_conformance`, `WithLanguage` on
+inline content `inline_language` and `WithSubject` `evaluate_subject`.
 
 A `Set` arrives with its elements in the service's canonical order — Booleans,
 then numbers, strings, quantities, enumeration literals and objects, each class

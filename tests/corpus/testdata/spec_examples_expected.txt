@@ -311,7 +311,7 @@
 5	sysml/8.4.12.3/2.sysml
 2	sysml/8.4.13.10/1.sysml
 2	sysml/8.4.13.10/2.sysml
-1	sysml/8.4.13.10/3.sysml
+2	sysml/8.4.13.10/3.sysml
 3	sysml/8.4.13.10/4.sysml
 1	sysml/8.4.13.11/2.sysml
 1	sysml/8.4.13.11/3.sysml
@@ -342,7 +342,7 @@
 3	sysml/8.4.13.6/5.sysml
 3	sysml/8.4.13.6/6.sysml
 6	sysml/8.4.13.6/7.sysml
-2	sysml/8.4.13.6/8.sysml
+1	sysml/8.4.13.6/8.sysml
 2	sysml/8.4.13.7/1.sysml
 3	sysml/8.4.13.7/2.sysml
 1	sysml/8.4.13.8/1.sysml
@@ -380,7 +380,7 @@
 6	sysml/8.4.19.2/1.sysml
 3	sysml/8.4.20.1/1.sysml
 2	sysml/8.4.20.2/1.sysml
-1	sysml/8.4.21.2/1.sysml
+2	sysml/8.4.21.2/1.sysml
 2	sysml/8.4.21.3/3.sysml
 1	sysml/8.4.22.3/1.sysml
 1	sysml/8.4.22.4/1.sysml

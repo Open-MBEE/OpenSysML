@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» RobustViews::unrecognized : GeneralView"
 ---
 %% RobustViews::unrecognized — tree rendering (view def GeneralView)
 flowchart TD
@@ -27,7 +28,7 @@ flowchart TD
 **A**`"]
   n1["`*«part def»*
 **B**`"]
-  n2["`*«part def»*
-**C**`"]
-  n3["`*«abstract connection def»*
+  n2["`*«abstract connection def»*
 **Derivation**`"]
+  n3["`*«part def»*
+**C**`"]

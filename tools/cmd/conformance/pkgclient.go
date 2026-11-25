@@ -60,12 +60,20 @@ type pkgCall func(ctx context.Context, request protoreflect.Message) (proto.Mess
 // response from what the API returned, so the comparison sees exactly what a
 // Go caller was given.
 func (c *pkgClient) dispatch(ctx context.Context, method string, request protoreflect.Message) (proto.Message, error) {
-	for _, family := range []func(string) (pkgCall, bool){c.modelCall, c.runtimeCall, c.verificationCall, c.documentCall} {
-		if call, ok := family(method); ok {
-			return call(ctx, request)
-		}
+	if call, ok := c.lookup(method); ok {
+		return call(ctx, request)
 	}
 	return nil, &uncoveredError{reason: fmt.Sprintf("the public Go API does not cover %s", method)}
+}
+
+// lookup finds the call the public API makes for an RPC, if it covers it.
+func (c *pkgClient) lookup(method string) (pkgCall, bool) {
+	for _, family := range []func(string) (pkgCall, bool){c.modelCall, c.runtimeCall, c.verificationCall, c.documentCall} {
+		if call, ok := family(method); ok {
+			return call, true
+		}
+	}
+	return nil, false
 }
 
 // modelCall is the RPC reading or editing a model: the handshake, parsing,
@@ -86,6 +94,8 @@ func (c *pkgClient) modelCall(method string) (pkgCall, bool) {
 		return c.getDiagnostics, true
 	case "Query":
 		return c.query, true
+	case "GetElementProperties":
+		return c.getElementProperties, true
 	case "ApplyEdits":
 		return c.applyEdits, true
 	}
@@ -100,6 +110,8 @@ func (c *pkgClient) runtimeCall(method string) (pkgCall, bool) {
 		return c.evaluate, true
 	case "Instantiate":
 		return c.instantiate, true
+	case "InstancePaths":
+		return c.instancePaths, true
 	case "ExecuteAction":
 		return c.executeAction, true
 	case "ExecuteState":
@@ -110,6 +122,8 @@ func (c *pkgClient) runtimeCall(method string) (pkgCall, bool) {
 		return c.evaluateCalc, true
 	case "RunAnalysis":
 		return c.runAnalysis, true
+	case "RunSweep":
+		return c.runSweep, true
 	case "RunRuns":
 		return c.runRuns, true
 	case "RecordRun":
@@ -280,7 +294,21 @@ func (c *pkgClient) getSymbol(ctx context.Context, request protoreflect.Message)
 	if err := retype(request, req); err != nil {
 		return nil, err
 	}
-	symbol, err := c.api.LookupSymbol(ctx, c.model(req.ModelHash), req.SymbolId)
+	var opts []opensysml.SymbolOption
+	if req.IncludeLibraryMembers {
+		opts = append(opts, opensysml.WithLibraryMembers())
+	}
+	switch req.Lookup {
+	case pb.LookupKind_LOOKUP_KIND_QUALIFIED_NAME:
+		opts = append(opts, opensysml.ByQualifiedName())
+	case pb.LookupKind_LOOKUP_KIND_ELEMENT_ID:
+		opts = append(opts, opensysml.ByElementID())
+	default:
+		if !req.ResolveName {
+			opts = append(opts, opensysml.ByReportedID())
+		}
+	}
+	symbol, err := c.api.LookupSymbol(ctx, c.model(req.ModelHash), req.SymbolId, opts...)
 	var failure *opensysml.FailureError
 	if errors.As(err, &failure) {
 		return &pb.SymbolResponse{Error: failure.Message}, nil
@@ -350,6 +378,39 @@ func (c *pkgClient) instantiate(ctx context.Context, request protoreflect.Messag
 	}
 	for _, instance := range instantiation.Instances {
 		response.Instances = append(response.Instances, instanceToProto(instance))
+	}
+	return response, nil
+}
+
+func (c *pkgClient) instancePaths(ctx context.Context, request protoreflect.Message) (proto.Message, error) {
+	req := &pb.InstancePathsRequest{}
+	if err := retype(request, req); err != nil {
+		return nil, err
+	}
+	ref := opensysml.ObjectRef{InstanceID: req.GetObject().GetInstanceId(), Path: req.GetObject().GetPath()}
+	paths, err := c.api.InstancePaths(ctx, c.model(req.ModelHash), ref)
+	var failure *opensysml.FailureError
+	if errors.As(err, &failure) {
+		return &pb.InstancePathsResponse{Error: failure.Message, Diagnostics: diagnosticsToProto(failure.Diagnostics)}, nil
+	}
+	if err != nil {
+		return nil, apiError(err)
+	}
+	response := &pb.InstancePathsResponse{Truncated: paths.Truncated}
+	for _, path := range paths.Paths {
+		converted := &pb.InstancePath{
+			Root: &pb.InstanceRoot{InstanceId: path.RootInstanceID, SymbolId: path.RootSymbolID},
+			Path: path.Path,
+		}
+		for _, step := range path.Steps {
+			converted.Steps = append(converted.Steps, &pb.InstancePathStep{
+				FeatureName:     step.FeatureName,
+				FeatureSymbolId: step.FeatureSymbolID,
+				Index:           int32Clamp(step.Index),
+				InstanceId:      step.InstanceID,
+			})
+		}
+		response.Paths = append(response.Paths, converted)
 	}
 	return response, nil
 }
@@ -718,9 +779,21 @@ func sweepRowsToProto(rows []opensysml.RunRow) []*pb.SweepRow {
 	out := make([]*pb.SweepRow, 0, len(rows))
 	for i := range rows {
 		row := &pb.SweepRow{
-			Inputs:  calcOutputsToProto(rows[i].Inputs),
-			Outputs: calcOutputsToProto(rows[i].Outputs),
-			Error:   rows[i].Error,
+			Inputs:        calcOutputsToProto(rows[i].Inputs),
+			Outputs:       calcOutputsToProto(rows[i].Outputs),
+			ElapsedMicros: rows[i].Elapsed.Microseconds(),
+			Error:         rows[i].Error,
+			FailureReason: pb.FailureReason(rows[i].Reason),
+		}
+		for _, evaluation := range rows[i].Evaluations {
+			converted := &pb.CaseEvaluation{
+				FunctionId: evaluation.FunctionID, Result: valueToProto(evaluation.Result),
+				Error: evaluation.Error, Selected: evaluation.Selected, Tied: evaluation.Tied,
+			}
+			for _, argument := range evaluation.Arguments {
+				converted.Arguments = append(converted.Arguments, valueToProto(argument))
+			}
+			row.Evaluations = append(row.Evaluations, converted)
 		}
 		for j := range rows[i].Verdicts {
 			row.Verdicts = append(row.Verdicts, verdictToProto(&rows[i].Verdicts[j]))
@@ -728,6 +801,72 @@ func sweepRowsToProto(rows []opensysml.RunRow) []*pb.SweepRow {
 		out = append(out, row)
 	}
 	return out
+}
+
+func (c *pkgClient) runSweep(ctx context.Context, request protoreflect.Message) (proto.Message, error) {
+	req := &pb.RunSweepRequest{}
+	if err := retype(request, req); err != nil {
+		return nil, err
+	}
+	opts := []opensysml.SweepOption{
+		opensysml.SweepSubject(req.SubjectSymbolId), opensysml.SweepSamples(req.Samples),
+		opensysml.SweepSeed(req.Seed), opensysml.SweepEngine(req.Engine),
+	}
+	for _, value := range req.Arguments {
+		converted, ok := valueFromProto(value)
+		if !ok {
+			return nil, errNonNumericVector
+		}
+		opts = append(opts, opensysml.SweepArguments(converted))
+	}
+	for _, name := range slices.Sorted(maps.Keys(req.NamedArguments)) {
+		converted, ok := valueFromProto(req.NamedArguments[name])
+		if !ok {
+			return nil, errNonNumericVector
+		}
+		opts = append(opts, opensysml.SweepArgument(name, converted))
+	}
+	ranges := make([]opensysml.SweepRange, 0, len(req.Ranges))
+	for _, r := range req.Ranges {
+		converted := opensysml.SweepRange{Parameter: r.Parameter}
+		for _, bound := range []struct {
+			into *opensysml.Value
+			from *pb.Value
+		}{{&converted.Start, r.Start}, {&converted.End, r.End}, {&converted.Step, r.Step}} {
+			if bound.from == nil {
+				continue
+			}
+			value, ok := valueFromProto(bound.from)
+			if !ok {
+				return nil, errNonNumericVector
+			}
+			*bound.into = value
+		}
+		ranges = append(ranges, converted)
+	}
+	sweep, err := c.api.Sweep(ctx, c.model(req.ModelHash), req.SymbolId, ranges, opts...)
+	var verifyErr *opensysml.VerifyError
+	if errors.As(err, &verifyErr) {
+		return &pb.RunSweepResponse{
+			Error:         verifyErr.Message,
+			FailureReason: pb.FailureReason(verifyErr.Reason),
+			Diagnostics:   diagnosticsToProto(verifyErr.Diagnostics),
+		}, nil
+	}
+	if err != nil {
+		return nil, apiError(err)
+	}
+	return &pb.RunSweepResponse{
+		Rows:        sweepRowsToProto(sweep.Rows),
+		Parameters:  sweep.Parameters,
+		Sampled:     sweep.Sampled,
+		Seed:        sweep.Seed,
+		Diagnostics: diagnosticsToProto(sweep.Diagnostics),
+		Instances:   instancesToProto(sweep.Instances),
+		Engine:      sweep.Engine,
+		Strength:    sweep.Strength,
+		Bounds:      boundsToProto(sweep.Bounds),
+	}, nil
 }
 
 func (c *pkgClient) runRuns(ctx context.Context, request protoreflect.Message) (proto.Message, error) {
@@ -956,6 +1095,67 @@ func (c *pkgClient) query(ctx context.Context, request protoreflect.Message) (pr
 	return response, nil
 }
 
+func (c *pkgClient) getElementProperties(ctx context.Context, request protoreflect.Message) (proto.Message, error) {
+	req := &pb.GetElementPropertiesRequest{}
+	if err := retype(request, req); err != nil {
+		return nil, err
+	}
+	var read *opensysml.ElementProperties
+	var err error
+	switch req.Lookup {
+	case pb.LookupKind_LOOKUP_KIND_QUALIFIED_NAME:
+		read, err = c.api.ElementPropertiesByName(ctx, c.model(req.ModelHash), req.ElementId, req.Properties...)
+	case pb.LookupKind_LOOKUP_KIND_ELEMENT_ID:
+		read, err = c.api.ElementPropertiesByID(ctx, c.model(req.ModelHash), req.ElementId, req.Properties...)
+	default:
+		read, err = c.api.ElementProperties(ctx, c.model(req.ModelHash), req.ElementId, req.Properties...)
+	}
+	var failure *opensysml.FailureError
+	if errors.As(err, &failure) {
+		return &pb.GetElementPropertiesResponse{Error: failure.Message}, nil
+	}
+	if err != nil {
+		return nil, apiError(err)
+	}
+	response := &pb.GetElementPropertiesResponse{Element: elementRefToProto(read.Element)}
+	for _, property := range read.Properties {
+		converted := &pb.ElementProperty{
+			Name:          property.Name,
+			DefiningClass: property.DefiningClass,
+			Many:          property.Many,
+			Derived:       property.Derived,
+			Unsupported:   property.Unsupported,
+		}
+		for _, value := range property.Values {
+			converted.Values = append(converted.Values, propertyValueToProto(value))
+		}
+		response.Properties = append(response.Properties, converted)
+	}
+	return response, nil
+}
+
+func elementRefToProto(ref opensysml.ElementRef) *pb.ElementRef {
+	return &pb.ElementRef{Id: ref.ID, QualifiedName: ref.QualifiedName, Metaclass: ref.Metaclass}
+}
+
+func propertyValueToProto(value opensysml.PropertyValue) *pb.ElementPropertyValue {
+	switch {
+	case value.Element != nil:
+		return &pb.ElementPropertyValue{Value: &pb.ElementPropertyValue_Element{Element: elementRefToProto(*value.Element)}}
+	case value.String != nil:
+		return &pb.ElementPropertyValue{Value: &pb.ElementPropertyValue_StringValue{StringValue: *value.String}}
+	case value.Bool != nil:
+		return &pb.ElementPropertyValue{Value: &pb.ElementPropertyValue_BoolValue{BoolValue: *value.Bool}}
+	case value.Int != nil:
+		return &pb.ElementPropertyValue{Value: &pb.ElementPropertyValue_IntValue{IntValue: *value.Int}}
+	case value.Real != nil:
+		return &pb.ElementPropertyValue{Value: &pb.ElementPropertyValue_RealValue{RealValue: *value.Real}}
+	case value.Number != nil:
+		return &pb.ElementPropertyValue{Value: &pb.ElementPropertyValue_Number{Number: *value.Number}}
+	}
+	return &pb.ElementPropertyValue{}
+}
+
 func (c *pkgClient) runDocumentQuery(ctx context.Context, request protoreflect.Message) (proto.Message, error) {
 	req := &pb.RunDocumentQueryRequest{}
 	if err := retype(request, req); err != nil {
@@ -969,7 +1169,15 @@ func (c *pkgClient) runDocumentQuery(ctx context.Context, request protoreflect.M
 		}
 		bindings = append(bindings, converted)
 	}
-	rows, err := c.api.RunDocumentQuery(ctx, c.model(req.ModelHash), req.QueryId, bindings...)
+	var (
+		rows *opensysml.Rows
+		err  error
+	)
+	if req.InlineQuery != "" {
+		rows, err = c.api.RunInlineDocumentQuery(ctx, c.model(req.ModelHash), req.InlineQuery, bindings...)
+	} else {
+		rows, err = c.api.RunDocumentQuery(ctx, c.model(req.ModelHash), req.QueryId, bindings...)
+	}
 	if err != nil {
 		return nil, apiError(err)
 	}
@@ -1180,7 +1388,12 @@ func (c *pkgClient) renderView(ctx context.Context, request protoreflect.Message
 	if err := retype(request, req); err != nil {
 		return nil, err
 	}
-	var options []opensysml.RenderViewOption
+	options := []opensysml.RenderViewOption{
+		opensysml.WithShow(req.Show...), opensysml.WithDepth(int(req.Depth)), opensysml.WithCompartments(req.Compartments),
+		opensysml.WithForm(req.Form), opensysml.WithPalette(req.Palette), opensysml.WithStyle(req.Style),
+		opensysml.WithLines(req.Lines), opensysml.WithDirection(req.Direction), opensysml.WithLink(req.Link),
+		opensysml.WithUnplaced(req.Unplaced),
+	}
 	if req.Ports == "full" {
 		options = append(options, opensysml.WithFullPorts())
 	}
@@ -1190,7 +1403,7 @@ func (c *pkgClient) renderView(ctx context.Context, request protoreflect.Message
 	}
 	response := &pb.RenderViewResponse{
 		View: rendered.View, Kind: rendered.Kind, Stated: rendered.Stated,
-		Columns: rendered.Columns, Notices: rendered.Notices,
+		Columns: rendered.Columns, Notices: rendered.Notices, Text: rendered.Text,
 	}
 	if rendered.Canvas != nil {
 		response.Canvas = &pb.RenderCanvas{
@@ -1517,7 +1730,19 @@ func symbolToProto(symbol *opensysml.Symbol) *pb.SymbolInfo {
 		Kind:                      symbol.Kind,
 		Metadata:                  symbol.Metadata,
 		ChildIds:                  symbol.ChildIDs,
+		AnnotatingMetadataIds:     symbol.AnnotatingMetadataIDs,
 		WithheldLibraryAttributes: int32(symbol.WithheldLibraryAttributes), // #nosec G115 -- attribute counts are small
+		WithheldLibraryMembers:    int32(symbol.WithheldLibraryMembers),    // #nosec G115 -- member counts are small
+	}
+	for _, member := range symbol.Members {
+		out.Members = append(out.Members, &pb.MemberInfo{
+			Id:            member.ID,
+			Name:          member.Name,
+			Kind:          member.Kind,
+			Inherited:     member.Inherited,
+			InheritedFrom: member.InheritedFrom,
+			Library:       member.Library,
+		})
 	}
 	for _, attribute := range symbol.Attributes {
 		out.Attributes = append(out.Attributes, &pb.AttributeInfo{
@@ -1529,13 +1754,14 @@ func symbolToProto(symbol *opensysml.Symbol) *pb.SymbolInfo {
 	}
 	if symbol.Type != nil {
 		out.TypeInfo = &pb.TypeInfo{
-			Declared:        symbol.Type.Declared,
-			ResolvedId:      symbol.Type.ResolvedID,
-			ResolvedKind:    symbol.Type.ResolvedKind,
-			Primitive:       symbol.Type.Primitive,
-			PrimitiveSource: symbol.Type.PrimitiveSource,
-			Quantity:        symbol.Type.Quantity,
-			Unit:            symbol.Type.Unit,
+			Declared:              symbol.Type.Declared,
+			ResolvedId:            symbol.Type.ResolvedID,
+			ResolvedQualifiedName: symbol.Type.ResolvedQualifiedName,
+			ResolvedKind:          symbol.Type.ResolvedKind,
+			Primitive:             symbol.Type.Primitive,
+			PrimitiveSource:       symbol.Type.PrimitiveSource,
+			Quantity:              symbol.Type.Quantity,
+			Unit:                  symbol.Type.Unit,
 		}
 	}
 	if symbol.Multiplicity != nil {
@@ -1543,10 +1769,11 @@ func symbolToProto(symbol *opensysml.Symbol) *pb.SymbolInfo {
 	}
 	for _, specialization := range symbol.Specializations {
 		out.Specializations = append(out.Specializations, &pb.Specialization{
-			Kind:       specialization.Kind,
-			Declared:   specialization.Declared,
-			TargetId:   specialization.TargetID,
-			TargetKind: specialization.TargetKind,
+			Kind:                specialization.Kind,
+			Declared:            specialization.Declared,
+			TargetId:            specialization.TargetID,
+			TargetQualifiedName: specialization.TargetQualifiedName,
+			TargetKind:          specialization.TargetKind,
 		})
 	}
 	return out
@@ -1606,6 +1833,10 @@ func valueToProto(value opensysml.Value) *pb.Value {
 		}}}
 	case opensysml.Quantity:
 		return &pb.Value{Kind: &pb.Value_Quantity{Quantity: quantityToProto(v)}}
+	case *opensysml.CoordinateFrame:
+		return &pb.Value{Kind: &pb.Value_CoordinateFrame{CoordinateFrame: frameToProto(v)}}
+	case *opensysml.CoordinateTransformation:
+		return &pb.Value{Kind: &pb.Value_CoordinateTransformation{CoordinateTransformation: transformationToProto(v)}}
 	case opensysml.EnumLiteral:
 		return &pb.Value{Kind: &pb.Value_EnumLiteral{EnumLiteral: &pb.EnumLiteral{
 			LiteralId:     v.LiteralID,
@@ -2305,6 +2536,15 @@ func instanceToProto(instance *opensysml.Instance) *pb.Instance {
 				converted.Values = append(converted.Values, valueToProto(element))
 			}
 			out.FeatureValues[name] = converted
+		}
+	}
+	if reach := instance.ReachedBy; reach != nil {
+		out.ReachedBy = &pb.InstanceReach{
+			InstanceId:      reach.InstanceID,
+			FeatureName:     reach.FeatureName,
+			FeatureSymbolId: reach.FeatureSymbolID,
+			Index:           int32Clamp(reach.Index),
+			Path:            reach.Path,
 		}
 	}
 	return out

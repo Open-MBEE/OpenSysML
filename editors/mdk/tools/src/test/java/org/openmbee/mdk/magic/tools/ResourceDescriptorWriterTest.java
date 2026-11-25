@@ -3,6 +3,8 @@ package org.openmbee.mdk.magic.tools;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.openmbee.mdk.magic.tools.ResourceDescriptorWriter.ALPHA;
+import static org.openmbee.mdk.magic.tools.ResourceDescriptorWriter.RELEASE;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -57,7 +59,23 @@ class ResourceDescriptorWriterTest {
     assertTrue(previous < first && first < next && next < release);
     assertTrue(release < ResourceDescriptorWriter.internalVersion("0.11.2-nightly-20260101-ddd4444"));
     assertEquals(ResourceDescriptorWriter.internalVersion("0.11.1-nightly-20250101-e5e5e5e"), first - 300);
-    assertEquals(release - 1, ResourceDescriptorWriter.internalVersion("0.11.1-nightly-20991231-f6f6f6f"));
+    assertEquals(release - RELEASE + ALPHA - 1, ResourceDescriptorWriter.internalVersion("0.11.1-nightly-20991231-f6f6f6f"));
+  }
+
+  @Test
+  void ordersReleaseCandidatesAboveEveryNightAndBelowTheRelease() {
+    long lastNight = ResourceDescriptorWriter.internalVersion("0.13.0-nightly-20991231-a1b2c3d");
+    long alpha = ResourceDescriptorWriter.internalVersion("v0.13.0-alpha.1");
+    long beta = ResourceDescriptorWriter.internalVersion("0.13.0-beta.2");
+    long rc1 = ResourceDescriptorWriter.internalVersion("0.13.0-rc.1");
+    long rc2 = ResourceDescriptorWriter.internalVersion("v0.13.0-rc.2");
+    long release = ResourceDescriptorWriter.internalVersion("0.13.0");
+    assertTrue(lastNight < alpha && alpha < beta && beta < rc1 && rc1 < rc2 && rc2 < release);
+    assertEquals(13_009_301L, rc1);
+    assertEquals(13_009_101L, alpha);
+    assertThrows(IllegalArgumentException.class, () -> ResourceDescriptorWriter.internalVersion("0.13.0-rc.100"));
+    assertThrows(IllegalArgumentException.class, () -> ResourceDescriptorWriter.internalVersion("0.13.0-rc.1-nightly-20261111-abc"));
+    assertThrows(IllegalArgumentException.class, () -> ResourceDescriptorWriter.internalVersion("0.13.0-dev.1"));
   }
 
   @Test

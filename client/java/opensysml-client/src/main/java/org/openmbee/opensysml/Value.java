@@ -167,6 +167,44 @@ public sealed interface Value {
   }
 
   /**
+   * A coordinate frame or measurement scale. An answer, never an argument.
+   *
+   * <p>Only a service advertising the {@code coordinate_frame_values} capability reports one as
+   * itself rather than as an unsupported {@link NullValue}.
+   *
+   * @param frame the frame
+   */
+  record CoordinateFrameValue(CoordinateFrame frame) implements Value {
+    /**
+     * Creates a coordinate frame value.
+     *
+     * @param frame the frame, never {@code null}
+     */
+    public CoordinateFrameValue {
+      Objects.requireNonNull(frame, "frame");
+    }
+  }
+
+  /**
+   * A coordinate transformation. An answer, never an argument.
+   *
+   * <p>Only a service advertising the {@code coordinate_frame_values} capability reports one as
+   * itself rather than as an unsupported {@link NullValue}.
+   *
+   * @param transformation the transformation
+   */
+  record CoordinateTransformationValue(CoordinateTransformation transformation) implements Value {
+    /**
+     * Creates a coordinate transformation value.
+     *
+     * @param transformation the transformation, never {@code null}
+     */
+    public CoordinateTransformationValue {
+      Objects.requireNonNull(transformation, "transformation");
+    }
+  }
+
+  /**
    * The unbounded value {@code *}: no number, ordered above every finite magnitude.
    *
    * <p>Only a service advertising the {@code infinity_value} capability reports it as itself rather
@@ -281,7 +319,10 @@ public sealed interface Value {
    * {@code metaobject_values} capability reports one as itself rather than as an unsupported
    * {@link NullValue}.
    *
-   * @param elementId FQN of the element reflected on ({@code "Vehicle::seatBelt"}), never empty
+   * @param elementId the id a client keeps for the element reflected on, never empty: its FQN
+   *     ({@code "Vehicle::seatBelt"}), the positional id of an unnamed member ({@code
+   *     "Vehicle::@2"}), or the element form's {@code @id} of an element the model synthesizes,
+   *     such as a send's or accept's argument
    * @param metaclassId FQN of the element's own reflective metaclass ({@code
    *     "SysML::Systems::PartUsage"}), not the type it was cast to; the service always sends it
    */

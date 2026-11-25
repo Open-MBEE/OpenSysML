@@ -96,6 +96,28 @@ func TestCheckComplianceRejectsDrift(t *testing.T) {
 	}
 }
 
+// TestCheckComplianceSourcesNamesTheSource: over the per-area sources the page
+// is combined from, a drift is reported at the source and line that carries it.
+func TestCheckComplianceSourcesNamesTheSource(t *testing.T) {
+	root := complianceRoot(t)
+	writeTestRepo(t, root, map[string]string{
+		"docs/project/spec-compliance/README.md":      "How to edit the map.\n",
+		"docs/project/spec-compliance/00-preamble.md": "# Compliance\n\nThe map.\n",
+		"docs/project/spec-compliance/01-rules.md":    "## Rules\n\n" + strings.TrimPrefix(compliancePage, "# Compliance\n\n"),
+	})
+	if err := checkComplianceSources(root, complianceManifest()); err != nil {
+		t.Fatalf("consistent sources must pass: %v", err)
+	}
+	m := complianceManifest()
+	m.Constraints[0].Status = manifest.StatusApproximate
+	m.Constraints[0].Rationale = "moved"
+	err := checkComplianceSources(root, m)
+	want := "docs/project/spec-compliance/01-rules.md:7: a ✅ row cites `validateA`, whose census status is approximate"
+	if err == nil || !strings.Contains(err.Error(), want) {
+		t.Fatalf("want an error containing %q, got %v", want, err)
+	}
+}
+
 // TestValidateAcceptsAFormalNameThePilotMisspells: a spec name differing from
 // the row's name is kept, unless it is another row's name or no constraint name.
 func TestValidateAcceptsAFormalNameThePilotMisspells(t *testing.T) {

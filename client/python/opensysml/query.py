@@ -59,11 +59,14 @@ class QueryElement:
         type: The element's metamodel type, e.g. ``PartUsage``.
         properties: The selected properties it has. A property an element does
             not have is absent rather than empty.
+        path: The path a held object is answered under
+            (``Garage::car.wheels[2]``); empty for a declared element.
     """
 
     id: str
     type: str
     properties: Dict[str, str]
+    path: str = ""
 
     def get(self, property_name, default=None):
         """Value of a selected property, or ``default`` if the element has none."""
@@ -74,6 +77,8 @@ class QueryElement:
         return {"@id": self.id, _TYPE_KEY: self.type, **self.properties}
 
     def __str__(self):
+        if self.path:
+            return f"{self.path} {self.id} ({self.type})"
         return f"{self.id} ({self.type})"
 
 
@@ -287,9 +292,22 @@ def _value(value):
     raise QueryError(f"cannot compare against {value!r}")
 
 
+class QueryElements(list):
+    """The elements a query selected, a list of :class:`QueryElement`.
+
+    Attributes:
+        result_view: The selection as a ``QVTS::QueryResult`` view, SysML text
+            exposing each element; ``""`` unless the call asked ``as_view``.
+    """
+
+    result_view: str = ""
+
+
 def elements_of(response):
     """The elements a ``QueryResponse`` reports, as :class:`QueryElement` records."""
-    return [
-        QueryElement(id=e.id, type=e.type, properties=dict(e.properties))
+    elements = QueryElements(
+        QueryElement(id=e.id, type=e.type, properties=dict(e.properties), path=e.path)
         for e in response.elements
-    ]
+    )
+    elements.result_view = response.result_view
+    return elements

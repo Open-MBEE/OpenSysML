@@ -14,6 +14,7 @@ import (
 )
 
 func TestRuntimeRobustnessAtomicBodyOrder(t *testing.T) {
+	t.Parallel()
 	t.Run("explore_run_budget", testAtomicBodyOrderRunBudget)
 	t.Run("commuting_calc_has_no_choice", testAtomicBodyOrderCommutingCalc)
 	t.Run("compiled_caller_falls_back_for_ordered_schedules", testAtomicBodyOrderCompiledFallback)
@@ -30,7 +31,7 @@ func TestRuntimeRobustnessAtomicBodyOrder(t *testing.T) {
 	t.Run("transitive_order_sensitivity_reaches_guards", testAtomicBodyOrderTransitiveGuards)
 	t.Run("constraint_invocation_has_one_result_choice", testAtomicBodyOrderConstraintInvocationChoice)
 	t.Run("nested_preview_refuses_order_dependent_invocation", testAtomicBodyOrderNestedPreviewInvocation)
-	t.Run("calc_flow_refusal_names_the_construct", testAtomicBodyOrderCalcFlowRefusal)
+	t.Run("calc_flow_without_successor_is_invalid", testAtomicBodyOrderCalcFlowWithoutSuccessor)
 	t.Run("calc_unmatched_succession_is_ignored", testAtomicBodyOrderCalcUnmatchedSuccession)
 	t.Run("constraint_property_finds_an_order_violation", testAtomicBodyOrderConstraintViolation)
 	t.Run("derived_final_orders_replay", testAtomicBodyOrderDerivedFinalReplay)
@@ -788,7 +789,7 @@ func testAtomicBodyOrderNestedPreviewInvocation(t *testing.T) {
 	}
 }
 
-func testAtomicBodyOrderCalcFlowRefusal(t *testing.T) {
+func testAtomicBodyOrderCalcFlowWithoutSuccessor(t *testing.T) {
 	m := parseLibraryModel(t, `package test {
 		private import ScalarValues::*;
 		calc def Bad { return : Integer; first start; 1 }
@@ -802,11 +803,11 @@ func testAtomicBodyOrderCalcFlowRefusal(t *testing.T) {
 		t.Fatal("parse calc invocation")
 	}
 	_, err = ctx.EvalWithScope(expr, m.idx.DocumentRoot(m.path))
-	if !errors.Is(err, errStatementNotExecutable) {
-		t.Fatalf("error = %v, want errStatementNotExecutable", err)
+	if !errors.Is(err, errInvalidActionFlow) {
+		t.Fatalf("error = %v, want errInvalidActionFlow", err)
 	}
-	if !strings.Contains(err.Error(), "`first` statement") || strings.Contains(err.Error(), "*ast.") {
-		t.Fatalf("error %q does not name the unsupported construct", err)
+	if !strings.Contains(err.Error(), "test::Bad") || strings.Contains(err.Error(), "*ast.") {
+		t.Fatalf("error %q does not name the calculation", err)
 	}
 }
 

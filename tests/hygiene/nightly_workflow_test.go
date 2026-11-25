@@ -19,6 +19,7 @@ import (
 // gets a dist-tag that is not latest, and old nights are pruned by age.
 
 type actionsWorkflow struct {
+	RunName     string                `yaml:"run-name"`
 	Permissions map[string]string     `yaml:"permissions"`
 	Env         map[string]string     `yaml:"env"`
 	Jobs        map[string]actionsJob `yaml:"jobs"`
@@ -26,6 +27,7 @@ type actionsWorkflow struct {
 
 type actionsJob struct {
 	Needs       yaml.Node         `yaml:"needs"`
+	If          string            `yaml:"if"`
 	Environment string            `yaml:"environment"`
 	Permissions map[string]string `yaml:"permissions"`
 	Outputs     map[string]string `yaml:"outputs"`
@@ -33,6 +35,7 @@ type actionsJob struct {
 }
 
 type actionsStep struct {
+	ID   string            `yaml:"id"`
 	Name string            `yaml:"name"`
 	Uses string            `yaml:"uses"`
 	Run  string            `yaml:"run"`
@@ -139,7 +142,18 @@ func TestNightlyReleasesAreAlwaysPrereleasesNeverLatest(t *testing.T) {
 	if moved < 0 {
 		t.Fatal("the alias job does not create the alias as a prerelease that is not latest")
 	}
-	if !containsAll(publish.runSteps()[night].Command, "dist/*.whl") {
+	// The Releases API refuses the job's token a new tag at a commit that changes a workflow
+	// file, so each release is created at a tag a git push already put there.
+	nightCommand := publish.runSteps()[night].Command
+	pushed := strings.Index(nightCommand, `git push origin "refs/tags/$VERSION"`)
+	if pushed < 0 || pushed > strings.Index(nightCommand, `gh release create "$VERSION"`) || !containsAll(nightCommand, `git tag --force "$VERSION" "$sha"`, "--verify-tag") || strings.Contains(nightCommand, "--target") {
+		t.Error("the per-night release has the Releases API create its tag instead of pushing the tag first and creating the release with --verify-tag")
+	}
+	aliasCommand := alias.runSteps()[moved].Command
+	if pushed := strings.Index(aliasCommand, `git push --force origin "refs/tags/$TAG"`); pushed < 0 || pushed > strings.Index(aliasCommand, `gh release create "$TAG"`) {
+		t.Error("the alias release is created before its tag is pushed, so the Releases API would create the tag")
+	}
+	if !containsAll(nightCommand, "dist/*.whl") {
 		t.Error("the per-night release does not carry the Python wheel beside the binaries")
 	}
 	if !containsAll(alias.runSteps()[moved].Command, `gh release download "$VERSION"`, `"${#assets[@]}" -ne "$expected"`) {
@@ -147,6 +161,15 @@ func TestNightlyReleasesAreAlwaysPrereleasesNeverLatest(t *testing.T) {
 	}
 	if needs := alias.needs(); !slices.Contains(needs, "publish") {
 		t.Errorf("the alias job needs %v, not the publish job whose release it copies", needs)
+	}
+	// A registry upload that fails must leave the alias, and the nights pruning would delete, where they were.
+	for _, registry := range []string{"pypi", "npm"} {
+		if needs := alias.needs(); !slices.Contains(needs, registry) {
+			t.Errorf("the alias job needs %v, not the %s job, so the alias moves to a night whose client did not publish", needs, registry)
+		}
+	}
+	if alias.If != "" {
+		t.Errorf("the alias job runs if %q, which can let it run past a failed job it needs", alias.If)
 	}
 	uploaded, released := -1, -1
 	for i, step := range publish.Steps {
@@ -222,7 +245,7 @@ func TestNightlyPythonSnapshotIsStampedBeforeItIsBuiltAndCheckedAfter(t *testing
 // TestNightlyJupyterKernelSnapshotIsStampedBeforeItIsBuiltAndCheckedAfter
 // holds the kernel's distribution to the same order as the client's: stamped
 // from the kernels the build script wrote, built, checked against every
-// kernel asset, listed in the manifest, and published to its own PyPI project.
+// kernel asset, and listed in the manifest release-pypi.yml publishes it from.
 func TestNightlyJupyterKernelSnapshotIsStampedBeforeItIsBuiltAndCheckedAfter(t *testing.T) {
 	workflow, _ := loadNightlyWorkflow(t)
 	steps := nightlyJob(t, workflow, "publish").runSteps()
@@ -236,7 +259,7 @@ func TestNightlyJupyterKernelSnapshotIsStampedBeforeItIsBuiltAndCheckedAfter(t *
 		"--table client/jupyter-kernel/jupyter_opensysml_kernel/release-digests.json",
 	)
 	build := stepIndex(steps, `"$KERNEL_DIST_SCRIPT" dist/jupyter client/jupyter-kernel/dist`, "-py3-none-*.whl")
-	labextension := stepIndex(steps, `pip install --only-binary ":all:" jupyterlab==`,
+	labextension := stepIndex(steps,
 		`(cd editors/jupyterlab && npm version --no-git-tag-version "$NPM_VERSION")`,
 		`"$KERNEL_DIST_SCRIPT" dist/jupyter client/jupyter-kernel/dist`,
 		`labextensions/jupyterlab-opensysml/package.json`, `[ "$stamped" != "$NPM_VERSION" ]`,
@@ -280,11 +303,18 @@ func TestNightlyJupyterKernelSnapshotIsStampedBeforeItIsBuiltAndCheckedAfter(t *
 			t.Errorf("the kernel distribution check does not require %s", asset)
 		}
 	}
-
-	pypi := nightlyJob(t, workflow, "pypi")
-	pypiSteps := pypi.runSteps()
-	if stepIndex(pypiSteps, "${KERNEL_PYPI_PROJECT}", "pypi.org") < 0 {
-		t.Error("the pypi job does not check PyPI for the kernel's version before publishing it")
+	// jupyterlab provides the `jupyter labextension build` the distribution build runs.
+	jupyterlab, distributions := -1, -1
+	for i, step := range nightlyJob(t, workflow, "publish").Steps {
+		switch {
+		case step.Uses == pipInstallAction && strings.Contains(step.With["packages"], "jupyterlab=="):
+			jupyterlab = i
+		case strings.Contains(step.Run, `"$KERNEL_DIST_SCRIPT" dist/jupyter client/jupyter-kernel/dist`):
+			distributions = i
+		}
+	}
+	if jupyterlab < 0 || jupyterlab > distributions {
+		t.Errorf("the publish job does not install a pinned jupyterlab through %s before the kernel distributions are built", pipInstallAction)
 	}
 }
 
@@ -295,7 +325,7 @@ func TestNightlyClientsReachTheRegistriesThroughTrustedPublishing(t *testing.T) 
 			t.Errorf("nightly.yml mentions %s; the registries are reached with the workflow's OIDC identity, never a stored token", forbidden)
 		}
 	}
-	for _, name := range []string{"pypi", "npm"} {
+	for _, name := range []string{"npm"} {
 		job := nightlyJob(t, workflow, name)
 		if needs := job.needs(); len(needs) != 1 || needs[0] != "publish" {
 			t.Errorf("the %s job needs %v, not the publish job that built and released the snapshot", name, needs)
@@ -309,26 +339,6 @@ func TestNightlyClientsReachTheRegistriesThroughTrustedPublishing(t *testing.T) 
 		if job.Permissions["contents"] != "read" {
 			t.Errorf("the %s job's contents permission is %q; publishing to a registry needs none", name, job.Permissions["contents"])
 		}
-	}
-
-	pypi := nightlyJob(t, workflow, "pypi")
-	published := false
-	for _, step := range pypi.Steps {
-		if strings.HasPrefix(step.Uses, "pypa/gh-action-pypi-publish@") {
-			published = true
-			if _, ok := step.With["password"]; ok {
-				t.Error("the PyPI publish step passes a password; trusted publishing needs none")
-			}
-			if step.If == "" {
-				t.Error("the PyPI publish step is unconditional; a version the index has must be skipped, not re-uploaded")
-			}
-		}
-	}
-	if !published {
-		t.Error("the pypi job does not use pypa/gh-action-pypi-publish")
-	}
-	if stepIndex(pypi.runSteps(), "pypi.org/pypi/", "/json", "publish=false") < 0 {
-		t.Error("the pypi job does not look the version up on the index before publishing")
 	}
 
 	npm := nightlyJob(t, workflow, "npm")
@@ -347,6 +357,54 @@ func TestNightlyClientsReachTheRegistriesThroughTrustedPublishing(t *testing.T) 
 	}
 	if stepIndex(npm.runSteps(), "dist-tags.latest", `"$latest" = "$NPM_VERSION"`) <= publish {
 		t.Error("the npm job does not check, after publishing, that latest still names the stable release")
+	}
+}
+
+// A night's Python distributions reach PyPI through release-pypi.yml, run on its tag and
+// watched to its end, so a snapshot and a release name one publisher and a lost upload fails the night.
+func TestNightlyHandsThePythonClientToTheReleaseWorkflow(t *testing.T) {
+	workflow, raw := loadNightlyWorkflow(t)
+	if strings.Contains(raw, "pypa/gh-action-pypi-publish") {
+		t.Error("nightly.yml uploads to PyPI itself; release-pypi.yml is the one trusted publisher")
+	}
+	pypi := nightlyJob(t, workflow, "pypi")
+	if needs := pypi.needs(); len(needs) != 1 || needs[0] != "publish" {
+		t.Errorf("the pypi job needs %v, not the publish job whose release the distributions are taken from", needs)
+	}
+	if pypi.Permissions["actions"] != "write" {
+		t.Errorf("the pypi job cannot dispatch a workflow (actions: %q)", pypi.Permissions["actions"])
+	}
+	if pypi.Permissions["contents"] != "read" {
+		t.Errorf("the pypi job's contents permission is %q; dispatching a workflow needs none", pypi.Permissions["contents"])
+	}
+	if pypi.Permissions["id-token"] != "" {
+		t.Error("the pypi job mints an OIDC token; release-pypi.yml is the publisher, not this job")
+	}
+	steps := pypi.runSteps()
+	dispatch := stepIndex(steps, "gh workflow run release-pypi.yml", `--ref "$BRANCH"`, `--field "tag=$VERSION"`,
+		`--created ">=$started"`, `Release to PyPI $VERSION`, "gh run watch", "--exit-status")
+	if dispatch < 0 {
+		t.Error("the pypi job does not dispatch release-pypi.yml on develop with the night's tag, find the run by its name and watch it to its end")
+	}
+	for _, step := range pypi.Steps {
+		if strings.Contains(step.Run, "gh workflow run release-pypi.yml") && step.If != "" {
+			t.Error("the dispatch of release-pypi.yml is conditional; every published night goes to PyPI")
+		}
+	}
+	for _, step := range nightlyJob(t, workflow, "publish").Steps {
+		if strings.HasPrefix(step.Uses, "actions/upload-artifact@") && strings.Contains(step.With["path"], "client/") {
+			t.Errorf("the publish job keeps %s for a PyPI upload the nightly no longer makes", step.With["name"])
+		}
+	}
+
+	releasePyPI, _ := loadReleasePyPIWorkflow(t)
+	if releasePyPI.RunName != "Release to PyPI ${{ inputs.tag || github.ref_name }}" {
+		t.Errorf("release-pypi.yml runs are named %q; the pypi job finds its run as `Release to PyPI <tag>`", releasePyPI.RunName)
+	}
+	version := stepIndex(releasePyPIJob(t, releasePyPI, "fetch").runSteps(), "nightly-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9a-f]*)",
+		`gh release view "$TAG" --json assets`, `opensysml-\(.*\)-py3-none-any\.whl`, `*.dev"$date")`, `IDENTITY_REGEXP="$SNAPSHOT_IDENTITY_REGEXP"`)
+	if version < 0 {
+		t.Error("release-pypi.yml does not take a night's version from the wheel its release carries, under the nightly's signing identity")
 	}
 }
 
@@ -472,6 +530,10 @@ func TestNightlyVSIXIsVersionedAsTheSnapshotCoreNotTheManifest(t *testing.T) {
 	if strings.Contains(packaged.Run, "editors/vscode/package.json').version") {
 		t.Errorf("the vsix step still versions the extension from its manifest, which names the release already made:\n%s", packaged.Run)
 	}
+	// The selected commit's own script names the packed file, and an older commit names it differently.
+	if !containsAll(packaged.Run, "vsixes=(editors/vscode/*.vsix)", `cp "${vsixes[0]}" dist/opensysml.vsix`) {
+		t.Errorf("the vsix step does not take whatever the commit packed and publish it as opensysml.vsix:\n%s", packaged.Run)
+	}
 }
 
 // An append whose glob matched the bundles once listed them twice and broke every nightly
@@ -484,7 +546,8 @@ func TestNightlyManifestListsEachAssetOnce(t *testing.T) {
 		"sysml-mcp-linux-amd64.tar.gz", "sysml-mcp-windows-amd64.zip",
 		"sysml-grpc-linux-amd64", "sysml-grpc-windows-amd64.exe",
 		"sysml-jupyter-kernel-linux-amd64", "sysml-jupyter-kernel-windows-amd64.exe",
-		"sysml-wasm.wasm", "sysml-prod.wasm.gz", "wasm_exec.js", "opensysml-sysml.vsix",
+		"sysml-wasm.wasm", "sysml-prod.wasm.gz", "wasm_exec.js", "opensysml.vsix",
+		"Magic_MDK.zip", "syson-mdk-backend.jar", "syson-mdk-frontend.tgz",
 	}
 	appends := 0
 	last := -1
@@ -529,69 +592,71 @@ func TestNightlyManifestListsEachAssetOnce(t *testing.T) {
 	}
 }
 
-// The editor plugins are workflow artifacts of the night, built after the per-night release
-// from the binaries it published, each checked against the night's manifest, and kept as
-// long as the release itself. The jobs read the release and write nothing to the repository.
-func TestNightlyKeepsTheEditorPluginsAsArtifactsOfTheNight(t *testing.T) {
+// The editor plugins are release assets of the night: built in the publish job around the sysml-grpc it
+// just built, listed in SHA256SUMS.txt before it is checked and signed, and skipped on a commit without them.
+func TestNightlyPublishesTheEditorPluginsAsReleaseAssets(t *testing.T) {
 	workflow, _ := loadNightlyWorkflow(t)
-	for name, artifact := range map[string]string{"cameo-plugin": "cameo-plugin", "syson-plugin": "syson-plugin"} {
-		job := nightlyJob(t, workflow, name)
-		if needs := job.needs(); !slices.Contains(needs, "publish") || !slices.Contains(needs, "select") {
-			t.Errorf("the %s job needs %v, not the select job whose commit it checks out and the publish job whose release it reads", name, needs)
-		}
-		if job.Permissions["contents"] != "read" {
-			t.Errorf("the %s job's contents permission is %q; it only downloads the night's release", name, job.Permissions["contents"])
-		}
-		fetched, checked, kept := false, false, false
-		for _, step := range job.Steps {
-			if strings.Contains(step.Run, `gh release download "$VERSION"`) && strings.Contains(step.Run, "SHA256SUMS.txt") {
-				fetched = true
-				if strings.Contains(step.Run, "sha256sum --check --strict") {
-					checked = true
-				}
-				if step.Env["VERSION"] != "${{ needs.publish.outputs.tag }}" {
-					t.Errorf("the %s job fetches VERSION=%q, not the per-night release the publish job created", name, step.Env["VERSION"])
-				}
-			}
-			if strings.HasPrefix(step.Uses, "actions/upload-artifact@") {
-				kept = true
-				if step.With["name"] != artifact {
-					t.Errorf("the %s job keeps artifact %q, not %q as the snapshot page says", name, step.With["name"], artifact)
-				}
-				if step.With["overwrite"] != "true" {
-					t.Errorf("the %s job's artifact does not overwrite the one a re-run already uploaded", name)
-				}
-				if step.With["retention-days"] != "${{ env.RETENTION_DAYS }}" {
-					t.Errorf("the %s job keeps its artifact for %q, not the RETENTION_DAYS the per-night release is kept for", name, step.With["retention-days"])
-				}
-			}
-		}
-		if !fetched || !checked {
-			t.Errorf("the %s job does not fetch the night's sysml-grpc from its release and check it against SHA256SUMS.txt", name)
-		}
-		if !kept {
-			t.Errorf("the %s job keeps no artifact", name)
+	for _, name := range []string{"cameo-plugin", "syson-plugin"} {
+		if _, ok := workflow.Jobs[name]; ok {
+			t.Errorf("nightly.yml still has a %s job; the plugins are built in the publish job so the signed manifest lists them", name)
 		}
 	}
-	packaged, gated := false, false
-	for _, step := range nightlyJob(t, workflow, "cameo-plugin").Steps {
-		if strings.Contains(step.Run, `grep -q 'opensysml.binaries' editors/mdk/dist/pom.xml`) && strings.Contains(step.Run, "present=false") {
-			gated = true
-		}
-		if strings.Contains(step.Run, `-Dopensysml.binaries="$PWD/binaries"`) && strings.Contains(step.Run, "-Dopensysml.requireService=true") {
-			packaged = true
-			if !strings.Contains(step.Run, `-Dopensysml.version="$CORE-$VERSION"`) || step.Env["CORE"] != "${{ needs.publish.outputs.core }}" {
-				t.Errorf("the Cameo plugin is versioned by %q, not the snapshot core with the night as its pre-release part, as the vsix is", step.Env["CORE"])
+	publish := nightlyJob(t, workflow, "publish")
+	steps := publish.runSteps()
+	gated := stepIndex(steps, `grep -q 'opensysml.binaries' editors/mdk/dist/pom.xml`, "cameo=false", "editors/syson/frontend/package-lock.json", "syson=false")
+	cameo := stepIndex(steps, `-Dopensysml.binaries="$PWD/dist/grpc"`, "-Dopensysml.requireService=true", "dist/cameo/Magic_MDK.zip", ">> SHA256SUMS.txt")
+	syson := stepIndex(steps, "dist/syson/syson-mdk-backend.jar", "dist/syson/syson-mdk-frontend.tgz", ">> SHA256SUMS.txt")
+	check := stepIndex(steps, "uniq -d", "sha256sum --check --strict", "SHA256SUMS.txt")
+	release := stepIndex(steps, `gh release create "$VERSION"`)
+	if gated < 0 {
+		t.Fatal("the publish job does not check whether the selected commit carries the Cameo distribution's -Dopensysml.binaries and the SysON plugin")
+	}
+	if cameo < 0 {
+		t.Fatal("the publish job does not package the Cameo plugin around the binaries it built, with its service-backed tests required, into dist/cameo/Magic_MDK.zip listed in SHA256SUMS.txt")
+	}
+	if syson < 0 {
+		t.Fatal("the publish job does not collect dist/syson/syson-mdk-backend.jar and dist/syson/syson-mdk-frontend.tgz into SHA256SUMS.txt")
+	}
+	if check < 0 || release < 0 {
+		t.Fatal("the publish job does not check SHA256SUMS.txt and create the per-night release")
+	}
+	if gated > cameo || gated > syson {
+		t.Error("a plugin is packaged before the publish job checked the commit carries it")
+	}
+	if cameo > check || syson > check {
+		t.Error("a plugin is appended to SHA256SUMS.txt after the manifest is checked, so the check does not cover it")
+	}
+	if !containsAll(steps[check].Command, "for dir in . grpc jupyter wasm cameo syson; do") {
+		t.Error("the manifest check does not look under dist/cameo and dist/syson for the plugin assets it lists")
+	}
+	if !containsAll(steps[release].Command, "dist/cameo/Magic_MDK.zip", "dist/syson/syson-mdk-backend.jar", "dist/syson/syson-mdk-frontend.tgz") {
+		t.Error("the per-night release is not created with the three plugin assets")
+	}
+	for _, step := range publish.Steps {
+		switch {
+		case strings.Contains(step.Run, `-Dopensysml.binaries="$PWD/dist/grpc"`):
+			if step.If != "steps.layout.outputs.cameo == 'true'" {
+				t.Errorf("the Cameo plugin is packaged under %q, not only when the commit carries its distribution module", step.If)
 			}
+			if !strings.Contains(step.Run, `-Dopensysml.version="$CORE-$VERSION"`) || step.Env["CORE"] != "${{ steps.version.outputs.core }}" || step.Env["VERSION"] != "${{ steps.version.outputs.tag }}" {
+				t.Errorf("the Cameo plugin is versioned by CORE=%q VERSION=%q, not the snapshot core with the night as its pre-release part, as the vsix is", step.Env["CORE"], step.Env["VERSION"])
+			}
+			if !containsAll(step.Run, "bin/DIGESTS", "dist/SHA256SUMS.txt", "-ne 5", "diff ") {
+				t.Error("the Cameo zip's DIGESTS are not checked against the five sysml-grpc lines of the manifest")
+			}
+		case strings.Contains(step.Run, "dist/syson/syson-mdk-frontend.tgz") && strings.Contains(step.Run, ">> SHA256SUMS.txt"):
+			if step.If != "steps.layout.outputs.syson == 'true'" {
+				t.Errorf("the SysON plugin is collected under %q, not only when the commit carries it", step.If)
+			}
+		case strings.Contains(step.Run, `gh release create "$VERSION"`):
+			if step.Env["CAMEO"] != "${{ steps.layout.outputs.cameo }}" || step.Env["SYSON"] != "${{ steps.layout.outputs.syson }}" {
+				t.Error("the release step does not take CAMEO and SYSON from the layout check, so it cannot require exactly the plugins the commit carries")
+			}
+		case strings.HasPrefix(step.Uses, "actions/upload-artifact@") && step.With["name"] != "npm-dist":
+			t.Errorf("the publish job keeps %q as a workflow artifact; the plugins are release assets", step.With["name"])
 		}
-	}
-	if !packaged {
-		t.Error("the Cameo plugin is not packaged around the binaries fetched from the night's release, with its service-backed tests required")
-	}
-	if !gated {
-		t.Error("a selected commit whose distribution module cannot stage binaries from a directory is not skipped; its stager would reject the night's version")
 	}
 	if workflow.Jobs["publish"].Outputs["core"] != "${{ steps.version.outputs.core }}" {
-		t.Error("the publish job does not expose the snapshot core the plugin job versions by")
+		t.Error("the publish job does not expose the snapshot core")
 	}
 }

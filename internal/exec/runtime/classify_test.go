@@ -932,9 +932,8 @@ func TestChainValueCollectsAcrossTheCollection(t *testing.T) {
 	}
 }
 
-// A binding end whose path crosses a collection reaches that feature on every object of it, in
-// order: the end holds their values together, and a value the other end holds on its own
-// determines none of the objects' parts (KerML 1.0 §7.3.4.6, §7.4.9.2).
+// A binding end whose path crosses a collection holds that feature's values on every object of it,
+// in order; a value the other end holds determines none of their parts (KerML 1.1 §7.3.4.6, §7.4.6).
 func TestBindingEndAcrossACollection(t *testing.T) {
 	// shelf fills the definition; usage redefines its features on the instance.
 	instance := func(shelf, usage string) string {
@@ -990,9 +989,10 @@ func TestBindingEndAcrossACollection(t *testing.T) {
 		}
 		return all
 	}
-	const bound = `bind [0..*] groups.items = [0..*] allItems;
-		bind [0..*] groups.weights = [0..*] allWeights;
-		bind [0..*] groups.shares = [0..*] allShares;`
+	// `[1]` ends link each value of one end to one of the other's, itself: the ends hold the same values.
+	const bound = `bind [1] groups.items = [1] allItems;
+		bind [1] groups.weights = [1] allWeights;
+		bind [1] groups.shares = [1] allShares;`
 
 	for _, order := range []string{"union_first", "members_first"} {
 		t.Run(order, func(t *testing.T) {
@@ -1059,22 +1059,38 @@ func TestBindingEndAcrossACollection(t *testing.T) {
 		}
 	})
 
-	// An end's multiplicity counts the values of every object reached together: four
-	// weights satisfy [4] though each group holds two, and fall short of [5..*].
-	t.Run("end_multiplicity_over_the_union", func(t *testing.T) {
-		ctx, idx := libraryShapeContext(t, model("attribute four : Real [4] nonunique; bind [4] groups.weights = [4] four;"))
+	// An end's multiplicity counts its values linked per value of the other end (KerML 1.1 §7.4.5.2):
+	// optional ends with no links declared determine nothing, and no value links to more than itself.
+	t.Run("optional_ends_determine_nothing", func(t *testing.T) {
+		ctx, idx := libraryShapeContext(t, model("bind [0..*] groups.items = [0..*] allItems; bind [0..*] groups.weights = [0..*] allWeights;"))
+		shelf := instantiateQualified(t, ctx, idx, "test::shelf")
+		for _, name := range []string{"allItems", "allWeights"} {
+			fv, err := shelf.GetFeatureValue(ctx, name)
+			if err != nil {
+				t.Fatalf("%s: %v", name, err)
+			}
+			if n := len(elementsOf(fv.HeldValue())); n != 0 || fv.BindingDerived {
+				t.Fatalf("%s holds %d value(s) (binding-derived %v), want none: the binding requires no link", name, n, fv.BindingDerived)
+			}
+		}
+	})
+	t.Run("end_multiplicity_is_a_cross_multiplicity", func(t *testing.T) {
+		ctx, idx := libraryShapeContext(t, model("attribute four : Real [4] nonunique; bind [1] groups.weights = [1] four;"))
 		shelf := instantiateQualified(t, ctx, idx, "test::shelf")
 		if got := values(t, ctx, shelf, "four"); got != "[1.0, 2.0, 1.0, 2.0]" {
 			t.Fatalf("four = %s, want the groups' weights, four in all", got)
 		}
-		ctx, idx = libraryShapeContext(t, model("bind [5..*] groups.weights = [5..*] allWeights;"))
-		shelf = instantiateQualified(t, ctx, idx, "test::shelf")
-		_, err := shelf.GetFeatureValue(ctx, "allWeights")
-		if !errors.Is(err, ErrMultiplicityViolation) {
-			t.Fatalf("allWeights = %v, want ErrMultiplicityViolation", err)
-		}
-		if want := "`bind [5..*] groups.weights = [5..*] allWeights` links [5..*] of groups.weights, which holds 4 value(s)"; !strings.Contains(err.Error(), want) {
-			t.Fatalf("error = %q\nwant it to contain %q", err.Error(), want)
+		for ends, of := range map[string]string{"[4]": "[4]", "[5..*]": "[5..*]"} {
+			ctx, idx = libraryShapeContext(t, model("bind "+ends+" groups.weights = "+ends+" allWeights;"))
+			shelf = instantiateQualified(t, ctx, idx, "test::shelf")
+			_, err := shelf.GetFeatureValue(ctx, "allWeights")
+			if !errors.Is(err, ErrMultiplicityViolation) {
+				t.Fatalf("%s: allWeights = %v, want ErrMultiplicityViolation", ends, err)
+			}
+			want := "`bind " + ends + " groups.weights = " + ends + " allWeights` links each value of allWeights to " + of + " of groups.weights, and a binding links a value to itself alone"
+			if !strings.Contains(err.Error(), want) {
+				t.Fatalf("error = %q\nwant it to contain %q", err.Error(), want)
+			}
 		}
 	})
 
@@ -1510,6 +1526,7 @@ func TestRefusedCollectionClassificationUndoesTheEarlierObjects(t *testing.T) {
 // The objects a classification's behaviors make go with it when it is undone: a refused
 // collection leaves the context holding what it held, however often the read is retried.
 func TestRefusedCollectionClassificationAbandonsWhatItsBehaviorsMade(t *testing.T) {
+	t.Parallel()
 	ctx, idx := libraryShapeContext(t, `package test {
 		private import ScalarValues::*;
 		item def Counter { attribute hits : Rational; }

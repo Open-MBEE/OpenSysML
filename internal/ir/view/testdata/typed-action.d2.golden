@@ -13,3 +13,5 @@ n0: "«action»\nrun" {
 }
 n0.n1 -> n0.n2: { class: succession }
 n0.n2 -> n0.n3: { class: succession }
+frame_name: "«view» TypedViews::cycleView : ActionFlowView" { shape: text; near: top-left }
+frame_tr: "expose Typed::run" { shape: text; near: top-right }

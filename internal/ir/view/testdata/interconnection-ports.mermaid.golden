@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» ToasterViews::toasterView"
 ---
 %% ToasterViews::toasterView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
@@ -35,7 +36,10 @@ flowchart LR
     end
     n3("`*«part»*
 **chassis**`")
+    n4@{ shape: text, label: "`*«flow»*
+—▶`" }
   end
-  n2.0 === n1.0
-  n2.0 --> n1.0
+  n2.0 === n4
+  n4 === n1.0
   linkStyle 0 stroke-width:3px
+  linkStyle 1 stroke-width:3px

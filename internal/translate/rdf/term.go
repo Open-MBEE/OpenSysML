@@ -15,6 +15,8 @@ import (
 	"maps"
 	"slices"
 	"strings"
+	"sync"
+	"unique"
 )
 
 // TermKind discriminates the two node kinds this model represents.
@@ -28,27 +30,91 @@ const (
 	TermLiteral
 )
 
-// Term is one RDF node: an IRI or a literal.
+// Term is one RDF node: an IRI or a literal. It is three words: a graph holds three per
+// statement and each object again in its index, so a literal's form is one shared handle.
 type Term struct {
-	Kind TermKind
 	// Value is the IRI for TermIRI, or the lexical form for TermLiteral.
 	Value string
-	// Datatype is the datatype IRI of a literal. Empty means xsd:string for a
-	// plain literal, and is always empty when Lang is set.
-	Datatype string
-	// Lang is the BCP 47 language tag of a literal, empty when untagged.
-	Lang string
+	// form is the literal's datatype and language tag. The zero handle is an IRI.
+	form unique.Handle[literalForm]
+}
+
+// literalForm is what distinguishes literals of one lexical form: the datatype
+// IRI, or the language tag, never both (RDF 1.1).
+type literalForm struct {
+	datatype string
+	lang     string
+}
+
+// plainForm holds the form of a literal with neither datatype nor language tag.
+var plainForm struct {
+	once   sync.Once
+	handle unique.Handle[literalForm]
+}
+
+// plainLiteral makes that form on first use: made at package initialization, it
+// would link the interning tables into every binary importing this package.
+func plainLiteral() unique.Handle[literalForm] {
+	plainForm.once.Do(func() { plainForm.handle = unique.Make(literalForm{}) })
+	return plainForm.handle
+}
+
+// Kind is the node kind of t.
+func (t Term) Kind() TermKind {
+	if t.form == (unique.Handle[literalForm]{}) {
+		return TermIRI
+	}
+	return TermLiteral
+}
+
+// Datatype is the datatype IRI of a literal. Empty means xsd:string for a
+// plain literal, and is always empty for an IRI and when Lang is set.
+func (t Term) Datatype() string {
+	if t.IsIRI() {
+		return ""
+	}
+	return t.form.Value().datatype
+}
+
+// Lang is the BCP 47 language tag of a literal, empty when untagged.
+func (t Term) Lang() string {
+	if t.IsIRI() {
+		return ""
+	}
+	return t.form.Value().lang
 }
 
 // IRI returns an IRI term.
-func IRI(iri string) Term { return Term{Kind: TermIRI, Value: iri} }
+func IRI(iri string) Term { return Term{Value: iri} }
+
+// IRIForbidden returns the first character of s that an IRI reference cannot hold
+// unescaped (RDF 1.1 Turtle § 6.5, IRIREF): a control, a space or one of <>"{}|^`\.
+func IRIForbidden(s string) (rune, bool) {
+	for _, r := range s {
+		if r <= 0x20 || strings.ContainsRune("<>\"{}|^`\\", r) {
+			return r, true
+		}
+	}
+	return 0, false
+}
 
 // String returns a plain string literal.
-func String(value string) Term { return Term{Kind: TermLiteral, Value: value} }
+func String(value string) Term { return Term{Value: value, form: plainLiteral()} }
 
 // TypedLiteral returns a literal with an explicit datatype IRI.
 func TypedLiteral(value, datatype string) Term {
-	return Term{Kind: TermLiteral, Value: value, Datatype: datatype}
+	if datatype == "" {
+		return String(value)
+	}
+	return Term{Value: value, form: unique.Make(literalForm{datatype: datatype})}
+}
+
+// LangString returns a literal carrying a language tag.
+func LangString(value, lang string) Term {
+	if lang == "" {
+		return String(value)
+	}
+	return Term{Value: value, form: unique.Make(literalForm{lang: lang})}
 }
 
 // Bool returns an xsd:boolean literal.
@@ -62,10 +128,10 @@ func Int(value int) Term {
 }
 
 // IsIRI reports whether t is an IRI term.
-func (t Term) IsIRI() bool { return t.Kind == TermIRI }
+func (t Term) IsIRI() bool { return t.Kind() == TermIRI }
 
 // IsLiteral reports whether t is a literal term.
-func (t Term) IsLiteral() bool { return t.Kind == TermLiteral }
+func (t Term) IsLiteral() bool { return t.Kind() == TermLiteral }
 
 // Equal reports whether two terms are identical, including datatype and tag.
 func (t Term) Equal(other Term) bool { return t == other }
@@ -77,10 +143,10 @@ func (t Term) String() string {
 	}
 	out := quoteLiteral(t.Value)
 	switch {
-	case t.Lang != "":
-		return out + "@" + t.Lang
-	case t.Datatype != "":
-		return out + "^^<" + t.Datatype + ">"
+	case t.Lang() != "":
+		return out + "@" + t.Lang()
+	case t.Datatype() != "":
+		return out + "^^<" + t.Datatype() + ">"
 	}
 	return out
 }
@@ -130,11 +196,24 @@ type GraphBuilder struct {
 	prefixes map[string]string
 }
 
-// subjectIndex holds one subject's statements, keeping predicates in insertion
-// order so serialization stays stable.
+// subjectIndex holds one subject's statements: its predicates in insertion order, so
+// serialization stays stable, and beside each its objects; a scan finds one of the few.
 type subjectIndex struct {
 	predicates []string
-	objects    map[string][]Term
+	objects    [][]Term
+}
+
+// of is the objects the subject states for predicate, in insertion order.
+func (si *subjectIndex) of(predicate string) []Term {
+	if si == nil {
+		return nil
+	}
+	for i, stated := range si.predicates {
+		if stated == predicate {
+			return si.objects[i]
+		}
+	}
+	return nil
 }
 
 // NewGraph returns an empty graph carrying the SysML prefix bindings.
@@ -217,12 +296,12 @@ func tripleHash(triple Triple, seed maphash.Seed) uint64 {
 	var hash maphash.Hash
 	hash.SetSeed(seed)
 	write := func(term Term) {
-		_ = hash.WriteByte(byte(term.Kind)) // #nosec G115 -- a small enumeration
+		_ = hash.WriteByte(byte(term.Kind())) // #nosec G115 -- a small enumeration
 		_, _ = hash.WriteString(term.Value)
 		_ = hash.WriteByte(0)
-		_, _ = hash.WriteString(term.Datatype)
+		_, _ = hash.WriteString(term.Datatype())
 		_ = hash.WriteByte(0)
-		_, _ = hash.WriteString(term.Lang)
+		_, _ = hash.WriteString(term.Lang())
 		_ = hash.WriteByte(0xff)
 	}
 	write(triple.Subject)
@@ -310,7 +389,7 @@ func (g *Graph) AddTriple(t Triple) {
 		g.seen[t] = true
 	} else if g.index != nil {
 		if si := g.index[t.Subject]; si != nil {
-			for _, object := range si.objects[t.Predicate.Value] {
+			for _, object := range si.of(t.Predicate.Value) {
 				if object == t.Object {
 					return
 				}
@@ -351,10 +430,10 @@ func cloneSubjectIndex(index *subjectIndex) *subjectIndex {
 	}
 	clone := &subjectIndex{
 		predicates: slices.Clone(index.predicates),
-		objects:    make(map[string][]Term, len(index.objects)),
+		objects:    make([][]Term, len(index.objects)),
 	}
-	for predicate, objects := range index.objects {
-		clone.objects[predicate] = slices.Clone(objects)
+	for i, objects := range index.objects {
+		clone.objects[i] = slices.Clone(objects)
 	}
 	return clone
 }
@@ -363,12 +442,22 @@ func cloneSubjectIndex(index *subjectIndex) *subjectIndex {
 // when si is nil.
 func indexTriple(si *subjectIndex, t Triple) *subjectIndex {
 	if si == nil {
-		si = &subjectIndex{objects: make(map[string][]Term)}
+		si = &subjectIndex{}
 	}
-	if len(si.objects[t.Predicate.Value]) == 0 {
-		si.predicates = append(si.predicates, t.Predicate.Value)
+	for i, stated := range si.predicates {
+		if stated == t.Predicate.Value {
+			si.objects[i] = append(si.objects[i], t.Object)
+			return si
+		}
 	}
-	si.objects[t.Predicate.Value] = append(si.objects[t.Predicate.Value], t.Object)
+	si.predicates = append(si.predicates, t.Predicate.Value)
+	// A predicate's object storage outlives a reset of the entry, so restating reuses it.
+	if n := len(si.objects); n < cap(si.objects) {
+		si.objects = si.objects[:n+1]
+		si.objects[n] = append(si.objects[n][:0], t.Object)
+	} else {
+		si.objects = append(si.objects, []Term{t.Object})
+	}
 	return si
 }
 
@@ -400,7 +489,7 @@ func (g *Graph) Has(t Triple) bool {
 		if si == nil {
 			return false
 		}
-		for _, object := range si.objects[t.Predicate.Value] {
+		for _, object := range si.of(t.Predicate.Value) {
 			if object == t.Object {
 				return true
 			}
@@ -411,7 +500,7 @@ func (g *Graph) Has(t Triple) bool {
 	if si == nil {
 		return false
 	}
-	for _, object := range si.objects[t.Predicate.Value] {
+	for _, object := range si.of(t.Predicate.Value) {
 		if object == t.Object {
 			return true
 		}
@@ -495,20 +584,13 @@ func (g *Graph) RewriteTriples(rewrite func(*Triple) bool) {
 	g.seen = nil
 	g.positions = nil
 	for _, index := range g.index {
-		for predicate, objects := range index.objects {
-			index.objects[predicate] = objects[:0]
-		}
 		index.predicates = index.predicates[:0]
+		index.objects = index.objects[:0]
 	}
 	for _, triple := range unique {
 		g.index[triple.Subject] = indexTriple(g.index[triple.Subject], triple)
 	}
 	for subject, index := range g.index {
-		for predicate, objects := range index.objects {
-			if len(objects) == 0 {
-				delete(index.objects, predicate)
-			}
-		}
 		if len(index.predicates) == 0 {
 			delete(g.index, subject)
 		}
@@ -540,10 +622,10 @@ func (g *Graph) detachSharedIndexes() {
 // triple keeping its place; anything but a permutation leaves the graph as it was.
 func (g *Graph) ReorderObjects(subject Term, predicate string, objects []Term) {
 	si := g.subjects()[subject]
-	if si == nil || len(si.objects[predicate]) != len(objects) {
+	if si == nil || len(si.of(predicate)) != len(objects) {
 		return
 	}
-	found := si.objects[predicate]
+	found := si.of(predicate)
 	current := make(map[Term]int, len(found))
 	for _, object := range found {
 		current[object]++
@@ -567,7 +649,7 @@ func (g *Graph) ReorderObjects(subject Term, predicate string, objects []Term) {
 	for i, position := range positions {
 		g.triples[position].Object = objects[i]
 	}
-	copy(si.objects[predicate], objects)
+	copy(si.of(predicate), objects)
 }
 
 // statementPositions locates predicate's statements in triples, per subject, in
@@ -646,7 +728,7 @@ func (g *Graph) Objects(subject Term, predicate string) []Term {
 	if si == nil {
 		return nil
 	}
-	found := si.objects[predicate]
+	found := si.of(predicate)
 	if len(found) == 0 {
 		return nil
 	}
@@ -662,7 +744,7 @@ func (g *Graph) ObjectsView(subject Term, predicate string) []Term {
 	if si == nil {
 		return nil
 	}
-	return si.objects[predicate]
+	return si.of(predicate)
 }
 
 // Object returns the first object of (subject, predicate) and whether one
@@ -672,7 +754,7 @@ func (g *Graph) Object(subject Term, predicate string) (Term, bool) {
 	if si == nil {
 		return Term{}, false
 	}
-	if found := si.objects[predicate]; len(found) > 0 {
+	if found := si.of(predicate); len(found) > 0 {
 		return found[0], true
 	}
 	return Term{}, false

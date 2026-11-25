@@ -1,11 +1,18 @@
 VehicleSequenceViews::startVehicleView - sequence rendering (view def SequenceView)
 
 part driver
+  perform turnVehicleOn
+  perform trigger2
+  event occurrence driverReady
 part vehicle
+  perform trigger1
+  perform sendStatus
+  event occurrence doorClosed
 
 messages:
-  driver => vehicle: of ignitionCmd : IgnitionCmd
-  vehicle => driver: of es : EngineStatus
+  driver.turnVehicleOn -> vehicle.trigger1: of ignitionCmd : IgnitionCmd
+  vehicle.sendStatus -> driver.trigger2: of es : EngineStatus
+  vehicle.doorClosed -> driver.driverReady
 
 not represented:
   - the flows in perform action startVehicle are its action flow, not interaction messages; they are not shown

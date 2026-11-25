@@ -358,7 +358,7 @@ func TestConstraint_RedefinitionValid(t *testing.T) {
 		}
 	`
 	diags := constraintDiags(t, src)
-	if hasCode(diags, "redefinition-no-inherited") || hasCode(diags, "redefinition-type-mismatch") {
+	if hasCode(diags, "redefinition-no-inherited") || hasCode(diags, "disjoint-feature-types") {
 		t.Fatalf("expected no redefinition diagnostic for valid redefinition, got %v", diags)
 	}
 }
@@ -457,7 +457,9 @@ func TestConstraint_RedefinitionInNestedDefinition(t *testing.T) {
 	}
 }
 
-func TestConstraint_RedefinitionTypeMismatch(t *testing.T) {
+// A redefining feature's type joins the redefined one's (KerML 8.3.3.3.4): unrelated
+// types are silent, only provably disjoint ones are reported (disjoint-feature-types).
+func TestConstraint_RedefinitionUnrelatedTypeStaysSilent(t *testing.T) {
 	src := `
 		attribute def SpeedType;
 		attribute def NameType;
@@ -468,21 +470,13 @@ func TestConstraint_RedefinitionTypeMismatch(t *testing.T) {
 			attribute speed : NameType :>> Vehicle::speed;
 		}
 	`
-	diags := constraintDiags(t, src)
-	if !hasCode(diags, "redefinition-type-mismatch") {
-		t.Fatalf("expected redefinition-type-mismatch diagnostic, got %v", diags)
-	}
-	// KerML defines no such constraint and the pinned pilot validator is silent:
-	// the redefining type joins the redefined one's, so the report is advisory.
-	for _, d := range diags {
-		if d.Code == "redefinition-type-mismatch" && d.Severity != diag.SeverityWarning {
-			t.Errorf("redefinition-type-mismatch is %v, want a warning", d.Severity)
+	for _, d := range constraintDiags(t, src) {
+		if d.Code == "redefinition-type-mismatch" || d.Code == "disjoint-feature-types" {
+			t.Errorf("unrelated types reported: %s: %s", d.Code, d.Message)
 		}
 	}
 }
 
-// A redefinition narrowing to a subtype conforms; one keeping the redefined
-// feature's type and adding none is silent as well.
 func TestConstraint_RedefinitionConformingTypeStaysSilent(t *testing.T) {
 	src := `
 		part def A; part def A2 :> A;
@@ -490,31 +484,26 @@ func TestConstraint_RedefinitionConformingTypeStaysSilent(t *testing.T) {
 		part def Y :> X { part :>> p : A2; }
 		part def Z :> X { part :>> p; }
 	`
-	if diags := constraintDiags(t, src); hasCode(diags, "redefinition-type-mismatch") {
-		t.Fatalf("expected no redefinition-type-mismatch, got %v", diags)
+	if diags := constraintDiags(t, src); hasCode(diags, "disjoint-feature-types") {
+		t.Fatalf("expected no disjoint-feature-types, got %v", diags)
 	}
 }
 
-// ShapeItems redefines `faces : StructuredSurface` as `Polygon` and
-// `PlanarSurface`, which the pinned pilot validator accepts: analyzed against
-// the library the file carries no error, and only advisory type reports.
+// ShapeItems redefines `faces : StructuredSurface` as `Polygon` and `PlanarSurface`,
+// which the pilot accepts: against the library it carries no error and no report.
 func TestConstraint_ShapeItemsRedefinitionsAreNotErrors(t *testing.T) {
 	const name = "Domain Libraries/Geometry/ShapeItems.sysml"
 	src, err := libs.DefaultSource().Read(name)
 	if err != nil {
 		t.Fatalf("read %s: %v", name, err)
 	}
-	mismatches := 0
 	for _, d := range w9cLibraryDiags(t, string(src), false) {
 		if d.Severity == diag.SeverityError {
 			t.Errorf("error on ShapeItems: %s", d.Message)
 		}
-		if d.Code == "redefinition-type-mismatch" {
-			mismatches++
+		if d.Code == "disjoint-feature-types" {
+			t.Errorf("faces redefinitions reported as disjoint: %s", d.Message)
 		}
-	}
-	if mismatches != 2 {
-		t.Errorf("redefinition-type-mismatch on ShapeItems = %d, want the two faces redefinitions", mismatches)
 	}
 }
 

@@ -1,0 +1,16 @@
+{
+  "type": "instance",
+  "instantiate": "test::System",
+  "libraries": true,
+  "slots": {
+    "stated.installation.rating": {"type": "Integer", "value": 7},
+    "inherited.installation.rating": {"type": "Integer", "value": 8},
+    "plain.installation.rating": {"type": "Integer", "value": 1}
+  },
+  "identical": [
+    ["stated.installation.slot", "stated"],
+    ["stated.installation.module", "module1"],
+    ["inherited.installation.slot", "inherited"],
+    ["inherited.installation.module", "module1"]
+  ]
+}

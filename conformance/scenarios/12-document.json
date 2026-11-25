@@ -481,6 +481,56 @@
       "expect": {
         "status": "INVALID_ARGUMENT"
       }
+    },
+    {
+      "id": "document/a_query_expression_runs_in_place_of_a_name",
+      "description": "An inline query body is planned by the same compiler as a named query and answers the same typed rows.",
+      "rpc": "RunDocumentQuery",
+      "requires_capabilities": [
+        "document_query",
+        "inline_document_query"
+      ],
+      "model": {
+        "fixture": "document.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "inline_query": "Project(WhereType(Descendants(Observatory::telescope), \"PartUsage\"), (\"name\", \"mass\"))"
+      },
+      "expect": {
+        "counts": {
+          "columns": 2,
+          "rows": 4
+        },
+        "contains_all": {
+          "rows.*.element.element_id": [
+            "Observatory::telescope::baffle|shroud *tricky*",
+            "Observatory::telescope::mount",
+            "Observatory::telescope::optics",
+            "Observatory::telescope::segmentControl"
+          ]
+        }
+      }
+    },
+    {
+      "id": "document/a_fault_in_a_query_expression_is_positioned_within_it",
+      "description": "Text that does not parse is the caller's argument, located at its line and column in the expression.",
+      "rpc": "RunDocumentQuery",
+      "requires_capabilities": [
+        "document_query",
+        "inline_document_query"
+      ],
+      "model": {
+        "fixture": "document.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "inline_query": "Project(Named(\"Observatory\") (\"name\"))"
+      },
+      "expect": {
+        "status": "INVALID_ARGUMENT",
+        "status_message_contains": "inline query 1:"
+      }
     }
   ]
 }

@@ -423,6 +423,7 @@ func TestNamespacePerformanceUsageDenotesOneObject(t *testing.T) {
 // TestNamespaceConnectorUsagesBoundAndCounted requires every namespace path that makes a connector
 // usage's objects — a `bind`, a `[2]` collection, a lazily held `[1001]` one — to attach their ends.
 func TestNamespaceConnectorUsagesBoundAndCounted(t *testing.T) {
+	t.Parallel()
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
 		package test {
 			private import ScalarValues::*;

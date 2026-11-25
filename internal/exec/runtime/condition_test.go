@@ -259,8 +259,8 @@ func TestNegatedNestedConstraintIsInverted(t *testing.T) {
 		}
 		// The violation names the condition as written, negation included.
 		var violation *ViolationError
-		if !want && errors.As(err, &violation) && violation.Condition != "not a > 100" {
-			t.Errorf("%s: condition = %q, want %q", name, violation.Condition, "not a > 100")
+		if !want && errors.As(err, &violation) && violation.Condition != "not (a > 100)" {
+			t.Errorf("%s: condition = %q, want %q", name, violation.Condition, "not (a > 100)")
 		}
 	}
 }
@@ -394,9 +394,9 @@ func TestParameterBoundToSameNamedFeature(t *testing.T) {
 	}
 }
 
-// An inherited parameter nothing binds still reads a same-named value of the
-// object being checked.
-func TestUnboundParameterFallsBackToInstanceFeatureValue(t *testing.T) {
+// An inherited parameter nothing binds is refused by name, not bound by the checked object's
+// feature spelled as it is; the usage binding it decides (SysML v2 §7.20.1).
+func TestUnboundParameterIsNotBoundByAnObjectFeatureOfItsName(t *testing.T) {
 	src := `
 		package test {
 			constraint def MassLimit {
@@ -408,6 +408,7 @@ func TestUnboundParameterFallsBackToInstanceFeatureValue(t *testing.T) {
 				attribute m = 1200.0;
 				attribute limit = 1500.0;
 				constraint mass : MassLimit;
+				constraint bound : MassLimit { in m = m; in limit = limit; }
 			}
 		}
 	`
@@ -417,16 +418,18 @@ func TestUnboundParameterFallsBackToInstanceFeatureValue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
 	}
-	feat := featureNamed(ctx, vehicle, "mass")
-	if feat == nil || feat.Symbol == nil {
-		t.Fatal("constraint feature not found")
+	check := func(name string) (bool, error) {
+		feat := featureNamed(ctx, vehicle, name)
+		if feat == nil || feat.Symbol == nil {
+			t.Fatalf("constraint feature %s not found", name)
+		}
+		return ctx.EvaluateConstraintOn(feat.Symbol, feat.DeclScope(), inst)
 	}
-	satisfied, err := ctx.EvaluateConstraintOn(feat.Symbol, feat.DeclScope(), inst)
-	if err != nil {
-		t.Fatalf("EvaluateConstraintOn: %v", err)
+	if _, err := check("mass"); !errors.Is(err, errUnboundParameter) || !strings.Contains(err.Error(), `parameter "m"`) {
+		t.Errorf("mass: %v, want %v naming m", err, errUnboundParameter)
 	}
-	if !satisfied {
-		t.Error("an unbound parameter should read the checked object's value")
+	if satisfied, err := check("bound"); err != nil || !satisfied {
+		t.Errorf("bound = %v, %v; want satisfied over the features the usage binds", satisfied, err)
 	}
 }
 

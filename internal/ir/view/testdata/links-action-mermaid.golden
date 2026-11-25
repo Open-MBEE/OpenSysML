@@ -23,6 +23,7 @@ config:
   flowchart:
     subGraphTitleMargin:
       bottom: 24
+title: "«view» FlowViews::driveView : ActionFlowView"
 ---
 %% FlowViews::driveView — action rendering (render asInterconnectionDiagram, view def ActionFlowView)
 %% not represented: 2 fork/join name(s) (split, sync); Mermaid's fork bar draws no label
@@ -38,7 +39,7 @@ in ^fuel`"]
       n2_p1["^torque"]
     end
     subgraph n3 ["`*«action»* **monitor**
-own flow`"]
+action flow`"]
       direction TD
       n3_anchor[" "]
       n3_p0["reading"]
@@ -46,8 +47,9 @@ own flow`"]
       n5("`*«action»*
 **record**`")
     end
-    n6("`*«action»*
-**tally**`")
+    n6("`*«assign»*
+**tally**
+speed := speed + 1`")
     n7@{ shape: fork, label: "split" }
     n8@{ shape: fork, label: "sync" }
     n9@{ shape: fr-circ, label: "" }
@@ -68,7 +70,7 @@ own flow`"]
   n8 -.-> n11
   n10 -.-> n9
   n11 -.->|"[speed #gt; 0]"| n9
-  n11 -.-> n10
+  n11 -.->|"else"| n10
   classDef control fill:#181818,stroke:#181818
   class n7,n8 control
   classDef anchor fill:none,stroke:none

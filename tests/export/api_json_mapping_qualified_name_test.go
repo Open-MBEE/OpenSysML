@@ -13,6 +13,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/corpussubset"
 )
 
 func TestAPIJSONMappingNamesPreserveUnresolvedTargetSegments(t *testing.T) {
@@ -22,14 +23,14 @@ func TestAPIJSONMappingNamesPreserveUnresolvedTargetSegments(t *testing.T) {
 		targetName string
 	}{
 		{
-			name:       "perform raw backslash n",
+			name:       "perform newline escape",
 			source:     `package P { part p { perform 'a-b\n'; } }`,
-			targetName: `a-b\n`,
+			targetName: "a-b\n",
 		},
 		{
 			name:       "perform escaped apostrophe",
 			source:     `package P { part p { perform 'it\'s'; } }`,
-			targetName: `it\'s`,
+			targetName: "it's",
 		},
 		{
 			name:       "redefinition in externally typed part",
@@ -49,7 +50,11 @@ func TestAPIJSONMappingNamesPreserveUnresolvedTargetSegments(t *testing.T) {
 			var turtleName string
 			var qualifiedNames []string
 			for _, candidate := range graph.Subjects() {
-				name, ok := graph.Object(candidate, rdf.SysML+"qualifiedName")
+				// The graph states the address beside a qualifiedName that spells it differently.
+				name, ok := graph.Object(candidate, rdf.OpenSysML+"mappingQualifiedName")
+				if !ok {
+					name, ok = graph.Object(candidate, rdf.SysML+"qualifiedName")
+				}
 				if !ok {
 					continue
 				}
@@ -58,12 +63,12 @@ func TestAPIJSONMappingNamesPreserveUnresolvedTargetSegments(t *testing.T) {
 					continue
 				}
 				if subject.Value != "" {
-					t.Fatalf("multiple elements have qualifiedName ending in %q", test.targetName)
+					t.Fatalf("multiple elements have an address ending in %q", test.targetName)
 				}
 				subject, turtleName = candidate, name.Value
 			}
 			if subject.Value == "" {
-				t.Fatalf("no Turtle graph qualifiedName ends in %q; got %v", test.targetName, qualifiedNames)
+				t.Fatalf("no Turtle graph address ends in %q; got %v", test.targetName, qualifiedNames)
 			}
 			for _, candidate := range graph.Subjects() {
 				if candidate == subject {
@@ -119,7 +124,10 @@ func TestAPIJSONMappingNamesPreserveUnresolvedTargetSegments(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ReadAPIJSON: %v", err)
 			}
-			importedName, ok := imported.Object(subject, rdf.SysML+"qualifiedName")
+			importedName, ok := imported.Object(subject, rdf.OpenSysML+"mappingQualifiedName")
+			if !ok {
+				importedName, ok = imported.Object(subject, rdf.SysML+"qualifiedName")
+			}
 			if !ok || importedName.Value != turtleName {
 				t.Errorf("imported mapping name = %q, %t; want Turtle graph name %q", importedName.Value, ok, turtleName)
 			}
@@ -127,41 +135,14 @@ func TestAPIJSONMappingNamesPreserveUnresolvedTargetSegments(t *testing.T) {
 	}
 }
 
-func TestAPIJSONMappingQualifiedNamesAreExact(t *testing.T) {
-	paths, exampleRoot := apiJSONQualifiedNamePaths(t)
-	conversions := corpusConversions(t)
-
-	fixtures, fixtureKeys := 0, 0
-	examples, exampleKeys, skippedExamples := 0, 0, 0
+func mappingQualifiedNamesAreExact() corpusCheck {
 	var countsMu sync.Mutex
-	t.Cleanup(func() {
-		countsMu.Lock()
-		defer countsMu.Unlock()
-		t.Logf("convert fixtures: %d models, %d mapping-name keys; examples: %d converting models, %d mapping-name keys, %d skipped",
-			fixtures, fixtureKeys, examples, exampleKeys, skippedExamples)
-	})
-	for _, path := range paths {
-		path := path
-		isExample := strings.HasPrefix(path, exampleRoot+string(filepath.Separator))
-		t.Run(filepath.ToSlash(path), func(t *testing.T) {
-			t.Parallel()
-			defer conversions.release(path)
-			source, err := os.ReadFile(path)
-			if err != nil {
-				t.Fatal(err)
-			}
-			original, err := conversions.sysMLToRDF(path, source)
-			if err != nil {
-				if isExample {
-					countsMu.Lock()
-					skippedExamples++
-					countsMu.Unlock()
-					t.Logf("skipping non-converting example: %v", err)
-					return
-				}
-				t.Fatalf("convert fixture: %v", err)
-			}
-			document, err := conversions.apiJSON(path, source, "standard", "graph")
+	fixtures, fixtureKeys := 0, 0
+	examples, exampleKeys := 0, 0
+	return corpusCheck{
+		name: "mapping_qualified_names_are_exact",
+		check: func(t *testing.T, file corpusFile) {
+			document, err := file.conversions.apiJSON(file.path, file.source, "standard", "graph")
 			if err != nil {
 				t.Fatalf("WriteAPIJSON: %v", err)
 			}
@@ -184,20 +165,24 @@ func TestAPIJSONMappingQualifiedNamesAreExact(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ReadAPIJSON: %v", err)
 			}
-			assertAPIJSONGraphsEqual(t, apiJSONGraphWithoutLibraryReferences(original), got)
+			assertAPIJSONGraphsEqual(t, apiJSONGraphWithoutLibraryReferences(file.graph), apiJSONGraphWithoutLibraryReferences(got))
 
-			if isExample {
-				countsMu.Lock()
+			countsMu.Lock()
+			defer countsMu.Unlock()
+			if file.isExample {
 				examples++
 				exampleKeys += keyed
-				countsMu.Unlock()
 			} else {
-				countsMu.Lock()
 				fixtures++
 				fixtureKeys += keyed
-				countsMu.Unlock()
 			}
-		})
+		},
+		summarize: func(t *testing.T) {
+			countsMu.Lock()
+			defer countsMu.Unlock()
+			t.Logf("mapping names: convert fixtures: %d models, %d mapping-name keys; examples: %d converting models, %d mapping-name keys",
+				fixtures, fixtureKeys, examples, exampleKeys)
+		},
 	}
 }
 
@@ -205,11 +190,12 @@ func apiJSONQualifiedNamePaths(t *testing.T) ([]string, string) {
 	t.Helper()
 	paths := modelFiles(t)
 	exampleRoot := filepath.Join("..", "..", "examples")
+	subset := corpussubset.Must(t, "../..")
 	if err := filepath.WalkDir(exampleRoot, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		if !entry.IsDir() && filepath.Ext(path) == ".sysml" {
+		if !entry.IsDir() && filepath.Ext(path) == ".sysml" && subset.WantsPath(exampleRoot, path) {
 			paths = append(paths, path)
 		}
 		return nil
@@ -258,7 +244,7 @@ func assertAPIJSONGraphsEqual(t *testing.T, want, got *rdf.Graph) {
 }
 
 func apiJSONComparableTriple(triple rdf.Triple) rdf.Triple {
-	if triple.Object.Datatype == rdf.XSD+"decimal" {
+	if triple.Object.Datatype() == rdf.XSD+"decimal" {
 		if value, ok := new(big.Rat).SetString(triple.Object.Value); ok {
 			triple.Object.Value = value.RatString()
 		}

@@ -2,6 +2,7 @@ package lower
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -126,9 +127,9 @@ func TestStateSpaceDynamicsLowering(t *testing.T) {
 	if kind := StateSpaceKindOf(fall, model); kind != ContinuousDynamics {
 		t.Fatalf("kind of fall = %v, want ContinuousDynamics", kind)
 	}
-	dyn, err := ToStateSpaceDynamics(fall, scope, model)
+	dyn, err := ToStateSpaceDynamics(fall, scope, model, nil)
 	if err != nil {
-		t.Fatalf("ToStateSpaceDynamics(fall): %v", err)
+		t.Fatalf("ToStateSpaceDynamics(fall, nil): %v", err)
 	}
 	if dyn.Action != fall || dyn.Scope != scope {
 		t.Error("the lowering does not carry the action and its body scope")
@@ -175,9 +176,9 @@ func TestStateSpaceDynamicsLowering(t *testing.T) {
 	if kind := StateSpaceKindOf(account, model); kind != DiscreteDynamics {
 		t.Fatalf("kind of account = %v, want DiscreteDynamics", kind)
 	}
-	dyn, err = ToStateSpaceDynamics(account, scope, model)
+	dyn, err = ToStateSpaceDynamics(account, scope, model, nil)
 	if err != nil {
-		t.Fatalf("ToStateSpaceDynamics(account): %v", err)
+		t.Fatalf("ToStateSpaceDynamics(account, nil): %v", err)
 	}
 	if dyn.Difference == nil || dyn.Difference.Name != "getDifference" || model.LibraryDeclared(dyn.Difference) {
 		t.Errorf("difference = %v, want the model's getDifference", dyn.Difference)
@@ -194,8 +195,8 @@ func TestStateSpaceDynamicsLowering(t *testing.T) {
 	if kind := StateSpaceKindOf(plain, model); kind != NotStateSpace {
 		t.Errorf("kind of plain = %v, want NotStateSpace", kind)
 	}
-	if _, err := ToStateSpaceDynamics(plain, scope, model); !errors.Is(err, ErrUnsupportedStateSpace) {
-		t.Errorf("ToStateSpaceDynamics(plain) = %v, want ErrUnsupportedStateSpace", err)
+	if _, err := ToStateSpaceDynamics(plain, scope, model, nil); !errors.Is(err, ErrUnsupportedStateSpace) {
+		t.Errorf("ToStateSpaceDynamics(plain, nil) = %v, want ErrUnsupportedStateSpace", err)
 	}
 }
 
@@ -262,9 +263,9 @@ func TestStateSpaceDynamicsIntegratorChoice(t *testing.T) {
 
 	for name, want := range map[string]Integrator{"unstated": IntegratorUnstated, "rk4": IntegratorRK4, "redeclared": IntegratorUnstated} {
 		action, scope, model := stateSpaceAction(t, src, name)
-		dyn, err := ToStateSpaceDynamics(action, scope, model)
+		dyn, err := ToStateSpaceDynamics(action, scope, model, nil)
 		if err != nil {
-			t.Fatalf("ToStateSpaceDynamics(%s): %v", name, err)
+			t.Fatalf("ToStateSpaceDynamics(%s, nil): %v", name, err)
 		}
 		if dyn.Integrator != want {
 			t.Errorf("integrator of %s = %v, want %v", name, dyn.Integrator, want)
@@ -275,16 +276,16 @@ func TestStateSpaceDynamicsIntegratorChoice(t *testing.T) {
 	}
 
 	heun, scope, model := stateSpaceAction(t, src, "heun")
-	_, err := ToStateSpaceDynamics(heun, scope, model)
+	_, err := ToStateSpaceDynamics(heun, scope, model, nil)
 	if !errors.Is(err, ErrUnsupportedStateSpace) || !strings.Contains(err.Error(), "Heun") {
-		t.Errorf("ToStateSpaceDynamics(heun) = %v, want ErrUnsupportedStateSpace naming Heun", err)
+		t.Errorf("ToStateSpaceDynamics(heun, nil) = %v, want ErrUnsupportedStateSpace naming Heun", err)
 	}
 
 	for _, name := range []string{"bodied", "bodiedEuler"} {
 		bodied, scope, model := stateSpaceAction(t, src, name)
-		dyn, err := ToStateSpaceDynamics(bodied, scope, model)
+		dyn, err := ToStateSpaceDynamics(bodied, scope, model, nil)
 		if err != nil {
-			t.Fatalf("ToStateSpaceDynamics(%s): %v", name, err)
+			t.Fatalf("ToStateSpaceDynamics(%s, nil): %v", name, err)
 		}
 		if dyn.NextState == nil || dyn.NextState.Name != "getNextState" || model.LibraryDeclared(dyn.NextState) {
 			t.Errorf("next state of %s = %v, want the model's bodied getNextState", name, dyn.NextState)
@@ -342,13 +343,75 @@ func TestStateSpaceDynamicsUnsupportedShapes(t *testing.T) {
 		"noGuard":      "zero crossing low of action noGuard binds no guard",
 	} {
 		action, scope, model := stateSpaceAction(t, src, name)
-		_, err := ToStateSpaceDynamics(action, scope, model)
+		_, err := ToStateSpaceDynamics(action, scope, model, nil)
 		if !errors.Is(err, ErrUnsupportedStateSpace) {
-			t.Errorf("ToStateSpaceDynamics(%s) = %v, want ErrUnsupportedStateSpace", name, err)
+			t.Errorf("ToStateSpaceDynamics(%s, nil) = %v, want ErrUnsupportedStateSpace", name, err)
 			continue
 		}
 		if !strings.Contains(err.Error(), says) {
-			t.Errorf("ToStateSpaceDynamics(%s) = %q, want it to say %q", name, err, says)
+			t.Errorf("ToStateSpaceDynamics(%s, nil) = %q, want it to say %q", name, err, says)
 		}
+	}
+}
+
+// A guardless event occurrence lowers to a crossing of the derivative when a
+// ZeroCrossingEventDef types it, however reached; under another StateSpaceEventDef it is none.
+func TestStateSpaceDerivativeCrossingLowering(t *testing.T) {
+	src := `package test {` + stateSpacePrelude + `
+		action def Apex :> ZeroCrossingEventDef;
+		action def Ending :> ZeroCrossingEventDef { attribute terminal : Boolean = true; }
+		action def Saturation :> StateSpaceEventDef;
+
+		action flight : ContinuousStateSpaceDynamics, FixedStepDynamics {
+			:>> stateSpace = VectorOf((0.0, 7.5));
+			:>> timeStep = 0.5 [s];
+			event occurrence apex : Apex;
+			event occurrence plain : ZeroCrossingEventDef;
+			event occurrence subset :> zeroCrossingEvents;
+			event occurrence saturated : Saturation;
+			event occurrence ending : Ending;
+			event occurrence guarded : ZeroCrossing {
+				:>> guard = stateSpace.elements#(1);
+			}
+			calc :>> getDerivative {
+				in input : Input;
+				in stateSpace : StateSpace;
+				return : StateDerivative = VectorOf((stateSpace.elements#(2), 0.0 - 10.0)) / 1 [s];
+			}
+			calc :>> getOutput {
+				in input : Input;
+				in stateSpace : StateSpace;
+				return : Output = stateSpace;
+			}
+		}
+	}`
+	flight, scope, model := stateSpaceAction(t, src, "flight")
+	dyn, err := ToStateSpaceDynamics(flight, scope, model, nil)
+	if err != nil {
+		t.Fatalf("ToStateSpaceDynamics(flight, nil): %v", err)
+	}
+	type crossing struct {
+		name, eventType string
+		derivative      bool
+	}
+	var got []crossing
+	for _, c := range dyn.Crossings {
+		got = append(got, crossing{c.Name, c.EventType.Name, c.Derivative})
+		if c.Name == "ending" && c.Terminal == nil {
+			t.Errorf("crossing %s: terminal = %v", c.Name, c.Terminal)
+		}
+		if c.Derivative != (c.Guard == nil) {
+			t.Errorf("crossing %s: derivative = %v with guard %v", c.Name, c.Derivative, c.Guard)
+		}
+	}
+	want := []crossing{
+		{"apex", "Apex", true},
+		{"plain", "ZeroCrossingEventDef", true},
+		{"subset", "ZeroCrossingEventDef", true},
+		{"ending", "Ending", true},
+		{"guarded", "ZeroCrossing", false},
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("crossings = %+v, want %+v", got, want)
 	}
 }

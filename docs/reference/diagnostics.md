@@ -32,7 +32,6 @@ lint is neither, so it stays a warning and never changes the exit status or bloc
 | Code | Reported on | Tier | Default |
 |------|-------------|------|---------|
 | `undeclared-signal` | a transition's `when <name>` whose name matches no declaration visible where it is written and no signal the model sends | name resolution | on |
-| `port-type-mismatch` | a `connect`, an interface usage or a `flow` joining two ports whose definitions are unrelated | constraint | on |
 | `deferred-keeper-unmarked` | an accept of a deferred signal at the root of the do action of a state annotated `MigrationMetadata::DeferredEvent` that is not marked `MigrationMetadata::DeferredKeeper` | name resolution | on |
 | `rounded-real-literal` | a decimal literal bound or assigned to a feature typed by `Real` that no binary64 value equals, so the feature holds it rounded | type | opt-in |
 
@@ -81,17 +80,16 @@ inherits or one import brings still selects by signature.
 |---------|-------------|
 | `Duplicate of other owned member name 'x'` | the later of two owned members of one namespace |
 | `Duplicate of inherited member name 'x' from T` | an owned member of a type whose name an inherited member already has |
-| `Duplicate of imported member name 'x': P::x (import P::*), Q::x (import Q::*)` | the import that brings the later of two imported members, naming each member and the import that brought it — these memberships are hidden from the importing namespace; a member a type inherits that an imported one repeats is named `(inherited)`, and that pair is not hidden, the inherited member resolving |
 
-An imported name hidden by an owned member of the same name, one membership reached through two
-imports (`import P::*` beside `import Q::*` where `Q` publicly re-imports `P`), an alias or a
-membership import of an element beside the membership that owns it, and the standard library's
-own members are not reported, and none of these is hidden. Nor is a collision among a view's
-`expose`s alone (`view v { expose a::**; expose b::**; }` with a `p` in each): the names are
-still hidden inside the view, but a view exposes each expose's own memberships (SysML
-`ViewUsage::exposedElement`), so both `p` are exposed and rendered; a plain `import` or an
-inherited member taking part in the collision is reported as ever. An alias under another name (`alias Spare for P::x`) binds only
-that name and does not stand in for `P::x`.
+Imported memberships are never the subject of this diagnostic. Two imports bringing distinct
+elements of one name, an import repeating an owned or an inherited name, and a collision among a
+view's `expose`s all hide the imported memberships from the namespace (KerML 7.2.5.4, 7.3.2) — a
+derivation, not a violation — and a reference to a hidden name is an ordinary unresolved reference
+whose message names the hiding imports and the qualified names that still reach each element. One
+membership reached through two imports (`import P::*` beside `import Q::*` where `Q` publicly
+re-imports `P`), an alias or a membership import of an element beside the membership that owns it,
+and the standard library's own members are not hidden either. An alias under another name (`alias
+Spare for P::x`) binds only that name and does not stand in for `P::x`.
 
 The standard library has eight such pairs of its own, which `import ISQ::*` brings in without a
 warning: `MagneticDipoleMomentValue`, `MagneticDipoleMomentUnit`,
@@ -161,38 +159,6 @@ A signal the model only ever receives from outside (`%send` at the prompt, an in
 event over the wire) is reported, since nothing in the model says it exists; declare it
 (`attribute def Ping;`) to say so, or switch the lint off. The trigger's resolution and
 behavior are unchanged either way.
-
-## `port-type-mismatch` in detail
-
-Two ports a connector joins are compatible (SysML v2 §7.12.2, §7.12.3) when one of these
-holds:
-
-- one's definition specializes the other's, or both specialize a common definition of the
-  model (a library definition such as `Ports::Port`, which every port specializes, does not
-  count);
-- one port's directed features each have a feature of the other with the same name, the
-  conjugate direction (`in` against `out`; `inout` against `inout`) and a conforming type —
-  a conjugated port (`port p : ~P`) reverses its definition's directions first;
-- the connector is typed by an interface definition with two ends, both typed by a port
-  definition, directly or through a model end it redefines: that interface decides what the
-  ends pair, and its own ends are judged by `port-conjugation`. An interface leaving an end
-  untyped decides nothing, and nothing judges a connection definition's or a many-ended
-  interface's ends, so their usages' concrete ends are judged.
-
-A port connected is typed by its own declaration, or else by the nearest model port it
-redefines (`port :>> p;` keeps the type and conjugation of the `p` it redefines).
-
-Otherwise the lint reports the connector at its first end:
-
-```text
-m.sysml:9:13: warning: this connection connects port power : PowerOut to port fuel : FuelIn, whose definitions are unrelated and whose directed features are not conjugate; type one end by the conjugate port (~PowerOut) or by a common definition
-```
-
-It covers `connect a.p to b.q;` (and `connection … connect`), interface usages
-(`interface connect a.p to b.q;`) and `flow` between two ports, whose syntax is
-`ConnectionUsage`, `InterfaceUsage` and `FlowUsage` (`SysML.xtext:1062`, `:1153`, `:1269`).
-An end that is not a port, or whose port type does not resolve, is not judged. The
-specification states no constraint of this kind, so it is a lint rather than an error.
 
 ## `deferred-keeper-unmarked` in detail
 
@@ -270,9 +236,10 @@ _Generated from the diagnostic code registry by `make diagnostics-catalogue`; `m
 | [`element-filter-membership-owning-type`](#element-filter-membership-owning-type) | error | `filter` outside a package or view body |
 | [`enumeration-body-member`](#enumeration-body-member) | error | a member an enumeration definition body does not admit |
 | [`expose-owning-namespace`](#expose-owning-namespace) | error | `expose` outside a view body |
+| [`expose-visibility`](#expose-visibility) | error | an `expose` written with `public`, `private` or `protected` |
 | [`framed-concern-membership-owning-type`](#framed-concern-membership-owning-type) | error | `frame` outside a requirement, concern or viewpoint body |
 | [`import-visibility`](#import-visibility) | error | an `import` written without `public`, `private` or `protected` |
-| [`kerml-notation`](#kerml-notation) | warning | KerML notation in a SysML file |
+| [`kerml-notation`](#kerml-notation) | error | KerML notation in a SysML file |
 | [`nonstandard-notation`](#nonstandard-notation) | warning | notation OpenSysML reads that no production of the SysML v2 grammar admits |
 | [`objective-membership-owning-type`](#objective-membership-owning-type) | error | `objective` outside a case body |
 | [`requirement-constraint-membership-owning-type`](#requirement-constraint-membership-owning-type) | error | `assume` or `require` outside a requirement or case body |
@@ -283,6 +250,7 @@ _Generated from the diagnostic code registry by `make diagnostics-catalogue`; `m
 | [`syntax`](#syntax) | error | the text does not parse as KerML or SysML v2 notation |
 | [`sysml-notation`](#sysml-notation) | error | SysML notation in a KerML file |
 | [`transition-membership-owning-type`](#transition-membership-owning-type) | error | `transition` outside a state body |
+| [`typing-keyword`](#typing-keyword) | error | a typing spelled `typed by` in a SysML file |
 | [`undefined-operator`](#undefined-operator) | warning | the unary `~` operator, which the kernel library leaves undefined |
 | [`view-rendering-membership-owning-type`](#view-rendering-membership-owning-type) | error | `render` outside a view body |
 
@@ -322,9 +290,17 @@ Specification: SysML v2 §8.2.2.8 EnumerationBody
 
 **error** · Syntax · `expose` outside a view body
 
-An expose is an import a view usage owns: `expose` is admitted in the body of a view usage (and, as an OpenSysML extension the notation rules report, a view definition) only. Move the expose into the view that shows the exposed elements, or write an `import` where a plain import is meant.
+An expose is an import a view usage owns: `expose` is admitted in the body of a view usage only (SysML v2 8.2.2.26.2 ViewBodyItem); a view definition body states what it renders and filters and admits none. Move the expose into the view that shows the exposed elements, or write an `import` where a plain import is meant.
 
 Specification: SysML v2 validateExposeOwningNamespace
+
+#### `expose-visibility`
+
+**error** · Syntax · an `expose` written with `public`, `private` or `protected`
+
+An expose always has protected visibility (SysML v2 validateExposeVisibility), so the grammar admits no visibility indicator before `expose`; the pilot rejects the file. Drop the indicator: `expose P::*;`.
+
+Specification: SysML v2 §8.2.2.26 Expose and §8.3.26.2 validateExposeVisibility
 
 #### `framed-concern-membership-owning-type`
 
@@ -344,9 +320,9 @@ Specification: SysML v2 §8.2.2.4 ImportPrefix
 
 #### `kerml-notation`
 
-**warning** · Syntax · KerML notation in a SysML file
+**error** · Syntax · KerML notation in a SysML file
 
-A `.sysml` file uses a KerML production (`namespace`, `featured by`, `class` …) or a KerML spelling (`typed by` for a typing, which SysML spells `:` or `defined by`) that the SysML v2 grammar does not admit. Move the declaration to a `.kerml` file, or write the SysML form the message names. `-strict` promotes this finding to an error.
+A `.sysml` file uses a KerML production (`namespace`, `featured by`, `class` …) that the SysML v2 grammar does not admit. Move the declaration to a `.kerml` file, or write the SysML form the message names. A `namespace` declaration and a declaration keyword only KerML spells (`class`, `feature`, `connector` …) are errors in either mode; `-strict` promotes the other findings to errors.
 
 Specification: the pinned SysML v2 Xtext grammar
 
@@ -354,9 +330,9 @@ Specification: the pinned SysML v2 Xtext grammar
 
 **warning** · Syntax · notation OpenSysML reads that no production of the SysML v2 grammar admits
 
-The text is an OpenSysML extension: the parser reads it and the model is analyzed, but the pinned SysML v2 and KerML grammars have no production for it, so another tool will reject the file. The message states the standard form to write instead. `-strict` promotes this finding to an error.
+The text is an OpenSysML extension: the parser reads it and the model is analyzed, but the pinned SysML v2 and KerML grammars have no production for it, so another tool will reject the file. The message states the standard form to write instead. `-strict` promotes this finding to an error. An escape sequence in a string or an unrestricted name that KerML §8.2.2.3 Table 4 does not list is reported the same way: `\r`, which the pilot grammar alone adds, is read as a carriage return, but a tool built from the specification's table has no such escape.
 
-Specification: the pinned SysML v2 and KerML Xtext grammars
+Specification: the pinned SysML v2 and KerML Xtext grammars; KerML §8.2.2.3 Table 4 (Escape Sequences)
 
 #### `objective-membership-owning-type`
 
@@ -429,6 +405,14 @@ Specification: the pinned KerML Xtext grammar
 A transition usage is a member of a state: the `transition` keyword is admitted in the body of a state definition or usage only (a transition between action nodes is an OpenSysML extension the notation rules report separately). Move the transition into the state whose substates it joins, or write a succession (`first a then b;`) between actions.
 
 Specification: SysML v2 §8.2.2.19 TransitionUsageMember (a StateBodyItem)
+
+#### `typing-keyword`
+
+**error** · Syntax · a typing spelled `typed by` in a SysML file
+
+SysML v2 spells a usage's typing `:` or `defined by`; `typed by` is the KerML spelling of the same relationship, and `typed` is not a SysML keyword, so a `.sysml` file that writes it is rejected in every conformance mode. The typing is still read as written, so the rest of the model is analyzed. Write `defined by` (the editor quick fix rewrites the keyword), or move the declaration to a `.kerml` file.
+
+Specification: SysML v2 §8.2.2.1.2 Lexical Structure (DEFINED_BY), §8.2.2.6.5 Specialization (TypedBy), §7.6.3 Usages, §7.27.2 Metadata Definitions and Usages
 
 #### `undefined-operator`
 
@@ -965,9 +949,8 @@ Specification: SysML v2 validatePortUsageIsReference
 
 | Code | Severity | Summary |
 |------|----------|---------|
-| [`accepter-source-not-state`](#accepter-source-not-state) | error | a transition with a trigger whose source is not a state |
+| [`accepter-source-not-state`](#accepter-source-not-state) | error | a transition with an accepter whose source is an action but no state |
 | [`annotation-annotated-element-ownership`](#annotation-annotated-element-ownership) | error | an annotating element whose `about` names its own owner |
-| [`assignment-chain-in-calc`](#assignment-chain-in-calc) | error | a calculation assigning a feature of another object |
 | [`assignment-chain-step-not-one-object`](#assignment-chain-step-not-one-object) | error | an assignment target stepping through a feature that may hold several objects |
 | [`assignment-referent`](#assignment-referent) | error | an assignment whose target is no feature |
 | [`assignment-referent-read-only`](#assignment-referent-read-only) | error | an assignment to a constant or derived feature |
@@ -997,6 +980,7 @@ Specification: SysML v2 validatePortUsageIsReference
 | [`diagram-layout-duplicate`](#diagram-layout-duplicate) | warning | a layout annotation stated twice about one element |
 | [`diagram-layout-unplaced`](#diagram-layout-unplaced) | warning | a layout annotation on an element no rendering draws |
 | [`diagram-layout-value`](#diagram-layout-value) | error | a layout annotation with an ill-formed value |
+| [`disjoint-feature-types`](#disjoint-feature-types) | warning | a feature typed by two types declared disjoint, so it can have no values |
 | [`end-feature-direction`](#end-feature-direction) | error | an end feature with a direction |
 | [`end-feature-kind`](#end-feature-kind) | error | an end feature that is derived, abstract, composite or a portion |
 | [`end-feature-multiplicity`](#end-feature-multiplicity) | warning | an end feature whose multiplicity is not 1 |
@@ -1048,7 +1032,6 @@ Specification: SysML v2 validatePortUsageIsReference
 | [`redefinition-package-level`](#redefinition-package-level) | error | a redefinition of a package-level feature |
 | [`redefinition-same-featuring`](#redefinition-same-featuring) | error | a redefinition between features of one featuring type |
 | [`redefinition-through-reference`](#redefinition-through-reference) | error | a chain redefinition stepping through a feature that owns no object |
-| [`redefinition-type-mismatch`](#redefinition-type-mismatch) | warning | a redefining feature typed by a type unrelated to the redefined feature's |
 | [`reference-subsetting-at-most-one`](#reference-subsetting-at-most-one) | error | a feature with more than one reference subsetting |
 | [`related-elements`](#related-elements) | error | an association with fewer than two related types |
 | [`result-expression-at-most-one`](#result-expression-at-most-one) | error | a function or expression with more than one result expression |
@@ -1083,9 +1066,9 @@ Specification: SysML v2 validatePortUsageIsReference
 
 #### `accepter-source-not-state`
 
-**error** · Constraints · a transition with a trigger whose source is not a state
+**error** · Constraints · a transition with an accepter whose source is an action but no state
 
-A transition's accepter waits in its source for the trigger, which a state can do and a pseudostate cannot. Move the trigger to a transition out of a state, or drop it from the pseudostate's transition.
+A transition's accepter waits in its source for the trigger, which a state usage does and any other action usage does not: an entry, do or exit action, a performed, accept, send, assignment or terminate action, a calculation or a case, written as the source or declared just before a transition written without one. Move the accepter to a transition out of a state, or drop it and keep the guard.
 
 Specification: SysML v2 validateTransitionUsageTriggerActions
 
@@ -1096,14 +1079,6 @@ Specification: SysML v2 validateTransitionUsageTriggerActions
 An annotation owned by its annotated element must own its annotating element: a comment, documentation or metadata usage whose `about` names the element its body sits in annotates that element twice over, through ownership and through the clause. Drop the `about` clause, or move the annotating element out of the body of what it annotates.
 
 Specification: KerML 1.0 validateAnnotationAnnotatedElementOwnership
-
-#### `assignment-chain-in-calc`
-
-**error** · Constraints · a calculation assigning a feature of another object
-
-A calculation computes a result and has no side effects; an assignment whose target chains into another object (`assign a.x := v`) would write that object. Move the assignment into an action, or compute the value as the calculation's result.
-
-Specification: KerML 1.0 §8.4.4.9 (functions have no side effects)
 
 #### `assignment-chain-step-not-one-object`
 
@@ -1336,6 +1311,14 @@ Specification: OpenSysML diagram layout library
 The coordinates, size or route points of a layout annotation are not of the form the layout library declares (numbers in the view's units, a route of at least two points). Write the value the message names.
 
 Specification: OpenSysML diagram layout library
+
+#### `disjoint-feature-types`
+
+**warning** · Constraints · a feature typed by two types declared disjoint, so it can have no values
+
+A feature's types are its own typings and the types of every feature it subsets or redefines, and types related by disjoining share no instances, so a feature reaching two disjoint types — declared with `disjoint from`, inherited along their specializations, or established by the kernel library (Occurrences::Occurrence is disjoint from Base::DataValue) — can have no values. Type the feature, or the feature it subsets or redefines, by types that can share instances. An end of a connector typed by an interface or connection definition redefines that definition's end and references the port it attaches to, so it is reported when the two definitions are disjoint; ports of merely unrelated definitions at the two ends of a `connect`, interface or `flow` are not reported, since the specification states no such constraint.
+
+Specification: KerML 1.1 §7.3.2.5 Disjoining, §8.3.3.3.4 (a feature's types are its typings' and its subsetted features'); an OpenSysML advisory
 
 #### `end-feature-direction`
 
@@ -1743,14 +1726,6 @@ Specification: KerML 1.0 validateRedefinitionFeaturingTypes
 
 Specification: KerML 1.0 §8.3.3.3.6 Redefinition
 
-#### `redefinition-type-mismatch`
-
-**warning** · Constraints · a redefining feature typed by a type unrelated to the redefined feature's
-
-The redefining feature is typed by both its declared type and the redefined feature's, so two unrelated types leave it with no possible value — almost always a slip, though no normative constraint forbids it. Type the redefinition by a specialization of the redefined feature's type.
-
-Specification: KerML 1.0 §8.3.3.3.4 (a feature's types are its typings and its subsetted features'); an OpenSysML advisory
-
 #### `reference-subsetting-at-most-one`
 
 **error** · Constraints · a feature with more than one reference subsetting
@@ -2004,7 +1979,6 @@ Specification: SysML v2 §7.24 (views satisfy viewpoints)
 | Code | Severity | Summary |
 |------|----------|---------|
 | [`deferred-keeper-unmarked`](#deferred-keeper-unmarked) | warning | an accept of a deferred signal not marked as the keeping accept |
-| [`port-type-mismatch`](#port-type-mismatch) | warning | a connection, interface or flow between ports of unrelated definitions |
 | [`rounded-real-literal`](#rounded-real-literal) | warning | a decimal literal a Real feature holds rounded (opt-in) |
 | [`undeclared-signal`](#undeclared-signal) | warning | `when <name>` naming no visible declaration and no sent signal |
 
@@ -2013,12 +1987,6 @@ Specification: SysML v2 §7.24 (views satisfy viewpoints)
 **warning** · Lints · an accept of a deferred signal not marked as the keeping accept
 
 In a state annotated `MigrationMetadata::DeferredEvent`, the accept at the root of the do action that buffers the deferred signal is expected to be marked `MigrationMetadata::DeferredKeeper`, so the migration tooling and readers can tell the keeper from an ordinary accept. Add the `@DeferredKeeper` annotation. Switch the lint off with `-disable-lint deferred-keeper-unmarked`.
-
-#### `port-type-mismatch`
-
-**warning** · Lints · a connection, interface or flow between ports of unrelated definitions
-
-The two ports joined are typed by port definitions neither of which specializes or conjugates the other, so nothing relates what one sends to what the other receives. Type one end by the conjugate (`~P`) of the other's definition, or relate the definitions. Switch the lint off with `-disable-lint port-type-mismatch`.
 
 #### `rounded-real-literal`
 
@@ -2042,6 +2010,11 @@ A transition's `accept when <name>` or `when <name>` trigger names something no 
 | [`mosa-interface-no-standard`](#mosa-interface-no-standard) | warning | a modular system interface conforming to no standard |
 | [`mosa-interface-not-traced`](#mosa-interface-not-traced) | warning | a modular system interface satisfying no requirement |
 | [`mosa-proprietary-no-rationale`](#mosa-proprietary-no-rationale) | warning | an element marked `@Proprietary` with no rationale |
+| [`npr7123-compliance-matrix-missing-requirement`](#npr7123-compliance-matrix-missing-requirement) | warning | a compliance matrix whose document has no compliance entry for an active SE requirement |
+| [`npr7123-compliance-missing-justification`](#npr7123-compliance-missing-justification) | warning | a compliance entry marked tailored or not applicable with no justification |
+| [`npr7123-review-missing-entrance-or-success-criteria`](#npr7123-review-missing-entrance-or-success-criteria) | warning | a life-cycle review stating no entrance criteria or no success criteria |
+| [`npr7123-review-missing-minimum-product`](#npr7123-review-missing-minimum-product) | warning | a section 5.2.2.2 minimum product absent from its review or below the required maturity |
+| [`npr7123-semp-missing-process`](#npr7123-semp-missing-process) | warning | a SEMP not addressing all 17 common technical processes |
 | [`oosem-logical-component-not-allocated`](#oosem-logical-component-not-allocated) | warning | a logical component allocated to nothing |
 | [`oosem-requirement-not-derived`](#oosem-requirement-not-derived) | warning | a requirement derived from no higher-level requirement |
 | [`oosem-requirement-not-satisfied`](#oosem-requirement-not-satisfied) | warning | a requirement nothing satisfies |
@@ -2095,6 +2068,46 @@ Specification: MOSA extension library
 MOSA expects the justification for each proprietary element to be recorded with it. Give the annotation a `rationale`.
 
 Specification: MOSA extension library
+
+#### `npr7123-compliance-matrix-missing-requirement`
+
+**warning** · Method rules · a compliance matrix whose document has no compliance entry for an active SE requirement
+
+Table H-1 of NPR 7123.1D covers every active `[SE-nn]` requirement, so a `ComplianceMatrix` usage expects its document to hold a `@Compliance`-annotated usage of each definition in `NPR7123::SERequirements`. Add the missing entries, marking each FC, T or NA.
+
+Specification: NPR7123 extension library (NASA NPR 7123.1D)
+
+#### `npr7123-compliance-missing-justification`
+
+**warning** · Method rules · a compliance entry marked tailored or not applicable with no justification
+
+Table H-1 of NPR 7123.1D asks for a justification wherever a requirement is tailored (`T`) or not applicable (`NA`). Give the `@Compliance` annotation a `justification`.
+
+Specification: NPR7123 extension library (NASA NPR 7123.1D)
+
+#### `npr7123-review-missing-entrance-or-success-criteria`
+
+**warning** · Method rules · a life-cycle review stating no entrance criteria or no success criteria
+
+NPR 7123.1D section 5.2.2.1 (SE-34) has the technical team define entrance and success criteria for each life-cycle review, so a `LifeCycleReview` usage is expected to nest `EntranceCriterion` and `SuccessCriterion` requirement usages. Subset the transcribed criteria of the library's `ReviewCriteria` package into the review's `entranceCriteria` and `successCriteria`, tailoring them as section G.1.2 expects.
+
+Specification: NPR7123 extension library (NASA NPR 7123.1D)
+
+#### `npr7123-review-missing-minimum-product`
+
+**warning** · Method rules · a section 5.2.2.2 minimum product absent from its review or below the required maturity
+
+NPR 7123.1D section 5.2.2.2 (SE-35 to SE-56, SE-66 to SE-69) names the minimum products the technical team provides at each life-cycle review and their maturity, recorded on the library's work product definitions as `@MaturityExpectation { required = true }`. Nest an item of that product subsetting `reviewedProducts` under the review, with a `maturity` at or above the one asked for, or document the tailoring in the SEMP.
+
+Specification: NPR7123 extension library (NASA NPR 7123.1D)
+
+#### `npr7123-semp-missing-process`
+
+**warning** · Method rules · a SEMP not addressing all 17 common technical processes
+
+NPR 7123.1D section 6.2.3 (SE-58) has the SEMP define how each of the 17 common technical processes, as tailored, is applied, so a `SEMP` usage expects one nested usage per process definition of the library. Nest the missing processes (`#technicalPlanning action plan;`) with their `tailoring`.
+
+Specification: NPR7123 extension library (NASA NPR 7123.1D)
 
 #### `oosem-logical-component-not-allocated`
 

@@ -381,6 +381,7 @@ package Compiled {
 		calc def UntilSeq { in n : Integer; attribute i : Integer = 0; attribute keep : Integer[0..*] nonunique = (); loop { assign i := i + 1; attribute s : Integer[0..*] = including((), i * 10); assign keep := union(keep, (size(s) + 100, size(s) + 101, size(s) + 102)); } until s#(size(s)) >= n or size(including(s, i)) > 1 and i > 200; return : Integer[0..*] nonunique = keep; }
 		calc def ChurnNest { in n : Integer; attribute keep : Integer[0..*] nonunique = (); attribute inner : Integer[0..*] = (); attribute i : Integer = 0; while i < n { assign inner := (); for v in 1..50 { assign inner := including(inner, v); } assign keep := including(keep, size(inner)); for w in keep { assign i := i + 0; } assign i := i + 1; } return : Integer = size(keep) + size(inner); }
 		calc def ForB { in n : Integer; attribute s : Integer = 0; for v in 1..n { for w in 1..v { assign s := s + w; } } return : Integer = s; }
+		calc def ForEmpty { in n : Integer; attribute s : Integer = 0; for '' in 1..n { assign s := s + ''; } return : Integer = s; }
 		calc def RS { in x : Integer[0..*]; return : Real = RealFunctions::sum(x); }
 		calc def MaxS { in x : Real[0..*]; return : Real = x->maximize {in v; v}; }
 		// Unique by default: a repeated argument, result or assigned value is refused.
@@ -482,6 +483,12 @@ package Compiled {
 		calc def StrClosure { in s : String; in n : Integer; return : String = ApplyS(MkStr(s), n); }
 		calc def SeqClosure { in k : Real; attribute xs : Real[0..*] = (k, k * 2.0); calc f { in v : Real; return : Real = v * xs#(2); } return : Real = Apply(f, 3.0); }
 		calc def FnClosure { in b : Boolean; attribute g = Pick(b); calc f { in v : Real; return : Real = Apply(g, v) + 1.0; } return : Real = Apply(f, 3.0); }
+		// What a closure captures outlives the loop passes after it is made.
+		calc def KeptStr { in s : String; in n : Integer; attribute t : String = s; attribute g = MkStr(s); for i in 1..n { assign t := t + s; if i == 2 { assign g := MkStr(s + "xyz"); } } return : String = ApplyS(g, 2) + t; }
+		calc def MkSeq { in xs : Real[0..*] nonunique; calc f { in v : Real; return : Real = v * xs#(size(xs)); } return r = f; }
+		calc def KeptSeq { in k : Real; in n : Integer; attribute junk : Real[0..*] nonunique = (); attribute g = MkSeq((k, k * 2.0)); for i in 1..n { assign junk := (junk, k); if i == 2 { assign g := MkSeq((k, k * 3.0)); } } return : Real = Apply(g, 3.0) + size(junk); }
+		calc def MkWords { in ws : String[0..*] nonunique; calc f { in n : Integer; return : String = ws#(n); } return r = f; }
+		calc def KeptWords { in s : String; in n : Integer; attribute junk : String = s; attribute g = MkWords((s, s + "b")); for i in 1..n { assign junk := junk + s; if i == 2 { assign g := MkWords((s + "c", s + "d")); } } return : String = ApplyS(g, 2) + junk; }
 		calc def BoolClosure { in b : Boolean; calc f { in v : Real; return : Real = if b ? v else -v; } return : Real = Apply(f, 2.0); }
 		calc def EnumClosure { in c : Compiled::E::Color; calc f { in v : Real; return : Real = if c == Compiled::E::Color::red ? v else 0.0; } return : Real = Apply(f, 2.0); }
 	}
@@ -607,6 +614,26 @@ package Compiled {
 		calc def Nat { in x : Natural; return : Natural = x * x; }
 		calc def Least { in xs : Integer[0..*]; return : Integer = xs->minimize {in v : Integer; v}; }
 		calc def Compare { in a : Integer; in b : Integer; return : Boolean = a < b and b >= a and a != b; }
+		// Integers beyond int64 held across the storage a loop, a record and a closure release.
+		calc def Fact { in n : Integer; attribute f : Integer = 1; for i in 1..n { assign f := f * i; } return : Integer = f; }
+		calc def Climb { in n : Integer; attribute f : Integer = n * n * n * n * n; attribute g : Integer = 1; attribute steps : Integer = 0; while g < f { assign g := g * n; assign steps := steps + 1; } return : Integer = g - f + steps; }
+		calc def Powers { in n : Integer; attribute xs : Integer[0..*] nonunique = (); attribute p : Integer = 1; for i in 1..n { assign p := p * 4294967296 - i; assign xs := including(xs, p); } return : Integer[0..*] nonunique = xs; }
+		calc def PowerSum { in n : Integer; attribute xs : Integer[0..*] nonunique = (); attribute p : Integer = 1; for i in 1..n { assign p := p * -4294967297; assign xs := including(xs, p); } return : Integer = sum(xs) + size(xs->select {in v : Integer; v > 18446744073709551616}); }
+		attribute def Held { attribute n : Integer; attribute ns : Integer[0..*] nonunique; }
+		calc def InRecord { in n : Integer; attribute h : Held = new Held(n * n * n, (n, n * n)); attribute junk : Integer[0..*] nonunique = (); for i in 1..20 { assign junk := including(junk, n * i); } return : Integer = h.n + h.ns#(2) + size(junk); }
+		calc def ApplyI { in calc f { in m : Integer; return : Integer; } in a : Integer; return : Integer = f(a); }
+		calc def Captured { in n : Integer; attribute k : Integer = n * n; calc s { in m : Integer; return : Integer = m * k; } attribute g = s; attribute junk : Integer[0..*] nonunique = (); for i in 1..20 { assign junk := including(junk, k * i); } return : Integer = ApplyI(g, n) + size(junk); }
+		calc def Text { in n : Integer; return : String = "<" + IntegerFunctions::ToString(n * n) + ">"; }
+		calc def Digits { in n : Integer; return : Integer = StringFunctions::Length(IntegerFunctions::ToString(n ** 40)); }
+		calc def InReal { in n : Integer; attribute r : Real = n * n; return : Real = r - 1; }
+		calc def Floored { in r : Real; return : Integer = RealFunctions::floor(r) + 1; }
+		calc def Extremes { in xs : Integer[0..*] nonunique; return : Integer = max(xs#(1), xs#(2)) - min(xs#(1), xs#(2)) + abs(xs#(1)); }
+		calc def Whole { in n : Integer; return : Integer = RealFunctions::floor(n) - RealFunctions::round(n) + RealFunctions::floor(n); }
+		calc def RealAbs { in n : Integer; return : Real = RealFunctions::abs(n); }
+		calc def RealMost { in n : Integer; in r : Real; return : Real = RealFunctions::max(n, r); }
+		calc def RealLeast { in n : Integer; in r : Real; return : Real = RealFunctions::min(n, r); }
+		calc def Span { in lo : Integer; in hi : Integer; return : Integer[0..*] = lo..hi; }
+		calc def SpanSize { in lo : Integer; in hi : Integer; return : Integer = size(lo..hi); }
 	}
 	// Loops whose Integer arithmetic the C target compiles: a Real counter, and
 	// Integers only sized, indexed and ranged.
@@ -802,6 +829,12 @@ package Compiled {
 		calc def UnsetPassed { in a : Real; return : Real = Id(new Point(a).y); }
 		calc def UnsetNatural { in a : Real; return : Integer = NatId(new Counted().n); }
 		calc def UnsetDefault { in a : Real; return : Real = new Def(a).y + new Def(a).x; }
+		// What a record holds outlives the loop passes after it is made.
+		attribute def Tagged { attribute name : String; attribute vals : Real[0..*] nonunique; attribute words : String[0..*] nonunique; }
+		calc def KeptFeatures { in s : String; in n : Integer; attribute t : String = s; attribute r = new Tagged(s, (1.0, 2.0), (s, s)); for i in 1..n { assign t := t + s; if i == 2 { assign r := new Tagged(t, (r.vals, 3.0), (r.words, t)); } } return : String = r.name + r.words#(size(r.words)) + BaseFunctions::ToString(size(r.vals)) + t; }
+		// A String variable that may be unset keeps its bytes past the statement and the loop pass assigning it.
+		calc def UnsetThenSet { in s : String; in n : Integer; attribute t = new Label().s; assign t := s + "x"; attribute u : String = s + "yyyy"; for i in 1..n { if i == 2 { assign t := u + s; } assign u := u + "z"; } return : String = t + u; }
+		calc def UnsetOrSet { in s : String; in b : Boolean; attribute t = if b ? new Label().s else s + "x"; attribute u : String = s + "yyyy"; return : String = t + u; }
 		calc def UnsetString { in a : Real; return : String = new Label().s; }
 		calc def UnsetConcat { in a : Real; return : String = new Label().s + "x"; }
 		calc def UnsetStep { in a : Real; attribute i : Real = 0.0; attribute v : Real = a; while i < 3.0 { assign v := if i == 1.0 ? new Point(a).y else a; assign i := i + 1.0; } return : Real = v; }

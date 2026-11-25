@@ -29,7 +29,7 @@ func runStateMachine(t *testing.T, name, src string) *StateExecutor {
 func regionConfig(exec *StateExecutor) map[string]string {
 	config := make(map[string]string, len(exec.activeConfig.regionStates))
 	for region, state := range exec.activeConfig.regionStates {
-		config[region.Name] = state.Name
+		config[exec.regionDecl(region).Name] = exec.stateDecl(state).Name
 	}
 	return config
 }
@@ -73,8 +73,8 @@ func TestRegionLocalChoiceMovesOnlyItsRegion(t *testing.T) {
 		}
 		choice pick;
 
-		transition first pick if x == 2 then lnext;
-		transition first pick then lother;
+		transition first pick if x == 2 then left.lnext;
+		transition first pick then left.lother;
 	}
 }`)
 
@@ -108,8 +108,8 @@ func TestRegionLocalChoiceTakesElseBranch(t *testing.T) {
 		}
 		choice pick;
 
-		transition first pick if x == 2 then lguarded;
-		transition first pick then lelse;
+		transition first pick if x == 2 then left.lguarded;
+		transition first pick then left.lelse;
 	}
 }`)
 
@@ -139,7 +139,7 @@ func TestRegionLocalJunctionChainIsFollowed(t *testing.T) {
 		junction relay;
 
 		transition first merge then relay;
-		transition first relay then b;
+		transition first relay then left.b;
 	}
 }`)
 
@@ -220,7 +220,7 @@ func TestRegionPseudostateIntoSiblingRegionExitsSourceOnly(t *testing.T) {
 		choice cross;
 
 		succession first init then running;
-		transition first cross if x == 1 then rtarget;
+		transition first cross if x == 1 then running.right.rtarget;
 	}
 }`)
 
@@ -258,11 +258,11 @@ func TestRegionPseudostateExitRecordsHistory(t *testing.T) {
 			&ast.StateNode{Name: "away"},
 			&ast.PseudostateNode{Kind: ast.PseudostateJunction, Name: "out"},
 			transitionMember("init", "outer"),
-			transitionMember("lstart", "lwork"),
-			transitionMember("rstart", "rwork"),
-			transitionMember("lwork", "out"),
+			transitionMember("outer.left.lstart", "outer.left.lwork"),
+			transitionMember("outer.right.rstart", "outer.right.rwork"),
+			transitionMember("outer.left.lwork", "out"),
 			transitionMember("out", "away"),
-			transitionMember("away", "H"),
+			transitionMember("away", "outer.H"),
 		},
 	})
 	if err := exec.initialize(); err != nil {

@@ -129,7 +129,11 @@ Every check flag is listed in
 [reference/cli.md § Command Reference](../reference/cli.md#command-reference). You can check
 one constraint or requirement by name, every satisfaction assertion the model
 states, a calculation, an action, or a state machine, and add `-json` for a machine-readable
-report.
+report. An `explore` schedule or `-engine check` verdict follows its outcome table with the
+coverage of every run it made — each state entered and transition taken, qualified by the
+instance that ran the machine and by its declaration, with how many runs did so — so a state
+only a non-witness run entered is still reported; see
+[06 — Behavior](06-behavior.md) and `exploration.coverage` / `check.coverage` in the JSON.
 
 Build steps can gate on the exit status. It follows the same rules for every non-interactive
 run, whether that is a check, an evaluation, a conversion or a plain load: `0` when the requested
@@ -310,10 +314,9 @@ each extension is measured against. The same setting is available as `%strict` a
 
 ## Lints
 
-Four further warnings, `undeclared-signal`, `port-type-mismatch`,
-`deferred-keeper-unmarked` and `rounded-real-literal`, are *lints*: the model is valid SysML v2,
-but a `when <name>` that no declaration or `send` accounts for, a connection between ports whose
-definitions are unrelated, a deferred signal's accept loop written without the `DeferredKeeper`
+Three further warnings, `undeclared-signal`, `deferred-keeper-unmarked` and
+`rounded-real-literal`, are *lints*: the model is valid SysML v2,
+but a `when <name>` that no declaration or `send` accounts for, a deferred signal's accept loop written without the `DeferredKeeper`
 marker that names it as the keeper, or a decimal literal such as `0.1` that a `Real` feature can
 only hold rounded, is almost always a slip or a surprise. `-strict` leaves them warnings, since they are not about notation.
 `-disable-lint <code>` switches one off (`%lint <code> off` at the prompt,
@@ -865,7 +868,7 @@ jobs:
       security-events: write   # upload-sarif
     steps:
       - uses: actions/checkout@v4
-      - uses: Open-MBEE/OpenSysML@v0.12.1   # the release tag is the sysml installed
+      - uses: Open-MBEE/OpenSysML@v0.13.0   # the release tag is the sysml installed
         with:
           path: models
           format: sarif

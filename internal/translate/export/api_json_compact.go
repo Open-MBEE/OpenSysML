@@ -34,6 +34,8 @@ type CompactAPIJSONOptions struct {
 	Diagnostic          func(string)
 	IncludeLibraryStubs bool
 	LibraryReferences   func([]APIJSONLibraryReference)
+	// InheritedMembers is APIJSONOptions.InheritedMembers.
+	InheritedMembers bool
 }
 
 // WriteAPIJSONCompact writes the elements WriteAPIJSON writes in a form built
@@ -59,8 +61,8 @@ func WriteAPIJSONCompact(graph *rdf.Graph, opts CompactAPIJSONOptions) ([]byte, 
 	var libraryReferences []APIJSONLibraryReference
 	elements, err := apiJSONElementsWithOptions(graph, APIJSONOptions{
 		Omitted: opts.Omitted, Diagnostic: opts.Diagnostic,
-		IncludeLibraryStubs: opts.IncludeLibraryStubs,
-		LibraryReferences:   func(refs []APIJSONLibraryReference) { libraryReferences = refs },
+		IncludeLibraryStubs: opts.IncludeLibraryStubs, InheritedMembers: opts.InheritedMembers,
+		LibraryReferences: func(refs []APIJSONLibraryReference) { libraryReferences = refs },
 	})
 	if err != nil {
 		return nil, err
@@ -140,8 +142,7 @@ func WriteAPIJSONCompact(graph *rdf.Graph, opts CompactAPIJSONOptions) ([]byte, 
 				if values, ok := member.value.(apiJSONObject); ok {
 					filtered := make(apiJSONObject, 0, len(values))
 					for _, value := range values {
-						if property, ok := ontology.PropertyOf(metaclass, value.key); ok &&
-							property.Derived && !keep[value.key] {
+						if compactOmitsDerived(metaclass, value.key, keep) {
 							continue
 						}
 						filtered = append(filtered, value)
@@ -152,15 +153,29 @@ func WriteAPIJSONCompact(graph *rdf.Graph, opts CompactAPIJSONOptions) ([]byte, 
 					member.value = filtered
 				}
 			}
-			if opts.OmitDerived && metaclass != "" && !keep[member.key] {
-				if property, ok := ontology.PropertyOf(metaclass, member.key); ok && property.Derived {
+			if opts.OmitDerived && metaclass != "" && compactOmitsDerived(metaclass, member.key, keep) {
+				continue
+			}
+			if member.key == apiJSONCompletedPropertiesKey && opts.OmitDerived && metaclass != "" {
+				// The marker names only the completed properties still written.
+				names, _ := member.value.([]any)
+				kept := make([]any, 0, len(names))
+				for _, name := range names {
+					text, _ := name.(string)
+					if compactOmitsDerived(metaclass, text, keep) {
+						continue
+					}
+					kept = append(kept, name)
+				}
+				if len(kept) == 0 {
 					continue
 				}
+				member.value = kept
 			}
 			members = append(members, member)
 			switch value := member.value.(type) {
 			case nil:
-			case apiJSONReference:
+			case APIJSONReference:
 				references[member.key] = true
 			case []any:
 				if len(value) == 0 {
@@ -168,7 +183,7 @@ func WriteAPIJSONCompact(graph *rdf.Graph, opts CompactAPIJSONOptions) ([]byte, 
 				}
 				allReferences := true
 				for _, item := range value {
-					if _, ok := item.(apiJSONReference); !ok {
+					if _, ok := item.(APIJSONReference); !ok {
 						allReferences = false
 						break
 					}
@@ -182,7 +197,7 @@ func WriteAPIJSONCompact(graph *rdf.Graph, opts CompactAPIJSONOptions) ([]byte, 
 				disqualified[member.key] = true
 			}
 			walkCompactValue(member.value, func(value any) {
-				if reference, ok := value.(apiJSONReference); ok {
+				if reference, ok := value.(APIJSONReference); ok {
 					id, _ := rdf.SubjectID(rdf.ReferenceIRI(subject, reference.ID))
 					writtenLibraryIDs[id] = true
 					handle(reference.ID)
@@ -285,7 +300,7 @@ func walkCompactValue(value any, visit func(any)) {
 // handle, bare under a reference key, and anything else as the element form does.
 func writeCompactValue(w apiJSONWriter, value any, bare bool, handles map[string]int) error {
 	switch v := value.(type) {
-	case apiJSONReference:
+	case APIJSONReference:
 		if bare {
 			w.buf.WriteString(strconv.Itoa(handles[v.ID]))
 		} else {
@@ -343,4 +358,21 @@ func writeCompactValue(w apiJSONWriter, value any, bare bool, handles map[string
 		return nil
 	}
 	return w.value(value)
+}
+
+// compactOmitsDerived reports whether OmitDerived drops name on metaclass: an unkept derived
+// property, or one completed from an unkept derived property that redefines it.
+func compactOmitsDerived(metaclass, name string, keep map[string]bool) bool {
+	if keep[name] {
+		return false
+	}
+	if property, ok := ontology.PropertyOf(metaclass, name); ok && property.Derived {
+		return true
+	}
+	for _, completed := range apiJSONCompletedPropertiesOf(metaclass) {
+		if completed.name == name && completed.redefinedBy != "" {
+			return compactOmitsDerived(metaclass, completed.redefinedBy, keep)
+		}
+	}
+	return false
 }

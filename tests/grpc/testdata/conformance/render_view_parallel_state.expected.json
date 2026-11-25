@@ -1,0 +1,18 @@
+{
+  "rpc": "RenderView",
+  "view": "ParallelDemo::operating",
+  "expected_node_names": [
+    "ParallelDemo::Operating",
+    "",
+    "running",
+    "heating",
+    "logging",
+    "off"
+  ],
+  "expected_parallel": [
+    "running"
+  ],
+  "expected_edge_labels": [
+    ""
+  ]
+}

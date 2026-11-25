@@ -18,27 +18,153 @@ Every client exposes all 31 RPCs (`GetServerInfo`, `ParseFile`, `ParseSources`, 
 `SelfCheck`, `RecordRun`, `ListEngines`, `Query`, `RunDocumentQuery`, `RenderDocument`,
 `RenderView`, `ExportGraphs`, `ImportData`, `CompareResults`) as typed calls, and each runs
 the shared [conformance suite](clients.md#every-client-runs-the-same-conformance-suite)
-over them. The service has no streaming RPC. Capability preflight (`GetServerInfo`
+over them. The 32nd, `InstancePaths` (every root-relative path to one object, capability
+`instance_paths`), is typed in the Go, Python, Node and Java clients — Python as
+`Instance.paths()` beside `Instance.owner`, `.feature` and `.path`, Node as
+`Model.instancePaths()` beside `Instance.reachedBy`, `.ownerId` and `.path`, Java as
+`Model.instancePaths()` beside `Instance.reachedBy()`, `.owner()` and `.path()`, each reading
+the `reached_by` of an instantiated `Instance` — and the other clients carry `reached_by`
+through their generated `Instance` message. The service has no streaming RPC. Capability preflight (`GetServerInfo`
 capabilities checked before a call) is typed in every client.
+
+## Capabilities
+
+The service announces what it can do as capability names (`GetServerInfo.capabilities`), and
+a client binds a capability by declaring its name in its capabilities module and gating or
+decoding by it: `symbol_members` is bound where `Symbol.members` is typed with its provenance
+and `include_library_members` can be asked for, `element_properties` where
+`GetElementProperties` is a typed call, `instance_paths` where `InstancePaths` is one and
+`reached_by` is read. The table below is the checklist of every capability the service
+announces against every client, in the service's order. **Not bound** means the client declares
+no such name, or — the Go package is held to this — declares it and does nothing by it: it
+neither gates on the capability nor decodes what it populates, and a program that needs it
+reads the raw response or uses another client.
+
+`TestClientCapabilityChecklist` in `tests/hygiene` holds this table to the code in both
+directions: every capability `sysml-grpc` announces must have a row, a row must name a
+capability the service still announces, and each cell must agree with the client's
+capabilities module (`client/python/opensysml/capabilities.py`, `client/opensysml/types.go`,
+`client/node/src/core/capabilities.ts`, `Capabilities.java`,
+`client/rust/opensysml/src/capabilities.rs`, `client/julia/OpenSysML/src/capabilities.jl`,
+`client/matlab/+opensysml/capabilities.m`). A capability added to the service without a row,
+or bound in a client without its cell saying so, fails the suite, so the table cannot drift
+from the clients and a gap is a stated gap rather than a silent one.
+
+| Capability | Python | Go | Node | Java | Rust | Julia | MATLAB |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `type_facts` | bound | bound | bound | bound | bound | bound | bound |
+| `convert` | bound | bound | bound | bound | bound | bound | bound |
+| `verification` | bound | bound | bound | bound | bound | bound | bound |
+| `query` | bound | bound | bound | bound | bound | bound | bound |
+| `oslc_query` | bound | bound | bound | bound | bound | bound | not bound |
+| `enum_values` | bound | bound | bound | bound | bound | bound | bound |
+| `evaluate_subject` | bound | bound | bound | bound | bound | bound | bound |
+| `symbol_attributes` | bound | bound | bound | bound | bound | bound | bound |
+| `unset_value` | bound | bound | bound | bound | bound | bound | bound |
+| `feature_values` | bound | bound | bound | bound | bound | bound | bound |
+| `apply_edits` | bound | bound | bound | bound | bound | bound | bound |
+| `authoring` | bound | bound | bound | bound | bound | bound | bound |
+| `inline_language` | bound | bound | bound | bound | bound | bound | bound |
+| `strict_conformance` | bound | bound | bound | bound | bound | bound | bound |
+| `document_query` | bound | bound | bound | bound | bound | bound | bound |
+| `inline_document_query` | bound | bound | bound | bound | bound | bound | bound |
+| `symbol_name_resolution` | bound | bound | bound | bound | bound | bound | bound |
+| `query_result_view` | bound | bound | not bound | bound | not bound | not bound | not bound |
+| `render_document` | bound | bound | bound | bound | bound | bound | bound |
+| `parse_sources` | bound | bound | bound | bound | bound | bound | bound |
+| `complex_values` | bound | bound | bound | bound | bound | bound | bound |
+| `structured_values` | bound | bound | bound | bound | bound | bound | bound |
+| `measurement_refs` | bound | bound | bound | bound | bound | bound | bound |
+| `function_values` | bound | bound | bound | bound | bound | bound | bound |
+| `set_values` | bound | bound | bound | bound | bound | bound | bound |
+| `tensor_values` | bound | bound | bound | bound | bound | bound | bound |
+| `verification_verdicts` | bound | bound | bound | bound | bound | bound | bound |
+| `infinity_value` | bound | not bound | bound | bound | bound | bound | bound |
+| `diagnostic_codes` | bound | bound | bound | bound | bound | bound | bound |
+| `schedule` | bound | bound | bound | bound | bound | bound | bound |
+| `case_evaluations` | bound | bound | bound | bound | bound | bound | bound |
+| `schedule_explore` | bound | bound | bound | bound | bound | bound | bound |
+| `final_time` | bound | bound | bound | bound | bound | bound | bound |
+| `engines` | bound | bound | bound | bound | bound | bound | bound |
+| `metaobject_values` | bound | bound | bound | bound | bound | bound | bound |
+| `symbol_members` | bound | bound | bound | bound | bound | not bound | not bound |
+| `undetermined_value` | bound | bound | bound | bound | bound | bound | bound |
+| `coordinate_frame_values` | bound | bound | bound | bound | bound | bound | bound |
+| `engines_external` | not bound | not bound | not bound | not bound | bound | not bound | not bound |
+| `edit_documents` | bound | bound | bound | bound | bound | bound | bound |
+| `performer` | bound | bound | bound | bound | bound | bound | bound |
+| `render_document_html` | bound | bound | bound | bound | bound | bound | bound |
+| `render_document_asciidoc` | bound | bound | bound | bound | bound | bound | bound |
+| `connection_authoring` | bound | bound | bound | bound | bound | bound | bound |
+| `satisfy_authoring` | bound | bound | bound | bound | bound | bound | bound |
+| `requirement_constraint_authoring` | bound | bound | bound | bound | bound | bound | bound |
+| `member_modifiers` | bound | bound | bound | bound | bound | bound | bound |
+| `transition_authoring` | bound | bound | bound | bound | bound | bound | bound |
+| `verification_questions` | bound | bound | bound | bound | bound | bound | bound |
+| `verification_arguments` | bound | bound | bound | bound | bound | bound | not bound |
+| `query_order_by` | bound | bound | bound | bound | bound | bound | bound |
+| `verification_objective_authoring` | bound | bound | bound | bound | bound | bound | bound |
+| `runs` | bound | bound | bound | bound | bound | bound | bound |
+| `self_check` | bound | bound | bound | bound | bound | bound | bound |
+| `record_run` | bound | bound | bound | bound | bound | bound | bound |
+| `metadata_authoring` | bound | bound | bound | bound | bound | bound | bound |
+| `metadata_prefix_authoring` | bound | bound | bound | bound | bound | bound | bound |
+| `sequence_authoring` | bound | bound | bound | bound | bound | bound | bound |
+| `implicit_parameters` | bound | bound | bound | bound | bound | bound | bound |
+| `constraint_body_authoring` | bound | bound | bound | bound | bound | bound | bound |
+| `state_action_authoring` | bound | bound | bound | bound | bound | bound | bound |
+| `import_authoring` | bound | bound | bound | bound | bound | bound | bound |
+| `documentation_authoring` | bound | bound | bound | bound | bound | bound | bound |
+| `comment_authoring` | bound | bound | bound | bound | bound | bound | bound |
+| `action_body_statement_authoring` | bound | bound | bound | bound | bound | bound | bound |
+| `migrate` | bound | bound | bound | bound | bound | bound | not bound |
+| `big_int_values` | bound | bound | bound | bound | bound | bound | bound |
+| `rational_values` | bound | bound | bound | bound | bound | bound | bound |
+| `state_trace` | bound | bound | bound | bound | bound | bound | bound |
+| `action_trace` | bound | bound | bound | bound | bound | bound | bound |
+| `render_view` | bound | bound | bound | bound | bound | bound | bound |
+| `render_view_form` | bound | bound | bound | bound | bound | bound | bound |
+| `symbol_lookup_kind` | bound | bound | bound | bound | bound | bound | bound |
+| `export_graphs` | bound | bound | bound | bound | bound | bound | bound |
+| `import_data` | bound | bound | bound | bound | bound | bound | bound |
+| `compare_results` | bound | bound | bound | bound | bound | bound | bound |
+| `instance_paths` | bound | bound | bound | bound | not bound | not bound | not bound |
+| `check` | bound | bound | bound | bound | bound | bound | bound |
+| `convert_documents` | bound | bound | bound | bound | bound | bound | not bound |
+| `convert_compact` | bound | bound | bound | bound | bound | bound | bound |
+| `convert_library_references` | bound | bound | bound | bound | bound | bound | not bound |
+| `convert_library_stubs` | bound | bound | bound | bound | bound | bound | bound |
+| `convert_inherited_members` | bound | bound | bound | bound | bound | bound | bound |
+| `convert_check_diagnostics` | bound | bound | bound | bound | bound | bound | bound |
+| `parse_sources_affected` | bound | bound | bound | bound | bound | bound | bound |
+| `render_document_file_name` | bound | not bound | bound | bound | bound | bound | not bound |
+| `order_dependence` | bound | not bound | bound | not bound | not bound | not bound | not bound |
+| `verdict_notes` | bound | bound | bound | bound | bound | bound | bound |
+| `element_properties` | bound | bound | bound | bound | bound | bound | bound |
+| `symbol_annotating_metadata` | bound | bound | bound | bound | bound | not bound | not bound |
+| `symbol_member_direction` | bound | bound | not bound | not bound | not bound | not bound | not bound |
+
 
 ## Request options
 
-| Option | Python | Node | Java | Rust | Julia | MATLAB |
-| --- | --- | --- | --- | --- | --- | --- |
-| `Convert.id_form` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_conversion.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/convert.test.ts) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/tests/surface.rs) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/julia/OpenSysML/test/extended_client.jl) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/matlab/tests/test_surface_live.m) |
-| `Convert.include_library_stubs` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_conversion.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/convert.test.ts) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/tests/surface.rs) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/julia/OpenSysML/test/extended_client.jl) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/matlab/tests/test_surface_live.m) |
-| `ConvertResponse.library_references` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_conversion.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/convert.test.ts) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/tests/surface.rs) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/julia/OpenSysML/test/extended_client.jl) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/matlab/tests/test_surface_live.m) |
-| `Convert.documents` | typed | typed | typed | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/tests/surface.rs) | typed | typed |
-| `Convert.compact`, `omit_derived`, `keep_derived` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_conversion.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/convert-options.test.ts) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/tests/compact_affected.rs) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/julia/OpenSysML/test/extended_client.jl) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/matlab/tests/test_surface_live.m) |
-| `Convert.include_check_diagnostics` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_conversion.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/convert-options.test.ts) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/tests/compact_affected.rs) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/julia/OpenSysML/test/extended_client.jl) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/matlab/tests/test_surface_live.m) |
-| `Query.oslc_query` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_query.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/query.test.ts) | typed | typed | typed | typed |
-| `Query.order_by` (capability gated) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_query.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/query.test.ts) | typed | typed | typed | typed |
-| `ParseSources.base_model_hash` / `affected` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_parse_sources.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/sources.test.ts) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/tests/compact_affected.rs) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/julia/OpenSysML/test/extended_client.jl) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/matlab/tests/test_surface_live.m) |
-| `RunSweep.samples` | typed | typed | typed | typed | typed | typed |
-| `RenderView.compartments` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_document.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/document.test.ts) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/tests/surface.rs) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/julia/OpenSysML/test/extended_client.jl) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/matlab/tests/test_surface_live.m) |
-| `RenderView.show`, `depth`, `ports` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_document.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/document.test.ts) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/tests/surface.rs) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/julia/OpenSysML/test/extended_client.jl) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/matlab/tests/test_surface_live.m) |
-| `ImportData.import_as` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_import_compare.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/importCompare.test.ts) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/tests/surface.rs) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/julia/OpenSysML/test/extended_client.jl) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/matlab/tests/test_surface_live.m) |
-| `RenderDocument.form` (markdown, html, asciidoc) | typed | typed | typed | typed | typed | typed |
+| Option | Go | Python | Node | Java | Rust | Julia | MATLAB |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `Convert.id_form` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/opensysml/parity_options_test.go) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_conversion.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/convert.test.ts) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/tests/surface.rs) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/julia/OpenSysML/test/extended_client.jl) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/matlab/tests/test_surface_live.m) |
+| `Convert.inherited_members` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/opensysml/parity_options_test.go) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_conversion.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/convert.test.ts) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/EditorTest.java) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/src/conversion.rs) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/julia/OpenSysML/test/extended_client.jl) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/matlab/tests/test_surface_live.m) |
+| `Convert.include_library_stubs` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/opensysml/parity_options_test.go) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_conversion.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/convert.test.ts) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/tests/surface.rs) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/julia/OpenSysML/test/extended_client.jl) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/matlab/tests/test_surface_live.m) |
+| `ConvertResponse.library_references` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/opensysml/parity_options_test.go) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_conversion.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/convert.test.ts) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/tests/surface.rs) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/julia/OpenSysML/test/extended_client.jl) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/matlab/tests/test_surface_live.m) |
+| `Convert.documents` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/opensysml/parity_options_test.go) | typed | typed | typed | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/tests/surface.rs) | typed | typed |
+| `Convert.compact`, `omit_derived`, `keep_derived` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/opensysml/parity_options_test.go) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_conversion.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/convert-options.test.ts) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/tests/compact_affected.rs) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/julia/OpenSysML/test/extended_client.jl) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/matlab/tests/test_surface_live.m) |
+| `Convert.include_check_diagnostics` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/opensysml/parity_options_test.go) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_conversion.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/convert-options.test.ts) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/tests/compact_affected.rs) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/julia/OpenSysML/test/extended_client.jl) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/matlab/tests/test_surface_live.m) |
+| `Query.oslc_query` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/opensysml/surface_test.go) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_query.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/query.test.ts) | typed | typed | typed | typed |
+| `Query.order_by` (capability gated) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/opensysml/surface_test.go) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_query.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/query.test.ts) | typed | typed | typed | typed |
+| `ParseSources.base_model_hash` / `affected` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/opensysml/parity_options_test.go) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_parse_sources.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/sources.test.ts) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/tests/compact_affected.rs) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/julia/OpenSysML/test/extended_client.jl) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/matlab/tests/test_surface_live.m) |
+| `RunSweep.samples` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/opensysml/sweep_test.go) | typed | typed | typed | typed | typed | typed |
+| `ListEngines` engine origin (`kind`, `protocol`, `source`, `command`, `version`, `served`) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/opensysml/engines_test.go) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_engines.py) | typed | typed | typed | typed | typed |
+| `RenderView.compartments` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/opensysml/surface_test.go) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_document.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/document.test.ts) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/tests/surface.rs) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/julia/OpenSysML/test/extended_client.jl) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/matlab/tests/test_surface_live.m) |
+| `RenderView.show`, `depth`, `ports` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/opensysml/surface_test.go) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_document.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/document.test.ts) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/tests/surface.rs) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/julia/OpenSysML/test/extended_client.jl) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/matlab/tests/test_surface_live.m) |
+| `ImportData.import_as` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/opensysml/parity_options_test.go) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_import_compare.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/importCompare.test.ts) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/tests/surface.rs) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/julia/OpenSysML/test/extended_client.jl) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/matlab/tests/test_surface_live.m) |
+| `RenderDocument.form` (markdown, html, asciidoc) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/opensysml/render_view_form_test.go) | typed | typed | typed | typed | typed | typed |
 
 ## Cross-cutting features
 
@@ -66,7 +192,6 @@ carries structured details (diagnostics, symbol suggestions, capability names).
 
 | Gap | Where | Estimate |
 | --- | --- | --- |
-| `RunSweep.samples` in the Go package | `client/opensysml` | about one day: the package has no typed `RunSweep` wrapper at all, so the option means a typed sweep request, result rows and their evaluations, and tests |
 | In-process engine without a service | Python, Java, Rust, Julia, MATLAB | large; Node's `connectWasm` is the only one, and the others would need a wasm host each |
 
 ## Proving tests
@@ -87,7 +212,10 @@ Each linked cell above points at one of these files; the test names are the ones
 - `node-sources`: [`client/node/test/sources.test.ts`](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/sources.test.ts) (`baseModelHash` and `model.affected`)
 - `java-compact`: [`client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java`](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java) (`compactApiJsonTrimsDerivedPropertiesAndKeepsTheNamedOnes`, `checkDiagnosticsReportTheSemanticCheckBesideTheConversion`, `aBaseModelNamesTheDocumentsAnEditReaches`) and [`client/java/opensysml-client/src/test/java/org/openmbee/opensysml/PublicTypesTest.java`](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/PublicTypesTest.java) (capability refusals)
 - `rust-compact`: [`client/rust/opensysml/tests/compact_affected.rs`](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/tests/compact_affected.rs)
-- `go-options`: [`client/opensysml/parity_options_test.go`](https://github.com/Open-MBEE/OpenSysML/blob/main/client/opensysml/parity_options_test.go) (`WithIDForm`, `WithLibraryStubs`, `WithBaseModel`, `ImportAs`)
+- `go-options`: [`client/opensysml/parity_options_test.go`](https://github.com/Open-MBEE/OpenSysML/blob/main/client/opensysml/parity_options_test.go) (`WithIDForm`, `WithLibraryStubs`, `WithInheritedMembers`, `WithDocuments`, `WithCompact`, `WithOmitDerived`, `WithCheckDiagnostics`, `WithBaseModel`, `ImportAs`), with the capability each is refused without in [`client/opensysml/parity_options_internal_test.go`](https://github.com/Open-MBEE/OpenSysML/blob/main/client/opensysml/parity_options_internal_test.go) and [`client/opensysml/capability_gates_internal_test.go`](https://github.com/Open-MBEE/OpenSysML/blob/main/client/opensysml/capability_gates_internal_test.go)
+- `go-engines`: [`client/opensysml/engines_test.go`](https://github.com/Open-MBEE/OpenSysML/blob/main/client/opensysml/engines_test.go) (`EngineInfo.Kind`, `Protocol`, `Source`, `Command`, `Version`, `Served` for a built-in engine, a manifest tool and a manifest engine)
+- `go-surface`: [`client/opensysml/surface_test.go`](https://github.com/Open-MBEE/OpenSysML/blob/main/client/opensysml/surface_test.go) (`Query.OrderBy`, `QueryOSLC`, `WithCompartments`, `WithShow`, `WithDepth`, `WithFullPorts`) and [`client/opensysml/render_view_form_test.go`](https://github.com/Open-MBEE/OpenSysML/blob/main/client/opensysml/render_view_form_test.go) (`WithDocumentForm`)
+- `go-sweep`: [`client/opensysml/sweep_test.go`](https://github.com/Open-MBEE/OpenSysML/blob/main/client/opensysml/sweep_test.go) (`Sweep` over both transports: stepped and sampled tables, a failed run as its row, verdicts, evaluations and refusals) and `sweep_internal_test.go` (every `Sweep*` option on the request, every response field decoded, the `verification` and `engines` preflight); `make conformance-pkg` runs the shared `RunSweep` scenarios through `Sweep`
 - `java-conv`: [`client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java`](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java) (`apiJsonNamesLibraryReferencesSeparatelyAndOptsIntoLegacyStubs`, `convertSpellsDerivedIdsInTheFormAskedFor`) and [`client/java/opensysml-client/src/test/java/org/openmbee/opensysml/EditorTest.java`](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/EditorTest.java)
 - `java-view`: [`client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java`](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java) (`renderViewFoldsMembersIntoCompartmentRowsOnRequest`)
 - `java-import`: [`client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java`](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java) (`importDataNamesWhatEachRowIsMadeIntoAndRefusesAnUnknownForm`)

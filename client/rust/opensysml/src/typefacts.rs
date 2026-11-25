@@ -7,14 +7,36 @@ use crate::domain::{value_from_wire, Symbol, Value};
 use crate::error::Error;
 use crate::wire;
 
-/// A feature's declared and resolved type.
+/// One derived type of a feature.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct TypeRef {
+    /// Qualified name of the type.
+    pub id: String,
+    /// Symbol kind of the type, such as `partDef`.
+    pub kind: String,
+}
+
+impl From<wire::TypeRef> for TypeRef {
+    fn from(reference: wire::TypeRef) -> Self {
+        Self {
+            id: reference.id,
+            kind: reference.kind,
+        }
+    }
+}
+
+/// A feature's type: the typing as written (`declared`, `resolved_id`, `resolved_kind`) and
+/// the derived KerML `Feature::type` (`types`), which the typing of every feature it subsets,
+/// references or redefines contributes to; `element_properties` reports the latter as `type`.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct TypeFacts {
     /// Type name as written; empty when none is declared.
     pub declared: String,
-    /// Qualified name of the resolved type; empty when unresolved or undeclared.
+    /// Element id of the resolved written type, for lookup; empty when unresolved or undeclared.
     pub resolved_id: String,
-    /// Symbol kind of the resolved type, such as `partDef`.
+    /// Qualified name of the resolved written type, for display.
+    pub resolved_qualified_name: String,
+    /// Symbol kind of the resolved written type, such as `partDef`.
     pub resolved_kind: String,
     /// Library scalar the type reduces to, such as `Real`; empty when it is not one.
     pub primitive: String,
@@ -24,6 +46,9 @@ pub struct TypeFacts {
     pub quantity: bool,
     /// Unit as written, when the default value names one.
     pub unit: String,
+    /// The derived types, most specific first with redundant supertypes removed; empty for a
+    /// definition or when none derives.
+    pub types: Vec<TypeRef>,
 }
 
 impl From<wire::TypeInfo> for TypeFacts {
@@ -31,11 +56,13 @@ impl From<wire::TypeInfo> for TypeFacts {
         Self {
             declared: info.declared,
             resolved_id: info.resolved_id,
+            resolved_qualified_name: info.resolved_qualified_name,
             resolved_kind: info.resolved_kind,
             primitive: info.primitive,
             primitive_source: info.primitive_source,
             quantity: info.quantity,
             unit: info.unit,
+            types: info.types.into_iter().map(TypeRef::from).collect(),
         }
     }
 }
@@ -73,15 +100,19 @@ impl From<wire::MultiplicityInfo> for Multiplicity {
     }
 }
 
-/// One specialization a symbol declares: subclassification, subsetting, redefinition and so on.
+/// One generalization edge written on a symbol; `element_properties` reflects these under
+/// `ownedSpecialization`, together with the implied ones the metamodel adds.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Specialization {
-    /// The relationship, such as `subclassification`.
+    /// The relationship: `specializes`, `subsets`, `redefines`, `typing` or `references`
+    /// (reference subsetting, `::>` and `include`).
     pub kind: String,
     /// The target as written.
     pub declared: String,
-    /// Qualified name of the resolved target; empty when unresolved.
+    /// Element id of the resolved target, for lookup; empty when unresolved.
     pub target_id: String,
+    /// Qualified name of the resolved target, for display.
+    pub target_qualified_name: String,
     /// Symbol kind of the resolved target.
     pub target_kind: String,
 }
@@ -92,6 +123,7 @@ impl From<wire::Specialization> for Specialization {
             kind: info.kind,
             declared: info.declared,
             target_id: info.target_id,
+            target_qualified_name: info.target_qualified_name,
             target_kind: info.target_kind,
         }
     }
@@ -251,10 +283,11 @@ impl Symbol {
             if specialization.target_id.is_empty() || visited.contains(&specialization.target_id) {
                 continue;
             }
-            let supertype = match self
-                .connection()
-                .get_symbol(self.model_hash(), &specialization.target_id)
-            {
+            let supertype = match self.connection().get_symbol(
+                self.model_hash(),
+                &specialization.target_id,
+                &crate::domain::SymbolOptions::element_id(),
+            ) {
                 Ok(symbol) => symbol,
                 Err(Error::Model(_)) => continue,
                 Err(error) => return Err(error),

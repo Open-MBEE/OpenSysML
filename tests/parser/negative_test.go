@@ -16,6 +16,11 @@ func TestNegative(t *testing.T) {
 		input string
 	}{
 		{"unclosed_brace", "part {"},
+		// A state's entry/do/exit accept takes an ActionBody (`;` or a block), so `then`
+		// cannot follow it directly, and it needs a payload (SysML.xtext StateAcceptActionUsage).
+		{"state_entry_accept_then", "package P { attribute def Sig; state def S { state s { entry accept a : Sig then s; } } }"},
+		{"state_do_accept_without_payload", "package P { state def S { state s { do accept; } } }"},
+		{"state_exit_accept_unclosed_body", "package P { attribute def Sig; state def S { state s { exit accept Sig { } } }"},
 		// One `;` after a condition is its terminator; a second ends nothing, and
 		// `case` after `analysis case` is no name.
 		{"doubled_condition_terminator", "constraint def K { in x : ScalarValues::Real; x > 0.0;; }"},
@@ -42,6 +47,9 @@ func TestNegative(t *testing.T) {
 		// short name.
 		{"kerml_word_name_missing_operand", "part def R { attribute step : Real; assert constraint { step <= } }"},
 		{"kerml_word_name_unclosed_comparison", "part def R { attribute step : Real; assert constraint { step < } }"},
+		// After a SysML kind keyword the KerML-only word is the usage's name, so
+		// a second name is the pilot's `no viable alternative at input 'x'`.
+		{"kerml_word_names_usage_second_name", "package P { part def D { action behavior x; } }"},
 		{"numeric_name", "part def 123;"},
 		{"missing_semicolon", "part def Engine"},
 		{"ref_anonymous_unclosed_multiplicity", "package P { ref [1 = x; }"},
@@ -90,6 +98,9 @@ func TestNegative(t *testing.T) {
 		{"state_entry_no_keyword", "state s { entry }"},
 		{"action_dangling_fork", "action a { fork }"},
 		{"transition_then_only", "transition first then"},
+		// A `then` target is a ConnectorEnd: a chain needs a name after each `.`.
+		{"then_chain_trailing_dot", "state def S { state a { state b; } state c; then a.; }"},
+		{"then_chain_double_dot", "state def S { state a { state b; } state c; then a..b; }"},
 		{"named_final_node", "action a { done finish; }"},
 		// InitialNodeMember is an ActionBodyItem production alone (SysML.xtext:1376):
 		// a one-ended `first` outside an action body names no target.
@@ -770,6 +781,11 @@ func TestNegativeKerML(t *testing.T) {
 		// does not name a feature there (the pinned KerML validator answers
 		// "no viable alternative at input 'chains'").
 		{"feature_named_chains", "package P { class T; feature chains : T; }"},
+		// `chains` takes one feature chain and `inverse of` one feature, never a
+		// comma-separated list (KerML.xtext:560 ChainingPart, :564 InvertingPart).
+		{"chains_comma_list", "package P { feature a; feature b; feature x chains a, b; }"},
+		{"chains_comma_list_after_chain", "package P { feature x chains a.b, c; }"},
+		{"inverse_of_comma_list", "package P { feature a; feature b; feature x inverse of a, b; }"},
 		// A word KerML.xtext does not reserve names a feature, so a malformed
 		// declaration so named is still reported.
 		{"feature_named_frame_no_type", "package P { feature frame : ; }"},

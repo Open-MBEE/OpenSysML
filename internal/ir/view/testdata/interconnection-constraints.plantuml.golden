@@ -1,5 +1,6 @@
 @startuml
 ' ParametricViews::amplifierView — interconnection rendering (render asInterconnectionDiagram)
+mainframe <size:10>//«view»//</size> **ParametricViews::amplifierView**\n<size:10>expose Parametrics::Amplifier</size>
 <style>
 root {
   BackGroundColor white
@@ -51,9 +52,9 @@ rectangle "<size:10>//«part def»//</size>\n**Amplifier**" as n0 <<part def>> {
     port "^output" as n5.2
   }
   rectangle "<size:10>//«constraint»//</size>\n**mix**" as n6 <<constraint>> <<usage>> {
-    port "^a" as n6.0
-    port "^b" as n6.1
-    port "^total" as n6.2
+    port "a" as n6.0
+    port "b" as n6.1
+    port "total" as n6.2
   }
 }
 n1 -- n5.0 : =

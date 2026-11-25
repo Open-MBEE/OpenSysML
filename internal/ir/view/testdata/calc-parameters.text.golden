@@ -13,8 +13,8 @@ part def Sensor
     in ^y
     out ^result
   calc scaled
-    in factor
     in ^x
+    in factor
     inout ^count
     out ^doubled
     out ^r

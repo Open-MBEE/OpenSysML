@@ -54,6 +54,10 @@ func qnString(qn *QualifiedName) string {
 		default:
 			s += "::"
 		}
+		if p.Text == "" && p.Span.Len > 0 {
+			// The empty name is spelled as written, which tells it from a missing segment.
+			s += "''"
+		}
 		s += p.Text
 	}
 	if qn.Global {
@@ -476,7 +480,7 @@ func dumpDeclaration(b *strings.Builder, n Node, depth int) bool {
 		writeChildren(b, depth, kids)
 		return true
 	case *ConnectorEnd:
-		targetStr := ""
+		var targetStr string
 		if qn, ok := v.Target.(*QualifiedName); ok {
 			targetStr = qnString(qn)
 		} else {
@@ -872,13 +876,22 @@ func referenceChildren(mult *Multiplicity, body []Node) []Node {
 }
 
 func identName(id Identification) string {
-	if id.ShortName != "" && id.Name != "" {
-		return "<" + id.ShortName + "> " + id.Name
+	// A declared empty name is spelled as written, which tells it from none.
+	spell := func(name string) string {
+		if name == "" {
+			return "''"
+		}
+		return name
 	}
-	if id.ShortName != "" {
-		return "<" + id.ShortName + ">"
+	switch {
+	case id.HasShortName() && id.HasName():
+		return "<" + spell(id.ShortName) + "> " + spell(id.Name)
+	case id.HasShortName():
+		return "<" + spell(id.ShortName) + ">"
+	case id.HasName():
+		return spell(id.Name)
 	}
-	return id.Name
+	return ""
 }
 
 func qnList(qns []*QualifiedName) string {

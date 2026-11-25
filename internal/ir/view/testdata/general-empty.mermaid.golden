@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» RobustViews::noRequirements : GeneralView"
 ---
 %% RobustViews::noRequirements — requirement rendering (view def GeneralView, filter @RequirementUsage)
 flowchart TD

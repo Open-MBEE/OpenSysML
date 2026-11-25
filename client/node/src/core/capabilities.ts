@@ -9,6 +9,20 @@ import { PLATFORM_PACKAGE_PREFIX } from "./package.js";
 export const CAPABILITY_TYPE_FACTS = "type_facts";
 /** Populated `SymbolInfo.attributes`. */
 export const CAPABILITY_SYMBOL_ATTRIBUTES = "symbol_attributes";
+/** Populated `SymbolInfo.members`: every member, own and inherited, with its provenance. */
+export const CAPABILITY_SYMBOL_MEMBERS = "symbol_members";
+/** `GetSymbolRequest.resolveName` honoured; without it every id is read as one the service reported. */
+export const CAPABILITY_SYMBOL_NAME_RESOLUTION = "symbol_name_resolution";
+/** Populated `SymbolInfo.annotating_metadata_ids`: the metadata usages annotating a symbol. */
+export const CAPABILITY_SYMBOL_ANNOTATING_METADATA = "symbol_annotating_metadata";
+/** The `lookup` of `GetSymbolRequest` and `GetElementPropertiesRequest` honoured: a name read only as a name, an id only as an id. */
+export const CAPABILITY_SYMBOL_LOOKUP_KIND = "symbol_lookup_kind";
+/** The `GetElementProperties` RPC: an element's metamodel properties by their specification names. */
+export const CAPABILITY_ELEMENT_PROPERTIES = "element_properties";
+/** `RunDocumentQueryRequest.inline_query`: a query expression run in place of a named query. */
+export const CAPABILITY_INLINE_DOCUMENT_QUERY = "inline_document_query";
+/** The `InstancePaths` RPC, and `Instance.reached_by` on every instantiated object. */
+export const CAPABILITY_INSTANCE_PATHS = "instance_paths";
 /** Evaluating an expression against an instantiated subject. */
 export const CAPABILITY_EVALUATE_SUBJECT = "evaluate_subject";
 /** An object's values as `Instance.feature_values`. */
@@ -72,6 +86,8 @@ export const CAPABILITY_RENDER_DOCUMENT_HTML = "render_document_html";
 export const CAPABILITY_RENDER_DOCUMENT_ASCIIDOC = "render_document_asciidoc";
 /** The `RenderView` RPC, returning typed diagram data. */
 export const CAPABILITY_RENDER_VIEW = "render_view";
+/** `form` and the writer options on `RenderViewRequest`, answered in `text`. */
+export const CAPABILITY_RENDER_VIEW_FORM = "render_view_form";
 /** The `ExportGraphs` RPC, exporting a behavior's lowered graph as `graphs:1` JSON. */
 export const CAPABILITY_EXPORT_GRAPHS = "export_graphs";
 export const CAPABILITY_IMPORT_DATA = "import_data";
@@ -137,6 +153,9 @@ export const CAPABILITY_ACTION_TRACE = "action_trace";
 export const CAPABILITY_ENGINES = "engines";
 /** A model-level result the model leaves open as `Value.undetermined`, read as an `undetermined` value. */
 export const CAPABILITY_UNDETERMINED_VALUE = "undetermined_value";
+
+/** `Value.coordinate_frame` and `Value.coordinate_transformation`; without it each is an unsupported null. */
+export const CAPABILITY_COORDINATE_FRAME_VALUES = "coordinate_frame_values";
 /** An Integer beyond int64 as `Value.bigIntValue`, `Quantity.bigIntMagnitude` and `DocumentValue.bigIntValue`; a service without it reads one sent to it as null. */
 export const CAPABILITY_BIG_INT_VALUES = "big_int_values";
 /** An exact Rational no double holds as `Value.rationalValue`, `Quantity.rationalMagnitude` and `DocumentValue.rationalValue`; a service without it reads one sent to it as null. */
@@ -149,6 +168,8 @@ export const CAPABILITY_CONVERT_COMPACT = "convert_compact";
 export const CAPABILITY_CONVERT_LIBRARY_REFERENCES = "convert_library_references";
 /** Opt-in ownerless library stubs for legacy API JSON readers. */
 export const CAPABILITY_CONVERT_LIBRARY_STUBS = "convert_library_stubs";
+/** `ConvertRequest.inheritedMembers`: api-json written with the derived lists that repeat each Namespace's and Type's inherited and imported members; a service without it always writes them. */
+export const CAPABILITY_CONVERT_INHERITED_MEMBERS = "convert_inherited_members";
 /** `ConvertRequest.includeCheckDiagnostics`: the semantic check's diagnostics, each with its own severity, reported alongside the converted output. */
 export const CAPABILITY_CONVERT_CHECK_DIAGNOSTICS = "convert_check_diagnostics";
 /** `ParseSourcesRequest.baseModelHash` and `ParseSourcesResponse.affected`: the documents whose results may differ from the base model's, so a client re-reads only those after an edit. */

@@ -5,6 +5,7 @@ function test_errors_capabilities()
     assert_equal(caps.parseSources, 'parse_sources', 'parseSources capability');
     assert_equal(caps.verificationQuestions, 'verification_questions', 'question capability');
     assert_equal(caps.undeterminedValue, 'undetermined_value', 'undetermined capability');
+    assert_equal(caps.coordinateFrameValues, 'coordinate_frame_values', 'coordinate frame capability');
     assert_equal(caps.convertCompact, 'convert_compact', 'compact convert capability');
     assert_equal(caps.convertCheckDiagnostics, 'convert_check_diagnostics', 'check diagnostics capability');
     assert_equal(caps.parseSourcesAffected, 'parse_sources_affected', 'affected documents capability');
@@ -29,6 +30,26 @@ function test_errors_capabilities()
     expect_error(@() opensysml.listEngines(conn), 'opensysml:missingCapability');
     err = opensysml.lastError();
     assert_equal(err.details.capability, 'engines', 'RPC capability gate');
+    assert_equal(caps.elementProperties, 'element_properties', 'elementProperties capability');
+    queryOnly = opensysml.Model(conn, 'offline-hash', {}, {}, {}, '', {});
+    expect_error(@() queryOnly.elementProperties('Demo::Pair', 'inheritedFeature'), ...
+        'opensysml:missingCapability');
+    err = opensysml.lastError();
+    assert_equal(err.details.capability, 'element_properties', 'elementProperties capability gate');
+    expect_error(@() opensysml.elementProperties(queryOnly, ''), 'opensysml:argument');
+    assert_equal(caps.symbolLookupKind, 'symbol_lookup_kind', 'lookup kind capability');
+    asked = struct('symbolId', 'P::@2');
+    assert_equal(isfield(opensysml.internal.lookupKind(conn, asked, 'element_id'), 'lookup'), false, ...
+        'a service without symbol_lookup_kind is asked in the legacy form');
+    stating = opensysml.external('127.0.0.1:1');
+    stating.primeServerInfo(struct('version', 'v1', 'capabilities', {{'symbol_lookup_kind'}}));
+    stated = opensysml.internal.lookupKind(stating, asked, 'element_id');
+    assert_equal(stated.lookup, 'LOOKUP_KIND_ELEMENT_ID', 'element id kind');
+    stated = opensysml.internal.lookupKind(stating, asked, 'qualified_name');
+    assert_equal(stated.lookup, 'LOOKUP_KIND_QUALIFIED_NAME', 'qualified name kind');
+    assert_equal(isfield(opensysml.internal.lookupKind(stating, asked, 'either'), 'lookup'), false, ...
+        'either states no kind');
+    expect_error(@() opensysml.internal.lookupKind(stating, asked, 'nonsense'), 'opensysml:argument');
     converting = opensysml.external('127.0.0.1:1');
     converting.primeServerInfo(struct('version', 'v1', ...
         'capabilities', {{'convert', 'parse_sources'}}));

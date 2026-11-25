@@ -11,3 +11,5 @@ n0: "«abstract part»\nvehicleFamily" {
   n4: "«attribute»\n^mass" { class: usage }
 }
 n0.n2 -- n0.n3: { class: connection }
+frame_name: "«view» AbstractViews::familyLinks : Family" { shape: text; near: top-left }
+frame_tr: "expose vehicleFamily**" { shape: text; near: top-right }

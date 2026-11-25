@@ -5,6 +5,8 @@ import { create } from "@bufbuild/protobuf";
 import type {
   Array as ArrayMessage,
   Bound,
+  CoordinateFrame,
+  CoordinateTransformation,
   EnumLiteral,
   Function as FunctionMessage,
   MeasurementRef,
@@ -100,6 +102,8 @@ export interface QuantityValue {
   magnitude: Magnitude;
   unit: string;
   unitTerm?: UnitFactorization;
+  /** The quantity value type the service holds it as; sent back, it is kept. */
+  valueType?: string;
 }
 
 /**
@@ -128,7 +132,10 @@ export interface FunctionValue {
 /**
  * An element of the model held as an instance of its reflective metaclass: what
  * `x meta KerML::Feature`, or the last element of `x.metadata`, evaluates to.
- * `elementId` is the FQN of the element reflected on, which is its identity;
+ * `elementId` is the id a client keeps for the element reflected on, which is
+ * its identity: its FQN, the positional id of an unnamed member (`Owner::@2`),
+ * or the element form's `@id` of an element the model synthesizes (a send's or
+ * accept's argument), as `getElementProperties` reads one;
  * `metaclassId` is the FQN of the element's own metaclass
  * (`SysML::Systems::PartUsage`), not the type it was cast to. The service always
  * sends it; one sent to the service may leave it empty to have the model's used,
@@ -171,6 +178,80 @@ export interface UndeterminedValue {
   countUpper: string;
 }
 
+/** The unit a measurement scale is measured in and, when the model defines the scale against another reference, one point on both. */
+export interface MeasurementScaleValue {
+  unit: MeasurementRefValue;
+  mapping?: { mapped: QuantityValue; reference: QuantityValue };
+}
+
+/**
+ * A coordinate frame or measurement scale held as a value: what a feature typed
+ * by a `MeasurementReferences::CoordinateFrame` evaluates to. Read, never sent.
+ */
+export interface CoordinateFrameValue {
+  /** The frame as a reader names it: its declared name, else the expression that composed it (`datum / s`). */
+  name: string;
+  /** Qualified name of the usage declaring the frame; empty for one composed. */
+  frameId: string;
+  /** Qualified name of the frame's type; empty for none. */
+  typeId: string;
+  /** The object the frame was read from; 0 for none. */
+  instanceId: bigint;
+  dimensions: bigint[];
+  /** The frame's `mRefs`, one per axis. */
+  axes: MeasurementRefValue[];
+  /** What places the frame in another, its `target` absent because this frame is that target. */
+  transformation?: CoordinateTransformationValue;
+  /** Set for a measurement scale, which has no axes. */
+  scale?: MeasurementScaleValue;
+}
+
+/** One step of a `TranslationRotationSequence`, read from the object `instanceId`. */
+export type FrameStepValue =
+  | { kind: "translation"; translation: SysMLValue; instanceId: bigint }
+  | {
+      kind: "rotation";
+      axisDirection: SysMLValue;
+      angle: QuantityValue;
+      /** About the axes as already rotated; otherwise about the source's fixed axes. */
+      intrinsic: boolean;
+      instanceId: bigint;
+    };
+
+/** The shape a model states a transformation in. */
+export type FrameShapeValue =
+  | { kind: "placement"; origin: SysMLValue; basisDirections: SysMLValue[] }
+  | { kind: "sequence"; steps: FrameStepValue[] }
+  /** A 3×3 rotation matrix, row-major, and a translation. */
+  | { kind: "affine"; rotation: number[]; translation: number[] };
+
+/**
+ * Where a target frame sits in its source frame, in the source's axis units:
+ * target coordinates v lie at `origin + basis · v`, `basis` n×n row-major.
+ */
+export interface FramePoseValue {
+  origin: number[];
+  basis: number[];
+}
+
+/**
+ * A coordinate transformation held as a value: the frames it relates, the shape
+ * the model states it in, and the pose that shape resolves to. Read, never sent.
+ */
+export interface CoordinateTransformationValue {
+  name: string;
+  /** Qualified name of the usage declaring it; empty for none. */
+  transformationId: string;
+  typeId: string;
+  instanceId: bigint;
+  source?: CoordinateFrameValue;
+  /** Absent on a frame's own `transformation`. */
+  target?: CoordinateFrameValue;
+  shape?: FrameShapeValue;
+  /** Absent when no source is stated or the shape resolves to no pose. */
+  pose?: FramePoseValue;
+}
+
 /**
  * A value the service computed. `absent` is the case a service sent no value at
  * all for, which is distinct from `unset` — a feature that exists and has none —
@@ -204,6 +285,8 @@ export type SysMLValue =
   | { kind: "null"; reason: string }
   | { kind: "unset" }
   | ({ kind: "undetermined" } & UndeterminedValue)
+  | ({ kind: "coordinateFrame" } & CoordinateFrameValue)
+  | ({ kind: "coordinateTransformation" } & CoordinateTransformationValue)
   | { kind: "infinity" }
   | { kind: "absent" };
 
@@ -403,6 +486,13 @@ export function decodeValue(value: Value | undefined): SysMLValue {
         countLower: kind.value.count?.lower ?? "",
         countUpper: kind.value.count?.upper ?? "",
       };
+    case "coordinateFrame":
+      return { kind: "coordinateFrame", ...decodeCoordinateFrame(kind.value) };
+    case "coordinateTransformation":
+      return {
+        kind: "coordinateTransformation",
+        ...decodeCoordinateTransformation(kind.value),
+      };
     case "infinity":
       // Only an asserted arm carries the unbounded value.
       if (!kind.value) {
@@ -513,6 +603,14 @@ export function encodeValue(value: SysMLValue): Value {
       return create(ValueSchema, { kind: { case: "unset", value: true } });
     case "undetermined":
       throw new MalformedValueError("an undetermined result is something to read, not to send");
+    case "coordinateFrame":
+      throw new MalformedValueError(
+        "a coordinate frame is something to read, not to send",
+      );
+    case "coordinateTransformation":
+      throw new MalformedValueError(
+        "a coordinate transformation is something to read, not to send",
+      );
     case "infinity":
       return create(ValueSchema, { kind: { case: "infinity", value: true } });
     case "absent":
@@ -659,6 +757,12 @@ export function formatValue(value: SysMLValue): string {
       return "unset";
     case "undetermined":
       return "<undetermined>";
+    case "coordinateFrame": {
+      const units = value.scale !== undefined ? [value.scale.unit] : value.axes;
+      return `${value.name} [${units.map((unit) => unit.unit).join(", ")}]`;
+    }
+    case "coordinateTransformation":
+      return `${value.name} (${value.source?.name ?? "?"} → ${value.target?.name ?? "?"})`;
     case "infinity":
       return "*";
     case "absent":
@@ -746,6 +850,7 @@ function decodeQuantity(quantity: Quantity): QuantityValue {
     magnitude,
     unit: quantity.unit,
     ...(unitTerm === undefined ? {} : { unitTerm }),
+    ...(quantity.valueType === "" ? {} : { valueType: quantity.valueType }),
   };
 }
 
@@ -754,6 +859,7 @@ function encodeQuantity(quantity: QuantityValue): Quantity {
     magnitude: encodeQuantityMagnitude(quantity.magnitude),
     unit: quantity.unit,
     ...(quantity.unitTerm === undefined ? {} : { unitTerm: encodeUnitTerm(quantity.unitTerm) }),
+    ...(quantity.valueType === undefined ? {} : { valueType: quantity.valueType }),
   });
 }
 
@@ -779,6 +885,212 @@ function encodeMeasurementRef(ref: MeasurementRefValue): MeasurementRef {
     unitTerm: encodeUnitTerm(ref.unitTerm),
     unitId: ref.unitId ?? "",
   });
+}
+
+function decodeCoordinateFrame(frame: CoordinateFrame): CoordinateFrameValue {
+  const out: CoordinateFrameValue = {
+    name: frame.name,
+    frameId: frame.frameId,
+    typeId: frame.typeId,
+    instanceId: frame.instanceId,
+    dimensions: frame.dimensions,
+    axes: frame.axes.map(decodeMeasurementRef),
+  };
+  if (frame.transformation !== undefined) {
+    out.transformation = decodeCoordinateTransformation(frame.transformation);
+  }
+  if (frame.scale !== undefined) {
+    if (frame.scale.unit === undefined) {
+      throw new MalformedValueError("a measurement scale names no unit");
+    }
+    out.scale = { unit: decodeMeasurementRef(frame.scale.unit) };
+    const mapping = frame.scale.mapping;
+    if (mapping !== undefined) {
+      if (mapping.mapped === undefined || mapping.reference === undefined) {
+        throw new MalformedValueError(
+          "a quantity value mapping lacks one of its two points",
+        );
+      }
+      out.scale.mapping = {
+        mapped: decodeQuantity(mapping.mapped),
+        reference: decodeQuantity(mapping.reference),
+      };
+    }
+  }
+  return out;
+}
+
+function decodeCoordinateTransformation(
+  t: CoordinateTransformation,
+): CoordinateTransformationValue {
+  const out: CoordinateTransformationValue = {
+    name: t.name,
+    transformationId: t.transformationId,
+    typeId: t.typeId,
+    instanceId: t.instanceId,
+  };
+  if (t.source !== undefined) {
+    out.source = decodeCoordinateFrame(t.source);
+  }
+  if (t.target !== undefined) {
+    out.target = decodeCoordinateFrame(t.target);
+  }
+  switch (t.shape.case) {
+    case "placement":
+      out.shape = {
+        kind: "placement",
+        origin: decodeValue(t.shape.value.origin),
+        basisDirections: t.shape.value.basisDirections.map(decodeValue),
+      };
+      break;
+    case "sequence":
+      out.shape = {
+        kind: "sequence",
+        steps: t.shape.value.steps.map((step): FrameStepValue => {
+          switch (step.step.case) {
+            case "translation":
+              return {
+                kind: "translation",
+                translation: decodeValue(step.step.value),
+                instanceId: step.instanceId,
+              };
+            case "rotation": {
+              const rotation = step.step.value;
+              if (rotation.angle === undefined) {
+                throw new MalformedValueError(
+                  "a frame rotation states no angle",
+                );
+              }
+              return {
+                kind: "rotation",
+                axisDirection: decodeValue(rotation.axisDirection),
+                angle: decodeQuantity(rotation.angle),
+                intrinsic: rotation.isIntrinsic,
+                instanceId: step.instanceId,
+              };
+            }
+            default:
+              throw new MalformedValueError(
+                "a transformation step is neither a translation nor a rotation",
+              );
+          }
+        }),
+      };
+      break;
+    case "affine":
+      out.shape = {
+        kind: "affine",
+        rotation: t.shape.value.rotation,
+        translation: t.shape.value.translation,
+      };
+      break;
+  }
+  if (t.pose !== undefined) {
+    out.pose = { origin: t.pose.origin, basis: t.pose.basis };
+  }
+  return out;
+}
+
+function numbersMatch(a: number[], b: number[]): boolean {
+  return a.length === b.length && a.every((x, i) => x === b[i]);
+}
+
+function optionalEqual<T>(
+  a: T | undefined,
+  b: T | undefined,
+  eq: (x: T, y: T) => boolean,
+): boolean {
+  return a === undefined || b === undefined ? a === b : eq(a, b);
+}
+
+// A frame is the object and usage it was read from when either has an object,
+// otherwise its dimensions, axes, scale and transformation, whatever names it.
+function framesEqual(
+  a: CoordinateFrameValue,
+  b: CoordinateFrameValue,
+): boolean {
+  if (a.instanceId !== 0n || b.instanceId !== 0n) {
+    return a.instanceId === b.instanceId && a.frameId === b.frameId;
+  }
+  return (
+    dimensionsEqual(a.dimensions, b.dimensions) &&
+    a.axes.length === b.axes.length &&
+    a.axes.every((axis, i) => measurementRefsEqual(axis, b.axes[i])) &&
+    optionalEqual(a.transformation, b.transformation, transformationsEqual) &&
+    optionalEqual(
+      a.scale,
+      b.scale,
+      (x, y) =>
+        measurementRefsEqual(x.unit, y.unit) &&
+        optionalEqual(
+          x.mapping,
+          y.mapping,
+          (m, n) =>
+            quantitiesEqual(m.mapped, n.mapped) &&
+            quantitiesEqual(m.reference, n.reference),
+        ),
+    )
+  );
+}
+
+// One object read twice is one transformation; otherwise source, target and stated
+// shape decide, and a transformation of no library shape is only its object.
+function transformationsEqual(
+  a: CoordinateTransformationValue,
+  b: CoordinateTransformationValue,
+): boolean {
+  const sameObject =
+    a.instanceId === b.instanceId && a.transformationId === b.transformationId;
+  if (sameObject && a.instanceId !== 0n) {
+    return true;
+  }
+  if (
+    !optionalEqual(a.source, b.source, framesEqual) ||
+    !optionalEqual(a.target, b.target, framesEqual)
+  ) {
+    return false;
+  }
+  if (a.shape === undefined || b.shape === undefined) {
+    return a.shape === b.shape && sameObject;
+  }
+  return shapesEqual(a.shape, b.shape);
+}
+
+function shapesEqual(a: FrameShapeValue, b: FrameShapeValue): boolean {
+  switch (a.kind) {
+    case "placement":
+      return (
+        b.kind === "placement" &&
+        valuesEqual(a.origin, b.origin) &&
+        elementsEqual(a.basisDirections, b.basisDirections)
+      );
+    case "sequence":
+      return (
+        b.kind === "sequence" &&
+        a.steps.length === b.steps.length &&
+        a.steps.every((step, i) => stepsEqual(step, b.steps[i]))
+      );
+    case "affine":
+      return (
+        b.kind === "affine" &&
+        numbersMatch(a.rotation, b.rotation) &&
+        numbersMatch(a.translation, b.translation)
+      );
+  }
+}
+
+function stepsEqual(a: FrameStepValue, b: FrameStepValue): boolean {
+  if (a.kind === "translation") {
+    return (
+      b.kind === "translation" && valuesEqual(a.translation, b.translation)
+    );
+  }
+  return (
+    b.kind === "rotation" &&
+    a.intrinsic === b.intrinsic &&
+    valuesEqual(a.axisDirection, b.axisDirection) &&
+    quantitiesEqual(a.angle, b.angle)
+  );
 }
 
 function decodeFunction(fn: FunctionMessage): FunctionValue {
@@ -1142,6 +1454,12 @@ export function valuesEqual(a: SysMLValue, b: SysMLValue): boolean {
     case "metaobject":
       // The element is the identity, whatever type each side was cast to.
       return b.kind === "metaobject" && a.elementId === b.elementId;
+    case "coordinateFrame":
+      return b.kind === "coordinateFrame" && framesEqual(a, b);
+    case "coordinateTransformation":
+      return (
+        b.kind === "coordinateTransformation" && transformationsEqual(a, b)
+      );
     case "undetermined":
       return (
         b.kind === "undetermined" &&

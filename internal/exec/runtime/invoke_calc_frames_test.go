@@ -118,6 +118,7 @@ func wantFramesReleased(t *testing.T, ctx *Context) {
 // A recursion reads each frame's parameter after the calls under it returned,
 // so the frames of active invocations are distinct and each is bound once.
 func TestRecursiveCalcFramesDoNotAlias(t *testing.T) {
+	t.Parallel()
 	scope, ctx := framesRuntime(t)
 	wantInvokedInt(t, ctx, scope, "Fib", 610, 15)
 	wantFramesReleased(t, ctx)

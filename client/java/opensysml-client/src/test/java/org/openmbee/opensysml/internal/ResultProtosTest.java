@@ -13,7 +13,9 @@ import org.junit.jupiter.api.Test;
 import org.openmbee.opensysml.ActionRun;
 import org.openmbee.opensysml.Analysis;
 import org.openmbee.opensysml.Calculation;
+import org.openmbee.opensysml.CheckResult;
 import org.openmbee.opensysml.Condition;
+import org.openmbee.opensysml.Coverage;
 import org.openmbee.opensysml.EngineInfo;
 import org.openmbee.opensysml.Exploration;
 import org.openmbee.opensysml.FailureReason;
@@ -359,6 +361,12 @@ class ResultProtosTest {
             .setDepthBudget(64)
             .setFailedLinearizations(1)
             .setProbabilitiesLowerBound(true)
+            .setCoverage(
+                org.openmbee.opensysml.proto.Coverage.newBuilder()
+                    .addStates(coverageEntry("Cov::sys#1.m.run: viaA", "Cov::M::run::viaA", 1))
+                    .addStates(coverageEntry("Cov::sys#1.m.run: viaB", "Cov::M::run::viaB", 1))
+                    .addTransitions(
+                        coverageEntry("Cov::sys#1.m.run: s0 -> viaB", "Cov::M::run::s0 -> viaB", 1)))
             .build();
     Exploration exploration = Protos.exploration(outcomes, status);
     assertEquals(3, exploration.outcomes().size());
@@ -386,6 +394,14 @@ class ResultProtosTest {
     assertEquals(
         "incomplete: runs budget 100 hit after 100 runs; probabilities are lower bounds",
         exploration.status());
+    assertEquals(
+        List.of(
+            new Coverage.Entry("Cov::sys#1.m.run: viaA", "Cov::M::run::viaA", 1),
+            new Coverage.Entry("Cov::sys#1.m.run: viaB", "Cov::M::run::viaB", 1)),
+        exploration.coverage().states());
+    assertEquals(
+        List.of(new Coverage.Entry("Cov::sys#1.m.run: s0 -> viaB", "Cov::M::run::s0 -> viaB", 1)),
+        exploration.coverage().transitions());
 
     Exploration unweightedIncomplete =
         Protos.exploration(
@@ -399,6 +415,45 @@ class ResultProtosTest {
                 .build());
     assertEquals("incomplete: runs budget 1 hit after 1 runs", unweightedIncomplete.status());
     assertEquals(0, unweightedIncomplete.failedLinearizations());
+    assertEquals(Coverage.NONE, unweightedIncomplete.coverage());
+  }
+
+  private static org.openmbee.opensysml.proto.CoverageEntry coverageEntry(
+      String path, String declaration, int runs) {
+    return org.openmbee.opensysml.proto.CoverageEntry.newBuilder()
+        .setPath(path)
+        .setDeclaration(declaration)
+        .setRuns(runs)
+        .build();
+  }
+
+  @Test
+  void aCheckSearchCarriesTheCoverageOfEverySchedule() {
+    CheckResult result =
+        Protos.checkResult(
+            org.openmbee.opensysml.proto.CheckBehaviorResponse.newBuilder()
+                .setVerdict("holds")
+                .setSearch(
+                    org.openmbee.opensysml.proto.CheckSearch.newBuilder()
+                        .setStates(5)
+                        .setCoverage(
+                            org.openmbee.opensysml.proto.Coverage.newBuilder()
+                                .addStates(
+                                    coverageEntry("Cov::sys#1.m.run: viaB", "Cov::M::run::viaB", 1))))
+                .build());
+    CheckResult.Search search = result.search().orElseThrow();
+    assertEquals(5, search.states());
+    assertEquals(
+        List.of(new Coverage.Entry("Cov::sys#1.m.run: viaB", "Cov::M::run::viaB", 1)),
+        search.coverage().states());
+    assertEquals(List.of(), search.coverage().transitions());
+    CheckResult bare =
+        Protos.checkResult(
+            org.openmbee.opensysml.proto.CheckBehaviorResponse.newBuilder()
+                .setVerdict("holds")
+                .setSearch(org.openmbee.opensysml.proto.CheckSearch.newBuilder().setStates(1))
+                .build());
+    assertEquals(Coverage.NONE, bare.search().orElseThrow().coverage());
   }
 
   @Test

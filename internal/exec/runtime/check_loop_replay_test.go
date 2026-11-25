@@ -64,6 +64,7 @@ func nestedStateStarterOf(part, sym *symbols.Symbol, path string, horizon Horizo
 // nested in another. The check diverges over `left` and `right`: the exit before
 // either branch wrote, after one, or after both.
 func TestCheckWitnessesOfALoopingDoRoundReplay(t *testing.T) {
+	t.Parallel()
 	for _, nested := range []bool{false, true} {
 		name := "top-level"
 		if nested {

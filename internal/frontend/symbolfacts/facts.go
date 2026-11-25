@@ -1,6 +1,7 @@
 package symbolfacts
 
 import (
+	"slices"
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
@@ -26,6 +27,12 @@ type Context struct {
 	Index     *symbols.Index
 	Resolver  *resolve.Resolver
 	Semantics *semantics.Model
+	// Positional names the symbols no qualified name identifies; nil when the
+	// host derives none, which leaves such symbols without an id.
+	Positional *Positional
+	// ElementForm is the element form's ids, which name the elements the
+	// semantic side tables synthesize; nil when the host converts no form.
+	ElementForm func() ElementForm
 }
 
 // NewContext builds a conversion context over a symbol index.
@@ -65,17 +72,45 @@ type Info struct {
 	Specializations           []*Specialization
 	Attributes                []*Attribute
 	WithheldLibraryAttributes int32
+	// Members is every member the element has, own then inherited, with
+	// library-inherited ones withheld and counted unless asked for.
+	Members                []*Member
+	WithheldLibraryMembers int32
+	// AnnotatingMetadataIds are the metadata usages annotating the element,
+	// its own prefix and body ones and those naming it with `about` elsewhere.
+	AnnotatingMetadataIds []string
 }
 
-// TypeInfo describes a symbol's declared, resolved and primitive type.
+// Options select what Of reports beyond the facts every caller gets.
+type Options struct {
+	// IncludeLibraryMembers lists the members inherited from standard-library
+	// content in Members, each marked Library, instead of counting them.
+	IncludeLibraryMembers bool
+	// MemberOf is the type the symbol is read as a feature of; the direction
+	// reported is then the one relative to it (Type::directionOf).
+	MemberOf *symbols.Symbol
+}
+
+// TypeInfo describes a symbol's written, derived and primitive type. Declared,
+// ResolvedId and ResolvedKind are the typing the declaration writes; Types is
+// the feature's semantic type (Feature::type), which subsetting, reference
+// subsetting and redefinition contribute to.
 type TypeInfo struct {
-	Declared        string
-	ResolvedId      string
-	ResolvedKind    string
-	Primitive       string
-	PrimitiveSource string
-	Quantity        bool
-	Unit            string
+	Declared              string
+	ResolvedId            string
+	ResolvedQualifiedName string
+	ResolvedKind          string
+	Primitive             string
+	PrimitiveSource       string
+	Quantity              bool
+	Unit                  string
+	Types                 []*TypeRef
+}
+
+// TypeRef names one derived type of a feature.
+type TypeRef struct {
+	Id   string
+	Kind string
 }
 
 // Multiplicity contains the lower and upper bounds of a symbol's multiplicity.
@@ -86,10 +121,11 @@ type Multiplicity struct {
 
 // Specialization describes a declared generalization relationship.
 type Specialization struct {
-	Kind       string
-	Declared   string
-	TargetId   string
-	TargetKind string
+	Kind                string
+	Declared            string
+	TargetId            string
+	TargetQualifiedName string
+	TargetKind          string
 }
 
 // Attribute contains a symbol's attribute declaration facts.
@@ -108,22 +144,25 @@ type Value struct {
 
 // Of derives the plain-Go facts associated with a symbol.
 func Of(sym *symbols.Symbol, sc *Context) *Info {
+	return OfWith(sym, sc, Options{})
+}
+
+// OfWith is Of with the options selecting what else is reported.
+func OfWith(sym *symbols.Symbol, sc *Context, opts Options) *Info {
 	defer sc.Lock()()
-	idx := sc.Index
 	info := &Info{
-		Id:       idx.GetFQN(sym), // Fully qualified name
-		Name:     sym.Name,
+		Id:       sc.identityOrFQN(sym),
+		Name:     sc.Semantics.EffectiveNameOf(sym),
 		Kind:     sym.Kind.String(),
 		Metadata: make(map[string]string),
 	}
 	// Extract metadata from AST node
 	extractMetadata(sym, info.Metadata)
+	sc.sendMetadata(sym, info.Metadata)
+	sc.directionMetadata(sym, opts.MemberOf, info.Metadata)
 	// Add visibility to metadata
 	info.Metadata["visibility"] = visibilityToString(sym.Visibility)
-	if sym.Scope != nil {
-		// Collect child IDs
-		info.ChildIds = collectChildIDs(sym.Scope, idx)
-	}
+	info.ChildIds = sc.collectChildIDs(sc.ownedMembers(sym))
 	// Static type facts: the resolved type, the declared multiplicity and every
 	// generalization edge. These are what a client needs to reconstruct the
 	// element's type without re-deriving it from the metadata strings.
@@ -133,7 +172,29 @@ func Of(sym *symbols.Symbol, sc *Context) *Info {
 	// The attributes the element has, own and inherited, with their resolved
 	// types and constant default values.
 	info.Attributes, info.WithheldLibraryAttributes = sc.attributesOf(sym)
+	// Every member, own and inherited, with its provenance; child_ids above
+	// stays the owned members only.
+	info.Members, info.WithheldLibraryMembers = sc.membersOf(sym, opts.IncludeLibraryMembers)
+	info.AnnotatingMetadataIds = sc.annotatingMetadataIDs(sym)
 	return info
+}
+
+// directionMetadata states sym's direction: relative to memberOf when one is
+// given (Type::directionOf, KerML 8.3.3.1.10), else its own Feature::direction.
+func (sc *Context) directionMetadata(sym, memberOf *symbols.Symbol, meta map[string]string) {
+	if memberOf != nil {
+		if dir := sc.Semantics.EffectiveDirection(memberOf, sym); dir != ast.DirNone {
+			meta["direction"] = dir.String()
+			return
+		}
+	}
+	// A parameter whose direction its membership gives rather than its text,
+	// such as a subject (`in`), reports that direction.
+	if _, written := meta["direction"]; !written {
+		if dir, ok := semantics.ReflectiveDirection(sym); ok && dir != ast.DirNone {
+			meta["direction"] = dir.String()
+		}
+	}
 }
 
 // Root is one document's root namespace: the index's own root symbol for
@@ -152,15 +213,74 @@ func Root(sc *Context, rootScope *symbols.Scope) *Info {
 		Kind:     "RootNamespace",
 		Metadata: make(map[string]string),
 	}
-	info.ChildIds = collectChildIDs(rootScope, sc.Index)
+	info.ChildIds = sc.collectChildIDs(rootScope.AllMembers())
 	return info
 }
 
-// collectChildIDs extracts child symbol FQNs from a scope
-func collectChildIDs(scope *symbols.Scope, idx *symbols.Index) []string {
+// identityOrFQN is the id a symbol is reported under: the one LookupID answers,
+// else the index's qualified name, so the report still says where it is.
+func (sc *Context) identityOrFQN(sym *symbols.Symbol) string {
+	id := sc.ownedIdentity(sym)
+	if id == "" {
+		id = sc.FormID(sym)
+	}
+	if id != "" {
+		return id
+	}
+	return sc.Index.GetFQN(sym)
+}
+
+// annotatingMetadataIDs lists the ids of the metadata usages annotating sym,
+// as the semantic model orders them; a usage no id reaches is left out.
+func (sc *Context) annotatingMetadataIDs(sym *symbols.Symbol) []string {
 	var ids []string
-	for _, sym := range scope.AllMembers() {
-		ids = append(ids, idx.GetFQN(sym))
+	for _, usage := range sc.Semantics.AnnotatingMetadataOf(sym) {
+		if id := sc.Identity(usage); id != "" {
+			ids = append(ids, id)
+		}
+	}
+	return ids
+}
+
+// ownedIdentity is the id an owned member is listed under: Identity, else, for
+// an end a connector declares without a name (`connect a to b`), its ElementIdentity.
+func (sc *Context) ownedIdentity(sym *symbols.Symbol) string {
+	if id := sc.Identity(sym); id != "" {
+		return id
+	}
+	if sym.Kind != symbols.SymbolConnectorEnd {
+		return ""
+	}
+	if sc.elementForm() == nil {
+		return sc.composedEndID(sym)
+	}
+	return sc.FormID(sym)
+}
+
+// ownedMembers are the members sym owns in declaration order: its scope's, then
+// any end the semantic model has it own (Model.OwnedConnectorEnds) that the scope does not hold.
+func (sc *Context) ownedMembers(sym *symbols.Symbol) []*symbols.Symbol {
+	if sym == nil || sym.Scope == nil {
+		return nil
+	}
+	members := sym.Scope.AllMembers()
+	ends, _ := sc.Semantics.OwnedConnectorEnds(sym)
+	for _, end := range ends {
+		if end != nil && !slices.Contains(members, end) {
+			members = append(slices.Clip(members), end)
+		}
+	}
+	return members
+}
+
+// collectChildIDs lists the members' ids in declaration order, each one LookupID
+// resolves to that member; a member no id reaches is left out.
+func (sc *Context) collectChildIDs(members []*symbols.Symbol) []string {
+	var ids []string
+	for _, sym := range members {
+		if id := sc.ownedIdentity(sym); id != "" {
+			ids = append(ids, id)
+		}
 	}
 	return ids
 }
@@ -177,6 +297,8 @@ func relationshipKindName(k ast.RelationshipKind) string {
 		return "redefines"
 	case ast.RelTyping:
 		return "typing"
+	case ast.RelReferences, ast.RelIncludes:
+		return "references"
 	default:
 		return ""
 	}
@@ -199,27 +321,94 @@ func relationshipName(rel *ast.Relationship) *ast.QualifiedName {
 	return qn
 }
 
-// specializationsOf reports every generalization edge a symbol declares, in
-// declaration order, with each target resolved.
+// specializationsOf reports every generalization edge a symbol declares, in declaration order,
+// with each target resolved; its reference subsetting as referenceSpecializations reads it.
 func (sc *Context) specializationsOf(sym *symbols.Symbol) []*Specialization {
 	var out []*Specialization
+	referenced := false
 	for _, rel := range semantics.RelationshipsOf(sym) {
 		kind := relationshipKindName(rel.Kind)
 		if kind == "" {
+			continue
+		}
+		if rel.Kind.ReferenceSubsets() {
+			if !referenced {
+				out = append(out, sc.referenceSpecializations(sym)...)
+				referenced = true
+			}
 			continue
 		}
 		qn := relationshipName(rel)
 		if qn == nil {
 			continue
 		}
-		spec := &Specialization{Kind: kind, Declared: qn.Text()}
-		if target := sc.resolveFrom(sym, qn); target != nil {
-			spec.TargetId = sc.Index.GetFQN(target)
+		spec := &Specialization{Kind: kind, Declared: declaredText(rel, qn)}
+		if target := sc.relationshipTarget(sym, rel, qn); target != nil {
+			spec.TargetId = sc.referenceID(target)
+			spec.TargetQualifiedName = sc.Index.GetFQN(target)
 			spec.TargetKind = target.Kind.String()
 		}
 		out = append(out, spec)
 	}
+	if !referenced {
+		// A connector end's attachment (`connect a to b`) is written outside the relationship list.
+		out = append(out, sc.referenceSpecializations(sym)...)
+	}
 	return out
+}
+
+// referenceSpecializations reports sym's reference subsetting (KerML 8.3.3.3.9): one `references`
+// entry for the feature named, one per chaining feature of a chain; no id where it does not resolve.
+func (sc *Context) referenceSpecializations(sym *symbols.Symbol) []*Specialization {
+	chain, written := sc.Semantics.ReferencedFeatureChain(sym)
+	declared := sc.expressionText(sym, written)
+	if len(chain) == 0 {
+		if written == nil {
+			return nil
+		}
+		return []*Specialization{{Kind: "references", Declared: declared}}
+	}
+	out := make([]*Specialization, 0, len(chain))
+	for _, feature := range chain {
+		if declared == "" {
+			declared = feature.Name
+		}
+		out = append(out, &Specialization{
+			Kind:                "references",
+			Declared:            declared,
+			TargetId:            sc.referenceID(feature),
+			TargetQualifiedName: sc.Index.GetFQN(feature),
+			TargetKind:          feature.Kind.String(),
+		})
+	}
+	return out
+}
+
+// referenceID is the id GetSymbol takes for a referenced feature: positional where an
+// owner is unnamed, which the qualified name alone would skip.
+func (sc *Context) referenceID(feature *symbols.Symbol) string {
+	if id := sc.Identity(feature); id != "" {
+		return id
+	}
+	return sc.Index.GetFQN(feature)
+}
+
+// declaredText is the relationship's target as written, with the `~` of a
+// conjugated typing (SysML v2 8.3.12.3) the name alone does not carry.
+func declaredText(rel *ast.Relationship, qn *ast.QualifiedName) string {
+	if rel.Conjugated {
+		return "~" + qn.Text()
+	}
+	return qn.Text()
+}
+
+// relationshipTarget resolves the element a relationship in sym's declaration
+// names; a conjugated typing's is the ConjugatedPortDefinition its target implies.
+func (sc *Context) relationshipTarget(sym *symbols.Symbol, rel *ast.Relationship, qn *ast.QualifiedName) *symbols.Symbol {
+	if rel.Kind == ast.RelTyping && rel.Conjugated && sc.Semantics != nil {
+		return sc.Semantics.TypingTarget(sym, rel)
+	}
+	return sc.resolveFrom(sym, qn)
 }
 
 // resolveFrom resolves a qualified name written in sym's declaration,
@@ -253,13 +442,59 @@ func (sc *Context) typeInfoOf(sym *symbols.Symbol) *TypeInfo {
 		return sc.usageTypeInfo(sym, decl)
 	case *ast.Definition:
 		return sc.definitionTypeInfo(sym)
+	case *ast.SubjectMember:
+		return sc.subjectTypeInfo(sym, decl)
+	case *ast.PrefixMetadata:
+		return sc.annotationTypeInfo(sym, decl)
 	default:
 		return nil
 	}
 }
 
+// annotationTypeInfo derives the type facts of a metadata usage written as an
+// annotation (`@M`, `#M`): the metadata definition it names, resolved.
+func (sc *Context) annotationTypeInfo(sym *symbols.Symbol, decl *ast.PrefixMetadata) *TypeInfo {
+	if decl.Type == nil {
+		return nil
+	}
+	info := &TypeInfo{Declared: decl.Type.Text()}
+	if target := sc.resolveFrom(sym, decl.Type); target != nil {
+		info.ResolvedId = sc.referenceID(target)
+		info.ResolvedQualifiedName = sc.Index.GetFQN(target)
+		info.ResolvedKind = target.Kind.String()
+	}
+	return info
+}
+
 // usageTypeInfo derives the type facts of a usage. An untyped usage still has a
 // primitive when its default value determines one, reported as inferred.
+// subjectTypeInfo is the type of a subject written in a requirement body
+// (`subject s : T;`), which the declaration carries rather than a relationship.
+func (sc *Context) subjectTypeInfo(sym *symbols.Symbol, decl *ast.SubjectMember) *TypeInfo {
+	info := &TypeInfo{}
+	if decl.TypeRef != nil {
+		sc.declareType(sym, info, decl.TypeRef)
+	}
+	if prim := sc.Semantics.PrimTypeOf(sym); prim != semantics.PrimUnknown {
+		info.Primitive = prim.String()
+		info.PrimitiveSource = "declared"
+	} else if prim, ok := primOfValue(sc.Semantics, decl.BindingExpr); ok {
+		info.Primitive = prim
+		info.PrimitiveSource = "value"
+	}
+	sc.markQuantity(sym, info, decl.BindingExpr)
+	return info
+}
+
+func (sc *Context) declareType(sym *symbols.Symbol, info *TypeInfo, qn *ast.QualifiedName) {
+	info.Declared = qn.Text()
+	if target := sc.resolveFrom(sym, qn); target != nil {
+		info.ResolvedId = sc.referenceID(target)
+		info.ResolvedQualifiedName = sc.Index.GetFQN(target)
+		info.ResolvedKind = target.Kind.String()
+	}
+}
+
 func (sc *Context) usageTypeInfo(sym *symbols.Symbol, decl *ast.Usage) *TypeInfo {
 	info := &TypeInfo{}
 
@@ -273,13 +508,16 @@ func (sc *Context) usageTypeInfo(sym *symbols.Symbol, decl *ast.Usage) *TypeInfo
 		if qn == nil {
 			continue
 		}
-		info.Declared = qn.Text()
-		if target := sc.resolveFrom(sym, qn); target != nil {
-			info.ResolvedId = sc.Index.GetFQN(target)
+		info.Declared = declaredText(rel, qn)
+		if target := sc.relationshipTarget(sym, rel, qn); target != nil {
+			info.ResolvedId = sc.referenceID(target)
+			info.ResolvedQualifiedName = sc.Index.GetFQN(target)
 			info.ResolvedKind = target.Kind.String()
 		}
 		break
 	}
+
+	info.Types = sc.derivedTypes(sym)
 
 	// PrimTypeOf walks the generalization graph, so it covers a type inherited
 	// through subsetting or redefinition as well as a declared one.
@@ -292,6 +530,23 @@ func (sc *Context) usageTypeInfo(sym *symbols.Symbol, decl *ast.Usage) *TypeInfo
 	}
 	sc.markQuantity(sym, info, decl.Value)
 	return info
+}
+
+// derivedTypes reports Feature::type (KerML 8.3.3.3) as the semantic model
+// derives it for the reflective layer, so GetElementProperties reads the same.
+func (sc *Context) derivedTypes(sym *symbols.Symbol) []*TypeRef {
+	types, ok := sc.Semantics.ReflectiveFeatureTypes(sym)
+	if !ok {
+		return nil
+	}
+	var out []*TypeRef
+	for _, target := range types {
+		if target == nil {
+			continue
+		}
+		out = append(out, &TypeRef{Id: sc.Index.GetFQN(target), Kind: target.Kind.String()})
+	}
+	return out
 }
 
 // definitionTypeInfo derives the type facts of a definition: the library scalar

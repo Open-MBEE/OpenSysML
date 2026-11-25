@@ -127,14 +127,14 @@ for j in 1 3 16 0; do cmp /tmp/xj$j/pilot-xpect.json docs/project/pilot-xpect-ba
 - Move, do not delete: `mv build/pilot-xpect-corpus /tmp/xpect-corpus-backup`. After a fresh
   download, `diff -r /tmp/xpect-corpus-backup build/pilot-xpect-corpus` must be empty apart from
   the `.pilot-pin` stamps if the backup predates them.
-- Idempotence: second run prints `Already present at ... (pin 2026-09 38665073…)` twice, exit 0.
+- Idempotence: second run prints `Already present at ... (pin 2026-09.1 d81b2ad5…)` twice, exit 0.
   Prove it by `stat -c '%n %Y'` on the two suite dirs before/after, not by the message.
 - Bogus pin: `PILOT_TAG=9999-99 ./scripts/download-pilot-xpect.sh` → git `fatal: Remote branch
   9999-99 not found` then `error: could not clone …`, **exit 1**, and `build/pilot-xpect-corpus`
   is left as it was (everything is staged in a `mktemp -d` and only `mv`d in at the end). Check for
   a half-populated corpus with `find … -name '*.xt' | wc -l` (0 from absent, 429 from present).
 - Moved tag: `PILOT_COMMIT=0000000000000000000000000000000000000000 ./scripts/download-pilot-xpect.sh`
-  → `error: <repo> tag 2026-09 resolves to 38665073…, scripts/pilot-pin.sh pins 0000…`, exit 1,
+  → `error: <repo> tag 2026-09.1 resolves to d81b2ad5…, scripts/pilot-pin.sh pins 0000…`, exit 1,
   nothing provisioned.
 - Nothing vendored: `git status --porcelain` clean after every step.
 
@@ -425,8 +425,8 @@ census in `w5c_census_test.go` is live two ways: perturb one pinned triple (e.g.
 ## Regression neighbour
 
 `go run -C tools ./cmd/pilot-diff` (~1m12s) must still print the headline the *committed* baseline holds —
-at the `2026-09` pin that is `924 file(s), 522 fully agreeing; 1102 agreed diagnostic(s), 359
-only ours, 2462 only the pilot's`. Read the number out of
+at the `2026-09.1` pin that is `939 file(s), 542 fully agreeing; 1119 agreed diagnostic(s), 127
+only ours, 2454 only the pilot's`. Read the number out of
 `docs/project/pilot-differential-baseline.json` rather than trusting this line, since a landing fix
 round moves it. When the baseline is itself stale (it was at `19a3ce03`, holding 273 / 281 / 317), a
 failing `cmp` against it is *not* evidence of an Xpect regression — compare the summary line, and see
@@ -457,9 +457,9 @@ the end of a wave, `cmp build/pilot-xpect/pilot-xpect.json docs/project/pilot-xp
 *is expected to differ* on the branch and the headline tables in `pilot-xpect.md` are expected to be
 stale. Confirm the intent with the lead before filing it — measure and report the live numbers instead.
 
-**Do not forget `make docs-counts`.** Adding rows to `docs/project/spec-compliance.md` without
+**Do not forget `make docs-counts`.** Adding rows to a `docs/project/spec-compliance/` source without
 regenerating the three derived count lines (`README.md`, `docs/internals/architecture.md`,
-`docs/project/spec-compliance.md:13`) fails `tools/referee/diff`'s
+`docs/project/spec-compliance/02-detailed-semantic-compliance-map/29-xpect-declared-rules-kerml.md:13`) fails `tools/referee/diff`'s
 `TestPilotDifferentialDocumentCountsMatchBaseline` (`coverage total: want 690 …, got 688 — run
 \`make docs-counts\``). This is only visible in a full `go test ./...`, so always run the whole gate,
 and confirm the same test passes on the base revision before calling it a branch regression.

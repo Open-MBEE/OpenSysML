@@ -29,7 +29,7 @@ func TestLintMetaCommandSwitchesALint(t *testing.T) {
 		t.Fatal("a lint warning counted as an error")
 	}
 	out := strings.Join(meta(t, s, "%lint"), "\n")
-	if !strings.Contains(out, "lint undeclared-signal: on") || !strings.Contains(out, "lint port-type-mismatch: on") {
+	if !strings.Contains(out, "lint undeclared-signal: on") || !strings.Contains(out, "lint deferred-keeper-unmarked: on") {
 		t.Fatalf("%%lint = %q", out)
 	}
 	meta(t, s, "%lint undeclared-signal off")
