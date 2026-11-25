@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Prints the root-module package paths assigned to one race-test shard.
-# Usage: scripts/race-shard.sh runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep-committed|corpus-sweep-corpora|export|export-library|export-examples|export-corpus|graph|graph-corpora|codegen|translate|translate-structure|grpc|tools|internal|rest|migrate|cli | --sweeps
+# Usage: scripts/race-shard.sh runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep-committed|corpus-sweep-corpora|export|export-library|export-examples|export-corpus|graph|graph-corpora|codegen|translate|translate-structure|grpc|tools|internal|rest|migrate|cli | --all | --sweeps
+# --all prints every shard, one per line, for callers that run the whole gate.
 
 # A hyphenated shard is a by-test-name part of its package (make test-shard); the others are whole packages:
 # internal is every internal/ package not named here but internal/frontend, rest everything else.
@@ -18,8 +19,13 @@ if [[ $# -eq 1 && $1 == --sweeps ]]; then
   exit 0
 fi
 
+if [[ $# -eq 1 && $1 == --all ]]; then
+  printf '%s\n' "$shards" | tr '|' '\n'
+  exit 0
+fi
+
 if [[ $# -ne 1 ]]; then
-  echo "usage: scripts/race-shard.sh $shards | --sweeps" >&2
+  echo "usage: scripts/race-shard.sh $shards | --all | --sweeps" >&2
   exit 2
 fi
 
@@ -58,7 +64,7 @@ named_packages=("$runtime" "$workspace_model" "$corpus" "$smt" "$export" "$model
 case "$shard" in
   runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep-committed|corpus-sweep-corpora|export|export-library|export-examples|export-corpus|graph|graph-corpora|codegen|translate|translate-structure|grpc|tools|internal|rest|migrate|cli) ;;
   *)
-    echo "usage: scripts/race-shard.sh $shards | --sweeps" >&2
+    echo "usage: scripts/race-shard.sh $shards | --all | --sweeps" >&2
     exit 2
     ;;
 esac

@@ -1,0 +1,115 @@
+package hygiene
+
+import (
+	"os/exec"
+	"slices"
+	"strings"
+	"testing"
+)
+
+// gateRunnerOutput drives the runner as CI and a developer would, from the
+// repository root; the runner discovers the shards itself from the script.
+func gateRunnerOutput(t *testing.T, args ...string) string {
+	t.Helper()
+	cmd := exec.Command("go", append([]string{"run", "-C", "tools", "./cmd/gate-runner"}, args...)...)
+	cmd.Dir = repoRoot
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gate runner %v: %v\n%s", args, err, out)
+	}
+	return string(out)
+}
+
+// TestGateRunnerListsEveryRaceShard is the load-bearing check that the runner
+// covers every shard the Makefile and the CI matrices know about: both read
+// scripts/race-shard.sh, so a new shard missing from either fails here.
+func TestGateRunnerListsEveryRaceShard(t *testing.T) {
+	got := strings.Fields(gateRunnerOutput(t, "-list"))
+	want := slices.Sorted(slices.Values(raceShards(t)))
+	if !slices.Equal(got, want) {
+		t.Errorf("gate runner lists %v, want every declared shard %v", got, want)
+	}
+}
+
+// TestGateRunnerPlansEveryRaceShard checks the commands themselves, not just
+// the list: each of the three tiers must plan exactly one invocation per shard,
+// calling that tier's Makefile target and skipping the shared snapshot step
+// that the runner performs once before starting its workers.
+func TestGateRunnerPlansEveryRaceShard(t *testing.T) {
+	want := slices.Sorted(slices.Values(raceShards(t)))
+	for tier, target := range map[string]string{"quick": "test-quick", "queue": "test-queue", "full": "test-shard"} {
+		t.Run(tier, func(t *testing.T) {
+			lines := strings.Split(strings.TrimSpace(gateRunnerOutput(t, "-tier", tier, "-plan")), "\n")
+			if len(lines) != len(want)+1 {
+				t.Fatalf("%s: plan has %d commands, want the snapshot and %d shards:\n%s", tier, len(lines), len(want), strings.Join(lines, "\n"))
+			}
+			if !strings.Contains(lines[0], "stdlib-snapshot") || strings.Contains(lines[0], "test-") {
+				t.Errorf("%s: first command %q is not the snapshot on its own", tier, lines[0])
+			}
+			var planned []string
+			for _, line := range lines[1:] {
+				if !strings.HasPrefix(line, "SKIP_STDLIB_SNAPSHOT=1 make ") {
+					t.Errorf("%s: %q does not tell the shard the snapshot is current", tier, line)
+				}
+				if !strings.Contains(line, " "+target+" ") {
+					t.Errorf("%s: %q does not call %s", tier, line, target)
+				}
+			}
+			for _, line := range lines[1:] {
+				for _, field := range strings.Fields(line) {
+					if strings.HasPrefix(field, "SHARD=") || strings.HasPrefix(field, "SHARDS=") {
+						planned = append(planned, strings.TrimPrefix(strings.TrimPrefix(field, "SHARDS="), "SHARD="))
+					}
+				}
+			}
+			slices.Sort(planned)
+			if !slices.Equal(planned, want) {
+				t.Errorf("%s: plan covers %v, want %v", tier, planned, want)
+			}
+			for _, shard := range want {
+				count := 0
+				for _, got := range planned {
+					if got == shard {
+						count++
+					}
+				}
+				if count != 1 {
+					t.Errorf("%s: %s appears in %d planned commands, want one", tier, shard, count)
+				}
+			}
+		})
+	}
+}
+
+// TestShardTargetsSkipTheSnapshotWhenTheRunnerDidIt checks the other half of
+// the contract: the recursive make calls inside test-quick and test-queue must
+// honour the environment the runner sets, or parallel shards would each
+// regenerate the embedded-library source under the same tree.
+func TestShardTargetsSkipTheSnapshotWhenTheRunnerDidIt(t *testing.T) {
+	makefile := readRepoFile(t, "Makefile")
+	guard := "$(if $(SKIP_STDLIB_SNAPSHOT),,stdlib-snapshot)"
+	if !strings.Contains(makefile, "SKIP_STDLIB_SNAPSHOT ?=") {
+		t.Fatal("Makefile does not declare SKIP_STDLIB_SNAPSHOT")
+	}
+	for _, target := range []string{"test-shard", "test-quick", "test-queue"} {
+		if !strings.Contains(makefile, "\n"+target+": "+guard+" ") {
+			t.Errorf("Makefile %s does not guard stdlib-snapshot with SKIP_STDLIB_SNAPSHOT", target)
+		}
+	}
+}
+
+// TestShardScriptAllListsEveryDeclaredShard pins the discovery surface the
+// runner uses to the list the hygiene checks already read from the script.
+func TestShardScriptAllListsEveryDeclaredShard(t *testing.T) {
+	cmd := exec.Command("bash", "scripts/race-shard.sh", "--all")
+	cmd.Dir = repoRoot
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("race-shard.sh --all: %v\n%s", err, out)
+	}
+	got := slices.Sorted(slices.Values(strings.Fields(string(out))))
+	want := slices.Sorted(slices.Values(raceShards(t)))
+	if !slices.Equal(got, want) {
+		t.Errorf("--all printed %v, want every declared shard %v", got, want)
+	}
+}

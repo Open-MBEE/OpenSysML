@@ -11,6 +11,7 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/testbudget"
 )
 
 // A request cancelled while a tool-computed calc's tool is running ends the
@@ -53,8 +54,9 @@ func TestGRPCToolCalcHonoursACancelledRequest(t *testing.T) {
 		},
 	})
 	elapsed := time.Since(start)
-	if elapsed > 5*time.Second {
-		t.Fatalf("EvaluateCalc took %s on a cancelled request, want well under the 10s tool timeout", elapsed)
+	bound := testbudget.Deadline(t, 5*time.Second)
+	if elapsed > bound {
+		t.Fatalf("EvaluateCalc took %s on a cancelled request, want well under the %v deadline", elapsed, bound)
 	}
 	var failure string
 	switch {
