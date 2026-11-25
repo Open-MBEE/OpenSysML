@@ -424,7 +424,7 @@ A declaration in the bundled library is shown read-only, its text asked
 of the server of the view's model buffer."
   (let* ((uri (lsp-get origin :uri))
          (source sysml-diagram--source)
-         (buffer (if (sysml-lsp-stdlib-uri-p uri)
+         (buffer (if (sysml-library-uri-p uri)
                      (if (buffer-live-p source)
                          (with-current-buffer source (sysml-lsp-stdlib-buffer uri))
                        (user-error "The model this view shows is no longer visited"))

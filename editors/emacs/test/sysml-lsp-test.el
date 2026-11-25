@@ -342,7 +342,7 @@ Each test gets its own directory, so its own workspace."
            (loc (if (vectorp locs) (aref locs 0) (if (listp locs) (car locs) locs)))
            (uri (lsp:location-uri loc))
            (buffer (progn
-                     (should (sysml-lsp-stdlib-uri-p uri))
+                     (should (sysml-library-uri-p uri))
                      (sysml-lsp-stdlib-buffer uri))))
       (unwind-protect
           (with-current-buffer buffer

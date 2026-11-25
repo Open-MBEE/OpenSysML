@@ -155,7 +155,7 @@
               (should (equal (buffer-name visited) "ScalarValues.kerml <library>"))
               (should (derived-mode-p 'kerml-mode))
               (should buffer-read-only)
-              (should (equal sysml-lsp-stdlib-uri sysml-diagram-test--library-uri))
+              (should (equal sysml-library-uri sysml-diagram-test--library-uri))
               (should (looking-at-p "Integer;"))
               ;; A second visit shows the same buffer without asking again.
               (with-current-buffer view
@@ -168,7 +168,7 @@
                 (setq sysml-diagram--source other)
                 (sysml-diagram--visit origin))
               (setq elsewhere (seq-find (lambda (buffer)
-                                          (eq (buffer-local-value 'sysml-lsp--stdlib-workspace buffer)
+                                          (eq (buffer-local-value 'sysml--library-server buffer)
                                               'other-server))
                                         (buffer-list)))
               (should elsewhere)
