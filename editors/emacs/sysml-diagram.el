@@ -29,20 +29,29 @@
 ;;
 ;; The methods are documented in docs/reference/lsp.md.  They are sent
 ;; through the client managing the model buffer: lsp-mode, with
-;; `sysml-lsp'.  This file reads their payloads as plists, whichever
-;; client parsed them.
+;; `sysml-lsp', or Eglot, with `sysml-eglot'.  This file reads their
+;; payloads as plists, whichever client parsed them.
 
 ;;; Code:
 
 (require 'cl-lib)
 (require 'sysml-mode)
 
+(declare-function eglot-current-server "eglot")
+(declare-function eglot-managed-p "eglot")
+(declare-function eglot-path-to-uri "eglot")
+(declare-function eglot-range-region "eglot")
+(declare-function eglot-server-capable "eglot")
+(declare-function eglot-uri-to-path "eglot")
+(declare-function jsonrpc-async-request "jsonrpc")
+(declare-function jsonrpc-request "jsonrpc")
 (declare-function lsp--buffer-uri "lsp-mode")
 (declare-function lsp--line-character-to-point "lsp-mode")
 (declare-function lsp--uri-to-path "lsp-mode")
 (declare-function lsp--workspace-server-capabilities "lsp-mode")
 (declare-function lsp-request "lsp-mode")
 (declare-function lsp-request-async "lsp-mode")
+(declare-function sysml-eglot-stdlib-buffer "sysml-eglot")
 (declare-function sysml-lsp--workspace "sysml-lsp")
 (declare-function sysml-lsp-stdlib-buffer "sysml-lsp")
 
@@ -153,9 +162,10 @@ historical set."
 ;;;; Talking to the server
 
 (defun sysml-diagram--source-client (source)
-  "Return the client managing SOURCE: `lsp-mode', or nil."
+  "Return the client managing SOURCE: `eglot', `lsp-mode', or nil."
   (with-current-buffer source
-    (cond ((and (fboundp 'sysml-lsp--workspace) (sysml-lsp--workspace)) 'lsp-mode))))
+    (cond ((and (fboundp 'eglot-managed-p) (eglot-managed-p)) 'eglot)
+          ((and (fboundp 'sysml-lsp--workspace) (sysml-lsp--workspace)) 'lsp-mode))))
 
 (defun sysml-diagram--plist (value)
   "Return the lsp-mode payload VALUE with its objects as plists."
@@ -173,6 +183,7 @@ historical set."
   "Return non-nil when SOURCE's server serves the render methods."
   (with-current-buffer source
     (eq (pcase (sysml-diagram--source-client source)
+          ('eglot (eglot-server-capable :experimental sysml-diagram--capability))
           ('lsp-mode (plist-get (plist-get (sysml-diagram--plist
                                             (lsp--workspace-server-capabilities
                                              (sysml-lsp--workspace)))
@@ -184,6 +195,7 @@ historical set."
   "Send METHOD with PARAMS to SOURCE's server and return its result."
   (with-current-buffer source
     (pcase (sysml-diagram--source-client source)
+      ('eglot (jsonrpc-request (eglot-current-server) method params))
       ('lsp-mode (sysml-diagram--plist (lsp-request method params))))))
 
 (defun sysml-diagram--request-async (source method params on-result on-error)
@@ -191,6 +203,12 @@ historical set."
 Call ON-RESULT with the result, or ON-ERROR with the error message."
   (with-current-buffer source
     (pcase (sysml-diagram--source-client source)
+      ('eglot
+       (jsonrpc-async-request
+        (eglot-current-server) method params
+        :success-fn on-result
+        :error-fn (lambda (err) (funcall on-error (plist-get err :message)))
+        :timeout-fn (lambda () (funcall on-error "the server did not answer in time"))))
       ('lsp-mode
        (lsp-request-async
         method params
@@ -202,11 +220,13 @@ Call ON-RESULT with the result, or ON-ERROR with the error message."
 (defun sysml-diagram--path (client uri)
   "Return the file name URI names, decoded the way CLIENT decodes it."
   (pcase client
+    ('eglot (eglot-uri-to-path uri))
     ('lsp-mode (lsp--uri-to-path uri))))
 
 (defun sysml-diagram--region (client range)
   "Return the (START . END) of RANGE in the current buffer, as CLIENT counts."
   (pcase client
+    ('eglot (eglot-range-region range))
     ('lsp-mode
      (cl-flet ((point-at (position)
                  (lsp--line-character-to-point (plist-get position :line)
@@ -217,12 +237,13 @@ Call ON-RESULT with the result, or ON-ERROR with the error message."
   "Return a read-only buffer of the bundled library document URI, from CLIENT.
 Its text is asked of the current buffer's server."
   (pcase client
+    ('eglot (sysml-eglot-stdlib-buffer uri))
     ('lsp-mode (sysml-lsp-stdlib-buffer uri))))
 
 (defun sysml-diagram--check (source)
   "Signal a `user-error' unless SOURCE's server serves the render methods."
   (unless (sysml-diagram--source-client source)
-    (user-error "No OpenSysML language server is running for %s; start it with M-x lsp"
+    (user-error "No OpenSysML language server is running for %s; start it with M-x eglot or M-x lsp"
                 (buffer-name source)))
   (unless (sysml-diagram--supported-p source)
     (user-error "This sysml-lsp does not serve diagrams; rebuild it with `make build'")))
@@ -231,6 +252,7 @@ Its text is asked of the current buffer's server."
   "Return the TextDocumentIdentifier of SOURCE."
   (with-current-buffer source
     (list :uri (pcase (sysml-diagram--source-client source)
+                 ('eglot (eglot-path-to-uri buffer-file-name))
                  ('lsp-mode (lsp--buffer-uri))))))
 
 (defun sysml-diagram--views (source)
@@ -324,6 +346,7 @@ CLIENT is the client RESULT came through."
         (sysml-diagram-refresh)))))
 
 (add-hook 'sysml-lsp-render-changed-functions #'sysml-diagram--on-changed)
+(add-hook 'sysml-eglot-render-changed-functions #'sysml-diagram--on-changed)
 
 ;;;; Drawing
 

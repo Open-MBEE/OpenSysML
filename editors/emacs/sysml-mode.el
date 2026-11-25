@@ -20,7 +20,7 @@
 ;; line that continues the statement above it.
 ;;
 ;; `sysml-lsp.el' connects the modes to the OpenSysML language server
-;; through lsp-mode.
+;; through lsp-mode, and `sysml-eglot.el' through Eglot.
 
 ;;; Code:
 

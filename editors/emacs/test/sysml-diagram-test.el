@@ -7,15 +7,17 @@
 
 ;; The drawing tests feed the view buffer renderings shaped as
 ;; docs/reference/lsp.md documents them, stubbing the functions that talk
-;; to the server.  The live tests drive a real `sysml-lsp'; see
-;; sysml-test.el.
+;; to the server.  The live tests drive a real `sysml-lsp' through the
+;; client the suites run under; see sysml-test.el.
 
 ;;; Code:
 
 (require 'ert)
 (require 'sysml-diagram)
 (require 'sysml-test)
-(require 'sysml-lsp-test)
+(require (pcase sysml-test-client
+           ('eglot 'sysml-eglot-test)
+           ('lsp-mode 'sysml-lsp-test)))
 
 (defun sysml-diagram-test--json (text)
   "Parse TEXT as `sysml-diagram' reads a server's message."
@@ -139,7 +141,7 @@
     (unwind-protect
         (cl-letf (((symbol-function 'sysml-diagram--library-buffer)
                    (lambda (client uri)
-                     (should (eq client 'lsp-mode))
+                     (should (eq client sysml-test-client))
                      (sysml-library-buffer
                       uri (if (eq (current-buffer) other) 'other-server 'server)
                       (lambda ()
@@ -148,7 +150,7 @@
           (with-temp-buffer
             (sysml-diagram-mode)
             (setq sysml-diagram--source source
-                  sysml-diagram--client 'lsp-mode)
+                  sysml-diagram--client sysml-test-client)
             (let ((origin (sysml-diagram-test--json
                            (format "{\"uri\":\"%s\",\"range\":{\"start\":{\"line\":1,\"character\":1},\"end\":{\"line\":2,\"character\":0}},\"selectionRange\":{\"start\":{\"line\":1,\"character\":10},\"end\":{\"line\":1,\"character\":17}}}"
                                    sysml-diagram-test--library-uri)))
@@ -230,7 +232,8 @@
     (should-error (sysml-diagram--read-view (current-buffer)) :type 'user-error)))
 
 (ert-deftest sysml-diagram-listens-for-changes ()
-  (should (memq #'sysml-diagram--on-changed sysml-lsp-render-changed-functions)))
+  (should (memq #'sysml-diagram--on-changed sysml-lsp-render-changed-functions))
+  (should (memq #'sysml-diagram--on-changed sysml-eglot-render-changed-functions)))
 
 (ert-deftest sysml-diagram-show-needs-a-model-buffer ()
   (with-temp-buffer
@@ -248,7 +251,7 @@
     buffer))
 
 (ert-deftest sysml-diagram-live-renders-visits-and-follows ()
-  (sysml-lsp-test--with-session
+  (sysml-test--with-session
       (sysml-test--fixture "package P {\n    part def Engine {\n        attribute power;\n    }\n}\n")
     (let ((source (current-buffer))
           (buffer (sysml-diagram-test--shown (current-buffer))))
@@ -287,7 +290,7 @@
     (buffer-substring-no-properties (point-min) (point-max))))
 
 (ert-deftest sysml-diagram-live-renders-an-action-flow ()
-  (sysml-lsp-test--with-session
+  (sysml-test--with-session
       (sysml-test--fixture
        (concat "action def Drive {\n"
                "    first start;\n"
@@ -312,7 +315,7 @@
         (kill-buffer buffer)))))
 
 (ert-deftest sysml-diagram-live-renders-a-declared-sequence-view ()
-  (sysml-lsp-test--with-session
+  (sysml-test--with-session
       (sysml-test--fixture
        (concat "package Talk {\n"
                "    item def Ping;\n"
@@ -347,7 +350,7 @@
         (kill-buffer buffer)))))
 
 (ert-deftest sysml-diagram-live-redraws-on-change ()
-  (sysml-lsp-test--with-session (sysml-test--fixture "package P {\n    part def A;\n}\n")
+  (sysml-test--with-session (sysml-test--fixture "package P {\n    part def A;\n}\n")
     (let ((source (current-buffer))
           (buffer (sysml-diagram-test--shown (current-buffer))))
       (unwind-protect
@@ -361,7 +364,7 @@
         (kill-buffer buffer)))))
 
 (ert-deftest sysml-diagram-live-reports-a-failed-render ()
-  (sysml-lsp-test--with-session (sysml-test--fixture "package P {\n    part def A;\n}\n")
+  (sysml-test--with-session (sysml-test--fixture "package P {\n    part def A;\n}\n")
     (let ((buffer (sysml-diagram-test--shown (current-buffer))))
       (unwind-protect
           (with-current-buffer buffer

@@ -7,12 +7,15 @@
 
 ;; The live tests need `bin/sysml-lsp' (run `make build'); they skip
 ;; without it, and fail instead when OPENSYSML_REQUIRE_EMACS_LSP is set, as
-;; CI sets it.
+;; CI sets it.  `sysml-test--with-session' starts the server under the
+;; client deps.el installed, through that client's own test file.
 
 ;;; Code:
 
 (require 'ert)
 (require 'ert-x)
+
+(defvar sysml-test-client)
 
 (defconst sysml-test--repo
   (expand-file-name "../../../" (file-name-directory (or load-file-name buffer-file-name)))
@@ -31,7 +34,8 @@
 
 (defun sysml-test--wait (pred &optional seconds)
   "Process input until PRED holds, failing after SECONDS (default 20).
-Idle timers run too, as they do while a user waits."
+Idle timers run too, as they do while a user waits: Eglot sends a
+buffer's changes from one."
   (let ((deadline (+ (float-time) (or seconds 20))))
     (while (not (funcall pred))
       (when (> (float-time) deadline)
@@ -45,6 +49,14 @@ Each test gets its own directory, so its own workspace."
   (let ((file (expand-file-name "model.sysml" (make-temp-file "sysml-lsp-test" t))))
     (write-region text nil file)
     file))
+
+(defmacro sysml-test--with-session (file &rest body)
+  "Visit FILE under a live `sysml-lsp' session and run BODY in its buffer.
+The session is the client's the suites run under, `sysml-test-client'."
+  (declare (indent 1))
+  (pcase sysml-test-client
+    ('eglot `(sysml-eglot-test--with-session ,file ,@body))
+    ('lsp-mode `(sysml-lsp-test--with-session ,file ,@body))))
 
 (provide 'sysml-test)
 
