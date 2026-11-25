@@ -79,11 +79,8 @@ func (r *Renderer) positionalOf(doc string, sym *symbols.Symbol) string {
 	return bySym[sym]
 }
 
-// derivePositional derives the positional identities of one document from the
-// tree the index holds and the notation the renderer reads, using the resolver
-// and model this renderer already has. Re-resolving the document here would
-// change what later renderings of the same model draw, breaking drawn-query
-// parity; PositionalIdentitiesResolved derives names without that side effect.
+// derivePositional derives positional names using this renderer's resolver and
+// model, so it has no side effect on later renderings.
 func (r *Renderer) derivePositional(doc string) map[*symbols.Symbol]string {
 	index := r.resolver.Index()
 	scope := index.DocumentRoot(doc)
