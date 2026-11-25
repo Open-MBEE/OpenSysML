@@ -70,7 +70,9 @@ has the model and resolver, and stores it on the view model:
   edges are built in many renderers, including folded compartment rows and
   action pins. A single walk over the finished rendering covers all of them,
   including the clones a compartment fold makes, without touching immutable
-  construction sites.
+  construction sites. The walk deduplicates node pointers: folded rows and
+  expanded type trees share nodes between parents, so revisiting them makes
+  the walk exponential on large renderings.
 - **No new capability flag or version gate.** The protobuf field is additive;
   an older server simply omits it and a client sees an empty string. request
   fields, RPC names and written-form bytes are unchanged.
