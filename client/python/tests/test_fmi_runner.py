@@ -137,6 +137,83 @@ def test_array_outputs_are_lists(mocker):
     assert reply["outputs"]["y"] == [2.7, 5.4, 8.1]
 
 
+def test_series_answers_evenly_spaced_samples(mocker):
+    """A series request samples the trajectory, not just the last row."""
+    rows = [
+        {"time": float(t), "h": float(t * t), "ok": t == 4}
+        for t in range(5)
+    ]
+    variables = {"h": "Real", "ok": "Boolean"}
+    mocker.patch.dict(sys.modules, {"fmpy": fake_fmpy(rows, variables)})
+    reply = fmi_runner.run(
+        request(
+            outputs=["h"],
+            series={"samples": 3, "outputs": ["h", "ok"]},
+        )
+    )
+    assert "error" not in reply
+    assert reply["outputs"]["h"] == 16.0
+    assert reply["series"]["times"] == [0.0, 2.0, 4.0]
+    assert reply["series"]["outputs"] == {"h": [0.0, 4.0, 16.0], "ok": [False, False, True]}
+
+
+def test_series_only_variables_are_requested_from_fmpy(mocker):
+    """A variable sampled only into a trajectory still gets its result column."""
+    record = {}
+    rows = [{"time": float(t), "v": float(t)} for t in range(3)]
+    mocker.patch.dict(
+        sys.modules,
+        {"fmpy": fake_fmpy(rows, {"v": "Real"}, record=record)},
+    )
+    reply = fmi_runner.run(
+        request(outputs=[], series={"samples": 3, "outputs": ["v"]})
+    )
+    assert record["output"] == ["v"]
+    assert reply["outputs"] == {}
+    assert reply["series"]["outputs"]["v"] == [0.0, 1.0, 2.0]
+
+
+def test_requested_sample_instants_are_honoured(mocker):
+    """An interval whose spacing does not divide the experiment is sampled at the requested instants."""
+    rows = [{"time": float(t), "h": float(t)} for t in range(4)]
+    mocker.patch.dict(sys.modules, {"fmpy": fake_fmpy(rows, {"h": "Real"})})
+    reply = fmi_runner.run(request(
+        outputs=[],
+        series={"samples": 2, "times": [0.0, 2.0], "outputs": ["h"]},
+    ))
+    assert "error" not in reply
+    assert reply["series"]["times"] == [0.0, 2.0]
+    assert reply["series"]["outputs"]["h"] == [0.0, 2.0]
+
+
+def test_requested_instants_interpolate_between_steps(mocker):
+    """An instant between recorded steps gets an interpolated value at that instant."""
+    rows = [{"time": float(t), "h": float(t)} for t in range(4)]
+    mocker.patch.dict(sys.modules, {"fmpy": fake_fmpy(rows, {"h": "Real"})})
+    reply = fmi_runner.run(request(
+        outputs=[],
+        series={"samples": 3, "times": [0.0, 1.5, 3.0], "outputs": ["h"]},
+    ))
+    assert reply["series"]["times"] == [0.0, 1.5, 3.0]
+    assert reply["series"]["outputs"]["h"] == [0.0, 1.5, 3.0]
+
+
+def test_bad_series_requests_are_error_replies(mocker):
+    """A sample count that is not an integer of at least two is refused."""
+    rows = [{"time": 0.0}]
+    mocker.patch.dict(sys.modules, {"fmpy": fake_fmpy(rows, {})})
+    for samples in (1, 0, 2.5, None, fmi_runner.MAX_SERIES_SAMPLES + 1):
+        reply = fmi_runner.run(request(series={"samples": samples, "outputs": []}))
+        assert "error" in reply
+        assert "series samples" in reply["error"]
+    for times in ([0.0], [2.0, 0.0], [0.0, float("nan")]):
+        reply = fmi_runner.run(request(
+            series={"samples": 2, "times": times, "outputs": []}
+        ))
+        assert "error" in reply
+        assert "series times" in reply["error"]
+
+
 def test_main_writes_the_reply_and_exits_zero(mocker, capsys):
     rows = [{"time": 0.0}]
     mocker.patch.dict(sys.modules, {"fmpy": fake_fmpy(rows, {})})
