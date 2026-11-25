@@ -27,8 +27,8 @@ def request(**overrides):
 
 
 def fake_fmpy(rows, variables, error=None, record=None):
-    """An fmpy module stand-in: simulate_fmu returns rows, read_model_description
-    returns variables of the named types; error makes the call fail instead."""
+    """An fmpy stand-in: variables maps a name to a type or a
+    (type, dimensions[, variability[, causality]]) tuple; error fails the call."""
     module = types.ModuleType("fmpy")
 
     def simulate_fmu(fmu, **kwargs):
@@ -41,10 +41,18 @@ def fake_fmpy(rows, variables, error=None, record=None):
 
     def read_model_description(fmu):
         variables_of = []
-        for name, t in variables.items():
-            fmi_type, dimensions = (t, []) if isinstance(t, str) else t
+        for name, spec in variables.items():
+            if isinstance(spec, str):
+                fmi_type, dimensions, variability, causality = spec, [], "", ""
+            else:
+                fmi_type, dimensions = spec[0], spec[1]
+                variability = spec[2] if len(spec) > 2 else ""
+                causality = spec[3] if len(spec) > 3 else ""
             variables_of.append(
-                types.SimpleNamespace(name=name, type=fmi_type, dimensions=dimensions)
+                types.SimpleNamespace(
+                    name=name, type=fmi_type, dimensions=dimensions,
+                    variability=variability, causality=causality,
+                )
             )
         return types.SimpleNamespace(modelVariables=variables_of)
 
@@ -289,6 +297,71 @@ def test_discrete_variables_are_not_interpolated(mocker):
     ))
     assert "error" not in reply
     assert reply["series"]["outputs"]["n"] == [2, 4, 4]
+
+
+def test_declared_discrete_real_holds_a_recorded_value(mocker):
+    """A discrete Real holds a recorded value while a continuous Float still blends."""
+    rows = [
+        {"time": 0.0, "d": 2.0, "c": 0.0},
+        {"time": 2.0, "d": 5.0, "c": 6.0},
+    ]
+    variables = {"d": ("Real", [], "discrete"), "c": "Float64"}
+    mocker.patch.dict(sys.modules, {"fmpy": fake_fmpy(rows, variables)})
+    reply = fmi_runner.run(request(
+        outputs=[],
+        series={"samples": 3, "times": [0.75, 1.5, 2.0], "outputs": ["d", "c"]},
+    ))
+    assert "error" not in reply
+    assert reply["series"]["outputs"]["d"] == [2.0, 5.0, 5.0]
+    assert reply["series"]["outputs"]["c"] == [2.25, 4.5, 6.0]
+
+
+def test_real_parameter_is_not_interpolated(mocker):
+    """A Real parameter without declared variability holds its recorded value."""
+    rows = [{"time": 0.0, "p": 1.0}, {"time": 2.0, "p": 3.0}]
+    variables = {"p": ("Real", [], "", "parameter")}
+    mocker.patch.dict(sys.modules, {"fmpy": fake_fmpy(rows, variables)})
+    reply = fmi_runner.run(request(
+        outputs=[],
+        series={"samples": 2, "times": [0.5, 2.0], "outputs": ["p"]},
+    ))
+    assert "error" not in reply
+    assert reply["series"]["outputs"]["p"] == [1.0, 3.0]
+
+
+def test_final_event_is_the_last_row_at_stop_time(mocker):
+    """A sample at a recorded instant reads the post-event row, as the scalar does."""
+    rows = [
+        {"time": 0.0, "y": 0.0},
+        {"time": 1.0, "y": 3.0},
+        {"time": 1.0, "y": 9.0},
+    ]
+    mocker.patch.dict(sys.modules, {"fmpy": fake_fmpy(rows, {"y": "Real"})})
+    reply = fmi_runner.run(request(
+        experiment={"startTime": 0.0, "stopTime": 1.0},
+        outputs=["y"],
+        series={"samples": 3, "times": [0.0, 0.5, 1.0], "outputs": ["y"]},
+    ))
+    assert "error" not in reply
+    assert reply["outputs"]["y"] == 9.0
+    assert reply["series"]["outputs"]["y"] == [0.0, 1.5, 9.0]
+
+
+def test_near_event_sample_within_tolerance_reads_the_last_row(mocker):
+    """A request just below a recorded event still reads its post-event row."""
+    rows = [
+        {"time": 0.0, "y": 0.0},
+        {"time": 1.0, "y": 3.0},
+        {"time": 1.0, "y": 9.0},
+    ]
+    mocker.patch.dict(sys.modules, {"fmpy": fake_fmpy(rows, {"y": "Real"})})
+    reply = fmi_runner.run(request(
+        experiment={"startTime": 0.0, "stopTime": 1.0},
+        outputs=[],
+        series={"samples": 2, "times": [1.0 - 1e-15, 1.0], "outputs": ["y"]},
+    ))
+    assert "error" not in reply
+    assert reply["series"]["outputs"]["y"] == [9.0, 9.0]
 
 
 def test_bad_series_requests_are_error_replies(mocker):

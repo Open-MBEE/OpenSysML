@@ -70,8 +70,9 @@ substituted for a trajectory.
   runner's work bounded before a process starts.
 - **Explicit instants for an interval.** Sending only a count would let a runner respace
   the points evenly: a 2 s interval over a 0–3 s run would become 0 s and 3 s. The request
-  carries the requested instants, the reference runner interpolates between recorded steps
-  at them, and the engine refuses a reply whose times differ from the request.
+  carries the requested instants, the reference runner samples them between recorded steps
+  (blending only continuous values), and the engine refuses a reply whose times differ from
+  the request.
 - **Times and values as parallel lists, not rows of objects.** A `series` member with
   `times` plus one list per variable maps directly onto the runtime's sequence values and
   onto the collection functions a requirement uses. Repeated output rows would have
@@ -102,8 +103,9 @@ substituted for a trajectory.
   `series: {times: [<seconds>, …], outputs: {<variable>: [<value>, …]}}`. The `protocol`
   value stays `1`; both members are omitted for scalar-only calls.
 - **Reference runner:** `client/python/opensysml/fmi_runner.py` serves the optional members;
-  it honours requested instants by interpolating between recorded steps. Its
-  `run(request) -> reply` signature and all existing reply keys are unchanged.
+  it honours requested instants by sampling continuous Real/Float variables between recorded
+  steps and holding discrete values at a recorded step. Its `run(request) -> reply` signature
+  and all existing reply keys are unchanged.
 - **RPC, protobuf, capability flags, environment variables and CLI flags:** unchanged. No
   client wire update is required. `Describe()` still reports `Compute` at observed
   authority with the same process and bounds.
@@ -127,6 +129,8 @@ substituted for a trajectory.
 | A genuine step plus trajectory selector is refused on every surface | `TestRealStepAndSeriesAreRefusedTogether` |
 | The reference runner samples a trajectory and honours requested instants | `test_series_answers_evenly_spaced_samples`, `test_series_only_variables_are_requested_from_fmpy`, `test_requested_sample_instants_are_honoured`, `test_requested_instants_interpolate_between_steps`, `test_bad_series_requests_are_error_replies` (`client/python/tests/test_fmi_runner.py`) |
 | FMPy structured records sample at exact and interpolated instants, and discrete values stay recorded | `test_structured_fmpy_records_sample_exact_and_interior_instants`, `test_structured_array_column_interpolates_elements`, `test_discrete_variables_are_not_interpolated` |
+| A declared discrete Real and a Real parameter hold recorded values while a continuous Float blends | `test_declared_discrete_real_holds_a_recorded_value`, `test_real_parameter_is_not_interpolated` |
+| An event at stop time reads the last recorded row, matching the scalar output | `test_final_event_is_the_last_row_at_stop_time`, `test_near_event_sample_within_tolerance_reads_the_last_row` |
 | Even samples follow recorded time, not row index | `test_even_samples_follow_time_not_row_index` |
 | An unobserved instant is refused, never relabelled | `test_requested_instant_past_the_simulated_run_is_refused`, `test_requested_instant_before_the_simulated_run_is_refused`, `TestOutOfRangeSampleIsATypedRunnerError` |
 | A decimal interval keeps its endpoint | `TestSampleCountKeepsTheDecimalEndpoint`, `TestDecimalIntervalRequestCarriesTheEndpoint` |
@@ -147,7 +151,7 @@ Run in the isolated worktree:
 - `python3 scripts/changelog.py check` — exit 0, no output.
 - Python runner tests: `pytest` 9.2.0 is present. Without `pytest-mock` the module reported
   `2 passed, 2 skipped, 13 errors`; after installing `pytest-mock` into a temporary directory
-  on `PYTHONPATH`, `15 passed, 2 skipped`. The two skips are the Reference-FMU tests whose
+  on `PYTHONPATH`, `25 passed, 2 skipped`. The two skips are the Reference-FMU tests whose
   FMU corpus and `fmpy` are absent in this environment.
 
 A full-suite re-run reproduced a pre-existing nested-divergence timeout in `cmd/sysml` (a test
@@ -161,11 +165,12 @@ twenty-second silence; those were environment failures in untouched packages.
 - A series samples scalar FMU variables only; arrays cannot be sampled into a trajectory.
 - The reference runner reads recorded time, not row index, when spacing samples: extra
   solver-event rows stay in the trajectory but never move an instant. At a recorded instant
-  it answers that row; between rows it interpolates the model's variables. An instant past
-  the run the FMU actually simulated is refused with an error reply rather than answered
-  with the last recorded value. A runner with a different simulator may sample more
-  precisely, as long as it answers the requested count in order and at the requested
-  instants when they were given.
+  it answers the last row recorded there, so both sides of an event at `stopTime` resolve to
+  the post-event value; between rows it blends continuous Real/Float variables only and holds
+  discrete values and parameters at a recorded step. An instant past the run the FMU actually
+  simulated is refused with an error reply rather than answered with the last recorded value.
+  A runner with a different simulator may sample more precisely, as long as it answers the
+  requested count in order and at the requested instants when they were given.
 - Producing a series still requires a runner that understands the optional request member;
   an older runner answers no `series` and the evaluation fails as a protocol error rather
   than falling back to one value. Updating the reference runner is the shipped path.
