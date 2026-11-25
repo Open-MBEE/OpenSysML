@@ -2745,11 +2745,8 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) (rdf.Term
 				return reference, err
 			}
 		}
-		if end.element != nil {
-			// Derived connector properties name the end carrying sysx:endElement,
-			// so sourceFeature tells `p#(1)` from `p` the way a chain feature does.
-			reference = feature
-		}
+		// Keep the term the end's ReferenceSubsetting reaches, as reflection
+		// derives it; the selector stays on the end the connectorEnd links reach.
 		if !end.noCollapse {
 			related := end.targetTerm.Value == ""
 			e.connectorRelatedFeature(subject, reference, end.index, end.ends, related)

@@ -131,9 +131,9 @@ func TestIndexedConnectorEndsRoundTripThroughAPIJSON(t *testing.T) {
 	}
 }
 
-// A derived sourceFeature names the end carrying the index, so it tells `p#(1)`
-// from `p` while the ReferenceSubsetting still reaches the whole port.
-func TestIndexedConnectionCarriesTheSelectorOnItsSourceFeature(t *testing.T) {
+// Derived endpoints name the feature the end reference-subsets, as reflection
+// derives it; the selector is on the end reached by the connectorEnd links.
+func TestIndexedConnectionKeepsStandardEndpointsAndCarriesTheSelector(t *testing.T) {
 	const src = `part def C {
 		port p[3];
 		port q;
@@ -167,17 +167,18 @@ func TestIndexedConnectionCarriesTheSelectorOnItsSourceFeature(t *testing.T) {
 	if !ok || len(ends) == 0 {
 		t.Fatalf("connection states no ends or sourceFeature\n%s", doc)
 	}
-	wantEnd, _ := ends[0].(map[string]any)
-	if source["@id"] != wantEnd["@id"] {
-		t.Errorf("sourceFeature = %v, want the indexed end %v", source["@id"], wantEnd["@id"])
+	if source["@id"] != "C__p" {
+		t.Errorf("sourceFeature = %v, want the whole port C__p", source["@id"])
 	}
-	end := byID[source["@id"].(string)]
+	// The end feature the ordered connectorEnd links reach is where the
+	// selector lives, beside the ReferenceSubsetting of the whole port.
+	end := byID[ends[0].(map[string]any)["@id"].(string)]
 	if end["isEnd"] != true || end["sysx:sourceText"] != "p#(1)" {
-		t.Errorf("sourceFeature end = %v, want the end written p#(1)", end)
+		t.Errorf("first end = %v, want the end written p#(1)", end)
 	}
 	index, ok := end["sysx:endElement"].(map[string]any)
 	if !ok {
-		t.Fatalf("sourceFeature end states no sysx:endElement\n%s", doc)
+		t.Fatalf("the first end states no sysx:endElement\n%s", doc)
 	}
 	expr := byID[index["@id"].(string)]
 	if expr["sysx:sourceText"] != "1" {
@@ -185,9 +186,8 @@ func TestIndexedConnectionCarriesTheSelectorOnItsSourceFeature(t *testing.T) {
 	}
 	subsetting, _ := end["ownedReferenceSubsetting"].(map[string]any)
 	referenced, _ := byID[subsetting["@id"].(string)]["referencedFeature"].(map[string]any)
-	port := byID[referenced["@id"].(string)]
-	if port["@type"] != "PortUsage" || port["declaredName"] != "p" {
-		t.Errorf("the end still reference-subsets %v, want the whole port p", port)
+	if referenced["@id"] != source["@id"] {
+		t.Errorf("the end reference-subsets %v, want the same port as sourceFeature %v", referenced["@id"], source["@id"])
 	}
 
 	// A plain end's sourceFeature still points straight at the feature: the
@@ -236,8 +236,11 @@ func TestIndexedConnectionCarriesTheSelectorOnItsSourceFeature(t *testing.T) {
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	if !strings.Contains(string(turtle), "sysml:sourceFeature expr:"+source["@id"].(string)+" ;") {
-		t.Errorf("the Turtle sourceFeature should name the indexed end\n%s", turtle)
+	if !strings.Contains(string(turtle), "sysml:sourceFeature elmt:"+source["@id"].(string)+" ;") {
+		t.Errorf("the Turtle sourceFeature should name the referenced port\n%s", turtle)
+	}
+	if !strings.Contains(string(turtle), "sysml:connectorEnd expr:"+ends[0].(map[string]any)["@id"].(string)) {
+		t.Errorf("the Turtle connectorEnd should reach the indexed end\n%s", turtle)
 	}
 	fromTurtle, err := convert.Convert("m.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
@@ -248,9 +251,9 @@ func TestIndexedConnectionCarriesTheSelectorOnItsSourceFeature(t *testing.T) {
 	}
 }
 
-// An indexed second end is carried on targetFeature the way the first is on
-// sourceFeature, and the head still reads back as written.
-func TestIndexedConnectionCarriesTheSelectorOnItsTargetFeature(t *testing.T) {
+// The second end keeps its referenced feature on targetFeature too, while the
+// ordered connectorEnd links carry both selectors; the head reads back as written.
+func TestIndexedConnectionKeepsTheReferencedFeatureOnTargetFeature(t *testing.T) {
 	const src = `part def C {
 		port p[3];
 		port q[3];
@@ -284,14 +287,13 @@ func TestIndexedConnectionCarriesTheSelectorOnItsTargetFeature(t *testing.T) {
 	if len(targets) != 1 {
 		t.Fatalf("targetFeature = %v, want one indexed end", targets)
 	}
-	want := ends[1].(map[string]any)["@id"]
 	got, _ := targets[0].(map[string]any)["@id"].(string)
-	if got != want {
-		t.Errorf("targetFeature = %v, want the second indexed end %v", got, want)
+	if got != "C__q" {
+		t.Errorf("targetFeature = %v, want the whole port C__q", got)
 	}
-	end := byID[got]
+	end := byID[ends[1].(map[string]any)["@id"].(string)]
 	if end["sysx:sourceText"] != "q#(2)" {
-		t.Errorf("target end = %v, want q#(2)", end)
+		t.Errorf("second end = %v, want q#(2)", end)
 	}
 	index, _ := end["sysx:endElement"].(map[string]any)
 	if expr := byID[index["@id"].(string)]; expr["sysx:sourceText"] != "2" {
@@ -307,28 +309,14 @@ func TestIndexedConnectionCarriesTheSelectorOnItsTargetFeature(t *testing.T) {
 }
 
 // A derived connector property naming an undefined expression IRI must be
-// refused; only a graph-defined end feature may stand in for a named feature.
+// refused; the narrow end-feature exception is only for graph-defined ends.
 func TestIndexedConnectionRefusesAnUndefinedEndReference(t *testing.T) {
 	const src = `part def C { port p[3]; port q; connect p#(1) to q; }`
-	doc, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatAPIJSON)
-	if err != nil {
-		t.Fatalf("to api-json: %v", err)
-	}
-	var sourceID string
-	for _, el := range elementsOf(t, doc) {
-		if el["@type"] == "ConnectionUsage" {
-			sourceID, _ = el["sourceFeature"].(map[string]any)["@id"].(string)
-			break
-		}
-	}
-	if sourceID == "" {
-		t.Fatalf("no indexed sourceFeature\n%s", doc)
-	}
 	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	bad := strings.Replace(string(turtle), "sysml:sourceFeature expr:"+sourceID+" ;",
+	bad := strings.Replace(string(turtle), "sysml:sourceFeature elmt:C__p ;",
 		"sysml:sourceFeature expr:MISSING_END ;", 1)
 	if bad == string(turtle) {
 		t.Fatalf("the sourceFeature triple was not found\n%s", turtle)

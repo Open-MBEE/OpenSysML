@@ -475,14 +475,51 @@ func TestLowerIndexedConnectionEndKeepsItsSelector(t *testing.T) {
 	if ends[0].Path != "p" || ends[0].Index == nil {
 		t.Fatalf("indexed end = %+v, want the port p with an index", ends[0])
 	}
-	if got := ends[0].Notation(); got != "p#(1)" {
-		t.Errorf("indexed end notation = %q, want p#(1)", got)
+	if got := (ast.ExprPrinter{}).Text(ends[0].Index); got != "1" {
+		t.Errorf("indexed end selector = %q, want 1", got)
+	}
+	if at := ends[0].IndexAt(); !at.Written || at.Span.Len == 0 {
+		t.Errorf("indexed end has no written extent: %+v", at)
 	}
 	if ends[1].Path != "q" || ends[1].Index != nil {
 		t.Errorf("plain end = %+v, want the port q with no index", ends[1])
 	}
 	if got := connectionPaths(conns[0]); len(got) != 2 || got[0] != "p" || got[1] != "q" {
 		t.Errorf("routing paths = %v, want [p q] (the ports, not p#(1))", got)
+	}
+}
+
+// Routing flattens a quoted name and a chain to the same path; the end keeps
+// the node it came from so a consumer with source can still tell them apart.
+func TestLowerIndexedEndKeepsItsWrittenTarget(t *testing.T) {
+	const src = `part def C {
+		part a { port b[3]; }
+		port 'a.b'[3];
+		port q;
+		connect 'a.b'#(1) to q;
+		connect a.b#(1) to q;
+	}`
+	def := usageOrDefFor(t, src)
+	conns := ToObjectConnections(def, nil)
+	if len(conns) != 2 {
+		t.Fatalf("ToObjectConnections = %+v, want two connections", conns)
+	}
+	quoted, nested := conns[0].Ends[0], conns[1].Ends[0]
+	if quoted.Path != "a.b" || nested.Path != "a.b" {
+		t.Fatalf("routing paths = %q and %q, want both flattened to a.b", quoted.Path, nested.Path)
+	}
+	textOf := func(e ConnectionEnd) string {
+		at := e.TargetAt()
+		if !at.Written || at.Span.Len <= 0 {
+			t.Fatalf("end has no written target: %+v", e)
+		}
+		return src[at.Span.Offset : at.Span.Offset+at.Span.Len]
+	}
+	if got := textOf(quoted); got != "'a.b'" {
+		t.Errorf("quoted target = %q, want 'a.b'", got)
+	}
+	if got := textOf(nested); got != "a.b" {
+		t.Errorf("nested target = %q, want a.b", got)
 	}
 }
 

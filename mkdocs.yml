@@ -218,6 +218,7 @@ exclude_docs: |
   project/protocol-state-machines.md
   project/lossless-library-records.md
   project/errata-overlay.md
+  project/indexed-connection-ends.md
   project/oosem-library.md
   project/mosa-library.md
   project/npr7123-library.md
