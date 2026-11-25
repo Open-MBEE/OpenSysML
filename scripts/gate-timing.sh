@@ -4,18 +4,69 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-base=${GATE_TIMING_TMP:-$HOME/.cache/opensysml/gate-timing}
+die() {
+  printf 'gate-timing: %s\n' "$*" >&2
+  exit 2
+}
+
+# Every directory this script creates stays under the approved home cache.
+if [[ -z "${HOME:-}" || "$HOME" != /* ]]; then
+  die 'HOME must be set to an absolute path to resolve the approved root'
+fi
+approved_root="$HOME/.cache/opensysml"
+
+rel=${GATE_TIMING_TMP:-gate-timing}
+if [[ "$rel" != "${rel#/}" ]]; then
+  die "GATE_TIMING_TMP must be relative to $approved_root, got absolute path $rel"
+fi
+parts=()
+IFS='/' read -r -a parts <<< "$rel"
+for part in "${parts[@]}"; do
+  case "$part" in
+    ''|.) continue ;;
+    ..) die "GATE_TIMING_TMP must not contain '..': $rel" ;;
+    *[!A-Za-z0-9._-]*) die "GATE_TIMING_TMP has an unsupported component: $part" ;;
+  esac
+done
+
+# Check symlinks before creating or writing, then again after mkdir closes the gap.
+check_no_symlinks() {
+  local path=$1 walked=''
+  local components=()
+  IFS='/' read -r -a components <<< "$path"
+  for part in "${components[@]}"; do
+    [[ -z "$part" ]] && continue
+    walked+="/$part"
+    if [[ -L "$walked" ]]; then
+      die "refusing a symlinked path component: $walked"
+    fi
+  done
+}
+
+base="$approved_root/$rel"
+check_no_symlinks "$base"
 mkdir -p "$base/tmp" "$base/temp"
+check_no_symlinks "$base/tmp"
+check_no_symlinks "$base/temp"
+
 export GOMAXPROCS="${GOMAXPROCS:-2}"
 export GOCACHE="${GOCACHE:-$HOME/.cache/go-build}"
 export GOTMPDIR="$base/tmp"
 export TMPDIR="$base/temp"
 
+# Both arms must execute tests: without this, the first arm caches successful
+# test results and the second replays them, mixing execution with cache hits.
+if [[ -n "${GOFLAGS:-}" ]]; then
+  export GOFLAGS="$GOFLAGS -count=1"
+else
+  export GOFLAGS='-count=1'
+fi
+
 echo "date: $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 echo "host: $(nproc) CPUs, $(awk '/MemTotal/{printf "%d MiB", $2/1024}' /proc/meminfo) RAM"
 echo "load: $(cat /proc/loadavg)"
 echo "go: $(go version)"
-echo "GOMAXPROCS=$GOMAXPROCS GOCACHE=$GOCACHE GOTMPDIR=$GOTMPDIR TMPDIR=$TMPDIR"
+echo "GOMAXPROCS=$GOMAXPROCS GOCACHE=$GOCACHE GOTMPDIR=$GOTMPDIR TMPDIR=$TMPDIR GOFLAGS=$GOFLAGS"
 
 # Compile the two shards' test binaries once so both runs start from the same cache.
 go build ./...
