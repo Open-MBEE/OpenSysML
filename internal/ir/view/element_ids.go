@@ -71,7 +71,7 @@ func (r *Renderer) positionalOf(doc string, sym *symbols.Symbol) string {
 	defer r.positionalMu.Unlock()
 	bySym, ok := r.positional[doc]
 	if !ok {
-		bySym = derivePositional(index, r.text, doc)
+		bySym = r.derivePositional(doc)
 		if r.positional == nil {
 			r.positional = make(map[string]map[*symbols.Symbol]string)
 		}
@@ -81,9 +81,12 @@ func (r *Renderer) positionalOf(doc string, sym *symbols.Symbol) string {
 }
 
 // derivePositional derives the positional identities of one document from the
-// tree the index holds and the notation the renderer reads. The elements the
-// index names already are not candidates, the same test the element form uses.
-func derivePositional(index *symbols.Index, text source.Lookup, doc string) map[*symbols.Symbol]string {
+// tree the index holds and the notation the renderer reads, using the resolver
+// and model this renderer already has. Re-resolving the document here would
+// change what later renderings of the same model draw, breaking drawn-query
+// parity; PositionalIdentitiesResolved derives names without that side effect.
+func (r *Renderer) derivePositional(doc string) map[*symbols.Symbol]string {
+	index := r.resolver.Index()
 	scope := index.DocumentRoot(doc)
 	if scope == nil {
 		return nil
@@ -92,9 +95,9 @@ func derivePositional(index *symbols.Index, text source.Lookup, doc string) map[
 	if !ok || root == nil {
 		return nil
 	}
-	file := source.New(doc, []byte(text(doc, root.Span())))
-	bySym, _ := naming.PositionalIdentities(index, []naming.Document{{File: file, Root: root, Scope: scope}},
-		func(sym *symbols.Symbol) bool { return index.QualifiedIdentity(sym) != "" })
+	file := source.New(doc, []byte(r.text(doc, root.Span())))
+	bySym, _ := naming.PositionalIdentitiesResolved(index, []naming.Document{{File: file, Root: root, Scope: scope}},
+		r.resolver, r.model, func(sym *symbols.Symbol) bool { return index.QualifiedIdentity(sym) != "" })
 	return bySym
 }
 

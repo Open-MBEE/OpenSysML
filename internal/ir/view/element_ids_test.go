@@ -138,7 +138,7 @@ func TestAnonymousConnectorsHaveDistinctElementIDs(t *testing.T) {
 	}
 	scope := index.DocumentRoot(doc)
 	byName := make(map[string]*symbols.Symbol)
-	for sym, name := range derivePositional(index, renderer.text, doc) {
+	for sym, name := range renderer.derivePositional(doc) {
 		byName[name] = sym
 	}
 
@@ -201,6 +201,27 @@ func TestWalkNodesVisitsSharedNodesOnce(t *testing.T) {
 	walkNodes([]*Node{root}, func(node *Node) { visited = append(visited, node.ID) })
 	if !reflect.DeepEqual(visited, []string{"root", "shared", "wrapper"}) {
 		t.Errorf("walkNodes visited %v, want root, shared and wrapper once each", visited)
+	}
+}
+
+// TestPositionalDerivationDoesNotChangeRendering pins that resolving the
+// identities a rendering reports does not change what later renderings draw.
+// Re-resolving a document to name its anonymous members made the first drawn
+// query differ from the next, breaking drawn/query parity.
+func TestPositionalDerivationDoesNotChangeRendering(t *testing.T) {
+	const file = "spec-compartments.sysml"
+	renderer, index := loadFixture(t, file)
+	view := lookup(t, index, "HeadingViews::headings")
+	first, err := renderer.DrawnIn(view)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := renderer.DrawnIn(view)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(first, second) {
+		t.Errorf("first drawn query differs from the second: %#v vs %#v", first, second)
 	}
 }
 
