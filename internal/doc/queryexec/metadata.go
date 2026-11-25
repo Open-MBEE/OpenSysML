@@ -53,38 +53,67 @@ func (e *executor) annotationFeatureValues(sym *symbols.Symbol, declaring, featu
 	return result, present, nil
 }
 
+// annotationSite identifies an annotation's facts across the direct and
+// nested reads, so their values can be emitted in the annotation's place.
+type annotationSite struct {
+	typeFQN string
+	span    source.Span
+}
+
 // annotationValues reports a row's bound values as
-// `<metadata>::<feature>=<value>` strings.
+// `<metadata>::<feature>=<value>` strings, in annotation declaration order.
 func (e *executor) annotationValues(sym *symbols.Symbol) ([]Value, bool, error) {
 	if sym == nil {
 		return nil, false, nil
 	}
 	origin := ElementValue(sym).Origin()
 	var out []Value
-	read := func(facts []symbols.AnnotationFacts) {
-		for _, annotation := range facts {
-			for _, bound := range annotation.Values {
-				if !bound.Bound {
+	emit := func(annotation symbols.AnnotationFacts) {
+		for _, bound := range annotation.Values {
+			if !bound.Bound {
+				continue
+			}
+			for _, value := range bound.Values {
+				converted, ok := e.filterValue(value, sym)
+				if !ok {
+					// A bulk read reports the bindings it can read; one binding
+					// the model cannot evaluate must not fail every row.
 					continue
 				}
-				for _, value := range bound.Values {
-					converted, ok := e.filterValue(value, sym)
-					if !ok {
-						// A bulk read reports the bindings it can read; one binding
-						// the model cannot evaluate must not fail every row.
-						continue
-					}
-					text, ok := e.context.PropertyText(converted)
-					if !ok {
-						continue
-					}
-					out = append(out, valueAt(StringValue(annotation.TypeFQN+"::"+bound.Feature+"="+text), origin))
+				text, ok := e.context.PropertyText(converted)
+				if !ok {
+					continue
 				}
+				out = append(out, valueAt(StringValue(annotation.TypeFQN+"::"+bound.Feature+"="+text), origin))
 			}
 		}
 	}
-	read(e.context.Model.AnnotationFactsOf(sym))
-	read(e.context.Model.AnnotationNestedFactsOf(sym))
+	// Pair nested facts with their site: an earlier annotation's nested binding
+	// must precede a later one's direct binding, since a caller may read only the first value.
+	nestedFacts := e.context.Model.AnnotationNestedFactsOf(sym)
+	nested := make(map[annotationSite][]symbols.AnnotationFacts, len(nestedFacts))
+	for _, facts := range nestedFacts {
+		site := annotationSite{facts.TypeFQN, facts.Span}
+		nested[site] = append(nested[site], facts)
+	}
+	used := make(map[annotationSite]int, len(nested))
+	emitNested := func(site annotationSite) {
+		for i := used[site]; i < len(nested[site]); i++ {
+			emit(nested[site][i])
+		}
+		used[site] = len(nested[site])
+	}
+	for _, facts := range e.context.Model.AnnotationFactsOf(sym) {
+		emit(facts)
+		emitNested(annotationSite{facts.TypeFQN, facts.Span})
+	}
+	// A nested site no direct fact reported still belongs on the row.
+	for _, facts := range nestedFacts {
+		site := annotationSite{facts.TypeFQN, facts.Span}
+		if used[site] < len(nested[site]) {
+			emitNested(site)
+		}
+	}
 	return out, len(out) > 0, nil
 }
 
