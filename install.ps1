@@ -29,6 +29,10 @@ Needs: PowerShell 5.1+ (Windows) or PowerShell 7 (elsewhere, with tar).
 
 .PARAMETER Version
 Release tag (v0.9.1), `latest` (default) or `nightly`. [OPENSYSML_VERSION]
+A release is marked latest before its assets are uploaded; until they are, `latest`
+installs the newest earlier release that has them, found through GitHub's releases
+API (a mirror names its own copy of that list in OPENSYSML_RELEASES_API; GITHUB_TOKEN
+or GH_TOKEN, when set, authenticates the request to api.github.com).
 
 .PARAMETER Tools
 Subset of sysml, sysml-lsp, sysml-grpc, sysml-jupyter-kernel, sysml-mcp (an array, or
@@ -204,6 +208,56 @@ function Get-AssetUrl([string]$Asset) { "$AssetDir/$Asset" }
 
 $ReleaseName = if ($Version -eq 'nightly') { 'the nightly snapshot' } elseif ($Tag) { $Tag } else { 'the latest release' }
 
+# Where the list of releases is, for the fallback below: GitHub's releases API
+# for a GitHub release tree, and nowhere for a mirror that names none.
+$ReleasesApi = $env:OPENSYSML_RELEASES_API
+if (-not $ReleasesApi -and $BaseUrl -match '^https://github\.com/([^/]+/[^/]+)/releases$') {
+    $ReleasesApi = "https://api.github.com/repos/$($Matches[1])/releases?per_page=100"
+}
+
+function Get-EarlierRelease([string]$Latest) {
+    # The stable release tags the releases API lists below $Latest, newest version
+    # first; $null when they cannot be listed. Pre-releases and nightlies are never a fallback.
+    if (-not $ReleasesApi -or $Latest -notmatch '^v(\d+)\.(\d+)\.(\d+)') { return $null }
+    $ceiling = [version]"$($Matches[1]).$($Matches[2]).$($Matches[3])"
+    $headers = @{}
+    $token = if ($env:GITHUB_TOKEN) { $env:GITHUB_TOKEN } else { $env:GH_TOKEN }
+    if ($token -and $ReleasesApi -like 'https://api.github.com/*') { $headers['Authorization'] = "Bearer $token" }
+    try {
+        $releases = (Invoke-WebRequest -UseBasicParsing -Uri $ReleasesApi -Headers $headers).Content | ConvertFrom-Json
+    } catch {
+        return $null
+    }
+    $versions = @(foreach ($release in @($releases)) {
+        if ("$($release.tag_name)" -match '^v(\d+\.\d+\.\d+)$') { [version]$Matches[1] }
+    })
+    return @($versions | Where-Object { $_ -lt $ceiling } | Sort-Object -Descending -Unique | ForEach-Object { "v$_" })
+}
+
+function Select-InstallableRelease {
+    # A release is marked latest when it is published, which is before the release
+    # pipeline has built and uploaded its assets. Until its manifest is there,
+    # `latest` is the newest earlier release that has one.
+    if (Get-Asset 'SHA256SUMS.txt' -Optional) { return }
+    $latest = $Tag
+    $missing = "$latest is the latest release, but its assets are not uploaded yet ($(Get-AssetUrl 'SHA256SUMS.txt') is missing)"
+    $candidates = Get-EarlierRelease $latest
+    if ($null -eq $candidates) {
+        $from = if ($ReleasesApi) { " from $ReleasesApi" } else { '' }
+        Fail "$missing and the earlier releases could not be listed$from; pass -Version <tag> for an earlier release, or retry once $latest has its assets. See $BaseUrl"
+    }
+    foreach ($candidate in $candidates) {
+        $script:AssetDir = "$BaseUrl/download/$candidate"
+        if (Get-Asset 'SHA256SUMS.txt' -Optional) {
+            $script:Tag = $candidate
+            $script:ReleaseName = $candidate
+            Write-Warning "$latest is the latest release, but its assets are not uploaded yet; installing $candidate, the newest release that has them. Run again later, or pass -Version $latest, for $latest."
+            return
+        }
+    }
+    Fail "$missing and no earlier release has a SHA256SUMS.txt; retry once $latest has its assets. See $BaseUrl"
+}
+
 # --- download and verify ----------------------------------------------------
 
 $Work = Join-Path ([System.IO.Path]::GetTempPath()) ("opensysml-install-" + [System.IO.Path]::GetRandomFileName())
@@ -272,6 +326,7 @@ function Test-Authenticode([string]$Path, [string]$Name) {
 # installation needs anyway), so a dry run previews the same choice.
 New-Item -ItemType Directory -Path $Work -Force | Out-Null
 try {
+    if ($Version -eq 'latest' -and $Tag) { Select-InstallableRelease }
     # The release's own manifest lists everything it published; the signed
     # Windows build's manifest covers only the signed subset.
     $ReleaseManifest = 'SHA256SUMS.txt'

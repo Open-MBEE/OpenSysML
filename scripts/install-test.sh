@@ -138,24 +138,54 @@ printf '%s  opensysml-%s.tar.gz\n' "$(printf '1%.0s' $(seq 64))" "$host" >>"$wor
 mkdir -p "$work/site/mirror/latest"
 cp -R "$work/site/releases/download/$good" "$work/site/mirror/latest/download"
 
+# A release tree whose latest release, v8.3.0, is published but has no assets yet.
+# The releases list is in GitHub's shape and out of order; the newest earlier
+# release with a manifest is v8.1.0: v8.2.0 has no assets either, v8.2.0-rc.1 and
+# nightly are pre-releases, and v8.0.10 is older.
+pending_dir="$work/site/pending/releases"
+mkdir -p "$pending_dir/download"
+release v8.1.0 8.1.0
+mv "$work/site/releases/download/v8.1.0" "$pending_dir/download/v8.1.0"
+for tag in v8.0.10 v8.2.0-rc.1 nightly; do
+	mkdir -p "$pending_dir/download/$tag"
+	cp "$pending_dir/download/v8.1.0/SHA256SUMS.txt" "$pending_dir/download/$tag/SHA256SUMS.txt"
+done
+# releases_list <file> <tags...>: a releases API answer listing the tags in order.
+releases_list() {
+	local file=$1 tag sep=""
+	shift
+	{
+		printf '[\n'
+		for tag in "$@"; do
+			printf '%s  {\n    "url": "https://api.example/releases/1",\n    "tag_name": "%s",\n    "name": "%s",\n    "draft": false,\n    "assets": [],\n    "body": "notes, with \\"tag_name\\": \\"v8.2.5\\" quoted in them"\n  }' "$sep" "$tag" "$tag"
+			sep=$',\n'
+		done
+		printf '\n]\n'
+	} >"$file"
+}
+releases_list "$pending_dir/list.json" nightly v8.3.0 v8.0.10 v8.2.0-rc.1 v8.2.0 v8.1.0 v8.10.0
+releases_list "$pending_dir/list-none.json" v8.3.0 v8.2.0
+
 # --- the server: GitHub's /releases/latest redirect over a static tree --------
 
 cat >"$work/server.py" <<'PY'
 import functools, http.server, sys
 site, tag = sys.argv[1], sys.argv[2]
+latest = {"/releases": tag, "/pending/releases": "v8.3.0"}
 
 class Handler(http.server.SimpleHTTPRequestHandler):
     def redirect(self):
-        if self.path == "/releases/latest":
-            self.send_response(302)
-            self.send_header("Location", "/releases/tag/" + tag)
-            self.end_headers()
-            return True
-        if self.path == "/releases/tag/" + tag:
-            self.send_response(200)
-            self.send_header("Content-Length", "0")
-            self.end_headers()
-            return True
+        for releases, tag in latest.items():
+            if self.path == releases + "/latest":
+                self.send_response(302)
+                self.send_header("Location", releases + "/tag/" + tag)
+                self.end_headers()
+                return True
+            if self.path == releases + "/tag/" + tag:
+                self.send_response(200)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return True
         return False
 
     def do_HEAD(self):
@@ -180,6 +210,7 @@ done
 [[ -s "$work/port" ]] || { echo "install-test: the release server did not start" >&2; exit 1; }
 base="http://127.0.0.1:$(cat "$work/port")/releases"
 mirror="http://127.0.0.1:$(cat "$work/port")/mirror"
+pending="http://127.0.0.1:$(cat "$work/port")/pending/releases"
 
 # --- the cases ---------------------------------------------------------------
 
@@ -368,6 +399,32 @@ if ok "latest from a mirror without the redirect" --base-url "$mirror" --prefix 
 	installed bin/sysml bin/sysml-lsp
 fi
 
+# A release is latest before its assets are uploaded: the newest earlier stable
+# release that has a manifest is installed instead, and verified against it.
+if OPENSYSML_RELEASES_API="$pending/list.json" ok "latest without assets yet" --base-url "$pending" --prefix @P@; then
+	said "warning: v8.3.0 is the latest release, but its assets are not uploaded yet; installing v8.1.0, the newest release that has them."
+	said "Installing OpenSysML (v8.1.0)"
+	said "$pending/download/v8.1.0/opensysml-$host.tar.gz"
+	said "opensysml-$host.tar.gz verified"
+	said "sysml v8.1.0"
+	installed bin/sysml bin/sysml-lsp
+fi
+if OPENSYSML_RELEASES_API="$pending/list.json" ok "dry run of latest without assets yet" --base-url "$pending" --dry-run --prefix @P@; then
+	said "Installing OpenSysML (v8.1.0)"
+	said "from:     $pending/download/v8.1.0/opensysml-$host.tar.gz"
+	absent bin
+fi
+OPENSYSML_RELEASES_API="$pending/list-none.json" fails "latest without assets and no earlier release with them" \
+	"v8.3.0 is the latest release, but its assets are not uploaded yet ($pending/download/v8.3.0/SHA256SUMS.txt is missing) and no earlier release has a SHA256SUMS.txt" \
+	--base-url "$pending" --prefix @P@
+OPENSYSML_RELEASES_API="$pending/missing.json" fails "latest without assets and an unreachable releases list" \
+	"the earlier releases could not be listed from $pending/missing.json; pass --version <tag>" --base-url "$pending" --prefix @P@
+fails "latest without assets on a mirror that lists no releases" \
+	"the earlier releases could not be listed; pass --version <tag>" --base-url "$pending" --prefix @P@
+# Asking for the release by name is not a request for whatever is installable.
+OPENSYSML_RELEASES_API="$pending/list.json" fails "a named release without assets" \
+	"could not download $pending/download/v8.3.0/SHA256SUMS.txt" --base-url "$pending" --version v8.3.0 --prefix @P@
+
 if ok "nightly" --version nightly --prefix @P@; then
 	said "Installing OpenSysML (the nightly snapshot)"
 	said "sysml ${good}-5-gabcdef0"
@@ -541,7 +598,7 @@ else
 fi
 
 if command -v pwsh >/dev/null 2>&1; then
-	pwsh -NoProfile -File "$root/scripts/install-test.ps1" -Script "$root/install.ps1" -BaseUrl "$base" -MirrorUrl "$mirror" \
+	pwsh -NoProfile -File "$root/scripts/install-test.ps1" -Script "$root/install.ps1" -BaseUrl "$base" -MirrorUrl "$mirror" -PendingUrl "$pending" \
 		-HostPlatform "$host" -Good "$good" -Signed "$signed" -Tampered "$tampered" -Unlisted "$unlisted" -NoKernel "$nokernel" -NoGrpc "$nogrpc" \
 		-Repeated "$repeated" -Conflicting "$conflicting" ||
 		failures=$((failures + 1))

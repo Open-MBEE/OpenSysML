@@ -11,6 +11,7 @@ param(
     [Parameter(Mandatory)][string]$Script,
     [Parameter(Mandatory)][string]$BaseUrl,
     [Parameter(Mandatory)][string]$MirrorUrl,
+    [Parameter(Mandatory)][string]$PendingUrl,
     [Parameter(Mandatory)][string]$HostPlatform,
     [Parameter(Mandatory)][string]$Good,
     [Parameter(Mandatory)][string]$Signed,
@@ -220,6 +221,30 @@ if (Test-Ok 'latest from a mirror without the redirect' -BaseUrl $MirrorUrl) {
     Assert-Said "$MirrorUrl/latest/download/opensysml-$HostPlatform.tar.gz"
     Assert-Installed sysml, sysml-lsp
 }
+
+# A release is latest before its assets are uploaded: the newest earlier stable
+# release that has a manifest is installed instead, and verified against it.
+$env:OPENSYSML_RELEASES_API = "$PendingUrl/list.json"
+if (Test-Ok 'latest without assets yet' -BaseUrl $PendingUrl) {
+    Assert-Said 'v8.3.0 is the latest release, but its assets are not uploaded yet; installing v8.1.0, the newest release that has them.'
+    Assert-Said 'Installing OpenSysML (v8.1.0)'
+    Assert-Said "$PendingUrl/download/v8.1.0/opensysml-$HostPlatform.tar.gz"
+    Assert-Said "opensysml-$HostPlatform.tar.gz verified"
+    Assert-Said 'sysml v8.1.0'
+    Assert-Installed sysml, sysml-lsp
+}
+if (Test-Ok 'dry run of latest without assets yet' -BaseUrl $PendingUrl -DryRun) {
+    Assert-Said 'Installing OpenSysML (v8.1.0)'
+    Assert-Said "from:     $PendingUrl/download/v8.1.0/opensysml-$HostPlatform.tar.gz"
+}
+# Asking for the release by name is not a request for whatever is installable.
+$null = Test-Failure 'a named release without assets' "could not download $PendingUrl/download/v8.3.0/SHA256SUMS.txt" -BaseUrl $PendingUrl -Version v8.3.0
+$env:OPENSYSML_RELEASES_API = "$PendingUrl/list-none.json"
+$null = Test-Failure 'latest without assets and no earlier release with them' "v8.3.0 is the latest release, but its assets are not uploaded yet ($PendingUrl/download/v8.3.0/SHA256SUMS.txt is missing) and no earlier release has a SHA256SUMS.txt" -BaseUrl $PendingUrl
+$env:OPENSYSML_RELEASES_API = "$PendingUrl/missing.json"
+$null = Test-Failure 'latest without assets and an unreachable releases list' "the earlier releases could not be listed from $PendingUrl/missing.json; pass -Version <tag>" -BaseUrl $PendingUrl
+$env:OPENSYSML_RELEASES_API = $null
+$null = Test-Failure 'latest without assets on a mirror that lists no releases' 'the earlier releases could not be listed; pass -Version <tag>' -BaseUrl $PendingUrl
 
 if (Test-Ok 'nightly' -Version nightly) {
     Assert-Said 'Installing OpenSysML (the nightly snapshot)'
