@@ -148,9 +148,7 @@ func requestFields(call *runtime.ToolCall, d *Description, fmu string) (runnerRe
 	if err != nil {
 		return runnerRequest{}, seriesPlan{}, err
 	}
-	// A stepped call is answered by a session at each instant; a trajectory is
-	// answered by the one-shot runner. Neither branch defines the combination.
-	if namesStep(call) && namesSeries(call) {
+	if namesStep(call, d) && namesSeries(call, d) {
 		return runnerRequest{}, seriesPlan{}, &SessionSeriesError{Tool: call.ToolName}
 	}
 	if plan.requested() {

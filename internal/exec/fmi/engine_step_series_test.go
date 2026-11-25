@@ -12,6 +12,8 @@ import (
 // TestOneShotRefusesStepAndSeriesTogether locks the typed refusal on the
 // default host, which has no session tool runner installed.
 func TestOneShotRefusesStepAndSeriesTogether(t *testing.T) {
+	fmu := decayFMU(t)
+	uri := fileURI(fmu)
 	step := runtime.ToolInput{Variable: StepVariable, Parameter: "t", Value: real(0.5)}
 	series := runtime.ToolOutput{Variable: seriesOutputPrefix + "y", Parameter: "ys"}
 	for _, tc := range []struct {
@@ -23,7 +25,7 @@ func TestOneShotRefusesStepAndSeriesTogether(t *testing.T) {
 		{"step alone", []runtime.ToolOutput{{Variable: "y", Parameter: "y"}}, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			call := &runtime.ToolCall{ToolName: "fmi", URI: "file:///unused.fmu",
+			call := &runtime.ToolCall{ToolName: "fmi", URI: uri,
 				Inputs: []runtime.ToolInput{step}, Outputs: tc.outputs}
 			e := New(func() (string, error) { return "/no/such/runner", nil }).(*engine)
 			q := analysis.Question{Kind: analysis.Compute, Compute: &analysis.ComputeAsk{Call: call}}

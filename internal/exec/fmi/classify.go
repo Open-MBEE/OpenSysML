@@ -1,5 +1,7 @@
 package fmi
 
+import "github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+
 // Reserved ToolVariable names are selectors, but one classifier gives an exact
 // FMU variable name first claim, on every surface that resolves a name.
 
@@ -53,4 +55,11 @@ func classifyInput(name string, d *Description) (kind inputKind, variable Variab
 		return reservedInput, Variable{}
 	}
 	return unknownInput, Variable{}
+}
+
+// inputIsReserved reports whether an input names a control spelling rather
+// than a model variable the importer preserved verbatim.
+func inputIsReserved(in runtime.ToolInput, d *Description) bool {
+	kind, _ := classifyInput(in.Variable, d)
+	return kind == reservedInput
 }
