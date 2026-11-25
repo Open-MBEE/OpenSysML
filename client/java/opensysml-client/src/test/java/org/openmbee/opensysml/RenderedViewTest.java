@@ -30,6 +30,7 @@ class RenderedViewTest {
             .addNodes(
                 RenderNode.newBuilder()
                     .setId("n0")
+                    .setElementId("Demo__root")
                     .setKind("part")
                     .setName("root")
                     .setNameSynthesized(true)
@@ -40,6 +41,7 @@ class RenderedViewTest {
                     .addPorts(
                         RenderPort.newBuilder()
                             .setId("n0.0")
+                            .setElementId("Demo__API__api")
                             .setName("api")
                             .setType("Demo::API")
                             .setDirection("inout"))
@@ -64,6 +66,7 @@ class RenderedViewTest {
                             .setItalic(true)))
             .addEdges(
                 RenderEdge.newBuilder()
+                    .setElementId("Demo__link")
                     .setFrom("n0")
                     .setTo("n1")
                     .setFromPort("n0.0")
@@ -94,6 +97,9 @@ class RenderedViewTest {
 
     RenderedView rendered = RenderedView.from(response);
     assertEquals("Demo::view", rendered.view());
+    assertEquals("Demo__root", rendered.nodes().get(0).elementId());
+    assertEquals("Demo__API__api", rendered.nodes().get(0).ports().get(0).elementId());
+    assertEquals("Demo__link", rendered.edges().get(0).elementId());
     assertTrue(rendered.nodes().get(0).nameSynthesized());
     assertEquals("inout", rendered.nodes().get(0).ports().get(0).direction());
     assertEquals(4, rendered.nodes().get(0).origin().orElseThrow().startLine());
@@ -111,5 +117,6 @@ class RenderedViewTest {
     RenderedView empty = RenderedView.from(RenderViewResponse.getDefaultInstance());
     assertFalse(empty.canvas().isPresent());
     assertTrue(empty.nodes().isEmpty());
+    assertTrue(empty.edges().isEmpty());
   }
 }
