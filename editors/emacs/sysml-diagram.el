@@ -643,10 +643,13 @@ Needs `sysml-diagram-mmdc-program' and a frame that can display SVG."
         (pop-to-buffer buffer)))))
 
 (defconst sysml-diagram--mmdc-config
-  "{\"htmlLabels\": false, \"flowchart\": {\"wrappingWidth\": 400}}"
+  "{\"look\": \"classic\", \"htmlLabels\": false, \"flowchart\": {\"wrappingWidth\": 400}}"
   "Mermaid configuration for an SVG librsvg can draw.
-Labels are SVG text rather than HTML in `foreignObject', which librsvg
-does not draw, and wrap only where a label's line exceeds 400 pixels.")
+Shapes use the classic look rather than the neo one, whose CSS
+`drop-shadow' on every node takes librsvg minutes to draw on a large
+view.  Labels are SVG text rather than HTML in `foreignObject', which
+librsvg does not draw, and wrap only where a label's line exceeds 400
+pixels.")
 
 (defun sysml-diagram--mermaid-to-svg (mmdc mermaid)
   "Return the SVG text MMDC draws for the Mermaid source MERMAID."

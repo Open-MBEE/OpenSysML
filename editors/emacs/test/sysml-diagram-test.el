@@ -128,9 +128,12 @@
 
 (ert-deftest sysml-diagram-asks-mermaid-for-an-svg-librsvg-draws ()
   (let* ((args (make-temp-file "sysml-mmdc-args"))
+         (config (make-temp-file "sysml-mmdc-config"))
          (mmdc (make-temp-file "sysml-mmdc" nil nil
                                (concat "#!/bin/sh\n"
                                        "echo \"$@\" > " (shell-quote-argument args) "\n"
+                                       "while [ \"$1\" != -c ]; do shift; done\n"
+                                       "cp \"$2\" " (shell-quote-argument config) "\n"
                                        "while [ \"$1\" != -o ]; do shift; done\n"
                                        "echo '<svg id=\"v\"><text>a &amp;#58; &amp;quot;b&amp;quot;</text></svg>' > \"$2\"\n"))))
     (unwind-protect
@@ -140,8 +143,16 @@
                          "<svg xml:space=\"preserve\" id=\"v\"><text>a &#58; &quot;b&quot;</text></svg>\n"))
           (should (string-match-p "-c [^ ]+\\.json" (with-temp-buffer
                                                      (insert-file-contents args)
-                                                     (buffer-string)))))
+                                                     (buffer-string))))
+          ;; Mermaid's default neo look takes librsvg minutes to draw on a large view.
+          (should (equal (plist-get (json-parse-string (with-temp-buffer
+                                                         (insert-file-contents config)
+                                                         (buffer-string))
+                                                       :object-type 'plist)
+                                    :look)
+                         "classic")))
       (delete-file args)
+      (delete-file config)
       (delete-file mmdc))))
 
 (defconst sysml-diagram-test--library-uri
