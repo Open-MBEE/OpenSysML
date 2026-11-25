@@ -256,6 +256,38 @@ func TestStrictRedefinitionSnapshotFailureNamesTheOccurrenceType(t *testing.T) {
 	}
 }
 
+// A feature declared in the enclosing package is not in a portion's declaring
+// scope: a snapshot or timeslice reads names from the occurrence it portions.
+func TestStrictRedefinitionPortionRejectsPackageFeature(t *testing.T) {
+	for _, tc := range []struct{ name, portion string }{
+		{"snapshot", `snapshot arrival { attribute :>> length = 10; }`},
+		{"timeslice", `timeslice approach { attribute :>> length = 10; }`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			src := `package P {
+				attribute length;
+				occurrence def Callout { attribute diameter; }
+				occurrence callout17 : Callout {
+					` + tc.portion + `
+				}
+			}`
+			got := strictRedefinitionDiags(t, "model.sysml", src, diag.ConformanceStrict)
+			var found []diag.Diagnostic
+			for _, d := range got {
+				if d.Code == CodeRedefinitionResolvesToNothing {
+					found = append(found, d)
+				}
+			}
+			if len(found) != 1 {
+				t.Fatalf("got %d %s diagnostics, want one: %+v", len(found), CodeRedefinitionResolvesToNothing, got)
+			}
+			if !strings.Contains(found[0].Message, "in Callout") {
+				t.Errorf("message = %q, want the occurrence type Callout", found[0].Message)
+			}
+		})
+	}
+}
+
 // A chain redefinition is judged by where its prefix is declared, not by the
 // members of the type owning the clause; the strict check leaves it alone.
 func TestStrictRedefinitionLeavesChainsToTheirOwnRule(t *testing.T) {

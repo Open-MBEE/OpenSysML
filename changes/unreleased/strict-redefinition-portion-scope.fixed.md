@@ -1,0 +1,1 @@
+- Strict conformance again reports `redefinition-resolves-to-nothing` when a snapshot or timeslice redefines a feature supplied only by an enclosing package and not by the occurrence it portions. The enclosing-namespace lookup stays available to plain typed usages and to portions that redefine or subset a feature providing the target.

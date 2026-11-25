@@ -213,11 +213,13 @@ func (c *strictRedefinitionChecker) declaringScopeProvides(sym, owner *symbols.S
 		}
 	}
 	if !redefinesOrSubsets(owner) {
-		// A plain typed usage cannot borrow an imported name, but a feature
-		// declared in the enclosing namespace is a legitimate target.
-		for s := owner.OwnerScope; s != nil; s = s.Parent() {
-			if s == target.OwnerScope && isNamespace(s.Owner()) {
-				return true
+		// A plain typed usage may name a feature of its enclosing namespace.
+		// A portion reads names from the occurrence it portions, not that namespace.
+		if !portionUsage(owner) {
+			for s := owner.OwnerScope; s != nil; s = s.Parent() {
+				if s == target.OwnerScope && isNamespace(s.Owner()) {
+					return true
+				}
 			}
 		}
 		return false
