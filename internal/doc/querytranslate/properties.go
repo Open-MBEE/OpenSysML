@@ -54,7 +54,10 @@ type Table struct {
 	derived   map[string]valueKind
 	// features are the metaclass features not yet classified, by name; a
 	// query classifies the ones it names, not the metamodel's thousands.
-	features        map[string][]*symbols.Symbol
+	features map[string][]*symbols.Symbol
+	// shadowed holds evaluator properties whose bare name a model feature
+	// declares: their type is decided by the row that resolves the name.
+	shadowed        map[string]bool
 	model           *semantics.Model
 	number, boolean *symbols.Symbol
 }
@@ -62,7 +65,8 @@ type Table struct {
 // NewTable reads the metaclass declarations of the model's library. A model
 // loaded without the library knows the evaluator's queryable properties alone.
 func NewTable(index *symbols.Index, model *semantics.Model) *Table {
-	t := &Table{metamodel: map[string]valueKind{}, derived: map[string]valueKind{}, features: map[string][]*symbols.Symbol{}}
+	t := &Table{metamodel: map[string]valueKind{}, derived: map[string]valueKind{},
+		features: map[string][]*symbols.Symbol{}, shadowed: map[string]bool{}}
 	for _, name := range query.PropertyNames() {
 		t.metamodel[name] = kindText
 	}
@@ -88,6 +92,15 @@ func NewTable(index *symbols.Index, model *semantics.Model) *Table {
 	t.number = index.LookupUnique("ScalarValues::Number")
 	t.boolean = index.LookupUnique("ScalarValues::Boolean")
 	t.features = queryexec.DeclaredMetaclassFeatures(index)
+	// The library's own isActive is the built-in, not a feature shadowing it.
+	for _, name := range []string{query.PropertyIsActive, query.PropertyAnnotations} {
+		for _, sym := range index.LookupUniqueCandidates(name) {
+			if sym.IsFeature() && !semantics.IsStateActivity(sym) {
+				t.shadowed[name] = true
+				break
+			}
+		}
+	}
 	return t
 }
 
@@ -179,6 +192,9 @@ func (t *Table) Known(name string) bool {
 // table does not know or the metaclasses disagree.
 func (t *Table) kind(name string) valueKind {
 	if canonical, ok := query.BuiltinProperty(name); ok {
+		if !query.IsBuiltinAlias(name) && t.shadowed[canonical] {
+			return kindUnknown
+		}
 		name = canonical
 	}
 	if kind, ok := t.derived[name]; ok {
