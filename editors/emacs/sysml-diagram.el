@@ -513,16 +513,17 @@ CLIENT is the client ORIGIN came through."
 (defun sysml-diagram--visit (origin)
   "Visit the declaration ORIGIN locates, selecting its name.
 A declaration in the bundled library is shown read-only, its text asked
-of the server of the view's model buffer."
+of the server of the view's model buffer.  A file is named as the model
+buffer's server names it, so on that buffer's host, while it is visited."
   (let* ((uri (plist-get origin :uri))
          (source sysml-diagram--source)
          (client sysml-diagram--client)
-         (buffer (if (sysml-library-uri-p uri)
-                     (if (buffer-live-p source)
-                         (with-current-buffer source (sysml-diagram--library-buffer client uri))
-                       (user-error "The model this view shows is no longer visited"))
-                   (let ((file (sysml-diagram--path client uri)))
-                     (or (find-buffer-visiting file) (find-file-noselect file))))))
+         (buffer (with-current-buffer (if (buffer-live-p source) source (current-buffer))
+                   (cond ((not (sysml-library-uri-p uri))
+                          (let ((file (sysml-diagram--path client uri)))
+                            (or (find-buffer-visiting file) (find-file-noselect file))))
+                         ((eq (current-buffer) source) (sysml-diagram--library-buffer client uri))
+                         (t (user-error "The model this view shows is no longer visited"))))))
     (pop-to-buffer buffer '((display-buffer-reuse-window display-buffer-use-some-window)))
     (let ((region (sysml-diagram--origin-region client origin)))
       (push-mark (point) t)

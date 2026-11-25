@@ -186,6 +186,26 @@
         (when (buffer-live-p buffer)
           (kill-buffer buffer))))))
 
+(ert-deftest sysml-diagram-visits-a-file-as-the-model-buffer-names-it ()
+  (let ((file (sysml-test--fixture "part def A;\n"))
+        (source (generate-new-buffer " *model*"))
+        decoded-in)
+    (unwind-protect
+        (cl-letf (((symbol-function 'sysml-diagram--path)
+                   (lambda (_client _uri) (setq decoded-in (current-buffer)) file)))
+          (with-temp-buffer
+            (sysml-diagram-mode)
+            (setq sysml-diagram--source source
+                  sysml-diagram--client sysml-test-client)
+            (sysml-diagram--visit (sysml-diagram-test--json (sysml-diagram-test--origin 0 9 10)))
+            (should (eq decoded-in source))
+            (should (equal buffer-file-name file))
+            (should (looking-at-p "A;"))))
+      (kill-buffer source)
+      (when-let* ((visited (find-buffer-visiting file)))
+        (kill-buffer visited))
+      (delete-directory (file-name-directory file) t))))
+
 (ert-deftest sysml-diagram-says-when-nothing-is-shown ()
   (sysml-diagram-test--drawing
       "{\"view\":\"\",\"kind\":\"state\",\"stated\":\"\",\"form\":\"mermaid\",\"artifact\":\"\",\"nodes\":[],\"edges\":[],\"notices\":[],\"version\":1}"
