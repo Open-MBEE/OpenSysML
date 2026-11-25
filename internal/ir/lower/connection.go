@@ -41,23 +41,24 @@ type Connection struct {
 	Scope     *symbols.Scope  // scope the end paths resolve in, nil when unknown
 }
 
-// ConnectionEnd is a lowered end's port path (`s.y`) and the index expression
-// selecting one of its elements (`s.y#(1)`), nil for the whole feature.
+// ConnectionEnd is a lowered end's routing Path, its Index selecting one
+// element, and the Target node the end attaches to, keeping the written name.
 type ConnectionEnd struct {
-	Path  string
-	Index ast.Node
+	Path   string
+	Target ast.Node
+	Index  ast.Node
 }
 
-// Notation spells the end as written: the path, or the path with its selector.
-// Consumers addressing a port use Path; the selector marks an indexed end.
-func (e ConnectionEnd) Notation() string {
-	if e.Index == nil {
-		return e.Path
-	}
-	if index := (ast.ExprPrinter{}).Text(e.Index); index != "" {
-		return e.Path + "#(" + index + ")"
-	}
-	return e.Path
+// TargetAt is where the end's attached feature was written, the zero extent
+// for an end that names no feature.
+func (e ConnectionEnd) TargetAt() Extent {
+	return extentOf(e.Target)
+}
+
+// IndexAt is where the selector was written, the zero extent for a whole
+// feature; a body index has no spelling from the expression printer.
+func (e ConnectionEnd) IndexAt() Extent {
+	return extentOf(e.Index)
 }
 
 // ToObjectConnections lowers the connectors declared in the body of a type an
@@ -154,7 +155,8 @@ func lowerEnd(end *ast.ConnectorEnd) ConnectionEnd {
 	if end == nil {
 		return ConnectionEnd{}
 	}
-	return ConnectionEnd{Path: FeaturePath(end.AttachedTarget()), Index: end.AttachedIndex()}
+	target := end.AttachedTarget()
+	return ConnectionEnd{Path: FeaturePath(target), Target: target, Index: end.AttachedIndex()}
 }
 
 // SendTarget renders a send's target and reports whether it is a feature chain

@@ -721,7 +721,7 @@ The `sysx:` properties:
 | `sysx:endForm` | The notation an end-binding head writes its ends in — `to`, `nary`, `equals`, `firstThen`, `fromTo`, `flowTo`, `satisfy`, `then` — so the head is rebuilt from the graph rather than read back from its text. See [End-binding heads](#end-binding-heads). |
 | `sysx:endVerb` | The verb a head writes ahead of its ends when its own keyword is the noun form (`connection c connect a to b`, `connector c from a to b`). Without it the verb would be missing or doubled. |
 | `sysx:endReferencesKeyword` | On a named end, the ReferencesKeyword written between the name and the feature when it is the word `references` (`bind e1 references a = …`). Absent, the end is written with `::>`; a value other than the two spellings is refused. |
-| `sysx:endElement` | On an indexed connector end (`connect s.y#(1) to k.u`, an OpenSysML extension), the expression node of the index the end selects one element of its feature with, encoded as any other expression. The end's `ReferenceSubsetting` reaches the whole feature as a standard end's does, so a reader of the standard vocabulary sees `s.y` connected; the index is what the decoder writes back as `#( … )`, and without it the end comes back attaching the whole feature. A connector's derived `sysml:relatedFeature`, `sysml:sourceFeature`, `sysml:targetFeature`, `sysml:source` and `sysml:target` name that end feature rather than the whole feature, the way a chain target names the feature carrying its chainings, so a reader of the element form can tell `s.y#(1)` from `s.y` without reading notation; the lower IR keeps the selector beside the port path routing addresses, and the analysis model form writes the end as `s.y#(1)`. |
+| `sysx:endElement` | On an indexed connector end (`connect s.y#(1) to k.u`, an OpenSysML extension), the expression node of the index the end selects one element of its feature with, encoded as any other expression. The end's `ReferenceSubsetting` reaches the whole feature as a standard end's does, so a reader of the standard vocabulary sees `s.y` connected; the index is what the decoder writes back as `#( … )`, and without it the end comes back attaching the whole feature. The connector's derived `sysml:relatedFeature`, `sysml:sourceFeature`, `sysml:targetFeature`, `sysml:source` and `sysml:target` keep naming the referenced feature, as metamodel reflection derives it; the selector is found from the ordered `sysml:connectorEnd` links, whose end elements carry `sysx:endElement`. The lower IR keeps the selector beside the port path routing addresses, and the analysis model form writes the end from its source extent, including quoted names and body indices. |
 | `sysx:sourceMember`, `sysx:targetMember` | The member a succession sequences from or to where the notation names no end (`then b;`, or a `then` beside an unnamed member), or where the name the notation supplies for an end links no element (a `then` after `action redefines walk;` whose `walk` is inherited). The end is the element itself rather than only a name, so a same-named member elsewhere cannot be mistaken for it. |
 | `sysx:condition` | The condition a condition member states, as its notation. |
 | `sysx:resultExpression` | The expression an expression body (`{ in y : Real; y + x }`) ends in, after its parameters. The bare expression a calculation or case body computes is not an extension: it is the Expression its `sysml:ResultExpressionMembership` owns. See [Result expressions](#result-expressions). |
@@ -1940,12 +1940,11 @@ appear for one message, `sysx:memberIndex` on the memberships orders the ends,
 or the flow's `sysml:sourceFeature`/`sysml:targetFeature` does, and a message
 whose ends neither source can order is refused rather than reversed. Named ends carry `sysml:declaredName` and `sysml:name`; multiplicity
 bounds are on the end. An indexed end (`s.y#(1)`) states its selector as
-`sysx:endElement` and keeps its `ReferenceSubsetting` to the whole port; the
-connector's derived `sysml:sourceFeature`, `sysml:targetFeature`,
-`sysml:relatedFeature`, `sysml:source` and `sysml:target` name that end feature
-rather than the whole one, the way a
-chain target names the feature carrying its chainings, so a reader of the
-element form can tell `s.y#(1)` from `s.y` without reading notation. A qualified
+`sysx:endElement` on the end element the ordered `sysml:connectorEnd` links
+reach, and keeps its `ReferenceSubsetting` to the whole port; the connector's
+derived `sysml:sourceFeature`, `sysml:targetFeature`,
+`sysml:relatedFeature`, `sysml:source` and `sysml:target` keep naming that
+referenced port, as metamodel reflection derives them. A qualified
 target such as `rover.telemetry` is an
 owned `sysml:Feature` — a *chain feature* — that owns one `sysml:FeatureChaining`
 relationship per link, in order, and keeps the derived `sysml:chainingFeature`

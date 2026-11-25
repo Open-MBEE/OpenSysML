@@ -1031,8 +1031,8 @@ func (d *decoder) isExpressionIRI(term rdf.Term) bool {
 	return term.IsIRI() && strings.HasPrefix(term.Value, rdf.Expression)
 }
 
-// definedEndFeature reports whether term is an end feature the graph defines,
-// the only expression IRI a derived connector property may name in place of a name.
+// definedEndFeature accepts a derived connector property naming a graph-defined
+// end; this writer keeps such properties on the feature the end references.
 func (d *decoder) definedEndFeature(term rdf.Term) bool {
 	return d.isExpressionIRI(term) && d.metaclass(term) != "" &&
 		d.graph.BoolValue(term, rdf.SysML+pIsEnd)
