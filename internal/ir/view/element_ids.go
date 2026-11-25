@@ -105,6 +105,29 @@ func derivePositional(index *symbols.Index, text source.Lookup, doc string) map[
 	return bySym
 }
 
+// walkNodes visits every node of a rendering once, roots, compartment rows and
+// children included. A rendering can share one node between several parents —
+// folded rows and expanded type trees clone pointers rather than subtrees — so
+// a plain recursive walk would re-enter shared nodes exponentially.
+func walkNodes(roots []*Node, visit func(*Node)) {
+	seen := make(map[*Node]bool)
+	var walk func([]*Node)
+	walk = func(nodes []*Node) {
+		for _, node := range nodes {
+			if node == nil || seen[node] {
+				continue
+			}
+			seen[node] = true
+			visit(node)
+			for _, compartment := range node.Compartments {
+				walk(compartment.Rows)
+			}
+			walk(node.Children)
+		}
+	}
+	walk(roots)
+}
+
 // resolveElementIDs fills nodes, ports and edges with the identity their origins link by.
 // The ids stay as data; nothing in the rendering points back into the model.
 func (r *Renderer) resolveElementIDs(out *Rendering) {
@@ -123,23 +146,12 @@ func (r *Renderer) resolveElementIDs(out *Rendering) {
 		cache[origin] = found
 		return found
 	}
-	var walk func([]*Node)
-	walk = func(nodes []*Node) {
-		for _, node := range nodes {
-			if node == nil {
-				continue
-			}
-			node.ElementID = id(node.Origin)
-			for i := range node.Ports {
-				node.Ports[i].ElementID = id(node.Ports[i].Origin)
-			}
-			for _, compartment := range node.Compartments {
-				walk(compartment.Rows)
-			}
-			walk(node.Children)
+	walkNodes(out.Roots, func(node *Node) {
+		node.ElementID = id(node.Origin)
+		for i := range node.Ports {
+			node.Ports[i].ElementID = id(node.Ports[i].Origin)
 		}
-	}
-	walk(out.Roots)
+	})
 	for i := range out.Edges {
 		out.Edges[i].ElementID = id(out.Edges[i].Origin)
 	}

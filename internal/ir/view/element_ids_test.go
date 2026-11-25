@@ -1,6 +1,7 @@
 package view
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -186,6 +187,20 @@ func TestAnonymousConnectorsHaveDistinctElementIDs(t *testing.T) {
 		if !ok || site.ID != edge.ElementID {
 			t.Errorf("written {id} anchor %q differs from structured id %q", site.ID, edge.ElementID)
 		}
+	}
+}
+
+// TestWalkNodesVisitsSharedNodesOnce pins the dedup that keeps id resolution
+// linear in a rendering's distinct nodes: folded rows and expanded type trees
+// share node pointers, so a plain recursive walk re-enters them exponentially.
+func TestWalkNodesVisitsSharedNodesOnce(t *testing.T) {
+	shared := &Node{ID: "shared"}
+	root := &Node{ID: "root", Children: []*Node{shared, {ID: "wrapper", Children: []*Node{shared}}}}
+	root.Compartments = []Compartment{{Name: "parts", Rows: []*Node{shared}}}
+	var visited []string
+	walkNodes([]*Node{root}, func(node *Node) { visited = append(visited, node.ID) })
+	if !reflect.DeepEqual(visited, []string{"root", "shared", "wrapper"}) {
+		t.Errorf("walkNodes visited %v, want root, shared and wrapper once each", visited)
 	}
 }
 
