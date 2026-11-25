@@ -46,8 +46,12 @@ At the pinned baseline and at the v0.12.1 release:
 present and true, the request is the old parse and the response is byte-identical to before. When
 it is false, and the service advertises `parse_sources_keep`, the service builds the same
 `model_hash`, roots, diagnostics and affected set, and then drops the model from the in-memory
+<<<<<<< HEAD
 parsed-model LRU: it neither adds an entry there nor promotes one already under that hash — a
 non-promoting peek lets an undo back to cached content compare against its own analysis stamps.
+=======
+parsed-model LRU: it neither adds an entry there nor looks up an entry already under that hash.
+>>>>>>> a248ae4f51 (chore(integration): merge feat/u12b-nonkeeping-parse (docs union))
 A caller can therefore read a derived union, use the answer, and leave its own cached models
 exactly as they were. Whether the trees come from parsing or from disk parse records is a
 separate matter: with a record cache configured, a transient parse may restore trees from disk

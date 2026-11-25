@@ -25,6 +25,7 @@ import {
   CAPABILITY_MIGRATE,
   CAPABILITY_PARSE_SOURCES,
   CAPABILITY_PARSE_SOURCES_AFFECTED,
+  CAPABILITY_PARSE_SOURCES_KEEP,
   CAPABILITY_PERFORMER,
   CAPABILITY_STATE_TRACE,
   CAPABILITY_ACTION_TRACE,
@@ -418,12 +419,22 @@ export class Connection {
       );
       capabilities.push(CAPABILITY_PARSE_SOURCES_AFFECTED);
     }
+    const keep = options.keep ?? true;
+    if (!keep) {
+      requireCapability(
+        this.info,
+        CAPABILITY_PARSE_SOURCES_KEEP,
+        upgradeRemedy(CAPABILITY_PARSE_SOURCES_KEEP),
+      );
+      capabilities.push(CAPABILITY_PARSE_SOURCES_KEEP);
+    }
     const response = await callRpc(
       this.rpc.parseSources(
         create(ParseSourcesRequestSchema, {
           documents: sources.map((source) => source.toPb()),
           strictConformance: strictConformance === true,
           baseModelHash,
+          ...(!keep ? { keep: false } : {}),
         }),
         this.callOptions(),
       ),

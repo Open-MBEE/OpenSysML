@@ -289,6 +289,10 @@ const CapabilityConvertCheckDiagnostics = "convert_check_diagnostics"
 // the base model's, so a client re-reads only those after an edit.
 const CapabilityParseSourcesAffected = "parse_sources_affected"
 
+// CapabilityParseSourcesKeep names ParseSourcesRequest.keep: a parse the service
+// answers without keeping the model, so it cannot evict a model the caller holds.
+const CapabilityParseSourcesKeep = "parse_sources_keep"
+
 // CapabilityRenderDocumentFileName names RenderDocumentResponse.file_name:
 // the file a rendered set writes the document to, which the other
 // documents' links to it name. Without it the field is empty.
@@ -461,6 +465,7 @@ var capabilities = []string{
 	CapabilityConvertInheritedMembers,
 	CapabilityConvertCheckDiagnostics,
 	CapabilityParseSourcesAffected,
+	CapabilityParseSourcesKeep,
 	CapabilityRenderDocumentFileName,
 	CapabilityOrderDependence,
 	CapabilityVerdictNotes,
@@ -910,6 +915,13 @@ func (s *Service) ParseSources(ctx context.Context, req *pb.ParseSourcesRequest)
 			return nil, err
 		}
 	}
+	// A service that predates the field would keep the model, which is exactly
+	// what a transient caller asked it not to do: refuse rather than evict.
+	if req.Keep != nil {
+		if err := s.requireCapability(CapabilityParseSourcesKeep); err != nil {
+			return nil, err
+		}
+	}
 
 	inputs := make([]sourceInput, 0, len(req.Documents))
 	named := make(map[string]int, len(req.Documents))
@@ -930,7 +942,8 @@ func (s *Service) ParseSources(ctx context.Context, req *pb.ParseSourcesRequest)
 		inputs = append(inputs, input)
 	}
 
-	modelHash, model, err := s.parseModel(ctx, inputs, diag.ConformanceModeOf(req.StrictConformance), true)
+	modelHash, model, err := s.parseModelKeeping(ctx, inputs, diag.ConformanceModeOf(req.StrictConformance),
+		true, req.Keep == nil || req.GetKeep())
 	if err != nil {
 		return nil, err
 	}
@@ -1032,8 +1045,8 @@ func (s *Service) parseModel(ctx context.Context, inputs []sourceInput, mode dia
 	return s.parseModelKeeping(ctx, inputs, mode, incremental, true)
 }
 
-// parseModelKeeping is parseModel, caching the model only when keep is set: a
-// model staged on the way to another is not kept, so it evicts nothing.
+// parseModelKeeping is parseModel, but when keep is unset it neither inserts
+// into the parsed-model cache nor looks up an entry there.
 func (s *Service) parseModelKeeping(ctx context.Context, inputs []sourceInput, mode diag.ConformanceMode, incremental, keep bool) (string, *CachedModel, error) {
 	store := func(hash string, model *CachedModel) *CachedModel {
 		if !keep {

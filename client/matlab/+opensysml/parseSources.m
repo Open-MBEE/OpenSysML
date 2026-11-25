@@ -17,9 +17,14 @@ function model = parseSources(conn, documents, varargin)
         conn.require('parse_sources_affected');
         capabilities{end+1} = 'parse_sources_affected';
     end
+    if ~options.keep
+        conn.require('parse_sources_keep');
+        capabilities{end+1} = 'parse_sources_keep';
+    end
     request = struct('documents', {sources});
     if options.strictConformance, request.strictConformance = true; end
     if ~isempty(options.baseModelHash), request.baseModelHash = options.baseModelHash; end
+    if ~options.keep, request.keep = false; end
     answer = opensysml.call(conn, 'ParseSources', request, capabilities);
     opensysml.internal.checkError(answer, 'ParseSources');
     diagnostics = decodeDiagnostics(answer);
@@ -85,7 +90,7 @@ end
 
 function options = parseOptions(varargin)
     options = struct('language', [], 'strictConformance', false, 'raiseForErrors', false, ...
-        'baseModelHash', '');
+        'baseModelHash', '', 'keep', true);
     strict = [];
     strictConformance = [];
     if mod(numel(varargin), 2) ~= 0
@@ -104,6 +109,8 @@ function options = parseOptions(varargin)
                 options.raiseForErrors = logicalOption(varargin{i+1}, 'raiseForErrors');
             case 'baseModelHash'
                 options.baseModelHash = textOption(varargin{i+1}, 'baseModelHash');
+            case 'keep'
+                options.keep = logicalOption(varargin{i+1}, 'keep');
             otherwise
                 opensysml.internal.raise('opensysml:argument', ...
                     sprintf('parseSources has no option ''%s''', key));

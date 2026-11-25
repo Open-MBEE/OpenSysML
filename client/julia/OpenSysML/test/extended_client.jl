@@ -322,6 +322,32 @@ end
     end
 end
 
+@testset "parse_sources sends keep only when asked and requires its capability" begin
+    handler = (method, body) -> Dict{String,Any}("modelHash" => "fake",
+        "roots" => [Dict("id" => doc["name"], "name" => "", "kind" => "Namespace") for doc in body["documents"]])
+    server, requests, address = recording_service(["parse_sources", "parse_sources_keep"]; handler=handler)
+    conn = external(address)
+    try
+        parse_sources(conn, [("a.sysml", "package A;")]; keep=false)
+        parse_sources(conn, [("a.sysml", "package A;")])
+        parses = [request for request in requests if request.method == "ParseSources"]
+        @test [get(request.body, "keep", nothing) for request in parses] == [false, nothing]
+    finally
+        close(conn)
+        close(server)
+    end
+    server, requests, address = recording_service(["parse_sources"]; handler=handler)
+    conn = external(address)
+    try
+        @test_throws MissingCapabilityError parse_sources(conn, [("a.sysml", "package A;")];
+                                                          keep=false)
+        @test all(request -> request.method != "ParseSources", requests)
+    finally
+        close(conn)
+        close(server)
+    end
+end
+
 @testset "render_view and import_data send their folding and row forms" begin
     server, requests, address = recording_service(["render_view", "import_data"];
         handler=(method, body) -> method == "RenderView" ?
