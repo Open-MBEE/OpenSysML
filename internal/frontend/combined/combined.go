@@ -56,6 +56,7 @@ var capabilities = []string{
 	"symbol_lookup_kind",
 	"symbol_member_direction",
 	"coordinate_frame_values",
+	"render_node_shape",
 }
 
 // Server combines the parsing/validation and execution JSON surfaces.

@@ -4631,6 +4631,10 @@ pub struct RenderNode {
     /// Empty when no element declares it; `id` is local to this rendering.
     #[prost(string, tag="18")]
     pub element_id: ::prost::alloc::string::String,
+    /// The notation outline derived from the node's metaclass: "rectangle", "rounded",
+    /// "stadium", "actor", "note", "diamond", "circle", "ring", "cross", "bar", "history", "item".
+    #[prost(string, tag="19")]
+    pub shape: ::prost::alloc::string::String,
 }
 /// RenderPort is a feature drawn on a node's border.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]

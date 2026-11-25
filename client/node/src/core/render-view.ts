@@ -77,6 +77,8 @@ export interface RenderNode {
   inherited: boolean;
   /** The state's substates run in parallel; the notation writes «parallel» under the name. */
   parallel: boolean;
+  /** The notation outline derived from the node's metaclass; empty when the server withholds it. */
+  shape: string;
   parent: string;
   /** The compartment of the parent this node is a row of ("attributes", "parts", ...); empty for a box. */
   compartment: string;
@@ -217,6 +219,7 @@ function nodeOf(node: PbRenderNode): RenderNode {
     standIn: node.standIn,
     inherited: node.inherited,
     parallel: node.parallel,
+    shape: node.shape,
     compartment: node.compartment,
     parent: node.parent,
     ports: node.ports.map(portOf),
