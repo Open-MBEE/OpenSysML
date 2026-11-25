@@ -197,7 +197,19 @@ The commands it times are
 `/usr/bin/time -f '%e s %M KB' make test-quick SHARDS="grpc rest"` and
 `/usr/bin/time -f '%e s %M KB' go run -C tools ./cmd/gate-runner -tier quick -shards grpc,rest -concurrency 2`.
 Both use `GOMAXPROCS=2` and the home-filesystem `GOCACHE`, `GOTMPDIR` and
-`TMPDIR`. Replace the shards in the script to measure another pair.
+`TMPDIR`. Both also export `GOFLAGS=-count=1`, which disables Go's successful
+test-result cache: neither arm can warm a cached replay for the other. The
+shared build cache stays warm for both (it only affects compilation), so the
+figures measure test execution and runner overhead, **not cache hits**. The
+recorded figures below predate that change; re-run the script for a directly
+comparable current measurement. Replace the shards in the script to
+measure another pair.
+
+`GATE_TIMING_TMP` may name a relative directory under `$HOME/.cache/opensysml`,
+where the script puts its temporary directories. An absolute path, a `..`
+component, an unsupported character or a symlinked path component is rejected
+before anything is created or written; with the variable unset the script uses
+`$HOME/.cache/opensysml/gate-timing`.
 
 Recorded on **one host** (16 CPUs, 31264 MiB RAM, load average 2.40, Go 1.27.4,
 `GOMAXPROCS=2`, warm home-filesystem cache; both runs exited zero):
