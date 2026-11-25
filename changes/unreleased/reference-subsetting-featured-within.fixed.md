@@ -6,3 +6,5 @@
   type (8.3.4.5.3); the pinned pilot validator accepts these models. The same ends named without the reference
   (`ref part observer { succession first source::sent then source::got; }`) are still rejected, as the pilot rejects
   them, and a referencing feature still does not acquire the referenced feature's type.
+  A succession written there that reverses an order the referenced feature declares is reported as
+  `succession-order-cycle`, as it is under an ordinary subsetting.
