@@ -53,13 +53,8 @@ func (e *executor) annotationFeatureValues(sym *symbols.Symbol, declaring, featu
 	return result, present, nil
 }
 
-<<<<<<< HEAD
-// annotationValues reports a row's bound values as
-// `<metadata>::<feature>=<value>` strings in annotation order, nested bindings with their site.
-=======
 // annotationValues reports bound values as `<metadata>::<feature>=<value>`
 // strings, ordered by annotation site and then by binding.
->>>>>>> 9b6b9d8457 (fix(query): scope built-in deferral to the terminal property and its shadow)
 func (e *executor) annotationValues(sym *symbols.Symbol) ([]Value, bool, error) {
 	if sym == nil {
 		return nil, false, nil
