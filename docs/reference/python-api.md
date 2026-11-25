@@ -84,6 +84,10 @@ connecting to models.
     options:
       heading_level: 3
 
+::: opensysml.CAPABILITY_PARSE_SOURCES_KEEP
+    options:
+      heading_level: 3
+
 ::: opensysml.CAPABILITY_RENDER_DOCUMENT_FILE_NAME
 
 ::: opensysml.CAPABILITY_IMPORT_DATA
