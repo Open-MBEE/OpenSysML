@@ -198,6 +198,53 @@ def test_requested_instants_interpolate_between_steps(mocker):
     assert reply["series"]["outputs"]["h"] == [0.0, 1.5, 3.0]
 
 
+def test_even_samples_follow_time_not_row_index(mocker):
+    """Extra solver-event rows between grid points must not move the sample instants."""
+    rows = [
+        {"time": 0.0, "h": 0.0},
+        {"time": 0.1, "h": 99.0},  # a solver event, not a grid point
+        {"time": 0.2, "h": 2.0},
+        {"time": 0.5, "h": 5.0},
+        {"time": 1.0, "h": 10.0},
+    ]
+    mocker.patch.dict(sys.modules, {"fmpy": fake_fmpy(rows, {"h": "Real"})})
+    reply = fmi_runner.run(request(
+        outputs=[],
+        series={"samples": 3, "outputs": ["h"]},
+        experiment={"startTime": 0.0, "stopTime": 1.0},
+    ))
+    assert "error" not in reply
+    assert reply["series"]["times"] == [0.0, 0.5, 1.0]
+    assert reply["series"]["outputs"]["h"] == [0.0, 5.0, 10.0]
+
+
+def test_requested_instant_past_the_simulated_run_is_refused(mocker):
+    """An FMU that stopped early cannot have its last value relabelled at a later instant."""
+    rows = [{"time": 0.0, "h": 0.0}, {"time": 1.0, "h": 1.0}, {"time": 2.0, "h": 4.0}]
+    mocker.patch.dict(sys.modules, {"fmpy": fake_fmpy(rows, {"h": "Real"})})
+    reply = fmi_runner.run(request(
+        outputs=[],
+        series={"samples": 3, "times": [0.0, 1.5, 3.0], "outputs": ["h"]},
+        experiment={"startTime": 0.0, "stopTime": 3.0},
+    ))
+    assert reply["protocol"] == 1
+    assert "error" in reply
+    assert "outside the simulated run" in reply["error"]
+
+
+def test_requested_instant_before_the_simulated_run_is_refused(mocker):
+    """An instant before the first recorded row is unobserved too."""
+    rows = [{"time": 1.0, "h": 1.0}, {"time": 2.0, "h": 4.0}]
+    mocker.patch.dict(sys.modules, {"fmpy": fake_fmpy(rows, {"h": "Real"})})
+    reply = fmi_runner.run(request(
+        outputs=[],
+        series={"samples": 2, "times": [0.5, 1.5], "outputs": ["h"]},
+        experiment={"startTime": 0.0, "stopTime": 2.0},
+    ))
+    assert "error" in reply
+    assert "outside the simulated run" in reply["error"]
+
+
 def test_structured_fmpy_records_sample_exact_and_interior_instants(mocker):
     """A real numpy result carries named fields, not dicts; exact and interpolated instants both work."""
     np = pytest.importorskip("numpy")

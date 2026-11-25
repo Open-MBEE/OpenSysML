@@ -125,6 +125,9 @@ substituted for a trajectory.
 | A literal imported name colliding with a selector reads the scalar at `stopTime` | `TestLiteralNameCollidingWithSeriesSelectorBindsAtStopTime`, `TestClassifyGivesFMUNamesFirstClaim` |
 | The reference runner samples a trajectory and honours requested instants | `test_series_answers_evenly_spaced_samples`, `test_series_only_variables_are_requested_from_fmpy`, `test_requested_sample_instants_are_honoured`, `test_requested_instants_interpolate_between_steps`, `test_bad_series_requests_are_error_replies` (`client/python/tests/test_fmi_runner.py`) |
 | FMPy structured records sample at exact and interpolated instants, and discrete values stay recorded | `test_structured_fmpy_records_sample_exact_and_interior_instants`, `test_structured_array_column_interpolates_elements`, `test_discrete_variables_are_not_interpolated` |
+| Even samples follow recorded time, not row index | `test_even_samples_follow_time_not_row_index` |
+| An unobserved instant is refused, never relabelled | `test_requested_instant_past_the_simulated_run_is_refused`, `test_requested_instant_before_the_simulated_run_is_refused`, `TestOutOfRangeSampleIsATypedRunnerError` |
+| A decimal interval keeps its endpoint | `TestSampleCountKeepsTheDecimalEndpoint`, `TestDecimalIntervalRequestCarriesTheEndpoint` |
 
 ## Verification
 
@@ -154,11 +157,13 @@ twenty-second silence; those were environment failures in untouched packages.
 ## Known limitations and follow-ups
 
 - A series samples scalar FMU variables only; arrays cannot be sampled into a trajectory.
-- When only a sample count is requested, the reference runner selects recorded simulation
-  steps nearest to each evenly spaced instant; when `times` is present it interpolates the
-  model's variables between steps at the requested instants. A runner with a different
-  simulator may sample more precisely, as long as it answers the requested count in order
-  and at the requested instants when they were given.
+- The reference runner reads recorded time, not row index, when spacing samples: extra
+  solver-event rows stay in the trajectory but never move an instant. At a recorded instant
+  it answers that row; between rows it interpolates the model's variables. An instant past
+  the run the FMU actually simulated is refused with an error reply rather than answered
+  with the last recorded value. A runner with a different simulator may sample more
+  precisely, as long as it answers the requested count in order and at the requested
+  instants when they were given.
 - Producing a series still requires a runner that understands the optional request member;
   an older runner answers no `series` and the evaluation fails as a protocol error rather
   than falling back to one value. Updating the reference runner is the shipped path.

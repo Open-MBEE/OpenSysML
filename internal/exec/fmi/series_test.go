@@ -452,6 +452,84 @@ func TestSampleCountValidatesTheRequest(t *testing.T) {
 	}
 }
 
+// TestSampleCountKeepsTheDecimalEndpoint proves a 0.1 s step over a 0.3 s run
+// includes 0.3, and that the bound and non-dividing spans still behave.
+func TestSampleCountKeepsTheDecimalEndpoint(t *testing.T) {
+	step := 0.1
+	for bounds, want := range map[struct{ start, stop float64 }]int{
+		{0, 0.3}:   4, // 0, 0.1, 0.2, 0.3
+		{0, 0.35}:  4, // the last step before stopTime
+		{0.1, 0.3}: 3,
+	} {
+		got, err := sampleCount(bounds.start, bounds.stop, nil, &step)
+		if err != nil || got != want {
+			t.Fatalf("sampleCount(%v, %v, 0.1) = %d, %v; want %d", bounds.start, bounds.stop, got, err, want)
+		}
+	}
+}
+
+// TestDecimalIntervalRequestCarriesTheEndpoint pins the exact instants the
+// engine sends: a decimal interval must not drop the final sample at stopTime.
+func TestDecimalIntervalRequestCarriesTheEndpoint(t *testing.T) {
+	fmu := writeFMU(t, "units.fmu", unitsFMU, "x86_64-linux")
+	scratch(t, "mode.txt", "answer")
+	scratch(t, "reply.json", `{"protocol": 1, "time": 0.3, "outputs": {},
+		"series": {"times": [0.0, 0.1, 0.2, 0.3], "outputs": {}}}`)
+	const model = `package Drive {
+	private import AnalysisTooling::*;
+	private import ScalarValues::*;
+	private import ISQ::*;
+	private import SI::*;
+
+	calc def Times {
+		metadata ToolExecution { toolName = "fmi"; uri = "%s"; }
+		in interval : DurationValue = 0.1 [s] { @ToolVariable { name = "fmi:sampleInterval"; } }
+		in stopTime : Real = 0.3 { @ToolVariable { name = "fmi:stopTime"; } }
+		return times : DurationValue[1..*] { @ToolVariable { name = "fmi:seriesTime"; } }
+	}
+}`
+	p := parseProbe(t, fmt.Sprintf(model, fileURI(fmu)))
+	times, err := seriesCalc(t, p, "Times")
+	if err != nil {
+		t.Fatalf("InvokeCalc: %v", err)
+	}
+	if got := runtime.FormatValue(times); !strings.Contains(got, "0.3") {
+		t.Fatalf("sample times = %s, want the 0.3 s endpoint", got)
+	}
+	if request := seriesRequest(t); !strings.Contains(request, `"series":{"samples":4,"times":[0,0.1,0.2,0.3],"outputs":[]}`) {
+		t.Fatalf("request lost the decimal endpoint:\n%s", request)
+	}
+}
+
+// TestOutOfRangeSampleIsATypedRunnerError proves a runner refusing an
+// unobserved instant surfaces as the typed RunnerError, not a bound value.
+func TestOutOfRangeSampleIsATypedRunnerError(t *testing.T) {
+	fmu := writeFMU(t, "series.fmu", seriesFMU, "x86_64-linux")
+	scratch(t, "mode.txt", "error:sample instant 4 lies outside the simulated run 0 to 2")
+	const model = `package Drive {
+	private import AnalysisTooling::*;
+	private import ScalarValues::*;
+	private import ISQ::*;
+	private import SI::*;
+
+	calc def Interval {
+		metadata ToolExecution { toolName = "fmi"; uri = "%s"; }
+		in interval : DurationValue = 2 [s] { @ToolVariable { name = "fmi:sampleInterval"; } }
+		in stopTime : Real = 4.0 { @ToolVariable { name = "fmi:stopTime"; } }
+		return times : DurationValue[1..*] { @ToolVariable { name = "fmi:seriesTime"; } }
+	}
+}`
+	p := parseProbe(t, fmt.Sprintf(model, fileURI(fmu)))
+	_, err := invokeCalcNamed(t, p, "Interval", engineFor(t))
+	var runnerErr *RunnerError
+	if !errors.As(err, &runnerErr) {
+		t.Fatalf("InvokeCalc = %v, want a typed RunnerError", err)
+	}
+	if !strings.Contains(err.Error(), "outside the simulated run") {
+		t.Fatalf("error = %q, want the runner's range refusal", err)
+	}
+}
+
 // TestScalarOutputsRemainUnchanged pins the old request shape byte for byte
 // beside a series request: adding a series must not perturb a scalar-only call.
 func TestScalarOutputsRemainUnchanged(t *testing.T) {

@@ -3,10 +3,22 @@ package fmi
 import (
 	"fmt"
 	"math"
+	"math/big"
+	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 )
+
+// decimalRat is a float's shortest round-trip decimal as an exact rational: a
+// 0.1 s step then stays 1/10, so a 0.3 s run keeps its final sample.
+func decimalRat(f float64) *big.Rat {
+	r, ok := new(big.Rat).SetString(strconv.FormatFloat(f, 'g', -1, 64))
+	if !ok {
+		return new(big.Rat).SetFloat64(f)
+	}
+	return r
+}
 
 // Reserved ToolVariable names for a trajectory: sample count or spacing,
 // sample times and the `fmi:series:<name>` output prefix.
@@ -63,8 +75,10 @@ func planSeries(call *runtime.ToolCall, d *Description, startTime, stopTime floa
 	plan.samples = count
 	if interval != nil {
 		plan.instants = make([]float64, count)
+		start, step := decimalRat(startTime), decimalRat(*interval)
 		for i := range plan.instants {
-			plan.instants[i] = startTime + float64(i)*(*interval)
+			r := new(big.Rat).Add(start, new(big.Rat).Mul(step, new(big.Rat).SetInt64(int64(i))))
+			plan.instants[i], _ = r.Float64()
 		}
 	}
 	return plan, nil
@@ -89,24 +103,30 @@ func sampleCount(startTime, stopTime float64, samples, interval *float64) (int, 
 		}
 		return int(n), nil
 	}
-	span := stopTime - startTime
 	if interval == nil {
 		return defaultSeriesSamples, nil
 	}
 	if *interval <= 0 || math.IsNaN(*interval) || math.IsInf(*interval, 0) {
 		return 0, fault(fmt.Sprintf("%s must be a positive finite number of seconds, got %v", seriesIntervalInput, *interval))
 	}
-	if span <= 0 {
+	span := new(big.Rat).Sub(decimalRat(stopTime), decimalRat(startTime))
+	if span.Sign() <= 0 {
 		return 0, fault(fmt.Sprintf("%s needs stopTime after startTime", seriesIntervalInput))
 	}
-	n := int(math.Floor(span / *interval)) + 1
-	if n < 2 {
+	step := decimalRat(*interval)
+	if step.Sign() <= 0 {
+		return 0, fault(fmt.Sprintf("%s must be a positive finite number of seconds, got %v", seriesIntervalInput, *interval))
+	}
+	quotient := new(big.Rat).Quo(span, step)
+	floor := new(big.Int).Quo(quotient.Num(), quotient.Denom())
+	count := new(big.Int).Add(floor, big.NewInt(1))
+	if count.Cmp(big.NewInt(2)) < 0 {
 		return 0, fault(fmt.Sprintf("%s = %v samples no more than one point over the experiment", seriesIntervalInput, *interval))
 	}
-	if n > maxSeriesSamples {
-		return 0, fault(fmt.Sprintf("%s asks for %d samples, more than the limit of %d", seriesIntervalInput, n, maxSeriesSamples))
+	if count.Cmp(big.NewInt(maxSeriesSamples)) > 0 {
+		return 0, fault(fmt.Sprintf("%s asks for %s samples, more than the limit of %d", seriesIntervalInput, count.String(), maxSeriesSamples))
 	}
-	return n, nil
+	return int(count.Int64()), nil
 }
 
 // checkSeriesVariables refuses a trajectory naming an unknown, input or
