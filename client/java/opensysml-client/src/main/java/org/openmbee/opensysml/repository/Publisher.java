@@ -220,6 +220,16 @@ public final class Publisher {
       }
       return changes;
     }
+
+    private static JsonObject version(String id, JsonElement payload) {
+      JsonObject identity = new JsonObject();
+      identity.addProperty("@id", id);
+      JsonObject version = new JsonObject();
+      version.addProperty(PROPERTY_TYPE, "DataVersion");
+      version.add("identity", identity);
+      version.add("payload", payload);
+      return version;
+    }
   }
 
   /** A cancellation before the commit: nothing to report, unless a project was created on the way. */
@@ -289,15 +299,5 @@ public final class Publisher {
 
   private static boolean empty(JsonElement value) {
     return value.isJsonNull() || (value.isJsonArray() && value.getAsJsonArray().isEmpty());
-  }
-
-  private static JsonObject version(String id, JsonElement payload) {
-    JsonObject identity = new JsonObject();
-    identity.addProperty("@id", id);
-    JsonObject version = new JsonObject();
-    version.addProperty(PROPERTY_TYPE, "DataVersion");
-    version.add("identity", identity);
-    version.add("payload", payload);
-    return version;
   }
 }

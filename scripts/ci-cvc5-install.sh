@@ -27,7 +27,8 @@ zip=$cache/$CVC5_FILE
 
 # pinned <file>: the file is the release asset the pin names, by its sha256 alone.
 pinned() {
-  echo "$CVC5_SHA256  $1" | sha256sum --check --strict --quiet >&2
+  local file=$1
+  echo "$CVC5_SHA256  $file" | sha256sum --check --strict --quiet >&2
 }
 
 if [[ -f $zip ]] && pinned "$zip"; then

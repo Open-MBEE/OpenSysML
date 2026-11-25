@@ -1,7 +1,10 @@
 package solve
 
 import (
+	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // enumSort is a datatype sort standing for an enumeration definition's literals.
@@ -25,6 +28,8 @@ func TestRenderedAssignments(t *testing.T) {
 		{"quantity whose base units are unnamed", &Var{Name: "P::m", Sort: Real, Dimension: "M"}, "1500.0", "1500.0 (in the base units of M)"},
 		{"boolean", &Var{Name: "P::b", Sort: Bool}, "true", "true"},
 		{"string", &Var{Name: "P::s", Sort: String}, `"ok"`, `"ok"`},
+		{"string holding a quote", &Var{Name: "P::s", Sort: String}, `"say ""hi"""`, `"say \"hi\""`},
+		{"string holding a backslash", &Var{Name: "P::s", Sort: String}, `"a\b"`, `"a\\b"`},
 		{"enumeration literal", &Var{Name: "P::g", Sort: enumSort}, "low", "low"},
 		{"escaped enumeration literal", &Var{Name: "P::g", Sort: enumSort}, "high!pest", "high|est"},
 	}
@@ -127,4 +132,22 @@ func trimBars(symbol string) string {
 		return symbol[1 : len(symbol)-1]
 	}
 	return symbol
+}
+
+// A decoded string is written as the literal the notation reads back to the same
+// text, whatever quotes, backslashes or line terminators the solver answered with.
+func TestWrittenStringReadsBackToItsText(t *testing.T) {
+	v := &Var{Name: "P::s", Sort: String}
+	for _, text := range []string{`say "hi"`, `a\b`, `"; part def Injected {} //`, "two\nlines", `it's`} {
+		written, err := ModelValue{Kind: SortString, Text: text}.Written(v)
+		if err != nil {
+			t.Fatalf("Written(%q): %v", text, err)
+		}
+		if strings.ContainsAny(written, "\n\r") {
+			t.Errorf("Written(%q) = %q holds a line terminator", text, written)
+		}
+		if got := source.Unescape(written[1 : len(written)-1]); got != text {
+			t.Errorf("Written(%q) = %s, which reads back as %q", text, written, got)
+		}
+	}
 }

@@ -125,6 +125,9 @@ func main() {
 	if names := splitNames(opts.serveExternal); len(names) > 0 {
 		serving = append(serving, sysmlgrpc.ServeExternalEngines(names...))
 	}
+	if opts.fileRoot != "" {
+		serving = append(serving, sysmlgrpc.ConfineFilesTo(opts.fileRoot))
+	}
 	var svc *sysmlgrpc.Service
 	if len(unavailable) == 0 {
 		svc, err = sysmlgrpc.NewService(opts.cacheSize, info.Version, serving...)

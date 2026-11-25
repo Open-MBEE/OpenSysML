@@ -442,6 +442,12 @@ The knobs a deployment sets, as arguments or environment:
 
 - `-cors-allowed-origins <origin,…>` names the exact browser origins a Connect
   or gRPC-Web client may call from; native clients need no entry.
+- `-file-root <dir>` confines the files a request names by path (`file_path`,
+  `layout_path`) to that directory: a relative path is taken from it, and a path
+  elsewhere, or a symbolic link that leads out of it, even on the way
+  to a file inside it, is refused with
+  `PERMISSION_DENIED`. Without it the service reads any path its own privileges
+  reach, so set it on a service that other machines can call.
 - `-serve-external-engines <name,…>` (or `all`) names the engines of the
   [`OPENSYSML_ENGINES` manifest](../reference/external-engines.md) this service
   runs for its clients. Without it
