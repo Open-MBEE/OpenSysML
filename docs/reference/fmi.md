@@ -166,7 +166,8 @@ another unit is refused rather than converted silently.
 
 ### Reserved `fmi:` variables
 
-Four names carry the experiment rather than a model variable:
+Four names carry the experiment rather than a model variable, and one asks for
+a session step:
 
 | `ToolVariable` name | Direction | Carries |
 |---|---|---|
@@ -174,7 +175,74 @@ Four names carry the experiment rather than a model variable:
 | `fmi:stopTime` | input | the experiment's stop time, default `1.0` |
 | `fmi:stepSize` | input | the step size — only when `DefaultExperiment` declares one |
 | `fmi:tolerance` | input | the solver tolerance — only when declared |
+| `fmi:stepTime` | input | a session's next time — selects an evaluation session instead of a whole run |
 | `fmi:time` | output | the reply's `time` — bound when the FMU declares no output |
+
+## Reusable evaluation sessions
+
+A whole-run `tool:fmi` performance starts one runner process, initializes the
+FMU and reads every output at `stopTime`. A check that needs a value in the
+middle of an experiment can ask for it without starting over: a session
+initializes once and then answers "step to `t`" and "read these variables"
+from the state it reached. N intermediate readings cost one runner invocation,
+not N.
+
+Sessions are an additive Go API in `internal/exec/fmi`, not a change to the
+one-shot path. A call that does not bind `fmi:stepTime` still speaks `fmi/1` and
+writes byte-identical requests and replies. A call that does bind it goes
+through a `SessionManager`:
+
+```go
+manager := fmi.NewSessionManager(nil) // nil reads OPENSYSML_FMI_RUNNER
+defer manager.Close()
+session, err := manager.Open(ctx, "caller-A", call) // one init
+session.Step(ctx, 0.5)                             // advance to t
+values, err := session.Read(ctx, []string{"h", "v"}) // read from that state
+```
+
+`SessionManager.ToolRunner(caller, delegate)` wraps an existing
+`runtime.ToolRunner` so a model's annotated `calc def` uses a session whenever
+its tool call binds `fmi:stepTime`, and goes to the delegate unchanged for
+every other tool or call. Several calc usages that bind different step times
+therefore share one session for one caller. A session is keyed by the caller
+and the init request, so two callers driving the same FMU keep separate state
+and re-opening the same session returns the one already initialized. A stepped
+call that reaches the one-shot engine without a session tool runner is refused
+with a named error rather than silently answered at `stopTime`.
+
+A runner that serves sessions reads newline-delimited JSON on standard input
+and writes one line per command on standard output (`fmi/2`):
+
+```json
+{"protocol":2,"action":"init","fmu":"/abs/model.fmu","interface":"coSimulation",
+ "experiment":{"startTime":0.0,"stopTime":3.0},"start":{"g":-9.81}}
+{"protocol":2,"action":"step","time":0.5}
+{"protocol":2,"action":"read","outputs":["h","v"]}
+```
+
+The `init` answer carries the start time; `step` answers the time reached;
+`read` answers that time and the outputs:
+
+```json
+{"protocol":2,"action":"init","time":0.0}
+{"protocol":2,"action":"step","time":0.5}
+{"protocol":2,"action":"read","time":0.5,"outputs":{"h":0.95,"v":-4.9}}
+```
+
+A rejected command answers `{"protocol":2,"action":"…","error":"…"}`, which
+fails the performance as a `*fmi.RunnerError`. A wrong protocol version, a
+malformed line, a line over `OPENSYSML_TOOL_MAX_OUTPUT` and a runner that exits
+are typed failures; no value is invented. A step backwards or past
+`fmi:stopTime` is refused locally with a typed `*fmi.StepError`, without asking
+the runner.
+
+Sessions are bounded. A manager holds at most 16 by default
+(`NewSessionManagerWith` overrides it), closes a session idle for 60 seconds or
+open for 10 minutes, and refuses the 100,001st step. A background janitor
+reclaims sessions that pass a bound even when no caller returns; the owner
+calls `Close` to end them all and stop the janitor. Each command answers within
+`OPENSYSML_TOOL_TIMEOUT` and is bounded by `OPENSYSML_TOOL_MAX_OUTPUT`, as a
+one-shot tool is.
 
 ## Reference runner
 
@@ -202,6 +270,8 @@ $ sysml -calc 'BouncingBall::BouncingBall' bouncing.sysml
 - The runner is external and the FMU is never loaded in-process: no FMI calls cross into
   OpenSysML, so a co-simulation runs one `doStep`-style exchange per evaluation through the
   runner you provide.
+- Sessions need a runner that speaks `fmi/2`; the reference runner shipped with the Python
+  client speaks `fmi/1` only. The whole-run path works with every `fmi/1` runner.
 - Structural parameters, multi-dimensional and structurally dimensioned array variables,
   `Binary` and `Clock` values are not imported; `local` and `independent` variables are
   read but not bound.
