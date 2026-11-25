@@ -48,8 +48,8 @@ Flags:
 |---|---|---|
 | `-tier` | `queue` | `quick` (`make test-quick`), `queue` (`make test-queue`) or `full` (`make test-shard`) |
 | `-concurrency` | derived from CPUs and RAM | maximum shards in flight; override with `$OPENSYSML_GATE_CONCURRENCY` |
-| `-p` | `0` | package parallelism (`go test -p`); `0` leaves Go's own default in place |
-| `-gomaxprocs` | derived from CPUs | `GOMAXPROCS` for each shard; an explicit caller `GOMAXPROCS` wins, override with `$OPENSYSML_GATE_GOMAXPROCS` |
+| `-p` | `1`, or an explicit `GOFLAGS` `-p` | package parallelism (`go test -p`); the per-process CPU allowance is divided by it so the product stays within the shard budget |
+| `-gomaxprocs` | derived from CPUs | `GOMAXPROCS` per package test process, after dividing by `-p`; an explicit caller `GOMAXPROCS` wins, override with `$OPENSYSML_GATE_GOMAXPROCS` |
 | `-log-tail` | `64K` | bytes of a failing shard's log to keep; accepts a `K`, `M` or `G` suffix, override with `$OPENSYSML_GATE_LOG_TAIL` |
 | `-shards` | all | comma- or space-separated subset of the discovered shards |
 | `-v` | off | stream every shard's output as it arrives rather than buffering it |
@@ -70,8 +70,12 @@ count. A 16-CPU, 16-GiB machine gets eight shards with `GOMAXPROCS=2`; asking
 that machine for four shards in flight gives each `GOMAXPROCS=4`, and a
 two-shard subset gives each `GOMAXPROCS=8`. Explicit flags and environment
 variables override any derived value, so CI and developers keep control; the
-runner never imposes this host's settings on another one. `-p` stays unset by
-default because Go already derives `-p` from `GOMAXPROCS`.
+runner never imposes this host's settings on another one. By default it passes
+`-p=1`, so one package test binary runs at a time with the whole shard
+allowance. An explicit `-p` or one already in `GOFLAGS` is preserved and divides
+that allowance among the concurrent package processes, so their product stays
+within the budget. `GOFLAGS` is read through `go env`, so a value saved with
+`go env -w` but not exported is kept instead of being replaced by `-p` alone.
 
 The runner covers the Go test shards — the units the Makefile and the CI Go
 matrix call shards. CI's standalone gates (the corpus, solver and differential
@@ -99,12 +103,14 @@ every shard even after one fails, matching CI's `fail-fast: false`.
 
 A shard's output is never held in full: it is streamed to the terminal with
 `-v`, and otherwise only the last `-log-tail` bytes are kept for a failing
-shard's diagnostic. The runner handles `SIGINT` and `SIGTERM` by signalling
-each shard's whole process group, so an interrupted run does not leave `go
-test` descendants behind. Unit tests cover large-log truncation, verbose
-streaming, bounded concurrency, the snapshot-once guard, descendant cleanup,
-skip-banner status and the cgroup hierarchy with fixture trees for a limit at
-the process cgroup and one inherited from a parent.
+shard's diagnostic. The runner handles `SIGINT` and `SIGTERM` by putting each
+shard in its own session and signalling every process group still in it: a
+descendant that starts a group of its own, as an analysis engine stand-in does,
+is found through `/proc` and stopped too. Unit tests cover large-log
+truncation, verbose streaming, bounded concurrency, the snapshot-once guard,
+descendant cleanup (including an own-group child), skip-banner status and the
+cgroup hierarchy with fixture trees for a limit at the process cgroup and one
+inherited from a parent.
 
 ## One warm shared cache
 

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -101,6 +102,24 @@ func TestPlanCoversEveryDiscoveredShardAtEveryTier(t *testing.T) {
 				t.Errorf("plan covers %v, want every shard %v", planned, want)
 			}
 		})
+	}
+}
+
+// TestCommandsGiveToolsModuleOneOwner pins that the shard sharing the tools
+// module with tools (rest) does not run it again when both are in the plan.
+func TestCommandsGiveToolsModuleOneOwner(t *testing.T) {
+	r := &runner{tier: "quick", shards: []string{"rest", "tools", "grpc"}}
+	commands := r.commands()
+	for i, shard := range r.shards {
+		skipped := slices.Contains(commands[i], skipToolsTestsVar+"=1")
+		want := shard == "rest"
+		if skipped != want {
+			t.Errorf("%s: tools ownership guard = %v, want %v: %v", shard, skipped, want, commands[i])
+		}
+	}
+	single := &runner{tier: "queue", shards: []string{"rest"}}
+	if got := single.commands()[0]; slices.Contains(got, skipToolsTestsVar+"=1") {
+		t.Errorf("rest without tools kept its tools-module coverage: %v", got)
 	}
 }
 
@@ -416,7 +435,7 @@ func TestCancellationKillsShardDescendants(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() {
-		done <- processExecutor(dir, 0, 0)(ctx, []string{"make", "--no-print-directory", "test-quick", "SHARDS=cli"}, io.Discard)
+		done <- processExecutor(dir, 0, 0, "")(ctx, []string{"make", "--no-print-directory", "test-quick", "SHARDS=cli"}, io.Discard)
 	}()
 	var pid []byte
 	for i := 0; i < 200; i++ {
@@ -441,6 +460,83 @@ func TestCancellationKillsShardDescendants(t *testing.T) {
 	if _, err := os.Stat(killedFile); err != nil {
 		t.Fatalf("the shard child was not signalled: %v", err)
 	}
+}
+
+// TestCancellationKillsDescendantsInTheirOwnGroup covers an engine stand-in
+// that starts its own process group: signalling only the direct group misses
+// it, so the session scan in killProcessGroup must reach it too.
+func TestCancellationKillsDescendantsInTheirOwnGroup(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("process groups are a POSIX facility")
+	}
+	if _, err := os.Stat("/proc/self/stat"); err != nil {
+		t.Skip("the descendant scan needs /proc")
+	}
+	dir := t.TempDir()
+	makePID, childPID, killed := filepath.Join(dir, "make-pid"), filepath.Join(dir, "child-pid"), filepath.Join(dir, "killed")
+	script := `#!/usr/bin/env bash
+set -m
+printf '%s\n' "$$" > "$GATE_TEST_MAKE_PID"
+bash -c 'trap "printf killed > \"$GATE_TEST_KILLED\"" TERM; printf "%s\n" $$ > "$GATE_TEST_CHILD_PID"; while :; do sleep 1; done' &
+wait
+`
+	if err := os.WriteFile(filepath.Join(dir, "make"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("GATE_TEST_MAKE_PID", makePID)
+	t.Setenv("GATE_TEST_CHILD_PID", childPID)
+	t.Setenv("GATE_TEST_KILLED", killed)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		done <- processExecutor(dir, 0, 0, "")(ctx, []string{"make", "--no-print-directory", "test-quick", "SHARDS=cli"}, io.Discard)
+	}()
+	for i := 0; i < 300; i++ {
+		if _, err := os.Stat(childPID); err == nil {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	rawChild, err := os.ReadFile(childPID)
+	if err != nil {
+		cancel()
+		t.Fatal("the fake shard did not start its own-group child")
+	}
+	rawMake, err := os.ReadFile(makePID)
+	if err != nil {
+		cancel()
+		t.Fatal("the fake shard did not record its pid")
+	}
+	child, err := strconv.Atoi(strings.TrimSpace(string(rawChild)))
+	if err != nil {
+		cancel()
+		t.Fatalf("bad child pid %q: %v", rawChild, err)
+	}
+	leader, err := strconv.Atoi(strings.TrimSpace(string(rawMake)))
+	if err != nil {
+		cancel()
+		t.Fatalf("bad make pid %q: %v", rawMake, err)
+	}
+	pgid, session, ok := statSession(filepath.Join("/proc", strconv.Itoa(child), "stat"))
+	if !ok || pgid != child || session != leader || pgid == leader {
+		cancel()
+		t.Fatalf("child %d: pgid=%d session=%d, make=%d; want its own group in the shard's session", child, pgid, session, leader)
+	}
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(4 * time.Second):
+		t.Fatal("the executor did not return after cancellation")
+	}
+	for i := 0; i < 200; i++ {
+		if _, err := os.Stat(killed); err == nil {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("the own-group descendant was not signalled")
 }
 
 func TestListAndSubsetValidation(t *testing.T) {
@@ -474,11 +570,11 @@ func TestListAndSubsetValidation(t *testing.T) {
 }
 
 func TestChildEnvBoundsProcsAndPackages(t *testing.T) {
-	t.Setenv("GOFLAGS", "-mod=readonly")
 	t.Setenv("GOMAXPROCS", "")
 	t.Setenv(procsEnv, "")
-	env := childEnv(2, 3)
-	for _, want := range []string{snapshotSkipEnv + "=" + snapshotSkipOn, "GOMAXPROCS=3", "GOFLAGS=-mod=readonly -p=2"} {
+	// Eight CPUs over four package processes leaves two CPUs per process.
+	env := childEnv(4, perProcessProcs(8, 4), "-mod=readonly")
+	for _, want := range []string{snapshotSkipEnv + "=" + snapshotSkipOn, "GOMAXPROCS=2", "GOFLAGS=-mod=readonly -p=4"} {
 		if !slices.Contains(env, want) {
 			t.Errorf("child env %v lacks %s", env, want)
 		}
@@ -487,8 +583,116 @@ func TestChildEnvBoundsProcsAndPackages(t *testing.T) {
 	if got, err := goMaxProcs(0, 1, 16); err != nil || got != 0 {
 		t.Errorf("explicit GOMAXPROCS: goMaxProcs = %d, %v; want 0, nil", got, err)
 	}
-	if got := childEnv(0, 0); slices.Contains(got, "GOMAXPROCS=2") {
+	if got := childEnv(0, 0, ""); slices.Contains(got, "GOMAXPROCS=2") {
 		t.Errorf("child env %v overrode an explicit GOMAXPROCS", got)
+	}
+}
+
+// TestPackageParallelBudgetsPackageProcesses pins the product of Go's package
+// concurrency and each test binary's GOMAXPROCS to the shard's CPU allowance.
+func TestPackageParallelBudgetsPackageProcesses(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		flag      int
+		flags     string
+		wantP     int
+		wantProcs int
+	}{
+		{name: "default", flag: 0, flags: "", wantP: 1, wantProcs: 8},
+		{name: "saved -p", flag: 0, flags: "-tags=sysml_re -p=2", wantP: 2, wantProcs: 4},
+		{name: "flag wins", flag: 3, flags: "-p=2 -v", wantP: 3, wantProcs: 2},
+		{name: "more packages than CPUs", flag: 16, flags: "", wantP: 16, wantProcs: 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p := packageParallel(tc.flag, tc.flags)
+			if p != tc.wantP {
+				t.Fatalf("packageParallel(%d, %q) = %d, want %d", tc.flag, tc.flags, p, tc.wantP)
+			}
+			procs := perProcessProcs(8, p)
+			if procs != tc.wantProcs {
+				t.Errorf("perProcessProcs(8, %d) = %d, want %d", p, procs, tc.wantProcs)
+			}
+			if p <= 8 && p*procs > 8 {
+				t.Errorf("%d packages x %d procs exceeds the 8-CPU shard budget", p, procs)
+			}
+			env := childEnv(p, procs, tc.flags)
+			for _, want := range []string{"GOFLAGS=" + goFlagsWithP(tc.flags, p), "GOMAXPROCS=" + strconv.Itoa(procs)} {
+				if !slices.Contains(env, want) {
+					t.Errorf("child env %v lacks %s", env, want)
+				}
+			}
+		})
+	}
+}
+
+func TestPerProcessProcsKeepsCallerOverride(t *testing.T) {
+	if got := perProcessProcs(0, 2); got != 0 {
+		t.Errorf("perProcessProcs(0, 2) = %d, want 0 so the caller's GOMAXPROCS stands", got)
+	}
+	if got := perProcessProcs(8, 0); got != 8 {
+		t.Errorf("perProcessProcs(8, 0) = %d, want 8", got)
+	}
+}
+
+// TestEffectiveGoFlagsIncludesSavedConfiguration covers a GOFLAGS saved with
+// `go env -w` and not exported: the runner must not replace it with just -p.
+func TestEffectiveGoFlagsIncludesSavedConfiguration(t *testing.T) {
+	t.Setenv("GOENV", filepath.Join(t.TempDir(), "goenv"))
+	t.Setenv("GOFLAGS", "")
+	if err := os.Unsetenv("GOFLAGS"); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := exec.Command("go", "env", "-w", "GOFLAGS=-tags=sysml_re").CombinedOutput(); err != nil {
+		t.Fatalf("go env -w: %v\n%s", err, out)
+	}
+	flags, err := effectiveGoFlags()
+	if err != nil || flags != "-tags=sysml_re" {
+		t.Fatalf("effectiveGoFlags = %q, %v; want the saved tag", flags, err)
+	}
+	if env := childEnv(1, 2, flags); !slices.Contains(env, "GOFLAGS=-tags=sysml_re -p=1") {
+		t.Errorf("child env %v dropped the saved build tag", env)
+	}
+}
+
+// TestRunKeepsSavedGoFlagsInEveryShard checks the saved value reaches both the
+// snapshot command and the shard, not just the runner's own Go process.
+func TestRunKeepsSavedGoFlagsInEveryShard(t *testing.T) {
+	t.Setenv("GOENV", filepath.Join(t.TempDir(), "goenv"))
+	t.Setenv("GOFLAGS", "")
+	if err := os.Unsetenv("GOFLAGS"); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := exec.Command("go", "env", "-w", "GOFLAGS=-tags=sysml_re").CombinedOutput(); err != nil {
+		t.Fatalf("go env -w: %v\n%s", err, out)
+	}
+	root := fakeRoot(t, allShardsScript())
+	bin := filepath.Join(root, "bin")
+	if err := os.MkdirAll(bin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	record := filepath.Join(root, "env-record")
+	script := "#!/usr/bin/env bash\nprintf 'GOFLAGS=%s|GOMAXPROCS=%s\\n' \"${GOFLAGS:-}\" \"${GOMAXPROCS:-}\" >> \"$GATE_TEST_RECORD\"\n"
+	if err := os.WriteFile(filepath.Join(bin, "make"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("GATE_TEST_RECORD", record)
+	var stdout, stderr bytes.Buffer
+	if err := run([]string{"-root", root, "-tier", "quick", "-shards", "cli", "-concurrency", "1", "-gomaxprocs", "2"}, &stdout, &stderr); err != nil {
+		t.Fatalf("run: %v\n%s", err, stderr.String())
+	}
+	data, err := os.ReadFile(record)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("recorded %d commands, want the snapshot and one shard:\n%s", len(lines), data)
+	}
+	for _, line := range lines {
+		if !strings.Contains(line, "GOFLAGS=-tags=sysml_re -p=1|GOMAXPROCS=2") {
+			t.Errorf("command %q lost the saved GOFLAGS or the CPU cap", line)
+		}
 	}
 }
 
@@ -499,7 +703,7 @@ func TestChildEnvKeepsTheTimingScriptsCallerGOMAXPROCS(t *testing.T) {
 	if err != nil || procs != 0 {
 		t.Fatalf("goMaxProcs = %d, %v; want 0 so the caller wins", procs, err)
 	}
-	env := childEnv(0, procs)
+	env := childEnv(0, procs, "")
 	count := 0
 	for _, entry := range env {
 		if strings.HasPrefix(entry, "GOMAXPROCS=") {
