@@ -893,6 +893,17 @@ func (w *Workspace) ensureSemanticsLocked() *resolve.Resolver {
 	return w.resolver
 }
 
+// RestoreSharedFacts rebuilds the audit unions and model gathers a recorded
+// analysis read, so a regather can invalidate readers of a fact that moved.
+func (w *Workspace) RestoreSharedFacts(names []string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	ctx := w.contextLocked()
+	for _, name := range names {
+		passes.Contributors(ctx, name)
+	}
+}
+
 // RestoreAnalyzed installs a recorded analysis over the document's current tree:
 // no passes run, and later index changes drop it by what the passes read.
 func (w *Workspace) RestoreAnalyzed(name string, diagnostics []diag.Diagnostic, reads *resolve.Reads) bool {

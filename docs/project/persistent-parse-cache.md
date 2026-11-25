@@ -66,7 +66,12 @@ miss — the service parses and records again.
 
 The record cache is consulted after the in-process lineage so a cold set restored from disk still
 primes the incremental workspace used by the next edit. Building that workspace installs the
-trees the parse cache already holds, so it does not re-parse the unchanged documents.
+trees the parse cache already holds, so it does not re-parse the unchanged documents. A set that
+stands in for a bundled library file is the exception: a workspace indexes the copy at the
+library's tier while a fresh parse indexes it as submitted input, so restore uses the recorded
+trees and diagnostics but does not give that set analysis stamps. Before the stamps are published,
+restore also rebuilds the workspace-wide facts the recorded reads name, so a later edit that moves
+one of them still rechecks the documents whose verdicts read it.
 
 ## Design decisions and alternatives rejected
 
@@ -98,7 +103,13 @@ trees the parse cache already holds, so it does not re-parse the unchanged docum
 - **Restore after lineage, not instead of it.** A restored model alone has no per-document
   analysis stamps, so a later edit could only report every document as affected. Letting the
   lineage see the set first keeps its incremental contract, and installing restored trees into
-  the workspace keeps that first look parse-free.
+  the workspace keeps that first look parse-free. A library stand-in keeps both paths distinct:
+  neither the incremental workspace nor its stamps describe a document set the fresh path has to
+  answer.
+- **Restore the unions a recorded verdict read.** Diagnostics can depend on a workspace-wide
+  audit union rather than on another document's declarations. The recorded reads name those
+  facts; rebuilding just those unions over the restored trees gives a later regather something to
+  compare against, without running the validation passes again.
 - **Build identity in every key.** Both record kinds include the build id, so a new binary never
   decodes a tree or diagnostics produced by code that may lay them out differently. The parse
   format version is part of the suffix and is bumped whenever the record or the AST stream
@@ -127,7 +138,8 @@ No RPC, protobuf message, capability flag or client method was added. The observ
   unexported `workspace/model.newParsedDocument` builds the document and its scope tree from a
   tree the caller already has, and the exported `Workspace.OpenParsed` installs it as an open
   buffer without parsing. `Workspace.RestoreAnalyzed` installs recorded diagnostics and reads
-  without analyzing, and `Resolver.RestoreReads` gives the restored answer a frame whose
+  without analyzing, `Workspace.RestoreSharedFacts` rebuilds the audit unions and model gathers
+  those reads name, and `Resolver.RestoreReads` gives the restored answer a frame whose
   invalidation on a later edit is the one the original passes recorded.
 - `docs/reference/wire-contract.md`, "Restoring a model another process parsed", documents the
   client-visible behaviour.
@@ -145,6 +157,8 @@ No RPC, protobuf message, capability flag or client method was added. The observ
 |---|---|
 | Process A parses a two-document set, edits it through its active workspace; process B asks for the final bytes and makes zero parse calls | `internal/frontend/grpc/parsecache_test.go:TestPersistentParseCacheRestoresAcrossProcessesWithNoParses` — two service instances share only the cache directory; the second counts every call to the parser seam and asserts none, and compares the answer with a fresh parse |
 | A restored set with a syntax error hides no sibling diagnostics | `parsecache_test.go:TestPersistentParseCacheRestoredSyntaxErrorDoesNotHideSiblingDiagnostics` — after the syntax error is fixed, the sibling whose unresolved type was never published is reported as affected with its diagnostic |
+| An edit to a restored set holding a library copy answers without a panic | `parsecache_library_restore_test.go:TestPersistentParseCacheRestoresAnEditedLibraryStandIn` — a copy of the bundled `ScalarValues.kerml` and an application document are parsed, edited and parsed again; the answer matches a fresh parse |
+| An edit that moves a restored shared fact rechecks its readers | `parsecache_shared_facts_test.go:TestPersistentParseCacheRestoresSharedFactsForAnEdit` — removing a mission requirement from one restored document drops the underived-verdict diagnostic from another and reports it as affected, as in a live workspace |
 | A transient undo back to a cached state keeps its stamps and cache order | `internal/frontend/grpc/keep_parity_test.go:TestParseModelKeepingTransientUndoParity` — the lineage advances between the base parse and a same-content request, which reuses the kept answer without promoting or inserting an entry |
 | A one-byte edit re-parses exactly one document | `TestPersistentParseCacheReparsesOnlyTheEditedDocument` — changes one byte of one document and asserts the counted calls are exactly that document |
 | A whole-set restore answers identically to a fresh parse | the same tests and `requireSameAnswers`, which compare the parse response, the diagnostics and the api-json conversion |
@@ -194,6 +208,14 @@ Run in the isolated development worktree on this branch:
 - `make docs-check` — the link checker reports one pre-existing broken link in
   `docs/project/third-party-notices.md` to a landing asset generated by `make
   docs-landing-assets`; no link in this page or the wire-contract page is reported.
+- A review round on the library stand-in and shared-fact findings re-ran the gates under the
+  same two-thread cap: `gofmt -l .` empty; `go build ./...` and `go vet ./...` passed;
+  `GOMAXPROCS=2 go test -p 2 -count=1` passed in full for `internal/frontend/grpc` (273.9 s),
+  `internal/workspace/libs` (63.1 s) and `internal/workspace/model` (102.8 s). The comment,
+  doc-id, doc-figure, changelog and spec-compliance gates were clean. Each new regression was
+  checked load-bearing by temporarily disabling its fix: the library case panicked at the nil
+  map write; the shared-fact case reported only `hub.sysml` affected and kept the stale
+  `oosem-requirement-not-derived` diagnostic on `sat.sysml`.
 
 Optional corpora gated by `OPENSYSML_REQUIRE_*` variables were not downloaded; those tests
 skip or fail as absent-input gates in a plain run. No converter toolchain was exercised by this
