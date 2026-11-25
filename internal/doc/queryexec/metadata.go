@@ -53,6 +53,37 @@ func (e *executor) annotationFeatureValues(sym *symbols.Symbol, declaring, featu
 	return result, present, nil
 }
 
+// annotationValues reports a row's bound values as
+// `<metadata>::<feature>=<value>` strings.
+func (e *executor) annotationValues(sym *symbols.Symbol) ([]Value, bool, error) {
+	if sym == nil {
+		return nil, false, nil
+	}
+	origin := ElementValue(sym).Origin()
+	var out []Value
+	for _, facts := range e.context.Model.AnnotationFactsOf(sym) {
+		for _, bound := range facts.Values {
+			if !bound.Bound {
+				continue
+			}
+			for _, value := range bound.Values {
+				converted, ok := e.filterValue(value, sym)
+				if !ok {
+					// A bulk read reports the bindings it can read; one binding
+					// the model cannot evaluate must not fail every row.
+					continue
+				}
+				text, ok := e.context.PropertyText(converted)
+				if !ok {
+					continue
+				}
+				out = append(out, valueAt(StringValue(facts.TypeFQN+"::"+bound.Feature+"="+text), origin))
+			}
+		}
+	}
+	return out, len(out) > 0, nil
+}
+
 // metadataConforms reports whether the metadata type named actual is the one
 // named declaring, or specializes it.
 func (e *executor) metadataConforms(actual, declaring string) bool {

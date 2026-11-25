@@ -1142,6 +1142,12 @@ func (e *executor) propertyValuesBeforeMemberPath(row Value, property string) ([
 		return e.eventPropertyValues(row, property)
 	}
 	sym, _ := row.Element()
+	if property == query.PropertyIsActive {
+		return e.stateActivityValues(sym)
+	}
+	if property == query.PropertyAnnotations {
+		return e.annotationValues(sym)
+	}
 	if isQueryableProperty(property) && readsAnnotationProperty(sym, property) {
 		values, present := e.reader.Values(sym, property)
 		if property == query.PropertyElementID && e.elementIDErr != nil {
@@ -1281,7 +1287,7 @@ func isQueryableProperty(property string) bool {
 		query.PropertyMultiplicityLower,
 		query.PropertyMultiplicityUpper,
 		query.PropertyElementID,
-		query.PropertySymbolKind:
+		query.PropertySymbolKind, query.PropertyIsActive, query.PropertyAnnotations:
 		return true
 	default:
 		return false

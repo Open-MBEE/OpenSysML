@@ -182,7 +182,8 @@ func annotationFacts(m *Model, annots []annotation) []symbols.AnnotationFacts {
 			facts.Type, _ = m.resolver.Index().RefTo(a.typ)
 		}
 		for _, feature := range a.featureNames() {
-			facts.Values = append(facts.Values, a.valueFacts(feature))
+			_, bound := a.bound[feature]
+			facts.Values = append(facts.Values, a.valueFacts(feature, bound))
 		}
 		out = append(out, facts)
 	}
@@ -222,7 +223,8 @@ func (m *Model) AnnotationSitesOf(sym *symbols.Symbol) []AnnotationSite {
 		}
 		site := AnnotationSite{TypeFQN: typFQN, Node: a.node, Span: a.span, Scope: a.scope, About: a.about}
 		for _, feature := range a.featureNames() {
-			site.Values = append(site.Values, a.valueFacts(feature))
+			_, bound := a.bound[feature]
+			site.Values = append(site.Values, a.valueFacts(feature, bound))
 		}
 		out = append(out, site)
 	}
@@ -367,10 +369,10 @@ func (a annotation) value(feature string) (symbols.FilterValue, bool) {
 
 // valueFacts states what the annotation binds feature to, as one constant and
 // as the sequence.
-func (a annotation) valueFacts(feature string) symbols.AnnotationValueFacts {
+func (a annotation) valueFacts(feature string, bound bool) symbols.AnnotationValueFacts {
 	value, _ := a.value(feature)
 	values, _ := a.values(feature)
-	return symbols.AnnotationValueFacts{Feature: feature, Value: value, Values: append([]symbols.FilterValue(nil), values...)}
+	return symbols.AnnotationValueFacts{Feature: feature, Value: value, Values: append([]symbols.FilterValue(nil), values...), Bound: bound}
 }
 
 // featureNames orders the annotation's valued features by name, so that what
