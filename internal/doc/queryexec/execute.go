@@ -89,6 +89,17 @@ type sequence struct {
 	columns []Column
 	cells   [][]Cell
 	depths  []int64
+	// unfiltered are the rows before any filter narrowed them; a filter
+	// classifies a built-in here so term order cannot change its verdict.
+	unfiltered []Value
+}
+
+// startingRows are the rows a sequence descends from before any filter.
+func startingRows(s sequence) []Value {
+	if s.unfiltered != nil {
+		return s.unfiltered
+	}
+	return s.values
 }
 
 // depthAt is the nesting depth of row index; 0 when none was assigned.
@@ -821,10 +832,11 @@ func (e *executor) errorAt(kind ErrorKind, expression queryplan.Expression) erro
 
 func cloneSequence(input sequence) sequence {
 	result := sequence{
-		values:  append([]Value(nil), input.values...),
-		columns: append([]Column(nil), input.columns...),
-		cells:   make([][]Cell, len(input.cells)),
-		depths:  append([]int64(nil), input.depths...),
+		values:     append([]Value(nil), input.values...),
+		columns:    append([]Column(nil), input.columns...),
+		cells:      make([][]Cell, len(input.cells)),
+		depths:     append([]int64(nil), input.depths...),
+		unfiltered: append([]Value(nil), input.unfiltered...),
 	}
 	for i := range input.cells {
 		result.cells[i] = cloneCells(input.cells[i])

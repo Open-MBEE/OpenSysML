@@ -91,6 +91,10 @@ func (e *executor) evaluateUnion(expression queryplan.Expression) (sequence, err
 	}
 	seen := make(map[setKey]struct{}, len(source.values)+len(other.values))
 	result := filtered(source)
+	// A later filter may defer a built-in by a shadow the other arm carried.
+	if extra := startingRows(other); len(extra) > 0 {
+		result.unfiltered = append(append([]Value(nil), result.unfiltered...), extra...)
+	}
 	for _, input := range []sequence{source, other} {
 		for i, value := range input.values {
 			key := setKeyOf(value)

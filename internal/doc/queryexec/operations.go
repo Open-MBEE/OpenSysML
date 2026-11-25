@@ -32,6 +32,26 @@ func keyOfRow(row Value) rowKey {
 	return rowKey{element: symbols.KeyOf(sym)}
 }
 
+// valueSource names the layer that supplied a value a filter compares. Only a
+// built-in read may defer its operand's kind to a shadowing model feature; a
+// declared feature or a computed column keeps the comparison strict.
+type valueSource uint8
+
+const (
+	sourceModel valueSource = iota
+	sourceBuiltin
+	sourceColumn
+)
+
+// sourcesOf repeats one source for every value of a read.
+func sourcesOf(count int, source valueSource) []valueSource {
+	out := make([]valueSource, count)
+	for i := range out {
+		out[i] = source
+	}
+	return out
+}
+
 // ownedRows returns the rows a row owns: the members of an element's scope, or
 // the objects an object's features hold.
 func (e *executor) ownedRows(expression queryplan.Expression, row Value) ([]Value, error) {
@@ -488,16 +508,23 @@ func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequen
 	var missing []*Error
 	seen := newCandidates()
 	columnIndex := projectedColumn(source, property)
-	var shadowed, shadowedChecked bool
+	// The shadow decision belongs to the query's original rows, not to the
+	// rows a preceding conjunction term left: reversing terms must not change
+	// whether an operand is valid.
+	deferBuiltin := false
+	if _, ok := e.deferredBuiltin(terminalProperty(property)); ok {
+		deferBuiltin = e.shadowedBuiltinRead(source, property)
+	}
+	var columnErr error
 	for i := range source.values {
 		e.note(seen, source.values[i])
-		values, reach, valueErr := e.featureValues(expression, source, i, property, columnIndex)
+		values, reach, origins, valueErr := e.featureValues(expression, source, i, property, columnIndex)
 		if valueErr != nil {
 			if !tolerate || !unserved(valueErr) {
 				return sequence{}, valueErr
 			}
 			// A property the evaluator does not derive is absent, as tolerated.
-			values, reach = nil, pathAbsent
+			values, reach, origins = nil, pathAbsent, nil
 		}
 		if reach == pathAbsent && !tolerate {
 			if m := e.missingFeature(expression, property, source.values[i]); m != nil {
@@ -505,15 +532,25 @@ func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequen
 			}
 		}
 		known.note(reach)
-		for _, actual := range values {
+		for j, actual := range values {
+			origin := sourceModel
+			if j < len(origins) {
+				origin = origins[j]
+			}
 			match, compareErr := e.compareValue(actual, comparison)
 			if compareErr != nil {
-				if !shadowedChecked {
-					shadowed, shadowedChecked = e.shadowedBuiltinRead(source, property), true
-				}
-				if e.deferredBuiltinComparison(property, shadowed) {
-					// A mixed row set may hold a built-in that cannot take this
-					// operand; skip it so a feature row can still match.
+				switch {
+				case origin == sourceBuiltin && deferBuiltin:
+					// Only an actual built-in read may be skipped where its
+					// name is shadowed elsewhere in the query's rows.
+					continue
+				case origin == sourceColumn:
+					// A computed column can be heterogeneous: an incompatible
+					// cell does not hide another cell that matches. If no cell
+					// matches, the operand error still surfaces.
+					if columnErr == nil {
+						columnErr = compareErr
+					}
 					continue
 				}
 				if compareErr != errComparison {
@@ -526,6 +563,12 @@ func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequen
 				break
 			}
 		}
+	}
+	if len(result.values) == 0 && columnErr != nil {
+		if columnErr != errComparison {
+			return sequence{}, e.invalidArgument(expression, "value", expected)
+		}
+		return sequence{}, e.operatorError(expression, operator)
 	}
 	if known.unknown() {
 		if err := e.unknownUnlessDeclared(expression, property, seen); err != nil {
@@ -547,25 +590,26 @@ func terminalProperty(property string) string {
 	return property
 }
 
-// shadowedBuiltinRead reports whether a row reads a bare built-in's terminal
-// property from a declared or held feature, including through a dotted prefix.
+// shadowedBuiltinRead reports whether the starting rows read a bare built-in
+// from a declared or held feature, including through a delegated declaration.
 func (e *executor) shadowedBuiltinRead(source sequence, property string) bool {
 	canonical, ok := e.deferredBuiltin(terminalProperty(property))
 	if !ok {
 		return false
 	}
+	rows := startingRows(source)
 	segments := strings.Split(property, ".")
-	for i := range source.values {
-		targets := []Value{source.values[i]}
+	for _, row := range rows {
+		targets := []Value{row}
 		if len(segments) > 1 {
-			related, reached, err := e.relatedElements(source.values[i], segments[:len(segments)-1])
+			related, reached, err := e.relatedElements(row, segments[:len(segments)-1])
 			if err != nil || !reached {
 				continue
 			}
 			targets = related
 		}
 		for _, target := range targets {
-			if sym, ok := target.Element(); ok {
+			if sym := target.Declaration(); sym != nil {
 				if _, present, err := e.shadowingFeatureValues(sym, canonical); err == nil && present {
 					return true
 				}
@@ -588,13 +632,6 @@ func (e *executor) deferredBuiltin(segment string) (string, bool) {
 		return "", false
 	}
 	return canonical, true
-}
-
-// deferredBuiltinComparison defers a bare built-in's kind only where a row
-// resolves it to a feature; explicit built-ins keep strict operand errors.
-func (e *executor) deferredBuiltinComparison(property string, shadowed bool) bool {
-	_, ok := e.deferredBuiltin(terminalProperty(property))
-	return ok && shadowed
 }
 
 func (e *executor) evaluateOrderBy(expression queryplan.Expression) (sequence, error) {
@@ -644,7 +681,7 @@ func (e *executor) evaluateOrderBy(expression queryplan.Expression) (sequence, e
 	var firstKey Value
 	for i, value := range source.values {
 		e.note(seen, value)
-		values, reach, valueErr := e.featureValues(expression, source, i, property, columnIndex)
+		values, reach, _, valueErr := e.featureValues(expression, source, i, property, columnIndex)
 		if valueErr != nil {
 			if missing == "error" || !unserved(valueErr) {
 				return sequence{}, valueErr
@@ -717,7 +754,10 @@ func (e *executor) evaluateOrderBy(expression queryplan.Expression) (sequence, e
 	if sortErr != nil {
 		return sequence{}, e.invalidOrder(expression, property, sortKeys[0], sortKeys[1])
 	}
-	result := sequence{columns: append([]Column(nil), source.columns...)}
+	result := sequence{
+		columns:    append([]Column(nil), source.columns...),
+		unfiltered: source.unfiltered,
+	}
 	if len(source.depths) > 0 {
 		result.depths = make([]int64, 0, len(items))
 	}
@@ -743,24 +783,25 @@ func projectedColumn(source sequence, property string) int {
 	return -1
 }
 
-// featureValues reads one row's feature: its projected cell when columnIndex
-// names one, otherwise the property of the row itself.
+// featureValues reads a projected cell when columnIndex names one, else the
+// row's property, and reports which layer supplied each value.
 func (e *executor) featureValues(
 	expression queryplan.Expression,
 	source sequence,
 	row int,
 	property string,
 	columnIndex int,
-) ([]Value, pathReach, error) {
+) ([]Value, pathReach, []valueSource, error) {
 	if columnIndex >= 0 && row < len(source.cells) {
-		return source.cells[row][columnIndex].Values(), pathPresent, nil
+		values := source.cells[row][columnIndex].Values()
+		return values, pathPresent, sourcesOf(len(values), sourceColumn), nil
 	}
 	value := source.values[row]
-	values, reach, err := e.propertyReach(value, property)
+	values, reach, origins, err := e.propertyReachWithSource(value, property)
 	if err != nil {
-		return nil, pathAbsent, e.unevaluable(expression, property, value, err)
+		return nil, pathAbsent, nil, e.unevaluable(expression, property, value, err)
 	}
-	return values, reach, nil
+	return values, reach, origins, nil
 }
 
 // WildcardProperty among a Project's properties stands for every property the
@@ -784,10 +825,11 @@ func (e *executor) evaluateProject(expression queryplan.Expression) (sequence, e
 	}
 	total := len(p.properties) + len(p.computed)
 	result := sequence{
-		values:  append([]Value(nil), source.values...),
-		columns: make([]Column, total),
-		cells:   make([][]Cell, len(source.values)),
-		depths:  append([]int64(nil), source.depths...),
+		values:     append([]Value(nil), source.values...),
+		columns:    make([]Column, total),
+		cells:      make([][]Cell, len(source.values)),
+		depths:     append([]int64(nil), source.depths...),
+		unfiltered: source.unfiltered,
 	}
 	for i, property := range p.properties {
 		result.columns[i] = Column{name: property, origin: expression.Origin()}
@@ -1072,36 +1114,43 @@ func (e *executor) propertyValues(row Value, property string) ([]Value, bool, er
 // propertyReach is propertyValues telling a path the row lacks from one an empty step of it cut short,
 // which reads as an empty cell where no property path reaches further.
 func (e *executor) propertyReach(row Value, property string) ([]Value, pathReach, error) {
-	values, present, err := e.propertyValuesBeforeMemberPath(row, property)
+	values, reach, _, err := e.propertyReachWithSource(row, property)
+	return values, reach, err
+}
+
+// propertyReachWithSource also reports which layer supplied each value, in the
+// order the values were read, so a filter can tell a built-in from a feature.
+func (e *executor) propertyReachWithSource(row Value, property string) ([]Value, pathReach, []valueSource, error) {
+	values, present, origins, err := e.propertyValuesBeforeMemberPathWithSource(row, property)
 	if present || err != nil {
-		return values, reachOf(present), err
+		return values, reachOf(present), origins, err
 	}
 	sym, isElement := row.Element()
 	if !isElement {
 		if _, _, isObject := row.Object(); isObject {
 			// An object's member path reads the objects its features hold.
-			values, present, err = e.propertyPathValues(row, property)
-			return values, reachOf(present), err
+			values, present, origins, err = e.propertyPathValuesWithSource(row, property)
+			return values, reachOf(present), origins, err
 		}
-		return nil, pathAbsent, nil
+		return nil, pathAbsent, nil, nil
 	}
 	reach := pathAbsent
 	segments, ok := parseMemberPath(property)
 	if ok && len(segments) > 1 {
 		var overflow *memberOverflow
-		values, reach, overflow, err = e.memberPathValues(sym, segments)
+		values, reach, origins, overflow, err = e.memberPathValuesWithSource(sym, segments)
 		if err == nil && overflow != nil {
 			err = fmt.Errorf("%s holds %d values, more than its multiplicity admits", property, overflow.count)
 		}
 		if reach == pathPresent || err != nil {
-			return values, reach, err
+			return values, reach, origins, err
 		}
 	}
-	values, present, err = e.propertyPathValues(row, property)
+	values, present, origins, err = e.propertyPathValuesWithSource(row, property)
 	if present || err != nil {
-		return values, reachOf(present), err
+		return values, reachOf(present), origins, err
 	}
-	return nil, reach, nil
+	return nil, reach, nil, nil
 }
 
 // propertyPathValues reads a dotted path of properties from an element row:
@@ -1109,30 +1158,37 @@ func (e *executor) propertyReach(row Value, property string) ([]Value, pathReach
 // property the next segment names. A segment absent on every element it is
 // read of makes the path absent on this row.
 func (e *executor) propertyPathValues(row Value, property string) ([]Value, bool, error) {
+	values, present, _, err := e.propertyPathValuesWithSource(row, property)
+	return values, present, err
+}
+
+func (e *executor) propertyPathValuesWithSource(row Value, property string) ([]Value, bool, []valueSource, error) {
 	segments := strings.Split(property, ".")
 	if len(segments) < 2 {
-		return nil, false, nil
+		return nil, false, nil, nil
 	}
 	for _, segment := range segments {
 		if segment == "" {
-			return nil, false, nil
+			return nil, false, nil, nil
 		}
 	}
 	current, reached, err := e.relatedElements(row, segments[:len(segments)-1])
 	if !reached || err != nil {
-		return nil, false, err
+		return nil, false, nil, err
 	}
 	var out []Value
+	var origins []valueSource
 	present := false
 	for _, value := range current {
-		values, found, err := e.propertyValuesBeforeMemberPath(value, segments[len(segments)-1])
+		values, found, sources, err := e.propertyValuesBeforeMemberPathWithSource(value, segments[len(segments)-1])
 		if err != nil {
-			return nil, false, err
+			return nil, false, nil, err
 		}
 		present = present || found
 		out = append(out, values...)
+		origins = append(origins, sources...)
 	}
-	return out, present, nil
+	return out, present, origins, nil
 }
 
 // relatedElements follows the property path's segments from the row to the
@@ -1191,6 +1247,37 @@ func (e *executor) reflectiveQueryableValues(sym *symbols.Symbol, property strin
 }
 
 func (e *executor) propertyValuesBeforeMemberPath(row Value, property string) ([]Value, bool, error) {
+	values, present, _, err := e.propertyValuesBeforeMemberPathWithSource(row, property)
+	return values, present, err
+}
+
+// delegatedReadSource tells a built-in read delegated to a row's declaration
+// from a declared feature of the same name.
+func (e *executor) delegatedReadSource(row Value, property, builtin string, isBuiltin, explicitBuiltin, explicitFeature bool) valueSource {
+	if !isBuiltin || explicitFeature || explicitBuiltin || query.IsBuiltinAlias(property) {
+		return sourceModel
+	}
+	if sym := row.Declaration(); sym != nil {
+		if _, present, err := e.shadowingFeatureValues(sym, builtin); err == nil && present {
+			return sourceModel
+		}
+	}
+	return sourceBuiltin
+}
+
+// objectReadSource mirrors objectPropertyValues' precedence: a held feature
+// shadows a bare built-in, while the evaluator's own property does not.
+func (e *executor) objectReadSource(row Value, builtin string, isBuiltin, explicitFeature bool) valueSource {
+	if !isBuiltin || explicitFeature {
+		return sourceModel
+	}
+	if _, present, err := e.objectFeatureValues(row, builtin); err == nil && present {
+		return sourceModel
+	}
+	return sourceBuiltin
+}
+
+func (e *executor) propertyValuesBeforeMemberPathWithSource(row Value, property string) ([]Value, bool, []valueSource, error) {
 	builtin, isBuiltin := query.BuiltinProperty(property)
 	// An explicit model feature or built-in decides the read. The bare name
 	// gives a declared feature precedence, as body, locale and language do.
@@ -1201,63 +1288,76 @@ func (e *executor) propertyValuesBeforeMemberPath(row Value, property string) ([
 		if !present && err == nil && property == PropertyValuation {
 			// An object is no feature: its valuation is absent unless it
 			// holds a member so named.
-			return nil, true, nil
+			return nil, true, nil, nil
 		}
-		return values, present, err
+		return values, present, sourcesOf(len(values), e.objectReadSource(row, builtin, isBuiltin, explicitFeature)), err
 	}
 	if _, isVerdict := row.Verdict(); isVerdict {
-		return e.verdictPropertyValues(row, property)
+		values, present, err := e.verdictPropertyValues(row, property)
+		return values, present, sourcesOf(len(values),
+			e.delegatedReadSource(row, property, builtin, isBuiltin, explicitBuiltin, explicitFeature)), err
 	}
 	if _, isState := row.State(); isState {
-		return e.statePropertyValues(row, property)
+		values, present, err := e.statePropertyValues(row, property)
+		return values, present, sourcesOf(len(values),
+			e.delegatedReadSource(row, property, builtin, isBuiltin, explicitBuiltin, explicitFeature)), err
 	}
 	if _, isEvent := row.Event(); isEvent {
-		return e.eventPropertyValues(row, property)
+		values, present, err := e.eventPropertyValues(row, property)
+		return values, present, sourcesOf(len(values),
+			e.delegatedReadSource(row, property, builtin, isBuiltin, explicitBuiltin, explicitFeature)), err
 	}
 	sym, _ := row.Element()
 	if isBuiltin && query.IsBuiltinAlias(property) && explicitFeature {
-		return e.shadowingFeatureValues(sym, builtin)
+		values, present, err := e.shadowingFeatureValues(sym, builtin)
+		return values, present, sourcesOf(len(values), sourceModel), err
 	}
 	if isBuiltin && !explicitBuiltin && !explicitFeature {
 		if values, present, err := e.shadowingFeatureValues(sym, builtin); present || err != nil {
-			return values, present, err
+			return values, present, sourcesOf(len(values), sourceModel), err
 		}
 	}
 	if isBuiltin && !explicitFeature {
+		var values []Value
+		var present bool
+		var err error
 		if builtin == query.PropertyIsActive {
-			return e.stateActivityValues(sym)
+			values, present, err = e.stateActivityValues(sym)
+		} else {
+			values, present, err = e.annotationValues(sym)
 		}
-		return e.annotationValues(sym)
+		return values, present, sourcesOf(len(values), sourceBuiltin), err
 	}
 	if isQueryableProperty(property) && readsAnnotationProperty(sym, property) {
 		values, present := e.reader.Values(sym, property)
 		if property == query.PropertyElementID && e.elementIDErr != nil {
-			return nil, true, e.unevaluable(queryplan.Expression{}, property, row, e.elementIDErr)
+			return nil, true, nil, e.unevaluable(queryplan.Expression{}, property, row, e.elementIDErr)
 		}
 		if !present {
 			values, err := e.reflectiveQueryableValues(sym, property)
-			return values, true, err
+			return values, true, sourcesOf(len(values), sourceModel), err
 		}
 		result := make([]Value, 0, len(values))
 		for _, value := range values {
 			result = append(result, e.typedPropertyValue(property, value, sym))
 		}
-		return result, true, nil
+		return result, true, sourcesOf(len(result), sourceModel), nil
 	}
 	if property == PropertyValuation {
 		values, err := e.valuationValues(sym)
-		return values, true, err
+		return values, true, sourcesOf(len(values), sourceModel), err
 	}
 	if values, present, err := e.declaredFeatureValues(sym, property); present || err != nil {
-		return values, present, err
+		return values, present, sourcesOf(len(values), sourceModel), err
 	}
 	if values, present, err := e.metadataPathValues(sym, property); present || err != nil {
-		return values, present, err
+		return values, present, sourcesOf(len(values), sourceModel), err
 	}
 	if values, present := e.verifyEndValues(sym, property); present {
-		return values, true, nil
+		return values, true, sourcesOf(len(values), sourceModel), nil
 	}
-	return e.metaclassPropertyValues(sym, property)
+	values, present, err := e.metaclassPropertyValues(sym, property)
+	return values, present, sourcesOf(len(values), sourceModel), err
 }
 
 // verifyEndValues reads verifiedRequirement or verifyingCase of a `verify`, whose own metaclass
@@ -1721,7 +1821,10 @@ func (e *executor) resolveClassification(name string) *symbols.Symbol {
 // filtered starts a filter's result, keeping the source's projected columns
 // even when no row is selected.
 func filtered(source sequence) sequence {
-	return sequence{columns: append([]Column(nil), source.columns...)}
+	return sequence{
+		columns:    append([]Column(nil), source.columns...),
+		unfiltered: startingRows(source),
+	}
 }
 
 // appendSelected appends row index of source to result; once either side

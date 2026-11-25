@@ -2,6 +2,7 @@ package queryexec
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
@@ -62,6 +63,24 @@ type memberOverflow struct {
 // memberPathValues walks a member path from the row element. A segment naming neither a member nor a metaclass
 // feature makes the path absent, one holding no element leaves it vacant. The first overfull member is reported.
 func (e *executor) memberPathValues(sym *symbols.Symbol, segments []string) ([]Value, pathReach, *memberOverflow, error) {
+	values, reach, _, overflow, err := e.memberPathValuesWithSource(sym, segments)
+	return values, reach, overflow, err
+}
+
+// memberPathSegmentSource tells a built-in read at the end of a member path
+// from a declared feature of the same name.
+func (e *executor) memberPathSegmentSource(sym *symbols.Symbol, segment string) valueSource {
+	canonical, ok := query.BuiltinProperty(segment)
+	if !ok || e.context.Builtins[segment] || e.context.Builtins[canonical] || e.context.Features[segment] {
+		return sourceModel
+	}
+	if _, present, err := e.shadowingFeatureValues(sym, canonical); err == nil && present {
+		return sourceModel
+	}
+	return sourceBuiltin
+}
+
+func (e *executor) memberPathValuesWithSource(sym *symbols.Symbol, segments []string) ([]Value, pathReach, []valueSource, *memberOverflow, error) {
 	reached := []*symbols.Symbol{sym}
 	for _, segment := range segments[:len(segments)-1] {
 		var next []*symbols.Symbol
@@ -73,20 +92,22 @@ func (e *executor) memberPathValues(sym *symbols.Symbol, segments []string) ([]V
 		}
 		if len(next) == 0 {
 			if known {
-				return nil, pathVacant, nil, nil
+				return nil, pathVacant, nil, nil, nil
 			}
-			return nil, pathAbsent, nil, nil
+			return nil, pathAbsent, nil, nil, nil
 		}
 		reached = next
 	}
 	last := segments[len(segments)-1]
 	var values []Value
+	var sources []valueSource
 	var overflow *memberOverflow
 	present := false
 	for _, current := range reached {
 		found, ok, err := e.declaredFeatureValues(current, last)
+		source := sourceModel
 		if err != nil {
-			return nil, pathAbsent, nil, err
+			return nil, pathAbsent, nil, nil, err
 		}
 		if ok {
 			if m, _ := e.context.Model.LookupMember(current, last); m != nil && overflow == nil && e.exceedsMultiplicity(m, len(found)) {
@@ -95,18 +116,20 @@ func (e *executor) memberPathValues(sym *symbols.Symbol, segments []string) ([]V
 		} else {
 			found, ok, err = e.metaclassSegmentValues(current, last)
 			if err != nil {
-				return nil, pathAbsent, nil, err
+				return nil, pathAbsent, nil, nil, err
 			}
+			source = e.memberPathSegmentSource(current, last)
 		}
 		if ok {
 			present = true
 			values = append(values, found...)
+			sources = append(sources, sourcesOf(len(found), source)...)
 		}
 	}
 	if !present {
-		return nil, pathAbsent, nil, nil
+		return nil, pathAbsent, nil, nil, nil
 	}
-	return values, pathPresent, overflow, nil
+	return values, pathPresent, sources, overflow, nil
 }
 
 // exceedsMultiplicity reports whether count values are more than member's governing multiplicity admits.
