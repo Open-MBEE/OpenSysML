@@ -93,6 +93,52 @@ func TestShardTargetsSkipTheSnapshotWhenTheRunnerDidIt(t *testing.T) {
 	}
 }
 
+// TestGateRunnerPlanGivesToolsModuleOneOwner pins that a local all-shards plan
+// runs the tools module once, while a rest-only plan keeps its coverage.
+func TestGateRunnerPlanGivesToolsModuleOneOwner(t *testing.T) {
+	lines := strings.Split(strings.TrimSpace(gateRunnerOutput(t, "-tier", "quick", "-shards", "grpc,rest,tools", "-plan")), "\n")
+	var rest, tools string
+	for _, line := range lines {
+		if strings.Contains(line, "SHARDS=rest ") || strings.HasSuffix(line, "SHARDS=rest") {
+			rest = line
+		}
+		if strings.Contains(line, "SHARDS=tools ") || strings.HasSuffix(line, "SHARDS=tools") {
+			tools = line
+		}
+	}
+	if rest == "" || tools == "" {
+		t.Fatalf("plan lacks rest or tools:\n%s", strings.Join(lines, "\n"))
+	}
+	if !strings.Contains(rest, "SKIP_TOOLS_TESTS=1") {
+		t.Errorf("rest command %q still runs the tools module", rest)
+	}
+	if strings.Contains(tools, "SKIP_TOOLS_TESTS=1") {
+		t.Errorf("tools command %q lost the tools module", tools)
+	}
+	if plan := gateRunnerOutput(t, "-tier", "quick", "-shards", "rest", "-plan"); strings.Contains(plan, "SKIP_TOOLS_TESTS=1") {
+		t.Errorf("rest-only plan dropped the tools module:\n%s", plan)
+	}
+}
+
+// TestShardRecipeHonoursTheRunnerToolsOwner pins the make guard that keeps the
+// tools module with one shard without changing any CI job's coverage.
+func TestShardRecipeHonoursTheRunnerToolsOwner(t *testing.T) {
+	makefile := readRepoFile(t, "Makefile")
+	if !strings.Contains(makefile, "SKIP_TOOLS_TESTS ?=") {
+		t.Fatal("Makefile does not declare SKIP_TOOLS_TESTS")
+	}
+	for _, line := range strings.Split(makefile, "\n") {
+		if !strings.Contains(line, `case "$(SHARD)" in rest|tools)`) {
+			continue
+		}
+		if !strings.Contains(line, "$(if $(SKIP_TOOLS_TESTS),") {
+			t.Errorf("tools module recipe does not honour SKIP_TOOLS_TESTS:\n%s", line)
+		}
+		return
+	}
+	t.Fatal("Makefile has no tools module recipe")
+}
+
 // TestShardScriptAllListsEveryDeclaredShard pins the discovery surface the
 // runner uses to the list the hygiene checks already read from the script.
 func TestShardScriptAllListsEveryDeclaredShard(t *testing.T) {

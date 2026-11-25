@@ -101,6 +101,13 @@ still fails its shard and exits non-zero through the existing require
 variables. The process exits non-zero when any shard fails, and it attempts
 every shard even after one fails, matching CI's `fail-fast: false`.
 
+The tools module runs with `tools` and `rest` in CI's separate jobs. When a
+local plan contains both, the runner passes `SKIP_TOOLS_TESTS=1` to `rest` so
+the module and its snapshot generator test run once; a plan with only `rest`
+keeps that coverage. The generator's default-path test writes its snapshot into
+a fixture checkout, so its own execution cannot truncate a snapshot another
+shard is embedding.
+
 A shard's output is never held in full: it is streamed to the terminal with
 `-v`, and otherwise only the last `-log-tail` bytes are kept for a failing
 shard's diagnostic. The runner handles `SIGINT` and `SIGTERM` by putting each
