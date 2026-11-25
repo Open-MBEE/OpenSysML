@@ -92,6 +92,10 @@ func (ec *EvalContext) lookupHeld(qn *ast.QualifiedName, at *program.Expr) (val 
 	if !ok || sym == nil {
 		return Value{}, false, nil, nil
 	}
+	// A connection is read from the performance declaring it, whatever a frame inside binds its name to.
+	if val, ok, err := ec.performedConnector(sym); ok {
+		return val, err == nil, nil, err
+	}
 	for i := len(ec.frames) - 1; i >= 0; i-- {
 		f := &ec.frames[i]
 		bound, holds := f.heldName(sym)

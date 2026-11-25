@@ -326,13 +326,11 @@ type parseOptions struct {
 // WithBaseModel relates ParseDocuments to a previous model of the same documents, so
 // Model.Affected names the documents whose results may differ; requires parse_sources_affected.
 func WithBaseModel(base *Model) ParseOption {
-	return func(o *parseOptions) {
-		if base == nil {
-			o.base = ""
-			return
-		}
-		o.base = base.Hash
+	hash := ""
+	if base != nil {
+		hash = base.Hash
 	}
+	return func(o *parseOptions) { o.base = hash }
 }
 
 // WithLanguage names the notation of inline content: LanguageSysML (the

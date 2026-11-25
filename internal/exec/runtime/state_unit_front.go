@@ -522,7 +522,7 @@ func (e *StateExecutor) drawOnPath(head unitHead) error {
 		fps = append(fps, e.headFootprint(head))
 		choice := ChoicePoint{Kind: choiceEntryOrder, Where: head.site, Alternatives: alternatives, File: e.stateMachine.DocName}
 		choice.alike = e.ctx.heldAlike
-		classifyChoice(&choice, fps, nil)
+		classifyChoice(e.ctx.choiceSerials, &choice, fps, nil)
 		pick := e.ctx.scheduling().choose(choice, nil)
 		if err := e.ctx.scheduling().refusal(); err != nil {
 			return err
@@ -597,7 +597,7 @@ func (f *unitFront) drain() (err error) {
 				fps[i] = q.footprint
 			}
 			choice.alike = f.exec.ctx.heldAlike
-			classifyChoice(&choice, fps, nil)
+			classifyChoice(f.exec.ctx.choiceSerials, &choice, fps, nil)
 			pick = f.exec.ctx.scheduling().choose(choice, nil)
 			if err := f.exec.ctx.scheduling().refusal(); err != nil {
 				return err
