@@ -181,6 +181,7 @@ exclude_docs: |
   project/satellite-network-stress-test.md
   project/large-model-scaling-design.md
   project/native-compilation.md
+  project/test-gate-throughput.md
   project/releasing.md
   project/mdk-parity.md
   project/macos-distribution.md

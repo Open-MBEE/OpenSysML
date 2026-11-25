@@ -151,7 +151,15 @@ run refill it:
 
 ```bash
 go clean -cache
-rm -rf "$GOTMPDIR"/*
+# Only remove from an explicit, approved root: an unset GOTMPDIR must never
+# turn the glob into a deletion against the filesystem root.
+: "${HOME:?HOME must be set to resolve the approved cache root}"
+: "${GOTMPDIR:?set GOTMPDIR to the shared cache directory before removing it}"
+case "$GOTMPDIR" in
+  "$HOME"/.cache/opensysml/*) ;;
+  *) printf 'refusing to remove outside %s\n' "$HOME/.cache/opensysml" >&2; exit 1 ;;
+esac
+rm -rf -- "$GOTMPDIR"/*
 ```
 
 **Trade-off with CI.** Each CI shard runs in its own job with its own restored
@@ -213,15 +221,20 @@ Both use `GOMAXPROCS=2` and the home-filesystem `GOCACHE`, `GOTMPDIR` and
 `TMPDIR`. Both also export `GOFLAGS=-count=1`, which disables Go's successful
 test-result cache: neither arm can warm a cached replay for the other. The
 shared build cache stays warm for both (it only affects compilation), so the
-figures measure test execution and runner overhead, **not cache hits**. The
-recorded figures below predate that change; re-run the script for a directly
-comparable current measurement. Replace the shards in the script to
-measure another pair.
+figures measure test execution and runner overhead, **not cache hits**. Before
+timing, the script compiles the test binaries of both shards — every package
+selected for `grpc` and `rest` by `scripts/race-shard.sh`, plus the tools module
+`rest` owns — so a cold cache cannot charge the serial arm for compilation the
+bounded arm would reuse. The recorded figures below predate those changes;
+re-run the script for a directly comparable current measurement. Replace the
+shards in the script to measure another pair.
 
 `GATE_TIMING_TMP` may name a relative directory under `$HOME/.cache/opensysml`,
-where the script puts its temporary directories. An absolute path, a `..`
-component, an unsupported character or a symlinked path component is rejected
-before anything is created or written; with the variable unset the script uses
+where the script puts its temporary directories. The entire value is checked:
+an absolute path, a `..` component, an unsupported character (including any
+control character) or a symlinked path component is rejected before anything
+is created or written, and the directory is rebuilt from the validated
+components. With the variable unset the script uses
 `$HOME/.cache/opensysml/gate-timing`.
 
 Recorded on **one host** (16 CPUs, 31264 MiB RAM, load average 2.40, Go 1.27.4,
