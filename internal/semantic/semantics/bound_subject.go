@@ -42,44 +42,48 @@ func (m *Model) boundSubjectOf(sym *symbols.Symbol) boundSubjectResult {
 	if subject == nil || m.resolver == nil {
 		return boundSubjectResult{}
 	}
-	// The owned subject comes first, then the ones it redefines: a redefining
-	// subject with no value of its own inherits the general's binding.
+	// Walk every redefined branch: a redefining subject with no value inherits
+	// a general's binding, even from a sibling branch the first branch misses.
 	visited := map[*symbols.Symbol]bool{}
 	parameters := map[*symbols.Symbol]bool{}
 	var chain []*symbols.Symbol
-	for current := subject; current != nil && !visited[current]; {
+	queue := []*symbols.Symbol{subject}
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+		if current == nil || visited[current] {
+			continue
+		}
 		visited[current] = true
 		parameters[current] = true
 		chain = append(chain, current)
-		var next *symbols.Symbol
 		for _, general := range m.AllRedefinedFeatures(current) {
 			if general != nil && !visited[general] {
-				next = general
-				break
+				queue = append(queue, general)
 			}
 		}
-		current = next
 	}
 	for _, declared := range chain {
 		binding, isDefault, isInitial, ok := ast.ValuePartOf(declared.Decl)
 		if !ok || isDefault || isInitial {
 			continue
 		}
-		// A cast keeps the declaration of the value it applies to, not its type.
+		// A plain binding is final: a general cannot replace it; a cast keeps
+		// the value's declaration, not the type's.
 		binding = boundValueOf(binding)
 		if binding == nil {
-			continue
+			return boundSubjectResult{}
 		}
 		target, ok := m.resolver.ResolveTarget(declared.OwnerScope, binding)
 		if !ok || target == nil {
-			continue
+			return boundSubjectResult{}
 		}
 		if alias, ok := m.resolver.ResolveAliasTarget(target); ok {
 			target = alias
 		}
 		// No subject parameter in the chain is the declaration the case checks.
 		if parameters[target] || symbols.SameElement(target, declared) {
-			continue
+			return boundSubjectResult{}
 		}
 		return boundSubjectResult{target: target, ok: true}
 	}
