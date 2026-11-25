@@ -877,13 +877,38 @@ func (w *Workspace) memberSymbolsLocked(resolver *resolve.Resolver, sem *semanti
 // semanticsLocked is the workspace's resolver with its model and argument typer, made
 // on first use and kept for its life; it tracks per document what each entry read.
 func (w *Workspace) semanticsLocked() (*resolve.Resolver, *semantics.Model) {
+	w.ensureSemanticsLocked()
+	w.settleGathersLocked()
+	return w.resolver, w.model
+}
+
+// ensureSemanticsLocked makes the resolver and gathers a workspace owns on
+// first semantic use, without settling gathers. Caller holds the write lock.
+func (w *Workspace) ensureSemanticsLocked() *resolve.Resolver {
 	if w.resolver == nil {
 		resolver, sem := w.resolverOver(w.index)
 		resolver.Track()
 		w.resolver, w.model, w.gathers = resolver, sem, passes.NewGathers()
 	}
-	w.settleGathersLocked()
-	return w.resolver, w.model
+	return w.resolver
+}
+
+// RestoreAnalyzed installs a recorded analysis over the document's current tree:
+// no passes run, and later index changes drop it by what the passes read.
+func (w *Workspace) RestoreAnalyzed(name string, diagnostics []diag.Diagnostic, reads *resolve.Reads) bool {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	doc := w.docs[name]
+	if doc == nil || doc.Recorded() || len(doc.ParseDiagnostics) > 0 || reads == nil {
+		return false
+	}
+	w.diagCache[name] = diagnostics
+	if resolver := w.ensureSemanticsLocked(); !resolver.RestoreReads(name, *reads) {
+		delete(w.diagCache, name)
+		return false
+	}
+	w.stampLocked(name)
+	return true
 }
 
 // sharedLocked is the workspace's semantic state as a pass context shares it.

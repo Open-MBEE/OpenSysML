@@ -1,9 +1,12 @@
 package libs
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
+	"encoding/gob"
 	"encoding/hex"
+	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -32,8 +35,12 @@ var parseRecordSuffix = "-p" + strconv.Itoa(parseFormatVersion)
 // a reader of one kind must never see the other's files.
 func (c *Cache) parseRecordDir() string { return filepath.Join(c.dir, "parses") }
 
-// ParseRecord is one document's parse, filed under its content for another process.
-// AST is an astcodec stream rooted at RootID; the index and analysis are derived.
+// ErrDamagedParseRecord is the typed miss for a record whose payload digest
+// disagrees with its contents, including one gob could decode into wrong data.
+var ErrDamagedParseRecord = errors.New("damaged parse record")
+
+// ParseRecord is one document's parse, filed by content; AST is rooted at RootID
+// and Digest covers every other field, so damage is a miss, not an answer.
 type ParseRecord struct {
 	Name          string
 	Kind          source.Kind
@@ -43,6 +50,19 @@ type ParseRecord struct {
 	ParseDiags    []parser.Diagnostic // parse errors
 	ParseWarnings []parser.Diagnostic // parser warnings, errors of their own kind to the reporter
 	Warnings      []string            // warnings from reading the file, not from parsing it
+	Digest        [sha256.Size]byte   // digest of the fields above
+}
+
+// payloadDigest hashes every field but Digest itself. A copy is hashed so a
+// store leaves its caller's record untouched.
+func (r *ParseRecord) payloadDigest() [sha256.Size]byte {
+	copy := *r
+	copy.Digest = [sha256.Size]byte{}
+	var buf bytes.Buffer
+	if err := gob.NewEncoder(&buf).Encode(&copy); err != nil {
+		return [sha256.Size]byte{}
+	}
+	return sha256.Sum256(buf.Bytes())
 }
 
 // ParseKey keys a parse by name, language, kind, content and build; the fields
@@ -64,12 +84,28 @@ func (c *Cache) ParseKey(name, language string, kind source.Kind, content []byte
 // LoadParse returns the parse record stored under key, or (nil, false) on any
 // miss, including a damaged record. A miss is never an error: the caller parses.
 func (c *Cache) LoadParse(key string) (*ParseRecord, bool) {
-	var rec ParseRecord
+	rec, err := c.LoadParseChecked(key)
+	return rec, err == nil && rec != nil
+}
+
+// LoadParseChecked returns the record under key, a typed miss for damage, and
+// (nil, nil) when absent; a damaged file is removed so a store rewrites it.
+func (c *Cache) LoadParseChecked(key string) (*ParseRecord, error) {
 	// #nosec G703 -- key is hex SHA-256 the cache computed, not caller text.
-	if !loadAt(filepath.Join(c.parseRecordDir(), key+".idx"), &rec) {
-		return nil, false
+	path := filepath.Join(c.parseRecordDir(), key+".idx")
+	var rec ParseRecord
+	if !loadAt(path, &rec) {
+		if _, err := os.Stat(path); err == nil {
+			_ = os.Remove(path)
+			return nil, ErrDamagedParseRecord
+		}
+		return nil, nil
 	}
-	return &rec, true
+	if rec.Digest != rec.payloadDigest() {
+		_ = os.Remove(path)
+		return nil, ErrDamagedParseRecord
+	}
+	return &rec, nil
 }
 
 // StoreParse writes rec under key atomically and evicts the least recently used
@@ -79,6 +115,7 @@ func (c *Cache) StoreParse(key string, rec *ParseRecord) error {
 	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return err
 	}
+	rec.Digest = rec.payloadDigest()
 	// #nosec G703 -- key is hex SHA-256 the cache computed, not caller text.
 	final := filepath.Join(dir, key+".idx")
 	if err := storeAt(dir, final, rec); err != nil {

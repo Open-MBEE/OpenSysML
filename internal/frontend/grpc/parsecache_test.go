@@ -2,6 +2,8 @@ package grpc
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -311,6 +313,48 @@ func TestPersistentParseCacheRecoversFromADamagedRecord(t *testing.T) {
 	}
 }
 
+// A bit flip that changes a stored payload is a benign miss: the service parses
+// again and never answers from corrupt or invalid UTF-8 text.
+func TestPersistentParseCacheBitFlipIsABenignMiss(t *testing.T) {
+	request := twoDocuments(sourcesTop)
+	want := answersOf(t, mustNewService(t, 10), request)
+	cache, dir := recordCacheIn(t)
+	answersOf(t, recordingService(t, cache), request)
+
+	key := cache.ParseKey("lib.sysml", "", source.KindSysML, []byte(sourcesLibrary))
+	path := filepath.Join(dir, "parses", key+".idx")
+	pristine, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tested := 0
+	for i := range pristine {
+		flipped := append([]byte(nil), pristine...)
+		flipped[i] ^= 0x01
+		if err := os.WriteFile(path, flipped, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := cache.LoadParseChecked(key); !errors.Is(err, libs.ErrDamagedParseRecord) {
+			continue // a byte gob's run encoding never reads leaves the payload intact
+		}
+		srv, counter := countingService(t, cache)
+		requireSameAnswers(t, "bit-flipped record", answersOf(t, srv, request), want)
+		if names := counter.calls(); len(names) != 1 || names[0] != "lib.sysml" {
+			t.Fatalf("a bit-flipped record parsed %v, want only lib.sysml", names)
+		}
+		tested++
+		if tested == 3 {
+			break
+		}
+		if err := os.WriteFile(path, pristine, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if tested == 0 {
+		t.Fatal("no bit flip changed the stored payload")
+	}
+}
+
 // A record with matching metadata but a root id that names a member node is a
 // miss: the decoder must run, refuse the tree, and leave the parse to the caller.
 func TestPersistentParseCacheRefusesAnImplausibleTree(t *testing.T) {
@@ -410,6 +454,55 @@ func TestPersistentParseCacheIsOptIn(t *testing.T) {
 	requireSameAnswers(t, "no cache", answersOf(t, srv, request), want)
 	if names := counter.calls(); len(names) != 2 {
 		t.Fatalf("a service without a record cache parsed %v, want two documents", names)
+	}
+}
+
+// BenchmarkPersistentParseCacheRestoreRealModel times cold and restored parses
+// of a 60-document set built from a real example.
+func BenchmarkPersistentParseCacheRestoreRealModel(b *testing.B) {
+	path := filepath.Join("..", "..", "..", "examples", "self-model", "pipeline.sysml")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		b.Fatal(err)
+	}
+	content := strings.Repeat(string(data), 4)
+	documents := make([]*pb.SourceDocument, 0, 60)
+	for i := 0; i < 60; i++ {
+		documents = append(documents, &pb.SourceDocument{
+			Source: &pb.SourceDocument_Content{Content: content},
+			Name:   fmt.Sprintf("doc%02d.sysml", i),
+		})
+	}
+	request := &pb.ParseSourcesRequest{Documents: documents}
+	cache, err := libs.NewCacheIn(b.TempDir())
+	if err != nil {
+		b.Fatal(err)
+	}
+	writer, err := NewService(10, "bench", WithRecordCache(cache))
+	if err != nil {
+		b.Fatal(err)
+	}
+	if _, err := writer.ParseSources(context.Background(), request); err != nil {
+		b.Fatal(err)
+	}
+	writer.Close()
+
+	for _, run := range []struct {
+		name  string
+		cache *libs.Cache
+	}{{"cold", nil}, {"restored", cache}} {
+		b.Run(run.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				srv, err := NewService(10, "bench", WithRecordCache(run.cache))
+				if err != nil {
+					b.Fatal(err)
+				}
+				if _, err := srv.ParseSources(context.Background(), request); err != nil {
+					b.Fatal(err)
+				}
+				srv.Close()
+			}
+		})
 	}
 }
 

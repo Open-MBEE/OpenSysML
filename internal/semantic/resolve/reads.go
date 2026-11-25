@@ -100,6 +100,32 @@ func (rd Reads) Stale(ch symbols.Changes) bool {
 	return false
 }
 
+// RestoreReads installs recorded reads as doc's frame, so a later index change
+// drops what the analysis that made those reads would have dropped.
+func (r *Resolver) RestoreReads(doc string, reads Reads) bool {
+	if !r.Tracking() || doc == "" {
+		return false
+	}
+	set := func(items []string) map[string]bool {
+		if len(items) == 0 {
+			return nil
+		}
+		m := make(map[string]bool, len(items))
+		for _, item := range items {
+			m[item] = true
+		}
+		return m
+	}
+	f := r.docFrame(doc)
+	f.names, f.namespaces, f.segments = set(reads.Names), set(reads.Namespaces), set(reads.Segments)
+	f.docs, f.deps = set(reads.Docs), set(reads.Docs)
+	f.all, f.spellings = reads.All, reads.Spellings
+	for d := range f.deps {
+		r.depend(f, d)
+	}
+	return true
+}
+
 // Clone returns reads sharing nothing with rd.
 func (rd Reads) Clone() Reads {
 	return Reads{

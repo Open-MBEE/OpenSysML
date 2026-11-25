@@ -22,6 +22,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/protoconv"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast/astcodec"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
@@ -1137,22 +1138,25 @@ func (s *Service) parseModelKeeping(ctx context.Context, inputs []sourceInput, m
 		for i, input := range inputs {
 			names[i] = input.name
 		}
-		batch := &passes.Batch{Documents: names, Gathers: passes.NewGathers()}
+		batch := &passes.Batch{Documents: names, Gathers: passes.NewGathers(), Record: s.records != nil}
 		passes.PrepareBatch(idx, batch)
-		if !s.analysisFromRecord(modelHash, idx, documents) {
+		if _, ok := s.analysisFromRecord(modelHash, idx, documents); !ok {
+			reads := make(map[string]*resolve.Reads, len(documents))
 			for i, doc := range documents {
 				if err := ctx.Err(); err != nil {
 					return "", nil, err
 				}
-				doc.Unfiltered, _ = passes.AnalyzeInBatch(inputs[i].name, inputs[i].kind, doc.Root,
+				var runReads *resolve.Reads
+				doc.Unfiltered, runReads = passes.AnalyzeInBatch(inputs[i].name, inputs[i].kind, doc.Root,
 					doc.Diagnostics, idx, passes.Options{Conformance: mode, Context: ctx}, batch)
+				reads[inputs[i].name] = runReads
 			}
 			// An analysis its context stopped between passes holds part of a report,
 			// which is neither recorded nor answered.
 			if err := ctx.Err(); err != nil {
 				return "", nil, err
 			}
-			s.recordAnalysis(modelHash, idx, documents)
+			s.recordAnalysis(modelHash, idx, documents, reads)
 		}
 		for _, doc := range documents {
 			doc.Diagnostics = passes.WithoutLints(doc.Unfiltered, nil, nil)

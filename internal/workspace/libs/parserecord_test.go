@@ -1,8 +1,11 @@
 package libs
 
 import (
+	"bytes"
+	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -98,14 +101,71 @@ func TestParseRecordMissesAreBenign(t *testing.T) {
 	if rec, ok := c.LoadParse(key); ok || rec != nil {
 		t.Fatal("an undecodable record produced a hit")
 	}
-	if err := os.Remove(filepath.Join(c.parseRecordDir(), key+".idx")); err != nil {
-		t.Fatal(err)
+	if _, err := os.Stat(filepath.Join(c.parseRecordDir(), key+".idx")); !os.IsNotExist(err) {
+		t.Fatalf("the undecodable record survived: %v", err)
 	}
 	if err := c.StoreParse(key, sampleParseRecord()); err != nil {
 		t.Fatalf("StoreParse after a damaged record: %v", err)
 	}
 	if _, ok := c.LoadParse(key); !ok {
 		t.Fatal("a rewritten record was not found")
+	}
+}
+
+// A single bit flip that changes a payload is a typed miss: the record is removed
+// and a store rewrites it rather than serving corrupt data.
+func TestParseRecordBitFlipsAreTypedMisses(t *testing.T) {
+	dir := t.TempDir()
+	c := &Cache{dir: dir}
+	key := c.ParseKey("a.sysml", "sysml", source.KindSysML, []byte("package A {}"))
+	rec := sampleParseRecord()
+	rec.AST = bytes.Repeat([]byte{0x5a}, 1300)
+	if err := c.StoreParse(key, rec); err != nil {
+		t.Fatalf("StoreParse: %v", err)
+	}
+	path := filepath.Join(c.parseRecordDir(), key+".idx")
+	pristine, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pristine) < 1024 {
+		t.Fatalf("the fixture record has only %d bytes", len(pristine))
+	}
+	stored := *rec
+	stored.Digest = rec.Digest // StoreParse filed the digest with the payload
+	served, survive := 0, 0
+	for i := range pristine {
+		flipped := append([]byte(nil), pristine...)
+		flipped[i] ^= 0x01
+		if err := os.WriteFile(path, flipped, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		got, err := c.LoadParseChecked(key)
+		if err == nil {
+			// A gob byte-slice run can leave the decoded payload unchanged;
+			// only a changed payload would be a wrong answer.
+			if got == nil || !reflect.DeepEqual(*got, stored) {
+				served++
+				t.Errorf("byte %d: a changed payload was served as %+v", i, got)
+			}
+			continue
+		}
+		if !errors.Is(err, ErrDamagedParseRecord) || got != nil {
+			served++
+			t.Errorf("byte %d: the miss was not typed: %+v, %v", i, got, err)
+		}
+		if _, statErr := os.Stat(path); !os.IsNotExist(statErr) {
+			survive++
+		}
+	}
+	if served > 0 || survive > 0 {
+		t.Fatalf("%d bit flips served a wrong payload and %d damaged records survived", served, survive)
+	}
+	if err := c.StoreParse(key, rec); err != nil {
+		t.Fatalf("rewriting after damage: %v", err)
+	}
+	if got, err := c.LoadParseChecked(key); err != nil || got == nil || got.RootID != rec.RootID {
+		t.Fatalf("the rewritten record was not restored: %+v, %v", got, err)
 	}
 }
 
