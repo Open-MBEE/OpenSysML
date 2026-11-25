@@ -386,14 +386,9 @@ The design and its baseline are recorded in [the non-keeping parse record](../pr
 Under the `parse_sources_keep` capability a client can set `keep: false` on a `ParseSources`
 request. The answer — hash, roots, diagnostics and, with `base_model_hash`, `affected` — is what
 the same parse with `keep: true` gives, but the service neither inserts the model into its
-<<<<<<< HEAD
 parsed-model LRU nor promotes an entry already under that hash there: it peeks a kept answer
 non-promoting so an undo back to cached content still compares against its own analysis stamps.
 The transient parse evicts nothing and promotes nothing in that LRU. Disk parse records, when a record cache is configured,
-=======
-parsed-model LRU nor looks up an entry already under that hash there: the transient parse evicts
-nothing and promotes nothing in that LRU. Disk parse records, when a record cache is configured,
->>>>>>> a248ae4f51 (chore(integration): merge feat/u12b-nonkeeping-parse (docs union))
 are a separate store that this option does not govern: a transient parse may read and write them. A client that parses a derived union for its results can answer it
 and drop it without displacing the model it has open; a hash the service did not already hold is
 `NOT_FOUND` on every later request. The field has presence: only an absent field needs no
