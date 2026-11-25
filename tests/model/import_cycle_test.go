@@ -10,11 +10,14 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/testbudget"
 )
 
-// importCycleLimit bounds each analysis: thirty packages take seconds, tens of them under
-// the race detector, and do not finish at all when every route through them is searched.
-const importCycleLimit = 3 * time.Minute
+// importCycleLimit bounds each analysis; only the host's contention budget
+// moves, never the analysis or its expected diagnostics.
+func importCycleLimit(t *testing.T) time.Duration {
+	return testbudget.Deadline(t, 3*time.Minute)
+}
 
 // Packages that publicly import one another in a cycle have to analyse in time polynomial in them
 // (issue #633): a search per route doubles with each package, which 15 and 30 show where 6 and 8 do not.
@@ -46,6 +49,7 @@ func TestPackagesImportingEachOtherInACycleAnalysePromptly(t *testing.T) {
 					want = 2
 				}
 
+				limit := importCycleLimit(t)
 				done := make(chan []diag.Diagnostic, 1)
 				go func() {
 					ws := model.NewWorkspace()
@@ -60,8 +64,8 @@ func TestPackagesImportingEachOtherInACycleAnalysePromptly(t *testing.T) {
 					if last := diags[len(diags)-1].Message; !strings.Contains(last, "Missing") {
 						t.Fatalf("the last diagnostic should name `Missing`; got %q", last)
 					}
-				case <-time.After(importCycleLimit):
-					t.Fatalf("analysing %d packages importing each other in a cycle did not finish in %v", n, importCycleLimit)
+				case <-time.After(limit):
+					t.Fatalf("analysing %d packages importing each other in a cycle did not finish in %v", n, limit)
 				}
 			})
 		}
@@ -90,6 +94,7 @@ func TestImportCycleWithAPrivatelyImportedFilterAnalysesPromptly(t *testing.T) {
 			}
 			fmt.Fprintf(&src, "package Use {\n\tpublic import P1::*;\n\tpart x : D%d;\n\tpart y : Kept;\n}\n", n)
 
+			limit := importCycleLimit(t)
 			done := make(chan []diag.Diagnostic, 1)
 			go func() {
 				ws := model.NewWorkspace()
@@ -108,8 +113,8 @@ func TestImportCycleWithAPrivatelyImportedFilterAnalysesPromptly(t *testing.T) {
 				if want := []string{"Dropped", "Kept"}; !slices.Equal(unresolved, want) {
 					t.Fatalf("unresolved names %q, want %q: %v", unresolved, want, diags)
 				}
-			case <-time.After(importCycleLimit):
-				t.Fatalf("analysing %d packages in a cycle, one privately importing a filtered package, did not finish in %v", n, importCycleLimit)
+			case <-time.After(limit):
+				t.Fatalf("analysing %d packages in a cycle, one privately importing a filtered package, did not finish in %v", n, limit)
 			}
 		})
 	}
@@ -184,6 +189,7 @@ func TestImportCycleWithAPrivateImportAnotherDocumentStatesAnalysesPromptly(t *t
 		{"named in a third document", map[string]string{"cycle.sysml": cycle.String(), "reopened.sysml": reopened, "elsewhere.sysml": elsewhere}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			limit := importCycleLimit(t)
 			done := make(chan map[string][]diag.Diagnostic, 1)
 			go func() {
 				ws := model.NewWorkspace()
@@ -213,8 +219,8 @@ func TestImportCycleWithAPrivateImportAnotherDocumentStatesAnalysesPromptly(t *t
 				if want := []string{"Missing", "E"}; !slices.Equal(unresolved, want) {
 					t.Fatalf("unresolved names %q, want %q: %v", unresolved, want, diags)
 				}
-			case <-time.After(importCycleLimit):
-				t.Fatalf("analysing %d packages in a cycle, one given a private import by another document, did not finish in %v", n, importCycleLimit)
+			case <-time.After(limit):
+				t.Fatalf("analysing %d packages in a cycle, one given a private import by another document, did not finish in %v", n, limit)
 			}
 		})
 	}
@@ -273,6 +279,7 @@ package P {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			limit := testbudget.Deadline(t, 5*time.Second)
 			done := make(chan []diag.Diagnostic, 1)
 			go func() {
 				ws := model.NewWorkspace()
@@ -287,8 +294,8 @@ package P {
 				if !strings.Contains(diags[0].Message, "Bad") {
 					t.Fatalf("the one diagnostic should name `Bad`; got %q", diags[0].Message)
 				}
-			case <-time.After(5 * time.Second):
-				t.Fatal("analysing a filtered import over membership imports did not finish in 5s")
+			case <-time.After(limit):
+				t.Fatalf("analysing a filtered import over membership imports did not finish in %v", limit)
 			}
 		})
 	}
