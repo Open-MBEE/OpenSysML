@@ -105,6 +105,8 @@ export interface RenderNode {
   inherited?: boolean;
   /** The state's substates run in parallel; the label writes «parallel» under the name. */
   parallel?: boolean;
+  /** The notation outline derived from the node's metaclass, when the server reports it. */
+  shape?: string;
   /** The qualified name a model edit targets the declaration by, in whichever workspace document declares it; absent for a node with none, and for a library's. */
   fqn?: string;
   /** The requested document declares the node, so every edit reaches it; absent, only a layout does. */

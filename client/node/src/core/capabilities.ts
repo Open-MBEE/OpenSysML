@@ -88,6 +88,8 @@ export const CAPABILITY_RENDER_DOCUMENT_ASCIIDOC = "render_document_asciidoc";
 export const CAPABILITY_RENDER_VIEW = "render_view";
 /** `form` and the writer options on `RenderViewRequest`, answered in `text`. */
 export const CAPABILITY_RENDER_VIEW_FORM = "render_view_form";
+/** `shape` on a rendered node carries its notation outline without parsing a written form. */
+export const CAPABILITY_RENDER_NODE_SHAPE = "render_node_shape";
 /** The `ExportGraphs` RPC, exporting a behavior's lowered graph as `graphs:1` JSON. */
 export const CAPABILITY_EXPORT_GRAPHS = "export_graphs";
 export const CAPABILITY_IMPORT_DATA = "import_data";

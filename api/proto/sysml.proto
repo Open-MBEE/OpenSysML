@@ -3634,6 +3634,9 @@ message RenderNode {
   // The element's EffectiveID, the id a written form's {id} anchor carries.
   // Empty when no element declares it; `id` is local to this rendering.
   string element_id = 18;
+  // The notation outline derived from the node's metaclass: "rectangle", "rounded",
+  // "stadium", "actor", "note", "diamond", "circle", "ring", "cross", "bar", "history", "item".
+  string shape = 19;
 }
 
 // RenderPort is a feature drawn on a node's border.

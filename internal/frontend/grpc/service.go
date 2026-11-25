@@ -401,6 +401,10 @@ const CapabilityUndeterminedValue = "undetermined_value"
 // and a coordinate transformation on their own Value arms rather than as unsupported nulls.
 const CapabilityCoordinateFrameValues = "coordinate_frame_values"
 
+// CapabilityRenderNodeShape names the capability of carrying a node's notation
+// shape on RenderNode, so a canvas draws notation without parsing a written form.
+const CapabilityRenderNodeShape = "render_node_shape"
+
 // CapabilityElementProperties names the GetElementProperties RPC, which reads
 // the metamodel properties of one element by their specification names.
 const CapabilityElementProperties = "element_properties"
@@ -478,6 +482,7 @@ var capabilities = []string{
 	CapabilitySymbolMemberDirection,
 	CapabilityCoordinateFrameValues,
 	CapabilityQueryResultView,
+	CapabilityRenderNodeShape,
 }
 
 type capabilityAvailability struct {

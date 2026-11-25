@@ -1546,6 +1546,7 @@ func assertEngineRenderMatchesLSP(t *testing.T, src string, lspResult *RenderRes
 		converted := engine.JRenderNode{
 			ID: node.ID, ElementID: node.ElementID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
 			Type: node.Type, Detail: node.Detail, Parent: node.Parent, Inherited: node.Inherited,
+			Shape: node.Shape,
 		}
 		if node.X != nil && node.Y != nil {
 			converted.Geometry = &engine.JRenderGeometry{X: *node.X, Y: *node.Y, Collapsed: node.Collapsed}

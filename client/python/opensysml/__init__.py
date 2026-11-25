@@ -51,6 +51,7 @@ from opensysml.capabilities import (
     CAPABILITY_PARSE_SOURCES_AFFECTED,
     CAPABILITY_PARSE_SOURCES_KEEP,
     CAPABILITY_RENDER_DOCUMENT_FILE_NAME,
+    CAPABILITY_RENDER_NODE_SHAPE,
     MissingCapabilityError,
     ServerInfo,
 )

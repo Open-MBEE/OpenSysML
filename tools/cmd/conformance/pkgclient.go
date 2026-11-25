@@ -1417,13 +1417,13 @@ func (c *pkgClient) renderView(ctx context.Context, request protoreflect.Message
 			return nil, fmt.Errorf("convert RenderView node %q origin: %w", node.Name, err)
 		}
 		converted := &pb.RenderNode{
-			Id: node.ID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
+			Id: node.ID, ElementId: node.ElementID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
 			Type: node.Type, Detail: node.Detail, Text: node.Text, StandIn: node.StandIn, Parent: node.Parent,
-			Origin: origin,
+			Shape: node.Shape, Origin: origin,
 		}
 		for _, port := range node.Ports {
 			converted.Ports = append(converted.Ports, &pb.RenderPort{
-				Id: port.ID, Name: port.Name, Type: port.Type, Direction: port.Direction,
+				Id: port.ID, ElementId: port.ElementID, Name: port.Name, Type: port.Type, Direction: port.Direction,
 			})
 		}
 		if node.Geometry != nil {
@@ -1442,7 +1442,7 @@ func (c *pkgClient) renderView(ctx context.Context, request protoreflect.Message
 		}
 		converted := &pb.RenderEdge{
 			From: edge.From, To: edge.To, FromPort: edge.FromPort, ToPort: edge.ToPort,
-			Label: edge.Label, Name: edge.Name, Kind: edge.Kind, Origin: origin,
+			Label: edge.Label, Name: edge.Name, Kind: edge.Kind, ElementId: edge.ElementID, Origin: origin,
 			Style: renderStyleToProto(edge.Style),
 		}
 		for _, point := range edge.Route {

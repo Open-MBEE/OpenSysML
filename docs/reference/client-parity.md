@@ -124,6 +124,7 @@ from the clients and a gap is a stated gap rather than a silent one.
 | `action_trace` | bound | bound | bound | bound | bound | bound | bound |
 | `render_view` | bound | bound | bound | bound | bound | bound | bound |
 | `render_view_form` | bound | bound | bound | bound | bound | bound | bound |
+| `render_node_shape` | bound | bound | bound | bound | bound | bound | bound |
 | `symbol_lookup_kind` | bound | bound | bound | bound | bound | bound | bound |
 | `export_graphs` | bound | bound | bound | bound | bound | bound | bound |
 | `import_data` | bound | bound | bound | bound | bound | bound | bound |
