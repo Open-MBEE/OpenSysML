@@ -169,6 +169,41 @@ those tests skip by design in that state.
   still follow its own relationship mapping from the case to the requirement;
   this change supplies the subject half of that join only.
 
+### Differential-provenance follow-up (maintainer)
+
+The regression fixture is a new file under `tests/testdata`, which is the
+`testdata` input root of both differential baselines. Both
+`docs/project/pilot-differential-baseline.json` and
+`docs/project/api-json-differential/index.json` therefore record stale
+provenance: `provenance.inputs[testdata].files` moves from 42 to 43 and
+`provenance.inputs[testdata].digest` moves from the committed digest to the one
+the guard reports (`sha256:cc1a1daaa82f3e6d0a1a72067302e0cee79599e89cc313f1f827d162abbd9901`).
+`TestCommittedBaselineStatesThisRepositorysProvenance` in
+`tools/referee/diff` and `tools/referee/apijson` fails on both, and
+`make docs-counts` fails with them.
+
+Both baselines must be re-recorded with the pinned pilot tools — `go run -C
+tools ./cmd/pilot-diff -update` and `go run -C tools ./cmd/pilot-apijson-diff
+-update` — over the provisioned corpora. Those tools require Java 21; this
+environment does not provide it (a different Java version is installed), so the
+re-record was not run here and no baseline was edited. Any moved buckets must be
+adjudicated in `docs/project/pilot-differential.md` and
+`docs/project/api-json-differential.md` before the new figures become the
+contract. Baselines must not be hand-edited: a merged file is a measurement only
+once its `-check` reproduces it.
+
+### Integration with other query-property additions
+
+When the separate changes adding `isActive` and annotation inspection merge
+into this one, the merged tree must take the **union** of all three properties
+in `internal/semantic/query/query.go` (`propertyNames`),
+`internal/doc/queryexec/metaclassproperties.go`,
+`internal/doc/querytranslate/properties.go` and
+`internal/doc/queryexec/operations.go`. The derived-name count assertion in
+`internal/doc/querytranslate/oslc_test.go` must then be 7, not the 5 or 6 either
+branch records alone. `isActive` is classified `kindBoolean` and `boundSubject`
+is classified `kindElement`; each property keeps its own namespace and reader.
+
 ## Evidence
 
 - Baseline subject shape: [issue #2009](https://github.com/Open-MBEE/OpenSysML/issues/2009) and [PR #2393](https://github.com/Open-MBEE/OpenSysML/pull/2393).
