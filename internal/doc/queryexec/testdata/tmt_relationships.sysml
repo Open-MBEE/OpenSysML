@@ -36,6 +36,7 @@ package Observatory {
 	part def Computer;
 	part scienceComputer : Computer;
 	allocation processing allocate telescope.instrumentCluster to scienceComputer;
+	dependency powerNeeds from scienceComputer to massRequirement;
 
 	requirement def DataRequirement;
 	requirement massRequirement;

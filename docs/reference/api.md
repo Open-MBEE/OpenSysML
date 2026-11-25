@@ -1170,6 +1170,8 @@ with no `@id`, reported as written (`a.p`); `sourceFeature.featureTarget` and
 | `multiplicityUpper` | Declared upper bound, `*` when unbounded | ✅ |
 | `symbolKind` | The symbol kind `GetSymbol` reports as `SymbolInfo.kind` (`partDef`, `stateUsage`, `actionUsage`), present on every row, one with a positional `@id` included. It tells apart rows no `LookupSymbol` reaches; a transition is an `actionUsage` here and a `TransitionUsage` by `@type` | |
 | `text` | `RequirementDefinition::text` / `RequirementUsage::text`: the body of the requirement's `doc`, as `documentation` reads it; absent for a requirement that states none. This single-valued record reports the first body. On any other element `text` names a feature of the model, as every name outside this table does | |
+| `isActive` | On a `StateUsage`, `true` when the state is part of an active configuration of a state machine the query's session runs, `false` when it has never been entered or no session is supplied; absent for any other element. This single-valued record reports the first value | |
+| `annotations` | The metadata annotations of the row as `<metadata>::<feature>=<value>` strings: the values the annotation bodies bind, read for the whole row set in one pass rather than one symbol lookup per element; absent for an element no annotation binds. This single-valued record reports the first binding — a document query's `Project` carries every one | |
 
 ### `@type` — symbol kind → metamodel type
 

@@ -1,0 +1,2 @@
+- Document queries traverse `dependency` declarations and both `allocation` and the notation's `allocate` spelling as row-set edges; a refusal of another kind names every supported kind. `StateUsage` rows answer the Boolean `isActive` property from the session's state machines, and a new `annotations` property reads every annotated row's metadata bindings in one pass instead of one symbol lookup per element.
+- The edit API gained `SetAnnotationValue`, which rewrites the value an annotation usage binds to a metadata feature without changing the metadata definition's default.
