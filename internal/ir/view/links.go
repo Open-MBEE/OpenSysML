@@ -7,9 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
@@ -97,20 +95,7 @@ func (r *Renderer) Sites(locate Locator) Sites {
 			return Site{}, false
 		}
 		site := Site{File: filepath.ToSlash(file), Line: pos.Line, Col: pos.Col}
-		if r != nil && r.resolver != nil && r.model != nil {
-			if index := r.resolver.Index(); index != nil {
-				if scope := index.DocumentRoot(origin.Doc); scope != nil {
-					if sym := scope.DeclaredAt(origin.Span); sym != nil {
-						if sym.Named() {
-							site.QualifiedName = source.QualifiedNameOf(symbols.NameChain(sym))
-						}
-						if info, ok := identity.Of(r.model, r.resolver, sym); ok && info != nil {
-							site.ID = info.EffectiveID
-						}
-					}
-				}
-			}
-		}
+		site.QualifiedName, site.ID = r.identityOf(origin)
 		cache[origin] = result{site: site, ok: true}
 		return site, true
 	}
