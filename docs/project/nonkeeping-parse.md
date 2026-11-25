@@ -44,11 +44,13 @@ At the pinned baseline and at the v0.12.1 release:
 
 `ParseSourcesRequest.keep` is a presence-bearing proto3 optional Boolean. When it is absent, or
 present and true, the request is the old parse and the response is byte-identical to before. When
-it is false, and the service advertises `parse_sources_keep`, the service parses the documents,
-builds the same `model_hash`, roots, diagnostics and affected set, and then drops the model: it
-neither adds an entry to the parsed-model cache nor looks up an entry already under that hash.
+it is false, and the service advertises `parse_sources_keep`, the service builds the same
+`model_hash`, roots, diagnostics and affected set, and then drops the model from the in-memory
+parsed-model LRU: it neither adds an entry there nor looks up an entry already under that hash.
 A caller can therefore read a derived union, use the answer, and leave its own cached models
-exactly as they were.
+exactly as they were. Whether the trees come from parsing or from disk parse records is a
+separate matter: with a record cache configured, a transient parse may restore trees from disk
+and write parse and analysis records, without changing the LRU contract above.
 
 A request that states `keep` to a service without the capability is refused with `UNIMPLEMENTED`,
 naming `parse_sources_keep`. A service that predates the field would silently keep the model,
@@ -65,14 +67,18 @@ client that accepts parse options refuses `keep` on its one-document calls.
 - **`keep` rather than an inverted flag.** A `transient` flag would have kept the wire default
   but would have named the opposite of the service's existing `keep` parameter. The field names
   the one concept already in `parseModelKeeping`, and clients spell it the same way.
-- **No cache read on a transient parse.** Looking up the hash of the model being parsed would
-  promote an entry that belongs to another caller. A transient parse computes its own hash from
-  its inputs and returns its own model, so it touches neither the cache's contents nor its
-  recency. The caller's `base_model_hash`, when given, is still read to compute `affected`; that
-  is the model the caller explicitly named.
-- **Lineage and analysis records are unchanged.** The incremental workspace and the on-disk
-  analysis-record store are separate from the parsed-model LRU; they hold no model and evict no
-  model. Keeping their existing use also leaves the internal staging callers' behavior intact.
+- **No parsed-model LRU read on a transient parse.** Looking up the hash of the model being
+  parsed would promote an entry that belongs to another caller. A transient parse computes its
+  own hash from its inputs and returns its own model, so it touches neither the LRU's contents
+  nor its recency. Disk parse records are not that LRU: with a record cache configured, the
+  transient parse may read them and write parse and analysis records. The caller's
+  `base_model_hash`, when given, is still read from the LRU to compute `affected`; that is the
+  model the caller explicitly named.
+- **Lineage and records are unchanged.** The incremental workspace and the on-disk record store
+  are separate from the parsed-model LRU and evict no entry from it, so keeping their use leaves
+  the internal staging callers' behavior intact. A record cache can restore trees from disk in a
+  fresh process, making zero parses for a transient union, while validation passes still run to
+  prime the incremental `affected` answer.
 - **Capability gated on presence.** An explicit `keep=true` is refused by an older service too,
   even though its behavior would have matched, so that a client never relies on an answer an old
   build only appears to support.
@@ -86,7 +92,7 @@ client that accepts parse options refuses `keep` on its one-document calls.
 | --- | --- |
 | RPC | `ParseSources(ParseSourcesRequest)`, new field `optional bool keep = 4` (JSON name `keep`) |
 | Capability | `parse_sources_keep`, advertised by `GetServerInfo` |
-| Go service | `CapabilityParseSourcesKeep`; `Service.ParseSources`; `Service.parseModelKeeping(..., keep bool)` now skips the cache lookup as well as the insertion when `keep` is false |
+| Go service | `CapabilityParseSourcesKeep`; `Service.ParseSources`; `Service.parseModelKeeping(..., keep bool)` skips the parsed-model LRU lookup and insertion when `keep` is false |
 | Go client | `Client.ParseDocuments(..., WithKeep(bool))`; `CapabilityParseSourcesKeep`; `WithKeep` on `ParseFile`/`ParseSource` is an `INVALID_ARGUMENT` |
 | Python client | `Connection.parse_sources(..., keep=True)` and the module-level `opensysml.parse_sources(..., keep=True)`; `CAPABILITY_PARSE_SOURCES_KEEP` |
 | Node client | `ParseSourcesOptions.keep?: boolean`; `CAPABILITY_PARSE_SOURCES_KEEP` |
@@ -153,11 +159,13 @@ Results recorded on this branch with the pinned toolchain versions in the reposi
 
 ## Known limitations and follow-ups
 
-- A transient parse still pays for parsing and analysis. It saves the cache slot, not the parse.
-  A future persistent parse cache could answer it more cheaply, but that is a separate surface.
-- The incremental workspace and the analysis-record store are touched by a transient parse as
-  before. Neither holds a parsed model or evicts one, so the caller's cached models are safe; a
-  caller that needs *no* server-side state at all would need a broader definition of transient.
+- `keep=false` saves the parsed-model LRU slot, not necessarily the parse. With a record cache
+  configured, a transient parse can restore trees from disk records and write parse and analysis
+  records, so a fresh process can answer a transient union with zero parses; validation passes
+  still run to prime incremental `affected`. Without such a cache the documents are parsed afresh.
+- The incremental workspace and the record store are still touched by a transient parse; they
+  evict no entry from the parsed-model LRU, so the caller's cached models are safe. A caller that
+  needs *no* server-side state at all would need a broader definition of transient.
 - The `keep` input on the MCP `parse` tool is new. The separately published agent skills that
   describe this tool live outside this repository and need to repeat the input in the release
   that carries it.
