@@ -1,10 +1,10 @@
 package Structure {
+    private import ScalarValues::*;
     part def Boiler { attribute speed : Real default = 1.2; }
     part boilerAsMaintained : Boiler;
     part spareBoiler : Boiler;
 }
 package Verification {
-    private import ScalarValues::*;
     verification def SizingCheck {
         subject s : Structure::Boiler;
         VerificationCases::PassIf(s.speed <= 1.5)

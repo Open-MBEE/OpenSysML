@@ -17,6 +17,8 @@ package P {
     verification v1 : Check { subject :>> s = P::boilerAsMaintained; }
     verification v2 : Check { subject s = P::boilerAsMaintained; }
     verification v3 : Check;
+    verification casted : Check { subject s = P::boilerAsMaintained as Boiler; }
+    verification standaloneCast : Check { subject s = (as Boiler); }
     verification chained : Check { subject s = P::config.target; }
     verification defaulted : Check { subject s : Boiler default P::boilerAsMaintained; }
     verification initial : Check { subject s : Boiler := P::boilerAsMaintained; }
@@ -35,8 +37,8 @@ func boundSubjectSym(t *testing.T, root *symbols.Scope, pkg, name string) *symbo
 	return found
 }
 
-// TestBoundSubjectOfNamesTheBoundDeclaration pins both binding forms and
-// absence on a case with no binding, a parameter and an unrelated element.
+// TestBoundSubjectOfNamesTheBoundDeclaration pins both binding forms and a cast,
+// and absence on an unbound case, a parameter, a standalone cast and an unrelated element.
 func TestBoundSubjectOfNamesTheBoundDeclaration(t *testing.T) {
 	m, root := buildModel(t, boundSubjectModel)
 	for _, tc := range []struct {
@@ -46,6 +48,8 @@ func TestBoundSubjectOfNamesTheBoundDeclaration(t *testing.T) {
 		{"v1", "P::boilerAsMaintained"},
 		{"v2", "P::boilerAsMaintained"},
 		{"v3", ""},
+		{"casted", "P::boilerAsMaintained"},
+		{"standaloneCast", ""},
 		{"Check", ""},
 		{"boilerAsMaintained", ""},
 	} {
