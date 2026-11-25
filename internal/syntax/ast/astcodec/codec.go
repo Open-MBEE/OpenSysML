@@ -225,12 +225,19 @@ type Decoder struct {
 	argArena   pack.Arena[ast.NamedArg]
 	paramArena pack.Arena[ast.BodyParam]
 	trivArena  pack.Arena[ast.Trivia]
+	// maxNodes caps the whole node table, so a stream that declares far more
+	// nodes than its bytes could hold is refused before allocating them.
+	maxNodes int
 }
 
 // NewDecoder returns a Decoder reading from r.
 func NewDecoder(r *pack.Reader) *Decoder {
 	return &Decoder{r: r, head: r}
 }
+
+// LimitNodes refuses a node table holding more than max nodes. Zero leaves the
+// decoder unbounded, for callers that trust the stream's source.
+func (d *Decoder) LimitNodes(max int) { d.maxNodes = max }
 
 // Decode reads the node table Encode wrote: Allocate then Fill. Errors are
 // left on the reader for the caller to check.
@@ -249,8 +256,13 @@ func (d *Decoder) Allocate() {
 	var counts [numKinds]int
 	total := 0
 	for k := range counts {
-		counts[k] = d.r.Len()
-		total += counts[k]
+		count := d.r.Len()
+		if count < 0 || (d.maxNodes > 0 && (count > d.maxNodes || total > d.maxNodes-count)) {
+			d.r.Fail("node count")
+			return
+		}
+		counts[k] = count
+		total += count
 	}
 	d.fields = d.r.Section()
 	if d.r.Err() != nil {

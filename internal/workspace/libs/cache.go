@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -23,6 +24,10 @@ import (
 // again and only takes up space.
 const maxIdleAge = 30 * 24 * time.Hour
 
+// maxRecordBytes caps what any record the cache reads can occupy, checked
+// before the whole file is read so a hostile record cannot force the read.
+const maxRecordBytes = 64 << 20
+
 // Cache persists reduced library IndexRecords to disk keyed by document name,
 // content hash and format version. A hit lets the loader skip deriving the
 // facts entirely. The same mechanism serves git dependencies (Plan 5c) since
@@ -34,6 +39,11 @@ type Cache struct {
 	modelBytesStored atomic.Int64
 	// modelPruneOnce prunes the directory at the process's first model record.
 	modelPruneOnce sync.Once
+	// parseBytesStored is the bytes of parse records stored since the last
+	// eviction of any (parserecord.go).
+	parseBytesStored atomic.Int64
+	// parsePruneOnce prunes the directory at the process's first parse record.
+	parsePruneOnce sync.Once
 }
 
 // ErrNoCacheRoot is the error NewCache wraps when the process has no cache root
@@ -119,18 +129,31 @@ func (c *Cache) Load(key string) (*IndexRecord, bool) {
 // load gob-decodes the record stored under key into rec, reporting false on
 // any miss.
 func (c *Cache) load(key string, rec any) bool {
+	return loadAt(c.path(key), rec)
+}
+
+// loadAt is load for an explicit path: parse records live in their own
+// directory (parserecord.go) so they cannot be mistaken for analysis records.
+func loadAt(path string, rec any) bool {
 	// #nosec G304 G703 -- the path is <cache dir>/<content hash>.idx; the key is
-	// hex-encoded SHA-256 computed by keyFor, never caller-supplied text.
-	data, err := os.ReadFile(c.path(key))
+	// hex-encoded SHA-256 the cache computed, never caller-supplied text.
+	f, err := os.Open(path)
 	if err != nil {
+		return false
+	}
+	defer f.Close()
+	// Outer bound before any decode: an oversized record is a miss, never an
+	// allocation of whatever its fields claim to hold.
+	data, err := io.ReadAll(io.LimitReader(f, maxRecordBytes+1))
+	if err != nil || len(data) > maxRecordBytes {
 		return false
 	}
 	if err := gob.NewDecoder(bytes.NewReader(data)).Decode(rec); err != nil {
 		return false
 	}
-	// Date the hit, so Prune reads the file's age as the age of its last use.
+	// Date the hit, so a prune reads the file's age as the age of its last use.
 	now := time.Now()
-	_ = os.Chtimes(c.path(key), now, now)
+	_ = os.Chtimes(path, now, now)
 	return true
 }
 
@@ -167,12 +190,17 @@ func (c *Cache) Store(key string, rec *IndexRecord) error {
 
 // store is Store for any gob-encodable record.
 func (c *Cache) store(key string, rec any) error {
+	return storeAt(c.dir, c.path(key), rec)
+}
+
+// storeAt is store for an explicit directory and path (see loadAt).
+func storeAt(dir, final string, rec any) error {
 	var buf bytes.Buffer
 	if err := gob.NewEncoder(&buf).Encode(rec); err != nil {
 		return err
 	}
-	final := c.path(key)
-	f, err := os.CreateTemp(c.dir, key+".idx.tmp-*")
+	// #nosec G703 -- dir is the cache directory, final is a key-derived name.
+	f, err := os.CreateTemp(dir, filepath.Base(final)+".tmp-*")
 	if err != nil {
 		return err
 	}
