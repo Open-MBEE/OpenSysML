@@ -25,13 +25,6 @@ func seriesVariable(variable string) (string, bool) {
 	return strings.CutPrefix(variable, seriesOutputPrefix)
 }
 
-// isSeriesOutput reports whether a ToolVariable names a series answer rather
-// than a scalar one at stopTime.
-func isSeriesOutput(variable string) bool {
-	_, ok := seriesVariable(variable)
-	return ok || variable == seriesTimeOutput
-}
-
 // seriesPlan is what one call asks the runner for beside its scalar outputs:
 // the number of samples and the FMU variables to sample, in call order.
 type seriesPlan struct {
@@ -46,15 +39,14 @@ func (p seriesPlan) requested() bool { return p.times || len(p.vars) > 0 }
 
 // planSeries collects the call's series outputs and resolves their sample
 // count and requested instants before the runner starts.
-func planSeries(call *runtime.ToolCall, startTime, stopTime float64, samples, interval *float64) (seriesPlan, error) {
+func planSeries(call *runtime.ToolCall, d *Description, startTime, stopTime float64, samples, interval *float64) (seriesPlan, error) {
 	var plan seriesPlan
 	seen := make(map[string]bool)
 	for _, out := range call.Outputs {
-		if out.Variable == seriesTimeOutput {
+		switch kind, _, name := classifyOutput(out.Variable, d); kind {
+		case sampleTimes:
 			plan.times = true
-			continue
-		}
-		if name, ok := seriesVariable(out.Variable); ok {
+		case sampleSeries:
 			if !seen[name] {
 				seen[name] = true
 				plan.vars = append(plan.vars, name)
@@ -121,8 +113,8 @@ func sampleCount(startTime, stopTime float64, samples, interval *float64) (int, 
 // array variable of the FMU.
 func checkSeriesVariables(call *runtime.ToolCall, d *Description) error {
 	for _, out := range call.Outputs {
-		name, ok := seriesVariable(out.Variable)
-		if !ok {
+		kind, _, name := classifyOutput(out.Variable, d)
+		if kind != sampleSeries {
 			continue
 		}
 		v, found := d.Variable(name)

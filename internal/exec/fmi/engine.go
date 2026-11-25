@@ -153,13 +153,6 @@ var reservedInputs = map[string]bool{
 	seriesIntervalInput: true,
 }
 
-// reservedOutputs are the scalar names a call may bind beside FMU outputs.
-// Trajectory names are checked in checkSeriesVariables.
-var reservedOutputs = map[string]bool{
-	"fmi:time":       true,
-	seriesTimeOutput: true,
-}
-
 // Covers takes a Compute question whose call names the fmi tool, the runner is
 // present and the call's variables resolve to the FMU's in the right direction.
 func (e *engine) Covers(_ *analysis.Model, q analysis.Question) analysis.Coverage {
@@ -275,11 +268,11 @@ func (e *engine) describe(path string) (*Description, error) {
 func checkVariables(call *runtime.ToolCall, d *Description) error {
 	fmu := call.URI
 	for _, in := range call.Inputs {
-		if reservedInputs[in.Variable] {
+		kind, v := classifyInput(in.Variable, d)
+		switch kind {
+		case reservedInput:
 			continue
-		}
-		v, ok := d.Variable(in.Variable)
-		if !ok {
+		case unknownInput:
 			return &VariableError{FMU: fmu, Variable: in.Variable,
 				Detail: fmt.Sprintf("has no variable %q; its inputs are %s", in.Variable, candidates(d, true))}
 		}
@@ -291,11 +284,11 @@ func checkVariables(call *runtime.ToolCall, d *Description) error {
 		}
 	}
 	for _, out := range call.Outputs {
-		if isSeriesOutput(out.Variable) || reservedOutputs[out.Variable] {
+		kind, v, _ := classifyOutput(out.Variable, d)
+		switch kind {
+		case replyTime, sampleTimes, sampleSeries:
 			continue
-		}
-		v, ok := d.Variable(out.Variable)
-		if !ok {
+		case unknownOutput:
 			return &VariableError{FMU: fmu, Variable: out.Variable,
 				Detail: fmt.Sprintf("has no variable %q; its outputs are %s", out.Variable, candidates(d, false))}
 		}
