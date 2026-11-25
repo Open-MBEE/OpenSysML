@@ -462,9 +462,8 @@ func TestCancellationKillsShardDescendants(t *testing.T) {
 	}
 }
 
-// TestCancellationKillsDescendantsInTheirOwnGroup covers an engine stand-in
-// that starts its own process group: signalling only the direct group misses
-// it, so the session scan in killProcessGroup must reach it too.
+// TestCancellationKillsDescendantsInTheirOwnGroup pins that killProcessGroup
+// reaches descendants in their own process group too.
 func TestCancellationKillsDescendantsInTheirOwnGroup(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("process groups are a POSIX facility")

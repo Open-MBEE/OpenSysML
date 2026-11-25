@@ -32,10 +32,8 @@ func PositionalIdentities(index *symbols.Index, docs []Document, identifies func
 	return positionalIdentities(docs, res, model, true, identifies)
 }
 
-// PositionalIdentitiesResolved names the same symbols with a resolver and model
-// whose documents are already resolved. It does not resolve them again: a caller
-// rendering those documents derives identities without changing what a later
-// rendering draws, as eager resolution would.
+// PositionalIdentitiesResolved uses a resolver and model whose documents are
+// already resolved, so deriving identities cannot change a later rendering.
 func PositionalIdentitiesResolved(index *symbols.Index, docs []Document, res *resolve.Resolver, model *semantics.Model, identifies func(*symbols.Symbol) bool) (map[*symbols.Symbol]string, map[string]*symbols.Symbol) {
 	if index == nil || res == nil || model == nil || identifies == nil {
 		return map[*symbols.Symbol]string{}, map[string]*symbols.Symbol{}

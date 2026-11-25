@@ -16,9 +16,8 @@ import (
 
 func interruptSignals() []os.Signal { return []os.Signal{os.Interrupt, syscall.SIGTERM} }
 
-// setProcessGroup puts the shard in a session of its own. A descendant that
-// starts a process group of its own (an analysis engine, say) stays in that
-// session, so cancellation can still find it.
+// setProcessGroup puts the shard in its own session so cancellation can reach
+// descendants that start process groups of their own.
 func setProcessGroup(cmd *exec.Cmd) {
 	if cmd.SysProcAttr == nil {
 		cmd.SysProcAttr = &syscall.SysProcAttr{}

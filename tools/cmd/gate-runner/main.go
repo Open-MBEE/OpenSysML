@@ -444,9 +444,8 @@ func (r *runner) commands() [][]string {
 		} else {
 			command = append(command, target, "SHARDS="+shard)
 		}
-		// Both shards would otherwise run the tools module's snapshot generator
-		// against this checkout. With both in the plan, tools owns it; a plan
-		// with only rest keeps rest's tools coverage.
+		// With both shards planned, tools owns the snapshot generator; a rest-only
+		// plan keeps rest's tools coverage.
 		if shard == "rest" && slices.Contains(r.shards, "tools") {
 			command = append(command, skipToolsTestsVar+"=1")
 		}

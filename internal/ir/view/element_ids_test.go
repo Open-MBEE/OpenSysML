@@ -201,10 +201,8 @@ func TestWalkNodesVisitsSharedNodesOnce(t *testing.T) {
 	}
 }
 
-// TestPositionalDerivationDoesNotChangeRendering pins that resolving the
-// identities a rendering reports does not change what later renderings draw.
-// Re-resolving a document to name its anonymous members made the first drawn
-// query differ from the next, breaking drawn/query parity.
+// TestPositionalDerivationDoesNotChangeRendering pins that deriving reported
+// identities does not change what later renderings draw.
 func TestPositionalDerivationDoesNotChangeRendering(t *testing.T) {
 	const file = "spec-compartments.sysml"
 	renderer, index := loadFixture(t, file)

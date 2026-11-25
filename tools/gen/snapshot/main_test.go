@@ -49,11 +49,8 @@ func TestRunWritesTheSnapshotAndItsEmbedding(t *testing.T) {
 	}
 }
 
-// TestRunWritesWherePackageLibsEmbeds: `go run -C tools` starts the generator
-// inside the tools module, yet without -dir it writes into package libs under
-// the repository root — what every build target runs before compiling. The
-// fixture checkout keeps that default path from rewriting the live snapshot
-// while another gate shard is embedding it.
+// TestRunWritesWherePackageLibsEmbeds pins the default output under package libs
+// using a fixture checkout so no live snapshot is rewritten.
 func TestRunWritesWherePackageLibsEmbeds(t *testing.T) {
 	root := t.TempDir()
 	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte("module "+repo.Module+"\n\ngo 1.26.0\n"), 0o644); err != nil {
