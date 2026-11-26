@@ -2328,7 +2328,8 @@ export function movable(layout: CanvasLayout, entry: PlacedNode): boolean {
 // placedLane is the lane a Layout about a swimlane's performer places: the outermost of the
 // performer's lanes under one root, then the first drawn. Any other node is its own.
 function placedLane(layout: CanvasLayout, entry: PlacedNode): PlacedNode {
-  if (entry.node.kind !== SWIMLANE_KIND || entry.node.fqn === undefined) {
+  const performer = laneOrigin(entry);
+  if (performer === undefined) {
     return entry;
   }
   const depth = (of: PlacedNode): number => (of.parent ? depth(of.parent) + 1 : 0);
@@ -2336,8 +2337,7 @@ function placedLane(layout: CanvasLayout, entry: PlacedNode): PlacedNode {
   let placed: PlacedNode | undefined;
   for (const other of layout.nodes.values()) {
     if (
-      other.node.kind === SWIMLANE_KIND &&
-      other.node.fqn === entry.node.fqn &&
+      laneOrigin(other) === performer &&
       root(other) === root(entry) &&
       (placed === undefined || depth(other) < depth(placed))
     ) {
@@ -2345,6 +2345,16 @@ function placedLane(layout: CanvasLayout, entry: PlacedNode): PlacedNode {
     }
   }
   return placed ?? entry;
+}
+
+// laneOrigin names the declaration of a swimlane's performer, as the renderer tells its lanes apart; undefined for any other node.
+function laneOrigin(entry: PlacedNode): string | undefined {
+  const origin = entry.node.origin;
+  if (entry.node.kind !== SWIMLANE_KIND || origin === undefined) {
+    return undefined;
+  }
+  const { start, end } = origin.range;
+  return `${origin.uri}#${start.line}:${start.character}-${end.line}:${end.character}`;
 }
 
 /** fixedReason says why a node of a placeable diagram cannot be dragged, undefined for one that can or a diagram nothing moves in. */

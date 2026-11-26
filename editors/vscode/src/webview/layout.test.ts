@@ -1147,24 +1147,41 @@ test("fixedReason says why a start or done node, and any node no workspace docum
 });
 
 test("a lane in a nested flow does not move when its performer has a lane in an enclosing flow", () => {
-  const lane = (id: string, parent: string, performer: string) =>
-    node(id, performer, { kind: "swimlane", parent, fqn: `Parts::${performer}` });
+  const declared = (uri: string, line: number) => ({
+    ...origin,
+    uri,
+    range: { start: { line, character: 0 }, end: { line, character: 4 } },
+  });
+  const lane = (id: string, parent: string, performer: string, extra: Partial<RenderNode> = {}) =>
+    node(id, performer, {
+      kind: "swimlane",
+      parent,
+      fqn: `Parts::${performer}`,
+      origin: declared("file:///parts.sysml", performer.length),
+      ...extra,
+    });
+  const unnamed = { fqn: undefined, declaration: declared("file:///parts.sysml", 9).range };
   const nested = layoutCanvas(
     rendering([
       node("run", "run"),
       lane("outer", "run", "arm"),
+      lane("anon", "run", "", { ...unnamed, origin: declared("file:///parts.sysml", 9) }),
       node("build", "build", { parent: "run" }),
       lane("inner", "build", "arm"),
       lane("only", "build", "robot"),
+      lane("namesake", "build", "arm", { origin: declared("file:///more.sysml", 3) }),
+      lane("anonInner", "build", "", { ...unnamed, origin: declared("file:///parts.sysml", 9) }),
       node("other", "other"),
       lane("apart", "other", "arm"),
     ]),
   );
-  assert.equal(movable(nested, nested.nodes.get("outer")!), true);
-  assert.equal(movable(nested, nested.nodes.get("only")!), true);
-  assert.equal(movable(nested, nested.nodes.get("apart")!), true);
-  assert.equal(movable(nested, nested.nodes.get("inner")!), false);
-  assert.equal(movedNode(nested, "inner", 10, 10), undefined);
+  for (const id of ["outer", "anon", "only", "namesake", "apart"]) {
+    assert.equal(movable(nested, nested.nodes.get(id)!), true, id);
+  }
+  for (const id of ["inner", "anonInner"]) {
+    assert.equal(movable(nested, nested.nodes.get(id)!), false, id);
+    assert.equal(movedNode(nested, id, 10, 10), undefined, id);
+  }
   assert.match(fixedReason(nested, nested.nodes.get("inner")!) ?? "", /^arm has another swimlane in this flow/);
 });
 
