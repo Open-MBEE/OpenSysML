@@ -22,7 +22,6 @@
 
 ;;; Code:
 
-(require 'compile)
 (require 'lsp-mode)
 (require 'sysml-mode)
 
@@ -35,18 +34,6 @@
 (defconst sysml-lsp--executable
   (if (eq system-type 'windows-nt) "sysml-lsp.exe" "sysml-lsp")
   "File name of the language server.")
-
-(defconst sysml-lsp--tool
-  (if (eq system-type 'windows-nt) "sysml.exe" "sysml")
-  "File name of the command-line tool a Run or Evaluate lens runs.")
-
-(defconst sysml-lsp--run-flags
-  '(("action" . "-action")
-    ("state" . "-state")
-    ("calc" . "-calc")
-    ("constraint" . "-constraint")
-    ("requirement" . "-requirement"))
-  "The `sysml' flag that runs each kind of element a lens names.")
 
 (defcustom sysml-lsp-server-path nil
   "Absolute path to the `sysml-lsp' executable.
@@ -107,15 +94,8 @@ client always handles it and only these functions act on it.")
 
 (defun sysml-lsp--find-tool ()
   "Return the `sysml' executable to run Run and Evaluate lenses with, or nil.
-It is looked for beside the server in use, then in the project's `bin/',
-then on the variable `exec-path', as the VS Code extension looks."
-  (or (when-let* ((server (sysml-lsp--find-server))
-                  (sibling (expand-file-name sysml-lsp--tool (file-name-directory server))))
-        (and (file-executable-p sibling) sibling))
-      (when-let* ((root (sysml-lsp--project-root))
-                  (candidate (expand-file-name (concat "bin/" sysml-lsp--tool) root)))
-        (and (file-executable-p candidate) candidate))
-      (executable-find sysml-lsp--tool)))
+See `sysml-find-tool'."
+  (sysml-find-tool (sysml-lsp--find-server) (sysml-lsp--project-root)))
 
 ;;;; Commands the server's code lenses invoke
 
@@ -136,57 +116,18 @@ Its arguments are the document URI, the position and the locations."
 
 (defun sysml-lsp--run-paths (file)
   "Return the model paths to load when running an element declared in FILE.
-When a workspace folder holds FILE these are all the folders, which the
-server indexes together, so a name another root declares resolves as it
-does in the editor; FILE alone when no folder holds it."
-  (let ((folders (lsp-session-folders (lsp-session))))
-    (if (seq-some (lambda (folder)
-                    (or (string= folder file)
-                        (string-prefix-p (file-name-as-directory folder) file)))
-                  folders)
-        (copy-sequence folders)
-      (list file))))
-
-(defun sysml-lsp--run-arguments (args)
-  "Return the `sysml' arguments running the element a lens's ARGS name, or nil."
-  (when-let* ((flag (cdr (assoc (lsp-get args :kind) sysml-lsp--run-flags)))
-              (element (lsp-get args :element))
-              ((not (string-empty-p element)))
-              (file (lsp--uri-to-path (lsp-get args :uri))))
-    (append (list flag element) (sysml-lsp--run-paths file))))
-
-(defun sysml-lsp--unsaved-model-buffers ()
-  "Return the model buffers holding edits not yet saved to their file."
-  (seq-filter (lambda (buffer)
-                (with-current-buffer buffer
-                  (and buffer-file-name
-                       (buffer-modified-p)
-                       (derived-mode-p 'sysml-base-mode))))
-              (buffer-list)))
+The folders are the session's; see `sysml-run-paths'."
+  (sysml-run-paths file (lsp-session-folders (lsp-session))))
 
 (defun sysml-lsp--run-element (command)
   "Run the element a Run or Evaluate lens COMMAND names, with `sysml'.
-Model buffers are saved first, since `sysml' reads the files on disk;
-nothing runs while one stays unsaved.  The output is shown in a
-compilation buffer."
-  (let* ((args (seq-first (lsp-get command :arguments)))
-         (argv (and args (sysml-lsp--run-arguments args)))
-         (tool (sysml-lsp--find-tool)))
-    (unless argv
-      (user-error "This lens names nothing sysml can run"))
-    (unless tool
-      (user-error "Could not find %s; build it with `make build' beside sysml-lsp, or put it on `exec-path'"
-                  sysml-lsp--tool))
-    (save-some-buffers nil (lambda () (derived-mode-p 'sysml-base-mode)))
-    (when-let* ((unsaved (sysml-lsp--unsaved-model-buffers)))
-      (user-error "Not run: %s not saved" (mapconcat #'buffer-name unsaved ", ")))
-    ;; Run from the folder (or the file's directory) the paths name.
-    (let ((default-directory (file-name-as-directory
-                              (let ((path (car (last argv))))
-                                (if (file-directory-p path) path (file-name-directory path))))))
-      (compilation-start (mapconcat #'shell-quote-argument (cons tool argv) " ")
-                         nil
-                         (lambda (_mode) (format "*SysML Run: %s*" (lsp-get args :element)))))))
+See `sysml-run-element'."
+  (let* ((args (car (append (lsp-get command :arguments) nil)))
+         (uri (and args (lsp-get args :uri))))
+    (sysml-run-element (and args (lsp-get args :kind))
+                       (and args (lsp-get args :element))
+                       (and uri (sysml-lsp--run-paths (lsp--uri-to-path uri)))
+                       (sysml-lsp--find-tool))))
 
 ;;;; Bundled library documents
 

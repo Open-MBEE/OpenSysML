@@ -24,6 +24,7 @@
 
 ;;; Code:
 
+(require 'compile)
 (require 'seq)
 (require 'sysml-mode-keywords)
 (require 'url-parse)
@@ -430,6 +431,82 @@ library."
           (setq buffer-read-only t)
           (goto-char (point-min)))
         buffer)))
+
+;;;; Running elements
+
+;; A Run or Evaluate code lens's command is the client's to carry out, by
+;; running `sysml'.  This is the part of that every client shares.
+
+(defconst sysml--tool
+  (if (eq system-type 'windows-nt) "sysml.exe" "sysml")
+  "File name of the command-line tool a Run or Evaluate lens runs.")
+
+(defconst sysml--run-flags
+  '(("action" . "-action")
+    ("state" . "-state")
+    ("calc" . "-calc")
+    ("constraint" . "-constraint")
+    ("requirement" . "-requirement"))
+  "The `sysml' flag that runs each kind of element a lens names.")
+
+(defun sysml-find-tool (server root)
+  "Return the `sysml' executable to run Run and Evaluate lenses with, or nil.
+It is looked for beside the language server executable SERVER, then in
+the `bin/' of the project root ROOT, then on the variable `exec-path',
+as the VS Code extension looks.  SERVER and ROOT may be nil."
+  (or (when-let* ((server)
+                  (sibling (expand-file-name sysml--tool (file-name-directory server))))
+        (and (file-executable-p sibling) sibling))
+      (when-let* ((root)
+                  (candidate (expand-file-name (concat "bin/" sysml--tool) root)))
+        (and (file-executable-p candidate) candidate))
+      (executable-find sysml--tool)))
+
+(defun sysml-run-paths (file folders)
+  "Return the model paths to load when running an element declared in FILE.
+When one of the workspace FOLDERS holds FILE these are all the folders,
+which the server indexes together, so a name another root declares
+resolves as it does in the editor; FILE alone when no folder holds it."
+  (if (seq-some (lambda (folder)
+                  (or (string= folder file)
+                      (string-prefix-p (file-name-as-directory folder) file)))
+                folders)
+      (copy-sequence folders)
+    (list file)))
+
+(defun sysml--unsaved-model-buffers ()
+  "Return the model buffers holding edits not yet saved to their file."
+  (seq-filter (lambda (buffer)
+                (with-current-buffer buffer
+                  (and buffer-file-name
+                       (buffer-modified-p)
+                       (derived-mode-p 'sysml-base-mode))))
+              (buffer-list)))
+
+(defun sysml-run-element (kind element paths tool)
+  "Run ELEMENT, an executable element of KIND, with the `sysml' executable TOOL.
+KIND and ELEMENT are the kind and qualified name a Run or Evaluate lens
+names, and PATHS the model paths to load; see `sysml-run-paths'.  Model
+buffers are saved first, since `sysml' reads the files on disk; nothing
+runs while one stays unsaved.  The output is shown in a compilation
+buffer."
+  (let ((flag (cdr (assoc kind sysml--run-flags))))
+    (unless (and flag (stringp element) (not (string-empty-p element)) paths)
+      (user-error "This lens names nothing sysml can run"))
+    (unless tool
+      (user-error "Could not find %s; build it with `make build' beside sysml-lsp, or put it on `exec-path'"
+                  sysml--tool))
+    (save-some-buffers nil (lambda () (derived-mode-p 'sysml-base-mode)))
+    (when-let* ((unsaved (sysml--unsaved-model-buffers)))
+      (user-error "Not run: %s not saved" (mapconcat #'buffer-name unsaved ", ")))
+    ;; Run from the folder (or the file's directory) the paths name.
+    (let ((default-directory (file-name-as-directory
+                              (let ((path (car (last paths))))
+                                (if (file-directory-p path) path (file-name-directory path))))))
+      (compilation-start (mapconcat #'shell-quote-argument
+                                    (append (list tool flag element) paths) " ")
+                         nil
+                         (lambda (_mode) (format "*SysML Run: %s*" element))))))
 
 (provide 'sysml-mode)
 

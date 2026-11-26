@@ -143,16 +143,6 @@ serves no `workspace/executeCommand'."
         "{\"title\":\"0 references\",\"command\":\"editor.action.showReferences\",\"arguments\":[\"file:///m.sysml\",{\"line\":0,\"character\":9},[]]}")))
     (should-not shown)))
 
-(ert-deftest sysml-lsp-run-arguments-name-the-check ()
-  (cl-letf (((symbol-function 'sysml-lsp--run-paths) (lambda (_) '("/ws"))))
-    (dolist (case '(("action" . "-action") ("state" . "-state") ("calc" . "-calc")
-                    ("constraint" . "-constraint") ("requirement" . "-requirement")))
-      (should (equal (sysml-lsp--run-arguments
-                      (lsp--read-json (format "{\"uri\":\"file:///ws/m.sysml\",\"element\":\"Demo::X\",\"kind\":\"%s\"}" (car case))))
-                     (list (cdr case) "Demo::X" "/ws"))))
-    (should-not (sysml-lsp--run-arguments
-                 (lsp--read-json "{\"uri\":\"file:///ws/m.sysml\",\"element\":\"Demo::X\",\"kind\":\"part\"}")))))
-
 (ert-deftest sysml-lsp-run-paths-are-every-folder-when-one-holds-the-file ()
   (cl-letf (((symbol-function 'lsp-session) (lambda () (make-lsp-session :folders '("/ws/" "/other")))))
     ;; The server indexes every root together, so a run loads them all.
@@ -174,6 +164,16 @@ serves no `workspace/executeCommand'."
           (let ((sysml-lsp-server-path server))
             (should (equal (sysml-lsp--find-tool) tool))))
       (delete-directory dir t))))
+
+(ert-deftest sysml-lsp-does-not-run-a-lens-naming-nothing ()
+  (let (started)
+    (cl-letf (((symbol-function 'sysml-lsp--find-tool) (lambda () "/bin/sysml"))
+              ((symbol-function 'sysml-lsp--run-paths) (lambda (_) '("/ws")))
+              ((symbol-function 'compilation-start) (lambda (&rest _) (setq started t))))
+      (dolist (json '("{\"command\":\"opensysml.runElement\",\"arguments\":[]}"
+                      "{\"command\":\"opensysml.runElement\",\"arguments\":[{\"uri\":\"file:///ws/m.sysml\",\"element\":\"Demo::X\",\"kind\":\"part\"}]}"))
+        (should-error (sysml-lsp--run-element (lsp--read-json json)) :type 'user-error)))
+    (should-not started)))
 
 (ert-deftest sysml-lsp-runs-a-lens-element ()
   (let (started)
