@@ -68,9 +68,8 @@ func (m *Model) UsageMayTimeVary(sym *symbols.Symbol) bool {
 		(!actionKind && !m.conformsByName(sym, "Actions::Action"))
 }
 
-// synthesizedUsageMayTimeVary derives Usage::mayTimeVary for a referential part the model synthesizes:
-// a flow end's ReferenceUsage, a transition's link parameter, a trigger's payload and receiver parameters,
-// or an assignment's or a loop's node parameter, the loop's body among them.
+// synthesizedUsageMayTimeVary derives Usage::mayTimeVary for a referential part the model synthesizes: a flow
+// end's ReferenceUsage, a transition's link or a trigger's parameters, an assignment's or loop's node parameter.
 func (m *Model) synthesizedUsageMayTimeVary(sym *symbols.Symbol) (varies, ok bool) {
 	if _, ok := symbols.ImpliedFlowEndFeatureIndex(sym); ok {
 		// A flow end's ReferenceUsage is owned by the FlowEnd, which redefines Flows::Flow::source
