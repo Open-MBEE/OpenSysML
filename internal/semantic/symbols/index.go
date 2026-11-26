@@ -873,16 +873,24 @@ func (idx *Index) declaresUnder(key string) bool {
 	return false
 }
 
-// namedFromOutside reports whether nothing registered under key is kept to its
-// namespace: a private declaration, or what only a private import brought.
+// namedFromOutside reports whether key is named from outside its namespace: no
+// private declaration bears it, nor only what a private import brought.
 func (idx *Index) namedFromOutside(key string) bool {
 	imported, hidden := idx.reexported.at(key), idx.hidden.at(key)
+	kept, owned := false, false
 	for _, sym := range idx.fqn.at(key) {
-		if hidden.has(sym) || !imported.has(sym) && !VisibleOutside(sym.Visibility) {
+		switch {
+		case hidden.has(sym):
+			kept = true
+		case imported.has(sym):
+		case !VisibleOutside(sym.Visibility):
 			return false
+		default:
+			owned = true
 		}
 	}
-	return true
+	// A member the namespace owns is read before what an import brought under its name.
+	return owned || !kept
 }
 
 // lookupWalk is one search for the namespaces binding name by an `import A::name;`

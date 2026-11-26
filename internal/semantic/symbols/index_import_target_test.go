@@ -125,8 +125,10 @@ func TestWildcardImportTargetTheIndexReads(t *testing.T) {
 		package R { package X { part def E; } }
 		package Bridge { public import Q::*; }
 		package Keeps { private import Q::*; }
+		package KeepsBeside { private import Q::*; package X { part def O; } }
 		package P {
 			package Past { package One { public import Keeps::X::*; } package Deep { public import Keeps::X::Y::*; } package All { public import all Keeps::X::*; } }
+			package Beside { public import KeepsBeside::X::*; }
 			package Outer { package X { public import R::X; part def A; } package Reads { public import X::*; } }
 			package Owns { package X { part def O; } private import Q::X; package OwnsIn { public import X::*; } }
 			package Kept { package X { private package Hid { part def D; } } package All { public import all X::Hid::*; } package Plain { public import X::Hid::*; } }
@@ -147,6 +149,8 @@ func TestWildcardImportTargetTheIndexReads(t *testing.T) {
 		"P::Past::One::B":    0, // a segment only a private import brought is not named from outside
 		"P::Past::Deep::C":   0,
 		"P::Past::All::B":    1,
+		"P::Beside::O":       1, // an owned segment is named past a private import of its name
+		"P::Beside::B":       0,
 	} {
 		wantNamed(t, idx, fqn, want)
 	}
