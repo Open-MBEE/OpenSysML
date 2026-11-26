@@ -51,14 +51,13 @@ func (s *Service) elementProperties(reader *elementReader, req *pb.GetElementPro
 		return &pb.GetElementPropertiesResponse{Error: reader.idsRefusal.Error()}
 	}
 	sym, ok := s.lookupElement(reader, req)
-	if ok {
-		sym, ok = reader.held(sym)
-	}
 	if ok && !reader.model.Index.Library(sym) {
 		if excluded := reader.excluded[sym.DocName]; excluded != nil {
 			return &pb.GetElementPropertiesResponse{Error: excluded.Error}
 		}
-		return reader.read(sym, req.Properties)
+		if sym, ok = reader.held(sym); ok {
+			return reader.read(sym, req.Properties)
+		}
 	}
 	id := req.ElementId
 	if ok && sym.Named() {
@@ -413,10 +412,15 @@ func (r *elementReader) held(sym *symbols.Symbol) (*symbols.Symbol, bool) {
 	if !ok {
 		return sym, !r.semantics.NamedByNodeParameterRole(sym)
 	}
-	if held, ok := r.ids.Symbol(id); ok {
-		return held, true
+	held, ok := r.ids.Symbol(id)
+	if !ok {
+		return sym, !r.semantics.NamedByNodeParameterRole(sym)
 	}
-	return sym, !r.semantics.NamedByNodeParameterRole(sym)
+	// A parameter the form holds no element for shares its span, and so its id, with the expression it is bound to.
+	if sym.Expr != nil && r.semantics.NamedByNodeParameterRole(sym) && (held.Expr == nil || *held.Expr != *sym.Expr) {
+		return sym, false
+	}
+	return held, true
 }
 
 // read answers the properties of sym: the named ones, or every property its

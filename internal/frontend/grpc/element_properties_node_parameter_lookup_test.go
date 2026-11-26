@@ -4,6 +4,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 )
 
 // A parameter an action's notation states reads the same by qualified name as by id, before and after its
@@ -18,6 +20,7 @@ func TestElementPropertiesReadANodeParameterByNameAsById(t *testing.T) {
         action whileAct while count < 5 { assign count := count + 1; }
         action ifAct if count > 3 { assign count := 0; } else { assign count := 1; }
         action nested;
+        action forAct for i in (1, 2, 3) { assign count := i; }
         action termAct terminate nested;
     }
     part def Sys {
@@ -56,9 +59,22 @@ func TestElementPropertiesReadANodeParameterByNameAsById(t *testing.T) {
 			t.Errorf("ifAct: %s = %v after its parameters were read by name, want %v", property, got, want)
 		}
 	}
-	for _, name := range []string{"P::Base::whileAct::body", "P::Base::termAct::terminatedOccurrence", "P::Base::assignCount::target"} {
+	for _, name := range []string{"P::Base::whileAct::body", "P::Base::termAct::terminatedOccurrence", "P::Base::assignCount::target",
+		"P::Base::assignCount::replacementValues", "P::Base::forAct::seq", "P::Base::forAct::body"} {
 		if resp := r.read(name, "qualifiedName"); !strings.Contains(resp.Error, "element not found") {
 			t.Errorf("%s: answered %v %q, want element not found", name, resp.Properties, resp.Error)
+		}
+	}
+}
+
+// A parameter in a document the model excludes answers that document's error, whether or not the form holds it.
+func TestElementPropertiesReadANodeParameterOfAnExcludedDocument(t *testing.T) {
+	r := parseDocumentsForElementProperties(t, &pb.SourceDocument{Name: "c.sysml", Source: &pb.SourceDocument_Content{
+		Content: "package C { action def D { attribute n = 0; action w while n < 1 { } } part def Broken { ; }",
+	}})
+	for _, name := range []string{"C::D::w", "C::D::w::whileTest", "C::D::w::body"} {
+		if resp := r.read(name, "qualifiedName"); !strings.Contains(resp.Error, "syntax error") {
+			t.Errorf("%s: answered %v %q, want its document's syntax error", name, resp.Properties, resp.Error)
 		}
 	}
 }
