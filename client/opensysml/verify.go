@@ -312,10 +312,11 @@ func (c *client) VerifyConstraint(
 	symbolID string,
 	opts ...VerifyOption,
 ) (*Verification, error) {
-	hash, err := c.call(model)
+	hash, done, err := c.call(model)
 	if err != nil {
 		return nil, err
 	}
+	defer done()
 	options, err := c.verifyOptions(ctx, opts)
 	if err != nil {
 		return nil, err
@@ -349,10 +350,11 @@ func (c *client) VerifyRequirement(
 	symbolID string,
 	opts ...VerifyOption,
 ) (*Verification, error) {
-	hash, err := c.call(model)
+	hash, done, err := c.call(model)
 	if err != nil {
 		return nil, err
 	}
+	defer done()
 	options, err := c.verifyOptions(ctx, opts)
 	if err != nil {
 		return nil, err
@@ -388,10 +390,11 @@ func (c *client) VerifyRequirement(
 func (c *client) VerifySatisfaction(
 	ctx context.Context, model *Model, symbolID string, opts ...VerifyOption,
 ) (*Satisfaction, error) {
-	hash, err := c.call(model)
+	hash, done, err := c.call(model)
 	if err != nil {
 		return nil, err
 	}
+	defer done()
 	options, err := c.verifyOptions(ctx, opts)
 	if err != nil {
 		return nil, err
@@ -444,10 +447,11 @@ func (c *client) VerifySatisfaction(
 func (c *client) ValidateInstance(
 	ctx context.Context, model *Model, symbolID string, opts ...VerifyOption,
 ) (*Validation, error) {
-	hash, err := c.call(model)
+	hash, done, err := c.call(model)
 	if err != nil {
 		return nil, err
 	}
+	defer done()
 	options, err := c.verifyOptions(ctx, opts)
 	if err != nil {
 		return nil, err
@@ -550,10 +554,11 @@ func (c *client) calculate(
 	symbolID string,
 	options calcOptions,
 ) (*Calculation, error) {
-	hash, err := c.call(model)
+	hash, done, err := c.call(model)
 	if err != nil {
 		return nil, err
 	}
+	defer done()
 	if err := c.requireValueCapabilities(ctx, options.arguments...); err != nil {
 		return nil, err
 	}
