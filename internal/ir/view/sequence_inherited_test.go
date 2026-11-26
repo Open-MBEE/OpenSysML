@@ -455,3 +455,62 @@ func TestSequenceRenderingDrawsAnActionsInheritedEventOnTheUsage(t *testing.T) {
 		t.Errorf("lifelines = %v, want the definition no message reaches left out", got)
 	}
 }
+
+// An order a usage states between events it holds only by reference subsetting is
+// read on a lifeline specializing both that usage and the one referenced.
+func TestSequenceRenderingReadsAnOrderOverEventsHeldByReferenceSubsetting(t *testing.T) {
+	rendering := renderSequenceOf(t, `package P {
+	item def Ping;
+	part server {
+		event occurrence a;
+		event occurrence b;
+	}
+	part source {
+		event occurrence sent;
+		event occurrence got;
+	}
+	ref part observer ::> source {
+		succession first sent then got;
+	}
+	part client :> observer, source;
+	message ask of Ping from client.sent to server.a;
+	message reply of Ping from server.b to client.got;
+}`, "server", "observer", "client", "ask", "reply")
+	want := []string{
+		"ask of Ping: P::client.sent -> a",
+		": P::client.sent -> P::client.got",
+		"reply of Ping: b -> P::client.got",
+	}
+	if got := sequenceEnds(rendering); !slices.Equal(got, want) {
+		t.Errorf("got %q\nwant %q", got, want)
+	}
+}
+
+// A lifeline that specializes only the usage referenced does not read the order the
+// referencing usage states.
+func TestSequenceRenderingKeepsAReferencingUsagesOrderOffTheUsageReferenced(t *testing.T) {
+	rendering := renderSequenceOf(t, `package P {
+		item def Ping;
+		part server {
+			event occurrence a;
+			event occurrence b;
+		}
+		part source {
+			event occurrence sent;
+			event occurrence got;
+		}
+		ref part observer ::> source {
+			succession first sent then got;
+		}
+		part client :> source;
+		message ask of Ping from client.sent to server.a;
+		message reply of Ping from server.b to client.got;
+	}`, "server", "observer", "client", "ask", "reply")
+	want := []string{
+		"ask of Ping: P::client.sent -> a",
+		"reply of Ping: b -> P::client.got",
+	}
+	if got := sequenceEnds(rendering); !slices.Equal(got, want) {
+		t.Errorf("got %q\nwant %q", got, want)
+	}
+}

@@ -109,6 +109,13 @@ func (ec *EvalContext) enactedConstraintChain(base ast.Node, parts []ast.NameSeg
 
 // occurrenceChainValue reads the chain's members from the object sym denotes.
 func (ec *EvalContext) occurrenceChainValue(sym *symbols.Symbol, parts []ast.NameSegment) (Value, error) {
+	// A connection the behavior performed declares is the performance's connector, as a bare `link` reads it.
+	if val, ok, err := ec.performedConnector(sym); ok {
+		if err != nil {
+			return Value{}, err
+		}
+		return ec.chainMemberValue(val, parts, sym.Name)
+	}
 	// A usage of the behavior performed is read from its performance, so `fresh.n`
 	// inside `go` reads the part the performance holds, as a bare `fresh` does.
 	if val, ok, err := ec.performanceFeatureOf(sym); ok {

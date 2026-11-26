@@ -258,6 +258,55 @@ func TestSequenceRenderingOrdersAChainOfSuccessionsByTheirEvents(t *testing.T) {
 	}
 }
 
+// Successions no message orders are drawn in the order they are declared, whether
+// a `succession` usage or a member-attached `then` states each.
+func TestSequenceRenderingDrawsSuccessionsInDeclarationOrder(t *testing.T) {
+	for _, tc := range []struct {
+		name, body string
+		want       []string
+	}{
+		{"a then closing a chain of usages",
+			`event occurrence a; event occurrence b; event occurrence c;
+			succession first a then b; succession first b then c; then event occurrence d;`,
+			[]string{"a then b", "b then c", "c then d"}},
+		{"a then between usages it shares no event with",
+			`event occurrence a; event occurrence b; succession first a then b;
+			event occurrence c; then event occurrence d;
+			event occurrence e; event occurrence f; succession first e then f;`,
+			[]string{"a then b", "c then d", "e then f"}},
+		{"a then opening a chain of usages",
+			`event occurrence a; then event occurrence b;
+			event occurrence c; succession first b then c;`,
+			[]string{"a then b", "b then c"}},
+		{"a then opening a chain whose second step and a branch are declared above it",
+			`event occurrence c; event occurrence d; succession first b then d; succession first a then c;
+			event occurrence a; then event occurrence b;`,
+			[]string{"a then c", "a then b", "b then d"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rendering := renderSource(t, "Ordered::shown", `package Ordered {
+	private import StandardViewDefinitions::*;
+	part def System { part server { `+tc.body+` } }
+	view shown : SequenceView { expose System; }
+}`)
+			names := map[string]string{}
+			for _, proxy := range rendering.Roots[0].Children {
+				names[proxy.ID] = proxy.Name
+			}
+			var rows []string
+			for _, edge := range rendering.Edges {
+				rows = append(rows, names[edge.From]+" then "+names[edge.To])
+			}
+			if !slices.Equal(rows, tc.want) {
+				t.Errorf("rows = %v, want %v", rows, tc.want)
+			}
+			if len(rendering.Notices) != 0 {
+				t.Errorf("notices = %v, want none", rendering.Notices)
+			}
+		})
+	}
+}
+
 // Messages nothing orders keep declaration order.
 func TestSequenceRenderingKeepsDeclarationOrderWhereNothingIsStated(t *testing.T) {
 	rendering := render(t, "sequence-lifelines.sysml", "LifelineViews::unorderedView")
@@ -610,5 +659,97 @@ func TestSequenceRenderingDropsNotesOnEventsOfBehaviorNotShown(t *testing.T) {
 	}
 	if len(rendering.Roots) != 0 || len(rendering.Edges) != 0 {
 		t.Errorf("roots %v edges %v, want neither: the message has no receiver shown", lifelineNames(rendering), rendering.Edges)
+	}
+}
+
+// Successions declared out of order are drawn first step first, below the message
+// that reaches their first event and above the one their last event sends.
+func TestSequenceRenderingDrawsSuccessionChainInCausalOrder(t *testing.T) {
+	const reaching = `message ping of Ping from client.sent to server.a;`
+	const sending = `message pong of Ping from server.d to client.got;`
+	for _, tc := range []struct {
+		name, body, message string
+		want                []string
+	}{
+		{"the chain's second step declared before a branch and its first step",
+			`succession first b then d; succession first a then c; succession first a then b;`, reaching,
+			[]string{"sent then a", "a then c", "a then b", "b then d"}},
+		{"a three-step chain declared last step first",
+			`succession first c then d; succession first b then c; succession first a then b;`, reaching,
+			[]string{"sent then a", "a then b", "b then c", "c then d"}},
+		{"a chain declared in order beside a branch",
+			`succession first a then b; succession first a then c; succession first b then d;`, reaching,
+			[]string{"sent then a", "a then b", "a then c", "b then d"}},
+		{"a cycle is placed as declared",
+			`succession first b then d; succession first d then b; succession first a then b;`, reaching,
+			[]string{"sent then a", "a then b", "b then d", "d then b"}},
+		{"a chain declared last step first ending at a send, beside a branch",
+			`succession first b then d; succession first a then c; succession first a then b;`, sending,
+			[]string{"a then c", "a then b", "b then d", "d then got"}},
+		{"a chain between a message received and a message sent",
+			`succession first b then d; succession first a then c; succession first a then b;`, reaching + sending,
+			[]string{"sent then a", "a then c", "a then b", "b then d", "d then got"}},
+		{"a branch into a later step declared after an unordered one",
+			`succession first c then d; succession first a then b; succession first a then c;`, sending,
+			[]string{"a then b", "a then c", "c then d", "d then got"}},
+		{"a branch declared before the step leading to a send stays above it",
+			`succession first a then b; succession first b then e; succession first b then d;`, sending,
+			[]string{"a then b", "b then e", "b then d", "d then got"}},
+		{"a branch declared before a step between two sends stays above that step",
+			`succession first a then b; succession first a then c; succession first b then d;`,
+			`message ping of Ping from server.b to client.sent;` + sending,
+			[]string{"a then b", "b then sent", "a then c", "b then d", "d then got"}},
+		{"a succession sharing no event with the chain between two sends stays below them",
+			`succession first a then b; succession first c then e; succession first b then d;`,
+			`message ping of Ping from server.b to client.sent;` + sending,
+			[]string{"a then b", "b then sent", "b then d", "d then got", "c then e"}},
+		{"a step declared after a succession it shares no event with",
+			`succession first a then b; succession first c then d; succession first b then e;`, "",
+			[]string{"a then b", "c then d", "b then e"}},
+		{"a chain declared last step first after a cycle",
+			`succession first c then d; succession first d then c; succession first b then e; succession first a then b;`, "",
+			[]string{"c then d", "d then c", "a then b", "b then e"}},
+		{"a three-step cycle is placed as declared",
+			`succession first a then b; succession first c then a; succession first b then c;`, "",
+			[]string{"a then b", "c then a", "b then c"}},
+		{"a step into a cycle is drawn above all of it",
+			`succession first e then b; succession first b then e; succession first a then b;`, "",
+			[]string{"a then b", "e then b", "b then e"}},
+		{"a cycle through a send is placed as declared around its message",
+			`succession first e then d; succession first d then e;`, sending,
+			[]string{"e then d", "d then got", "d then e"}},
+		{"a chain ending at a send that a cycle follows",
+			`succession first d then c; succession first c then e; succession first e then c;
+			succession first b then d; succession first a then b;`, sending,
+			[]string{"a then b", "b then d", "d then got", "d then c", "c then e", "e then c"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rendering := renderSource(t, "Chained::shown", `package Chained {
+	private import StandardViewDefinitions::*;
+	item def Ping;
+	part def Run {
+		part client { event occurrence sent; event occurrence got; }
+		part server {
+			event occurrence a; event occurrence b; event occurrence c; event occurrence d; event occurrence e;
+			`+tc.body+`
+		}
+		`+tc.message+`
+	}
+	view shown : SequenceView { expose Run; }
+}`)
+			names := map[string]string{}
+			for _, lifeline := range rendering.Roots {
+				for _, proxy := range lifeline.Children {
+					names[proxy.ID] = proxy.Name
+				}
+			}
+			var rows []string
+			for _, edge := range rendering.Edges {
+				rows = append(rows, names[edge.From]+" then "+names[edge.To])
+			}
+			if !slices.Equal(rows, tc.want) {
+				t.Errorf("rows = %v, want %v", rows, tc.want)
+			}
+		})
 	}
 }

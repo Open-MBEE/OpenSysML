@@ -5,6 +5,7 @@ package libs
 
 import (
 	"embed"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -137,15 +138,68 @@ func (s *dirSource) List() []string {
 	return out
 }
 
+// resolvedDir is dir, absolute and with its symbolic links followed. A relative dir is
+// taken from the working directory as the system resolves it, not as $PWD spells it.
+func resolvedDir(dir string) (string, error) {
+	if !filepath.IsAbs(dir) {
+		wd, err := os.Getwd()
+		if err != nil {
+			return "", err
+		}
+		if wd, err = filepath.EvalSymlinks(wd); err != nil {
+			return "", err
+		}
+		if fromWorkingDirectory(dir) {
+			// Joined uncleaned: a ".." after a link must leave the link's target.
+			dir = wd + string(filepath.Separator) + dir
+		} else if dir, err = filepath.Abs(dir); err != nil {
+			return "", err
+		}
+	}
+	return filepath.EvalSymlinks(dir)
+}
+
+// fromWorkingDirectory reports whether a path that is not absolute starts at the working
+// directory; on Windows one naming a drive or starting at a drive's root does not.
+func fromWorkingDirectory(dir string) bool {
+	return filepath.VolumeName(dir) == "" && (dir == "" || !os.IsPathSeparator(dir[0]))
+}
+
 func (s *dirSource) Read(name string) ([]byte, error) {
-	// Subdirectories are allowed; escaping the base directory is not. A prefix
-	// test would accept a sibling whose name merely starts with the base ("/libs"
-	// against "/libs-evil"), so containment is decided on path elements.
-	path := filepath.Join(s.dir, name)
-	rel, err := filepath.Rel(s.dir, path)
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
+	// Subdirectories are allowed; escaping the base directory is not, by a ".."
+	// element or by a symbolic link that leads out of it.
+	if !filepath.IsLocal(name) {
 		return nil, fmt.Errorf("libs: invalid library file path %q", name)
 	}
-	// #nosec G304 -- path is confined to s.dir by the check above.
-	return os.ReadFile(path)
+	// A root confines the read by itself, and opens the directory as the system
+	// resolves it, so the common file is read without resolving any path here.
+	data, err := readInRoot(s.dir, name)
+	if err == nil || errors.Is(err, fs.ErrNotExist) {
+		return data, err
+	}
+	// A root also refuses a link that stays inside it by an absolute target or a
+	// "..": resolving the directory and the file first reads through those.
+	dir, err := resolvedDir(s.dir)
+	if err != nil {
+		return nil, err
+	}
+	resolved, err := filepath.EvalSymlinks(filepath.Join(dir, name))
+	if err != nil {
+		return nil, err
+	}
+	rel, err := filepath.Rel(dir, resolved)
+	if err != nil || !filepath.IsLocal(rel) {
+		return nil, fmt.Errorf("libs: library file %q is outside the library directory", name)
+	}
+	return readInRoot(dir, rel)
+}
+
+// readInRoot reads the file a local name names under dir, following no link out of dir.
+func readInRoot(dir, name string) ([]byte, error) {
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = root.Close() }()
+	return root.ReadFile(name)
 }

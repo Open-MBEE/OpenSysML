@@ -5,7 +5,7 @@
     "pilotLibraryElements": 9,
     "elements": {
       "matched": 60,
-      "oursOnly": 71,
+      "oursOnly": 67,
       "pilotOnly": 200,
       "pilotOnlyImplied": 0,
       "typeMismatch": 4
@@ -30,7 +30,7 @@
       "pilot": 0
     },
     "unkeyableElements": {
-      "ours": 91,
+      "ours": 87,
       "pilot": 0
     }
   },
