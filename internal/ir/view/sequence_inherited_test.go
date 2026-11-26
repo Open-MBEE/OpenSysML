@@ -592,3 +592,25 @@ func TestSequenceRenderingKeepsAReferencingUsagesOrderOffTheUsageReferenced(t *t
 		t.Errorf("got %q\nwant %q", got, want)
 	}
 }
+
+// A public alias is a membership of its own, inherited whatever the visibility of the
+// event it names, so a message naming a private event through one ends on the lifeline.
+func TestSequenceRenderingDrawsAPrivateEventNamedThroughAnInheritedAlias(t *testing.T) {
+	rendering := renderSequenceOf(t, `package P {
+	item def Ping;
+	part def Client {
+		private event occurrence hidden;
+		public alias shown for hidden;
+	}
+	part def Scene {
+		part server {
+			event occurrence a;
+		}
+		part client : Client;
+		message reply of Ping from server.a to client.shown;
+	}
+}`, "Client", "Scene")
+	if got := sequenceEnds(rendering); !slices.Contains(got, "reply of Ping: server.a -> client.hidden") {
+		t.Errorf("edges = %q, want the message to end on the client lifeline", got)
+	}
+}

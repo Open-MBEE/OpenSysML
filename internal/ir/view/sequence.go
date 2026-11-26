@@ -577,10 +577,14 @@ func (r *Renderer) memberFor(owner, feature *symbols.Symbol) *symbols.Symbol {
 	if owner == nil || feature == nil || feature.Owner() != owner && !r.specializes(owner, feature.Owner()) {
 		return nil
 	}
-	// A private feature of a supertype is not inherited (KerML 8.3.3.1).
-	inherits := feature.Owner() == owner || semantics.Inheritable(feature)
 	members := r.model.MembersOf(owner)
 	same := func(sym *symbols.Symbol) bool { return symbols.SameElement(sym, feature) }
+	// A private feature of a supertype is not inherited (KerML 8.3.3.1), unless
+	// through an inherited alias, a membership of its own visibility.
+	inherits := feature.Owner() == owner || semantics.Inheritable(feature) || slices.ContainsFunc(members, func(member *symbols.Symbol) bool {
+		target, ok := r.resolver.AliasTarget(member)
+		return ok && same(target)
+	})
 	if inherits && slices.ContainsFunc(members, same) {
 		return feature
 	}
