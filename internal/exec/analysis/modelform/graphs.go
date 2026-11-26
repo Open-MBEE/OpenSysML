@@ -139,13 +139,23 @@ func (x *graphsExporter) lowerSubject(out *Graphs, sym *symbols.Symbol) error {
 // noGraphFor is ErrGraphsSubject naming the subject once, by its kind in words
 // and its name as the notation writes it; an unnamed one by its named owner.
 func noGraphFor(sym *symbols.Symbol) error {
-	if sym.Named() {
-		return fmt.Errorf("%w for the %s %s", ErrGraphsSubject, sym.Kind.Phrase(), source.QualifiedNameOf(symbols.NameChain(sym)))
+	if name := GraphsSubjectName(sym); name != "" {
+		return fmt.Errorf("%w for the %s %s", ErrGraphsSubject, sym.Kind.Phrase(), name)
 	}
 	if owner := namedOwner(sym); owner != nil {
 		return fmt.Errorf("%w for the unnamed %s of %s", ErrGraphsSubject, sym.Kind.Phrase(), source.QualifiedNameOf(symbols.NameChain(owner)))
 	}
 	return fmt.Errorf("%w for the unnamed %s", ErrGraphsSubject, sym.Kind.Phrase())
+}
+
+// GraphsSubjectName is the name an ErrGraphsSubject refusal writes for sym, ""
+// for an unnamed one. A caller that was asked for sym by any other spelling (an
+// id, an alias, a short name) leads its report with that spelling.
+func GraphsSubjectName(sym *symbols.Symbol) string {
+	if sym == nil || !sym.Named() {
+		return ""
+	}
+	return source.QualifiedNameOf(symbols.NameChain(sym))
 }
 
 // namedOwner is the nearest owner of sym that has a name, nil when none does.

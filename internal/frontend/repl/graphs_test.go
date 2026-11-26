@@ -69,6 +69,8 @@ func TestGraphsReportsWhatIsNoBehavior(t *testing.T) {
 	s := graphsSession(t)
 	for _, test := range []struct{ name, want string }{
 		{"Demo::Vehicle", "no lowered graph for the part definition Demo::Vehicle: the subject must be an action or a state machine"},
+		{"Vehicle", "Vehicle: no lowered graph for the part definition Demo::Vehicle: the subject must be an action or a state machine"},
+		{"Demo::'Vehicle'", "Demo::'Vehicle': no lowered graph for the part definition Demo::Vehicle: the subject must be an action or a state machine"},
 		{"Demo::Missing", "unresolved reference: Demo::Missing"},
 	} {
 		if _, err := s.Graphs(test.name); err == nil || err.Error() != test.want {

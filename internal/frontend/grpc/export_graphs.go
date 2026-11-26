@@ -9,7 +9,6 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis/modelform"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // ExportGraphs exports the lowered graph of an action or state machine, and of
@@ -37,7 +36,7 @@ func (s *Service) ExportGraphs(ctx context.Context, req *pb.ExportGraphsRequest)
 	graphs, err := modelform.GraphsOf(worker.Model, subject)
 	if err != nil {
 		if errors.Is(err, modelform.ErrGraphsSubject) {
-			if subject.Named() && req.Subject == source.QualifiedNameOf(symbols.NameChain(subject)) {
+			if req.Subject == modelform.GraphsSubjectName(subject) {
 				return nil, statusError(connect.CodeInvalidArgument, err.Error())
 			}
 			// The refusal spells the subject otherwise than the request did (a

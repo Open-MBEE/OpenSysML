@@ -99,16 +99,27 @@ func TestExportGraphsRefusals(t *testing.T) {
 }
 
 // A subject asked for by another spelling than the refusal writes (a positional
-// id, an inherited member's name) keeps the request's spelling in front.
+// id at any depth, a short name, an alias, an inherited member's name) keeps
+// the request's spelling in front.
 func TestExportGraphsRefusalKeepsTheRequestedID(t *testing.T) {
 	srv := mustNewService(t, 10)
 	t.Cleanup(srv.Close)
-	parsed, _ := parseContent(t, srv, "package P { part def A { part : A { part x; } } part def B :> A; }")
+	parsed, _ := parseContent(t, srv, `package P {
+		part def <C> Car { part wheel; }
+		alias Auto for Car;
+		part def Sub :> Car;
+		part def A { part : A { part x { part : A { part y; } } } }
+	}`)
 	const reason = ": the subject must be an action or a state machine"
 	tests := []struct{ subject, want string }{
+		{"P::Car", "no lowered graph for the part definition P::Car"},
+		{"P::C", "P::C: no lowered graph for the part definition P::Car"},
+		{"P::Auto", "no lowered graph for the alias P::Auto"},
+		{"P::Sub::wheel", "P::Sub::wheel: no lowered graph for the part usage P::Car::wheel"},
 		{"P::A::@0", "P::A::@0: no lowered graph for the unnamed part usage of P::A"},
 		{"P::A::@0::x", "P::A::@0::x: no lowered graph for the part usage P::A::x"},
-		{"P::A", "no lowered graph for the part definition P::A"},
+		{"P::A::@0::x::@0", "P::A::@0::x::@0: no lowered graph for the unnamed part usage of P::A::x"},
+		{"P::A::@0::x::@0::y", "P::A::@0::x::@0::y: no lowered graph for the part usage P::A::x::y"},
 	}
 	for _, test := range tests {
 		_, err := srv.ExportGraphs(context.Background(), &pb.ExportGraphsRequest{ModelHash: parsed.ModelHash, Subject: test.subject})
