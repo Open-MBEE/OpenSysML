@@ -1,1 +1,0 @@
-- Refresh scheduler information at each contested step so the native checker can replay counterexamples where a send races with state-machine dispatch.

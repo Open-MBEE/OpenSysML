@@ -1,1 +1,0 @@
-- Reading an element's properties places an unnamed library member among its owner's members once per member instead of once per reference to it. `GetElementProperties` and `sysml -convert api-json` answer as before; the race-detector sweep of every model under `examples/` takes about a quarter less time.
