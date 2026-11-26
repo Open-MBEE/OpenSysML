@@ -780,8 +780,21 @@ func (idx *Index) expandImporter(pkgFQN string) {
 // enclosing packages before the global namespace, as KerML 8.2.3.5 resolves a
 // name: KerML::Core's `import Root::*` names its sibling KerML::Root.
 func (idx *Index) resolveWildcardTarget(pkgFQN, targetText string) string {
+	return idx.resolveImportTarget(pkgFQN, targetText, nil)
+}
+
+// resolveImportTarget is resolveWildcardTarget with the membership imports being
+// followed to reach it, which a target naming its own import must not re-enter.
+//
+// A namespace on the way out that imports the target's first segment by name
+// binds it there, before anything further out declares it (KerML 8.2.3.5.4).
+func (idx *Index) resolveImportTarget(pkgFQN, targetText string, following []*ast.Import) string {
 	for prefix := pkgFQN; prefix != ""; {
+		idx.readName(prefix + "::" + targetText)
 		if fqn, ok := idx.wildcardTargetAt(prefix + "::" + targetText); ok {
+			return fqn
+		}
+		if fqn, ok := idx.membershipImportTargetAt(prefix, targetText, following); ok {
 			return fqn
 		}
 		i := lastSeparator(prefix)
@@ -792,12 +805,47 @@ func (idx *Index) resolveWildcardTarget(pkgFQN, targetText string) string {
 	}
 
 	// Global namespace
+	idx.readName(targetText)
 	if fqn, ok := idx.wildcardTargetAt(targetText); ok {
 		return fqn
 	}
 
 	// Target not found or ambiguous
 	return ""
+}
+
+// membershipImportTargetAt resolves targetText through an `import A::B;` the
+// namespace registered under pkgFQN states for its first segment, and reports
+// whether one that resolves does; the answer is "" when it holds no such target.
+func (idx *Index) membershipImportTargetAt(pkgFQN, targetText string, following []*ast.Import) (string, bool) {
+	first, rest, _ := strings.Cut(targetText, "::")
+	idx.readName(pkgFQN)
+	reexported := idx.reexported.at(pkgFQN)
+	for _, sym := range idx.fqn.at(pkgFQN) {
+		if sym.Scope == nil || reexported.has(sym) {
+			continue
+		}
+		for _, imp := range sym.Scope.Imports() {
+			if imp.Kind != ast.ImportMembership || imp.Imported == nil || len(imp.Imported.Parts) == 0 ||
+				imp.Imported.Parts[len(imp.Imported.Parts)-1].Text != first || slices.Contains(following, imp) {
+				continue
+			}
+			from := pkgFQN
+			if imp.Imported.Global {
+				from = ""
+			}
+			fqn := idx.resolveImportTarget(from, imp.Imported.Text(), append(following, imp))
+			if fqn == "" {
+				continue
+			}
+			if rest != "" {
+				idx.readName(fqn + "::" + rest)
+				fqn, _ = idx.wildcardTargetAt(fqn + "::" + rest)
+			}
+			return fqn, true
+		}
+	}
+	return "", false
 }
 
 // wildcardTargetAt reports the FQN a wildcard import reads its members from
@@ -2359,7 +2407,6 @@ func (idx *Index) ImportsStatedOutside(fqn, doc string) []OutsideImport {
 			stated := OutsideImport{Import: imp, From: sym.Scope}
 			if imp.Kind == ast.ImportNamespace && imp.Imported != nil {
 				target := imp.Imported.Text()
-				idx.readWildcardTarget(fqn, target)
 				stated.Target = idx.resolveWildcardTarget(fqn, target)
 			}
 			out = append(out, stated)
@@ -2383,19 +2430,6 @@ func (idx *Index) NamespaceAt(fqn string) *Scope {
 		only = sym.Scope
 	}
 	return only
-}
-
-// readWildcardTarget records the names resolveWildcardTarget looks under.
-func (idx *Index) readWildcardTarget(pkgFQN, targetText string) {
-	for prefix := pkgFQN; prefix != ""; {
-		idx.readName(prefix + "::" + targetText)
-		i := lastSeparator(prefix)
-		if i < 0 {
-			break
-		}
-		prefix = prefix[:i]
-	}
-	idx.readName(targetText)
 }
 
 // importedChildren returns the memberships of prefix a wildcard import of it takes (KerML 8.3.2.4.5
