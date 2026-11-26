@@ -627,25 +627,58 @@ func (e *executor) builtinShadowEvidence(source sequence, property string, compa
 	if columnIndex >= 0 {
 		// A projected column supplies its own cells, including those of the
 		// starting rows: a feature hidden beneath a computed cell is not read.
-		for _, cells := range startingCells(source) {
-			if columnIndex < len(cells) {
-				cell := cells[columnIndex]
-				if note(cell.Values(), cell.sources) {
-					return evidence
-				}
+		for _, cell := range e.startingColumnCells(source, columnIndex) {
+			if note(cell.Values(), cell.sources) {
+				return evidence
 			}
 		}
 		return evidence
 	}
-	// Direct reads take their evidence from the starting rows so a preceding
-	// conjunction term cannot change an operand's verdict.
+	// Direct reads take evidence from the starting rows, so term order cannot
+	// change the verdict; a built-in's own scan is not evidence for itself.
 	for _, row := range startingRows(source) {
-		values, _, origins, err := e.propertyReachWithSource(row, property)
+		values, _, origins, err := e.shadowEvidenceReach(row, property)
 		if err == nil && note(values, origins) {
 			return evidence
 		}
 	}
 	return evidence
+}
+
+// startingColumnCells supplies one column of a sequence's starting rows,
+// leaving an excluded row's other projected properties unread.
+func (e *executor) startingColumnCells(source sequence, columnIndex int) []Cell {
+	if source.starting != nil {
+		return source.starting.cellsForColumn(e, columnIndex)
+	}
+	var out []Cell
+	for _, cells := range startingCells(source) {
+		if columnIndex < len(cells) {
+			out = append(out, cells[columnIndex])
+		}
+	}
+	return out
+}
+
+// cellsForColumn reuses read cells and asks for missing rows one column at a
+// time, so a failing sibling cannot erase this column's evidence.
+func (s *startingEvidence) cellsForColumn(e *executor, columnIndex int) []Cell {
+	out := make([]Cell, 0, len(s.rows))
+	if s.projection == nil || columnIndex < 0 || columnIndex >= len(s.projection.properties) {
+		return out
+	}
+	q := s.projection
+	for i, row := range s.rows {
+		if i < len(s.cells) && columnIndex < len(s.cells[i]) {
+			out = append(out, s.cells[i][columnIndex])
+			continue
+		}
+		cell, err := q.startingCell(row, columnIndex)
+		if err == nil && cell != nil {
+			out = append(out, *cell)
+		}
+	}
+	return out
 }
 
 // shadowFeatureSource labels a feature read of a shadowable built-in name; a
@@ -797,6 +830,7 @@ func (e *executor) evaluateOrderBy(expression queryplan.Expression) (sequence, e
 		columns:         append([]Column(nil), source.columns...),
 		unfiltered:      source.unfiltered,
 		unfilteredCells: source.unfilteredCells,
+		starting:        source.starting,
 	}
 	if len(source.depths) > 0 {
 		result.depths = make([]int64, 0, len(items))
@@ -893,31 +927,41 @@ func (e *executor) evaluateProject(expression queryplan.Expression) (sequence, e
 			return sequence{}, err
 		}
 	}
-	if source.unfiltered != nil {
-		result.unfilteredCells = p.startingCells(source.unfiltered)
+	// Keep the pre-filter rows for evidence, but do not read a dropped row's
+	// features until a later filter asks for the column it compares.
+	rows := source.unfiltered
+	if rows == nil {
+		rows = source.values
+	}
+	if len(rows) > 0 && len(p.properties) > 0 {
+		result.starting = p.startingEvidence(rows, source, result)
 	}
 	return result, nil
 }
 
-// startingCells projects pre-filter rows with fresh bookkeeping, reading only
-// direct properties so a computed column hides its feature.
-func (p *projection) startingCells(rows []Value) [][]Cell {
-	if len(rows) == 0 {
-		return nil
-	}
+// startingEvidence records the columns already read for kept rows; the other
+// pre-filter rows are read on demand with fresh bookkeeping.
+func (p *projection) startingEvidence(rows []Value, source, result sequence) *startingEvidence {
 	q := *p
 	q.known = make([]pathEvidence, len(p.properties))
 	q.missing = make([][]*Error, len(p.properties))
 	q.seen = newCandidates()
-	out := make([][]Cell, len(rows))
-	for i, value := range rows {
-		cells, err := q.propertyCells(value)
-		if err != nil {
+	evidence := &startingEvidence{
+		rows:       append([]Value(nil), rows...),
+		projection: &q,
+		cells:      make([][]Cell, len(rows)),
+	}
+	kept := 0
+	for i, row := range rows {
+		if kept >= len(source.values) || row != source.values[kept] {
 			continue
 		}
-		out[i] = cells
+		if kept < len(result.cells) && len(result.cells[kept]) >= len(p.properties) {
+			evidence.cells[i] = append([]Cell(nil), result.cells[kept][:len(p.properties)]...)
+		}
+		kept++
 	}
-	return out
+	return evidence
 }
 
 // wildcardPrefix is the path a wildcard property reads through, "" for the
@@ -1115,6 +1159,34 @@ func (p *projection) cells(value Value) ([]Cell, error) {
 	return cells, nil
 }
 
+// startingCell reads one direct property of a pre-filter row through a probe,
+// so a failure leaves only this column absent without erasing its siblings.
+func (p *projection) startingCell(value Value, column int) (*Cell, error) {
+	if p == nil || column < 0 || column >= len(p.properties) {
+		return nil, nil
+	}
+	property := p.properties[column]
+	values, _, readSources, err := p.e.shadowEvidenceReach(value, property)
+	if err != nil || len(values) == 0 {
+		return nil, err
+	}
+	sources := make([]valueSource, len(values))
+	for i, source := range readSources {
+		switch source {
+		case sourceBuiltin:
+			sources[i] = sourceProjectedBuiltin
+		case sourceShadow:
+			sources[i] = sourceProjectedShadow
+		default:
+			sources[i] = sourceProjectedModel
+		}
+	}
+	if len(readSources) != len(values) {
+		sources = sourcesOf(len(values), sourceProjectedModel)
+	}
+	return &Cell{values: values, sources: sources, origin: value.Origin()}, nil
+}
+
 // propertyCells reads a row's direct property columns with their filter sources;
 // it does not evaluate computed columns, whose hidden features supply no evidence.
 func (p *projection) propertyCells(value Value) ([]Cell, error) {
@@ -1214,7 +1286,17 @@ func (e *executor) propertyReach(row Value, property string) ([]Value, pathReach
 // propertyReachWithSource also reports which layer supplied each value, in the
 // order the values were read, so a filter can tell a built-in from a feature.
 func (e *executor) propertyReachWithSource(row Value, property string) ([]Value, pathReach, []valueSource, error) {
-	values, present, origins, err := e.propertyValuesBeforeMemberPathWithSource(row, property)
+	return e.propertyReachWithSourceMode(row, property, false)
+}
+
+// shadowEvidenceReach reports a real read's shadow sources for operand evidence
+// without evaluating a built-in, whose scan is not evidence for itself.
+func (e *executor) shadowEvidenceReach(row Value, property string) ([]Value, pathReach, []valueSource, error) {
+	return e.propertyReachWithSourceMode(row, property, true)
+}
+
+func (e *executor) propertyReachWithSourceMode(row Value, property string, evidence bool) ([]Value, pathReach, []valueSource, error) {
+	values, present, origins, err := e.propertyValuesBeforeMemberPathWithSourceMode(row, property, evidence)
 	if present || err != nil {
 		return values, reachOf(present), origins, err
 	}
@@ -1222,7 +1304,7 @@ func (e *executor) propertyReachWithSource(row Value, property string) ([]Value,
 	if !isElement {
 		if _, _, isObject := row.Object(); isObject {
 			// An object's member path reads the objects its features hold.
-			values, present, origins, err = e.propertyPathValuesWithSource(row, property)
+			values, present, origins, err = e.propertyPathValuesWithSourceMode(row, property, evidence)
 			return values, reachOf(present), origins, err
 		}
 		return nil, pathAbsent, nil, nil
@@ -1239,7 +1321,7 @@ func (e *executor) propertyReachWithSource(row Value, property string) ([]Value,
 			return values, reach, origins, err
 		}
 	}
-	values, present, origins, err = e.propertyPathValuesWithSource(row, property)
+	values, present, origins, err = e.propertyPathValuesWithSourceMode(row, property, evidence)
 	if present || err != nil {
 		return values, reachOf(present), origins, err
 	}
@@ -1256,6 +1338,10 @@ func (e *executor) propertyPathValues(row Value, property string) ([]Value, bool
 }
 
 func (e *executor) propertyPathValuesWithSource(row Value, property string) ([]Value, bool, []valueSource, error) {
+	return e.propertyPathValuesWithSourceMode(row, property, false)
+}
+
+func (e *executor) propertyPathValuesWithSourceMode(row Value, property string, evidence bool) ([]Value, bool, []valueSource, error) {
 	segments := strings.Split(property, ".")
 	if len(segments) < 2 {
 		return nil, false, nil, nil
@@ -1265,7 +1351,7 @@ func (e *executor) propertyPathValuesWithSource(row Value, property string) ([]V
 			return nil, false, nil, nil
 		}
 	}
-	current, reached, err := e.relatedElements(row, segments[:len(segments)-1])
+	current, reached, err := e.relatedElementsMode(row, segments[:len(segments)-1], evidence)
 	if !reached || err != nil {
 		return nil, false, nil, err
 	}
@@ -1273,7 +1359,7 @@ func (e *executor) propertyPathValuesWithSource(row Value, property string) ([]V
 	var origins []valueSource
 	present := false
 	for _, value := range current {
-		values, found, sources, err := e.propertyValuesBeforeMemberPathWithSource(value, segments[len(segments)-1])
+		values, found, sources, err := e.propertyValuesBeforeMemberPathWithSourceMode(value, segments[len(segments)-1], evidence)
 		if err != nil {
 			return nil, false, nil, err
 		}
@@ -1289,12 +1375,16 @@ func (e *executor) propertyPathValuesWithSource(row Value, property string) ([]V
 // qualified name included; present is false when a segment is a property of
 // none of the way.
 func (e *executor) relatedElements(row Value, segments []string) ([]Value, bool, error) {
+	return e.relatedElementsMode(row, segments, false)
+}
+
+func (e *executor) relatedElementsMode(row Value, segments []string, evidence bool) ([]Value, bool, error) {
 	current := []Value{row}
 	for _, segment := range segments {
 		var next []Value
 		present := false
 		for _, value := range current {
-			values, found, err := e.propertyValuesBeforeMemberPath(value, segment)
+			values, found, _, err := e.propertyValuesBeforeMemberPathWithSourceMode(value, segment, evidence)
 			if err != nil {
 				return nil, false, err
 			}
@@ -1345,13 +1435,17 @@ func (e *executor) propertyValuesBeforeMemberPath(row Value, property string) ([
 }
 
 func (e *executor) propertyValuesBeforeMemberPathWithSource(row Value, property string) ([]Value, bool, []valueSource, error) {
+	return e.propertyValuesBeforeMemberPathWithSourceMode(row, property, false)
+}
+
+func (e *executor) propertyValuesBeforeMemberPathWithSourceMode(row Value, property string, evidence bool) ([]Value, bool, []valueSource, error) {
 	builtin, isBuiltin := query.BuiltinProperty(property)
 	// An explicit model feature or built-in decides the read. The bare name
 	// gives a declared feature precedence, as body, locale and language do.
 	explicitBuiltin := isBuiltin && (query.IsBuiltinAlias(property) || e.context.Builtins[property])
 	explicitFeature := isBuiltin && e.context.Features[property]
 	if _, _, isObject := row.Object(); isObject {
-		values, present, source, err := e.objectPropertyValues(row, property)
+		values, present, source, err := e.objectPropertyValuesMode(row, property, evidence)
 		if !present && err == nil && property == PropertyValuation {
 			// An object is no feature: its valuation is absent unless it
 			// holds a member so named.
@@ -1381,7 +1475,7 @@ func (e *executor) propertyValuesBeforeMemberPathWithSource(row Value, property 
 			return values, present, sourcesOf(len(values), e.shadowFeatureSource(sym, builtin)), err
 		}
 	}
-	if isBuiltin && !explicitFeature {
+	if isBuiltin && !explicitFeature && !evidence {
 		var values []Value
 		var present bool
 		var err error
@@ -1888,7 +1982,8 @@ func filtered(source sequence) sequence {
 	return sequence{
 		columns:         append([]Column(nil), source.columns...),
 		unfiltered:      startingRows(source),
-		unfilteredCells: startingCells(source),
+		unfilteredCells: source.unfilteredCells,
+		starting:        source.starting,
 	}
 }
 

@@ -120,31 +120,46 @@ func (e *executor) evaluateInState(expression queryplan.Expression) (sequence, e
 type stateActivityIndex struct {
 	built  bool
 	active map[symbols.ElementKey]bool
+	// err is the failed scan, retained so no read can treat a partial walk as
+	// a complete one.
+	err error
 }
 
-// build walks the session on first read and records every active declaration.
+// build walks the session on first read and publishes the index only once the
+// whole walk succeeded; a partial scan is never served as complete data.
 func (idx *stateActivityIndex) build(e *executor, expression queryplan.Expression) error {
-	if idx == nil || idx.built {
+	if idx == nil {
 		return nil
 	}
-	idx.built = true
-	idx.active = make(map[symbols.ElementKey]bool)
-	if e.context.Runtime == nil {
+	if idx.err != nil {
+		return idx.err
+	}
+	if idx.built {
 		return nil
 	}
-	return e.eachSessionObject(expression, func(row Value) {
-		inst, _, _ := row.Object()
-		if _, gone := e.context.Runtime.Destroyed(inst); gone {
-			return
-		}
-		for _, machine := range stateMachinesOf(inst) {
-			for key, active := range machine.State.ActiveSymbols() {
-				if active {
-					idx.active[key] = true
+	active := make(map[symbols.ElementKey]bool)
+	if e.context.Runtime != nil {
+		err := e.eachSessionObject(expression, func(row Value) {
+			inst, _, _ := row.Object()
+			if _, gone := e.context.Runtime.Destroyed(inst); gone {
+				return
+			}
+			for _, machine := range stateMachinesOf(inst) {
+				for key, isActive := range machine.State.ActiveSymbols() {
+					if isActive {
+						active[key] = true
+					}
 				}
 			}
+		})
+		if err != nil {
+			idx.err = err
+			return err
 		}
-	})
+	}
+	idx.active = active
+	idx.built = true
+	return nil
 }
 
 // stateActivityValues answers isActive for a state usage from the session's

@@ -93,6 +93,19 @@ type sequence struct {
 	// term order must not change how a filter classifies its operand.
 	unfiltered      []Value
 	unfilteredCells [][]Cell
+	// starting reads a projected column of pre-filter rows on demand, never
+	// evaluating a row a terminal projection will not return.
+	starting *startingEvidence
+}
+
+// startingEvidence carries the rows before any filter and the projection that
+// can read one column of an excluded row without evaluating its other columns.
+type startingEvidence struct {
+	rows       []Value
+	projection *projection
+	// cells holds the columns already read for rows the projection kept; the
+	// remaining rows are read only when a filter needs their evidence.
+	cells [][]Cell
 }
 
 // startingRows are the rows a sequence descends from before any filter.
@@ -103,10 +116,13 @@ func startingRows(s sequence) []Value {
 	return s.values
 }
 
-// startingCells are the cells of those rows, when the sequence was projected.
+// startingCells are the cells of those rows, when they were read eagerly.
 func startingCells(s sequence) [][]Cell {
 	if s.unfilteredCells != nil {
 		return s.unfilteredCells
+	}
+	if s.starting != nil {
+		return nil
 	}
 	return s.cells
 }
@@ -841,11 +857,13 @@ func (e *executor) errorAt(kind ErrorKind, expression queryplan.Expression) erro
 
 func cloneSequence(input sequence) sequence {
 	result := sequence{
-		values:     append([]Value(nil), input.values...),
-		columns:    append([]Column(nil), input.columns...),
-		cells:      make([][]Cell, len(input.cells)),
-		depths:     append([]int64(nil), input.depths...),
-		unfiltered: append([]Value(nil), input.unfiltered...),
+		values:          append([]Value(nil), input.values...),
+		columns:         append([]Column(nil), input.columns...),
+		cells:           make([][]Cell, len(input.cells)),
+		depths:          append([]int64(nil), input.depths...),
+		unfiltered:      append([]Value(nil), input.unfiltered...),
+		unfilteredCells: input.unfilteredCells,
+		starting:        input.starting,
 	}
 	for i := range input.cells {
 		result.cells[i] = cloneCells(input.cells[i])

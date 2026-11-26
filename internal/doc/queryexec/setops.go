@@ -95,6 +95,7 @@ func (e *executor) evaluateUnion(expression queryplan.Expression) (sequence, err
 	// above it, while each arm kept its own scope for its internal filters.
 	result.unfiltered = nil
 	result.unfilteredCells = nil
+	result.starting = nil
 	for _, input := range []sequence{source, other} {
 		for i, value := range input.values {
 			key := setKeyOf(value)

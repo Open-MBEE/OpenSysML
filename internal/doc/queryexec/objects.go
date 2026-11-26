@@ -231,19 +231,37 @@ func splitLabel(label string) (before, sep, segment string) {
 // objectPropertyValues reads an object row's property and reports the value
 // source from the branch that answered, without probing a feature again.
 func (e *executor) objectPropertyValues(row Value, property string) ([]Value, bool, valueSource, error) {
+	return e.objectPropertyValuesMode(row, property, false)
+}
+
+// objectPropertyValuesMode reads an object row, probing held features instead
+// of materializing them when the read is only collecting operand evidence.
+func (e *executor) objectPropertyValuesMode(row Value, property string, evidence bool) ([]Value, bool, valueSource, error) {
 	builtin, isBuiltin := query.BuiltinProperty(property)
+	readFeature := e.objectFeatureValues
+	if evidence {
+		readFeature = e.objectFeatureValuesEvidence
+	}
 	if isBuiltin && e.context.Features[property] {
 		// An explicit model feature reads the object's held value, under either
 		// spelling of the name.
-		values, present, err := e.objectFeatureValues(row, builtin)
+		if evidence {
+			// Explicit features are not shadow evidence.
+			return nil, false, sourceModel, nil
+		}
+		values, present, err := readFeature(row, builtin)
 		return values, present, sourceModel, err
 	}
 	if isBuiltin && !query.IsBuiltinAlias(property) && !e.context.Builtins[property] {
 		// The bare name reads a feature the object holds before the evaluator's
 		// own property of that name. Its live value shadows the evaluator's.
-		if values, present, err := e.objectFeatureValues(row, builtin); present || err != nil {
+		if values, present, err := readFeature(row, builtin); present || err != nil {
 			return values, present, sourceShadow, err
 		}
+	}
+	if evidence && isBuiltin {
+		// A built-in's own value is not evidence for itself.
+		return nil, false, sourceModel, nil
 	}
 	inst, label, _ := row.Object()
 	if isBuiltin && builtin == query.PropertyAnnotations {
@@ -343,6 +361,33 @@ func (e *executor) objectFeatureValues(row Value, property string) ([]Value, boo
 		held = fv.Values
 	}
 	values, err := e.objectCellValues(row, property, held, segment)
+	return values, true, err
+}
+
+// objectFeatureValuesEvidence probes a held feature so evidence from a row the
+// query will not return leaves no object, write or behavior behind.
+func (e *executor) objectFeatureValuesEvidence(row Value, property string) ([]Value, bool, error) {
+	inst, label, _ := row.Object()
+	if e.context.Runtime == nil || inst == nil {
+		return nil, false, nil
+	}
+	name, ok := objectFeatureName(e.context.Runtime, inst, property)
+	if !ok {
+		return nil, false, nil
+	}
+	var held runtime.Value
+	found := false
+	err := e.context.Runtime.ProbeFeatureValue(inst, name, func(value runtime.Value) error {
+		held, found = value, value.Kind != runtime.ValInvalid
+		return nil
+	})
+	if err != nil {
+		return nil, true, e.unevaluable(queryplan.Expression{}, property, row, err)
+	}
+	if !found {
+		return nil, true, nil
+	}
+	values, err := e.objectCellValues(row, property, held, label+"."+source.NameText(name))
 	return values, true, err
 }
 
