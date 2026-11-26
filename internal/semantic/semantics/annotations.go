@@ -2926,15 +2926,22 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 		if !named {
 			return emptyValue(), true
 		}
-		if sym.Named() {
+		// A `for` loop's variable is declared in the loop's body, where the index spells it bare.
+		owner := ownerSymbol(sym)
+		if IsLoopVariable(sym) {
+			owner = m.ownerOf(sym)
+		} else if sym.Named() {
 			return stringIfPresent(m.fqnOf(sym), true), true
 		}
-		// A derived name qualifies under the owner's qualified name, which the index does not spell.
-		owner, ok := m.reflectiveFeatureValue(ownerSymbol(sym), "qualifiedName")
-		if !ok || owner.Kind != symbols.FilterValueString || owner.Str == "" {
+		if owner == nil {
 			return emptyValue(), true
 		}
-		return stringOrEmpty(owner.Str + "::" + name), true
+		// A derived name qualifies under the owner's qualified name, which the index does not spell.
+		qualifier, ok := m.reflectiveFeatureValue(owner, "qualifiedName")
+		if !ok || qualifier.Kind != symbols.FilterValueString || qualifier.Str == "" {
+			return emptyValue(), true
+		}
+		return stringOrEmpty(qualifier.Str + "::" + name), true
 	case "direction":
 		direction, ok := m.flowEndFeatureDirection(sym)
 		if !ok {

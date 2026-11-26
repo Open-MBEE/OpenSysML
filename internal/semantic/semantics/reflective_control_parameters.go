@@ -424,3 +424,9 @@ func (m *Model) controlParameterRedefinitions(sym *symbols.Symbol) []*symbols.Sy
 func (m *Model) NamedByNodeParameterRole(sym *symbols.Symbol) bool {
 	return m != nil && sym != nil && !sym.Named() && m.nodeParameterOwner(sym) != nil
 }
+
+// IsNodeParameter reports whether sym is a parameter the notation of a send or control action states:
+// an element no scope declares, qualified by its action.
+func (m *Model) IsNodeParameter(sym *symbols.Symbol) bool {
+	return m.nodeParameterOwner(sym) != nil
+}

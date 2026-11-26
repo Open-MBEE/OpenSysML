@@ -541,9 +541,26 @@ func (c Context) WrittenExpression(sym *symbols.Symbol) (string, bool) {
 func (c Context) PropertyText(v Value) (string, bool) {
 	text, ok := v.Text(c.Identity)
 	if sym, isElement := v.Element(); isElement && text == "" {
+		// A parameter an action's notation states has no scope of its own, yet is named under its action.
+		if name, ok := c.nodeParameterName(sym); ok {
+			return name, true
+		}
 		return c.WrittenExpression(sym)
 	}
 	return text, ok
+}
+
+// nodeParameterName is Element::qualifiedName as the model derives it for a parameter the notation of
+// its action states; false for any other element, and for one it derives no name for.
+func (c Context) nodeParameterName(sym *symbols.Symbol) (string, bool) {
+	if !c.Model.IsNodeParameter(sym) {
+		return "", false
+	}
+	values, ok := c.Model.ReflectiveFeatureValues(sym, "qualifiedName")
+	if !ok || len(values) != 1 || values[0].Kind != symbols.FilterValueString || values[0].Str == "" {
+		return "", false
+	}
+	return values[0].Str, true
 }
 
 // elementText is what an element compares and orders as: its qualified name,
