@@ -135,3 +135,57 @@ func TestOSLCQueryFiltersByTheParametersAnActionNodeStates(t *testing.T) {
 		}
 	}
 }
+
+// An assignment no name reaches, in a loop or conditional body or after a `then`, names its target under its
+// own positional identity: none reads an empty value.
+func TestOSLCQueryNamesTheTargetOfAnUnnamedAssignment(t *testing.T) {
+	const model = `package U {
+    private import ScalarValues::*;
+    action def A {
+        attribute n : Integer := 0;
+        first start;
+        then action w while n < 3 { assign n := n + 1; }
+        then assign n := 7;
+        then done;
+        action l loop { assign n := 4; } until n > 3;
+        action f for i in (1, 2) { assign n := i; }
+        action cond if n > 1 { assign n := 2; } else { assign n := 3; }
+    }
+}`
+	srv := grpc.MustNewServiceForTest(t, 10)
+	parsed, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
+		Source: &pb.ParseFileRequest_Content{Content: model},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	session := repl.NewSession()
+	if result := session.Submit(model); len(result.Diagnostics) != 0 {
+		t.Fatalf("Submit diagnostics = %v", result.Diagnostics)
+	}
+	const text = `oslc.where=rdf:type="AssignmentActionUsage"&oslc.select=sysml:parameter,sysml:input,sysml:feature,sysml:ownedFeature`
+	resp, err := srv.Query(context.Background(), &pb.QueryRequest{ModelHash: parsed.ModelHash, OslcQuery: text})
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines, err := session.Query(text)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(resp.Elements) != 6 || len(lines) != 6 {
+		t.Fatalf("%d elements, %d lines, want the six assignments: %v", len(resp.Elements), len(lines), lines)
+	}
+	for i, element := range resp.Elements {
+		target := element.Id + "::target"
+		line := element.Id + "  " + element.Type
+		for _, name := range []string{"parameter", "input", "feature", "ownedFeature"} {
+			if got := element.Properties[name]; got != target {
+				t.Errorf("%s: Query %s = %q, want %q", element.Id, name, got, target)
+			}
+			line += "  sysml:" + name + "=" + target
+		}
+		if lines[i] != line {
+			t.Errorf("REPL line = %q, want %q", lines[i], line)
+		}
+	}
+}
