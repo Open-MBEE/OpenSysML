@@ -98,9 +98,8 @@ func TestExportGraphsRefusals(t *testing.T) {
 	}
 }
 
-// A subject asked for by another spelling than the refusal writes (a positional
-// id at any depth, a short name, an alias, an inherited member's name) keeps
-// the request's spelling in front.
+// A subject asked for by another spelling than the refusal writes (an id at any
+// depth, a short name, an inherited member's name) keeps that spelling in front.
 func TestExportGraphsRefusalKeepsTheRequestedID(t *testing.T) {
 	srv := mustNewService(t, 10)
 	t.Cleanup(srv.Close)
@@ -109,6 +108,7 @@ func TestExportGraphsRefusalKeepsTheRequestedID(t *testing.T) {
 		alias Auto for Car;
 		part def Sub :> Car;
 		part def A { part : A { part x { part : A { part y; } } } }
+		part def B { part { part { part 'a::b'; } } }
 	}`)
 	const reason = ": the subject must be an action or a state machine"
 	tests := []struct{ subject, want string }{
@@ -117,14 +117,32 @@ func TestExportGraphsRefusalKeepsTheRequestedID(t *testing.T) {
 		{"P::Auto", "no lowered graph for the alias P::Auto"},
 		{"P::Sub::wheel", "P::Sub::wheel: no lowered graph for the part usage P::Car::wheel"},
 		{"P::A::@0", "P::A::@0: no lowered graph for the unnamed part usage of P::A"},
-		{"P::A::@0::x", "P::A::@0::x: no lowered graph for the part usage P::A::x"},
-		{"P::A::@0::x::@0", "P::A::@0::x::@0: no lowered graph for the unnamed part usage of P::A::x"},
-		{"P::A::@0::x::@0::y", "P::A::@0::x::@0::y: no lowered graph for the part usage P::A::x::y"},
+		{"P::A::@0::x", "P::A::@0::x: no lowered graph for the part usage x of an unnamed part usage of P::A"},
+		{"P::A::@0::x::@0", "P::A::@0::x::@0: no lowered graph for the unnamed part usage of the part usage x of an unnamed part usage of P::A"},
+		{"P::A::@0::x::@0::y", "P::A::@0::x::@0::y: no lowered graph for the part usage y of an unnamed part usage of the part usage x of an unnamed part usage of P::A"},
+		{"P::B::@0::@0", "P::B::@0::@0: no lowered graph for the unnamed part usage of an unnamed part usage of P::B"},
+		{"P::B::@0::@0::'a::b'", "P::B::@0::@0::'a::b': no lowered graph for the part usage 'a::b' of an unnamed part usage of an unnamed part usage of P::B"},
 	}
 	for _, test := range tests {
 		_, err := srv.ExportGraphs(context.Background(), &pb.ExportGraphsRequest{ModelHash: parsed.ModelHash, Subject: test.subject})
 		if want := "invalid_argument: " + test.want + reason; err == nil || err.Error() != want {
 			t.Errorf("%s: error = %v, want %s", test.subject, err, want)
+		}
+	}
+}
+
+// A state without a body and a transition are refused in words, like on the CLI.
+func TestExportGraphsRefusesAVertexOrAnEdgeOfAMachine(t *testing.T) {
+	srv := mustNewService(t, 10)
+	t.Cleanup(srv.Close)
+	parsed, _ := parseContent(t, srv, "package P { state def Machine { state off; state on; transition off_on first off then on; } }")
+	for subject, want := range map[string]string{
+		"P::Machine::off":    "invalid_argument: no lowered graph for the state usage P::Machine::off: a state declared without a body is a vertex of its state machine's graph",
+		"P::Machine::off_on": "invalid_argument: no lowered graph for the action usage P::Machine::off_on: a transition is an edge of its state machine's graph",
+	} {
+		_, err := srv.ExportGraphs(context.Background(), &pb.ExportGraphsRequest{ModelHash: parsed.ModelHash, Subject: subject})
+		if err == nil || err.Error() != want {
+			t.Errorf("%s: error = %v, want %s", subject, err, want)
 		}
 	}
 }

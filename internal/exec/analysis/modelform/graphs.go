@@ -137,35 +137,53 @@ func (x *graphsExporter) lowerSubject(out *Graphs, sym *symbols.Symbol) error {
 }
 
 // noGraphFor is ErrGraphsSubject naming the subject once, by its kind in words
-// and its name as the notation writes it; an unnamed one by its named owner.
+// and its name as the notation writes it, or by its owners when one is unnamed.
 func noGraphFor(sym *symbols.Symbol) error {
-	if name := GraphsSubjectName(sym); name != "" {
-		return fmt.Errorf("%w for the %s %s", ErrGraphsSubject, sym.Kind.Phrase(), name)
-	}
-	if owner := namedOwner(sym); owner != nil {
-		return fmt.Errorf("%w for the unnamed %s of %s", ErrGraphsSubject, sym.Kind.Phrase(), source.QualifiedNameOf(symbols.NameChain(owner)))
-	}
-	return fmt.Errorf("%w for the unnamed %s", ErrGraphsSubject, sym.Kind.Phrase())
+	return fmt.Errorf("%w for the %s", ErrGraphsSubject, describeSubject(sym))
 }
 
-// GraphsSubjectName is the name an ErrGraphsSubject refusal writes for sym, ""
-// for an unnamed one. A caller that was asked for sym by any other spelling (an
-// id, an alias, a short name) leads its report with that spelling.
+// describeSubject is sym's kind and qualified name, or, where an unnamed owner
+// leaves it none, its own name and each owner out to the first that has one.
+func describeSubject(sym *symbols.Symbol) string {
+	if name := GraphsSubjectName(sym); name != "" {
+		return sym.Kind.Phrase() + " " + name
+	}
+	own := "unnamed " + sym.Kind.Phrase()
+	if sym.Named() {
+		own = sym.Kind.Phrase() + " " + source.QualifiedNameOf([]string{sym.Name})
+	}
+	owner := ownerOf(sym)
+	switch {
+	case owner == nil:
+		return own
+	case GraphsSubjectName(owner) != "":
+		return own + " of " + GraphsSubjectName(owner)
+	case owner.Named():
+		return own + " of the " + describeSubject(owner)
+	}
+	return own + " of an " + describeSubject(owner)
+}
+
+// GraphsSubjectName is the qualified name a refusal writes for sym, "" when sym or an
+// owner is unnamed. A caller asked for sym by another spelling leads its report with it.
 func GraphsSubjectName(sym *symbols.Symbol) string {
-	if sym == nil || !sym.Named() {
+	for at := sym; at != nil; at = ownerOf(at) {
+		if !at.Named() {
+			return ""
+		}
+	}
+	if sym == nil {
 		return ""
 	}
 	return source.QualifiedNameOf(symbols.NameChain(sym))
 }
 
-// namedOwner is the nearest owner of sym that has a name, nil when none does.
-func namedOwner(sym *symbols.Symbol) *symbols.Symbol {
-	for scope := sym.OwnerScope; scope != nil && scope.Owner() != nil; scope = scope.Owner().OwnerScope {
-		if scope.Owner().Named() {
-			return scope.Owner()
-		}
+// ownerOf is the symbol that declares sym, nil for a top-level one.
+func ownerOf(sym *symbols.Symbol) *symbols.Symbol {
+	if sym.OwnerScope == nil {
+		return nil
 	}
-	return nil
+	return sym.OwnerScope.Owner()
 }
 
 // lowerPerformed exports a behavior the subject performs. A lowering the runtime

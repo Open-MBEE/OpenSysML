@@ -973,7 +973,7 @@ func machineMembers(stateMachineDecl ast.Node) ([]ast.Node, error) {
 	case *ast.Definition:
 		return n.Members, nil
 	}
-	return nil, fmt.Errorf("state machine must be Usage or Definition, got %T", stateMachineDecl)
+	return nil, errNoBody(stateMachineDecl)
 }
 
 // collectVertices records every state and pseudostate the machine body declares,

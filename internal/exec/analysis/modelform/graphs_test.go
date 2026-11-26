@@ -437,6 +437,25 @@ func TestGraphsRefusesSubjectsWithoutAGraph(t *testing.T) {
 	}
 }
 
+// A state without a body, a transition and a control node are parts of their
+// owner's graph: the refusal says so in words, not by the type of the syntax node.
+func TestGraphsRefusesAVertexOrAnEdgeOfAMachine(t *testing.T) {
+	model, idx := graphsModelOf(t, `package P {
+		state def Machine { state off; state on; transition off_on first off then on; }
+		action def Split { fork f; }
+	}`)
+	for name, want := range map[string]string{
+		"P::Machine::off":    "no lowered graph for the state usage P::Machine::off: a state declared without a body is a vertex of its state machine's graph",
+		"P::Machine::off_on": "no lowered graph for the action usage P::Machine::off_on: a transition is an edge of its state machine's graph",
+		"P::Split::f":        "no lowered graph for the action usage P::Split::f: a control node is a node of its action's graph",
+	} {
+		_, err := GraphsOf(model, lookupOne(t, idx, name))
+		if !errors.Is(err, ErrGraphsSubject) || err.Error() != want {
+			t.Errorf("GraphsOf(%s) = %v, want ErrGraphsSubject reading %q", name, err, want)
+		}
+	}
+}
+
 // The form is the same bytes on every export: repeated over one model, over
 // fresh models of the same text, and from eight goroutines at once.
 // A weighted succession's probability expression is exported with its edge, so an

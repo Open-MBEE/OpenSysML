@@ -65,6 +65,20 @@ func TestGraphsExportsTheCanonicalForm(t *testing.T) {
 	}
 }
 
+// A state without a body and a transition are refused in words, like on the CLI.
+func TestGraphsRefusesAVertexOrAnEdgeOfAMachine(t *testing.T) {
+	s := NewSession()
+	s.Submit("package P { state def Machine { state off; state on; transition off_on first off then on; } }")
+	for name, want := range map[string]string{
+		"P::Machine::off":    "no lowered graph for the state usage P::Machine::off: a state declared without a body is a vertex of its state machine's graph",
+		"P::Machine::off_on": "no lowered graph for the action usage P::Machine::off_on: a transition is an edge of its state machine's graph",
+	} {
+		if _, err := s.Graphs(name); err == nil || err.Error() != want {
+			t.Errorf("Graphs(%s) = %v, want the error %q", name, err, want)
+		}
+	}
+}
+
 func TestGraphsReportsWhatIsNoBehavior(t *testing.T) {
 	s := graphsSession(t)
 	for _, test := range []struct{ name, want string }{
