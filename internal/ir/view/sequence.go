@@ -10,6 +10,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
 func runParticipantLabel(node *Node) string {
@@ -813,17 +814,9 @@ func (r *Renderer) subject(sym *symbols.Symbol, kind string) string {
 		return kind + " " + localName(sym)
 	}
 	if owner := sym.Owner(); owner != nil {
-		return fmt.Sprintf("%s %s in %s", article(kind), kind, r.notationName(owner))
+		return fmt.Sprintf("%s %s in %s", diag.IndefiniteArticle(kind), kind, r.notationName(owner))
 	}
-	return article(kind) + " " + kind
-}
-
-// article is the indefinite article a kind reads with.
-func article(kind string) string {
-	if kind != "" && strings.ContainsRune("aeiou", rune(kind[0])) {
-		return "an"
-	}
-	return "a"
+	return diag.IndefiniteArticle(kind) + " " + kind
 }
 
 // messageKind is the keyword a message was written with — `message` or `flow`.
