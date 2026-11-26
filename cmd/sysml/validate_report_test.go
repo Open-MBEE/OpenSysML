@@ -130,6 +130,50 @@ func TestValidateSARIFReport(t *testing.T) {
 	}
 }
 
+// TestValidateSARIFEncodesPathsAsURIs: SARIF names a result's and a fix's file
+// by a percent-encoded URI; JSON, the baseline and JUnit keep the path as spelled.
+func TestValidateSARIFEncodesPathsAsURIs(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	const path, uri = "my dir/b&d #1 é.sysml", "my%20dir/b&d%20%231%20%C3%A9.sysml"
+	if err := os.Mkdir(filepath.Join(dir, "my dir"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, filepath.FromSlash(path)), []byte(reportNotationModel), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	asSARIF := checkPathsIn(t, dir, binary, "-validate", "-format", "sarif", path)
+	results := decodeSARIF(t, []byte(asSARIF.stdout)).Runs[0].Results
+	if len(results) != 1 || len(results[0].Fixes) != 1 {
+		t.Fatalf("results = %+v", results)
+	}
+	if got := results[0].Locations[0].PhysicalLocation.ArtifactLocation.URI; got != uri {
+		t.Errorf("result uri = %q, want %q", got, uri)
+	}
+	if got := results[0].Fixes[0].ArtifactChanges[0].ArtifactLocation.URI; got != uri {
+		t.Errorf("fix uri = %q, want %q", got, uri)
+	}
+
+	recorded := checkPathsIn(t, dir, binary, "-validate", "-json", "-o", "baseline.json", path)
+	var report checkReport
+	if data, err := os.ReadFile(filepath.Join(dir, "baseline.json")); err != nil {
+		t.Fatalf("%v\n%s", err, recorded.output())
+	} else if err := json.Unmarshal(data, &report); err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Diagnostics) != 1 || report.Diagnostics[0].File != path {
+		t.Errorf("JSON report names %+v, want file %q", report.Diagnostics, path)
+	}
+	known := checkPathsIn(t, dir, binary, "-validate", "-baseline", "baseline.json", "-format", "sarif", path)
+	if run := decodeSARIF(t, []byte(known.stdout)).Runs[0]; len(run.Results) != 0 || run.Properties == nil || run.Properties.Suppressed != 1 {
+		t.Errorf("baseline did not know the finding: %d results, properties %+v", len(run.Results), run.Properties)
+	}
+	asJUnit := checkPathsIn(t, dir, binary, "-validate", "-format", "junit", path)
+	if !strings.Contains(asJUnit.stdout, `file="my dir/b&amp;d #1 é.sysml"`) {
+		t.Errorf("JUnit report does not name the file as spelled:\n%s", asJUnit.stdout)
+	}
+}
+
 // TestValidateSARIFOnExamples: the showcase examples report as valid SARIF to
 // stdout, and -format json is -json.
 func TestValidateSARIFOnExamples(t *testing.T) {

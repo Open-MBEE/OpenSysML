@@ -73,6 +73,31 @@ func TestJUnitFileCases(t *testing.T) {
 	}
 }
 
+// TestSarifReportEncodesPathsAsURIs: a corpus file whose path holds a space is
+// named in SARIF by a percent-encoded URI reference and in JUnit as spelled.
+func TestSarifReportEncodesPathsAsURIs(t *testing.T) {
+	report := &Report{Roots: []RootReport{{
+		Name: "training",
+		Dir:  "examples/training",
+		Files: []FileReport{{
+			Path:      "01. Packages/Comment Example.sysml",
+			PilotOnly: []Entry{{Line: 2, Severity: "error", Category: "unmapped", Count: 1}},
+		}},
+	}}}
+	results := sarifReport(report).Runs[0].Results
+	if len(results) != 1 {
+		t.Fatalf("results = %+v", results)
+	}
+	const uri = "examples/training/01.%20Packages/Comment%20Example.sysml"
+	if got := results[0].Locations[0].PhysicalLocation.ArtifactLocation.URI; got != uri {
+		t.Errorf("uri = %q, want %q", got, uri)
+	}
+	const file = "examples/training/01. Packages/Comment Example.sysml"
+	if got := junitReport(report).Suites[0].Cases[0].File; got != file {
+		t.Errorf("JUnit file = %q, want %q", got, file)
+	}
+}
+
 func TestSarifReport(t *testing.T) {
 	log := sarifReport(exportReport())
 	if log.Version != "2.1.0" || len(log.Runs) != 1 {

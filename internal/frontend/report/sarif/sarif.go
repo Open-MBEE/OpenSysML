@@ -5,6 +5,7 @@ package sarif
 
 import (
 	"encoding/json"
+	"net/url"
 	"sort"
 )
 
@@ -152,6 +153,12 @@ func NewLog(driver Driver) *Log {
 		Version: Version,
 		Runs:    []Run{{Tool: Tool{Driver: driver}, Results: []Result{}}},
 	}
+}
+
+// PathURI spells a slash-separated file path as the URI reference an artifact
+// location's uri must be, percent-encoding what a URI may not hold literally.
+func PathURI(path string) string {
+	return (&url.URL{Path: path}).String()
 }
 
 // LocationAt places a result at a 1-based line and column of an artifact; a

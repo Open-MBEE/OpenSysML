@@ -35,7 +35,7 @@ func sarifReport(report *Report) *sarif.Log {
 	run := &log.Runs[0]
 	for _, root := range report.Roots {
 		for _, file := range root.Files {
-			uri := root.Dir + "/" + file.Path
+			uri := sarif.PathURI(root.Dir + "/" + file.Path)
 			for _, e := range file.SeverityMismatch {
 				run.Results = append(run.Results, sarif.Result{
 					RuleID:    ruleSeverityMismatch,

@@ -2,6 +2,8 @@ package sarif_test
 
 import (
 	"bytes"
+	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/report/sarif"
@@ -85,6 +87,29 @@ func TestSortResultsIsDeterministic(t *testing.T) {
 	for i := range want {
 		if order[i] != want[i] {
 			t.Fatalf("order = %v, want %v", order, want)
+		}
+	}
+}
+
+// TestPathURIIsAURIReference: a path is percent-encoded into the URI reference
+// SARIF requires of artifactLocation.uri, and a relative path stays relative.
+func TestPathURIIsAURIReference(t *testing.T) {
+	for path, want := range map[string]string{
+		"":                       "",
+		"models/a.sysml":         "models/a.sysml",
+		"my dir/b&d #1 é.sysml":  "my%20dir/b&d%20%231%20%C3%A9.sysml",
+		"50%/what?.sysml":        "50%25/what%3F.sysml",
+		"a:b.sysml":              "./a:b.sysml",
+		"/tmp/out side/a.sysml":  "/tmp/out%20side/a.sysml",
+		"models/[draft]/a.sysml": "models/%5Bdraft%5D/a.sysml",
+	} {
+		got := sarif.PathURI(path)
+		if got != want {
+			t.Errorf("PathURI(%q) = %q, want %q", path, got, want)
+		}
+		parsed, err := url.Parse(got)
+		if err != nil || strings.TrimPrefix(parsed.Path, "./") != path || parsed.Scheme != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
+			t.Errorf("PathURI(%q) = %q does not read back as that path: %+v, %v", path, got, parsed, err)
 		}
 	}
 }

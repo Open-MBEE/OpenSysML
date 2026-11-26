@@ -123,7 +123,7 @@ func (r *reporter) sarifReport() *sarif.Log {
 				ShortDescription: sarif.Message{Text: ruleDescription(d, id)},
 			})
 		}
-		uri := workspacePath(r.root, d.File)
+		uri := sarif.PathURI(workspacePath(r.root, d.File))
 		result := sarif.Result{
 			RuleID:    id,
 			RuleIndex: index,
