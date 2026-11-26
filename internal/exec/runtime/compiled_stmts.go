@@ -273,7 +273,7 @@ func ifStmt(cond compiledExpr, then, els compiledStmt) compiledStmt {
 		}
 		if cv.Kind != semantics.ValBool {
 			return scalar{}, false, fmt.Errorf("%s: condition of 'if' must evaluate to a Boolean, got %s",
-				calcBodyDescription, ValConst)
+				calcBodyDescription, DescribeValue(cv.boxed()))
 		}
 		if cv.truth() {
 			return then(ctx, frame)

@@ -7,7 +7,7 @@ import (
 )
 
 // TestBooleanOperandErrorDescribesTheOperand checks a non-Boolean operand of a
-// logical operator or `if` is named by its type, never by its value kind.
+// logical operator, `not` or `if` is named by its type, never by its value kind.
 func TestBooleanOperandErrorDescribesTheOperand(t *testing.T) {
 	cases := []struct {
 		expr string
@@ -23,6 +23,10 @@ func TestBooleanOperandErrorDescribesTheOperand(t *testing.T) {
 		{"if 3 ? 1 else 2", "condition of 'if' must be Boolean, got an Integer"},
 		{"true and (1, 2)", "right operand of 'and' must be Boolean, got a sequence"},
 		{"null and true", "left operand of 'and' must be Boolean, got null"},
+		{"not 3", "logical not requires bool operand, got an Integer"},
+		{`not "a"`, "logical not requires bool operand, got a string"},
+		{"not (1, 2)", "logical not requires bool operand, got a sequence"},
+		{"not null", "logical not requires bool operand, got null"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.expr, func(t *testing.T) {

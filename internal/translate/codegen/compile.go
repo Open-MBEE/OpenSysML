@@ -859,7 +859,7 @@ func (fc *funcCompiler) compileStmt(s lower.Statement) (Stmt, error) {
 		}
 		return Assign{Name: s.Target, Range: b.r, Value: v}, nil
 	case lower.If:
-		cond, err := fc.compileBool(s.Condition, "condition of if", failStmtCondition("if"), true)
+		cond, err := fc.compileBool(s.Condition, "condition of if", failStmtCondition("if"))
 		if err != nil {
 			return nil, err
 		}
@@ -1063,7 +1063,7 @@ func (fc *funcCompiler) compileLoop(s lower.Loop) (Stmt, error) {
 	}
 	loop := While{Cond: BoolLit{Value: true}}
 	if cond != nil {
-		c, err := fc.compileBool(cond, "condition of while", failStmtCondition("while"), true)
+		c, err := fc.compileBool(cond, "condition of while", failStmtCondition("while"))
 		if err != nil {
 			return nil, err
 		}
@@ -1079,7 +1079,7 @@ func (fc *funcCompiler) compileLoop(s lower.Loop) (Stmt, error) {
 	}
 	loop.Body = body
 	if until != nil {
-		u, err := fc.compileBool(until, "condition of until", failStmtCondition("until"), true)
+		u, err := fc.compileBool(until, "condition of until", failStmtCondition("until"))
 		if err != nil {
 			return nil, err
 		}
@@ -1089,25 +1089,22 @@ func (fc *funcCompiler) compileLoop(s lower.Loop) (Stmt, error) {
 }
 
 // compileBool compiles a Boolean operand; fail is the run-time message for a
-// collection, function or null there (%s what was found: its kind when bare,
-// else its description), what names it at compile time.
-func (fc *funcCompiler) compileBool(n ast.Node, what, fail string, bare bool) (Expr, error) {
+// collection, function or null there (%s the description of what was found),
+// what names it at compile time.
+func (fc *funcCompiler) compileBool(n ast.Node, what, fail string) (Expr, error) {
 	v, err := fc.compileExpr(n)
 	if err != nil {
 		return nil, err
 	}
 	v = fc.need(v)
 	if v.Type() == TypeSeqBool {
-		v = ToOne{X: v, Fail: fail, Bare: bare}
+		v = ToOne{X: v, Fail: fail}
 	}
 	if v.Type().Elem().IsFn() {
-		if v, err = fc.scalarOperandWith(v, fail, bare, what); err != nil {
+		if v, err = fc.scalarOperandWith(v, fail, false, what); err != nil {
 			return nil, err
 		}
 		fc.c.collections = true
-		if bare {
-			return Refusal{Operands: []Expr{v}, Parts: []string{fmt.Sprintf(fail, "function")}, T: TypeBool}, nil
-		}
 		return Refusal{Operands: []Expr{v}, Parts: []string{strings.TrimSuffix(fail, "%s"), ""}, Describe: true, T: TypeBool}, nil
 	}
 	if v.Type() != TypeBool {
@@ -1287,7 +1284,7 @@ func (fc *funcCompiler) compileOperator(n *ast.OperatorExpr) (Expr, error) {
 		if len(n.Operands) != 3 {
 			return nil, fc.unsupported("an `if` with no else")
 		}
-		cond, err := fc.compileBool(n.Operands[0], "condition of if", "type mismatch: condition of 'if' must be Boolean, got %s", false)
+		cond, err := fc.compileBool(n.Operands[0], "condition of if", "type mismatch: condition of 'if' must be Boolean, got %s")
 		if err != nil {
 			return nil, err
 		}
@@ -1413,7 +1410,7 @@ func (fc *funcCompiler) compileOperator(n *ast.OperatorExpr) (Expr, error) {
 		if len(n.Operands) != 1 {
 			return nil, fc.unsupported("a unary operator with two operands")
 		}
-		x, err := fc.compileBool(n.Operands[0], "operand of not", "type mismatch: logical not requires bool operand, got %s", true)
+		x, err := fc.compileBool(n.Operands[0], "operand of not", "type mismatch: logical not requires bool operand, got %s")
 		if err != nil {
 			return nil, err
 		}

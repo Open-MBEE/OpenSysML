@@ -2188,7 +2188,7 @@ func (ctx *Context) unaryValue(op program.Operator, operand Value) (Value, error
 	switch op {
 	case program.OpNot:
 		if operand.Kind != ValConst {
-			return Value{}, fmt.Errorf("%w: logical not requires bool operand, got %v", ErrTypeMismatch, operand.Kind)
+			return Value{}, fmt.Errorf("%w: logical not requires bool operand, got %s", ErrTypeMismatch, describeOperand(operand))
 		}
 	case program.OpNeg, program.OpPos:
 		if operand.Kind == ValQuantity {
@@ -2223,7 +2223,7 @@ func constUnary(op program.Operator, operand semantics.Value) (semantics.Value, 
 	if op == program.OpNot {
 		// Logical not: not bool
 		if operand.Kind != semantics.ValBool {
-			return semantics.Value{}, fmt.Errorf("%w: logical not requires bool operand, got %s", ErrTypeMismatch, semantics.FormatConst(operand))
+			return semantics.Value{}, fmt.Errorf("%w: logical not requires bool operand, got %s", ErrTypeMismatch, DescribeValue(Value{Kind: ValConst, Const: operand}))
 		}
 		return semantics.Value{Kind: semantics.ValBool, Bool: !operand.Bool}, nil
 	}
