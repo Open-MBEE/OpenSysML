@@ -104,11 +104,15 @@ func (m *Model) nestedSubsettingFQN(sym *symbols.Symbol) string {
 	return m.implicitSubsettingFQN(sym, usage, owner, u)
 }
 
-// loopBodyNestedFQN is the feature a usage declared in an unnamed loop body implicitly subsets:
+// loopBodyNestedFQN is the feature a member of an unnamed loop body implicitly subsets:
 // the body is an action usage no symbol stands for (SysML.xtext ActionBodyParameter).
 func (m *Model) loopBodyNestedFQN(sym *symbols.Symbol) string {
 	if _, loop := sym.OwnerScope.Node().(*ast.WhileLoopActionNode); !loop {
 		return ""
+	}
+	if form := controlFormOf(sym.Decl); form != ControlNone && !IsLoopVariable(sym) {
+		// A control statement of the body is its subaction of that kind (SysML v2 Table 32).
+		return controlSubactionFQNs[form]
 	}
 	usage, ok := sym.Decl.(*ast.Usage)
 	if !ok || usage.IsVariant || usage.IsBodyParameter || !m.isSysMLUsage(sym) {

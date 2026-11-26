@@ -64,3 +64,51 @@ func TestBareControlStatementsSpecializeTheirKind(t *testing.T) {
 		t.Errorf("D's assignment = %v, want %v", got, want[0])
 	}
 }
+
+// An assignment written in the unnamed body of a loop is a subaction of that body, as one written
+// in a declared action is (SysML 8.4.12, Table 32; SysML.xtext ActionBodyParameter), so its target
+// redefines that of Action::assignments (Table 33).
+func TestAssignmentsInUnnamedLoopBodiesAreSubactions(t *testing.T) {
+	m, root := buildModelWithStdlib(t, `package Q {
+	part def T {
+		attribute x;
+		action a {
+			while true { assign x := 1; }
+			for i in (1, 2) { assign x := 2; }
+			loop { assign x := 3; } until true;
+			action named while true { assign x := 4; }
+		}
+	}
+}`)
+	want := []string{"Actions::Action::assignments", "target -> Actions::Action::assignments::target", "replacementValues -> Actions::AssignmentAction::replacementValues"}
+	a := nestedSym(t, root, "Q::T::a")
+	loops := append(m.statementNodes(a), nestedSym(t, root, "Q::T::a::named"))
+	if len(loops) != 4 {
+		t.Fatalf("a holds %d loops, want 4", len(loops))
+	}
+	for i, loop := range loops {
+		m.statementNodes(loop)
+		var assignments []*symbols.Symbol
+		for scope, owner := range m.statementScopes {
+			if owner != loop {
+				continue
+			}
+			scope.ForEachMember(func(member *symbols.Symbol) bool {
+				if controlFormOf(member.Decl) == ControlAssignment {
+					assignments = append(assignments, member)
+				}
+				return true
+			})
+		}
+		if len(assignments) != 1 {
+			t.Fatalf("loop %d holds %d assignments, want 1", i, len(assignments))
+		}
+		var got []string
+		for _, base := range m.ImpliedSpecializations(assignments[0]) {
+			got = append(got, m.QualifiedNameOf(base))
+		}
+		if got = append(got, controlParameterRows(m, assignments[0])...); !slices.Equal(got, want) {
+			t.Errorf("loop %d: assignment = %v, want %v", i, got, want)
+		}
+	}
+}
