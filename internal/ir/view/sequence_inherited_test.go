@@ -590,3 +590,81 @@ func TestSequenceRenderingDropsARedefinedSuccessionOverReferenceSubsetEvents(t *
 		t.Errorf("got %q\nwant %q", got, want)
 	}
 }
+
+// A redefining succession that states no ends keeps the ends it inherits, under
+// its own name: the nearest stated ones when it redefines through a chain.
+func TestSequenceRenderingReadsARedefiningSuccessionOverTheEndsItInherits(t *testing.T) {
+	rendering := renderSequenceOf(t, `package P {
+	item def Ping;
+	part server {
+		event occurrence a;
+		event occurrence b;
+		event occurrence c;
+	}
+	part source {
+		event occurrence sent;
+		event occurrence mid;
+		event occurrence got;
+		succession original first sent then got;
+	}
+	part client :> source {
+		succession renamed :>> original;
+	}
+	part narrowed :> source {
+		succession shorter :>> original first sent then mid;
+	}
+	part heir :> narrowed {
+		succession kept :>> shorter;
+	}
+	message m1 of Ping from client.sent to server.a;
+	message m2 of Ping from server.b to client.got;
+	message m3 of Ping from heir.sent to server.a;
+	message m4 of Ping from server.c to heir.mid;
+}`, "server", "source", "client", "narrowed", "heir", "m1", "m2", "m3", "m4")
+	want := []string{
+		"m1 of Ping: P::client.sent -> a",
+		"renamed: P::client.sent -> P::client.got",
+		"m2 of Ping: b -> P::client.got",
+		"m3 of Ping: P::heir.sent -> a",
+		"kept: P::heir.sent -> P::heir.mid",
+		"m4 of Ping: c -> P::heir.mid",
+		"original: sent -> got",
+		"shorter: P::narrowed.sent -> P::narrowed.mid",
+	}
+	if got := sequenceEnds(rendering); !slices.Equal(got, want) {
+		t.Errorf("got %q\nwant %q", got, want)
+	}
+}
+
+// A lifeline inheriting a redefining succession from a usage that is not shown
+// still reads it, in place of the one redefined.
+func TestSequenceRenderingReadsASuccessionRedefinedByAUsageNotShown(t *testing.T) {
+	rendering := renderSequenceOf(t, `package P {
+	item def Ping;
+	part server {
+		event occurrence a;
+		event occurrence b;
+	}
+	part source {
+		event occurrence sent;
+		event occurrence mid;
+		event occurrence got;
+		succession original first sent then got;
+	}
+	part hidden :> source {
+		succession replacement :>> original first sent then mid;
+	}
+	part leaf :> hidden;
+	message ask of Ping from leaf.sent to server.a;
+	message reply of Ping from server.b to leaf.mid;
+}`, "server", "source", "leaf", "ask", "reply")
+	want := []string{
+		"ask of Ping: P::leaf.sent -> a",
+		"replacement: P::leaf.sent -> P::leaf.mid",
+		"reply of Ping: b -> P::leaf.mid",
+		"original: sent -> got",
+	}
+	if got := sequenceEnds(rendering); !slices.Equal(got, want) {
+		t.Errorf("got %q\nwant %q", got, want)
+	}
+}
