@@ -324,6 +324,8 @@ func namespaceMembers(decl ast.Node) []ast.Node {
 		return d.Members
 	case *ast.Usage:
 		return d.Members
+	case *ast.IfBranchNode:
+		return d.Body
 	default:
 		return nil
 	}
