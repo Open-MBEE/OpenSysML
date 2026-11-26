@@ -123,7 +123,7 @@ func TestParseArchiveRejectsMalformedArchives(t *testing.T) {
 func TestParseArchiveSaysAFileIsNotAnArchive(t *testing.T) {
 	for _, data := range [][]byte{[]byte("package P;"), nil} {
 		_, err := ParseArchive("lib/probe.kpar", data)
-		if want := "lib/probe.kpar: not a project archive: the file is not a ZIP archive"; err == nil || err.Error() != want {
+		if want := "lib/probe.kpar: the file is not a ZIP archive"; !errors.Is(err, ErrNotZIP) || err.Error() != want {
 			t.Errorf("ParseArchive(%q) err = %v, want %q", data, err, want)
 		}
 	}

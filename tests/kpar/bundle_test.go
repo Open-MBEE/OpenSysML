@@ -169,7 +169,8 @@ func TestBundleAndUnbundleSayWhatIsWrongWithThePath(t *testing.T) {
 		{"-bundle", empty, "cannot bundle " + empty + ": the directory holds no .project.json, so it is not a project"},
 		{"-bundle", missing, "cannot bundle " + missing + ": no such directory"},
 		{"-bundle", notes, "cannot bundle " + notes + ": not a directory"},
-		{"-unbundle", notes, "cannot read " + notes + ": not a project archive: the file is not a ZIP archive"},
+		{"-bundle", notes + "/", "cannot bundle " + notes + "/: not a directory"},
+		{"-unbundle", notes, "cannot read " + notes + ": not a project interchange archive: the file is not a ZIP archive"},
 	}
 	for _, c := range cases {
 		output, err := run(t, bin, c.flag, c.path, "-o", filepath.Join(work, "out"))

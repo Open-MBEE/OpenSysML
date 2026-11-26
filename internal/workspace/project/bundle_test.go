@@ -161,8 +161,10 @@ func TestBundleRefusesADirectoryThatIsNotAProject(t *testing.T) {
 	if _, _, err := Bundle(filepath.Join(dir, "missing")); err == nil || err.Error() != "no such directory" {
 		t.Errorf("Bundle of a missing directory: %v", err)
 	}
-	if _, _, err := Bundle(filepath.Join(dir, "Probe.sysml")); err == nil || err.Error() != "not a directory" {
-		t.Errorf("Bundle of a file: %v", err)
+	for _, file := range []string{filepath.Join(dir, "Probe.sysml"), filepath.Join(dir, "Probe.sysml") + "/", filepath.Join(dir, "Probe.sysml", "sub")} {
+		if _, _, err := Bundle(file); err == nil || err.Error() != "not a directory" {
+			t.Errorf("Bundle(%s) of a file: %v", file, err)
+		}
 	}
 	if err := os.WriteFile(filepath.Join(dir, ".project.json"), []byte(`{"name": "Probe"}`), 0o600); err != nil {
 		t.Fatal(err)

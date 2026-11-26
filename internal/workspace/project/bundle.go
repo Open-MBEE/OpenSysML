@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
@@ -39,10 +40,10 @@ func checkProjectDir(dir string) error {
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
 		return errors.New("no such directory")
+	case errors.Is(err, syscall.ENOTDIR), err == nil && !info.IsDir():
+		return errors.New("not a directory")
 	case err != nil:
 		return nil
-	case !info.IsDir():
-		return errors.New("not a directory")
 	}
 	if _, err := os.Stat(filepath.Join(dir, ProjectFile)); errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("the directory holds no %s, so it is not a project", ProjectFile)
