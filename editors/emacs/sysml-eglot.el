@@ -97,12 +97,15 @@ Modifiers are left off for the same reason: the server marks an
 A build is looked for in the root of PROJECT, the project Eglot starts
 the server for, or of the current buffer's when Eglot passes none.  The
 executable is named as its own host names it, since Eglot starts it there.
-When none is found and INTERACTIVE is non-nil, the bare executable name
-is returned, which has \\[eglot] prompt for the program to run."
+When `sysml-lsp-server-path' is unset, none is found and INTERACTIVE is
+non-nil, the bare executable name is returned, which has \\[eglot] prompt
+for the program to run."
   (let ((root (if project (project-root project) (sysml--project-root))))
-    (if (and interactive (not (sysml--find-server root)))
+    (if (and interactive
+             (not sysml-lsp-server-path)
+             (not (sysml--find-server root t)))
         (cons sysml--server-executable sysml-lsp-server-args)
-      (pcase-let ((`(,server . ,args) (sysml--server-command root)))
+      (pcase-let ((`(,server . ,args) (sysml--server-command root t)))
         (cons (file-local-name server) args)))))
 
 (add-to-list 'eglot-server-programs

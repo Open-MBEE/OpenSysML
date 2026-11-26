@@ -53,7 +53,8 @@
 
 (ert-deftest sysml-eglot-refuses-a-configured-path-that-is-not-executable ()
   (let ((sysml-lsp-server-path "/nonexistent/sysml-lsp"))
-    (should-error (sysml-eglot--server-command) :type 'user-error)))
+    (should-error (sysml-eglot--server-command) :type 'user-error)
+    (should-error (sysml-eglot--server-command t) :type 'user-error)))
 
 (ert-deftest sysml-eglot-leaves-a-missing-server-to-the-prompt-when-interactive ()
   (let* ((empty (file-name-as-directory (make-temp-file "empty" t)))

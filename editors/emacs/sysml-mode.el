@@ -420,22 +420,22 @@ the server this names."
   (when-let* ((project (project-current)))
     (project-root project)))
 
-(defun sysml--find-server (root)
+(defun sysml--find-server (root &optional remote)
   "Return the language server executable, or nil when none is found.
-ROOT is the project root to look for a build in, or nil."
+ROOT is the project root to look for a build in, or nil.  With REMOTE
+non-nil, variable `exec-path' is that of the host of `default-directory'."
   (cond
    (sysml-lsp-server-path
     (and (file-executable-p sysml-lsp-server-path) sysml-lsp-server-path))
    ((when-let* ((candidate (and root (expand-file-name
                                       (concat "bin/" sysml--server-executable) root))))
       (and (file-executable-p candidate) candidate)))
-   ;; On the host of `default-directory', which is where the server is started.
-   (t (executable-find sysml--server-executable t))))
+   (t (executable-find sysml--server-executable remote))))
 
-(defun sysml--server-command (root)
+(defun sysml--server-command (root &optional remote)
   "Return the command to start the language server with.
-ROOT is the project root to look for a build in, or nil."
-  (let ((server (sysml--find-server root)))
+ROOT and REMOTE are as for `sysml--find-server'."
+  (let ((server (sysml--find-server root remote)))
     (unless server
       (user-error "Could not find %s: build it with `make build' and set `sysml-lsp-server-path', or put it on `exec-path'"
                   sysml--server-executable))
