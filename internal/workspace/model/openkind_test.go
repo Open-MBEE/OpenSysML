@@ -1,6 +1,9 @@
 package model
 
 import (
+	"bytes"
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -28,5 +31,47 @@ func TestOpenWithKindParsesTheBufferAsTheKindGiven(t *testing.T) {
 	ws.Close("model.ipynb")
 	if ws.Document("model.ipynb") != nil || len(ws.kinds) != 0 {
 		t.Fatalf("after close: document %v, kinds %v", ws.Document("model.ipynb"), ws.kinds)
+	}
+}
+
+// Opens of one name under different kinds never show a reader the buffer of one
+// parsed as the kind of the other.
+func TestOpenWithKindKeepsKindAndBufferTogether(t *testing.T) {
+	sysml, kerml := []byte("part def A;\n"), []byte("classifier B;\n")
+	ws := NewWorkspace()
+	ws.OpenWithKind("model.ipynb", sysml, 1, source.KindSysML)
+	var writers, readers sync.WaitGroup
+	var done atomic.Bool
+	var mixed atomic.Int64
+	for i := range 4 {
+		writers.Go(func() {
+			for range 2000 {
+				if i%2 == 0 {
+					ws.OpenWithKind("model.ipynb", sysml, 1, source.KindSysML)
+				} else {
+					ws.OpenWithKind("model.ipynb", kerml, 1, source.KindKerML)
+				}
+			}
+		})
+	}
+	for range 2 {
+		readers.Go(func() {
+			for !done.Load() {
+				doc := ws.Document("model.ipynb")
+				want := source.KindSysML
+				if bytes.Equal(doc.Content, kerml) {
+					want = source.KindKerML
+				}
+				if doc.Kind() != want {
+					mixed.Add(1)
+				}
+			}
+		})
+	}
+	writers.Wait()
+	done.Store(true)
+	readers.Wait()
+	if n := mixed.Load(); n != 0 {
+		t.Fatalf("%d reads saw a buffer parsed as the other open's kind", n)
 	}
 }
