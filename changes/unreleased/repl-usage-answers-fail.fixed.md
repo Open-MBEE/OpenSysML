@@ -1,0 +1,1 @@
+- A prompt command answered with its usage line is a failure in a notebook and over MCP: `%save` with no file, `%validate a b` or `%render-run nope` is a `UsageError` output of the Jupyter kernel, which skips the cells queued behind it, and an `isError` result of the MCP `repl_command` tool. Both reported success before, so a notebook ran on and an agent read the command as done.

@@ -146,6 +146,9 @@ func (e *REPLEngine) meta(line string, out Output) error {
 		}
 		return execError(name, summary(lines), lines)
 	}
+	if repl.UsageAnswer(lines) {
+		return execError("UsageError", summary(lines), lines)
+	}
 	if cmd == "%features" && len(args) >= 2 && args[len(args)-1] == "json" {
 		if bundle, ok := jsonBundle(lines); ok {
 			out.Display(bundle, nil)

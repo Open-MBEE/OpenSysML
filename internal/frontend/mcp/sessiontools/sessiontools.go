@@ -429,6 +429,9 @@ func runCommand(sess *repl.Session, line string) (CommandResult, error) {
 			return out, failed(errors.New(strings.TrimPrefix(l, "error: ")), lines)
 		}
 	}
+	if repl.UsageAnswer(lines) {
+		return out, errors.New(text(lines))
+	}
 	return out, nil
 }
 
