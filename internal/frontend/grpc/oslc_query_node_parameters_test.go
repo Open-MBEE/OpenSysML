@@ -3,6 +3,7 @@ package grpc_test
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -186,6 +187,46 @@ func TestOSLCQueryNamesTheTargetOfAnUnnamedAssignment(t *testing.T) {
 		}
 		if lines[i] != line {
 			t.Errorf("REPL line = %q, want %q", lines[i], line)
+		}
+	}
+}
+
+// A query orders such parameters by the text it reads them as.
+func TestOSLCQueryOrdersByTheParametersAnActionNodeStates(t *testing.T) {
+	const model = `package O {
+    private import ScalarValues::*;
+    action def A {
+        attribute n : Integer := 0;
+        action b for z : Integer in (1, 2) { }
+        action c for a : Integer in (1, 2) { }
+        action d assign n := 1;
+        action e assign n := 2;
+    }
+}`
+	srv := grpc.MustNewServiceForTest(t, 10)
+	parsed, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
+		Source: &pb.ParseFileRequest_Content{Content: model},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for order, want := range map[string][]string{
+		"+": {"O::A::b::z", "O::A::c::a", "O::A::d::target", "O::A::e::target"},
+		"-": {"O::A::e::target", "O::A::d::target", "O::A::c::a", "O::A::b::z"},
+	} {
+		text := `oslc.where=sysml:owner="O::A"&oslc.select=sysml:parameter&oslc.orderBy=` + order + `sysml:parameter`
+		resp, err := srv.Query(context.Background(), &pb.QueryRequest{ModelHash: parsed.ModelHash, OslcQuery: text})
+		if err != nil {
+			t.Fatalf("orderBy %s: %v", order, err)
+		}
+		var got []string
+		for _, element := range resp.Elements {
+			if parameter, ok := element.Properties["parameter"]; ok {
+				got = append(got, parameter)
+			}
+		}
+		if !slices.Equal(got, want) {
+			t.Errorf("orderBy %ssysml:parameter = %v, want %v", order, got, want)
 		}
 	}
 }

@@ -567,9 +567,12 @@ func (c Context) statedParameterText(sym *symbols.Symbol) (text string, written,
 	return action + "::" + name, false, true
 }
 
-// elementText is what an element compares and orders as: its qualified name,
-// or the written text of an expression element, which has none.
+// elementText is what an element compares and orders as: its qualified name, or the text a surface reads
+// one with none as, a parameter its action's notation states or the written text of an expression element.
 func (e *executor) elementText(sym *symbols.Symbol) string {
+	if text, _, stated := e.context.statedParameterText(sym); stated {
+		return text
+	}
 	if name := symbols.FQNOf(sym); name != "" {
 		return name
 	}
