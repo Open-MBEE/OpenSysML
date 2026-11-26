@@ -6,6 +6,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
 // TestDescribeOperandEnumerationLiteral: an operator diagnostic names the
@@ -96,8 +97,8 @@ func TestArticleForEveryKindWord(t *testing.T) {
 		if an[first] {
 			want = "an"
 		}
-		if got := articleFor(word); got != want {
-			t.Errorf("articleFor(%q) = %q, want %q", word, got, want)
+		if got := diag.IndefiniteArticle(word); got != want {
+			t.Errorf("diag.IndefiniteArticle(%q) = %q, want %q", word, got, want)
 		}
 	}
 }
