@@ -92,9 +92,15 @@ A lens's range is the name of the element it runs."
             lenses))
 
 (defun sysml-eglot--read-lens (lenses)
-  "Read one of LENSES from the minibuffer by its title."
-  (let ((titles (mapcar (lambda (lens) (plist-get (plist-get lens :command) :title)) lenses)))
-    (nth (seq-position titles (completing-read "Run: " titles nil t)) lenses)))
+  "Read one of LENSES from the minibuffer by its element's qualified name.
+A title holds the element's short name, which two packages may share;
+no two lenses share the qualified name, the one given to `sysml'."
+  (let ((elements (mapcar (lambda (lens)
+                            (plist-get (seq-first (plist-get (plist-get lens :command) :arguments))
+                                       :element))
+                          lenses)))
+    (nth (seq-position elements (completing-read "Run or evaluate: " elements nil t))
+         lenses)))
 
 (defun sysml-eglot--folders (server)
   "Return the file names of SERVER's workspace folders."

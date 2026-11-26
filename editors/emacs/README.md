@@ -109,7 +109,7 @@ references, and `M-x sysml-eglot-run-element` runs or evaluates the element whos
 name point is on, the same way: it asks the server for the buffer's Run and
 Evaluate lenses, so it offers exactly the elements lsp-mode shows one on. Away
 from such a name, or with a prefix argument, it reads the element from the
-minibuffer. `sysml` is looked for beside the `sysml-lsp` on `exec-path`, then in
+minibuffer by its qualified name. `sysml` is looked for beside the `sysml-lsp` on `exec-path`, then in
 the project's `bin/`, then on `exec-path`. Bind it if you like:
 
 ```elisp

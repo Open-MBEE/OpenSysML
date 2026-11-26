@@ -99,9 +99,9 @@ Its range is on LINE, from column 15 to column END."
   (sysml-eglot-test--with-lenses sysml-eglot-test--lenses
     (goto-char (point-min))
     (cl-letf (((symbol-function 'completing-read)
-               (lambda (_prompt titles &rest _)
-                 (should (equal titles '("Run Fly" "Run Land")))
-                 "Run Fly")))
+               (lambda (_prompt elements &rest _)
+                 (should (equal elements '("Demo::Fly" "Demo::Land")))
+                 "Demo::Fly")))
       (sysml-eglot-run-element))
     (should (equal started '("action" "Demo::Fly" ("/ws") "/bin/sysml")))))
 
@@ -109,9 +109,18 @@ Its range is on LINE, from column 15 to column END."
   (sysml-eglot-test--with-lenses sysml-eglot-test--lenses
     (goto-char (point-min))
     (search-forward "Land")
-    (cl-letf (((symbol-function 'completing-read) (lambda (&rest _) "Run Fly")))
+    (cl-letf (((symbol-function 'completing-read) (lambda (&rest _) "Demo::Fly")))
       (sysml-eglot-run-element t))
     (should (equal (cadr started) "Demo::Fly"))))
+
+(ert-deftest sysml-eglot-tells-elements-sharing-a-name-apart ()
+  (sysml-eglot-test--with-lenses
+      (vector (sysml-eglot-test--lens 1 18 "Run Fly" "Demo::Fly" "action")
+              (sysml-eglot-test--lens 2 19 "Run Fly" "Other::Fly" "action"))
+    (goto-char (point-min))
+    (cl-letf (((symbol-function 'completing-read) (lambda (&rest _) "Other::Fly")))
+      (sysml-eglot-run-element))
+    (should (equal (cadr started) "Other::Fly"))))
 
 (ert-deftest sysml-eglot-says-when-nothing-can-be-run ()
   (sysml-eglot-test--with-lenses (vector (aref sysml-eglot-test--lenses 0))
