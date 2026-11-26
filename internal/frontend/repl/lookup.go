@@ -803,7 +803,8 @@ func (s *Session) namedRoot(ref objectRef) (*runtime.Instance, string, []objectS
 			shown := declarationNotation(sym)
 			return nil, "", nil, &ObjectRefError{Ref: ref.Text, Detail: fmt.Sprintf("%s is a %s, not an object: its member is written %s::%s", shown, objref.NamespaceKind(sym), shown, ref.Segments[head].Text)}
 		}
-		if noInstance == "" {
+		// A namespace short of the whole name only encloses what failed to resolve.
+		if noInstance == "" && (i == head || !objref.IsNamespace(sym)) {
 			noInstance, noInstanceSym = fqn, sym
 		}
 	}

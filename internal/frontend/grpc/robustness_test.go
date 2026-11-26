@@ -301,6 +301,8 @@ func TestGRPCObjectBindingRobustness(t *testing.T) {
 		expect(t, run(objectByPath("spare")), connect.CodeNotFound, "binding root", `no instance of "Garage::spare"`, "Instantiate first")
 		expect(t, run(objectByPath("Garage::spare.pressure")), connect.CodeNotFound, "binding root", `no instance of "Garage::spare"`)
 		expect(t, run(objectByPath("nowhere")), connect.CodeNotFound, "binding root", "symbol not found: nowhere")
+		expect(t, run(objectByPath("Garage::nowhere")), connect.CodeNotFound, "binding root", "symbol not found: Garage::nowhere")
+		expect(t, run(objectByPath("Garage::nowhere.pressure")), connect.CodeNotFound, "binding root", "symbol not found: Garage::nowhere")
 		expect(t, run(objectByPath("Garage::Car")), connect.CodeNotFound, "binding root", `no instance of "Garage::Car"`)
 	})
 

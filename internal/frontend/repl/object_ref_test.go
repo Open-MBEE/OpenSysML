@@ -199,6 +199,21 @@ func TestDotWalksFeaturesNotDeclarations(t *testing.T) {
 	wants(t, run(t, s, "%features Nope.fl"), "error: unresolved reference: Nope")
 }
 
+// A name that stops resolving inside a package is unresolved: the package holds
+// members and is never an object, so the error is not that it lacks an instance.
+func TestUnknownPackageMemberIsUnresolved(t *testing.T) {
+	s := garage(t)
+	for _, cmd := range []string{"%validate", "%features"} {
+		wants(t, run(t, s, cmd+" Garage::Nope"), "error: unresolved reference: Garage::Nope")
+		wants(t, run(t, s, cmd+" Garage::Nope.fl"), "error: unresolved reference: Garage::Nope")
+		wants(t, run(t, s, cmd+" Garage::Nope::fl"), "error: unresolved reference: Garage::Nope::fl")
+		// A declared member still asks for its object, and a definition's unknown
+		// member still names the definition, which an object can be created of.
+		wants(t, run(t, s, cmd+" Garage::car"), `error: no instance of "Garage::car"`)
+		wants(t, run(t, s, cmd+" Garage::Car::nope"), `error: no instance of "Garage::Car"`)
+	}
+}
+
 // A multi-valued feature is walked by a 1-based index; leaving the index out, or
 // giving one that names no element, says how many there are.
 func TestMultiValuedFeatureNeedsIndex(t *testing.T) {

@@ -358,7 +358,8 @@ func (h *heldObjects) namedRoot(ref objref.Ref) (*runtime.Instance, string, []ob
 				"%q is not an object reference: %s is a %s, not an object: its member is written %s::%s",
 				ref.Text, shown, objref.NamespaceKind(sym), shown, ref.Segments[head].Text)
 		}
-		if noInstance == "" {
+		// A namespace short of the whole name only encloses what failed to resolve.
+		if noInstance == "" && (i == head || !objref.IsNamespace(sym)) {
 			noInstance = fqn
 		}
 	}
