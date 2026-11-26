@@ -1,0 +1,8 @@
+{
+	"type": "action",
+	"evaluate": "test::outer",
+	"outputs": {
+		"far": {"type": "Integer", "value": 5},
+		"near": {"type": "Integer", "value": 100}
+	}
+}

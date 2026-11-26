@@ -294,6 +294,14 @@ type order struct {
 	origin     Origin
 }
 
+// declaredBefore orders two orders the way a reader reads their declarations.
+func (o order) declaredBefore(other order) bool {
+	if o.origin.Doc != other.origin.Doc {
+		return o.origin.Doc < other.origin.Doc
+	}
+	return o.origin.Span.Offset < other.origin.Span.Offset
+}
+
 // interactions are what a sequence rendering reads between lifelines: the flows
 // that are messages, the orders stated over the occurrences they reach, and the
 // undirected connectors that cannot be messages. Each is recorded once.
@@ -526,6 +534,8 @@ func (r *Renderer) messageEnd(flow *symbols.Symbol, end ast.Node, ends *lifeline
 // (SysML v2.1 §8.2.3.9 sq-succession), each between the proxies or lifelines of
 // its ends; an order with an end on no lifeline shown is kept for sorting only.
 func (r *Renderer) successions(view *symbols.Symbol, orders []order, ends *lifelineEnds, out *Rendering) ([]succession, []timing) {
+	// Read in declaration order, whether a `succession` usage or a member-attached `then` states each.
+	sort.SliceStable(orders, func(i, j int) bool { return orders[i].declaredBefore(orders[j]) })
 	var successions []succession
 	var timings []timing
 	inherited := r.inheritedOrders(orders, ends, out.Roots)
@@ -592,6 +602,18 @@ func (r *Renderer) specializes(sym, general *symbols.Symbol) bool {
 	})
 }
 
+// holds reports whether owner declares feature or gets it from what it specializes,
+// is typed by or reference-subsets, which contributes members without a supertype.
+func (r *Renderer) holds(owner, feature *symbols.Symbol) bool {
+	if owner == nil || feature == nil {
+		return false
+	}
+	declaring := feature.Owner()
+	return declaring == owner || declaring != nil && slices.ContainsFunc(r.model.MemberSources(owner), func(source *symbols.Symbol) bool {
+		return symbols.SameElement(source, declaring)
+	})
+}
+
 // orderEnd is an end of an order on the lifeline it is read on: the one it is
 // named through, or stated within, when that inherits it, else the nearest owner shown.
 func (e *lifelineEnds) orderEnd(o order, occurrence, through *symbols.Symbol) lifelineEnd {
@@ -627,7 +649,7 @@ func (r *Renderer) inheritedOrders(orders []order, ends *lifelineEnds, lifelines
 	for grew := true; grew; {
 		grew = false
 		for i, o := range orders {
-			if o.fromThrough != nil || o.toThrough != nil || r.memberFor(o.within, o.from) == nil || r.memberFor(o.within, o.to) == nil {
+			if o.fromThrough != nil || o.toThrough != nil || !r.holds(o.within, o.from) || !r.holds(o.within, o.to) {
 				continue
 			}
 			for at, lifeline := range lifelines {
@@ -809,12 +831,12 @@ func (r *Renderer) orderMessages(messages []message, successions []succession, o
 		eventsIndegree[at[o.to]]++
 	}
 	var cyclic []string
-	ordered := func(a, b lifelineEnd) bool { return a == b }
+	// The successions are placed by the events' orders also where those form a cycle.
+	ordered := reaches(eventsLater, at)
 	if placed, ok := stableTopological(eventsLater, eventsIndegree); !ok {
 		cyclic = r.cyclicOrders(stated, at, placed)
 	} else {
 		cyclic = r.sortMessageRows(messages, occurrences, stated)
-		ordered = reaches(eventsLater, at)
 	}
 	if cyclic != nil {
 		out.Notices = append(out.Notices, fmt.Sprintf(
@@ -855,50 +877,112 @@ func reaches(later [][]int, at map[lifelineEnd]int) func(a, b lifelineEnd) bool 
 	}
 }
 
-// sequenceRows are the rows of the sequence in order: the messages as sorted, then
-// each succession's arrow after the last row holding its source or an event ordered
-// before it, else before the first row holding its target or an event ordered after
-// it, else after the messages. A placed succession's row holds its two events, so a
-// chain declared out of order still settles by its events; successions nothing orders
-// keep declaration order. before is the events' order, identity when cyclic.
+// sequenceRows are the rows of the sequence: the messages as sorted, each succession's
+// arrow below the rows it follows and above the ones it leads to, else as declared.
 func sequenceRows(messages []message, successions []succession, orders []timing, before func(a, b lifelineEnd) bool) []Edge {
-	type row struct {
-		edge       Edge
-		events     []lifelineEnd
-		succession bool
-	}
-	rows := make([]row, 0, len(messages)+len(successions))
-	for _, msg := range messages {
-		rows = append(rows, row{edge: msg.edge, events: msg.events()})
-	}
-	for _, s := range successions {
-		o := orders[s.order]
-		after, ahead := -1, len(rows)
-		for i, r := range rows {
-			for _, held := range r.events {
-				if before(held, o.from) {
-					after = max(after, i)
-				}
-				if before(o.to, held) {
-					ahead = min(ahead, i)
-				}
+	follows := rowsFollowed(messages, successions, orders, before)
+	placed := make([]bool, len(follows))
+	edges := make([]Edge, 0, len(follows))
+	// take places the earliest declared succession admitted whose rows above are placed,
+	// or when forced the earliest one left, which opens a cycle where it is declared.
+	take := func(admits func(row int) bool, force bool) bool {
+		next := -1
+		for row := len(messages); row < len(follows); row++ {
+			if placed[row] || !admits(row) {
+				continue
+			}
+			if !slices.ContainsFunc(follows[row], func(r int) bool { return !placed[r] }) {
+				next = row
+				break
+			}
+			if force && next < 0 {
+				next = row
 			}
 		}
-		// After its source's row and the successions already there, in declaration order.
-		place := ahead
-		if after >= 0 {
-			place = after + 1
-			for place < ahead && rows[place].succession {
-				place++
-			}
+		if next < 0 {
+			return false
 		}
-		rows = slices.Insert(rows, place, row{edge: s.edge, events: []lifelineEnd{o.from, o.to}, succession: true})
+		placed[next] = true
+		edges = append(edges, successions[next-len(messages)].edge)
+		return true
 	}
-	edges := make([]Edge, 0, len(rows))
-	for _, r := range rows {
-		edges = append(edges, r.edge)
+	followsMessage := func(row int) bool {
+		return slices.ContainsFunc(follows[row], func(r int) bool { return r < len(messages) })
+	}
+	for m, msg := range messages {
+		leadsHere := func(row int) bool { return slices.Contains(follows[m], row) }
+		// A succession declared before one leading to this message keeps its place above it.
+		due := func(row int) bool {
+			return followsMessage(row) || slices.ContainsFunc(follows[m], func(r int) bool { return r >= row && !placed[r] })
+		}
+		for take(due, false) || take(leadsHere, true) {
+		}
+		placed[m] = true
+		edges = append(edges, msg.edge)
+	}
+	for take(func(int) bool { return true }, true) {
 	}
 	return edges
+}
+
+// rowsFollowed lists, for each message row and then each succession, the rows it is drawn
+// below: those leading to it and not back, so that rows forming a cycle stay as declared.
+func rowsFollowed(messages []message, successions []succession, orders []timing, before func(a, b lifelineEnd) bool) [][]int {
+	chained := make([][]int, len(successions))
+	for i, s := range successions {
+		for j, then := range successions {
+			if i != j && before(orders[s.order].to, orders[then.order].from) {
+				chained[i] = append(chained[i], j)
+			}
+		}
+	}
+	reached := rowsReached(chained)
+	follows := make([][]int, len(messages)+len(successions))
+	for i, s := range successions {
+		o, row := orders[s.order], len(messages)+i
+		// An event leads back where the succession starts at it or returns to it through a cycle.
+		for m, msg := range messages {
+			if slices.ContainsFunc(msg.events(), func(held lifelineEnd) bool {
+				return before(held, o.from) && (held == o.from || !before(o.to, held))
+			}) {
+				follows[row] = append(follows[row], m)
+			}
+		}
+		// A succession following a message is placed by that, whichever message it leads to.
+		for m, msg := range messages {
+			if len(follows[row]) == 0 && slices.ContainsFunc(msg.events(), func(held lifelineEnd) bool {
+				return before(o.to, held) && (held == o.to || !before(held, o.from))
+			}) {
+				follows[m] = append(follows[m], row)
+			}
+		}
+	}
+	for i := range successions {
+		for j := range successions {
+			if reached[i][j] && !reached[j][i] {
+				follows[len(messages)+j] = append(follows[len(messages)+j], len(messages)+i)
+			}
+		}
+	}
+	return follows
+}
+
+// rowsReached reports, for each row, the rows it leads to through any number of rows.
+func rowsReached(leads [][]int) [][]bool {
+	reached := make([][]bool, len(leads))
+	for from := range leads {
+		reached[from] = make([]bool, len(leads))
+		stack := slices.Clone(leads[from])
+		for len(stack) > 0 {
+			row := stack[len(stack)-1]
+			stack = stack[:len(stack)-1]
+			if !reached[from][row] {
+				reached[from][row] = true
+				stack = append(stack, leads[row]...)
+			}
+		}
+	}
+	return reached
 }
 
 // sortMessageRows sorts the messages by the orders between their rows, or
