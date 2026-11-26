@@ -76,7 +76,8 @@ func (m *Model) outputElements(sym *symbols.Symbol) ([]*symbols.Symbol, bool) {
 	if !behaviorLike(sym) {
 		return m.directedFeatures(sym, ast.DirOut, ast.DirInOut), true
 	}
-	// A parameter the action's notation states is an input, and masks the one of its kind it redefines.
+	// A parameter the action's notation states is an input, an accept's payload included (KerML 8.3.4.6.4
+	// validateParameterMembershipParameterDirection), and masks the one of its kind it redefines.
 	stated := m.nodeParameters(sym)
 	masked := func(inherited *symbols.Symbol) bool {
 		return slices.ContainsFunc(stated, func(param *symbols.Symbol) bool { return m.redefines(param, inherited) })
