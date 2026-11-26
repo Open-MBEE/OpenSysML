@@ -110,11 +110,12 @@ func (m *Model) loopBodyNestedFQN(sym *symbols.Symbol) string {
 	if _, loop := sym.OwnerScope.Node().(*ast.WhileLoopActionNode); !loop {
 		return ""
 	}
-	if form := controlFormOf(sym.Decl); form != ControlNone && !IsLoopVariable(sym) {
-		// A control statement of the body is its subaction of that kind (SysML v2 Table 32).
+	usage, ok := sym.Decl.(*ast.Usage)
+	if form := controlFormOf(sym.Decl); !ok && form != ControlNone && !IsLoopVariable(sym) {
+		// A bare control statement of the body is composite, so its subaction of that kind
+		// (SysML v2 Table 32); a declared one takes the usage rules below, `ref` included.
 		return controlSubactionFQNs[form]
 	}
-	usage, ok := sym.Decl.(*ast.Usage)
 	if !ok || usage.IsVariant || usage.IsBodyParameter || !m.isSysMLUsage(sym) {
 		return ""
 	}

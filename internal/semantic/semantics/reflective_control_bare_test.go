@@ -112,3 +112,51 @@ func TestAssignmentsInUnnamedLoopBodiesAreSubactions(t *testing.T) {
 		}
 	}
 }
+
+// A referential assignment is no subaction (SysML 8.4.12 checkAssignmentActionUsageSubactionSpecialization
+// reads composite usages only), in the unnamed body of a loop as in a declared action.
+func TestReferentialAssignmentsInUnnamedLoopBodiesAreNoSubactions(t *testing.T) {
+	m, root := buildModelWithStdlib(t, `package Q {
+	part def T {
+		attribute x;
+		action a {
+			ref action declared assign x := 0;
+			while true { ref action nested assign x := 1; }
+		}
+	}
+}`)
+	rows := func(sym *symbols.Symbol) []string {
+		var got []string
+		for _, base := range m.ImpliedSpecializations(sym) {
+			got = append(got, m.QualifiedNameOf(base))
+		}
+		return append(got, controlParameterRows(m, sym)...)
+	}
+	a := nestedSym(t, root, "Q::T::a")
+	want := rows(nestedSym(t, root, "Q::T::a::declared"))
+	if len(want) == 0 || want[0] != "Actions::assignmentActions" {
+		t.Fatalf("declared = %v, want the base Actions::assignmentActions first", want)
+	}
+	loops := m.statementNodes(a)
+	if len(loops) != 1 {
+		t.Fatalf("a holds %d loops, want 1", len(loops))
+	}
+	m.statementNodes(loops[0])
+	var nested *symbols.Symbol
+	for scope, owner := range m.statementScopes {
+		if owner == loops[0] {
+			scope.ForEachMember(func(member *symbols.Symbol) bool {
+				if member.Name == "nested" {
+					nested = member
+				}
+				return true
+			})
+		}
+	}
+	if nested == nil {
+		t.Fatal("the loop body holds no assignment named nested")
+	}
+	if got := rows(nested); !slices.Equal(got, want) {
+		t.Errorf("nested = %v, want %v as declared has", got, want)
+	}
+}
