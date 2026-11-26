@@ -87,6 +87,11 @@ Under Eglot the server is `sysml-lsp` on `exec-path`, and `M-x eglot-reconnect`
 picks a rebuilt one up. Code lenses and the `sysml-lsp-strict-conformance`
 setting are lsp-mode's only.
 
+`M-.` on a standard library name, such as `Integer` after `import ScalarValues::*`,
+shows its declaration in a read-only buffer whose text the server serves
+(`opensysml/stdlibContent`), under either client. A reference found in the
+library is listed and visited the same way.
+
 ## Code lenses
 
 A server that offers code lenses (`sysml-lsp` 0.10 and later) shows a reference

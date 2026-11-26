@@ -323,6 +323,36 @@ serves no `workspace/executeCommand'."
                                     (buffer-substring (line-beginning-position) (line-end-position)))))
         (kill-buffer buffer)))))
 
+(ert-deftest sysml-lsp-live-goes-to-a-library-definition ()
+  (sysml-lsp-test--with-session
+      (sysml-test--fixture "package P {\n    private import ScalarValues::*;\n    attribute x : Integer;\n}\n")
+    (goto-char (point-min))
+    (search-forward ": Integer")
+    (backward-char 2)
+    (let* ((item (car (xref-backend-definitions 'xref-lsp (xref-backend-identifier-at-point 'xref-lsp))))
+           (marker (xref-location-marker (xref-item-location item)))
+           (buffer (marker-buffer marker)))
+      (unwind-protect
+          (with-current-buffer buffer
+            (should (sysml-library-uri-p sysml-library-uri))
+            (should-not buffer-file-name)
+            (should buffer-read-only)
+            (should (string-match-p "datatype Integer" (xref-item-summary item)))
+            (goto-char marker)
+            (should (string-match-p "datatype Integer"
+                                    (buffer-substring (line-beginning-position) (line-end-position)))))
+        (kill-buffer buffer)))))
+
+(ert-deftest sysml-lsp-live-keeps-file-definitions ()
+  (sysml-lsp-test--with-session
+      (sysml-test--fixture "package P {\n    part def Engine;\n    part e : Engine;\n}\n")
+    (goto-char (point-min))
+    (search-forward ": Engine")
+    (backward-char 2)
+    (let ((location (xref-item-location
+                     (car (xref-backend-definitions 'xref-lsp (xref-backend-identifier-at-point 'xref-lsp))))))
+      (should (= (xref-location-line location) 2)))))
+
 (ert-deftest sysml-lsp-live-change-notification-is-handled ()
   "Editing with no view open must not warn about an unknown notification."
   (let (warnings)

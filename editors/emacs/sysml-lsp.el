@@ -210,6 +210,33 @@ Its text is asked of the current buffer's server; see
    uri (sysml-lsp--workspace)
    (lambda () (lsp-get (lsp-request sysml-lsp--stdlib-content-method (list :uri uri)) :text))))
 
+(defun sysml-lsp--library-xref-item (location)
+  "Return an xref item for LOCATION, a place in a bundled library document."
+  (let ((buffer (sysml-lsp-stdlib-buffer (lsp--location-uri location)))
+        (range (lsp--location-range location)))
+    (with-current-buffer buffer
+      (sysml-library-xref-match buffer
+                                (lsp--position-to-point (lsp:range-start range))
+                                (lsp--position-to-point (lsp:range-end range))))))
+
+(defun sysml-lsp--xref-library-items (to-xref-items locations)
+  "Call TO-XREF-ITEMS with LOCATIONS, adding those in the bundled library.
+A `sysml-stdlib:' URI names no file, so lsp-mode would drop its
+locations; each is located in the document's library buffer instead.
+They follow the locations in files."
+  (if (not (sysml-lsp--workspace))
+      (funcall to-xref-items locations)
+    (let* ((locations (cond ((vectorp locations) (append locations nil))
+                            ((and locations (lsp--location-uri locations)) (list locations))
+                            (t locations)))
+           (library (seq-filter (lambda (location)
+                                  (sysml-library-uri-p (lsp--location-uri location)))
+                                locations)))
+      (nconc (funcall to-xref-items (vconcat (seq-difference locations library #'eq)))
+             (mapcar #'sysml-lsp--library-xref-item library)))))
+
+(advice-add 'lsp--locations-to-xref-items :around #'sysml-lsp--xref-library-items)
+
 (defun sysml-lsp--server-command ()
   "Return the command to start the language server with."
   (let ((server (sysml-lsp--find-server)))
