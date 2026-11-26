@@ -1,0 +1,2 @@
+- A filter on a built-in name shadowed by a feature now takes its operand evidence from the value the query actually reads: a live value written into a held object counts, while a feature hidden beneath a computed column or reached through a literal dotted feature's name does not.
+- A directly projected shadowing feature keeps the same operand deferral as an unprojected read, and a successful comparison against any cell in a mixed column prevents a computed cell's incompatible value from discarding the matching row.
