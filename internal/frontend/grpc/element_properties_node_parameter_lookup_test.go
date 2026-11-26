@@ -158,6 +158,9 @@ func TestElementPropertiesReadALoopVariableByEveryNameItAnswers(t *testing.T) {
         action quoted for 'my var' in (1, 2) { }
         action short for <sv> in (1, 2) { }
         action plain for i in (1, 2) { }
+        action escaped for 'a\tb' in (1, 2) { action atb; }
+        action step for s in (1, 2) { action inner for wrong in (1, 2) { } }
+        action 'step::inner' for right in (1, 2) { }
     }
     action def Derived :> Base;
 }`)
@@ -165,14 +168,21 @@ func TestElementPropertiesReadALoopVariableByEveryNameItAnswers(t *testing.T) {
 		"P::Base::quoted::'my var'": "P::Base::quoted::'my var'",
 		"P::Base::short::sv":        "P::Base::short::sv",
 		"P::Derived::plain::i":      "P::Base::plain::i",
+		"P::Base::escaped::'a\\tb'": "P::Base::escaped::'a\\tb'",
 	} {
 		resp := r.read(name, "qualifiedName")
 		if resp.Error != "" || resp.Element == nil {
 			t.Errorf("%s: %q, want the loop's variable", name, resp.Error)
 			continue
 		}
+		if got := resp.Element.Metaclass; got != "ReferenceUsage" {
+			t.Errorf("%s: answered a %s, want the variable", name, got)
+		}
 		if want := r.read(declared, "qualifiedName"); want.Element == nil || resp.Element.Id != want.Element.Id {
 			t.Errorf("%s: answered %v, want the element of %s", name, resp.Element, declared)
 		}
+	}
+	if resp := r.read("P::Derived::'step::inner'::wrong", "qualifiedName"); !strings.Contains(resp.Error, "element not found") {
+		t.Errorf("a loop named 'step::inner' answers another loop's variable: %v %q", resp.Element, resp.Error)
 	}
 }

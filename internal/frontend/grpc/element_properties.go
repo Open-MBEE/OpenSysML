@@ -13,7 +13,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -268,29 +267,38 @@ func (r *elementReader) lookupNamed(name string, resolve func(string) []*symbols
 // statedParameter is the parameter an action's notation states under name where no member lookup reaches
 // it: a `for` loop's variable, declared in the loop's body, or an assignment's target.
 func (r *elementReader) statedParameter(name string) *symbols.Symbol {
-	cut := strings.LastIndex(name, "::")
-	if cut < 0 {
+	segments := symbolfacts.NameSegments(name)
+	if len(segments) < 2 {
 		return nil
 	}
+	loop, variable := segments[len(segments)-2], segments[len(segments)-1]
 	// The loop is reached as a name reaches any member: declared, or inherited by the type the path names.
-	owners := symbolfacts.LookupNamed(r.model.Index, name[:cut])
+	path := strings.Join(segments[:len(segments)-1], "::")
+	owners := r.model.Index.LookupQualified(path)
 	if len(owners) == 0 {
-		owners = r.model.LookupNamedMember(name[:cut])
+		owners = r.model.LookupNamedMember(path)
 	}
 	if len(owners) != 1 || r.model.Index.Library(owners[0]) {
 		return nil
 	}
-	segment := naming.Unquote(name[cut+2:])
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	// The member walk splits a segment that holds `::`: the loop found must be the one the path names.
+	if !answersTo(r.semantics.NameSourceOf(owners[0]), loop) {
+		return nil
+	}
 	parameters, _ := r.semantics.ReflectiveElements(owners[0], "parameter")
 	for _, parameter := range parameters {
-		source := r.semantics.NameSourceOf(parameter)
-		if source != nil && (source.Named() && source.Name == segment || source.ShortName != "" && source.ShortName == segment) {
+		if answersTo(r.semantics.NameSourceOf(parameter), variable) {
 			return parameter
 		}
 	}
 	return nil
+}
+
+// answersTo reports whether name is the name or the short name source declares.
+func answersTo(source *symbols.Symbol, name string) bool {
+	return source != nil && (source.Named() && source.Name == name || source.ShortName != "" && source.ShortName == name)
 }
 
 // lookupID finds the element an id names: the id the API element form writes, else the id
