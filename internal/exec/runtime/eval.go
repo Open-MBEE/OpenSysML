@@ -2138,7 +2138,7 @@ func (ec *EvalContext) valueOperandExpr(x lowered) (Value, error) {
 func boolOperand(what string, v Value) (bool, error) {
 	v = soleElement(v)
 	if v.Kind != ValConst || v.Const.Kind != semantics.ValBool {
-		return false, fmt.Errorf("%w: %s must be Boolean, got %s", ErrTypeMismatch, what, v.Kind)
+		return false, fmt.Errorf("%w: %s must be Boolean, got %s", ErrTypeMismatch, what, describeOperand(v))
 	}
 	return v.Const.Bool, nil
 }
