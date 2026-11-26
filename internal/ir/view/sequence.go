@@ -864,6 +864,9 @@ func sequenceRows(messages []message, successions []succession, orders []timing,
 	follows := rowsFollowed(messages, successions, orders, before)
 	placed := make([]bool, len(follows))
 	edges := make([]Edge, 0, len(follows))
+	ready := func(row int) bool {
+		return !slices.ContainsFunc(follows[row], func(r int) bool { return !placed[r] })
+	}
 	// take places the earliest declared succession admitted whose rows above are placed,
 	// or when forced the earliest one left, which opens a cycle where it is declared.
 	take := func(admits func(row int) bool, force bool) bool {
@@ -872,7 +875,7 @@ func sequenceRows(messages []message, successions []succession, orders []timing,
 			if placed[row] || !admits(row) {
 				continue
 			}
-			if !slices.ContainsFunc(follows[row], func(r int) bool { return !placed[r] }) {
+			if ready(row) {
 				next = row
 				break
 			}
@@ -890,11 +893,30 @@ func sequenceRows(messages []message, successions []succession, orders []timing,
 	followsMessage := func(row int) bool {
 		return slices.ContainsFunc(follows[row], func(r int) bool { return r < len(messages) })
 	}
+	// A fork leaves an event ordered before a message's without following or leading to one.
+	forks := func(row int) bool {
+		from := orders[successions[row-len(messages)].order].from
+		return slices.ContainsFunc(messages, func(msg message) bool {
+			return slices.ContainsFunc(msg.events(), func(held lifelineEnd) bool { return before(from, held) })
+		})
+	}
 	for m, msg := range messages {
 		leadsHere := func(row int) bool { return slices.Contains(follows[m], row) }
-		// A succession declared before one leading to this message keeps its place above it.
+		// A succession declared before one leading to this message keeps its place above it,
+		// as a fork does above a later one ready to follow a message already placed.
 		due := func(row int) bool {
-			return followsMessage(row) || slices.ContainsFunc(follows[m], func(r int) bool { return r >= row && !placed[r] })
+			if followsMessage(row) || slices.ContainsFunc(follows[m], func(r int) bool { return r >= row && !placed[r] }) {
+				return true
+			}
+			if !forks(row) {
+				return false
+			}
+			for later := row + 1; later < len(follows); later++ {
+				if !placed[later] && followsMessage(later) && ready(later) {
+					return true
+				}
+			}
+			return false
 		}
 		for take(due, false) || take(leadsHere, true) {
 		}
