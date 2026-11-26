@@ -73,7 +73,7 @@ func TestOSLCQueryReadsTheParametersAnActionNodeStates(t *testing.T) {
 			"feature": terminate + "terminateOccurrence",
 		}},
 		{"acc1", "parameter,input,output", map[string]string{
-			"parameter": "P::Base::acc1::r", "input": "P::Base::acc1::r",
+			"parameter": "P::Base::acc1::r", "input": "P::Base::acc1::r", "output": "P::Base::acc1::r",
 		}},
 		{"s", "parameter,input,feature,ownedFeature", map[string]string{
 			"parameter": "new Sig()", "input": "new Sig()", "feature": "new Sig()", "ownedFeature": "new Sig()",
