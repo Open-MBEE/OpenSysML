@@ -1,0 +1,6 @@
+{
+  "type": "state",
+  "evaluate": "test::Gauge",
+  "finalState": "far",
+  "stateVisits": ["go", "far"]
+}
