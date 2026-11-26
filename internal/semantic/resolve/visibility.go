@@ -214,7 +214,7 @@ func (r *Resolver) resolveImportTarget(scope *symbols.Scope, imp *ast.Import) (*
 func (r *Resolver) resolveImportName(scope *symbols.Scope, qn *ast.QualifiedName, imp *ast.Import) (*symbols.Symbol, bool) {
 	if !r.resolvingImports[imp] {
 		r.resolvingImports[imp] = true
-		defer delete(r.resolvingImports, imp)
+		defer r.resume(imp)
 	}
 	defer func(outer *ast.Import) { r.leadOf = outer }(r.leadOf)
 	r.leadOf = imp

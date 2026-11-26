@@ -559,7 +559,7 @@ func simpleName(sym *symbols.Symbol) string {
 // matching name.
 func (r *Resolver) lookupImports(scope *symbols.Scope, name string) (*symbols.Symbol, bool) {
 	for _, imp := range r.scopeImports(scope) {
-		if r.resolvingImports[imp] {
+		if r.suspended(imp) {
 			continue
 		}
 		if !r.importPrefixAvailable(scope, imp, name) {
@@ -758,7 +758,7 @@ func (r *Resolver) eachMatchOfImport(into, scope *symbols.Scope, imp *ast.Import
 	if imp.Imported == nil || len(imp.Imported.Parts) == 0 {
 		return
 	}
-	if r.resolvingImports[imp] {
+	if r.suspended(imp) {
 		return
 	}
 	target, ok := r.importTargetOf(scope, imp)
@@ -886,17 +886,52 @@ func (r *Resolver) importTargetOf(scope *symbols.Scope, imp *ast.Import) (*symbo
 		}
 		return res.sym, res.ok
 	}
+	if read, done := r.passing.targets[imp]; done && remember && r.holds(read) {
+		r.Depend(read.sym.DocName)
+		return read.sym, true
+	}
 	var target *symbols.Symbol
 	var ok bool
 	r.resolvingImports[imp] = true
+	r.Enter()
 	// The target is read on its own, apart from the lookup that needs it.
 	r.aside(func() { target, ok = r.resolveImportTarget(scope, imp) })
-	delete(r.resolvingImports, imp)
-	if ok && remember {
+	read, passing := r.passed(target)
+	settled := r.Leave()
+	r.resume(imp)
+	switch {
+	case !ok || !remember:
+	case settled:
 		journalNew(r, r.importTargets, imp, imp)
 		r.importTargets[imp] = resolution{sym: target, ok: true}
+	case passing:
+		r.passing.targets[imp] = read
 	}
 	return target, ok
+}
+
+// suspended reports whether imp is passed over while its own target resolves,
+// which cuts short every lookup made since that began: they read without it.
+func (r *Resolver) suspended(imp *ast.Import) bool {
+	if !r.resolvingImports[imp] {
+		return false
+	}
+	if depth := r.resolving[imp.Imported]; depth != 0 {
+		r.passedOver++
+		r.CutShort(depth)
+	}
+	return true
+}
+
+// resume ends the suspension of imp. What was read past a suspended import
+// (passing) stands only until the outermost of them has resolved.
+func (r *Resolver) resume(imp *ast.Import) {
+	delete(r.resolvingImports, imp)
+	if len(r.resolvingImports) == 0 {
+		clear(r.passing.targets)
+		clear(r.passing.leads)
+		clear(r.passing.names)
+	}
 }
 
 // importPrefixAvailable reports whether imp can surface name from scope: a

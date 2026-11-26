@@ -271,3 +271,33 @@ func TestWildcardImportExposesWhatItsTargetNames(t *testing.T) {
 		})
 	}
 }
+
+// A wildcard import reads the namespace another import of its own namespace binds
+// its target to, whichever of the two is resolved first.
+func TestWildcardImportReadsASiblingImport(t *testing.T) {
+	for name, n := range map[string]string{
+		"named":         "private import R::X; public import X::*;",
+		"named after":   "public import X::*; private import R::X;",
+		"wildcard":      "private import R::*; public import X::*;",
+		"deeper target": "private import R::X; public import X::Y::*;",
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := resolveDoc(t, "d.sysml", `
+				package Q { package X { part def B; package Y { part def B; } } }
+				package R { package X { part def E; package Y { part def E; } } }
+				package P {
+					package X { part def A; package Y { part def A; } }
+					package K { private import Q::X; package N { `+n+` } package S { } }
+				}`)
+			scope := scopeNamed(t, r, "d.sysml", "S")
+			if sym, ok := r.ResolveQualified(scope, qn(false, "N", "E")); !ok || !strings.HasPrefix(symbols.FQNOf(sym), "R::X::") {
+				t.Errorf("N::E = %v, %t; want the member of R::X", sym, ok)
+			}
+			for _, other := range []string{"A", "B"} {
+				if sym, ok := r.ResolveQualified(scope, qn(false, "N", other)); ok {
+					t.Errorf("N::%s resolves to %s, want unresolved", other, symbols.FQNOf(sym))
+				}
+			}
+		})
+	}
+}
