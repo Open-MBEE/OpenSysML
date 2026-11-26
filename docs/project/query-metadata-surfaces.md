@@ -241,6 +241,9 @@ this change.
 | A failed activity scan is reported rather than published as an incomplete index | `internal/doc/queryexec/starting_evidence_regressions_test.go:TestQueryFailedActivityScanIsNotTreatedAsInactive`, `:TestStateActivityIndexDoesNotPublishAFailedScan` |
 | Evidence on a state row does not evaluate `isActive` or build the activity index | `internal/doc/queryexec/starting_evidence_regressions_test.go:TestShadowEvidenceOnAStateRowDoesNotBuildTheActivityIndex` |
 | An unevaluable sibling column on an excluded row does not erase evidence from another projected column | `internal/doc/queryexec/starting_evidence_regressions_test.go:TestQueryExcludedRowKeepsEvidenceFromAnotherColumn` |
+| A union or tree keeps its projected cells as operand evidence across a later filter, in either term order | `internal/doc/queryexec/setop_evidence_regressions_test.go:TestQueryProjectedSetOpsKeepOperandEvidenceAcrossFilters` |
+| Object-valued shadow evidence is captured before the probe rolls back its lazy part, and the captured value proves a built-in's operand | `internal/doc/queryexec/setop_evidence_regressions_test.go:TestQueryLazyShadowEvidenceKeepsItsCapturedValue` |
+| A dotted evidence read resolves every segment in one probe, leaving an excluded object's lazy part unmaterialized | `internal/doc/queryexec/setop_evidence_regressions_test.go:TestQueryDottedEvidenceLeavesExcludedLazyPartLazy` |
 
 The tests execute document queries over real `.sysml` fixtures through the
 shared `queryexec` executor, which is the executor behind the CLI, the REPL, the

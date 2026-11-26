@@ -375,10 +375,17 @@ func (e *executor) objectFeatureValuesEvidence(row Value, property string) ([]Va
 	if !ok {
 		return nil, false, nil
 	}
-	var held runtime.Value
+	var values []Value
 	found := false
-	err := e.context.Runtime.ProbeFeatureValue(inst, name, func(value runtime.Value) error {
-		held, found = value, value.Kind != runtime.ValInvalid
+	err := e.context.Runtime.ProbeFeatureValue(inst, name, func(held runtime.Value) error {
+		if held.Kind == runtime.ValInvalid {
+			return nil
+		}
+		captured, err := e.objectCellValues(row, property, held, label+"."+source.NameText(name))
+		if err != nil {
+			return err
+		}
+		values, found = captured, true
 		return nil
 	})
 	if err != nil {
@@ -387,8 +394,7 @@ func (e *executor) objectFeatureValuesEvidence(row Value, property string) ([]Va
 	if !found {
 		return nil, true, nil
 	}
-	values, err := e.objectCellValues(row, property, held, label+"."+source.NameText(name))
-	return values, true, err
+	return values, true, nil
 }
 
 // collectionElements returns the elements of a collection feature value, within rt's

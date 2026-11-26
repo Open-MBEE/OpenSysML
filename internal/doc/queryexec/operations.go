@@ -1290,9 +1290,18 @@ func (e *executor) propertyReachWithSource(row Value, property string) ([]Value,
 }
 
 // shadowEvidenceReach reports a real read's shadow sources for operand evidence
-// without evaluating a built-in, whose scan is not evidence for itself.
-func (e *executor) shadowEvidenceReach(row Value, property string) ([]Value, pathReach, []valueSource, error) {
-	return e.propertyReachWithSourceMode(row, property, true)
+// without evaluating a built-in; one probe covers every dotted segment it reads.
+func (e *executor) shadowEvidenceReach(row Value, property string) (values []Value, reach pathReach, sources []valueSource, err error) {
+	read := func() error {
+		values, reach, sources, err = e.propertyReachWithSourceMode(row, property, true)
+		return err
+	}
+	if e.context.Runtime == nil {
+		err = read()
+		return values, reach, sources, err
+	}
+	err = e.context.Runtime.Probe(read)
+	return values, reach, sources, err
 }
 
 func (e *executor) propertyReachWithSourceMode(row Value, property string, evidence bool) ([]Value, pathReach, []valueSource, error) {

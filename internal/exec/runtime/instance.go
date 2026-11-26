@@ -910,22 +910,33 @@ func (inst *Instance) GetFeatureValue(ctx *Context, name string) (*FeatureValue,
 	return inst.getFeatureValue(ctx, name, nil)
 }
 
+// Probe previews one read and undoes what it materializes, writes or starts.
+// fn must copy any value it keeps before the probe ends.
+func (ctx *Context) Probe(fn func() error) error {
+	if ctx == nil || fn == nil {
+		return fmt.Errorf("%w: probing a read needs a context and reader", ErrNoSuchFeature)
+	}
+	end := ctx.beginProbe()
+	defer end()
+	return fn()
+}
+
 // ProbeFeatureValue previews a feature read and undoes what it materializes,
 // writes or starts. use must copy any value it keeps before the probe ends.
 func (ctx *Context) ProbeFeatureValue(inst *Instance, name string, use func(Value) error) error {
 	if ctx == nil || inst == nil || use == nil {
 		return fmt.Errorf("%w: probing a feature needs a context, object and reader", ErrNoSuchFeature)
 	}
-	end := ctx.beginProbe()
-	defer end()
-	fv, err := inst.GetFeatureValue(ctx, name)
-	if err != nil {
-		return err
-	}
-	if fv == nil {
-		return nil
-	}
-	return use(fv.HeldValue())
+	return ctx.Probe(func() error {
+		fv, err := inst.GetFeatureValue(ctx, name)
+		if err != nil {
+			return err
+		}
+		if fv == nil {
+			return nil
+		}
+		return use(fv.HeldValue())
+	})
 }
 
 // openPopulation is where a read that stops short of making up a collection's lower bound

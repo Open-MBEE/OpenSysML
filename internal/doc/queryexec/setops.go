@@ -91,11 +91,6 @@ func (e *executor) evaluateUnion(expression queryplan.Expression) (sequence, err
 	}
 	seen := make(map[setKey]struct{}, len(source.values)+len(other.values))
 	result := filtered(source)
-	// A union is a new scope: a row an arm filtered out supplies no evidence
-	// above it, while each arm kept its own scope for its internal filters.
-	result.unfiltered = nil
-	result.unfilteredCells = nil
-	result.starting = nil
 	for _, input := range []sequence{source, other} {
 		for i, value := range input.values {
 			key := setKeyOf(value)
@@ -106,6 +101,10 @@ func (e *executor) evaluateUnion(expression queryplan.Expression) (sequence, err
 			appendSelected(&result, input, i)
 		}
 	}
+	// A union is a new scope: only the rows it emits supply evidence above it.
+	result.unfiltered = append([]Value(nil), result.values...)
+	result.unfilteredCells = cloneCellRows(result.cells)
+	result.starting = nil
 	return result, nil
 }
 

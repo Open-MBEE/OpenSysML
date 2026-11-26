@@ -883,6 +883,16 @@ func cloneCells(input []Cell) []Cell {
 	return result
 }
 
+// cloneCellRows gives a row set its own evidence cells, independent of the
+// cells a later filter will clone and return.
+func cloneCellRows(input [][]Cell) [][]Cell {
+	result := make([][]Cell, len(input))
+	for i, cells := range input {
+		result[i] = cloneCells(cells)
+	}
+	return result
+}
+
 func (e *executor) validateResult(result sequence) error {
 	for _, value := range result.values {
 		if !value.isRow() || !e.valueConforms(value, e.definition.Result().Type) {

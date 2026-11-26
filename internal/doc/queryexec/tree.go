@@ -99,6 +99,8 @@ func (e *executor) evaluateTree(expression queryplan.Expression) (sequence, erro
 			walk(i, 0)
 		}
 	}
+	result.unfiltered = append([]Value(nil), result.values...)
+	result.unfilteredCells = cloneCellRows(result.cells)
 	return result, nil
 }
 
