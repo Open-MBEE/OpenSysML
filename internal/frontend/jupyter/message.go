@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 )
 
@@ -157,9 +158,7 @@ func newHeader(session, msgType string) Header {
 // newID is a random identifier, as a UUID is spelled.
 func newID() string {
 	var b [16]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		panic(err)
-	}
+	_, _ = rand.Read(b[:]) // crypto/rand.Read never returns an error
 	b[6] = b[6]&0x0f | 0x40
 	b[8] = b[8]&0x3f | 0x80
 	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
@@ -177,12 +176,19 @@ func (m Message) bool(field string) bool {
 	return b
 }
 
-// int reads an integer field of the content, which JSON delivers as a float;
-// absent or not a number, it reads as the fallback.
+// int reads an integer field of the content, which JSON delivers as a float; absent
+// or a value no int holds (not a number, NaN, out of range), it reads as the fallback.
 func (m Message) int(field string, fallback int) int {
 	f, ok := m.Content[field].(float64)
-	if !ok {
+	if !ok || math.IsNaN(f) || f < math.MinInt32 || f > math.MaxInt32 {
 		return fallback
 	}
 	return int(f)
+}
+
+// cursor reads the cursor position of a request over code, in characters: the end
+// of the code when absent or unreadable, and never outside it.
+func (m Message) cursor(code string) int {
+	end := len([]rune(code))
+	return min(max(m.int("cursor_pos", end), 0), end)
 }

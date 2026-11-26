@@ -183,3 +183,15 @@ func TestConvertOptionsReachTheWire(t *testing.T) {
 		t.Errorf("diagnostics = %+v, want %+v", asked.Diagnostics, want)
 	}
 }
+
+// WithBaseModel names the model as it was when the option was made.
+func TestWithBaseModelSnapshotsTheHash(t *testing.T) {
+	base := &Model{Hash: "h"}
+	option := WithBaseModel(base)
+	base.Hash = "moved"
+	var o parseOptions
+	option(&o)
+	if o.base != "h" {
+		t.Fatalf("base = %q, want the hash the option was made with", o.base)
+	}
+}

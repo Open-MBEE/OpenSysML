@@ -1,0 +1,1 @@
+- Opening a buffer with an explicit language (`OpenWithKind`, as a notebook cell is opened) now records the language and the buffer in one step. Two concurrent opens of the same name could leave the text of one parsed as the language of the other.

@@ -47,11 +47,16 @@ const printCompanionSuffix = ".print.css"
 
 // Themes lists the bundled theme names, the default first and the rest sorted.
 func Themes() []string {
-	entries, err := themeFS.ReadDir("themes")
-	if err != nil {
-		panic("docrender: bundled themes unreadable: " + err.Error())
-	}
+	return themeNames(themeFS)
+}
+
+// themeNames lists the themes of a bundle; one that cannot be read has the default alone.
+func themeNames(bundle fs.ReadDirFS) []string {
 	names := []string{DefaultTheme}
+	entries, err := bundle.ReadDir("themes")
+	if err != nil {
+		return names
+	}
 	for _, entry := range entries {
 		if strings.HasSuffix(entry.Name(), printCompanionSuffix) {
 			continue

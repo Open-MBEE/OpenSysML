@@ -190,12 +190,7 @@ jobs:
       # than `go run` keeps buf's own module tree out of the checksum-database path.
       - name: Install buf
         if: contains(matrix.shard, 'rest')
-        run: |
-          curl -fsSL --proto '=https' --proto-redir '=https' -o /tmp/buf \
-            https://github.com/bufbuild/buf/releases/download/v1.57.2/buf-Linux-x86_64
-          echo "644e6fa4a62afc2b0d425d3ac9538d2f512947c0f2e82fc95c41a5eab6729414  /tmp/buf" | sha256sum --check --strict
-          sudo install -m 0755 /tmp/buf /usr/local/bin/buf
-          buf --version
+        run: scripts/ci-install-buf.sh
 
       # Without this check the committed Go stubs can drift from the schema.
       # `git add -N` puts a regenerated file the commit had deleted into the diff.
@@ -254,8 +249,8 @@ jobs:
     name: Go static and integrity checks
     needs: changes
     if: needs.changes.outputs.go == 'true'
-    # The quick tier runs the download-free checks (gofmt, vet, the prod build, the library snapshot, grpc
-    # imports, proto lint and breaking); the lint and every corpus and solver gate run under queue and full.
+    # The quick tier runs the cheap checks (gofmt, vet, the prod build, the lint, whose two tools come from the Go
+    # proxy, the library snapshot, grpc imports, proto lint and breaking); corpus and solver gates wait for queue and full.
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -372,14 +367,17 @@ jobs:
           go test -count=1 -tags sysml_re ./cmd/sysml -run TestREBuild
 
       - name: Run static analysis (staticcheck + gosec)
-        if: needs.changes.outputs.tier != 'quick'
         run: make lint
 
       - name: Check grpc-go stays out of production code
         run: ./scripts/check-grpc-imports.sh
 
+      # The release binary: `go run buf@version` resolves buf's module graph against sum.golang.org on every run.
+      - name: Install buf
+        run: scripts/ci-install-buf.sh
+
       - name: Lint the protobuf schema
-        run: make proto-lint
+        run: make proto-lint BUF=buf
 
       # Wire compatibility against the merge base with the base branch (never a merge group's base_sha, the entry
       # ahead), not its tip, or a field added there since reads as deleted; a dispatch compares with its first parent.
@@ -392,7 +390,7 @@ jobs:
           if [ -z "$BASE_REF" ]; then
             git fetch --no-tags --quiet --depth=2 origin "$HEAD_SHA"
             echo "comparing against the first parent, $(git rev-parse --short HEAD^1)"
-            make proto-breaking BUF_BREAKING_REF=HEAD^1
+            make proto-breaking BUF=buf BUF_BREAKING_REF=HEAD^1
             exit 0
           fi
           if [ "$(git rev-parse --is-shallow-repository)" = true ]; then
@@ -402,7 +400,7 @@ jobs:
           fi
           baseline=$(git merge-base "origin/$BASE_REF" "$HEAD_SHA")
           echo "comparing against $(git rev-parse --short "$baseline")"
-          make proto-breaking BUF_BREAKING_REF="$baseline"
+          make proto-breaking BUF=buf BUF_BREAKING_REF="$baseline"
 
       # Race shards skip tests gated here; keep Makefile RACE_SHARD_SKIP and RACE_SHARD_TOOLS_SKIP in sync.
       # Re-run the corpus gate on its own so its verdict is legible in the log
@@ -1732,12 +1730,7 @@ jobs:
 
       # Pinned by digest, as cvc5 is above, so a substituted asset is not run.
       - name: Install buf
-        run: |
-          curl -fsSL --proto '=https' --proto-redir '=https' -o /tmp/buf \
-            https://github.com/bufbuild/buf/releases/download/v1.57.2/buf-Linux-x86_64
-          echo "644e6fa4a62afc2b0d425d3ac9538d2f512947c0f2e82fc95c41a5eab6729414  /tmp/buf" | sha256sum --check --strict
-          sudo install -m 0755 /tmp/buf /usr/local/bin/buf
-          buf --version
+        run: scripts/ci-install-buf.sh
 
       # Committed stubs must be what buf generates, or the checked-in client and
       # the schema can drift apart silently.
@@ -1890,12 +1883,7 @@ jobs:
 
       # Pinned by digest, so a substituted asset is not run.
       - name: Install buf
-        run: |
-          curl -fsSL --proto '=https' --proto-redir '=https' -o /tmp/buf \
-            https://github.com/bufbuild/buf/releases/download/v1.57.2/buf-Linux-x86_64
-          echo "644e6fa4a62afc2b0d425d3ac9538d2f512947c0f2e82fc95c41a5eab6729414  /tmp/buf" | sha256sum --check --strict
-          sudo install -m 0755 /tmp/buf /usr/local/bin/buf
-          buf --version
+        run: scripts/ci-install-buf.sh
 
       # Pinned to the version recorded in the committed stubs (GRPC_GENERATED_VERSION),
       # so a newer release cannot fail the check below.
@@ -1996,12 +1984,7 @@ jobs:
       # The digest pins the generator binary so a substituted release cannot
       # change the committed Rust artifacts.
       - name: Install buf
-        run: |
-          curl -fsSL --proto '=https' --proto-redir '=https' -o /tmp/buf \
-            https://github.com/bufbuild/buf/releases/download/v1.57.2/buf-Linux-x86_64
-          echo "644e6fa4a62afc2b0d425d3ac9538d2f512947c0f2e82fc95c41a5eab6729414  /tmp/buf" | sha256sum --check --strict
-          chmod +x /tmp/buf
-          /tmp/buf --version
+        run: scripts/ci-install-buf.sh /tmp/buf
 
       - name: Verify Rust generated artifacts
         run: |

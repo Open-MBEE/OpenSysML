@@ -183,10 +183,11 @@ func (c *client) ExecuteAction(
 	if len(options.events) > 0 && options.performer == "" {
 		return nil, &StatusError{Code: CodeInvalidArgument, Message: "WithEvents posts to the object the action is performed on: name one with PerformedBy"}
 	}
-	hash, err := c.call(model)
+	hash, done, err := c.call(model)
 	if err != nil {
 		return nil, err
 	}
+	defer done()
 	if err := c.requireSchedule(ctx, options.schedule); err != nil {
 		return nil, err
 	}
@@ -270,10 +271,11 @@ func (c *client) ExecuteState(
 	if err := refuseExploring("ExecuteState", "ExploreState", options.schedule); err != nil {
 		return nil, err
 	}
-	hash, err := c.call(model)
+	hash, done, err := c.call(model)
 	if err != nil {
 		return nil, err
 	}
+	defer done()
 	if err := c.requireSchedule(ctx, options.schedule); err != nil {
 		return nil, err
 	}

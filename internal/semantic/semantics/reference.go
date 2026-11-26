@@ -188,6 +188,23 @@ func (m *Model) MemberSources(sym *symbols.Symbol) []*symbols.Symbol {
 	return order
 }
 
+// SpecializesThroughReferences reports whether t specializes f once reference
+// subsetting counts as the subsetting it is (KerML 8.3.3.3.9), as featuring does.
+func (m *Model) SpecializesThroughReferences(t, f *symbols.Symbol) bool {
+	if t == nil || f == nil {
+		return false
+	}
+	if t == f || m.Conforms(t, f) {
+		return true
+	}
+	for _, src := range m.MemberSources(t) {
+		if src == f || m.Conforms(src, f) {
+			return true
+		}
+	}
+	return false
+}
+
 // lookupSources is MemberSources in name-lookup order: each contributor and
 // everything it inherits before the next contributor, as a name search through
 // generals visits them (KerML 8.2.3.5.2). A source reached by several paths is

@@ -1,1 +1,0 @@
-- `editors/mdk/scripts/compile-against-cameo.sh` puts the Java client's own classes on the class path. It listed only the client's dependencies, so the compile against a licensed Cameo failed on every `org.openmbee.opensysml` import before it reached the OpenAPI. When Maven fails, the helper now prints its error instead of discarding it.

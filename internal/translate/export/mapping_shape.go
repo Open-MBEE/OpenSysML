@@ -341,6 +341,10 @@ func mappingMembershipMemberIsElementUncached(
 	if mappingExpressionBodyMemberSubject(graph, owner) {
 		return false
 	}
+	// A `for` loop's variable is written in the loop's head, not as a member of its body.
+	if slices.Contains(graph.ObjectsView(owner, rdf.SysML+pLoopVariable), member) {
+		return false
+	}
 	// A connector end is positional whatever its EndFeatureMembership names it:
 	// the name is the end it redefines, not an address of its own.
 	if graph.BoolValue(member, rdf.SysML+"isEnd") &&
