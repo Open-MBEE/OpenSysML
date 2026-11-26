@@ -33,6 +33,39 @@ func TestOSLCScopedTextFeatureRejectsOrderingOperand(t *testing.T) {
 	assertQueryError(t, err, QueryErrUnorderedProperty)
 }
 
+// Two owners declare the same name with different kinds: the ordering term
+// must accept the numeric feature whichever side of the conjunction it is on.
+const declaredShadowedAnnotationsModel = `package Demo {
+	private import ScalarValues::*;
+	part def NumericOwner {
+		attribute annotations : Integer = 5;
+		part probe;
+	}
+	part def TextOwner {
+		attribute annotations : String = "text";
+		part other;
+	}
+}`
+
+func TestOSLCConjunctionOrderDoesNotChangeDeclaredFeatureOperand(t *testing.T) {
+	srv := mustNewService(t, 10)
+	parsed, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
+		Source: &pb.ParseFileRequest_Content{Content: declaredShadowedAnnotationsModel},
+	})
+	if err != nil {
+		t.Fatalf("ParseFile: %v", err)
+	}
+	for _, where := range []string{
+		`rdf:type=sysml:PartUsage and sysml:name="probe" and sysml:owner{sysx:annotations>3}`,
+		`rdf:type=sysml:PartUsage and sysml:owner{sysx:annotations>3} and sysml:name="probe"`,
+	} {
+		rows := rowsByID(t, oslcQuery(t, srv, parsed.ModelHash, "oslc.where="+where))
+		if len(rows) != 1 || rows["Demo::NumericOwner::probe"] == nil {
+			t.Fatalf("%s = %v, want the numeric owner's probe alone", where, rows)
+		}
+	}
+}
+
 // Reversing the terms of an AND cannot change whether a shadowed operand is
 // valid: the shadow is found in the rows the conjunction started with.
 func TestQueryConjunctionOrderDoesNotChangeShadowDeferral(t *testing.T) {

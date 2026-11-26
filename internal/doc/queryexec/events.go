@@ -290,9 +290,19 @@ func (e *executor) sessionLabels(expression queryplan.Expression) (sessionLabelM
 // eventPropertyValues reads a property of an event row: the record's fields,
 // then the metadata of the behavior that made it.
 func (e *executor) eventPropertyValues(row Value, property string) ([]Value, bool, error) {
+	values, present, _, err := e.eventPropertyValuesWithSource(row, property)
+	return values, present, err
+}
+
+// eventPropertyValuesWithSource keeps the source of a delegated read: the
+// terminal property may be a built-in the behavior does not shadow.
+func (e *executor) eventPropertyValuesWithSource(row Value, property string) ([]Value, bool, []valueSource, error) {
 	event, _ := row.Event()
 	record := event.record
 	origin := row.Origin()
+	serve := func(values []Value) ([]Value, bool, []valueSource, error) {
+		return values, true, sourcesOf(len(values), sourceModel), nil
+	}
 	text := func(value string) []Value {
 		if value == "" {
 			return nil
@@ -301,55 +311,56 @@ func (e *executor) eventPropertyValues(row Value, property string) ([]Value, boo
 	}
 	switch property {
 	case propertyKind:
-		return text(event.Kind()), true, nil
+		return serve(text(event.Kind()))
 	case propertyTime:
-		return []Value{valueAt(event.time, origin)}, true, nil
+		return serve([]Value{valueAt(event.time, origin)})
 	case propertyObject:
 		if event.object == nil {
-			return nil, true, nil
+			return serve(nil)
 		}
-		return []Value{valueAt(ObjectValue(event.object, event.label), origin)}, true, nil
+		return serve([]Value{valueAt(ObjectValue(event.object, event.label), origin)})
 	case propertyPath:
-		return text(event.label), true, nil
+		return serve(text(event.label))
 	case propertyMachine:
-		return text(event.machine), true, nil
+		return serve(text(event.machine))
 	case propertyState:
-		return text(record.State), true, nil
+		return serve(text(record.State))
 	case propertyFrom:
-		return text(record.From), true, nil
+		return serve(text(record.From))
 	case propertyTo:
-		return text(record.To), true, nil
+		return serve(text(record.To))
 	case propertyTarget:
 		if record.Target == nil {
-			return nil, true, nil
+			return serve(nil)
 		}
-		return []Value{valueAt(ObjectValue(record.Target, event.target), origin)}, true, nil
+		return serve([]Value{valueAt(ObjectValue(record.Target, event.target), origin)})
 	case propertyEvent:
-		return text(record.Event), true, nil
+		return serve(text(record.Event))
 	case query.PropertyName:
-		return text(eventName(record)), true, nil
+		return serve(text(eventName(record)))
 	case propertyPayload:
 		out := make([]Value, 0, len(record.Payload))
 		for _, cell := range record.PayloadTexts() {
 			out = append(out, valueAt(StringValue(cell), origin))
 		}
-		return out, true, nil
+		return serve(out)
 	case propertyAlternatives:
 		alternatives := event.Alternatives()
 		out := make([]Value, 0, len(alternatives))
 		for _, alt := range alternatives {
 			out = append(out, valueAt(StringValue(alt), origin))
 		}
-		return out, true, nil
+		return serve(out)
 	case propertyTaken:
-		return text(event.Taken()), true, nil
+		return serve(text(event.Taken()))
 	case propertyText:
-		return text(record.Text()), true, nil
+		return serve(text(record.Text()))
 	}
 	if record.Origin.Behavior == nil {
-		return nil, false, nil
+		return nil, false, nil, nil
 	}
-	return e.propertyValues(ElementValue(record.Origin.Behavior), property)
+	values, reach, sources, err := e.propertyReachWithSource(ElementValue(record.Origin.Behavior), property)
+	return values, reach != pathAbsent, sources, err
 }
 
 // eventName is what a record is about: the event accepted or sent, the state

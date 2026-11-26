@@ -32,15 +32,16 @@ func keyOfRow(row Value) rowKey {
 	return rowKey{element: symbols.KeyOf(sym)}
 }
 
-// valueSource names the layer that supplied a value a filter compares. Only a
-// built-in read may defer its operand's kind to a shadowing model feature; a
-// declared feature or a computed column keeps the comparison strict.
+// valueSource names the layer that supplied a value a filter compares.
+// Projected declared values stay strict; built-ins and computed cells may defer.
 type valueSource uint8
 
 const (
 	sourceModel valueSource = iota
 	sourceBuiltin
 	sourceColumn
+	sourceProjectedModel
+	sourceProjectedBuiltin
 )
 
 // sourcesOf repeats one source for every value of a read.
@@ -508,14 +509,11 @@ func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequen
 	var missing []*Error
 	seen := newCandidates()
 	columnIndex := projectedColumn(source, property)
-	// The shadow decision belongs to the query's original rows, not to the
-	// rows a preceding conjunction term left: reversing terms must not change
-	// whether an operand is valid.
-	deferBuiltin := false
-	if _, ok := e.deferredBuiltin(terminalProperty(property)); ok {
-		deferBuiltin = e.shadowedBuiltinRead(source, property)
-	}
+	// Operand evidence comes from the query's starting rows, so conjunction
+	// term order cannot change an operand's verdict.
+	evidence := e.builtinShadowEvidence(source, property, comparison)
 	var columnErr error
+	columnComparable := false
 	for i := range source.values {
 		e.note(seen, source.values[i])
 		values, reach, origins, valueErr := e.featureValues(expression, source, i, property, columnIndex)
@@ -540,17 +538,20 @@ func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequen
 			match, compareErr := e.compareValue(actual, comparison)
 			if compareErr != nil {
 				switch {
-				case origin == sourceBuiltin && deferBuiltin:
-					// Only an actual built-in read may be skipped where its
-					// name is shadowed elsewhere in the query's rows.
-					continue
 				case origin == sourceColumn:
-					// A computed column can be heterogeneous: an incompatible
-					// cell does not hide another cell that matches. If no cell
-					// matches, the operand error still surfaces.
+					// A computed column is heterogeneous: an incompatible cell
+					// does not hide a comparable one, whether it matches or not.
 					if columnErr == nil {
 						columnErr = compareErr
 					}
+					continue
+				case (origin == sourceBuiltin || origin == sourceProjectedBuiltin) && evidence.shadowed:
+					// Only a built-in read may defer its kind to a feature
+					// shadowing the bare name in the query's starting rows.
+					continue
+				case origin == sourceModel && evidence.comparable:
+					// A declared value under a shadowed name is skipped when
+					// another starting row compares, whatever the term order.
 					continue
 				}
 				if compareErr != errComparison {
@@ -558,13 +559,16 @@ func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequen
 				}
 				return sequence{}, e.operatorError(expression, operator)
 			}
+			if origin == sourceColumn {
+				columnComparable = true
+			}
 			if match {
 				appendSelected(&result, source, i)
 				break
 			}
 		}
 	}
-	if len(result.values) == 0 && columnErr != nil {
+	if columnErr != nil && !columnComparable {
 		if columnErr != errComparison {
 			return sequence{}, e.invalidArgument(expression, "value", expected)
 		}
@@ -590,16 +594,21 @@ func terminalProperty(property string) string {
 	return property
 }
 
-// shadowedBuiltinRead reports whether the starting rows read a bare built-in
-// from a declared or held feature, including through a delegated declaration.
-func (e *executor) shadowedBuiltinRead(source sequence, property string) bool {
+// builtinShadowEvidence reports a shadowed built-in name's starting-row
+// evidence: whether a feature shadows it and whether one can be compared.
+type builtinShadowEvidence struct {
+	shadowed   bool
+	comparable bool
+}
+
+func (e *executor) builtinShadowEvidence(source sequence, property string, comparison comparison) builtinShadowEvidence {
 	canonical, ok := e.deferredBuiltin(terminalProperty(property))
 	if !ok {
-		return false
+		return builtinShadowEvidence{}
 	}
-	rows := startingRows(source)
+	var evidence builtinShadowEvidence
 	segments := strings.Split(property, ".")
-	for _, row := range rows {
+	for _, row := range startingRows(source) {
 		targets := []Value{row}
 		if len(segments) > 1 {
 			related, reached, err := e.relatedElements(row, segments[:len(segments)-1])
@@ -609,19 +618,32 @@ func (e *executor) shadowedBuiltinRead(source sequence, property string) bool {
 			targets = related
 		}
 		for _, target := range targets {
+			var values []Value
 			if sym := target.Declaration(); sym != nil {
-				if _, present, err := e.shadowingFeatureValues(sym, canonical); err == nil && present {
-					return true
+				found, present, err := e.shadowingFeatureValues(sym, canonical)
+				if err != nil || !present {
+					continue
 				}
+				values = found
+			} else if _, _, isObject := target.Object(); isObject {
+				found, present, err := e.objectFeatureValues(target, canonical)
+				if err != nil || !present {
+					continue
+				}
+				values = found
+			} else {
+				continue
 			}
-			if _, _, isObject := target.Object(); isObject {
-				if _, present, err := e.objectFeatureValues(target, canonical); err == nil && present {
-					return true
+			evidence.shadowed = true
+			for _, value := range values {
+				if _, err := e.compareValue(value, comparison); err == nil {
+					evidence.comparable = true
+					return evidence
 				}
 			}
 		}
 	}
-	return false
+	return evidence
 }
 
 // deferredBuiltin names the evaluator property a terminal spelling leaves to
@@ -793,8 +815,13 @@ func (e *executor) featureValues(
 	columnIndex int,
 ) ([]Value, pathReach, []valueSource, error) {
 	if columnIndex >= 0 && row < len(source.cells) {
-		values := source.cells[row][columnIndex].Values()
-		return values, pathPresent, sourcesOf(len(values), sourceColumn), nil
+		cell := source.cells[row][columnIndex]
+		values := cell.Values()
+		sources := cell.sources
+		if len(sources) != len(values) {
+			sources = sourcesOf(len(values), sourceProjectedModel)
+		}
+		return values, pathPresent, sources, nil
 	}
 	value := source.values[row]
 	values, reach, origins, err := e.propertyReachWithSource(value, property)
@@ -1035,14 +1062,14 @@ func (p *projection) cells(value Value) ([]Cell, error) {
 	p.e.note(p.seen, value)
 	cells := make([]Cell, len(p.properties)+len(p.computed))
 	for column, property := range p.properties {
-		values, reach, err := p.e.propertyReach(value, property)
+		values, reach, readSources, err := p.e.propertyReachWithSource(value, property)
 		if err != nil {
 			if (p.tolerate || (p.wildcard != nil && p.wildcard[column])) && unserved(err) {
 				// A wildcard projects what the evaluator serves; tolerated, an
 				// unserved property is an empty cell.
-				values, reach, err = nil, pathAbsent, nil
+				values, reach, readSources, err = nil, pathAbsent, nil, nil
 			} else if p.tolerateUnevaluable[property] && unevaluableFeature(err) {
-				values, reach, err = nil, pathAbsent, nil
+				values, reach, readSources, err = nil, pathAbsent, nil, nil
 			} else {
 				return nil, p.e.unevaluable(p.expression, property, value, err)
 			}
@@ -1053,14 +1080,25 @@ func (p *projection) cells(value Value) ([]Cell, error) {
 			}
 		}
 		p.known[column].note(reach)
-		cells[column] = Cell{values: values, origin: value.Origin()}
+		sources := make([]valueSource, len(values))
+		for i, source := range readSources {
+			if source == sourceBuiltin {
+				sources[i] = sourceProjectedBuiltin
+			} else {
+				sources[i] = sourceProjectedModel
+			}
+		}
+		if len(readSources) != len(values) {
+			sources = sourcesOf(len(values), sourceProjectedModel)
+		}
+		cells[column] = Cell{values: values, sources: sources, origin: value.Origin()}
 	}
 	for i, column := range p.computed {
 		values, err := p.e.evaluateColumnCell(column, value, p.tracker)
 		if err != nil {
 			return nil, err
 		}
-		cells[len(p.properties)+i] = Cell{values: values, origin: value.Origin()}
+		cells[len(p.properties)+i] = Cell{values: values, sources: sourcesOf(len(values), sourceColumn), origin: value.Origin()}
 	}
 	return cells, nil
 }
@@ -1251,32 +1289,6 @@ func (e *executor) propertyValuesBeforeMemberPath(row Value, property string) ([
 	return values, present, err
 }
 
-// delegatedReadSource tells a built-in read delegated to a row's declaration
-// from a declared feature of the same name.
-func (e *executor) delegatedReadSource(row Value, property, builtin string, isBuiltin, explicitBuiltin, explicitFeature bool) valueSource {
-	if !isBuiltin || explicitFeature || explicitBuiltin || query.IsBuiltinAlias(property) {
-		return sourceModel
-	}
-	if sym := row.Declaration(); sym != nil {
-		if _, present, err := e.shadowingFeatureValues(sym, builtin); err == nil && present {
-			return sourceModel
-		}
-	}
-	return sourceBuiltin
-}
-
-// objectReadSource mirrors objectPropertyValues' precedence: a held feature
-// shadows a bare built-in, while the evaluator's own property does not.
-func (e *executor) objectReadSource(row Value, builtin string, isBuiltin, explicitFeature bool) valueSource {
-	if !isBuiltin || explicitFeature {
-		return sourceModel
-	}
-	if _, present, err := e.objectFeatureValues(row, builtin); err == nil && present {
-		return sourceModel
-	}
-	return sourceBuiltin
-}
-
 func (e *executor) propertyValuesBeforeMemberPathWithSource(row Value, property string) ([]Value, bool, []valueSource, error) {
 	builtin, isBuiltin := query.BuiltinProperty(property)
 	// An explicit model feature or built-in decides the read. The bare name
@@ -1284,28 +1296,25 @@ func (e *executor) propertyValuesBeforeMemberPathWithSource(row Value, property 
 	explicitBuiltin := isBuiltin && (query.IsBuiltinAlias(property) || e.context.Builtins[property])
 	explicitFeature := isBuiltin && e.context.Features[property]
 	if _, _, isObject := row.Object(); isObject {
-		values, present, err := e.objectPropertyValues(row, property)
+		values, present, source, err := e.objectPropertyValues(row, property)
 		if !present && err == nil && property == PropertyValuation {
 			// An object is no feature: its valuation is absent unless it
 			// holds a member so named.
 			return nil, true, nil, nil
 		}
-		return values, present, sourcesOf(len(values), e.objectReadSource(row, builtin, isBuiltin, explicitFeature)), err
+		return values, present, sourcesOf(len(values), source), err
 	}
 	if _, isVerdict := row.Verdict(); isVerdict {
-		values, present, err := e.verdictPropertyValues(row, property)
-		return values, present, sourcesOf(len(values),
-			e.delegatedReadSource(row, property, builtin, isBuiltin, explicitBuiltin, explicitFeature)), err
+		values, present, sources, err := e.verdictPropertyValuesWithSource(row, property)
+		return values, present, sources, err
 	}
 	if _, isState := row.State(); isState {
-		values, present, err := e.statePropertyValues(row, property)
-		return values, present, sourcesOf(len(values),
-			e.delegatedReadSource(row, property, builtin, isBuiltin, explicitBuiltin, explicitFeature)), err
+		values, present, sources, err := e.statePropertyValuesWithSource(row, property)
+		return values, present, sources, err
 	}
 	if _, isEvent := row.Event(); isEvent {
-		values, present, err := e.eventPropertyValues(row, property)
-		return values, present, sourcesOf(len(values),
-			e.delegatedReadSource(row, property, builtin, isBuiltin, explicitBuiltin, explicitFeature)), err
+		values, present, sources, err := e.eventPropertyValuesWithSource(row, property)
+		return values, present, sources, err
 	}
 	sym, _ := row.Element()
 	if isBuiltin && query.IsBuiltinAlias(property) && explicitFeature {

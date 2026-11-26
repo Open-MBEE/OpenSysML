@@ -360,8 +360,18 @@ func (e *executor) rowKindError(expression queryplan.Expression, name string, ki
 // statePropertyValues reads a property of a state row: the row's own
 // properties first, then the metadata of the state as declared.
 func (e *executor) statePropertyValues(row Value, property string) ([]Value, bool, error) {
+	values, present, _, err := e.statePropertyValuesWithSource(row, property)
+	return values, present, err
+}
+
+// statePropertyValuesWithSource keeps the source of a delegated read: the
+// terminal property may be a built-in the declaration does not shadow.
+func (e *executor) statePropertyValuesWithSource(row Value, property string) ([]Value, bool, []valueSource, error) {
 	state, _ := row.State()
 	origin := row.Origin()
+	serve := func(values []Value) ([]Value, bool, []valueSource, error) {
+		return values, true, sourcesOf(len(values), sourceModel), nil
+	}
 	text := func(values ...string) []Value {
 		out := make([]Value, 0, len(values))
 		for _, value := range values {
@@ -371,27 +381,28 @@ func (e *executor) statePropertyValues(row Value, property string) ([]Value, boo
 	}
 	switch property {
 	case propertyObject:
-		return []Value{valueAt(ObjectValue(state.object, state.label), origin)}, true, nil
+		return serve([]Value{valueAt(ObjectValue(state.object, state.label), origin)})
 	case propertyPath:
-		return text(state.label), true, nil
+		return serve(text(state.label))
 	case propertyMachine:
-		return text(state.machine), true, nil
+		return serve(text(state.machine))
 	case query.PropertyName:
-		return text(state.name), true, nil
+		return serve(text(state.name))
 	case propertyStatePath:
-		return text(state.path), true, nil
+		return serve(text(state.path))
 	case propertyState:
 		if state.symbol == nil {
-			return nil, true, nil
+			return serve(nil)
 		}
-		return []Value{valueAt(ElementValue(state.symbol), origin)}, true, nil
+		return serve([]Value{valueAt(ElementValue(state.symbol), origin)})
 	case propertyRegion:
-		return text(state.region), true, nil
+		return serve(text(state.region))
 	case propertyEnclosing:
-		return text(state.enclosing...), true, nil
+		return serve(text(state.enclosing...))
 	}
 	if state.symbol == nil {
-		return nil, false, nil
+		return nil, false, nil, nil
 	}
-	return e.propertyValues(ElementValue(state.symbol), property)
+	values, reach, sources, err := e.propertyReachWithSource(ElementValue(state.symbol), property)
+	return values, reach != pathAbsent, sources, err
 }

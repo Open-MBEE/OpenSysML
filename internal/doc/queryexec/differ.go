@@ -150,9 +150,21 @@ func (e *executor) evaluateDiffer(expression queryplan.Expression) (sequence, er
 		// appendSelected keeps the left row's Tree depth; its cells are then the three of Differ.
 		appendSelected(&result, left, row)
 		result.cells[len(result.values)-1] = []Cell{
-			{values: append([]Value(nil), cell...), origin: left.cells[row][sides[0].key].origin},
-			{values: append([]Value(nil), leftValues...), origin: left.cells[row][sides[0].column].origin},
-			{values: append([]Value(nil), rightValues...), origin: right.cells[other][sides[1].column].origin},
+			{
+				values:  append([]Value(nil), cell...),
+				sources: append([]valueSource(nil), left.cells[row][sides[0].key].sources...),
+				origin:  left.cells[row][sides[0].key].origin,
+			},
+			{
+				values:  append([]Value(nil), leftValues...),
+				sources: append([]valueSource(nil), left.cells[row][sides[0].column].sources...),
+				origin:  left.cells[row][sides[0].column].origin,
+			},
+			{
+				values:  append([]Value(nil), rightValues...),
+				sources: append([]valueSource(nil), right.cells[other][sides[1].column].sources...),
+				origin:  right.cells[other][sides[1].column].origin,
+			},
 		}
 	}
 	return result, nil

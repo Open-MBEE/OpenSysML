@@ -847,7 +847,11 @@ func cloneSequence(input sequence) sequence {
 func cloneCells(input []Cell) []Cell {
 	result := make([]Cell, len(input))
 	for i, cell := range input {
-		result[i] = Cell{values: cell.Values(), origin: cell.origin}
+		result[i] = Cell{
+			values:  cell.Values(),
+			sources: append([]valueSource(nil), cell.sources...),
+			origin:  cell.origin,
+		}
 	}
 	return result
 }

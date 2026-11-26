@@ -228,20 +228,21 @@ func splitLabel(label string) (before, sep, segment string) {
 	return label[:last], label[last : last+width], label[last+width:]
 }
 
-// objectPropertyValues reads a property of an object row: identity, naming and
-// `type` from the session, other metadata from its declaration, else a feature.
-func (e *executor) objectPropertyValues(row Value, property string) ([]Value, bool, error) {
+// objectPropertyValues reads an object row's property and reports the value
+// source from the branch that answered, without probing a feature again.
+func (e *executor) objectPropertyValues(row Value, property string) ([]Value, bool, valueSource, error) {
 	builtin, isBuiltin := query.BuiltinProperty(property)
 	if isBuiltin && e.context.Features[property] {
 		// An explicit model feature reads the object's held value, under either
 		// spelling of the name.
-		return e.objectFeatureValues(row, builtin)
+		values, present, err := e.objectFeatureValues(row, builtin)
+		return values, present, sourceModel, err
 	}
 	if isBuiltin && !query.IsBuiltinAlias(property) && !e.context.Builtins[property] {
 		// The bare name reads a feature the object holds before the evaluator's
 		// own property of that name.
 		if values, present, err := e.objectFeatureValues(row, builtin); present || err != nil {
-			return values, present, err
+			return values, present, sourceModel, err
 		}
 	}
 	inst, label, _ := row.Object()
@@ -250,14 +251,14 @@ func (e *executor) objectPropertyValues(row Value, property string) ([]Value, bo
 		// object's identity is the row, not the symbol the binding came from.
 		values, _, err := e.annotationValues(objectDeclaration(inst))
 		if err != nil {
-			return nil, true, err
+			return nil, true, sourceBuiltin, err
 		}
 		origin := row.Origin()
 		out := make([]Value, len(values))
 		for i, value := range values {
 			out[i] = valueAt(value, origin)
 		}
-		return out, true, nil
+		return out, true, sourceBuiltin, nil
 	}
 	origin := row.Origin()
 	text := func(values ...string) []Value {
@@ -269,39 +270,40 @@ func (e *executor) objectPropertyValues(row Value, property string) ([]Value, bo
 	}
 	switch property {
 	case query.PropertyID:
-		return text("#" + strconv.FormatInt(inst.ID, 10)), true, nil
+		return text("#" + strconv.FormatInt(inst.ID, 10)), true, sourceModel, nil
 	case query.PropertyName:
-		return text(lastSegment(label)), true, nil
+		return text(lastSegment(label)), true, sourceModel, nil
 	case query.PropertyQualifiedName:
-		return text(label), true, nil
+		return text(label), true, sourceModel, nil
 	case query.PropertyOwner:
 		// The owner is the object holding this one, so a path through it
 		// reads the parent's live values, not its declaration's.
 		owner, held := e.objectOwner(row)
 		if !held {
-			return nil, true, nil
+			return nil, true, sourceModel, nil
 		}
-		return []Value{valueAt(owner, origin)}, true, nil
+		return []Value{valueAt(owner, origin)}, true, sourceModel, nil
 	case query.PropertyElementType:
-		return text(e.objectTypeNames(inst)...), true, nil
+		return text(e.objectTypeNames(inst)...), true, sourceModel, nil
 	}
 	// An object is never an annotation: body, locale and language are its features.
 	if isQueryableProperty(property) && !isAnnotationProperty(property) {
 		decl := objectDeclaration(inst)
 		if decl == nil {
-			return nil, true, nil
+			return nil, true, sourceModel, nil
 		}
 		values, present := e.reader.Values(decl, property)
 		if !present {
-			return nil, true, nil
+			return nil, true, sourceModel, nil
 		}
 		result := make([]Value, 0, len(values))
 		for _, value := range values {
 			result = append(result, valueAt(e.typedPropertyValue(property, value, decl), origin))
 		}
-		return result, true, nil
+		return result, true, sourceModel, nil
 	}
-	return e.objectFeatureValues(row, property)
+	values, present, err := e.objectFeatureValues(row, property)
+	return values, present, sourceModel, err
 }
 
 // objectTypeNames names an object's types: a definition by its qualified name,

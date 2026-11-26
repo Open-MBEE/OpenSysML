@@ -194,8 +194,18 @@ type verifier interface {
 // verdictPropertyValues reads a property of a verdict row: the verdict's own
 // properties first, then the metadata of the assertion it is about.
 func (e *executor) verdictPropertyValues(row Value, property string) ([]Value, bool, error) {
+	values, present, _, err := e.verdictPropertyValuesWithSource(row, property)
+	return values, present, err
+}
+
+// verdictPropertyValuesWithSource keeps the source of a delegated read: the
+// terminal property may be a built-in the assertion does not shadow.
+func (e *executor) verdictPropertyValuesWithSource(row Value, property string) ([]Value, bool, []valueSource, error) {
 	verdict, _ := row.Verdict()
 	origin := row.Origin()
+	serve := func(values []Value) ([]Value, bool, []valueSource, error) {
+		return values, true, sourcesOf(len(values), sourceModel), nil
+	}
 	text := func(values ...string) []Value {
 		out := make([]Value, 0, len(values))
 		for _, value := range values {
@@ -206,46 +216,47 @@ func (e *executor) verdictPropertyValues(row Value, property string) ([]Value, b
 	switch property {
 	case propertyAssertion:
 		if verdict.assertion == nil {
-			return nil, true, nil
+			return serve(nil)
 		}
-		return []Value{valueAt(ElementValue(verdict.assertion), origin)}, true, nil
+		return serve([]Value{valueAt(ElementValue(verdict.assertion), origin)})
 	case propertyKind:
-		return text(string(verdict.kind)), true, nil
+		return serve(text(string(verdict.kind)))
 	case propertyCarrier:
 		if verdict.carrier == nil {
-			return nil, true, nil
+			return serve(nil)
 		}
 		if verdict.held {
-			return []Value{valueAt(ObjectValue(verdict.carrier, verdict.path), origin)}, true, nil
+			return serve([]Value{valueAt(ObjectValue(verdict.carrier, verdict.path), origin)})
 		}
 		if verdict.carrierDecl == nil {
-			return nil, true, nil
+			return serve(nil)
 		}
-		return []Value{valueAt(ElementValue(verdict.carrierDecl), origin)}, true, nil
+		return serve([]Value{valueAt(ElementValue(verdict.carrierDecl), origin)})
 	case propertyPath:
-		return text(verdict.path), true, nil
+		return serve(text(verdict.path))
 	case propertyVerdict:
-		return text(verdict.status.String()), true, nil
+		return serve(text(verdict.status.String()))
 	case propertyCondition:
 		if verdict.condition == "" {
-			return nil, true, nil
+			return serve(nil)
 		}
-		return text(verdict.condition), true, nil
+		return serve(text(verdict.condition))
 	case propertyReason:
 		if verdict.reason == "" {
-			return nil, true, nil
+			return serve(nil)
 		}
-		return text(verdict.reason), true, nil
+		return serve(text(verdict.reason))
 	case propertyVerification:
 		kinds := verdict.verification
 		out := make([]string, 0, len(kinds))
 		for _, kind := range kinds {
 			out = append(out, string(kind))
 		}
-		return text(out...), true, nil
+		return serve(text(out...))
 	}
 	if verdict.assertion == nil {
-		return nil, false, nil
+		return nil, false, nil, nil
 	}
-	return e.propertyValues(ElementValue(verdict.assertion), property)
+	values, reach, sources, err := e.propertyReachWithSource(ElementValue(verdict.assertion), property)
+	return values, reach != pathAbsent, sources, err
 }

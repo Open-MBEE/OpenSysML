@@ -400,10 +400,12 @@ func (c Column) WithWidth(width int) Column {
 // Origin returns the query expression that projected the column.
 func (c Column) Origin() symbols.Origin { return c.origin }
 
-// Cell is one immutable projected value sequence.
+// Cell is one immutable projected value sequence, with the source of each
+// value so a filter can tell a computed cell from a projected read.
 type Cell struct {
-	values []Value
-	origin symbols.Origin
+	values  []Value
+	sources []valueSource
+	origin  symbols.Origin
 }
 
 // Values returns an independent copy of the cell values.
@@ -452,7 +454,11 @@ func (r Row) Depth() int64 { return r.depth }
 func (r Row) Cells() []Cell {
 	out := make([]Cell, len(r.cells))
 	for i, cell := range r.cells {
-		out[i] = Cell{values: cell.Values(), origin: cell.origin}
+		out[i] = Cell{
+			values:  cell.Values(),
+			sources: append([]valueSource(nil), cell.sources...),
+			origin:  cell.origin,
+		}
 	}
 	return out
 }
@@ -507,7 +513,7 @@ func StaticColumn(label string, width int, origin symbols.Origin) Column {
 func StaticRow(cells []string, origin symbols.Origin) Row {
 	row := Row{cells: make([]Cell, len(cells))}
 	for i, text := range cells {
-		row.cells[i] = Cell{values: []Value{StringValue(text)}, origin: origin}
+		row.cells[i] = Cell{values: []Value{StringValue(text)}, sources: sourcesOf(1, sourceModel), origin: origin}
 	}
 	return row
 }
