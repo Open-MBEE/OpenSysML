@@ -1,6 +1,9 @@
 package symbols
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // A wildcard import reads the namespace its target resolves to: the one its own
 // or an enclosing namespace imports by name, not a same-named one owned further
@@ -19,6 +22,7 @@ func TestWildcardImportTargetFollowsAMembershipImport(t *testing.T) {
 			package Missing { private import Q::Absent::X; public import X::*; }
 			package Hidden { private import Q::X; private import R::X; package HiddenIn { public import X::*; } }
 			package Twice { private import Q::X; private import $::Q::X; package TwiceIn { public import X::*; } }
+			package Repeated { ` + strings.Repeat("private import X; ", 12) + ` public import X::*; }
 			package None { package NoneIn { public import X::*; } }
 		}`})
 
@@ -38,6 +42,7 @@ func TestWildcardImportTargetFollowsAMembershipImport(t *testing.T) {
 		"P::Hidden::HiddenIn::E": 0,
 		"P::Twice::TwiceIn::B":   1,
 		"P::Twice::TwiceIn::A":   0,
+		"P::Repeated::A":         1,
 		"P::None::NoneIn::A":     1,
 		"P::None::NoneIn::B":     0,
 	} {

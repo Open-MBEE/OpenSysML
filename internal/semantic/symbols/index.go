@@ -783,12 +783,15 @@ func (idx *Index) resolveWildcardTarget(pkgFQN, targetText string) string {
 	return idx.resolveImportTarget(pkgFQN, targetText, nil)
 }
 
-// resolveImportTarget is resolveWildcardTarget with the membership imports being
+// importLookup is a name being resolved through the membership imports of a namespace.
+type importLookup struct{ namespace, name string }
+
+// resolveImportTarget is resolveWildcardTarget with the import lookups being
 // followed to reach it, which a target naming its own import must not re-enter.
 //
 // A namespace on the way out that imports the target's first segment by name
 // binds it there, before anything further out declares it (KerML 8.2.3.5.4).
-func (idx *Index) resolveImportTarget(pkgFQN, targetText string, following []*ast.Import) string {
+func (idx *Index) resolveImportTarget(pkgFQN, targetText string, following []importLookup) string {
 	for prefix := pkgFQN; prefix != ""; {
 		idx.readName(prefix + "::" + targetText)
 		if fqn, ok := idx.wildcardTargetAt(prefix + "::" + targetText); ok {
@@ -818,25 +821,35 @@ func (idx *Index) resolveImportTarget(pkgFQN, targetText string, following []*as
 // namespace registered under pkgFQN states for its first segment, and reports
 // whether one that resolves does; the answer is "" when it holds no such target.
 // Imports of distinct namespaces under that name hide each other and bind nothing.
-func (idx *Index) membershipImportTargetAt(pkgFQN, targetText string, following []*ast.Import) (string, bool) {
+func (idx *Index) membershipImportTargetAt(pkgFQN, targetText string, following []importLookup) (string, bool) {
 	first, rest, _ := strings.Cut(targetText, "::")
-	var target string
+	lookup := importLookup{namespace: pkgFQN, name: first}
+	if slices.Contains(following, lookup) {
+		return "", false
+	}
+	following = append(slices.Clip(following), lookup)
 	idx.readName(pkgFQN)
 	reexported := idx.reexported.at(pkgFQN)
+	var target string
+	var tried []importLookup
 	for _, sym := range idx.fqn.at(pkgFQN) {
 		if sym.Scope == nil || reexported.has(sym) {
 			continue
 		}
 		for _, imp := range sym.Scope.Imports() {
 			if imp.Kind != ast.ImportMembership || imp.Imported == nil || len(imp.Imported.Parts) == 0 ||
-				imp.Imported.Parts[len(imp.Imported.Parts)-1].Text != first || slices.Contains(following, imp) {
+				imp.Imported.Parts[len(imp.Imported.Parts)-1].Text != first {
 				continue
 			}
-			from := pkgFQN
+			stated := importLookup{namespace: pkgFQN, name: imp.Imported.Text()}
 			if imp.Imported.Global {
-				from = ""
+				stated.namespace = ""
 			}
-			fqn := idx.resolveImportTarget(from, imp.Imported.Text(), append(following, imp))
+			if slices.Contains(tried, stated) {
+				continue
+			}
+			tried = append(tried, stated)
+			fqn := idx.resolveImportTarget(stated.namespace, stated.name, following)
 			if fqn == "" || fqn == target {
 				continue
 			}
