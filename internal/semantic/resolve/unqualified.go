@@ -924,7 +924,10 @@ func (r *Resolver) resume(imp *ast.Import) {
 // whose target is resolving, when name leads the target of a sibling import.
 func (r *Resolver) passOver(scope *symbols.Scope, imp *ast.Import, name string) {
 	lead := r.leadOf
-	if lead == nil || lead == imp || scope != r.leadScope || lead.Imported.Parts[0].Text != name {
+	if lead == nil || lead == imp || scope != r.leadScope {
+		return
+	}
+	if lead.Imported == nil || len(lead.Imported.Parts) == 0 || lead.Imported.Parts[0].Text != name {
 		return
 	}
 	// Only another element of that name could be what imp binds it to.
