@@ -838,12 +838,27 @@ func (idx *Index) memberTarget(fqn, path string, made map[importLookup]string) s
 		name, path, _ = strings.Cut(path, "::")
 		idx.readName(fqn + "::" + name)
 		if member, ok := idx.wildcardTargetAt(fqn + "::" + name); ok {
+			if !idx.namedFromOutside(fqn + "::" + name) {
+				return ""
+			}
 			fqn = member
 			continue
 		}
 		fqn = idx.membershipImportTargetAt(importLookup{namespace: fqn, name: name, public: true}, made)
 	}
 	return fqn
+}
+
+// namedFromOutside reports whether no declaration registered under key is one
+// its namespace keeps to itself.
+func (idx *Index) namedFromOutside(key string) bool {
+	imported := idx.reexported.at(key)
+	for _, sym := range idx.fqn.at(key) {
+		if !imported.has(sym) && !VisibleOutside(sym.Visibility) {
+			return false
+		}
+	}
+	return true
 }
 
 // membershipImportTargetAt resolves the name of lookup through an `import A::B;`
@@ -857,34 +872,40 @@ func (idx *Index) membershipImportTargetAt(lookup importLookup, made map[importL
 	idx.readName(lookup.namespace)
 	reexported := idx.reexported.at(lookup.namespace)
 	var target string
-	var stated []string
+	var stated, resolved []string // each import target as written, and what it resolves to
+	seen := !lookup.public        // whether an import the lookup may follow states the target
 	for _, sym := range idx.fqn.at(lookup.namespace) {
 		if sym.Scope == nil || reexported.has(sym) {
 			continue
 		}
 		for _, imp := range sym.Scope.Imports() {
 			if imp.Kind != ast.ImportMembership || imp.Imported == nil || len(imp.Imported.Parts) == 0 ||
-				imp.Imported.Parts[len(imp.Imported.Parts)-1].Text != lookup.name ||
-				lookup.public && !VisibleOutside(imp.Visibility) {
+				imp.Imported.Parts[len(imp.Imported.Parts)-1].Text != lookup.name {
 				continue
 			}
 			from, text := lookup.namespace, imp.Imported.Text()
 			if imp.Imported.Global {
 				from = ""
 			}
-			if slices.Contains(stated, from+"::"+text) {
+			i := slices.Index(stated, from+"::"+text)
+			if i < 0 {
+				i = len(stated)
+				stated = append(stated, from+"::"+text)
+				resolved = append(resolved, idx.resolveImportTarget(from, text, made))
+			}
+			fqn := resolved[i]
+			if fqn == "" {
 				continue
 			}
-			stated = append(stated, from+"::"+text)
-			fqn := idx.resolveImportTarget(from, text, made)
-			if fqn == "" || fqn == target {
-				continue
-			}
-			if target != "" {
+			seen = seen || VisibleOutside(imp.Visibility)
+			if target != "" && fqn != target {
 				return ""
 			}
 			target = fqn
 		}
+	}
+	if !seen {
+		return ""
 	}
 	made[lookup] = target
 	return target

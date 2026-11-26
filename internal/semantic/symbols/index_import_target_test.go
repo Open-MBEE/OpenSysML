@@ -10,12 +10,14 @@ import (
 // or an enclosing namespace imports by name, not a same-named one owned further
 // out, whose members it must not surface as well (KerML 8.2.3.5.4).
 func TestWildcardImportTargetFollowsAMembershipImport(t *testing.T) {
-	const q = "package Q { package X { part def B; package Y { part def C; } } }"
+	const q = "package Q { package X { part def B; package Y { part def C; } private package Kept { part def Z; } } }"
 	const r = "package R { package X { part def E; } }"
 	const m = `
 		package M1 { public import Q::X; }
 		package M2 { public import M1::X; }
 		package Names { alias X for Q::X; }
+		package Mixed { private import Q::X; public import R::X; }
+		package Both { private import Q::X; public import Q::X; }
 		package Hides { private import Q::X; }
 		package Loop1 { public import Loop2::X; }
 		package Loop2 { public import Loop1::X; }
@@ -54,6 +56,10 @@ func TestWildcardImportTargetFollowsAMembershipImport(t *testing.T) {
 			package Named { private import Names::X; package NamedIn { public import X::*; } }
 			package Chain { private import M2::X; package ChainIn { public import X::*; } }
 			package Path { private import $::M2; package PathIn { public import M2::X::Y::*; } }
+			package Private { public import M1::X::Kept::*; }
+			package Half { private import Mixed::X; package HalfIn { public import X::*; } }
+			package HalfPath { public import Mixed::X::*; }
+			package Same { public import Both::X::*; }
 			package Unseen { private import Hides::X; package UnseenIn { public import X::*; } }
 			package Loop { private import Loop1::X; package LoopIn { public import X::*; } }
 			package Wild { private import W3::X; package WildIn { public import X::*; } }
@@ -84,6 +90,11 @@ func TestWildcardImportTargetFollowsAMembershipImport(t *testing.T) {
 		"P::Chain::ChainIn::B":   1,
 		"P::Chain::ChainIn::A":   0,
 		"P::Path::PathIn::C":     1,
+		"P::Private::Z":          0,
+		"P::Half::HalfIn::A":     1,
+		"P::Half::HalfIn::E":     0,
+		"P::HalfPath::E":         0,
+		"P::Same::B":             1,
 		"P::Unseen::UnseenIn::A": 1,
 		"P::Unseen::UnseenIn::B": 0,
 		"P::Loop::LoopIn::A":     1,
