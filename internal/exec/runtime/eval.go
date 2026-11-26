@@ -1659,7 +1659,7 @@ func (ctx *Context) arithmeticValues(op program.Operator, left, right Value, spa
 		}
 	}
 
-	res, err := constArithmetic(op, left.Const, right.Const, ctx.maxIntegerBits)
+	res, err := constArithmetic(op, left.Const, right.Const, ctx.maxIntegerBits, span)
 	if err != nil {
 		return Value{}, err
 	}
@@ -1688,14 +1688,19 @@ func definiteArithmeticError(op program.Operator, left, right Value) error {
 // evaluator and the compiled calc tier share so both report the same results
 // and the same errors. An Integer result is exact, refused only when it would
 // need more than maxBits.
-func constArithmetic(op program.Operator, left, right semantics.Value, maxBits int64) (semantics.Value, error) {
+func constArithmetic(op program.Operator, left, right semantics.Value, maxBits int64, span source.Span) (semantics.Value, error) {
+	// A Boolean is no number: the mismatch the type check reports in a model.
+	if !left.IsExtendedNumeric() || !right.IsExtendedNumeric() {
+		return semantics.Value{}, &OperandTypeError{
+			Op:    op.String(),
+			Left:  DescribeValue(Value{Kind: ValConst, Const: left}),
+			Right: DescribeValue(Value{Kind: ValConst, Const: right}),
+			Span:  span,
+		}
+	}
 	// An infinity is a Real (KerML 9.3.2.2.9): the extended reals answer what
 	// the limit determines and report an indeterminate form.
 	if left.IsInfinite() || right.IsInfinite() {
-		if !left.IsExtendedNumeric() || !right.IsExtendedNumeric() {
-			return semantics.Value{}, fmt.Errorf("%w: operator '%s' requires numeric operands, got %s and %s",
-				ErrTypeMismatch, op, semantics.FormatConst(left), semantics.FormatConst(right))
-		}
 		return semantics.InfinityArith(lower.OperatorKindOf(op), left, right)
 	}
 
