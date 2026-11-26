@@ -62,7 +62,7 @@ func (s *Session) doRunQuery(invocation string) ([]string, bool, error) {
 	} else {
 		fields := splitQueryArgs(invocation)
 		if len(fields) == 0 {
-			return []string{runQueryUsage}, false, nil
+			return s.usage(runQueryUsage), false, nil
 		}
 		answer, err = s.runDocumentQuery(fields[0], fields[1:])
 	}

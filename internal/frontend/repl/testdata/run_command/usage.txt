@@ -1,0 +1,63 @@
+%load
+%save
+%search
+%view
+%graphs
+%render
+%render M::v bogusform
+%render M::v text text
+%render M::v text show=bogus
+%render M::v text compartments=bogus
+%render M::v text depth=x
+%render M::v text ocean
+%render M::v mermaid nosuchpalette
+%render-run
+%render-run nope
+%render-run timeline limit=0
+%render-run timeline bogus
+%render-run timeline text text
+%render-document
+%instantiate
+%eval
+%eval in
+%eval in M :
+%features
+%metadata
+%metadata a b
+%calc
+%analysis
+%record
+%sweep
+%samples
+%runs
+%run-query
+%run-query -as-view
+%constraint
+%requirement
+%validate
+%validate a b
+%check
+%explain
+%solve
+%configure
+%configure -json
+%optimize
+%optimize -json
+%action
+%break
+%occurrence
+%state
+%invoke
+%invoke a
+%query
+%query -as-view
+%advance
+%clock-step 1 2
+%draws a b
+%check-bounds foo
+%replay
+%replay a b
+%tool
+%import
+%trace on ;; %action M::drive ;; %continue ;; %render-run timeline limit=x
+%features

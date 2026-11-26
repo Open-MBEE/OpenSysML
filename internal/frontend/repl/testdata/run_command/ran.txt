@@ -1,0 +1,131 @@
+%viz
+%viz --bogus
+%viz --view
+%render-document M::v show=bogus
+%features car depth
+%features car bogus
+%analysis f(
+%record f(
+%sweep f(
+%samples x
+%samples 3 1 f(
+%runs x
+%send
+%send S(
+%send S x
+%send S to a b
+%lint a
+%lint a b c
+%tool f(
+%views bogus
+%import f.csv as
+%import f.csv as foo
+%import f.csv bogus
+%repo a b
+%projects x
+%load --bogus x
+%load --id=1 --name=x
+%load --id=1 --id=2
+%publish
+%publish -d -d x
+%publish a b
+%publish --bogus x
+%features x depth nope
+%features car depth nope
+%features M::car depth
+%features car all extra
+%help
+%print M::Vehicle
+%verbosity
+%verbosity quiet
+%clock-step
+%clock-step 1
+%draws
+%draws min
+%view M::v
+%graphs M::drive
+%search Veh
+%search usage
+%instantiate M::car
+%instantiate M::car ;; %features car
+%instantiate M::car ;; %validate car
+%instantiate M::car ;; %instances
+%eval 1 + 2
+%eval "usage: %x"
+%calc M::Twice 2.0
+%metadata M::Vehicle
+%views
+%builtins
+%lint
+%seed
+%seed 7
+%trace
+%strict
+%budget
+%engines
+%engine
+%schedule
+%jobs
+%check-bounds
+%check-bounds depth=5
+%render M::v
+%render M::v text
+%render M::v mermaid
+%viz M::Vehicle
+%action M::drive
+%action M::drive ;; %step
+%action M::drive ;; %continue
+%action M::drive ;; %tokens
+%state M::Lamp
+%documents
+%workspace
+%clear
+%trace on ;; %action M::drive ;; %continue ;; %render-run timeline link=
+%trace on ;; %action M::drive ;; %continue ;; %render-run timeline
+%trace on ;; %action M::drive ;; %continue ;; %render-run sequence mermaid
+%state M::Lamp ;; %advance 30
+%state M::Lamp ;; %current
+%state M::Lamp ;; %events
+%help save
+%quit
+%render-run timeline link=
+%render-document M::v bogusstyle
+%runs 3 1 f(
+%load --cells
+%print a b
+%advance 30
+%action M::drive ;; %continue ;; %render-run timeline
+%current
+%events
+%bogus
+%print NoSuch
+%load /nonexistent/x.sysml
+%save /nonexistent-dir/x.sysml
+%instantiate NoSuch
+%view NoSuch
+%graphs NoSuch
+%verbosity loud
+%eval 1 +
+%eval nosuchname
+%advance abc
+%clock-step abc
+%draws bogus
+%calc NoSuch
+%validate nosuch
+%action NoSuch
+%state NoSuch
+%render NoSuch
+%viz NoSuch
+%check NoSuch
+%replay /nonexistent.json
+%metadata NoSuch
+%seed abc
+%step
+%features M::car
+%features M::car depth 2
+%list
+%print
+%print M
+%print M::hint
+%eval "a; usage: %b"
+%eval M::hint

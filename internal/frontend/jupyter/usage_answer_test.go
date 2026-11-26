@@ -29,4 +29,7 @@ func TestACommandAnsweredWithItsUsageFails(t *testing.T) {
 	if out := mustRun(t, newEngine(t), "%help").text(); !strings.Contains(out, "%save") {
 		t.Errorf("%%help printed %q", out)
 	}
+	if out := mustRun(t, newEngine(t), `%eval "a; usage: %b"`).text(); !strings.Contains(out, "usage: %b") {
+		t.Errorf("an expression quoting a usage line printed %q", out)
+	}
 }

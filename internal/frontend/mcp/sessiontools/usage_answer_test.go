@@ -21,4 +21,8 @@ func TestReplCommandAnsweredWithItsUsageIsAnError(t *testing.T) {
 	}
 	var cmd CommandResult
 	must(t, cs, "repl_command", args("line", "%help"), &cmd)
+	must(t, cs, "repl_command", args("line", `%eval "a; usage: %b"`), &cmd)
+	if !strings.Contains(cmd.Output, "usage: %b") {
+		t.Errorf("an expression quoting a usage line printed %q", cmd.Output)
+	}
 }

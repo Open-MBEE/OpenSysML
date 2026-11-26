@@ -36,7 +36,7 @@ func (s *Session) doRuns(tail string) ([]string, bool, error) {
 	}
 	fields := splitQueryArgs(rest)
 	if len(fields) == 0 {
-		return []string{runsUsage}, false, nil
+		return s.usage(runsUsage), false, nil
 	}
 	observables := make([]string, 0, len(fields)-1)
 	for _, name := range fields[1:] {
