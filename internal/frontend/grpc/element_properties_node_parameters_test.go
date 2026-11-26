@@ -313,6 +313,8 @@ package P {
         attribute flag : ScalarValues::Boolean;
         action l loop { private import Q::*; } until flag;
         loop { private import Q::*; } until flag;
+        attribute xs : ScalarValues::Integer[*];
+        loop { private import Q::*; } until xs->ControlFunctions::exists { in x : ScalarValues::Integer; flag };
         loop { private import Q::*; attribute done : ScalarValues::Boolean; } until done;
     }
 }`}})
@@ -321,5 +323,31 @@ package P {
 	}
 	for _, d := range parsed.GetDiagnostics() {
 		t.Errorf("unexpected diagnostic: %s", d.GetMessage())
+	}
+}
+
+// TestParseLoopGuardBodyExpressionDoesNotSeeBodyImport: a body expression in the condition is
+// part of the condition, so a name only the loop's body imports is unresolved there.
+func TestParseLoopGuardBodyExpressionDoesNotSeeBodyImport(t *testing.T) {
+	srv := mustNewService(t, 10)
+	parsed, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{Source: &pb.ParseFileRequest_Content{
+		Content: `package Q { attribute only : ScalarValues::Integer; }
+package P {
+    action def A {
+        attribute xs : ScalarValues::Integer[*];
+        loop { private import Q::*; } until xs->ControlFunctions::exists { in x : ScalarValues::Integer; x > only };
+    }
+}`}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var unresolved int
+	for _, d := range parsed.GetDiagnostics() {
+		if strings.Contains(d.GetMessage(), "unresolved reference: only") {
+			unresolved++
+		}
+	}
+	if unresolved != 1 {
+		t.Errorf("unresolved `only` reported %d times, want 1: %v", unresolved, parsed.GetDiagnostics())
 	}
 }

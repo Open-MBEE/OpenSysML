@@ -129,8 +129,36 @@ func (s *Scope) LoopGuard() *Scope {
 	return s.loopGuard.Load()
 }
 
-// GuardView reports whether this scope is the view LoopGuard gave of its parent.
-func (s *Scope) GuardView() bool { return s != nil && s.guardView }
+// GuardView reports whether a lookup leaving this scope for its parent comes from a loop's
+// condition: the view LoopGuard gave, or the scope of a body expression the condition holds.
+func (s *Scope) GuardView() bool {
+	if s == nil || s.guardView {
+		return s != nil
+	}
+	body, isBody := s.node.(*ast.BodyExpr)
+	if !isBody || s.parent == nil {
+		return false
+	}
+	loop, isLoop := s.parent.node.(*ast.WhileLoopActionNode)
+	return isLoop && (spanHolds(loop.Condition, body) || spanHolds(loop.Until, body))
+}
+
+// spanHolds reports whether inner is written within outer.
+func spanHolds(outer ast.Node, inner *ast.BodyExpr) bool {
+	if outer == nil {
+		return false
+	}
+	out, in := outer.Span(), inner.Span()
+	return out.Offset <= in.Offset && in.End() <= out.End()
+}
+
+// treeScope is the scope whose children a body expression read from s is linked under.
+func (s *Scope) treeScope() *Scope {
+	if s != nil && s.guardView {
+		return s.parent
+	}
+	return s
+}
 
 // BodyLocal reports whether this scope's names exist only inside the body that
 // declares them, so a subtree search such as a recursive import must skip it.

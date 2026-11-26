@@ -41,7 +41,7 @@ func BodyExprScope(parent *Scope, body *ast.BodyExpr) *Scope {
 	if parent == nil {
 		return nil
 	}
-	for _, ch := range parent.Children() {
+	for _, ch := range parent.treeScope().Children() {
 		if ch.Node() == body {
 			return ch
 		}
@@ -54,6 +54,8 @@ func newBodyExprScope(parent *Scope, body *ast.BodyExpr) *Scope {
 	if len(body.Params) == 0 && len(body.Members) == 0 {
 		return parent
 	}
+	// A loop condition's body expression is linked under the loop's scope, not its unlinked view.
+	parent = parent.treeScope()
 	scope := NewScope(parent, body)
 	scope.markBodyLocal()
 	for i := range body.Params {
