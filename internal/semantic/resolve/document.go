@@ -391,12 +391,12 @@ func (r *Resolver) resolveBehaviorDecl(scope *symbols.Scope, decl ast.Node) bool
 		// The loop owns its body's declarations, and its condition is checked
 		// against them: `loop { action charging; } until charging.done`. The
 		// collection a `for` loop iterates over is evaluated before the loop is
-		// entered, so it resolves outside the body.
+		// entered, so it and the iteration variable's type resolve outside the body.
 		body := scope
 		if child := r.childScope(scope, d); child != nil {
 			body = child
 		}
-		r.resolveRelationships(body, d, d.VariableRelationships)
+		r.resolveRelationships(scope, d, d.VariableRelationships)
 		r.resolveExpr(scope, d.Collection)
 		r.resolveExpr(body, d.Condition)
 		r.resolveExpr(body, d.Until)

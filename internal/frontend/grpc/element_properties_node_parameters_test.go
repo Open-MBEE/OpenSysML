@@ -242,3 +242,59 @@ package P {
 		}
 	}
 }
+
+// TestElementPropertiesReadLoopVariableTypeOutsideBody pins that a for loop's variable is typed
+// where the loop is written: an import in the body does not rebind the name its type is written by.
+func TestElementPropertiesReadLoopVariableTypeOutsideBody(t *testing.T) {
+	r := parseForElementProperties(t, `package Q { part def T { attribute q; } }
+package R { part def T { attribute r; } }
+package P {
+    private import R::*;
+    part ts : T[*];
+    action def A {
+        for i : T in ts { private import Q::*; part u : T; attribute a = i.r; }
+    }
+}`)
+	for element, want := range map[string]string{"P__A___400_ploopVariable": "R__T", "P__A___400__u": "Q__T"} {
+		var got []string
+		for _, value := range r.property(element, "type").GetValues() {
+			got = append(got, value.GetElement().GetId())
+		}
+		if !slices.Equal(got, []string{want}) {
+			t.Errorf("%s: type = %v, want %s", element, got, want)
+		}
+	}
+}
+
+// TestElementPropertiesReadLoopBodyImportShadowsOuterName pins KerML 8.2.3.5.4: a name a loop
+// body imports is found before the same name in an enclosing namespace, as in a plain action body.
+func TestElementPropertiesReadLoopBodyImportShadowsOuterName(t *testing.T) {
+	r := parseForElementProperties(t, `package Q { part def T; }
+package P {
+    part def T;
+    part def Holder { part items : T[*]; }
+    action def A {
+        in h : Holder;
+        action plain { private import Q::*; part v : T; }
+        action f1 for i : T in h.items { private import Q::*; part v : T; }
+        action f2 for i : T in h.items { private import Q::T; part v : T; }
+        action lp loop { private import Q::*; part v : T; }
+    }
+}`)
+	for element, want := range map[string]string{
+		"P__A__plain__v":         "Q__T",
+		"P__A__f1___400__v":      "Q__T",
+		"P__A__f2___400__v":      "Q__T",
+		"P__A__lp___400__v":      "Q__T",
+		"P__A__f1_ploopVariable": "P__T",
+		"P__A__f2_ploopVariable": "P__T",
+	} {
+		var got []string
+		for _, value := range r.property(element, "type").GetValues() {
+			got = append(got, value.GetElement().GetId())
+		}
+		if !slices.Equal(got, []string{want}) {
+			t.Errorf("%s: type = %v, want %s", element, got, want)
+		}
+	}
+}
