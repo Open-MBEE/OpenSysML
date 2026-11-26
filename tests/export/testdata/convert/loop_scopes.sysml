@@ -1,11 +1,11 @@
 package Loops {
     action def Charge {
         action prep;
-        loop {
-            action charging;
+        loop action charging {
+            action step;
         } until charging.done;
         while prep.done {
             action pace;
-        } until pace.done;
+        } until prep.done;
     }
 }

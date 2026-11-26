@@ -192,16 +192,16 @@ package Compiled {
 		return : Integer = i;
 	}
 
-	// The post-condition resolves in the body's scope: it reads the body's
-	// `done`, not the outer one.
-	calc def UntilLocal {
+	// The post-condition is the loop's own, beside its body: it reads the outer
+	// `limit`, not the one the body declares.
+	calc def UntilOuter {
 		in n : Integer;
 		attribute i : Integer = 0;
-		attribute done : Boolean = false;
+		attribute limit : Integer = n;
 		loop {
 			assign i := i + 1;
-			attribute done : Boolean = i >= n;
-		} until done;
+			attribute limit : Integer = 0;
+		} until i >= limit;
 		return : Integer = i;
 	}
 
@@ -378,7 +378,7 @@ package Compiled {
 		calc def ForR { in x : Integer[0..*]; attribute s : Real = 0.0; for v in x { assign s := s + v; } return : Real = s; }
 		calc def Churn { in n : Integer; attribute i : Integer = 0; attribute total : Integer = 0; attribute keep : Integer[0..*] = (); while i < n { attribute s : Integer[0..*] = 1..100; assign total := total + size(s); assign keep := including(keep, i); assign i := i + 1; } return : Integer = total + size(keep); }
 		calc def ChurnFor { in n : Integer; attribute keep : Real[0..*] nonunique = (); for i in 1..n { attribute s : Real[0..*] = (1..100)->collect {in v : Integer; v / 2}; if i % 2 == 0 { assign keep := including(keep, s#(i % 100 + 1)); } } return : Real[0..*] nonunique = keep; }
-		calc def UntilSeq { in n : Integer; attribute i : Integer = 0; attribute keep : Integer[0..*] nonunique = (); loop { assign i := i + 1; attribute s : Integer[0..*] = including((), i * 10); assign keep := union(keep, (size(s) + 100, size(s) + 101, size(s) + 102)); } until s#(size(s)) >= n or size(including(s, i)) > 1 and i > 200; return : Integer[0..*] nonunique = keep; }
+		calc def UntilSeq { in n : Integer; attribute i : Integer = 0; attribute keep : Integer[0..*] nonunique = (); attribute s : Integer[0..*] = (); loop { assign i := i + 1; assign s := including((), i * 10); assign keep := union(keep, (size(s) + 100, size(s) + 101, size(s) + 102)); } until s#(size(s)) >= n or size(including(s, i)) > 1 and i > 200; return : Integer[0..*] nonunique = keep; }
 		calc def ChurnNest { in n : Integer; attribute keep : Integer[0..*] nonunique = (); attribute inner : Integer[0..*] = (); attribute i : Integer = 0; while i < n { assign inner := (); for v in 1..50 { assign inner := including(inner, v); } assign keep := including(keep, size(inner)); for w in keep { assign i := i + 0; } assign i := i + 1; } return : Integer = size(keep) + size(inner); }
 		calc def ForB { in n : Integer; attribute s : Integer = 0; for v in 1..n { for w in 1..v { assign s := s + w; } } return : Integer = s; }
 		calc def ForEmpty { in n : Integer; attribute s : Integer = 0; for '' in 1..n { assign s := s + ''; } return : Integer = s; }

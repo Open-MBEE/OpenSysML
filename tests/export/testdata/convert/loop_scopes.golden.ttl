@@ -116,17 +116,18 @@ elmt:Loops__Charge___401
     sysml:owner elmt:Loops__Charge ;
     sysml:owningRelationship elmt:Loops__Charge___401_om ;
     sysml:owningMembership elmt:Loops__Charge___401_om ;
-    sysml:ownedRelationship expr:Loops__Charge___401_pemptyParameter_om, elmt:Loops__Charge___401_loopBody_om, expr:Loops__Charge___401_puntilCondition_om ;
-    sysml:ownedMembership expr:Loops__Charge___401_pemptyParameter_om, elmt:Loops__Charge___401_loopBody_om, expr:Loops__Charge___401_puntilCondition_om ;
-    sysml:ownedFeatureMembership expr:Loops__Charge___401_pemptyParameter_om, elmt:Loops__Charge___401_loopBody_om, expr:Loops__Charge___401_puntilCondition_om ;
-    sysml:ownedFeature expr:Loops__Charge___401_pemptyParameter, elmt:Loops__Charge___401_loopBody ;
-    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedRelationship expr:Loops__Charge___401_pemptyParameter_om, elmt:Loops__Charge___401__charging_om, expr:Loops__Charge___401_puntilCondition_om ;
+    sysml:ownedMembership expr:Loops__Charge___401_pemptyParameter_om, elmt:Loops__Charge___401__charging_om, expr:Loops__Charge___401_puntilCondition_om ;
+    sysml:ownedFeatureMembership expr:Loops__Charge___401_pemptyParameter_om, elmt:Loops__Charge___401__charging_om, expr:Loops__Charge___401_puntilCondition_om ;
+    sysml:ownedFeature expr:Loops__Charge___401_pemptyParameter, elmt:Loops__Charge___401__charging ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedMember elmt:Loops__Charge___401__charging ;
     sysx:untilCondition expr:Loops__Charge___401_puntilCondition ;
-    sysx:sourceText "        loop {\n            action charging;\n        } until charging.done;\n" ;
-    json:ownedRelationship "[{\"@id\":\"Loops__Charge___401_pemptyParameter_om\"},{\"@id\":\"Loops__Charge___401_loopBody_om\"},{\"@id\":\"Loops__Charge___401_puntilCondition_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Loops__Charge___401_pemptyParameter_om\"},{\"@id\":\"Loops__Charge___401_loopBody_om\"},{\"@id\":\"Loops__Charge___401_puntilCondition_om\"}]" ;
-    json:ownedFeatureMembership "[{\"@id\":\"Loops__Charge___401_pemptyParameter_om\"},{\"@id\":\"Loops__Charge___401_loopBody_om\"},{\"@id\":\"Loops__Charge___401_puntilCondition_om\"}]" ;
-    json:ownedFeature "[{\"@id\":\"Loops__Charge___401_pemptyParameter\"},{\"@id\":\"Loops__Charge___401_loopBody\"}]" .
+    sysx:sourceText "        loop action charging {\n            action step;\n        } until charging.done;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Loops__Charge___401_pemptyParameter_om\"},{\"@id\":\"Loops__Charge___401__charging_om\"},{\"@id\":\"Loops__Charge___401_puntilCondition_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Loops__Charge___401_pemptyParameter_om\"},{\"@id\":\"Loops__Charge___401__charging_om\"},{\"@id\":\"Loops__Charge___401_puntilCondition_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Loops__Charge___401_pemptyParameter_om\"},{\"@id\":\"Loops__Charge___401__charging_om\"},{\"@id\":\"Loops__Charge___401_puntilCondition_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Loops__Charge___401_pemptyParameter\"},{\"@id\":\"Loops__Charge___401__charging\"}]" .
 
 elmt:Loops__Charge___401_om
     a sysml:FeatureMembership ;
@@ -171,73 +172,83 @@ expr:Loops__Charge___401_pemptyParameter_om
     sysml:ownedMemberParameter expr:Loops__Charge___401_pemptyParameter ;
     json:relatedElement "[{\"@id\":\"Loops__Charge___401\"},{\"@id\":\"Loops__Charge___401_pemptyParameter\"}]" .
 
-elmt:Loops__Charge___401_loopBody
-    a sysml:ActionUsage ;
-    sysml:isComposite "false"^^xsd:boolean ;
-    sysml:elementId "Loops__Charge___401_loopBody" ;
-    sysx:isLoopBody "true"^^xsd:boolean ;
-    sysml:owner elmt:Loops__Charge___401 ;
-    sysml:owningRelationship elmt:Loops__Charge___401_loopBody_om ;
-    sysml:owningMembership elmt:Loops__Charge___401_loopBody_om ;
-    sysml:direction "in" ;
-    sysml:isVariable "true"^^xsd:boolean ;
-    sysml:mayTimeVary "true"^^xsd:boolean ;
-    sysml:ownedMember elmt:Loops__Charge___401__charging ;
-    sysml:ownedMembership elmt:Loops__Charge___401__charging_om ;
-    sysml:ownedRelationship elmt:Loops__Charge___401__charging_om ;
-    sysml:ownedFeature elmt:Loops__Charge___401__charging ;
-    sysml:ownedFeatureMembership elmt:Loops__Charge___401__charging_om .
-
-elmt:Loops__Charge___401_loopBody_om
-    a sysml:ParameterMembership ;
-    sysml:elementId "Loops__Charge___401_loopBody_om" ;
-    sysml:owner elmt:Loops__Charge___401 ;
-    sysml:memberElement elmt:Loops__Charge___401_loopBody ;
-    sysml:ownedMemberElement elmt:Loops__Charge___401_loopBody ;
-    sysml:ownedRelatedElement elmt:Loops__Charge___401_loopBody ;
-    sysml:owningRelatedElement elmt:Loops__Charge___401 ;
-    sysml:membershipOwningNamespace elmt:Loops__Charge___401 ;
-    sysml:source elmt:Loops__Charge___401 ;
-    sysml:target elmt:Loops__Charge___401_loopBody ;
-    sysml:relatedElement elmt:Loops__Charge___401, elmt:Loops__Charge___401_loopBody ;
-    sysml:ownedMemberFeature elmt:Loops__Charge___401_loopBody ;
-    sysml:ownedMemberParameter elmt:Loops__Charge___401_loopBody ;
-    json:relatedElement "[{\"@id\":\"Loops__Charge___401\"},{\"@id\":\"Loops__Charge___401_loopBody\"}]" .
-
 elmt:Loops__Charge___401__charging
     a sysml:ActionUsage ;
     sysx:positionalName "Loops::Charge::@1::charging" ;
-    sysx:sourceLine "5"^^xsd:integer ;
-    sysx:sourceColumn "13"^^xsd:integer ;
-    sysx:sourceEndLine "5"^^xsd:integer ;
-    sysx:sourceEndColumn "29"^^xsd:integer ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "14"^^xsd:integer ;
+    sysx:sourceEndLine "6"^^xsd:integer ;
+    sysx:sourceEndColumn "10"^^xsd:integer ;
     sysml:elementId "Loops__Charge___401__charging" ;
     sysx:memberIndex "0"^^xsd:integer ;
-    sysml:owningNamespace elmt:Loops__Charge___401_loopBody ;
-    sysml:owner elmt:Loops__Charge___401_loopBody ;
+    sysml:owningNamespace elmt:Loops__Charge___401 ;
+    sysml:owner elmt:Loops__Charge___401 ;
     sysml:owningRelationship elmt:Loops__Charge___401__charging_om ;
     sysml:owningMembership elmt:Loops__Charge___401__charging_om ;
-    sysml:isComposite "true"^^xsd:boolean ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "charging" ;
-    sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "            action charging;\n" .
+    sysml:isVariable "true"^^xsd:boolean ;
+    sysml:mayTimeVary "true"^^xsd:boolean ;
+    sysml:direction "in" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:Loops__Charge___401__charging__step ;
+    sysml:ownedMembership elmt:Loops__Charge___401__charging__step_om ;
+    sysml:ownedRelationship elmt:Loops__Charge___401__charging__step_om ;
+    sysml:ownedFeature elmt:Loops__Charge___401__charging__step ;
+    sysml:ownedFeatureMembership elmt:Loops__Charge___401__charging__step_om .
 
 elmt:Loops__Charge___401__charging_om
-    a sysml:FeatureMembership ;
+    a sysml:ParameterMembership ;
     sysml:elementId "Loops__Charge___401__charging_om" ;
-    sysml:owner elmt:Loops__Charge___401_loopBody ;
+    sysml:owner elmt:Loops__Charge___401 ;
     sysml:memberElement elmt:Loops__Charge___401__charging ;
     sysml:ownedMemberElement elmt:Loops__Charge___401__charging ;
     sysml:ownedRelatedElement elmt:Loops__Charge___401__charging ;
-    sysml:owningRelatedElement elmt:Loops__Charge___401_loopBody ;
-    sysml:membershipOwningNamespace elmt:Loops__Charge___401_loopBody ;
-    sysml:source elmt:Loops__Charge___401_loopBody ;
+    sysml:owningRelatedElement elmt:Loops__Charge___401 ;
+    sysml:membershipOwningNamespace elmt:Loops__Charge___401 ;
+    sysml:source elmt:Loops__Charge___401 ;
     sysml:target elmt:Loops__Charge___401__charging ;
-    sysml:relatedElement elmt:Loops__Charge___401_loopBody, elmt:Loops__Charge___401__charging ;
+    sysml:relatedElement elmt:Loops__Charge___401, elmt:Loops__Charge___401__charging ;
     sysml:memberName "charging" ;
+    sysml:ownedMemberParameter elmt:Loops__Charge___401__charging ;
     sysml:ownedMemberFeature elmt:Loops__Charge___401__charging ;
-    sysml:owningType elmt:Loops__Charge___401_loopBody ;
-    json:relatedElement "[{\"@id\":\"Loops__Charge___401_loopBody\"},{\"@id\":\"Loops__Charge___401__charging\"}]" .
+    sysml:owningType elmt:Loops__Charge___401 ;
+    json:relatedElement "[{\"@id\":\"Loops__Charge___401\"},{\"@id\":\"Loops__Charge___401__charging\"}]" .
+
+elmt:Loops__Charge___401__charging__step
+    a sysml:ActionUsage ;
+    sysx:positionalName "Loops::Charge::@1::charging::step" ;
+    sysx:sourceLine "5"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "5"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
+    sysml:elementId "Loops__Charge___401__charging__step" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Loops__Charge___401__charging ;
+    sysml:owner elmt:Loops__Charge___401__charging ;
+    sysml:owningRelationship elmt:Loops__Charge___401__charging__step_om ;
+    sysml:owningMembership elmt:Loops__Charge___401__charging__step_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
+    sysml:declaredName "step" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "            action step;\n" .
+
+elmt:Loops__Charge___401__charging__step_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Loops__Charge___401__charging__step_om" ;
+    sysml:owner elmt:Loops__Charge___401__charging ;
+    sysml:memberElement elmt:Loops__Charge___401__charging__step ;
+    sysml:ownedMemberElement elmt:Loops__Charge___401__charging__step ;
+    sysml:ownedRelatedElement elmt:Loops__Charge___401__charging__step ;
+    sysml:owningRelatedElement elmt:Loops__Charge___401__charging ;
+    sysml:membershipOwningNamespace elmt:Loops__Charge___401__charging ;
+    sysml:source elmt:Loops__Charge___401__charging ;
+    sysml:target elmt:Loops__Charge___401__charging__step ;
+    sysml:relatedElement elmt:Loops__Charge___401__charging, elmt:Loops__Charge___401__charging__step ;
+    sysml:memberName "step" ;
+    sysml:ownedMemberFeature elmt:Loops__Charge___401__charging__step ;
+    sysml:owningType elmt:Loops__Charge___401__charging ;
+    json:relatedElement "[{\"@id\":\"Loops__Charge___401__charging\"},{\"@id\":\"Loops__Charge___401__charging__step\"}]" .
 
 expr:Loops__Charge___401_puntilCondition
     a sysml:FeatureChainExpression ;
@@ -433,7 +444,7 @@ elmt:Loops__Charge___402
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedFeature elmt:Loops__Charge___402_loopBody ;
     sysx:untilCondition expr:Loops__Charge___402_puntilCondition ;
-    sysx:sourceText "        while prep.done {\n            action pace;\n        } until pace.done;\n" ;
+    sysx:sourceText "        while prep.done {\n            action pace;\n        } until prep.done;\n" ;
     json:ownedRelationship "[{\"@id\":\"Loops__Charge___402_pwhileCondition_om\"},{\"@id\":\"Loops__Charge___402_loopBody_om\"},{\"@id\":\"Loops__Charge___402_puntilCondition_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Loops__Charge___402_pwhileCondition_om\"},{\"@id\":\"Loops__Charge___402_loopBody_om\"},{\"@id\":\"Loops__Charge___402_puntilCondition_om\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Loops__Charge___402_pwhileCondition_om\"},{\"@id\":\"Loops__Charge___402_loopBody_om\"},{\"@id\":\"Loops__Charge___402_puntilCondition_om\"}]" .
@@ -697,7 +708,7 @@ elmt:Loops__Charge___402__pace_om
 
 expr:Loops__Charge___402_puntilCondition
     a sysml:FeatureChainExpression ;
-    sysx:sourceText "pace.done" ;
+    sysx:sourceText "prep.done" ;
     sysml:elementId "Loops__Charge___402_puntilCondition" ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:operator "." ;
@@ -721,12 +732,12 @@ expr:Loops__Charge___402_puntilCondition
 
 expr:Loops__Charge___402_puntilCondition_pa0
     a sysml:FeatureReferenceExpression ;
-    sysx:sourceText "pace" ;
+    sysx:sourceText "prep" ;
     sysml:elementId "Loops__Charge___402_puntilCondition_pa0" ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:ownedRelationship expr:Loops__Charge___402_puntilCondition_pa0_preferent, expr:Loops__Charge___402_puntilCondition_pa0_pout_om ;
     sysml:ownedMembership expr:Loops__Charge___402_puntilCondition_pa0_preferent, expr:Loops__Charge___402_puntilCondition_pa0_pout_om ;
-    sysml:referent elmt:Loops__Charge___402__pace ;
+    sysml:referent elmt:Loops__Charge__prep ;
     sysml:ownedFeatureMembership expr:Loops__Charge___402_puntilCondition_pa0_pout_om ;
     sysml:ownedFeature expr:Loops__Charge___402_puntilCondition_pa0_pout ;
     sysml:parameter expr:Loops__Charge___402_puntilCondition_pa0_pout ;
@@ -740,13 +751,13 @@ expr:Loops__Charge___402_puntilCondition_pa0
 expr:Loops__Charge___402_puntilCondition_pa0_preferent
     a sysml:Membership ;
     sysml:elementId "Loops__Charge___402_puntilCondition_pa0_preferent" ;
-    sysml:memberElement elmt:Loops__Charge___402__pace ;
+    sysml:memberElement elmt:Loops__Charge__prep ;
     sysml:owner expr:Loops__Charge___402_puntilCondition_pa0 ;
     sysml:owningRelatedElement expr:Loops__Charge___402_puntilCondition_pa0 ;
     sysml:source expr:Loops__Charge___402_puntilCondition_pa0 ;
-    sysml:target elmt:Loops__Charge___402__pace ;
-    sysml:relatedElement expr:Loops__Charge___402_puntilCondition_pa0, elmt:Loops__Charge___402__pace ;
-    json:relatedElement "[{\"@id\":\"Loops__Charge___402_puntilCondition_pa0\"},{\"@id\":\"Loops__Charge___402__pace\"}]" .
+    sysml:target elmt:Loops__Charge__prep ;
+    sysml:relatedElement expr:Loops__Charge___402_puntilCondition_pa0, elmt:Loops__Charge__prep ;
+    json:relatedElement "[{\"@id\":\"Loops__Charge___402_puntilCondition_pa0\"},{\"@id\":\"Loops__Charge__prep\"}]" .
 
 expr:Loops__Charge___402_puntilCondition_pa0_pout
     a sysml:Feature ;

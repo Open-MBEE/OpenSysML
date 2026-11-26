@@ -65,7 +65,7 @@ var compiledCases = []compiledCase{
 	{"Order", []string{"0", "9223372036854775807"}}, {"Order", []string{"3", "9223372036854775807"}},
 	{"Order", []string{"3", "4"}},
 	{"UntilLoop", []string{"0"}}, {"UntilLoop", []string{"-3"}}, {"UntilLoop", []string{"5"}},
-	{"UntilLocal", []string{"0"}}, {"UntilLocal", []string{"3"}},
+	{"UntilOuter", []string{"0"}}, {"UntilOuter", []string{"3"}},
 	{"WhileUntil", []string{"0"}}, {"WhileUntil", []string{"5"}}, {"WhileUntil", []string{"20"}},
 	{"Hypot", []string{"1e-400", "4.0"}}, {"Hypot", []string{"1e-320", "4.0"}}, {"Hypot", []string{"1e400", "4.0"}},
 	{"Hypot", []string{"0e-400", "4.0"}}, {"Hypot", []string{"3.0E0", "+4.0"}},

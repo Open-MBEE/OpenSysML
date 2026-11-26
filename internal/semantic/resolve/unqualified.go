@@ -30,9 +30,7 @@ func (r *Resolver) LookupName(scope *symbols.Scope, name string) (*symbols.Symbo
 // imports are still consulted, so a perform statement's borrowed name does not
 // hide the action its owner inherits from its type.
 func (r *Resolver) walkUnqualifiedHiding(scope *symbols.Scope, name string, hide *refFilter) resolution {
-	// A loop's condition is the loop's own expression, so the body's imports do not reach it.
-	fromGuard := false
-	for s := scope; s != nil; fromGuard, s = s.GuardView(), s.Parent() {
+	for s := scope; s != nil; s = s.Parent() {
 		if sym, ok := r.localBinding(s, name, hide); ok {
 			return resolution{sym: sym, ok: true}
 		}
@@ -55,7 +53,7 @@ func (r *Resolver) walkUnqualifiedHiding(scope *symbols.Scope, name string, hide
 
 		// A loop body has no owner symbol to ask for its imported members, and they
 		// are found before the search moves outward (KerML 8.2.3.5.4).
-		if _, isLoop := s.Node().(*ast.WhileLoopActionNode); isLoop && !fromGuard {
+		if _, isLoop := s.Node().(*ast.WhileLoopActionNode); isLoop {
 			if sym, ok := r.lookupImports(s, name); ok && !hide.hides(sym) {
 				return resolution{sym: sym, ok: true}
 			}
@@ -65,9 +63,6 @@ func (r *Resolver) walkUnqualifiedHiding(scope *symbols.Scope, name string, hide
 			return resolution{sym: sym, ok: true}
 		}
 
-		if fromGuard {
-			continue
-		}
 		if sym, ok := r.lookupImports(s, name); ok && !hide.hides(sym) {
 			return resolution{sym: sym, ok: true}
 		}

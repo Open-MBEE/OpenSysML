@@ -200,6 +200,22 @@ type WhileLoopActionNode struct {
 	Collection Node
 }
 
+// BodyParameter is the action the loop's body is written as (`loop action a { … }`, SysML.xtext
+// ActionBodyParameter); nil for a body written as a block.
+func (n *WhileLoopActionNode) BodyParameter() *Usage {
+	if n == nil || len(n.Body) != 1 {
+		return nil
+	}
+	member := n.Body[0]
+	if wrapper, ok := member.(*Membership); ok {
+		member = wrapper.Member
+	}
+	if usage, ok := member.(*Usage); ok && usage.IsBodyParameter {
+		return usage
+	}
+	return nil
+}
+
 // IfBranchKind discriminates the two branches of an if action.
 type IfBranchKind int
 
