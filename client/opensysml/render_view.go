@@ -273,10 +273,11 @@ type RenderNote struct {
 // RenderView renders a named view as data, shaped by WithFullPorts, WithShow, WithDepth
 // and WithCompartments; WithForm also writes it as text, under the writer's options.
 func (c *client) RenderView(ctx context.Context, model *Model, viewName string, opts ...RenderViewOption) (*RenderedView, error) {
-	hash, err := c.call(model)
+	hash, done, err := c.call(model)
 	if err != nil {
 		return nil, err
 	}
+	defer done()
 	if err := c.requireCapabilities(ctx, CapabilityRenderView); err != nil {
 		return nil, err
 	}
