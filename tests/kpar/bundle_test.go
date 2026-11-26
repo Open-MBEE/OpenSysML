@@ -148,3 +148,37 @@ func TestBundleWithoutMetadataArchivesTheModelFiles(t *testing.T) {
 		t.Errorf("generated index = %v, want the two roots at their units", a.Meta.Index)
 	}
 }
+
+// A path that is not a project, or not an archive, is refused in the tool's own words:
+// what the path lacks, never the failed system call underneath.
+func TestBundleAndUnbundleSayWhatIsWrongWithThePath(t *testing.T) {
+	bin := sysmlBinary(t)
+	work := t.TempDir()
+	empty := filepath.Join(work, "empty")
+	if err := os.Mkdir(empty, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	notes := filepath.Join(work, "notes.txt")
+	if err := os.WriteFile(notes, []byte("not an archive\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	missing := filepath.Join(work, "missing")
+	cases := []struct {
+		flag, path, want string
+	}{
+		{"-bundle", empty, "cannot bundle " + empty + ": the directory holds no .project.json, so it is not a project"},
+		{"-bundle", missing, "cannot bundle " + missing + ": no such directory"},
+		{"-bundle", notes, "cannot bundle " + notes + ": not a directory"},
+		{"-unbundle", notes, "cannot read " + notes + ": not a project archive: the file is not a ZIP archive"},
+	}
+	for _, c := range cases {
+		output, err := run(t, bin, c.flag, c.path, "-o", filepath.Join(work, "out"))
+		if err == nil {
+			t.Errorf("%s %s succeeded:\n%s", c.flag, c.path, output)
+			continue
+		}
+		if got := strings.TrimSpace(output); got != "sysml: "+c.want {
+			t.Errorf("%s %s printed:\n%s\nwant:\nsysml: %s", c.flag, c.path, got, c.want)
+		}
+	}
+}

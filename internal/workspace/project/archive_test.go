@@ -118,6 +118,17 @@ func TestParseArchiveRejectsMalformedArchives(t *testing.T) {
 	}
 }
 
+// Bytes that are not a ZIP archive are reported as that alone, without the
+// ZIP reader's own error behind it.
+func TestParseArchiveSaysAFileIsNotAnArchive(t *testing.T) {
+	for _, data := range [][]byte{[]byte("package P;"), nil} {
+		_, err := ParseArchive("lib/probe.kpar", data)
+		if want := "lib/probe.kpar: not a project archive: the file is not a ZIP archive"; err == nil || err.Error() != want {
+			t.Errorf("ParseArchive(%q) err = %v, want %q", data, err, want)
+		}
+	}
+}
+
 // An archive made of the project's folder rather than its contents, as the
 // OMG library releases are, is read as the project in that folder and noted.
 func TestParseArchiveReadsTheProjectInsideAFolder(t *testing.T) {

@@ -176,8 +176,11 @@ func ParseArchive(path string, data []byte) (*Archive, error) {
 
 func parseArchive(archivePath string, data []byte) (*Archive, error) {
 	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if errors.Is(err, zip.ErrFormat) {
+		return nil, errors.New("not a project archive: the file is not a ZIP archive")
+	}
 	if err != nil {
-		return nil, fmt.Errorf("not a ZIP archive: %w", err)
+		return nil, fmt.Errorf("not a project archive: %w", err)
 	}
 	a := &Archive{Path: archivePath, members: map[string][]byte{}}
 	var total uint64

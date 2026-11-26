@@ -155,8 +155,14 @@ func TestBundleRefusesADirectoryThatIsNotAProject(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "Probe.sysml"), []byte(probeModel), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := Bundle(dir); err == nil || !strings.Contains(err.Error(), ".project.json") {
+	if _, _, err := Bundle(dir); err == nil || err.Error() != "the directory holds no .project.json, so it is not a project" {
 		t.Errorf("Bundle of a plain directory: %v", err)
+	}
+	if _, _, err := Bundle(filepath.Join(dir, "missing")); err == nil || err.Error() != "no such directory" {
+		t.Errorf("Bundle of a missing directory: %v", err)
+	}
+	if _, _, err := Bundle(filepath.Join(dir, "Probe.sysml")); err == nil || err.Error() != "not a directory" {
+		t.Errorf("Bundle of a file: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, ".project.json"), []byte(`{"name": "Probe"}`), 0o600); err != nil {
 		t.Fatal(err)

@@ -32,6 +32,24 @@ const (
 	MetamodelSysML = "https://www.omg.org/spec/SysML/20250201"
 )
 
+// checkProjectDir reports a dir that does not exist, is not a directory or
+// holds no project interchange file; other failures are left to the read.
+func checkProjectDir(dir string) error {
+	info, err := os.Stat(dir)
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		return errors.New("no such directory")
+	case err != nil:
+		return nil
+	case !info.IsDir():
+		return errors.New("not a directory")
+	}
+	if _, err := os.Stat(filepath.Join(dir, ProjectFile)); errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("the directory holds no %s, so it is not a project", ProjectFile)
+	}
+	return nil
+}
+
 // Bundle archives the project directory dir as a project interchange archive
 // (KerML 1.0 §10.3) and returns its bytes with the project they hold. A
 // .meta.json the directory has is kept and decides the members: the two
@@ -42,6 +60,9 @@ const (
 // them. The archive is deterministic: members sorted, each with the same
 // fixed time.
 func Bundle(dir string) ([]byte, *Interchange, error) {
+	if err := checkProjectDir(dir); err != nil {
+		return nil, nil, err
+	}
 	project, err := ReadInterchange(dir)
 	if err != nil {
 		return nil, nil, err
