@@ -42,7 +42,7 @@ const importDifferentialLibs = `
 func importDifferentialModels(yield func(key, src string)) {
 	var stmts []string
 	for _, vis := range []string{"private", "public"} {
-		for _, target := range []string{"Q::X", "R::X", "Named::X", "Chained::X", "Mixed::X", "Aliased::X",
+		for _, target := range []string{"Q", "Q::X", "R::X", "Named::X", "Chained::X", "Mixed::X", "Aliased::X", "Wild::X",
 			"Q::*", "R::*", "Named::*", "Chained::*", "Mixed::*", "Kept::*", "Wild::*", "WildNamed::*", "Aliased::*", "KeptWild::*", "Ring2::*"} {
 			stmts = append(stmts, vis+" import "+target+";")
 		}
@@ -57,7 +57,7 @@ func importDifferentialModels(yield func(key, src string)) {
 			}
 		}
 	}
-	inN := []string{"", "private import R::X;", "private import R::*;", "private alias X for R::X;"}
+	inN := []string{"", "private import R::X;", "private import R::*;", "private import Q::*;", "private alias X for R::X;"}
 	targets := []string{"X", "X::Y", "X::Z", "Named::X", "Chained::X::Y", "Mixed::X", "Both::X", "Aliased::X::Y", "Wild::X::Y", "KeptWild::X", "Named::X::Z", "Ring2::X"}
 	for _, own := range []string{"package X { part def A; package Y { part def G; } }", ""} {
 		for _, k := range inK {
@@ -160,7 +160,7 @@ func TestWildcardImportDifferential(t *testing.T) {
 		}
 	})
 
-	const wantModels, knownGap = 20160, 10
+	const wantModels, knownGap = 30360, 12
 	if models != wantModels {
 		t.Errorf("enumerated %d models, want %d", models, wantModels)
 	}
