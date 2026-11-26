@@ -200,6 +200,12 @@ func (r *Resolver) unqualifiedCandidates(scope *symbols.Scope, name string) []*s
 		if out := r.namingSomething(r.inheritedImportCandidates(s, name)); len(out) > 0 {
 			return out
 		}
+		// A loop body's imported members come before the enclosing scopes, as in walkUnqualifiedHiding.
+		if _, isLoop := s.Node().(*ast.WhileLoopActionNode); isLoop {
+			if out := r.importMatches(s, name); len(out) > 0 {
+				return out
+			}
+		}
 		for enclosing := s.Parent(); enclosing != nil; enclosing = enclosing.Parent() {
 			if out, ok := r.localBindingCandidates(enclosing, name); ok {
 				return out
