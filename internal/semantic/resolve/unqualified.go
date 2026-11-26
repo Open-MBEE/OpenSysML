@@ -30,6 +30,8 @@ func (r *Resolver) LookupName(scope *symbols.Scope, name string) (*symbols.Symbo
 // imports are still consulted, so a perform statement's borrowed name does not
 // hide the action its owner inherits from its type.
 func (r *Resolver) walkUnqualifiedHiding(scope *symbols.Scope, name string, hide *refFilter) resolution {
+	var importer *symbols.Scope
+	var imported *symbols.Symbol
 	for s := scope; s != nil; s = s.Parent() {
 		if sym, ok := r.localBinding(s, name, hide); ok {
 			return resolution{sym: sym, ok: true}
@@ -47,16 +49,22 @@ func (r *Resolver) walkUnqualifiedHiding(scope *symbols.Scope, name string, hide
 			return resolution{sym: sym, ok: true}
 		}
 
-		if sym, ok := r.lookupInheritedImports(s, name); ok && !hide.hides(sym) {
+		// The scopes around the first were searched from it, imports included.
+		if s != scope {
+			if s == importer {
+				return resolution{sym: imported, ok: true}
+			}
+			continue
+		}
+
+		if sym, ok := r.importedName(s, name, hide); ok {
 			return resolution{sym: sym, ok: true}
 		}
 
-		if sym, ok := r.lookupImports(s, name); ok && !hide.hides(sym) {
-			return resolution{sym: sym, ok: true}
-		}
-
-		if sym, ok := r.enclosingLocal(s.Parent(), name, hide); ok {
-			return resolution{sym: sym, ok: true}
+		var local *symbols.Symbol
+		local, importer, imported = r.enclosingLocal(s.Parent(), name, hide)
+		if local != nil {
+			return resolution{sym: local, ok: true}
 		}
 	}
 	if root := rootOf(scope); root != nil {
@@ -74,31 +82,32 @@ func (r *Resolver) walkUnqualifiedHiding(scope *symbols.Scope, name string, hide
 	return resolution{}
 }
 
-// enclosingLocal finds name among the bindings the enclosing scopes declare, an
-// accept payload counting as one of its body's, up to the nearest one importing it.
-func (r *Resolver) enclosingLocal(scope *symbols.Scope, name string, hide *refFilter) (*symbols.Symbol, bool) {
+// enclosingLocal finds name among the scopes around a namespace, nearest first: a
+// binding one declares, or else the first to import it (KerML 8.2.3.5.4).
+func (r *Resolver) enclosingLocal(scope *symbols.Scope, name string, hide *refFilter) (local *symbols.Symbol, importer *symbols.Scope, imported *symbols.Symbol) {
 	for ; scope != nil; scope = scope.Parent() {
 		if sym, ok := r.localBinding(scope, name, hide); ok {
-			return sym, true
+			return sym, nil, nil
 		}
 		if sym, ok := r.acceptPayload(scope, name); ok && !hide.hides(sym) {
-			return sym, true
+			return sym, nil, nil
 		}
-		if r.importsName(scope, name, hide) {
-			return nil, false
+		if sym, ok := r.importedName(scope, name, hide); ok {
+			return nil, scope, sym
 		}
 	}
-	return nil, false
+	return nil, nil, nil
 }
 
-// importsName reports whether scope makes name visible by an import, its own or an
-// inherited one: such a name hides the members owned further out (KerML 8.2.3.5.4).
-func (r *Resolver) importsName(scope *symbols.Scope, name string, hide *refFilter) bool {
+// importedName finds name among the imports scope inherits, then its own.
+func (r *Resolver) importedName(scope *symbols.Scope, name string, hide *refFilter) (*symbols.Symbol, bool) {
 	if sym, ok := r.lookupInheritedImports(scope, name); ok && !hide.hides(sym) {
-		return true
+		return sym, true
 	}
-	sym, ok := r.lookupImports(scope, name)
-	return ok && !hide.hides(sym)
+	if sym, ok := r.lookupImports(scope, name); ok && !hide.hides(sym) {
+		return sym, true
+	}
+	return nil, false
 }
 
 // localBinding is lookupLocal less the members that bind no name of their own.
