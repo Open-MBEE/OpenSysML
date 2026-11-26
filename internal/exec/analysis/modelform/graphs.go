@@ -49,8 +49,11 @@ var ErrGraphsOrder = errors.New("graphs: elements of one graph cannot be ordered
 // GraphsOf exports the lowered graph of subject, an action or a state machine
 // declared in model, and of every behavior it performs, at GraphsVersion.
 func GraphsOf(model *runtime.Model, subject *symbols.Symbol) (*Graphs, error) {
-	if model == nil || subject == nil || subject.Decl == nil {
+	if model == nil || subject == nil {
 		return nil, ErrGraphsSubject
+	}
+	if subject.Decl == nil {
+		return nil, noGraphFor(subject)
 	}
 	x := &graphsExporter{
 		model:    model,
