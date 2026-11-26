@@ -182,6 +182,22 @@ func (s *Server) ExitCode() int {
 	return 0
 }
 
+// endedByExit keeps a message read before exit, and still waiting its turn, from
+// being served after it: the session is over once exit is read.
+func (s *Server) endedByExit(inner jsonrpc2.Handler) jsonrpc2.Handler {
+	return func(ctx context.Context, req *jsonrpc2.Request) (any, error) {
+		select {
+		case <-s.exited:
+			if req.IsCall() {
+				return nil, jsonrpc2.ErrInvalidRequest
+			}
+			return nil, nil
+		default:
+			return inner(ctx, req)
+		}
+	}
+}
+
 // shutdownRequested reports whether a shutdown request has been served.
 func (s *Server) shutdownRequested() bool {
 	s.mu.Lock()

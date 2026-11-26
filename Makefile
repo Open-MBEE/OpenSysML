@@ -503,7 +503,7 @@ audit-rust: ## Fail on RustSec advisories against client/rust/Cargo.lock (cargo 
 
 audit-java: ## Fail on OSV advisories against the Maven trees' compile and runtime dependencies (JAVA_PROJECT_DIRS=dir... narrows)
 	@# A CycloneDX SBOM carries the versions Maven resolved, reactor modules included, which osv-scanner's own pom resolver cannot follow.
-	@# scripts/maven-sbom.sh asks a mirror of Maven Central for the plugin that writes it when Central refuses.
+	@# scripts/maven-sbom.sh asks a mirror of Maven Central for the plugin that writes it, and Central when the mirror refuses.
 	@for dir in $(JAVA_PROJECT_DIRS); do echo "osv-scanner $$dir" && scripts/maven-sbom.sh "$$dir" $(CYCLONEDX_MAVEN_VERSION) && $(SCA_BIN)/osv-scanner scan source -L "$$dir/target/bom.json" || exit 1; done
 
 audit: vulncheck audit-npm audit-python audit-rust audit-java ## Run every dependency audit, as CI and the release procedure do
