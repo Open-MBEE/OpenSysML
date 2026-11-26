@@ -5,6 +5,7 @@ package libs
 
 import (
 	"embed"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -170,8 +171,14 @@ func (s *dirSource) Read(name string) ([]byte, error) {
 	if !filepath.IsLocal(name) {
 		return nil, fmt.Errorf("libs: invalid library file path %q", name)
 	}
-	// The directory and the file are both resolved first, so a link that stays
-	// inside the directory reads whether its target is relative or absolute.
+	// A root confines the read by itself, and opens the directory as the system
+	// resolves it, so the common file is read without resolving any path here.
+	data, err := readInRoot(s.dir, name)
+	if err == nil || errors.Is(err, fs.ErrNotExist) {
+		return data, err
+	}
+	// A root also refuses a link that stays inside it by an absolute target or a
+	// "..": resolving the directory and the file first reads through those.
 	dir, err := resolvedDir(s.dir)
 	if err != nil {
 		return nil, err
@@ -184,10 +191,15 @@ func (s *dirSource) Read(name string) ([]byte, error) {
 	if err != nil || !filepath.IsLocal(rel) {
 		return nil, fmt.Errorf("libs: library file %q is outside the library directory", name)
 	}
+	return readInRoot(dir, rel)
+}
+
+// readInRoot reads the file a local name names under dir, following no link out of dir.
+func readInRoot(dir, name string) ([]byte, error) {
 	root, err := os.OpenRoot(dir)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = root.Close() }()
-	return root.ReadFile(rel)
+	return root.ReadFile(name)
 }
