@@ -98,16 +98,23 @@ func TestExportGraphsRefusals(t *testing.T) {
 	}
 }
 
-// An unnamed subject is asked for by its positional id, which only the request
-// carries, so the refusal keeps it.
-func TestExportGraphsRefusalKeepsAnUnnamedSubjectsID(t *testing.T) {
+// A subject asked for by another spelling than the refusal writes (a positional
+// id, an inherited member's name) keeps the request's spelling in front.
+func TestExportGraphsRefusalKeepsTheRequestedID(t *testing.T) {
 	srv := mustNewService(t, 10)
 	t.Cleanup(srv.Close)
-	parsed, _ := parseContent(t, srv, "package P { part def A { part : A; } }")
-	_, err := srv.ExportGraphs(context.Background(), &pb.ExportGraphsRequest{ModelHash: parsed.ModelHash, Subject: "P::A::@0"})
-	want := "invalid_argument: P::A::@0: no lowered graph for the unnamed part usage of P::A: the subject must be an action or a state machine"
-	if err == nil || err.Error() != want {
-		t.Fatalf("error = %v, want %s", err, want)
+	parsed, _ := parseContent(t, srv, "package P { part def A { part : A { part x; } } part def B :> A; }")
+	const reason = ": the subject must be an action or a state machine"
+	tests := []struct{ subject, want string }{
+		{"P::A::@0", "P::A::@0: no lowered graph for the unnamed part usage of P::A"},
+		{"P::A::@0::x", "P::A::@0::x: no lowered graph for the part usage P::A::x"},
+		{"P::A", "no lowered graph for the part definition P::A"},
+	}
+	for _, test := range tests {
+		_, err := srv.ExportGraphs(context.Background(), &pb.ExportGraphsRequest{ModelHash: parsed.ModelHash, Subject: test.subject})
+		if want := "invalid_argument: " + test.want + reason; err == nil || err.Error() != want {
+			t.Errorf("%s: error = %v, want %s", test.subject, err, want)
+		}
 	}
 }
 

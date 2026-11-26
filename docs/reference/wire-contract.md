@@ -2626,9 +2626,8 @@ newline, byte for byte what `sysml -graphs <subject>` writes; `version` is its `
 `subject` the qualified name as resolved. The subject names an action or state machine, definition
 or usage, by qualified name: a name no element has is `NOT_FOUND` (`symbol not found:
 Test::Missing`), one that is no behavior (`no lowered graph for the package Test: the subject
-must be an action or a state machine`, led by the requested id when the element has no name) is
-`INVALID_ARGUMENT`, and so is a name the model declares
-more than once (`P::Run is ambiguous: the model declares 2 elements under that name`); a
+must be an action or a state machine`, led by the subject as requested when that is an id or an
+inherited member's name) is `INVALID_ARGUMENT`, and so is a name the model declares more than once (`P::Run is ambiguous: the model declares 2 elements under that name`); a
 declaration of the model's shadows the library's of the same name. The service advertises this
 method as the `export_graphs` capability.
 
