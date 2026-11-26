@@ -19,6 +19,9 @@ func TestRunCommandFailsAUsageAnswer(t *testing.T) {
 			t.Errorf("RunCommand(%q) = %q, %v; want a UsageError holding %q", line, out, err, printed)
 		}
 	}
+	if out, _, err := s.RunCommand("%features x depth nope"); err != nil || len(out) != 2 {
+		t.Errorf("RunCommand of an error printed beside its usage = %q, %v; want the two lines", out, err)
+	}
 	if out, _, err := s.RunCommand("%verbosity"); err != nil || len(out) != 1 {
 		t.Errorf("RunCommand(%%verbosity) = %q, %v", out, err)
 	}

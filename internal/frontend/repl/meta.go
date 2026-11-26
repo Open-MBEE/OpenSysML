@@ -401,11 +401,17 @@ func (s *Session) RunCommand(line string) (out []string, quit bool, err error) {
 const usageLead = "usage: %"
 
 // usageAnswer reads a usage answer back from its text, as the line or closing
-// one, because the commands return their usage as plain output.
+// one, because the commands return their usage as plain output. An answer that
+// reports an error beside its usage is left as the failure it already is.
 func usageAnswer(lines []string) bool {
-	return slices.ContainsFunc(lines, func(line string) bool {
-		return strings.HasPrefix(line, usageLead) || strings.Contains(line, "; "+usageLead)
-	})
+	usage := false
+	for _, line := range lines {
+		if strings.HasPrefix(line, errPrefix) {
+			return false
+		}
+		usage = usage || strings.HasPrefix(line, usageLead) || strings.Contains(line, "; "+usageLead)
+	}
+	return usage
 }
 
 func (s *Session) runMeta(line string) (out []string, quit bool, err error) {

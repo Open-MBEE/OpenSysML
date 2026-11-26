@@ -23,6 +23,9 @@ func TestACommandAnsweredWithItsUsageFails(t *testing.T) {
 			t.Errorf("Execute(%q) failed without its usage line: %q", code, got.Traceback)
 		}
 	}
+	if got := mustFail(t, newEngine(t), "%features x depth nope"); got.Name != "CommandError" {
+		t.Errorf("an error printed beside its usage failed as %s, want a CommandError", got.Name)
+	}
 	if out := mustRun(t, newEngine(t), "%help").text(); !strings.Contains(out, "%save") {
 		t.Errorf("%%help printed %q", out)
 	}
