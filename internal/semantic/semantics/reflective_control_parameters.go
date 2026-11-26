@@ -352,6 +352,20 @@ func (m *Model) nodeParameterOwner(sym *symbols.Symbol) *symbols.Symbol {
 	return nil
 }
 
+// OwnNodeParameter is this model's parameter where sym is the one another model over the same
+// symbols synthesized for a send or control action; sym itself otherwise.
+func (m *Model) OwnNodeParameter(sym *symbols.Symbol) *symbols.Symbol {
+	if m == nil || sym == nil || sym.Expr == nil || sym.Expr.Owner == nil || sym.Expr.Owner.Expr != nil {
+		return sym
+	}
+	for _, own := range m.nodeParameters(sym.Expr.Owner) {
+		if own.Expr != nil && own.Expr.Role == sym.Expr.Role && own.Kind == sym.Kind && own.DeclSpan == sym.DeclSpan {
+			return own
+		}
+	}
+	return sym
+}
+
 // sendParameterNames are the features a send action's parameters redefine, in argument order.
 var sendParameterNames = [...]string{sendPayload: "payload", sendSender: "sender", sendReceiver: "receiver"}
 

@@ -51,6 +51,9 @@ func (s *Service) elementProperties(reader *elementReader, req *pb.GetElementPro
 		return &pb.GetElementPropertiesResponse{Error: reader.idsRefusal.Error()}
 	}
 	sym, ok := s.lookupElement(reader, req)
+	if ok {
+		sym, ok = reader.held(sym)
+	}
 	if ok && !reader.model.Index.Library(sym) {
 		if excluded := reader.excluded[sym.DocName]; excluded != nil {
 			return &pb.GetElementPropertiesResponse{Error: excluded.Error}
@@ -395,6 +398,25 @@ func (r *elementReader) stepAddress(from metamodel.Element, siblings []metamodel
 		}
 	}
 	return ""
+}
+
+// held is the symbol the reader's own model holds for the element sym stands for; false for a parameter no
+// element of the form stands for. A name resolves through the symbol context's model, which synthesizes apart.
+func (r *elementReader) held(sym *symbols.Symbol) (*symbols.Symbol, bool) {
+	if sym.Expr == nil && sym.Named() {
+		return sym, true
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	sym = r.semantics.OwnNodeParameter(sym)
+	id, ok := r.ids.Of(sym)
+	if !ok {
+		return sym, !r.semantics.NamedByNodeParameterRole(sym)
+	}
+	if held, ok := r.ids.Symbol(id); ok {
+		return held, true
+	}
+	return sym, !r.semantics.NamedByNodeParameterRole(sym)
 }
 
 // read answers the properties of sym: the named ones, or every property its
