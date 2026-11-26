@@ -541,11 +541,14 @@ func (c Context) WrittenExpression(sym *symbols.Symbol) (string, bool) {
 func (c Context) PropertyText(v Value) (string, bool) {
 	text, ok := v.Text(c.Identity)
 	if sym, isElement := v.Element(); isElement && text == "" {
-		// A parameter an action's notation states has no scope of its own, yet is named under its action.
-		if name, ok := c.nodeParameterName(sym); ok {
-			return name, true
+		written, ok := c.WrittenExpression(sym)
+		if written == "" {
+			// A parameter an action's notation states with no expression of its own is named under its action.
+			if name, named := c.nodeParameterName(sym); named {
+				return name, true
+			}
 		}
-		return c.WrittenExpression(sym)
+		return written, ok
 	}
 	return text, ok
 }
