@@ -851,8 +851,7 @@ func (idx *Index) wildcardTarget(pkgFQN, targetText string, all bool, leaving ma
 }
 
 // leavesToLookup reports whether the namespace under fqn states a wildcard import
-// left to name lookup, which may then bring any name: one whose first segment a
-// named import or an alias binds, or an enclosing namespace's such import may bring.
+// left to name lookup (see leftBy), which may then bring any name.
 func (idx *Index) leavesToLookup(fqn string, leaving map[string]bool) bool {
 	if left, done := leaving[fqn]; done {
 		return left

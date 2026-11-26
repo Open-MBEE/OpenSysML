@@ -900,7 +900,7 @@ func (r *Resolver) importTargetOf(scope *symbols.Scope, imp *ast.Import) (*symbo
 	// The target is read on its own, apart from the lookup that needs it.
 	r.aside(func() { target, passed, ok = r.importName(scope, imp.Imported, imp) })
 	r.resume(imp)
-	if ok && imp.Kind == ast.ImportNamespace {
+	if ok && target != nil && imp.Kind == ast.ImportNamespace {
 		// A namespace import reads the members of the element its target names.
 		// An alias whose own target is still resolving names none yet.
 		if target = r.AliasedElement(target); target.Kind == symbols.SymbolAlias {

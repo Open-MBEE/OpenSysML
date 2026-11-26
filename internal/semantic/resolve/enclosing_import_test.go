@@ -394,9 +394,8 @@ func TestWildcardImportBelowAnAliasOfItsOwnNamespace(t *testing.T) {
 	}
 }
 
-// A wildcard import left to name lookup may bring any name, so the index binds
-// no later segment past it: N exposes what its own `import Q::*` brings as X,
-// not the X an enclosing namespace owns or imports.
+// A wildcard import left to name lookup may bring any name, so the index binds no
+// segment past it: N exposes its own `import Q::*`'s X, not an enclosing namespace's.
 func TestWildcardImportBesideOneLeftToNameLookup(t *testing.T) {
 	for _, inK := range []string{
 		"private import Q;",
