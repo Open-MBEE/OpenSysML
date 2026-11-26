@@ -65,7 +65,7 @@ an empty buffer; it is located in the document's library buffer instead."
   (if (sysml-library-uri-p uri)
       (let ((buffer (sysml-eglot-stdlib-buffer uri)))
         (pcase-let ((`(,beg . ,end) (with-current-buffer buffer (eglot-range-region range))))
-          (sysml-library-xref-match buffer beg end)))
+          (sysml-library-xref-item buffer beg end)))
     (funcall make-match name uri range)))
 
 (advice-add 'eglot--xref-make-match :around #'sysml-eglot--xref-library-match)

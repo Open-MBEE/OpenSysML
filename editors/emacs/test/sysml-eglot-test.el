@@ -128,6 +128,8 @@
             (should (sysml-library-uri-p sysml-library-uri))
             (should-not buffer-file-name)
             (should buffer-read-only)
+            ;; Only an item with a match length is offered for replacement.
+            (should-not (xref-match-length item))
             (should (string-match-p "datatype Integer" (xref-item-summary item)))
             (goto-char marker)
             (should (string-match-p "datatype Integer"

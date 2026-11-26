@@ -432,10 +432,11 @@ library."
           (goto-char (point-min)))
         buffer)))
 
-(defun sysml-library-xref-match (buffer beg end)
-  "Return an xref match for the text from BEG to END of library BUFFER.
-A bundled library document has no file to name, so the match is located
-in the buffer showing it; its summary is the line BEG is on."
+(defun sysml-library-xref-item (buffer beg end)
+  "Return an xref item for the text from BEG to END of library BUFFER.
+A bundled library document has no file to name, so the item is located
+in the buffer showing it; its summary is the line BEG is on.  It is not
+a match: the buffer is read-only, so a replacement must pass it by."
   (with-current-buffer buffer
     (save-excursion
       (save-restriction
@@ -445,7 +446,7 @@ in the buffer showing it; its summary is the line BEG is on."
                (eol (line-end-position))
                (summary (buffer-substring bol eol)))
           (add-face-text-property (- beg bol) (- (min end eol) bol) 'xref-match t summary)
-          (xref-make-match summary (xref-make-buffer-location buffer beg) (- end beg)))))))
+          (xref-make summary (xref-make-buffer-location buffer beg)))))))
 
 (provide 'sysml-mode)
 

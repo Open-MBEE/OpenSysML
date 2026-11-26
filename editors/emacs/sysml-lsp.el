@@ -215,7 +215,7 @@ Its text is asked of the current buffer's server; see
   (let ((buffer (sysml-lsp-stdlib-buffer (lsp--location-uri location)))
         (range (lsp--location-range location)))
     (with-current-buffer buffer
-      (sysml-library-xref-match buffer
+      (sysml-library-xref-item buffer
                                 (lsp--position-to-point (lsp:range-start range))
                                 (lsp--position-to-point (lsp:range-end range))))))
 
