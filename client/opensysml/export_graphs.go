@@ -21,10 +21,11 @@ type Graphs struct {
 // ExportGraphs exports the lowered graph of the action or state machine the
 // qualified name subject names.
 func (c *client) ExportGraphs(ctx context.Context, model *Model, subject string) (*Graphs, error) {
-	hash, err := c.call(model)
+	hash, done, err := c.call(model)
 	if err != nil {
 		return nil, err
 	}
+	defer done()
 	if err := c.requireCapabilities(ctx, CapabilityExportGraphs); err != nil {
 		return nil, err
 	}

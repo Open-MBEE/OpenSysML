@@ -1,0 +1,5 @@
+{
+	"type": "action",
+	"evaluate": "test::outer",
+	"error": "the implicit target of an assignment is the constraint's own performance (SysML v2 §7.17.9) and x is not one of its features"
+}

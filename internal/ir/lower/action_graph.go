@@ -507,11 +507,12 @@ type Loop struct {
 	// iteration (`while c { … } until d;`), nil when it carries none.
 	Until ast.Node
 	// UntilID is Until in the table of the flow or body the statement was lowered for.
-	UntilID    program.ExprID
-	Variable   string   // `for` only: the name each element is bound to
-	Alias      string   // `for` only: the variable's short name, where it declares a name as well
-	Bound      bool     // `for` only: a variable is declared, the empty name included
-	Collection ast.Node // `for` only: the collection iterated over
+	UntilID  program.ExprID
+	Variable string // `for` only: the name each element is bound to
+	// VariableSymbol is the `for` variable's declaration, which its body reads by either name.
+	VariableSymbol *symbols.Symbol
+	Bound          bool     // `for` only: a variable is declared, the empty name included
+	Collection     ast.Node // `for` only: the collection iterated over
 	// CollectionID is Collection in the table of the flow or body the statement was lowered for.
 	CollectionID program.ExprID
 	Body         Block
@@ -2367,20 +2368,20 @@ func statementOf(member ast.Node, scope *symbols.Scope, resolver *resolve.Resolv
 	case *ast.AssignmentActionNode:
 		return lowerAssignment(m, scope)
 	case *ast.WhileLoopActionNode:
-		variable, alias := loopVariableNames(m)
+		variable, _ := m.Variable.DeclaredName()
 		bodyScope := childScope(scope, m)
 		return Loop{
-			Kind:       m.Kind,
-			Condition:  m.Condition,
-			Until:      m.Until,
-			Variable:   variable,
-			Alias:      alias,
-			Bound:      m.Variable.Declared(),
-			Collection: m.Collection,
-			Body:       lowerBlock(m, m.Body, bodyScope, resolver, exprs, ancestors),
-			BodyAction: loopBodyAction(m, bodyScope),
-			Node:       m,
-			Scope:      scope,
+			Kind:           m.Kind,
+			Condition:      m.Condition,
+			Until:          m.Until,
+			Variable:       variable,
+			VariableSymbol: bodyScope.MemberDeclaring(m),
+			Bound:          m.Variable.Declared(),
+			Collection:     m.Collection,
+			Body:           lowerBlock(m, m.Body, bodyScope, resolver, exprs, ancestors),
+			BodyAction:     loopBodyAction(m, bodyScope),
+			Node:           m,
+			Scope:          scope,
 		}
 	case *ast.IfActionNode:
 		lowered := If{Condition: m.Condition, Node: m, Scope: scope}
@@ -2592,7 +2593,7 @@ func lowerBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope, resolv
 	block := Block{Node: owner, Scope: scope}
 	for _, member := range members {
 		actual := unwrapMembership(member)
-		if actual == nil || isAnnotation(actual) {
+		if actual == nil || isAnnotation(actual) || statesNoStep(actual) {
 			continue
 		}
 		block.Statements = append(block.Statements, lowerStatement(actual, scope, resolver, exprs, ancestors))
@@ -3146,14 +3147,4 @@ func statementKeyword(node ast.Node) string {
 	default:
 		return "a member the body declares"
 	}
-}
-
-// loopVariableNames are the names a `for` loop's body reads its variable by: the declared
-// name, and the short name where the variable declares both.
-func loopVariableNames(loop *ast.WhileLoopActionNode) (name, alias string) {
-	name, _ = loop.Variable.DeclaredName()
-	if loop.Variable.HasShortName() && loop.Variable.ShortName != name {
-		alias = loop.Variable.ShortName
-	}
-	return name, alias
 }

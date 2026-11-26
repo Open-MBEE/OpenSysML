@@ -167,10 +167,11 @@ func (c *client) checkBehavior(ctx context.Context, model *Model, actionID, stat
 	for _, opt := range opts {
 		opt(&options)
 	}
-	hash, err := c.call(model)
+	hash, done, err := c.call(model)
 	if err != nil {
 		return nil, err
 	}
+	defer done()
 	if err := c.requireCapabilities(ctx, CapabilityCheck); err != nil {
 		return nil, err
 	}

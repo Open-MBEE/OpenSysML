@@ -1,0 +1,1 @@
+- The Go client's `Close` now waits for the calls that began before it and only then releases the implementation; a call that begins after `Close` is still refused with `CodeUnavailable`. `Close` could release the in-process service while a call that had already passed the closed check was still running in it.

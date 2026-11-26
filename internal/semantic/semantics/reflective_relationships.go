@@ -69,8 +69,8 @@ func (m *Model) implicitRelationshipsOf(owner *symbols.Symbol) []*symbols.Symbol
 		})
 		ordinal++
 	}
-	// The type argument of `x @ T`, `x istype T` or `x as T` is an in parameter typed
-	// by T with no value (SysML.xtext TypeReferenceMember), as the conversion writes it.
+	// `x @ T` and `x istype T` type an in parameter with no value by T (SysML.xtext TypeReferenceMember);
+	// `x as T` and `all T` type the result by it (TypeResultMember), as the conversion writes both.
 	if target := m.typeArgumentType(owner); target != nil {
 		out = append(out, &symbols.Symbol{
 			Kind:     symbols.SymbolRelationship,
@@ -901,23 +901,22 @@ func writtenChainLength(chain *symbols.Symbol) int {
 	return n
 }
 
-// typeArgumentType is the type the type-argument parameter sym of a classification or
-// cast expression names (`x @ T`, `x as T`); nil for any other symbol or an unresolved name.
+// typeArgumentType is the type a classification or cast expression names (`x @ T`, `x as T`, `all T`)
+// when sym is the parameter it types: the type argument's `in`, or the result of a cast or extent.
 func (m *Model) typeArgumentType(sym *symbols.Symbol) *symbols.Symbol {
-	if sym == nil || sym.Expr == nil || sym.Expr.Role != symbols.ExpressionParameter || sym.Expr.Owner == nil {
+	if sym == nil || sym.Expr == nil || sym.Expr.Owner == nil {
 		return nil
 	}
 	expr := sym.Expr.Owner
-	_, typeArgument := ast.ExpressionOperands(expr.Decl)
-	if typeArgument < 0 || sym.Expr.Index != typeArgument {
-		return nil
-	}
 	var name *ast.QualifiedName
-	switch n := expr.Decl.(type) {
-	case *ast.OperatorExpr:
-		name = n.TypeRef
-	case *ast.CastExpr:
-		name = n.TargetType
+	switch sym.Expr.Role {
+	case symbols.ExpressionResult:
+		name = ast.ExpressionTypeResult(expr.Decl)
+	case symbols.ExpressionParameter:
+		_, typeArgument := ast.ExpressionOperands(expr.Decl)
+		if n, ok := expr.Decl.(*ast.OperatorExpr); ok && typeArgument >= 0 && sym.Expr.Index == typeArgument {
+			name = n.TypeRef
+		}
 	}
 	if name == nil {
 		return nil

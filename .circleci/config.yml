@@ -998,8 +998,10 @@ jobs:
 
   # The gates that re-run part of the suite on their own so their verdicts are
   # legible in the log, and the conformance suite over every transport.
+  # On medium's 2 CPUs and 4 GB the corpus sweep was killed and the WebAssembly gate ran past its 25 minutes.
   go-gates:
     executor: go-executor
+    resource_class: large
     steps:
       - checkout
       - rehearsal-checkout-tag
@@ -1080,11 +1082,12 @@ jobs:
 
       # The RDF and api-json round-trip ratchets over every example alone, so their
       # per-verdict counts are legible in the log and a skip cannot hide behind a green suite.
+      # Two models in hand peak near 4 GiB; four, large's CPU count, near 7 GiB of its 8.
       - run:
           name: Run corpus round-trip gates
           command: |
             set -o pipefail
-            go test -count=1 -v -timeout 30m ./tests/corpus -run 'TestExamplesSweep' | tee corpus-roundtrip-gate.log
+            go test -count=1 -v -timeout 30m -parallel 2 ./tests/corpus -run 'TestExamplesSweep' | tee corpus-roundtrip-gate.log
             grep -E ': corpus round trip: [0-9]+ files:' corpus-roundtrip-gate.log
             grep -E 'api-json corpus round trip: [0-9]+ files:' corpus-roundtrip-gate.log
             if grep -qE '^\s*--- SKIP' corpus-roundtrip-gate.log; then

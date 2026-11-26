@@ -195,10 +195,11 @@ func (c *client) ExploreAction(
 	if err != nil {
 		return nil, err
 	}
-	hash, err := c.call(model)
+	hash, done, err := c.call(model)
 	if err != nil {
 		return nil, err
 	}
+	defer done()
 	if err := c.requireExplore(ctx); err != nil {
 		return nil, err
 	}
@@ -250,10 +251,11 @@ func (c *client) ExploreState(
 	if err != nil {
 		return nil, err
 	}
-	hash, err := c.call(model)
+	hash, done, err := c.call(model)
 	if err != nil {
 		return nil, err
 	}
+	defer done()
 	if err := c.requireExplore(ctx); err != nil {
 		return nil, err
 	}
@@ -291,10 +293,11 @@ func (c *client) ExploreAnalysis(
 		return nil, err
 	}
 	options.schedule = policy
-	hash, err := c.call(model)
+	hash, done, err := c.call(model)
 	if err != nil {
 		return nil, err
 	}
+	defer done()
 	resp, err := c.analysisRequest(ctx, hash, symbolID, &options, func() error {
 		return c.requireExplore(ctx)
 	})
