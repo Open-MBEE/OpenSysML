@@ -116,3 +116,33 @@ func TestWildcardImportTargetBelowAMembershipImport(t *testing.T) {
 	wantNamed(t, idx, "P::K::N::A", 1)
 	wantNamed(t, idx, "P::K::N::B", 0)
 }
+
+// The index reads a wildcard import's target where nothing but declarations and
+// wildcard re-exports bind it, so that qualified lookup finds the members.
+func TestWildcardImportTargetTheIndexReads(t *testing.T) {
+	idx := buildIndex(t, map[string]string{"d.sysml": `
+		package Q { package X { part def B; package Y { part def C; } } package A { } }
+		package R { package X { part def E; } }
+		package Bridge { public import Q::*; }
+		package P {
+			package Outer { package X { public import R::X; part def A; } package Reads { public import X::*; } }
+			package Owns { package X { part def O; } private import Q::X; package OwnsIn { public import X::*; } }
+			package Kept { package X { private package Hid { part def D; } } package All { public import all X::Hid::*; } package Plain { public import X::Hid::*; } }
+			package Through { public import Bridge::X::Y::*; }
+			// Each import's target names the other's first segment: expansion still settles.
+			package Mutual {
+				package A { public import R::X; } package X { public import Q::A; }
+				package Both { public import A::*; public import X::*; }
+			}
+		}`})
+	for fqn, want := range map[string]int{
+		"P::Outer::Reads::A": 1, // the import's own re-export of X does not rebind its target
+		"P::Owns::OwnsIn::O": 1, // an owned member is found before an import of its name
+		"P::Owns::OwnsIn::B": 0,
+		"P::Kept::All::D":    1, // `import all` reaches a private segment
+		"P::Kept::Plain::D":  0,
+		"P::Through::C":      1, // below a segment a global qualifier re-exports
+	} {
+		wantNamed(t, idx, fqn, want)
+	}
+}

@@ -357,7 +357,7 @@ func TestUnresolvedImportDoesNotSpreadAnEdit(t *testing.T) {
 		"f.sysml": "package Far { public import Lib::*; }",
 	}
 	idx := buildIndex(t, docs)
-	if got := idx.resolveWildcardTarget("", "Dup"); got != "" {
+	if got := idx.resolveWildcardTarget("", "Dup", false); got != "" {
 		t.Fatalf("Dup resolved to %q, want ambiguous", got)
 	}
 	if len(idx.LookupQualified("Far::Widget")) == 0 {

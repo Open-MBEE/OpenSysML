@@ -120,6 +120,9 @@ type Index struct {
 	// unnamed holds, while importersToRefresh reads an index nothing changes, the
 	// names namesByLookup found unbound from outside their namespaces.
 	unnamed map[namedIn]bool
+	// leftToLookup holds, while every importer is derived afresh, the imports whose
+	// targets were left to name lookup: they stay so, which lets the derivation settle.
+	leftToLookup map[namedIn]bool
 
 	// cyclic maps a namespace to the ones it is on a cycle of wildcard imports
 	// with, itself included, in name order.
@@ -557,6 +560,8 @@ func (idx *Index) expandToFixpoint() {
 	// Deriving every importer from an empty re-export state is the computation a
 	// fresh build performs: it only ever adds, so it settles.
 	idx.purgeAllReexports()
+	idx.leftToLookup = map[namedIn]bool{}
+	defer func() { idx.leftToLookup = nil }()
 	for idx.expandRound(true) {
 	}
 }
@@ -674,7 +679,7 @@ func (idx *Index) resolveImports(pkgFQN string) []resolvedImport {
 	for i, imp := range stated {
 		out[i] = resolvedImport{
 			doc:     imp.doc,
-			fqn:     idx.resolveWildcardTarget(pkgFQN, imp.target),
+			fqn:     idx.resolveWildcardTarget(pkgFQN, imp.target, imp.all),
 			private: imp.private,
 			all:     imp.all,
 		}
@@ -741,7 +746,7 @@ func (idx *Index) expandImporter(pkgFQN string) {
 	cycle := idx.cyclic.at(pkgFQN)
 	reads := idx.noteExpanded(pkgFQN)
 	for _, imp := range stated {
-		targetFQN := idx.resolveWildcardTarget(pkgFQN, imp.target)
+		targetFQN := idx.resolveWildcardTarget(pkgFQN, imp.target, imp.all)
 		if targetFQN == "" {
 			continue // target not found or ambiguous
 		}
@@ -786,14 +791,23 @@ func (idx *Index) expandImporter(pkgFQN string) {
 // A relative target is searched from the importing package outward through its
 // enclosing packages before the global namespace, as KerML 8.2.3.5 resolves a
 // name: KerML::Core's `import Root::*` names its sibling KerML::Root.
-func (idx *Index) resolveWildcardTarget(pkgFQN, targetText string) string {
+func (idx *Index) resolveWildcardTarget(pkgFQN, targetText string, all bool) string {
+	stated := namedIn{pkgFQN, targetText}
+	if idx.leftToLookup[stated] {
+		return ""
+	}
 	first, rest, qualified := strings.Cut(targetText, "::")
-	walk := lookupWalk{name: first}
+	walk := lookupWalk{name: first, importer: pkgFQN, target: targetText}
 	for prefix := pkgFQN; prefix != ""; {
 		key := prefix + "::" + first
 		idx.readName(prefix)
 		idx.readName(key)
-		if idx.namesByLookup(prefix, key, true, &walk) {
+		// A member the namespace owns is found before any import of its name.
+		owned := idx.declaresUnder(key)
+		if !owned && idx.namesByLookup(prefix, key, true, &walk) {
+			if idx.leftToLookup != nil {
+				idx.leftToLookup[stated] = true
+			}
 			return ""
 		}
 		// The nearest namespace binding the first segment binds the target. Past a
@@ -803,8 +817,8 @@ func (idx *Index) resolveWildcardTarget(pkgFQN, targetText string) string {
 			switch {
 			case !qualified:
 				return fqn
-			case idx.declaresUnder(key):
-				return idx.memberTarget(fqn, rest)
+			case owned:
+				return idx.memberTarget(fqn, rest, all)
 			}
 			return ""
 		}
@@ -817,35 +831,42 @@ func (idx *Index) resolveWildcardTarget(pkgFQN, targetText string) string {
 	idx.noteUnnamed(&walk)
 
 	// Global namespace
-	idx.readName(targetText)
-	if fqn, ok := idx.wildcardTargetAt(targetText); ok {
-		return fqn
+	idx.readName(first)
+	if fqn, ok := idx.wildcardTargetAt(first); ok {
+		if !qualified {
+			return fqn
+		}
+		return idx.memberTarget(fqn, rest, all)
 	}
 
 	// Target not found or ambiguous
 	return ""
 }
 
-// memberTarget resolves path, the rest of a wildcard import's target, under fqn:
-// to "" when a segment is not a single member its namespace shows outside itself.
-func (idx *Index) memberTarget(fqn, path string) string {
+// memberTarget resolves path, the rest of a wildcard import's target, under fqn: to "" when
+// a segment is not one member declared or re-exported there that the import sees (all: every one).
+func (idx *Index) memberTarget(fqn, path string, all bool) string {
 	for more := true; more && fqn != ""; {
 		var name string
 		name, path, more = strings.Cut(path, "::")
 		key := fqn + "::" + name
 		idx.readName(key)
-		if fqn, _ = idx.wildcardTargetAt(key); !idx.namedFromOutside(key) {
+		if idx.namesByLookup(fqn, key, all, &lookupWalk{name: name}) {
+			return ""
+		}
+		if fqn, _ = idx.wildcardTargetAt(key); !all && !idx.namedFromOutside(key) {
 			return ""
 		}
 	}
 	return fqn
 }
 
-// declaresUnder reports whether a declaration, not only an import, is registered under key.
+// declaresUnder reports whether a member its namespace owns, not an alias or an
+// import, is registered under key.
 func (idx *Index) declaresUnder(key string) bool {
 	imported := idx.reexported.at(key)
 	for _, sym := range idx.fqn.at(key) {
-		if !imported.has(sym) {
+		if !imported.has(sym) && sym.Kind != SymbolAlias {
 			return true
 		}
 	}
@@ -869,6 +890,19 @@ func (idx *Index) namedFromOutside(key string) bool {
 type lookupWalk struct {
 	name string
 	seen map[string]bool
+	// importer states the import being resolved as target: what that import
+	// itself brought binds nothing for it (skipped).
+	importer, target string
+	stated           []statedImport
+	skipped          bool
+}
+
+// states reports whether the i-th import of walk.importer is the one being resolved.
+func (walk *lookupWalk) states(idx *Index, i int) bool {
+	if walk.stated == nil {
+		walk.stated = idx.imports(walk.importer)
+	}
+	return i < len(walk.stated) && walk.stated[i].target == walk.target
 }
 
 // namedIn is a name sought in the namespace declared under fqn.
@@ -905,8 +939,13 @@ func (idx *Index) namesByLookup(fqn, key string, inside bool, walk *lookupWalk) 
 			return true
 		}
 	}
-	for _, imp := range idx.lastTargets.at(fqn) {
+	own := inside && fqn == walk.importer
+	for i, imp := range idx.lastTargets.at(fqn) {
 		if imp.fqn == "" || (!inside && imp.private) || walk.seen[imp.fqn] || idx.unnamed[namedIn{imp.fqn, walk.name}] {
+			continue
+		}
+		if own && walk.states(idx, i) {
+			walk.skipped = true
 			continue
 		}
 		if idx.namesByLookup(imp.fqn, imp.fqn+"::"+walk.name, false, walk) {
@@ -922,6 +961,9 @@ func (idx *Index) noteUnnamed(walk *lookupWalk) {
 		return
 	}
 	for fqn := range walk.seen {
+		if walk.skipped && fqn == walk.importer {
+			continue
+		}
 		idx.unnamed[namedIn{fqn, walk.name}] = true
 	}
 }
@@ -2485,7 +2527,7 @@ func (idx *Index) ImportsStatedOutside(fqn, doc string) []OutsideImport {
 			stated := OutsideImport{Import: imp, From: sym.Scope}
 			if imp.Kind == ast.ImportNamespace && imp.Imported != nil {
 				target := imp.Imported.Text()
-				stated.Target = idx.resolveWildcardTarget(fqn, target)
+				stated.Target = idx.resolveWildcardTarget(fqn, target, imp.IsAll)
 			}
 			out = append(out, stated)
 		}
