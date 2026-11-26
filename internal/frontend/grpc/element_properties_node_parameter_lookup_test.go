@@ -161,6 +161,7 @@ func TestElementPropertiesReadALoopVariableByEveryNameItAnswers(t *testing.T) {
         action escaped for 'a\tb' in (1, 2) { action atb; }
         action step for s in (1, 2) { action inner for wrong in (1, 2) { } }
         action 'step::inner' for right in (1, 2) { }
+        action 'lone::loop' for only in (1, 2) { }
     }
     action def Derived :> Base;
 }`)
@@ -180,6 +181,20 @@ func TestElementPropertiesReadALoopVariableByEveryNameItAnswers(t *testing.T) {
 		}
 		if want := r.read(declared, "qualifiedName"); want.Element == nil || resp.Element.Id != want.Element.Id {
 			t.Errorf("%s: answered %v, want the element of %s", name, resp.Element, declared)
+		}
+	}
+	// A loop whose name holds `::` is reached by its quoted segment, declared or inherited, whether or not the path also nests.
+	for name, variable := range map[string]string{
+		"P::Base::'step::inner'::right":    "right",
+		"P::Derived::'step::inner'::right": "right",
+		"P::Base::'lone::loop'::only":      "only",
+		"P::Derived::'lone::loop'::only":   "only",
+	} {
+		resp := r.read(name, "name")
+		if resp.Error != "" || resp.Element == nil || resp.Element.Metaclass != "ReferenceUsage" {
+			t.Errorf("%s: answered %v %q, want the loop's variable", name, resp.Element, resp.Error)
+		} else if got := resp.Properties[0].Values[0].GetStringValue(); got != variable {
+			t.Errorf("%s: answered the variable %s, want %s", name, got, variable)
 		}
 	}
 	if resp := r.read("P::Derived::'step::inner'::wrong", "qualifiedName"); !strings.Contains(resp.Error, "element not found") {

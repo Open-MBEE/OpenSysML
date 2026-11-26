@@ -278,6 +278,14 @@ func (r *elementReader) statedParameter(name string) *symbols.Symbol {
 	if len(owners) == 0 {
 		owners = r.model.LookupNamedMember(path)
 	}
+	if len(owners) == 0 {
+		// A segment that holds `::` is one segment only in the notation's spelling.
+		quoted := make([]string, len(segments)-1)
+		for i, segment := range segments[:len(segments)-1] {
+			quoted[i] = identity.Segment(segment)
+		}
+		owners = r.model.ResolveName(strings.Join(quoted, "::"))
+	}
 	if len(owners) != 1 || r.model.Index.Library(owners[0]) {
 		return nil
 	}
