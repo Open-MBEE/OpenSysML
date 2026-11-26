@@ -59,11 +59,83 @@ func TestElementPropertiesReadANodeParameterByNameAsById(t *testing.T) {
 			t.Errorf("ifAct: %s = %v after its parameters were read by name, want %v", property, got, want)
 		}
 	}
-	for _, name := range []string{"P::Base::whileAct::body", "P::Base::termAct::terminatedOccurrence", "P::Base::assignCount::target",
-		"P::Base::assignCount::replacementValues", "P::Base::forAct::seq", "P::Base::forAct::body"} {
-		if resp := r.read(name, "qualifiedName"); !strings.Contains(resp.Error, "element not found") {
-			t.Errorf("%s: answered %v %q, want element not found", name, resp.Properties, resp.Error)
+	if resp := r.read("P::Base::assignCount::count", "qualifiedName"); !strings.Contains(resp.Error, "element not found") {
+		t.Errorf("P::Base::assignCount::count: answered %v %q, want element not found", resp.Properties, resp.Error)
+	}
+}
+
+// A parameter the element form holds no element for reads by name as the feature of its action's kind it
+// redefines, the one the name stated before the parameter was held; a bare terminate states none and inherits it.
+func TestElementPropertiesReadAnUnwrittenNodeParameterAsTheOneItRedefines(t *testing.T) {
+	r := parseForElementProperties(t, `package P {
+    private import ScalarValues::*;
+    action def Base {
+        attribute count : Integer := 0;
+        action nested;
+        action assignCount assign count := count + 1;
+        action whileAct while count < 5 { assign count := count + 1; }
+        action forAct for i in (1, 2, 3) { assign count := i; }
+        action termAct terminate nested;
+        action bare terminate;
+    }
+}`)
+	for _, tc := range []struct{ name, owner, parameter string }{
+		{"P::Base::termAct::terminatedOccurrence", "Actions::terminateActions", "terminatedOccurrence"},
+		{"P::Base::bare::terminatedOccurrence", "Actions::terminateActions", "terminatedOccurrence"},
+		// A nested assignment's target redefines that of the subaction feature (SysML v2 Table 33).
+		{"P::Base::assignCount::target", "Actions::Action::assignments", "target"},
+		{"P::Base::assignCount::replacementValues", "Actions::AssignmentAction", "replacementValues"},
+		{"P::Base::whileAct::body", "Actions::WhileLoopAction", "body"},
+		{"P::Base::forAct::seq", "Actions::ForLoopAction", "seq"},
+		{"P::Base::forAct::body", "Actions::ForLoopAction", "body"},
+	} {
+		resp := r.read(tc.name, "qualifiedName", "name", "owner", "owningType", "featuringType")
+		if resp.Error != "" || len(resp.Properties) != 5 {
+			t.Errorf("%s: answered %v %q", tc.name, resp.Properties, resp.Error)
+			continue
 		}
+		got := []string{resp.Properties[0].Values[0].GetStringValue(), resp.Properties[1].Values[0].GetStringValue()}
+		if want := []string{tc.owner + "::" + tc.parameter, tc.parameter}; !slices.Equal(got, want) {
+			t.Errorf("%s: qualifiedName and name = %v, want %v", tc.name, got, want)
+		}
+		for _, property := range resp.Properties[2:] {
+			if got := elementNames(property.Values); !slices.Equal(got, []string{tc.owner}) {
+				t.Errorf("%s: %s = %v, want %s", tc.name, property.Name, got, tc.owner)
+			}
+		}
+		byID := r.read(resp.Element.Id, "qualifiedName")
+		if byID.Error != "" || byID.Properties[0].Values[0].GetStringValue() != tc.owner+"::"+tc.parameter {
+			t.Errorf("%s: read by its id %s answers %v %q", tc.name, resp.Element.Id, byID.Properties, byID.Error)
+		}
+	}
+}
+
+// The variable a `for` loop declares is a parameter the loop owns (SysML 8.3.17.10), read under the loop's name.
+func TestElementPropertiesReadAForLoopVariableByName(t *testing.T) {
+	r := parseForElementProperties(t, `package P {
+    action def Base {
+        attribute count = 0;
+        action forAct for i in (1, 2, 3) { assign count := i; }
+    }
+}`)
+	named := r.read("P::Base::forAct::i", "qualifiedName", "name", "owner", "owningType", "featuringType")
+	if named.Error != "" || len(named.Properties) != 5 {
+		t.Fatalf("P::Base::forAct::i: answered %v %q", named.Properties, named.Error)
+	}
+	if got := named.Properties[0].Values; len(got) != 1 || got[0].GetStringValue() != "P::Base::forAct::i" {
+		t.Errorf("qualifiedName = %v", got)
+	}
+	if got := named.Properties[1].Values; len(got) != 1 || got[0].GetStringValue() != "i" {
+		t.Errorf("name = %v", got)
+	}
+	for _, property := range named.Properties[2:] {
+		if got := elementNames(property.Values); !slices.Equal(got, []string{"P::Base::forAct"}) {
+			t.Errorf("%s = %v, want P::Base::forAct", property.Name, got)
+		}
+	}
+	byID := r.read(named.Element.Id, "qualifiedName")
+	if byID.Error != "" || byID.Properties[0].Values[0].GetStringValue() != "P::Base::forAct::i" {
+		t.Errorf("read by its id %s answers %v %q", named.Element.Id, byID.Properties, byID.Error)
 	}
 }
 
