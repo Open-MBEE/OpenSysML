@@ -69,6 +69,16 @@
     (should-not (get-text-property (match-beginning 0) 'sysml-diagram-origin))
     (should-error (sysml-diagram-visit) :type 'user-error)))
 
+(ert-deftest sysml-diagram-keeps-the-faces-of-located-elements ()
+  (sysml-diagram-test--drawing sysml-diagram-test--tree
+    (goto-char (point-min))
+    (search-forward "part cog (Cog)")
+    (let ((line (match-beginning 0)))
+      (should (eq (get-char-property line 'face) 'sysml-diagram-kind-face))
+      (should (eq (get-char-property (+ line 5) 'face) 'sysml-diagram-name-face))
+      (should (eq (get-char-property (+ line 9) 'face) 'sysml-diagram-detail-face))
+      (should-not (get-char-property (+ line 4) 'face)))))
+
 (ert-deftest sysml-diagram-keeps-the-last-rendering-when-one-fails ()
   (sysml-diagram-test--drawing sysml-diagram-test--tree
     (sysml-diagram--settle (current-buffer) nil "parse error")
