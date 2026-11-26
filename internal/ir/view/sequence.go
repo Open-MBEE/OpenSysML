@@ -597,6 +597,18 @@ func (r *Renderer) specializes(sym, general *symbols.Symbol) bool {
 	})
 }
 
+// holds reports whether owner declares feature or gets it from what it specializes,
+// is typed by or reference-subsets, which contributes members without a supertype.
+func (r *Renderer) holds(owner, feature *symbols.Symbol) bool {
+	if owner == nil || feature == nil {
+		return false
+	}
+	declaring := feature.Owner()
+	return declaring == owner || declaring != nil && slices.ContainsFunc(r.model.MemberSources(owner), func(source *symbols.Symbol) bool {
+		return symbols.SameElement(source, declaring)
+	})
+}
+
 // orderEnd is an end of an order on the lifeline it is read on: the one it is
 // named through, or stated within, when that inherits it, else the nearest owner shown.
 func (e *lifelineEnds) orderEnd(o order, occurrence, through *symbols.Symbol) lifelineEnd {
@@ -632,7 +644,7 @@ func (r *Renderer) inheritedOrders(orders []order, ends *lifelineEnds, lifelines
 	for grew := true; grew; {
 		grew = false
 		for i, o := range orders {
-			if o.fromThrough != nil || o.toThrough != nil || r.memberFor(o.within, o.from) == nil || r.memberFor(o.within, o.to) == nil {
+			if o.fromThrough != nil || o.toThrough != nil || !r.holds(o.within, o.from) || !r.holds(o.within, o.to) {
 				continue
 			}
 			for at, lifeline := range lifelines {
@@ -852,6 +864,9 @@ func sequenceRows(messages []message, successions []succession, orders []timing,
 	follows := rowsFollowed(messages, successions, orders, before)
 	placed := make([]bool, len(follows))
 	edges := make([]Edge, 0, len(follows))
+	ready := func(row int) bool {
+		return !slices.ContainsFunc(follows[row], func(r int) bool { return !placed[r] })
+	}
 	// take places the earliest declared succession admitted whose rows above are placed,
 	// or when forced the earliest one left, which opens a cycle where it is declared.
 	take := func(admits func(row int) bool, force bool) bool {
@@ -860,7 +875,7 @@ func sequenceRows(messages []message, successions []succession, orders []timing,
 			if placed[row] || !admits(row) {
 				continue
 			}
-			if !slices.ContainsFunc(follows[row], func(r int) bool { return !placed[r] }) {
+			if ready(row) {
 				next = row
 				break
 			}
@@ -878,11 +893,30 @@ func sequenceRows(messages []message, successions []succession, orders []timing,
 	followsMessage := func(row int) bool {
 		return slices.ContainsFunc(follows[row], func(r int) bool { return r < len(messages) })
 	}
+	// A fork leaves an event ordered before a message's without following or leading to one.
+	forks := func(row int) bool {
+		from := orders[successions[row-len(messages)].order].from
+		return slices.ContainsFunc(messages, func(msg message) bool {
+			return slices.ContainsFunc(msg.events(), func(held lifelineEnd) bool { return before(from, held) })
+		})
+	}
 	for m, msg := range messages {
 		leadsHere := func(row int) bool { return slices.Contains(follows[m], row) }
-		// A succession declared before one leading to this message keeps its place above it.
+		// A succession declared before one leading to this message keeps its place above it,
+		// as a fork does above a later one ready to follow a message already placed.
 		due := func(row int) bool {
-			return followsMessage(row) || slices.ContainsFunc(follows[m], func(r int) bool { return r >= row && !placed[r] })
+			if followsMessage(row) || slices.ContainsFunc(follows[m], func(r int) bool { return r >= row && !placed[r] }) {
+				return true
+			}
+			if !forks(row) {
+				return false
+			}
+			for later := row + 1; later < len(follows); later++ {
+				if !placed[later] && followsMessage(later) && ready(later) {
+					return true
+				}
+			}
+			return false
 		}
 		for take(due, false) || take(leadsHere, true) {
 		}

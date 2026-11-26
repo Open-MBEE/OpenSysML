@@ -1,0 +1,10 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::Rig",
+  "objects": [
+    {
+      "finalState": "far"
+    }
+  ]
+}
