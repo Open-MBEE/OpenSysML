@@ -1,1 +1,0 @@
-- Choice points are numbered per execution context instead of from one process-wide counter, so the serials a run's order marks stand on no longer depend on what other runs in the same process classified before or alongside it.

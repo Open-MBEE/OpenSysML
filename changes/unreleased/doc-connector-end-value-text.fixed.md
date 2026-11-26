@@ -1,1 +1,0 @@
-- Documents: a table cell holding connector ends (`row.connectorEnd`) prints each end by the attachment it names in Markdown, HTML, AsciiDoc and PDF instead of an empty cell, and `WhereText` now matches the text of connector ends and of exact rational numbers; the document evaluator, the renderers and the query executor print a value through one shared function.

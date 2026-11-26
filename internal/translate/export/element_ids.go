@@ -1524,6 +1524,11 @@ func (e *encoder) registerExpressionIDs(ids *ElementIDs, subject rdf.Term, node 
 	}
 	if resultBearing[expressionMetaclass(node)] {
 		e.registerExpressionPart(ids, subject, node, "out")
+		if ast.ExpressionTypeResult(node) != nil {
+			// The result's FeatureTyping by the type a cast or extent names is minted off the result.
+			typing := ids.partByNode[partKey{node, "out"}].element + relationshipSuffix(ast.RelTyping, false, 1, 0)
+			ids.recordPart(e, node, "out.ft0", partIDs{element: typing})
+		}
 	}
 }
 
