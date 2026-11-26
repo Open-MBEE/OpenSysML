@@ -74,13 +74,17 @@ func ExpressionOperands(node Node) (operands []ExpressionOperand, typeArgument i
 	}
 	switch n := node.(type) {
 	case *OperatorExpr:
+		if ExpressionTypeResult(n) != nil {
+			if n.Operator != OpAll {
+				positional(n.Operands, 0, false)
+			}
+			return operands, -1
+		}
 		positional(n.Operands, 0, false)
 		if n.TypeRef != nil {
 			return operands, len(n.Operands)
 		}
 		return operands, -1
-	case *CastExpr:
-		return nil, 0
 	case *FeatureChainExpr:
 		positional([]Node{n.Operand}, 0, false)
 	case *IndexExpr:
@@ -100,6 +104,31 @@ func ExpressionOperands(node Node) (operands []ExpressionOperand, typeArgument i
 		invocation(nil, n.Type, n.Args, n.NamedArgs, false)
 	}
 	return operands, -1
+}
+
+// ExpressionTypeResult is the type `x as T`, `x meta T`, `(as T)` and `all T` name, which types the
+// expression's result rather than an `in` parameter (KerML.xtext TypeResultMember); nil otherwise.
+func ExpressionTypeResult(node Node) *QualifiedName {
+	switch n := node.(type) {
+	case *CastExpr:
+		return n.TargetType
+	case *OperatorExpr:
+		switch n.Operator {
+		case OpAs, OpMeta:
+			return n.TypeRef
+		case OpAll:
+			if len(n.Operands) != 1 {
+				return nil
+			}
+			switch operand := n.Operands[0].(type) {
+			case *FeatureReference:
+				return operand.Name
+			case *QualifiedName:
+				return operand
+			}
+		}
+	}
+	return nil
 }
 
 // ReceiverChain is the feature chain a call reached through its receiver names

@@ -48,16 +48,20 @@ func (ec *EvalContext) evalSubactionPath(perf *actionFrame, parts []ast.NameSegm
 			perf = inner
 			continue
 		}
-		if i != len(parts)-1 && !perf.declares(part.Text) {
+		across := ec.readsAcross(perf)
+		name, err := ec.stepConnector(perf, part.Text, across)
+		if err != nil {
+			return Value{}, err
+		}
+		if i != len(parts)-1 && !perf.holds(name) {
 			return Value{}, fmt.Errorf("%w: %s declares no node or pin %s to read %s through",
 				errNodePin, perf.describe(), part.Text, parts[len(parts)-1].Text)
 		}
 		var value Value
-		var err error
-		if ec.readsAcross(perf) {
-			value, err = perf.repeatedPin(part.Text)
+		if across {
+			value, err = perf.repeatedPin(name)
 		} else {
-			value, err = perf.pin(part.Text)
+			value, err = perf.pin(name)
 		}
 		if err != nil {
 			return Value{}, err
@@ -68,6 +72,34 @@ func (ec *EvalContext) evalSubactionPath(perf *actionFrame, parts []ast.NameSegm
 		return perf.repeatedPin(perf.result)
 	}
 	return perf.resultValue()
+}
+
+// stepConnector is the name perf holds the connection its behavior declares as name under,
+// attached in each performance read (all of a repeated step's, across) whose body never read it.
+func (ec *EvalContext) stepConnector(perf *actionFrame, name string, across bool) (string, error) {
+	if perf.scope == nil || (!across && perf.holds(name)) {
+		return name, nil
+	}
+	sym, ok := ec.ctx.lookupName(perf.scope, name)
+	if !ok || sym == nil || sym.OwnerScope == nil || !ec.ctx.model.semantics.IsConnectorObjectUsage(sym) ||
+		!ec.ctx.performanceDeclares(perf, sym) {
+		return name, nil
+	}
+	read := []*actionFrame{perf}
+	if across {
+		read = perf.repetitionSiblings()
+	}
+	for _, step := range read {
+		if !step.ended && step != perf {
+			continue
+		}
+		within := *ec
+		within.scope, within.frames = step.scope, step.lexicalFrames()
+		if _, _, err := within.performedConnector(sym); err != nil {
+			return "", err
+		}
+	}
+	return sym.Name, nil
 }
 
 // declaredElements types a read yielding no element by the quantity dimension it declares

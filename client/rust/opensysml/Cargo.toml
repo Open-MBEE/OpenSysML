@@ -1,6 +1,6 @@
 [package]
 name = "opensysml"
-version = "0.12.1"
+version = "0.13.0"
 edition = "2021"
 rust-version = "1.85"
 description = "Blocking Rust client for the OpenSysML sysml-grpc service"
@@ -18,7 +18,7 @@ include = [
 ]
 
 [dependencies]
-prost = "=0.14.3"
+prost = "=0.14.6"
 prost-derive = "=0.14.6"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"

@@ -1,1 +1,0 @@
-- `sysml-mcp`'s `render_model_view` honours `depth`: the tool took the argument and never sent it, so a view was always drawn at every level, whatever limit was asked for.

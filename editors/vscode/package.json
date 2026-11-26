@@ -2,7 +2,7 @@
   "name": "opensysml",
   "displayName": "SysML v2 (OpenSysML)",
   "description": "SysML v2 and KerML syntax highlighting and language support backed by the OpenSysML language server.",
-  "version": "0.12.1",
+  "version": "0.13.0",
   "publisher": "open-mbee",
   "license": "Apache-2.0",
   "repository": {
@@ -396,7 +396,7 @@
     "package": "npm run typecheck && npm test && npm run build -- --production && vsce package --no-dependencies --out opensysml.vsix"
   },
   "dependencies": {
-    "elkjs": "0.12.1",
+    "elkjs": "0.13.0",
     "libavoid-js": "0.4.5",
     "vscode-languageclient": "9.0.1"
   },
