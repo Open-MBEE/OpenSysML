@@ -184,7 +184,8 @@ func (r *Resolver) unqualifiedCandidates(scope *symbols.Scope, name string) []*s
 		}
 		return []*symbols.Symbol{sym}, true
 	}
-	for s := scope; s != nil; s = s.Parent() {
+	fromGuard := false
+	for s := scope; s != nil; fromGuard, s = s.GuardView(), s.Parent() {
 		if out, ok := r.localBindingCandidates(s, name); ok {
 			return out
 		}
@@ -201,7 +202,7 @@ func (r *Resolver) unqualifiedCandidates(scope *symbols.Scope, name string) []*s
 			return out
 		}
 		// A loop body's imported members come before the enclosing scopes, as in walkUnqualifiedHiding.
-		if _, isLoop := s.Node().(*ast.WhileLoopActionNode); isLoop {
+		if _, isLoop := s.Node().(*ast.WhileLoopActionNode); isLoop && !fromGuard {
 			if out := r.importMatches(s, name); len(out) > 0 {
 				return out
 			}
@@ -213,6 +214,9 @@ func (r *Resolver) unqualifiedCandidates(scope *symbols.Scope, name string) []*s
 			if out, ok := one(r.acceptPayload(enclosing, name)); ok {
 				return out
 			}
+		}
+		if fromGuard {
+			continue
 		}
 		if out := r.importMatches(s, name); len(out) > 0 {
 			return out

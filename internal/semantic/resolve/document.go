@@ -396,8 +396,8 @@ func (r *Resolver) resolveBehaviorDecl(scope *symbols.Scope, decl ast.Node) bool
 		}
 		r.resolveRelationships(scope, d, d.VariableRelationships)
 		r.resolveExpr(scope, d.Collection)
-		r.resolveExpr(body, d.Condition)
-		r.resolveExpr(body, d.Until)
+		r.resolveExpr(body.LoopGuard(), d.Condition)
+		r.resolveExpr(body.LoopGuard(), d.Until)
 		r.walkMembers(body, d.Body)
 		return true
 	case *ast.IfActionNode:

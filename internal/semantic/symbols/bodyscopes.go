@@ -207,8 +207,8 @@ func (w ExprWalker) Decl(scope *Scope, decl ast.Node) {
 	case *ast.WhileLoopActionNode:
 		body := nodeBodyScope(scope, d)
 		w.Expr(scope, d.Collection)
-		w.Expr(body, d.Condition)
-		w.Expr(body, d.Until)
+		w.Expr(body.LoopGuard(), d.Condition)
+		w.Expr(body.LoopGuard(), d.Until)
 		w.Members(body, d.Body)
 	case *ast.IfActionNode:
 		w.Expr(scope, d.Condition)

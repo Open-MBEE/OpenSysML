@@ -1,9 +1,12 @@
 package grpc
 
 import (
+	"context"
 	"slices"
 	"strings"
 	"testing"
+
+	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 )
 
 // TestElementPropertiesReadActionNodeParameters pins that each part of an assignment, while, for
@@ -296,5 +299,27 @@ package P {
 		if !slices.Equal(got, []string{want}) {
 			t.Errorf("%s: type = %v, want %s", element, got, want)
 		}
+	}
+}
+
+// TestParseLoopGuardDoesNotSeeBodyImport pins KerML 8.2.3.5.4 for a loop's `until` guard: it is the
+// loop's own expression, so it reads the body's declarations but not a name only the body imports.
+func TestParseLoopGuardDoesNotSeeBodyImport(t *testing.T) {
+	srv := mustNewService(t, 10)
+	parsed, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{Source: &pb.ParseFileRequest_Content{
+		Content: `package Q { attribute flag : ScalarValues::Integer; }
+package P {
+    action def A {
+        attribute flag : ScalarValues::Boolean;
+        action l loop { private import Q::*; } until flag;
+        loop { private import Q::*; } until flag;
+        loop { private import Q::*; attribute done : ScalarValues::Boolean; } until done;
+    }
+}`}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, d := range parsed.GetDiagnostics() {
+		t.Errorf("unexpected diagnostic: %s", d.GetMessage())
 	}
 }
