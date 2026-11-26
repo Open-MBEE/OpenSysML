@@ -36,7 +36,11 @@ func (s *Service) ExportGraphs(ctx context.Context, req *pb.ExportGraphsRequest)
 	graphs, err := modelform.GraphsOf(worker.Model, subject)
 	if err != nil {
 		if errors.Is(err, modelform.ErrGraphsSubject) {
-			return nil, statusError(connect.CodeInvalidArgument, err.Error())
+			if subject.Named() {
+				return nil, statusError(connect.CodeInvalidArgument, err.Error())
+			}
+			// An unnamed subject was asked for by an id only the request carries.
+			return nil, statusErrorf(connect.CodeInvalidArgument, "%s: %s", req.Subject, err)
 		}
 		return nil, statusErrorf(connect.CodeFailedPrecondition, "%s: %s", req.Subject, err)
 	}

@@ -137,9 +137,25 @@ func (x *graphsExporter) lowerSubject(out *Graphs, sym *symbols.Symbol) error {
 }
 
 // noGraphFor is ErrGraphsSubject naming the subject once, by its kind in words
-// and its name as the notation writes it.
+// and its name as the notation writes it; an unnamed one by its named owner.
 func noGraphFor(sym *symbols.Symbol) error {
-	return fmt.Errorf("%w for the %s %s", ErrGraphsSubject, sym.Kind.Phrase(), source.QualifiedNameText(symbols.FQNOf(sym)))
+	if sym.Named() {
+		return fmt.Errorf("%w for the %s %s", ErrGraphsSubject, sym.Kind.Phrase(), source.QualifiedNameOf(symbols.NameChain(sym)))
+	}
+	if owner := namedOwner(sym); owner != nil {
+		return fmt.Errorf("%w for the unnamed %s of %s", ErrGraphsSubject, sym.Kind.Phrase(), source.QualifiedNameOf(symbols.NameChain(owner)))
+	}
+	return fmt.Errorf("%w for the unnamed %s", ErrGraphsSubject, sym.Kind.Phrase())
+}
+
+// namedOwner is the nearest owner of sym that has a name, nil when none does.
+func namedOwner(sym *symbols.Symbol) *symbols.Symbol {
+	for scope := sym.OwnerScope; scope != nil && scope.Owner() != nil; scope = scope.Owner().OwnerScope {
+		if scope.Owner().Named() {
+			return scope.Owner()
+		}
+	}
+	return nil
 }
 
 // lowerPerformed exports a behavior the subject performs. A lowering the runtime

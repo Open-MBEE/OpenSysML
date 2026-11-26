@@ -98,6 +98,19 @@ func TestExportGraphsRefusals(t *testing.T) {
 	}
 }
 
+// An unnamed subject is asked for by its positional id, which only the request
+// carries, so the refusal keeps it.
+func TestExportGraphsRefusalKeepsAnUnnamedSubjectsID(t *testing.T) {
+	srv := mustNewService(t, 10)
+	t.Cleanup(srv.Close)
+	parsed, _ := parseContent(t, srv, "package P { part def A { part : A; } }")
+	_, err := srv.ExportGraphs(context.Background(), &pb.ExportGraphsRequest{ModelHash: parsed.ModelHash, Subject: "P::A::@0"})
+	want := "invalid_argument: P::A::@0: no lowered graph for the unnamed part usage of P::A: the subject must be an action or a state machine"
+	if err == nil || err.Error() != want {
+		t.Fatalf("error = %v, want %s", err, want)
+	}
+}
+
 // A name the model declares twice denotes no one behavior, so neither graph
 // is exported for it; a name of the model's shadows the library's.
 func TestExportGraphsRefusesAnAmbiguousSubject(t *testing.T) {
