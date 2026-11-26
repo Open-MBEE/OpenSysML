@@ -228,10 +228,11 @@ func (c *client) RunAnalysis(
 	if err := refuseExploring("RunAnalysis", "ExploreAnalysis", options.schedule); err != nil {
 		return nil, err
 	}
-	hash, err := c.call(model)
+	hash, done, err := c.call(model)
 	if err != nil {
 		return nil, err
 	}
+	defer done()
 	resp, err := c.analysisRequest(ctx, hash, symbolID, &options, func() error {
 		return c.requireSchedule(ctx, options.schedule)
 	})

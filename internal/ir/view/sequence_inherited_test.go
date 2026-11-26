@@ -2,6 +2,7 @@ package view
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -456,6 +457,83 @@ func TestSequenceRenderingDrawsAnActionsInheritedEventOnTheUsage(t *testing.T) {
 	}
 }
 
+// A private event is not inherited (KerML 8.3.3.1 inheritableMemberships), so an
+// order from one, named or not, stays on the definition and off the lifelines typed by it.
+func TestSequenceRenderingKeepsAPrivateEventOffTheLifelinesSpecializingItsOwner(t *testing.T) {
+	for name, private := range map[string]string{
+		"unnamed": "private event occurrence;\n\t\tthen event occurrence got;",
+		"named":   "private event occurrence hidden;\n\t\tevent occurrence got;\n\t\tsuccession first hidden then got;",
+	} {
+		t.Run(name, func(t *testing.T) {
+			rendering := renderSequenceOf(t, `package P {
+	item def Ping;
+	part def Client {
+		`+private+`
+	}
+	part def Scene {
+		part server {
+			event occurrence a;
+		}
+		part client : Client;
+		message reply of Ping from server.a to client.got;
+	}
+}`, "Client", "Scene")
+			got := sequenceEnds(rendering)
+			if !slices.Contains(got, "reply of Ping: server.a -> client.got") {
+				t.Errorf("edges = %q, want the message on the client lifeline", got)
+			}
+			for _, edge := range got {
+				if strings.HasPrefix(edge, ": client.") {
+					t.Errorf("edges = %q, want no order from the private event on the client lifeline", got)
+				}
+			}
+			if proxies := len(lifelineNamed(t, rendering, "client").Children); proxies != 1 {
+				t.Errorf("client lifeline holds %d events, want got alone; edges %q", proxies, got)
+			}
+		})
+	}
+}
+
+// lifelineNamed is the lifeline of a sequence with the given name.
+func lifelineNamed(t *testing.T, rendering *Rendering, name string) *Node {
+	t.Helper()
+	for _, root := range rendering.Roots {
+		if root.Name == name {
+			return root
+		}
+	}
+	t.Fatalf("no lifeline %q among %d", name, len(rendering.Roots))
+	return nil
+}
+
+// An inherited chain of `then` through a private event still orders the messages
+// at its ends, though neither the event nor the links at it are drawn on the lifeline.
+func TestSequenceRenderingOrdersMessagesThroughAPrivateEventItDoesNotDraw(t *testing.T) {
+	rendering := renderSequenceOf(t, `package P {
+	item def Ping;
+	part def Client {
+		event occurrence sent;
+		then private event occurrence;
+		then event occurrence got;
+	}
+	part def Scene {
+		part server {
+			event occurrence a;
+			event occurrence b;
+		}
+		part client : Client;
+		message reply of Ping from server.a to client.got;
+		message ask of Ping from client.sent to server.b;
+	}
+}`, "Client", "Scene")
+	if got := messageLabels(rendering); !slices.Equal(got, []string{"ask of Ping", "reply of Ping"}) {
+		t.Errorf("messages = %v, want ask before reply through the private event; edges %q", got, sequenceEnds(rendering))
+	}
+	if proxies := len(lifelineNamed(t, rendering, "client").Children); proxies != 2 {
+		t.Errorf("client lifeline holds %d events, want sent and got; edges %q", proxies, sequenceEnds(rendering))
+	}
+}
+
 // An order a usage states between events it holds only by reference subsetting is
 // read on a lifeline specializing both that usage and the one referenced.
 func TestSequenceRenderingReadsAnOrderOverEventsHeldByReferenceSubsetting(t *testing.T) {
@@ -512,5 +590,55 @@ func TestSequenceRenderingKeepsAReferencingUsagesOrderOffTheUsageReferenced(t *t
 	}
 	if got := sequenceEnds(rendering); !slices.Equal(got, want) {
 		t.Errorf("got %q\nwant %q", got, want)
+	}
+}
+
+// A public alias is a membership of its own, inherited whatever the visibility of the
+// event it names, so a message naming a private event through one ends on the lifeline.
+func TestSequenceRenderingDrawsAPrivateEventNamedThroughAnInheritedAlias(t *testing.T) {
+	rendering := renderSequenceOf(t, `package P {
+	item def Ping;
+	part def Client {
+		private event occurrence hidden;
+		public alias shown for hidden;
+	}
+	part def Scene {
+		part server {
+			event occurrence a;
+		}
+		part client : Client;
+		message reply of Ping from server.a to client.shown;
+	}
+}`, "Client", "Scene")
+	if got := sequenceEnds(rendering); !slices.Contains(got, "reply of Ping: server.a -> client.hidden") {
+		t.Errorf("edges = %q, want the message to end on the client lifeline", got)
+	}
+}
+
+// A private alias is no more inherited than the private event it names, so the
+// order from that event stays off the lifeline.
+func TestSequenceRenderingKeepsAPrivateEventWithAPrivateAliasOffTheLifeline(t *testing.T) {
+	rendering := renderSequenceOf(t, `package P {
+	item def Ping;
+	part def Client {
+		private event occurrence hidden;
+		private alias shown for hidden;
+		event occurrence got;
+		succession first hidden then got;
+	}
+	part def Scene {
+		part server {
+			event occurrence a;
+		}
+		part client : Client;
+		message reply of Ping from server.a to client.got;
+	}
+}`, "Client", "Scene")
+	got := sequenceEnds(rendering)
+	if slices.Contains(got, ": client.hidden -> client.got") {
+		t.Errorf("edges = %q, want no order from the private event on the client lifeline", got)
+	}
+	if proxies := len(lifelineNamed(t, rendering, "client").Children); proxies != 1 {
+		t.Errorf("client lifeline holds %d events, want got alone; edges %q", proxies, got)
 	}
 }

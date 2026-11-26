@@ -429,7 +429,7 @@ var abortGrace = 50 * time.Millisecond
 // complete answers a completion request.
 func (k *Kernel) complete(sock zmq4.Socket, req Message) {
 	code := req.string("code")
-	cursor := req.int("cursor_pos", len([]rune(code)))
+	cursor := req.cursor(code)
 	c := k.engine.Complete(code, cursor)
 	matches := c.Matches
 	if matches == nil {
@@ -447,7 +447,7 @@ func (k *Kernel) complete(sock zmq4.Socket, req Message) {
 // inspect answers an inspection request.
 func (k *Kernel) inspect(sock zmq4.Socket, req Message) {
 	code := req.string("code")
-	cursor := req.int("cursor_pos", len([]rune(code)))
+	cursor := req.cursor(code)
 	in := k.engine.Inspect(code, cursor, req.int("detail_level", 0))
 	data := in.Data
 	if data == nil {

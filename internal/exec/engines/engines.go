@@ -3,6 +3,8 @@
 package engines
 
 import (
+	"errors"
+
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/smt"
 )
@@ -12,7 +14,7 @@ import (
 // tool:fmi whether or not OPENSYSML_FMI_RUNNER names a runner.
 func Default() *analysis.Registry {
 	r := analysis.Default()
-	register(r)
+	_ = register(r) // the framework's registry holds neither name, so neither is refused
 	return r
 }
 
@@ -35,12 +37,8 @@ func DefaultFromEnv(workspaces ...string) (*analysis.Registry, error) {
 	return r, nil
 }
 
-// register adds the engines of other packages; their names are distinct constants
-// none of the framework's own carries, so no registration of a built-in can be
-// refused — a manifest engine's can, and is a DuplicateEngineError at DefaultFromEnv.
-func register(r *analysis.Registry) {
-	if err := r.Register(smt.New(nil)); err != nil {
-		panic(err)
-	}
-	registerFMI(r)
+// register adds the engines of other packages. A registry that already holds one of
+// their names keeps its own engine and the refusal is the DuplicateEngineError returned.
+func register(r *analysis.Registry) error {
+	return errors.Join(r.Register(smt.New(nil)), registerFMI(r))
 }

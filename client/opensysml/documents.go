@@ -314,10 +314,11 @@ func (c *client) RunInlineDocumentQueryAsView(
 
 // runDocumentQuery sends req, naming or spelling the query, with bindings bound.
 func (c *client) runDocumentQuery(ctx context.Context, model *Model, req *pb.RunDocumentQueryRequest, bindings []Binding) (*Rows, error) {
-	hash, err := c.call(model)
+	hash, done, err := c.call(model)
 	if err != nil {
 		return nil, err
 	}
+	defer done()
 	req.ModelHash = hash
 	for _, binding := range bindings {
 		bound := &pb.DocumentQueryBinding{Parameter: binding.Parameter}
@@ -408,10 +409,11 @@ func WithDocumentForm(form string) RenderDocumentOption {
 }
 
 func (c *client) RenderDocument(ctx context.Context, model *Model, documentID string, opts ...RenderDocumentOption) (string, error) {
-	hash, err := c.call(model)
+	hash, done, err := c.call(model)
 	if err != nil {
 		return "", err
 	}
+	defer done()
 	var options renderDocumentOptions
 	for _, opt := range opts {
 		opt(&options)
