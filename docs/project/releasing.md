@@ -292,8 +292,12 @@ branch that moves the integration state onto `main`:
    that `npm install` then rewrites — so run that on the `hotfix/pin-vx.y.z`
    branch (and in `packaging/npm/sysml-mcp`, whose lockfile pins the runner's
    platform packages the same way) once the packages answer on npm, and
-   commit both lockfiles. The `develop` one is cut from a tree that still
-   declares the previous version, so there is nothing to lock there. Then merge
+   commit both lockfiles. The `develop` one needs the same commit whenever
+   `develop` already declares the released version — it does when the version
+   bump was merged there before the release branch was cut — because its
+   `VS Code extension` job then fails on the same rewritten lockfile; while
+   `develop` still declares the previous version there is nothing to lock
+   there. Then merge
    `main` back into `develop` — a plain merge, no rebase — so the folded
    changelog, the pin and the lockfiles, and any hotfix that landed on `main`
    in the meantime, flow down.
