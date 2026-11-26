@@ -138,24 +138,84 @@ printf '%s  opensysml-%s.tar.gz\n' "$(printf '1%.0s' $(seq 64))" "$host" >>"$wor
 mkdir -p "$work/site/mirror/latest"
 cp -R "$work/site/releases/download/$good" "$work/site/mirror/latest/download"
 
+# A release tree whose latest release, v8.3.0, is published but has no assets yet.
+# The releases list is in GitHub's shape and out of order; the newest earlier
+# release with a manifest is v8.1.0: v8.2.0 has no assets either, v8.2.0-rc.1 and
+# nightly are pre-releases, v8.2.1 is flagged a pre-release, and v8.0.10 is older.
+pending_dir="$work/site/pending/releases"
+mkdir -p "$pending_dir/download"
+release v8.1.0 8.1.0
+mv "$work/site/releases/download/v8.1.0" "$pending_dir/download/v8.1.0"
+for tag in v8.0.10 v8.2.0-rc.1 v8.2.1 nightly; do
+	mkdir -p "$pending_dir/download/$tag"
+	cp "$pending_dir/download/v8.1.0/SHA256SUMS.txt" "$pending_dir/download/$tag/SHA256SUMS.txt"
+done
+# releases_list <file> <tags...>: a releases API answer listing the tags in order;
+# a tag written <tag>+pre is flagged a pre-release.
+releases_list() {
+	local file=$1 tag pre sep=""
+	shift
+	{
+		printf '[\n'
+		for tag in "$@"; do
+			pre=false
+			[[ "$tag" != *+pre ]] || { pre=true && tag=${tag%+pre}; }
+			printf '%s  {\n    "url": "https://api.example/releases/1",\n    "tag_name": "%s",\n    "name": "%s",\n    "draft": false,\n    "prerelease": %s,\n    "assets": [],\n    "body": "notes, with \\"tag_name\\": \\"v8.2.5\\" quoted in them"\n  }' "$sep" "$tag" "$tag" "$pre"
+			sep=$',\n'
+		done
+		printf '\n]\n'
+	} >"$file"
+}
+releases_list "$pending_dir/list.json" nightly+pre v8.3.0 v8.0.10 v8.2.0-rc.1+pre v8.2.1+pre v8.2.0 v8.1.0 v8.10.0
+releases_list "$pending_dir/list-none.json" v8.3.0 v8.2.0
+printf '{"message":"Not Found","status":"404"}\n' >"$pending_dir/list-object.json"
+# The same tree with a v8.2.2 whose manifest the server fails on, and one whose
+# latest release has assets but whose manifest the server fails on.
+releases_list "$pending_dir/list-failing.json" v8.3.0 v8.2.2 v8.1.0
+printf '[1,"a",null]\n' >"$pending_dir/list-scalars.json"
+# A v8.2.3 and a latest release whose manifests the server cuts off half way after a 200.
+releases_list "$pending_dir/list-cut.json" v8.3.0 v8.2.3 v8.1.0
+mkdir -p "$work/site/cut/releases/download"
+cp -R "$pending_dir/download/v8.1.0" "$work/site/cut/releases/download/v8.3.0"
+mkdir -p "$work/site/failing/releases/download"
+cp -R "$pending_dir/download/v8.1.0" "$work/site/failing/releases/download/v8.3.0"
+
 # --- the server: GitHub's /releases/latest redirect over a static tree --------
 
 cat >"$work/server.py" <<'PY'
 import functools, http.server, sys
 site, tag = sys.argv[1], sys.argv[2]
+latest = {"/releases": tag, "/pending/releases": "v8.3.0", "/failing/releases": "v8.3.0", "/cut/releases": "v8.3.0"}
+cut = ("/cut/releases/download/v8.3.0/SHA256SUMS.txt", "/pending/releases/download/v8.2.3/SHA256SUMS.txt")
+failing = ("/failing/releases/download/v8.3.0/SHA256SUMS.txt", "/pending/releases/download/v8.2.2/SHA256SUMS.txt")
 
 class Handler(http.server.SimpleHTTPRequestHandler):
     def redirect(self):
-        if self.path == "/releases/latest":
-            self.send_response(302)
-            self.send_header("Location", "/releases/tag/" + tag)
-            self.end_headers()
-            return True
-        if self.path == "/releases/tag/" + tag:
-            self.send_response(200)
+        if self.path in failing:
+            self.send_response(500)
             self.send_header("Content-Length", "0")
             self.end_headers()
             return True
+        if self.path in cut:
+            with open(site + "/cut/releases/download/v8.3.0/SHA256SUMS.txt", "rb") as manifest:
+                body = manifest.read()
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body[: len(body) // 2])
+            self.close_connection = True
+            return True
+        for releases, tag in latest.items():
+            if self.path == releases + "/latest":
+                self.send_response(302)
+                self.send_header("Location", releases + "/tag/" + tag)
+                self.end_headers()
+                return True
+            if self.path == releases + "/tag/" + tag:
+                self.send_response(200)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return True
         return False
 
     def do_HEAD(self):
@@ -180,6 +240,9 @@ done
 [[ -s "$work/port" ]] || { echo "install-test: the release server did not start" >&2; exit 1; }
 base="http://127.0.0.1:$(cat "$work/port")/releases"
 mirror="http://127.0.0.1:$(cat "$work/port")/mirror"
+pending="http://127.0.0.1:$(cat "$work/port")/pending/releases"
+failing="http://127.0.0.1:$(cat "$work/port")/failing/releases"
+cut="http://127.0.0.1:$(cat "$work/port")/cut/releases"
 
 # --- the cases ---------------------------------------------------------------
 
@@ -368,6 +431,58 @@ if ok "latest from a mirror without the redirect" --base-url "$mirror" --prefix 
 	installed bin/sysml bin/sysml-lsp
 fi
 
+# A release is latest before its assets are uploaded: the newest earlier stable
+# release that has a manifest is installed instead, and verified against it.
+if OPENSYSML_RELEASES_API="$pending/list.json" ok "latest without assets yet" --base-url "$pending" --prefix @P@; then
+	said "warning: v8.3.0 is the latest release, but its assets are not uploaded yet; installing v8.1.0, the newest release that has them."
+	said "Installing OpenSysML (v8.1.0)"
+	said "$pending/download/v8.1.0/opensysml-$host.tar.gz"
+	said "opensysml-$host.tar.gz verified"
+	said "sysml v8.1.0"
+	installed bin/sysml bin/sysml-lsp
+fi
+if OPENSYSML_RELEASES_API="$pending/list.json" ok "dry run of latest without assets yet" --base-url "$pending" --dry-run --prefix @P@; then
+	said "Installing OpenSysML (v8.1.0)"
+	said "from:     $pending/download/v8.1.0/opensysml-$host.tar.gz"
+	absent bin
+fi
+OPENSYSML_RELEASES_API="$pending/list-none.json" fails "latest without assets and no earlier release with them" \
+	"v8.3.0 is the latest release, but its assets are not uploaded yet ($pending/download/v8.3.0/SHA256SUMS.txt is missing) and no earlier release has a SHA256SUMS.txt" \
+	--base-url "$pending" --prefix @P@
+OPENSYSML_RELEASES_API="$pending/missing.json" fails "latest without assets and an unreachable releases list" \
+	"the earlier releases could not be listed from $pending/missing.json; pass --version <tag>" --base-url "$pending" --prefix @P@
+OPENSYSML_RELEASES_API="$pending/list-object.json" fails "latest without assets and a releases answer that is not a list" \
+	"the earlier releases could not be listed from $pending/list-object.json; pass --version <tag>" --base-url "$pending" --prefix @P@
+OPENSYSML_RELEASES_API="$pending/list-scalars.json" fails "latest without assets and a releases list of things that are not releases" \
+	"and no earlier release has a SHA256SUMS.txt" --base-url "$pending" --prefix @P@
+# A manifest that broke off is never read, whichever release it belongs to.
+if OPENSYSML_RELEASES_API="$pending/list.json" fails "latest whose manifest is cut off" \
+	"could not download $cut/download/v8.3.0/SHA256SUMS.txt" --base-url "$cut" --prefix @P@; then
+	unsaid "not uploaded yet"
+	absent bin
+fi
+if OPENSYSML_RELEASES_API="$pending/list-cut.json" fails "latest without assets and an earlier manifest that is cut off" \
+	"$pending/download/v8.2.3/SHA256SUMS.txt could not be downloaded" --base-url "$pending" --prefix @P@; then
+	unsaid "installing v8.1.0"
+	absent bin
+fi
+# Only a manifest that is not there is a release without assets: a server error is a failure.
+if OPENSYSML_RELEASES_API="$pending/list.json" fails "latest whose manifest the server fails on" \
+	"could not download $failing/download/v8.3.0/SHA256SUMS.txt" --base-url "$failing" --prefix @P@; then
+	unsaid "not uploaded yet"
+	absent bin
+fi
+if OPENSYSML_RELEASES_API="$pending/list-failing.json" fails "latest without assets and an earlier manifest the server fails on" \
+	"$pending/download/v8.2.2/SHA256SUMS.txt could not be downloaded" --base-url "$pending" --prefix @P@; then
+	unsaid "installing v8.1.0"
+	absent bin
+fi
+fails "latest without assets on a mirror that lists no releases" \
+	"the earlier releases could not be listed; pass --version <tag>" --base-url "$pending" --prefix @P@
+# Asking for the release by name is not a request for whatever is installable.
+OPENSYSML_RELEASES_API="$pending/list.json" fails "a named release without assets" \
+	"could not download $pending/download/v8.3.0/SHA256SUMS.txt" --base-url "$pending" --version v8.3.0 --prefix @P@
+
 if ok "nightly" --version nightly --prefix @P@; then
 	said "Installing OpenSysML (the nightly snapshot)"
 	said "sysml ${good}-5-gabcdef0"
@@ -495,6 +610,33 @@ else
 	echo "skip wget without curl: wget or sha256sum not on PATH"
 fi
 
+# The fallback reads the server's status from wget too: 404 is a release without
+# assets, a server error is a failure.
+if command -v wget >/dev/null 2>&1 && shim_path=$(shim "${essentials[@]}" sort wget sha256sum); then
+	n=$((n + 1)) && prefix="$work/install-$n"
+	set +e
+	out=$(PATH="$shim_path" OPENSYSML_RELEASES_API="$pending/list.json" sh "$root/install.sh" --base-url "$pending" --prefix "$prefix" 2>&1)
+	status=$?
+	set -e
+	if [[ "$status" -eq 0 ]]; then
+		echo "ok   wget without curl, latest without assets yet" && said "Installing OpenSysML (v8.1.0)" && installed bin/sysml
+	else
+		echo "FAIL wget without curl, latest without assets yet: exit $status" >&2 && printf '%s\n' "$out" >&2 && failures=$((failures + 1))
+	fi
+	n=$((n + 1)) && prefix="$work/install-$n"
+	set +e
+	out=$(PATH="$shim_path" OPENSYSML_RELEASES_API="$pending/list.json" sh "$root/install.sh" --base-url "$failing" --prefix "$prefix" 2>&1)
+	status=$?
+	set -e
+	if [[ "$status" -ne 0 ]] && [[ "$out" == *"could not download $failing/download/v8.3.0/SHA256SUMS.txt"* ]]; then
+		echo "ok   wget without curl, latest whose manifest the server fails on" && unsaid "not uploaded yet" && absent bin
+	else
+		echo "FAIL wget without curl, latest whose manifest the server fails on: exit $status" >&2 && printf '%s\n' "$out" >&2 && failures=$((failures + 1))
+	fi
+else
+	echo "skip wget without curl, latest without assets yet: wget or sha256sum not on PATH"
+fi
+
 if shim_path=$(shim "${essentials[@]}" curl sha256sum); then
 	n=$((n + 1)) && prefix="$work/install-$n"
 	set +e
@@ -541,7 +683,7 @@ else
 fi
 
 if command -v pwsh >/dev/null 2>&1; then
-	pwsh -NoProfile -File "$root/scripts/install-test.ps1" -Script "$root/install.ps1" -BaseUrl "$base" -MirrorUrl "$mirror" \
+	pwsh -NoProfile -File "$root/scripts/install-test.ps1" -Script "$root/install.ps1" -BaseUrl "$base" -MirrorUrl "$mirror" -PendingUrl "$pending" -FailingUrl "$failing" -CutUrl "$cut" \
 		-HostPlatform "$host" -Good "$good" -Signed "$signed" -Tampered "$tampered" -Unlisted "$unlisted" -NoKernel "$nokernel" -NoGrpc "$nogrpc" \
 		-Repeated "$repeated" -Conflicting "$conflicting" ||
 		failures=$((failures + 1))
