@@ -82,6 +82,7 @@ func TestAdvanceReadsATrailingSecondsUnit(t *testing.T) {
 	run(t, s, "%state SM::dev")
 	for _, step := range []struct{ line, now string }{
 		{"%advance 1s", "1.0"}, {"%advance 1 s", "2.0"}, {"%advance 1[s]", "3.0"}, {"%advance 1 [s]", "4.0"},
+		{"%advance 1 [SI::s]", "5.0"}, {"%advance 1[SI::s]", "6.0"},
 	} {
 		wants(t, run(t, s, step.line), "simulation time is now "+step.now)
 	}

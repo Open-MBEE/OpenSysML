@@ -4081,10 +4081,11 @@ func currentStateName(exec *runtime.StateExecutor) string {
 }
 
 // parseDuration reads the argument of %advance: a number of time units, with
-// an optional trailing "s" or "[s]".
+// an optional trailing "s", "[s]" or "[SI::s]", the clock's unit as a model
+// writes it.
 func parseDuration(arg string) (float64, error) {
 	text := strings.TrimSpace(arg)
-	for _, unit := range []string{"[s]", "s"} {
+	for _, unit := range []string{"[SI::s]", "[s]", "s"} {
 		if number, ok := strings.CutSuffix(text, unit); ok {
 			text = strings.TrimSpace(number)
 			break
