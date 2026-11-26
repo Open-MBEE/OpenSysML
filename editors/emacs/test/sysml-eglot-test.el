@@ -22,6 +22,10 @@
 
 ;;;; Server resolution
 
+(defvar tramp-methods)
+(defvar tramp-default-host-alist)
+(declare-function tramp-cleanup-all-connections "tramp-cmds")
+
 (defmacro sysml-eglot-test--with-project-build (root exe &rest body)
   "Run BODY with ROOT bound to a fresh project and EXE to its `bin/sysml-lsp'."
   (declare (indent 2))
@@ -50,6 +54,47 @@
 (ert-deftest sysml-eglot-refuses-a-configured-path-that-is-not-executable ()
   (let ((sysml-lsp-server-path "/nonexistent/sysml-lsp"))
     (should-error (sysml-eglot--server-command) :type 'user-error)))
+
+(ert-deftest sysml-eglot-leaves-a-missing-server-to-the-prompt-when-interactive ()
+  (let* ((empty (file-name-as-directory (make-temp-file "empty" t)))
+         (sysml-lsp-server-path nil)
+         (sysml-lsp-server-args '("-strict"))
+         (exec-path nil))
+    (unwind-protect
+        (progn
+          (should (equal (sysml-eglot--server-command t (cons 'transient empty))
+                         '("sysml-lsp" "-strict")))
+          (should-error (sysml-eglot--server-command nil (cons 'transient empty))
+                        :type 'user-error))
+      (delete-directory empty t))))
+
+(ert-deftest sysml-eglot-names-a-remote-build-as-its-host-does ()
+  (skip-unless (not (eq system-type 'windows-nt)))
+  (require 'tramp)
+  ;; A TRAMP method that reaches this machine through a local shell.
+  (add-to-list 'tramp-methods
+               '("sysmlmock"
+                 (tramp-login-program "sh")
+                 (tramp-login-args (("-i")))
+                 (tramp-remote-shell "/bin/sh")
+                 (tramp-remote-shell-args ("-c"))
+                 (tramp-connection-timeout 10)))
+  (let* ((tramp-default-host-alist `(("\\`sysmlmock\\'" nil ,(system-name))))
+         (root (file-name-as-directory
+                (make-temp-file (concat "/sysmlmock::" temporary-file-directory "proj") t)))
+         (exe (expand-file-name "bin/sysml-lsp" root))
+         (sysml-lsp-server-path nil)
+         (sysml-lsp-server-args nil))
+    (unwind-protect
+        (progn
+          (should (file-remote-p exe))
+          (make-directory (file-name-directory exe))
+          (write-region "" nil exe)
+          (set-file-modes exe #o755)
+          (should (equal (sysml-eglot--server-command nil (cons 'transient root))
+                         (list (file-local-name exe)))))
+      (delete-directory root t)
+      (tramp-cleanup-all-connections))))
 
 (ert-deftest sysml-eglot-finds-the-project-build ()
   (sysml-eglot-test--with-project-build root exe

@@ -429,7 +429,8 @@ ROOT is the project root to look for a build in, or nil."
    ((when-let* ((candidate (and root (expand-file-name
                                       (concat "bin/" sysml--server-executable) root))))
       (and (file-executable-p candidate) candidate)))
-   (t (executable-find sysml--server-executable))))
+   ;; On the host of `default-directory', which is where the server is started.
+   (t (executable-find sysml--server-executable t))))
 
 (defun sysml--server-command (root)
   "Return the command to start the language server with.
