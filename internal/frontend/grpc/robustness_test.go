@@ -306,6 +306,35 @@ func TestGRPCObjectBindingRobustness(t *testing.T) {
 		expect(t, run(objectByPath("Garage::Car")), connect.CodeNotFound, "binding root", `no instance of "Garage::Car"`)
 	})
 
+	t.Run("unknown_member_of_package_in_definition", func(t *testing.T) {
+		nested := mustNewService(t, 10)
+		parsed, err := nested.ParseFile(context.Background(), &pb.ParseFileRequest{Source: &pb.ParseFileRequest_Content{Content: `package Garage {
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+	part def Car {
+		package Kit {
+			part jack;
+		}
+	}
+	part car : Car;
+	part spare;
+	calc def Parts :> Query {
+		in root : Element;
+		Descendants(source = root, maxDepth = 1)
+	}
+}`}})
+		if err != nil {
+			t.Fatalf("ParseFile: %v", err)
+		}
+		// An unrelated held object must not turn the answer into a missing instance.
+		holdObject(t, nested, parsed.ModelHash, "Garage::spare")
+		_, err = nested.RunDocumentQuery(context.Background(), &pb.RunDocumentQueryRequest{
+			ModelHash: parsed.ModelHash, QueryId: "Garage::Parts",
+			Bindings: []*pb.DocumentQueryBinding{binding("root", objectByPath("Garage::Car::Kit::nowhere"))},
+		})
+		expect(t, err, connect.CodeNotFound, "binding root", "symbol not found: Garage::Car::Kit::nowhere")
+	})
+
 	t.Run("path_reaches_no_object", func(t *testing.T) {
 		expect(t, run(objectByPath("car.wheels")), connect.CodeInvalidArgument, "binding root", "wheels of Garage::car holds 2 objects", "wheels[1] to wheels[2]")
 		expect(t, run(objectByPath("car.wheels[3]")), connect.CodeInvalidArgument, "binding root", "wheels[3] names none")

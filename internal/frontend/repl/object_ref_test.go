@@ -214,6 +214,31 @@ func TestUnknownPackageMemberIsUnresolved(t *testing.T) {
 	}
 }
 
+// The same holds for a package a definition owns: its unknown member is
+// unresolved whether or not the definition has an object.
+func TestUnknownMemberOfPackageInDefinitionIsUnresolved(t *testing.T) {
+	s := submitted(t, `package Garage {
+	part def Car {
+		package Kit {
+			part jack;
+		}
+		part engine;
+	}
+	part car : Car;
+}`)
+	unresolved := func() {
+		t.Helper()
+		wants(t, run(t, s, "%validate Garage::Car::Kit::Nope"), "error: unresolved reference: Garage::Car::Kit::Nope")
+		wants(t, run(t, s, "%validate Garage::Car::Kit::Nope.x"), "error: unresolved reference: Garage::Car::Kit::Nope")
+	}
+	unresolved()
+	wants(t, run(t, s, "%validate Garage::Car::Kit::jack"), `error: no instance of "Garage::Car::Kit::jack"`)
+	run(t, s, "%instantiate car")
+	unresolved()
+	run(t, s, "%instantiate Garage::Car")
+	unresolved()
+}
+
 // A multi-valued feature is walked by a 1-based index; leaving the index out, or
 // giving one that names no element, says how many there are.
 func TestMultiValuedFeatureNeedsIndex(t *testing.T) {

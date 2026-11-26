@@ -359,7 +359,10 @@ func (h *heldObjects) namedRoot(ref objref.Ref) (*runtime.Instance, string, []ob
 				ref.Text, shown, objref.NamespaceKind(sym), shown, ref.Segments[head].Text)
 		}
 		// A namespace short of the whole name only encloses what failed to resolve.
-		if noInstance == "" && (i == head || !objref.IsNamespace(sym)) {
+		if i < head && objref.IsNamespace(sym) {
+			break
+		}
+		if noInstance == "" {
 			noInstance = fqn
 		}
 	}
