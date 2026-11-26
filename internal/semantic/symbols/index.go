@@ -817,8 +817,10 @@ func (idx *Index) resolveImportTarget(pkgFQN, targetText string, following []*as
 // membershipImportTargetAt resolves targetText through an `import A::B;` the
 // namespace registered under pkgFQN states for its first segment, and reports
 // whether one that resolves does; the answer is "" when it holds no such target.
+// Imports of distinct namespaces under that name hide each other and bind nothing.
 func (idx *Index) membershipImportTargetAt(pkgFQN, targetText string, following []*ast.Import) (string, bool) {
 	first, rest, _ := strings.Cut(targetText, "::")
+	var target string
 	idx.readName(pkgFQN)
 	reexported := idx.reexported.at(pkgFQN)
 	for _, sym := range idx.fqn.at(pkgFQN) {
@@ -835,17 +837,23 @@ func (idx *Index) membershipImportTargetAt(pkgFQN, targetText string, following 
 				from = ""
 			}
 			fqn := idx.resolveImportTarget(from, imp.Imported.Text(), append(following, imp))
-			if fqn == "" {
+			if fqn == "" || fqn == target {
 				continue
 			}
-			if rest != "" {
-				idx.readName(fqn + "::" + rest)
-				fqn, _ = idx.wildcardTargetAt(fqn + "::" + rest)
+			if target != "" {
+				return "", false
 			}
-			return fqn, true
+			target = fqn
 		}
 	}
-	return "", false
+	if target == "" {
+		return "", false
+	}
+	if rest != "" {
+		idx.readName(target + "::" + rest)
+		target, _ = idx.wildcardTargetAt(target + "::" + rest)
+	}
+	return target, true
 }
 
 // wildcardTargetAt reports the FQN a wildcard import reads its members from

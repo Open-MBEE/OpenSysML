@@ -7,7 +7,8 @@ import "testing"
 // out, whose members it must not surface as well (KerML 8.2.3.5.4).
 func TestWildcardImportTargetFollowsAMembershipImport(t *testing.T) {
 	const q = "package Q { package X { part def B; package Y { part def C; } } }"
-	idx := buildIndex(t, map[string]string{"q.sysml": q, "p.sysml": `
+	const r = "package R { package X { part def E; } }"
+	idx := buildIndex(t, map[string]string{"q.sysml": q, "r.sysml": r, "p.sysml": `
 		package P {
 			package X { part def A; package Y { part def D; } }
 			package K { private import Q::X; package N { public import X::*; } }
@@ -16,6 +17,8 @@ func TestWildcardImportTargetFollowsAMembershipImport(t *testing.T) {
 			package Rooted { private import $::Q::X; package RootedIn { public import X::*; } }
 			package Self { private import X::X; public import X::*; }
 			package Missing { private import Q::Absent::X; public import X::*; }
+			package Hidden { private import Q::X; private import R::X; package HiddenIn { public import X::*; } }
+			package Twice { private import Q::X; private import $::Q::X; package TwiceIn { public import X::*; } }
 			package None { package NoneIn { public import X::*; } }
 		}`})
 
@@ -30,6 +33,11 @@ func TestWildcardImportTargetFollowsAMembershipImport(t *testing.T) {
 		"P::Rooted::RootedIn::A": 0,
 		"P::Self::A":             1,
 		"P::Missing::A":          1,
+		"P::Hidden::HiddenIn::A": 1,
+		"P::Hidden::HiddenIn::B": 0,
+		"P::Hidden::HiddenIn::E": 0,
+		"P::Twice::TwiceIn::B":   1,
+		"P::Twice::TwiceIn::A":   0,
 		"P::None::NoneIn::A":     1,
 		"P::None::NoneIn::B":     0,
 	} {
