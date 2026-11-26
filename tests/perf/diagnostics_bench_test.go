@@ -34,3 +34,32 @@ func BenchmarkAnalyzeManyDiagnostics(b *testing.B) {
 		})
 	}
 }
+
+// Analysis of a ring of packages that each import the next one's unresolved T by
+// name and its members by wildcard, the one after privately (repeat times), and
+// the third from a nested package: every lookup of T goes round the ring.
+func BenchmarkAnalyzeImportRing(b *testing.B) {
+	for _, c := range []struct{ ring, repeat int }{{5, 12}, {6, 1}, {6, 12}} {
+		var src strings.Builder
+		for i := 0; i < c.ring; i++ {
+			fmt.Fprintf(&src, "package C%d { public import C%d::T; public import C%d::*;", i, (i+1)%c.ring, (i+1)%c.ring)
+			for j := 0; j < c.repeat; j++ {
+				fmt.Fprintf(&src, " private import C%d;", (i+2)%c.ring)
+			}
+			fmt.Fprintf(&src, " package In { public import C%d::*; } }\n", (i+3)%c.ring)
+		}
+		fmt.Fprintf(&src, "package C%d { part def T; }\npackage U { private import C0::*; part u : T; }\n", c.ring)
+		root := parser.New(source.New("m.sysml", []byte(src.String()))).ParseFile()
+		b.Run(fmt.Sprintf("ring=%d/repeat=%d", c.ring, c.repeat), func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				idx := libs.NewModelIndex()
+				idx.AddDocument("m.sysml", root)
+				idx.ExpandWildcardImports()
+				if diags := passes.Analyze("m.sysml", root, nil, idx); len(diags) < c.ring {
+					b.Fatalf("%d diagnostics, want at least %d", len(diags), c.ring)
+				}
+			}
+		})
+	}
+}

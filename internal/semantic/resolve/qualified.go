@@ -49,8 +49,7 @@ func (r *Resolver) walkQualified(scope *symbols.Scope, qn *ast.QualifiedName, hi
 		cur = r.lookupInRoot(scope, first)
 	} else {
 		// Use import-aware lookup for first segment of multi-part names
-		res := r.walkUnqualifiedHiding(scope, first, hide.forLeadingSegment())
-		cur = res.sym
+		cur = r.leadingSegment(scope, qn, hide)
 	}
 	if cur == nil {
 		cur = r.lookupGlobalTop(scope, first)
@@ -62,6 +61,25 @@ func (r *Resolver) walkQualified(scope *symbols.Scope, qn *ast.QualifiedName, hi
 	cur = r.resolvedPart(qn, 0, cur)
 
 	return r.walkQualifiedTail(scope, qn, cur, 1, hide)
+}
+
+// leadingSegment resolves the first segment of qn, a name of several segments,
+// from scope; that of an import's own target is memoized (importLeads).
+func (r *Resolver) leadingSegment(scope *symbols.Scope, qn *ast.QualifiedName, hide *refFilter) *symbols.Symbol {
+	imp := r.leadOf
+	// An import's target is read with nothing hidden but what it names itself.
+	plain := hide == nil || *hide == refFilter{namingTarget: qn}
+	remember := imp != nil && imp.Imported == qn && plain && r.inCondition == 0
+	if lead, done := r.importLeads[imp]; done && remember {
+		r.Depend(lead.DocName)
+		return lead
+	}
+	res := r.walkUnqualifiedHiding(scope, qn.Parts[0].Text, hide.forLeadingSegment())
+	if res.sym != nil && remember {
+		journalNew(r, r.importLeads, imp, imp)
+		r.importLeads[imp] = res.sym
+	}
+	return res.sym
 }
 
 // walkQualifiedTail resolves qn's segments from start beneath cur, each hiding

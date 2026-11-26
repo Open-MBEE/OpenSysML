@@ -219,6 +219,13 @@ type Resolver struct {
 	// cross-reference. Without it, resolving each of n sibling imports searched
 	// the others' unresolved targets in every order (issue #636).
 	importTargets map[*ast.Import]resolution
+	// importLeads are the namespaces the first segments of imports' targets
+	// name, kept as importTargets are: an unresolved target is resolved again
+	// by every lookup that reaches its import, and each would search the
+	// enclosing namespaces' imports for the segment anew. leadOf is the import
+	// whose target is being resolved.
+	importLeads map[*ast.Import]*symbols.Symbol
+	leadOf      *ast.Import
 	// collisions memoizes, per namespace, what its imports bring and the
 	// memberships hidden among them: see (*Resolver).importedCollisions.
 	// colliding marks the namespaces whose collisions are being computed.
@@ -365,6 +372,7 @@ func New(idx *symbols.Index) *Resolver {
 		implicitParams:        map[*symbols.Scope][]*symbols.Symbol{},
 		derivedNamed:          map[*symbols.Scope][]*symbols.Symbol{},
 		importTargets:         map[*ast.Import]resolution{},
+		importLeads:           map[*ast.Import]*symbols.Symbol{},
 		collisions:            map[*symbols.Scope]*importCollisions{},
 		colliding:             map[*symbols.Scope]bool{},
 		below:                 map[*symbols.Scope]bool{},

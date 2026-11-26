@@ -216,6 +216,8 @@ func (r *Resolver) resolveImportName(scope *symbols.Scope, qn *ast.QualifiedName
 		r.resolvingImports[imp] = true
 		defer delete(r.resolvingImports, imp)
 	}
+	defer func(outer *ast.Import) { r.leadOf = outer }(r.leadOf)
+	r.leadOf = imp
 	var sym *symbols.Symbol
 	var ok bool
 	if !importAllowsPrivate(imp) {
