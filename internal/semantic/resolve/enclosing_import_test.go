@@ -164,3 +164,31 @@ func TestWildcardImportBelowMutuallyHidingImports(t *testing.T) {
 		}
 	}
 }
+
+// An alias an enclosing namespace declares or imports names the wildcard
+// import's target like an import of it: the aliased namespace's members only.
+func TestWildcardImportBelowAnAlias(t *testing.T) {
+	r := resolveDoc(t, "d.sysml", `
+		package Q { package X { part def B; } }
+		package M { alias X for Q::X; }
+		package P {
+			package X { part def A; }
+			package Declared { private alias X for Q::X; package N { public import X::*; } }
+			package Imported { private import M::X; package N { public import X::*; } }
+		}
+	`)
+	assertNoUnresolved(t, r)
+
+	scope := scopeNamed(t, r, "d.sysml", "P")
+	for _, importer := range []string{"Declared", "Imported"} {
+		sym, ok := r.ResolveQualified(scope, qn(false, importer, "N", "B"))
+		if !ok {
+			t.Errorf("%s::N::B does not resolve", importer)
+		} else if got := r.registeredFQN(sym); got != "Q::X::B" {
+			t.Errorf("%s::N::B resolves to %s, want Q::X::B", importer, got)
+		}
+		if sym, ok := r.ResolveQualified(scope, qn(false, importer, "N", "A")); ok {
+			t.Errorf("%s::N::A resolves to %s, want it unresolved", importer, r.registeredFQN(sym))
+		}
+	}
+}

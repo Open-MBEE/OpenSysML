@@ -15,6 +15,7 @@ func TestWildcardImportTargetFollowsAMembershipImport(t *testing.T) {
 	const m = `
 		package M1 { public import Q::X; }
 		package M2 { public import M1::X; }
+		package Names { alias X for Q::X; }
 		package Hides { private import Q::X; }
 		package Loop1 { public import Loop2::X; }
 		package Loop2 { public import Loop1::X; }
@@ -49,6 +50,8 @@ func TestWildcardImportTargetFollowsAMembershipImport(t *testing.T) {
 			package Repeated { ` + strings.Repeat("private import X; ", 12) + ` public import X::*; }
 			package Above { ` + strings.Repeat("private import X; ", 12) + ` package AboveIn { public import X::*; } }
 			package Lattice { ` + lattice.String() + ` public import X::*; }
+			package Alias { private alias X for Q::X; package AliasIn { public import X::*; } }
+			package Named { private import Names::X; package NamedIn { public import X::*; } }
 			package Chain { private import M2::X; package ChainIn { public import X::*; } }
 			package Path { private import $::M2; package PathIn { public import M2::X::Y::*; } }
 			package Unseen { private import Hides::X; package UnseenIn { public import X::*; } }
@@ -76,6 +79,8 @@ func TestWildcardImportTargetFollowsAMembershipImport(t *testing.T) {
 		"P::Repeated::A":         1,
 		"P::Above::AboveIn::A":   1,
 		"P::Lattice::A":          1,
+		"P::Alias::AliasIn::A":   0,
+		"P::Named::NamedIn::A":   0,
 		"P::Chain::ChainIn::B":   1,
 		"P::Chain::ChainIn::A":   0,
 		"P::Path::PathIn::C":     1,
