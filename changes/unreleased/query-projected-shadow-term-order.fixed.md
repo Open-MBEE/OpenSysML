@@ -1,0 +1,1 @@
+- A filter before `Project` no longer hides a built-in's shadowing feature from a filter after it: projection rebuilds the pre-filter rows' cells, so reversing the terms cannot turn a valid empty result into an operand error.

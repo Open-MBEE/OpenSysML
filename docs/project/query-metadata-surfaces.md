@@ -235,6 +235,7 @@ this change.
 | A feature literally named `owner.annotations` reads its own value and rejects an ordering operand, without borrowing the owner's `annotations` feature | `internal/doc/queryexec/shadow_deferral_regressions_test.go:TestQueryLiteralDottedFeatureDoesNotBorrowAPathShadow` |
 | A feature hidden beneath a computed column cannot excuse an invalid operand on a built-in cell | `internal/doc/queryexec/shadow_deferral_regressions_test.go:TestQueryComputedColumnDoesNotInheritAHiddenShadow` |
 | A projected shadow removed by an earlier conjunction term still excuses an incompatible cell, so reversing the terms cannot turn no rows into an error | `internal/doc/queryexec/shadow_deferral_regressions_test.go:TestQueryProjectedShadowOperandIsTermOrderIndependent` |
+| A filter before `Project` does not hide a shadow from the filter after it, because projection rebuilds the pre-filter rows' cells | `internal/doc/queryexec/shadow_deferral_regressions_test.go:TestQueryShadowEvidenceSurvivesProjectionAfterAFilter` |
 
 The tests execute document queries over real `.sysml` fixtures through the
 shared `queryexec` executor, which is the executor behind the CLI, the REPL, the
