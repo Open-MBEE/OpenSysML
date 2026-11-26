@@ -181,12 +181,49 @@ func (ec *EvalContext) operandChainValue(operand Value, base ast.Node, parts []a
 		}
 		// Objects the probe took back stay unread, but how many the model fixes is read.
 		if open, err := ec.chainMemberValue(operand, parts, ""); held == nil || err != nil || open.Kind != ValUndetermined {
-			return open, err
+			return open, readFrom(err, base)
 		} else {
 			return open.Undetermined().counting(*held), nil
 		}
 	}
-	return ec.chainMemberValue(operand, parts, "")
+	val, err := ec.chainMemberValue(operand, parts, "")
+	return val, readFrom(err, base)
+}
+
+// memberOfValueError reports a member read from a value that is no object and so has none.
+type memberOfValueError struct {
+	member string
+	from   string // the feature the value was read from, empty for a computed value
+	value  Value
+}
+
+func (e *memberOfValueError) Error() string {
+	what := DescribeValue(e.value)
+	switch e.value.Kind {
+	case ValString:
+		what = "a String"
+	case ValNull, ValConst, ValComplex:
+	default:
+		what = "a value that is " + what
+	}
+	if e.from == "" {
+		return fmt.Sprintf("cannot read member %s: %s has no members", e.member, what)
+	}
+	return fmt.Sprintf("cannot read member %s of %s: %s has no members", e.member, e.from, what)
+}
+
+// readFrom names the feature chain base spells as the source of a member read
+// refused for a value, when the read itself knew no name for it.
+func readFrom(err error, base ast.Node) error {
+	var refused *memberOfValueError
+	if !errors.As(err, &refused) || refused.from != "" {
+		return err
+	}
+	switch base.(type) {
+	case *ast.FeatureReference, *ast.FeatureChainExpr:
+		refused.from = chainText(base)
+	}
+	return err
 }
 
 // chainMembersDeclared reports the first chain member nothing declares, so
@@ -292,7 +329,7 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 		if err := metadataOfAValue(value, parts); err != nil {
 			return Value{}, err
 		}
-		return Value{}, fmt.Errorf("cannot chain through non-instance member %s (%v)", from, value.Kind)
+		return Value{}, &memberOfValueError{member: parts[0].Text, from: from, value: value}
 	}
 
 	return ec.chainObjectMember(value, parts, from)
@@ -308,7 +345,7 @@ func (ec *EvalContext) chainObjectMember(value Value, parts []ast.NameSegment, f
 		if err := metadataOfAValue(value, parts); err != nil {
 			return Value{}, err
 		}
-		return Value{}, fmt.Errorf("cannot chain through non-instance member %s (%v)", from, value.Kind)
+		return Value{}, &memberOfValueError{member: parts[0].Text, from: from, value: value}
 	}
 	inst, ok := ec.ctx.instances[id]
 	if !ok {
