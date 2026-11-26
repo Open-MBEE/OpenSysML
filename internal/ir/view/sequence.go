@@ -431,14 +431,23 @@ func (r *Renderer) redefiningSuccession(owner, succession *symbols.Symbol) *symb
 	return nil
 }
 
-// redefiningOrder is the order a lifeline reads for a succession it redefines:
-// the one the redefining succession states, else the nearest one it inherits,
-// under the redefining succession's name.
+// redefiningOrder is the order a redefining succession states, else the nearest
+// it inherits: one no other order-stating succession redefines. Named for it.
 func (r *Renderer) redefiningOrder(redefining *symbols.Symbol) (order, bool) {
+	var stated []order
+	masked := map[*symbols.Symbol]bool{}
 	for _, succession := range append([]*symbols.Symbol{redefining}, r.model.AllRedefinedFeatures(redefining)...) {
-		if stated, ok := r.successionOrder(succession); ok {
-			stated.name, stated.succession, stated.origin = successionName(redefining), redefining, symbolOrigin(redefining)
-			return stated, true
+		if o, ok := r.successionOrder(succession); ok {
+			stated = append(stated, o)
+			for _, older := range r.model.AllRedefinedFeatures(succession) {
+				masked[older] = true
+			}
+		}
+	}
+	for _, o := range stated {
+		if !masked[o.succession] {
+			o.name, o.succession, o.origin = successionName(redefining), redefining, symbolOrigin(redefining)
+			return o, true
 		}
 	}
 	return order{}, false

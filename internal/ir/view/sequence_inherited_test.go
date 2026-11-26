@@ -764,6 +764,44 @@ func TestSequenceRenderingReadsARedefiningSuccessionOverTheEndsItInherits(t *tes
 	}
 }
 
+// A succession redefining two that state no order between them reads the ends of
+// the nearest one stating them, not those of one that one redefines.
+func TestSequenceRenderingReadsTheNearestEndsARedefiningSuccessionInherits(t *testing.T) {
+	rendering := renderSequenceOf(t, `package P {
+	item def Ping;
+	part server {
+		event occurrence a;
+		event occurrence b;
+	}
+	part source {
+		event occurrence sent;
+		event occurrence mid;
+		event occurrence got;
+		succession original first sent then got;
+	}
+	part plain :> source {
+		succession same :>> original;
+	}
+	part narrowed :> source {
+		succession shorter :>> original first sent then mid;
+	}
+	part joined :> plain, narrowed {
+		succession both :>> same, shorter;
+	}
+	message m1 of Ping from joined.sent to server.a;
+	message m2 of Ping from server.b to joined.mid;
+}`, "server", "source", "joined", "m1", "m2")
+	want := []string{
+		"m1 of Ping: P::joined.sent -> a",
+		"both: P::joined.sent -> P::joined.mid",
+		"m2 of Ping: b -> P::joined.mid",
+		"original: sent -> got",
+	}
+	if got := sequenceEnds(rendering); !slices.Equal(got, want) {
+		t.Errorf("got %q\nwant %q", got, want)
+	}
+}
+
 // A lifeline inheriting a redefining succession from a usage that is not shown
 // still reads it, in place of the one redefined.
 func TestSequenceRenderingReadsASuccessionRedefinedByAUsageNotShown(t *testing.T) {
