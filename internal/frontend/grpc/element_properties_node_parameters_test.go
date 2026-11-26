@@ -6,10 +6,8 @@ import (
 	"testing"
 )
 
-// TestElementPropertiesReadActionNodeParameters pins what an assignment, a while loop, a for loop
-// and a bare loop own for the parts of their statements (SysML.xtext AssignmentNodeDeclaration,
-// WhileLoopNode, ForLoopNode): each part is a parameter the node owns through a
-// ParameterMembership, as an if action's already are.
+// TestElementPropertiesReadActionNodeParameters pins that each part of an assignment, while, for
+// or bare loop statement is a parameter the node owns through a ParameterMembership.
 func TestElementPropertiesReadActionNodeParameters(t *testing.T) {
 	r := parseForElementProperties(t, `package P {
     private import ScalarValues::*;
@@ -133,9 +131,8 @@ func TestElementPropertiesReadActionNodeParameters(t *testing.T) {
 	expect(while+"_loopBody", "parameter")
 }
 
-// TestElementPropertiesReadLoopBodyParameter pins a loop body written as the action it is
-// (SysML.xtext ActionBodyParameter, `action <name>? { … }`): that action is the loop's body
-// parameter itself, named or not, and no second action wraps it.
+// TestElementPropertiesReadLoopBodyParameter pins that a loop body written `action <name>? { … }`
+// is the loop's body parameter itself, with no second action wrapping it.
 func TestElementPropertiesReadLoopBodyParameter(t *testing.T) {
 	r := parseForElementProperties(t, `package P {
     private import ScalarValues::*;
@@ -210,9 +207,8 @@ func TestElementPropertiesReadLoopBodyParameter(t *testing.T) {
 	}
 }
 
-// TestElementPropertiesReadLoopBodyImport pins the owner of an import a loop's `{ … }` body
-// writes: the body action alone, as the conversion writes it, and the names it imports resolve
-// in that body.
+// TestElementPropertiesReadLoopBodyImport pins that an import in a loop's `{ … }` body is owned
+// by the body action alone, as the conversion writes it, and resolves names in that body.
 func TestElementPropertiesReadLoopBodyImport(t *testing.T) {
 	r := parseForElementProperties(t, `package Q { part def T; }
 package P {
