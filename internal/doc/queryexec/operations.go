@@ -1454,15 +1454,15 @@ func (e *executor) propertyValuesBeforeMemberPathWithSourceMode(row Value, prope
 		return values, present, sourcesOf(len(values), source), err
 	}
 	if _, isVerdict := row.Verdict(); isVerdict {
-		values, present, sources, err := e.verdictPropertyValuesWithSource(row, property)
+		values, present, sources, err := e.verdictPropertyValuesWithSourceMode(row, property, evidence)
 		return values, present, sources, err
 	}
 	if _, isState := row.State(); isState {
-		values, present, sources, err := e.statePropertyValuesWithSource(row, property)
+		values, present, sources, err := e.statePropertyValuesWithSourceMode(row, property, evidence)
 		return values, present, sources, err
 	}
 	if _, isEvent := row.Event(); isEvent {
-		values, present, sources, err := e.eventPropertyValuesWithSource(row, property)
+		values, present, sources, err := e.eventPropertyValuesWithSourceMode(row, property, evidence)
 		return values, present, sources, err
 	}
 	sym, _ := row.Element()

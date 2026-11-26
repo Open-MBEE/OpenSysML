@@ -382,6 +382,12 @@ func (e *executor) statePropertyValues(row Value, property string) ([]Value, boo
 // statePropertyValuesWithSource keeps the source of a delegated read: the
 // terminal property may be a built-in the declaration does not shadow.
 func (e *executor) statePropertyValuesWithSource(row Value, property string) ([]Value, bool, []valueSource, error) {
+	return e.statePropertyValuesWithSourceMode(row, property, false)
+}
+
+// statePropertyValuesWithSourceMode carries the evidence flag into the
+// declaration's read so evidence cannot run the isActive activity scan.
+func (e *executor) statePropertyValuesWithSourceMode(row Value, property string, evidence bool) ([]Value, bool, []valueSource, error) {
 	state, _ := row.State()
 	origin := row.Origin()
 	serve := func(values []Value) ([]Value, bool, []valueSource, error) {
@@ -418,6 +424,6 @@ func (e *executor) statePropertyValuesWithSource(row Value, property string) ([]
 	if state.symbol == nil {
 		return nil, false, nil, nil
 	}
-	values, reach, sources, err := e.propertyReachWithSource(ElementValue(state.symbol), property)
+	values, reach, sources, err := e.propertyReachWithSourceMode(ElementValue(state.symbol), property, evidence)
 	return values, reach != pathAbsent, sources, err
 }

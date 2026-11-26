@@ -171,6 +171,41 @@ func TestQueryFailedActivityScanIsNotTreatedAsInactive(t *testing.T) {
 	}
 }
 
+// Evidence for a state row must not run the isActive built-in: doing so builds
+// the activity index and can swallow a failed session walk during evidence.
+func TestShadowEvidenceOnAStateRowDoesNotBuildTheActivityIndex(t *testing.T) {
+	fixture := loadExecutionFixture(t, failedActivityScanFixture)
+	ctx := runtime.NewContext(runtime.NewModel(fixture.model, fixture.resolver), runtime.DefaultMaxSteps)
+	controller, err := ctx.Instantiate(fixture.symbol(t, "controller"))
+	if err != nil {
+		t.Fatalf("Instantiate controller: %v", err)
+	}
+	machines := stateMachinesOf(controller)
+	if len(machines) == 0 || len(machines[0].State.ActiveStates()) == 0 {
+		t.Fatal("controller has no active state to read")
+	}
+	row := StateValue(activeState(controller, "controller", machines[0], machines[0].State.ActiveStates()[0]))
+	e := &executor{
+		context: Context{
+			Index: fixture.index, Resolver: fixture.resolver, Model: fixture.model, Runtime: ctx,
+			Roots: []Root{{Label: "controller", Object: controller}},
+		},
+		budget: &visitBudget{remaining: 100},
+	}
+	_, _, sources, err := e.shadowEvidenceReach(row, "isActive")
+	if err != nil {
+		t.Fatalf("shadow evidence for isActive: %v", err)
+	}
+	for _, source := range sources {
+		if source == sourceBuiltin {
+			t.Fatalf("evidence returned a built-in value from %v", sources)
+		}
+	}
+	if e.stateActivity != nil {
+		t.Fatal("evidence read built the state activity index")
+	}
+}
+
 // A failed session walk must not publish a partial activity index: a later
 // read must see the failure, not treat unvisited states as inactive.
 func TestStateActivityIndexDoesNotPublishAFailedScan(t *testing.T) {

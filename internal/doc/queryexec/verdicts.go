@@ -201,6 +201,12 @@ func (e *executor) verdictPropertyValues(row Value, property string) ([]Value, b
 // verdictPropertyValuesWithSource keeps the source of a delegated read: the
 // terminal property may be a built-in the assertion does not shadow.
 func (e *executor) verdictPropertyValuesWithSource(row Value, property string) ([]Value, bool, []valueSource, error) {
+	return e.verdictPropertyValuesWithSourceMode(row, property, false)
+}
+
+// verdictPropertyValuesWithSourceMode carries the evidence flag into the
+// assertion's read so evidence cannot run a built-in's session scan.
+func (e *executor) verdictPropertyValuesWithSourceMode(row Value, property string, evidence bool) ([]Value, bool, []valueSource, error) {
 	verdict, _ := row.Verdict()
 	origin := row.Origin()
 	serve := func(values []Value) ([]Value, bool, []valueSource, error) {
@@ -257,6 +263,6 @@ func (e *executor) verdictPropertyValuesWithSource(row Value, property string) (
 	if verdict.assertion == nil {
 		return nil, false, nil, nil
 	}
-	values, reach, sources, err := e.propertyReachWithSource(ElementValue(verdict.assertion), property)
+	values, reach, sources, err := e.propertyReachWithSourceMode(ElementValue(verdict.assertion), property, evidence)
 	return values, reach != pathAbsent, sources, err
 }

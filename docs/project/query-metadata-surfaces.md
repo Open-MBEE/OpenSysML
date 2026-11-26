@@ -239,6 +239,7 @@ this change.
 | Projecting a row a filter excluded does not read that row's features, so a lazy part stays unmaterialized and its behavior does not start | `internal/doc/queryexec/starting_evidence_regressions_test.go:TestQueryProjectionOfExcludedRowsKeepsLazyPartsLazy` |
 | Operand evidence reads a held object's lazy feature through a rollback-safe probe, leaving no materialization in the live session | `internal/doc/queryexec/starting_evidence_regressions_test.go:TestQueryHeldShadowEvidenceDoesNotMaterializeLazyParts` |
 | A failed activity scan is reported rather than published as an incomplete index | `internal/doc/queryexec/starting_evidence_regressions_test.go:TestQueryFailedActivityScanIsNotTreatedAsInactive`, `:TestStateActivityIndexDoesNotPublishAFailedScan` |
+| Evidence on a state row does not evaluate `isActive` or build the activity index | `internal/doc/queryexec/starting_evidence_regressions_test.go:TestShadowEvidenceOnAStateRowDoesNotBuildTheActivityIndex` |
 | An unevaluable sibling column on an excluded row does not erase evidence from another projected column | `internal/doc/queryexec/starting_evidence_regressions_test.go:TestQueryExcludedRowKeepsEvidenceFromAnotherColumn` |
 
 The tests execute document queries over real `.sysml` fixtures through the

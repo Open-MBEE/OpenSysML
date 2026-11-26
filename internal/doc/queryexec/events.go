@@ -297,6 +297,12 @@ func (e *executor) eventPropertyValues(row Value, property string) ([]Value, boo
 // eventPropertyValuesWithSource keeps the source of a delegated read: the
 // terminal property may be a built-in the behavior does not shadow.
 func (e *executor) eventPropertyValuesWithSource(row Value, property string) ([]Value, bool, []valueSource, error) {
+	return e.eventPropertyValuesWithSourceMode(row, property, false)
+}
+
+// eventPropertyValuesWithSourceMode carries the evidence flag into the
+// behavior's read so evidence cannot run a built-in's session scan.
+func (e *executor) eventPropertyValuesWithSourceMode(row Value, property string, evidence bool) ([]Value, bool, []valueSource, error) {
 	event, _ := row.Event()
 	record := event.record
 	origin := row.Origin()
@@ -359,7 +365,7 @@ func (e *executor) eventPropertyValuesWithSource(row Value, property string) ([]
 	if record.Origin.Behavior == nil {
 		return nil, false, nil, nil
 	}
-	values, reach, sources, err := e.propertyReachWithSource(ElementValue(record.Origin.Behavior), property)
+	values, reach, sources, err := e.propertyReachWithSourceMode(ElementValue(record.Origin.Behavior), property, evidence)
 	return values, reach != pathAbsent, sources, err
 }
 
