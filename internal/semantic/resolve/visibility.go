@@ -212,22 +212,30 @@ func (r *Resolver) resolveImportTarget(scope *symbols.Scope, imp *ast.Import) (*
 // resolveImportName resolves qn as the target of imp, written in scope. The
 // import does not surface members while its own target is looked up.
 func (r *Resolver) resolveImportName(scope *symbols.Scope, qn *ast.QualifiedName, imp *ast.Import) (*symbols.Symbol, bool) {
+	sym, _, ok := r.importName(scope, qn, imp)
+	return sym, ok
+}
+
+// importName is resolveImportName, reporting also whether the answer was read
+// past a sibling import that may yet bind its leading segment (leadPassed).
+func (r *Resolver) importName(scope *symbols.Scope, qn *ast.QualifiedName, imp *ast.Import) (sym *symbols.Symbol, passed, ok bool) {
 	if !r.resolvingImports[imp] {
 		r.resolvingImports[imp] = true
 		defer r.resume(imp)
 	}
-	defer func(outer *ast.Import) { r.leadOf = outer }(r.leadOf)
-	r.leadOf = imp
-	var sym *symbols.Symbol
-	var ok bool
+	defer func(outer *ast.Import, in *symbols.Scope, was bool) {
+		passed = r.leadPassed
+		r.leadOf, r.leadScope, r.leadPassed = outer, in, was
+	}(r.leadOf, r.leadScope, r.leadPassed)
+	r.leadOf, r.leadScope, r.leadPassed = imp, scope, false
 	if !importAllowsPrivate(imp) {
 		// A plain import keeps the boundary even when it is consulted while an
 		// enclosing `import all` resolves its own target.
 		r.outsideAllVisible(func() { sym, ok = r.ResolveQualified(scope, qn) })
-		return sym, ok
+		return sym, passed, ok
 	}
 	r.inAllVisible(func() { sym, ok = r.ResolveQualified(scope, qn) })
-	return sym, ok
+	return sym, passed, ok
 }
 
 // importOrigin is the namespace imp reads targetFQN's index entries from: outside it,

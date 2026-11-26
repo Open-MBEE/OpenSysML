@@ -2368,6 +2368,25 @@ func (idx *Index) shortNamedScan(name string) bool {
 	return shortRegistered(name)
 }
 
+// NamesSeveral reports whether name may name more than one element: several are
+// registered under it as a last segment, or one may carry it as a short name.
+func (idx *Index) NamesSeveral(name string) bool {
+	if idx.ShortNamed(name) {
+		return true
+	}
+	var only *Symbol
+	several := func(fqn string) bool {
+		for _, sym := range idx.fqn.at(fqn) {
+			if only != nil && sym != only {
+				return true
+			}
+			only = sym
+		}
+		return false
+	}
+	return slices.ContainsFunc(idx.segmentNames(name), several) || several(name)
+}
+
 // shortNameCandidate includes alternate registrations and explicit short names.
 func shortNameCandidate(sym *Symbol, name string) bool {
 	if sym == nil {

@@ -223,13 +223,13 @@ type Resolver struct {
 	// importTargets are; leadOf is the import whose target is being resolved.
 	importLeads map[*ast.Import]*symbols.Symbol
 	leadOf      *ast.Import
-	// passing holds what was resolved past an import suspended further out,
-	// kept until the outermost suspended import has resolved (resume).
-	passing    passingReads
-	passedOver int
-	// frameIDs name the lookups in frames, numbered as they were entered.
-	frameIDs []int
-	entered  int
+	// leadScope is the namespace leadOf is written in. leadPassed holds once its
+	// leading segment was looked up past a sibling import whose own target is
+	// still resolving: that import may bind the segment, so the answer is not kept.
+	leadScope  *symbols.Scope
+	leadPassed bool
+	// passedTargets holds the targets so read, until no import is resolving.
+	passedTargets map[*ast.Import]*symbols.Symbol
 	// collisions memoizes, per namespace, what its imports bring and the
 	// memberships hidden among them: see (*Resolver).importedCollisions.
 	// colliding marks the namespaces whose collisions are being computed.
@@ -377,20 +377,16 @@ func New(idx *symbols.Index) *Resolver {
 		derivedNamed:          map[*symbols.Scope][]*symbols.Symbol{},
 		importTargets:         map[*ast.Import]resolution{},
 		importLeads:           map[*ast.Import]*symbols.Symbol{},
-		passing: passingReads{
-			targets: map[*ast.Import]passingRead{},
-			leads:   map[*ast.Import]passingRead{},
-			names:   map[*ast.QualifiedName]passingRead{},
-		},
-		collisions:   map[*symbols.Scope]*importCollisions{},
-		colliding:    map[*symbols.Scope]bool{},
-		below:        map[*symbols.Scope]bool{},
-		bringing:     map[*symbols.Scope]bool{},
-		importVisits: map[importVisit][][]*symbols.Scope{},
-		redefined:    map[*symbols.Symbol][]*symbols.Symbol{},
-		bodyOwners:   map[*symbols.Scope]*symbols.Symbol{},
-		effNames:     map[*symbols.Symbol]bool{},
-		shortNames:   map[*symbols.Symbol]string{},
+		passedTargets:         map[*ast.Import]*symbols.Symbol{},
+		collisions:            map[*symbols.Scope]*importCollisions{},
+		colliding:             map[*symbols.Scope]bool{},
+		below:                 map[*symbols.Scope]bool{},
+		bringing:              map[*symbols.Scope]bool{},
+		importVisits:          map[importVisit][][]*symbols.Scope{},
+		redefined:             map[*symbols.Symbol][]*symbols.Symbol{},
+		bodyOwners:            map[*symbols.Scope]*symbols.Symbol{},
+		effNames:              map[*symbols.Symbol]bool{},
+		shortNames:            map[*symbols.Symbol]string{},
 
 		suggestions: map[suggestKey]suggestion{},
 		suggesting:  map[suggestKey]bool{},
@@ -587,7 +583,7 @@ func (r *Resolver) lookupMemberThrough(sym *symbols.Symbol, name string, hide *r
 		return nil, false
 	}
 	for _, imp := range r.scopeImports(sym.Scope) {
-		if r.suspended(imp) || (visible != nil && !visible(imp)) {
+		if r.resolvingImports[imp] || (visible != nil && !visible(imp)) {
 			continue
 		}
 		if !r.importPrefixAvailable(sym.Scope, imp, name) {
@@ -666,8 +662,6 @@ func (r *Resolver) Enter() int {
 		return 1
 	}
 	r.frames = append(r.frames, math.MaxInt)
-	r.entered++
-	r.frameIDs = append(r.frameIDs, r.entered)
 	return len(r.frames)
 }
 
@@ -680,7 +674,6 @@ func (r *Resolver) Leave() bool {
 	depth := len(r.frames)
 	cut := r.frames[depth-1]
 	r.frames = r.frames[:depth-1]
-	r.frameIDs = r.frameIDs[:depth-1]
 	if depth > 1 && cut < r.frames[depth-2] {
 		r.frames[depth-2] = cut
 	}
@@ -695,47 +688,6 @@ func (r *Resolver) CutShort(depth int) {
 	if top := len(r.frames) - 1; top >= 0 && depth < r.frames[top] {
 		r.frames[top] = depth
 	}
-}
-
-// passingReads are the answers of lookups that passed over a suspended import.
-type passingReads struct {
-	targets, leads map[*ast.Import]passingRead
-	names          map[*ast.QualifiedName]passingRead
-}
-
-// passingRead is an answer and the lookup it was cut short for, which it holds within.
-type passingRead struct {
-	sym       *symbols.Symbol
-	depth, id int
-}
-
-// passed is sym as the innermost lookup found it, if that was cut short for a
-// lookup still under way while an import is suspended.
-func (r *Resolver) passed(sym *symbols.Symbol) (passingRead, bool) {
-	top := len(r.frames) - 1
-	if sym == nil || top < 0 || len(r.resolvingImports) == 0 {
-		return passingRead{}, false
-	}
-	depth := r.frames[top]
-	if depth < 1 || depth > top {
-		return passingRead{}, false
-	}
-	return passingRead{sym: sym, depth: depth, id: r.frameIDs[depth-1]}, true
-}
-
-// holds reports whether read still stands, cutting the innermost lookup as short as it was.
-func (r *Resolver) holds(read passingRead) bool {
-	if read.depth > len(r.frames) || r.frameIDs[read.depth-1] != read.id {
-		return false
-	}
-	r.CutShort(read.depth)
-	return true
-}
-
-// plainMode reports whether names resolve as written: neither inside a filter
-// condition nor with every membership visible.
-func (r *Resolver) plainMode() bool {
-	return r.inCondition == 0 && r.allVisible == 0
 }
 
 // resolveQualified is ResolveQualified with an optional filter hiding the
@@ -757,9 +709,6 @@ func (r *Resolver) resolveQualified(scope *symbols.Scope, qn *ast.QualifiedName,
 		if res, done := r.memo[qn]; done {
 			return r.found(res)
 		}
-		if read, done := r.passing.names[qn]; done && hide == nil && r.plainMode() && r.holds(read) {
-			return r.found(resolution{sym: read.sym, ok: true})
-		}
 	} else if res, done := r.filtered[filteredMemoKey{
 		qn: qn, decl: hide.decl, prefix: hide.skipNamingTarget,
 		skipBorrowedName: hide.skipBorrowedName,
@@ -778,14 +727,9 @@ func (r *Resolver) resolveQualified(scope *symbols.Scope, qn *ast.QualifiedName,
 	}
 	r.resolving[qn] = r.Enter()
 	// A feature that took its name from qn is never what qn names.
-	passedOver := r.passedOver
 	res := r.walkQualified(scope, qn, hide.hiding(qn))
 	delete(r.resolving, qn)
-	read, passing := r.passed(res.sym)
-	if !r.Leave() {
-		if passing && res.ok && hide == nil && r.passedOver != passedOver && r.plainMode() {
-			r.passing.names[qn] = read
-		}
+	if !r.Leave() || (r.leadPassed && r.leadOf.Imported == qn) {
 		return r.found(res)
 	}
 	// A failure met during a semantic query is not memoized: the reference it

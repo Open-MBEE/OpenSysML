@@ -559,7 +559,8 @@ func simpleName(sym *symbols.Symbol) string {
 // matching name.
 func (r *Resolver) lookupImports(scope *symbols.Scope, name string) (*symbols.Symbol, bool) {
 	for _, imp := range r.scopeImports(scope) {
-		if r.suspended(imp) {
+		if r.resolvingImports[imp] {
+			r.passOver(scope, imp, name)
 			continue
 		}
 		if !r.importPrefixAvailable(scope, imp, name) {
@@ -758,7 +759,7 @@ func (r *Resolver) eachMatchOfImport(into, scope *symbols.Scope, imp *ast.Import
 	if imp.Imported == nil || len(imp.Imported.Parts) == 0 {
 		return
 	}
-	if r.suspended(imp) {
+	if r.resolvingImports[imp] {
 		return
 	}
 	target, ok := r.importTargetOf(scope, imp)
@@ -886,51 +887,49 @@ func (r *Resolver) importTargetOf(scope *symbols.Scope, imp *ast.Import) (*symbo
 		}
 		return res.sym, res.ok
 	}
-	if read, done := r.passing.targets[imp]; done && remember && r.holds(read) {
-		r.Depend(read.sym.DocName)
-		return read.sym, true
+	if imp.Imported == nil {
+		return nil, false
+	}
+	if target, done := r.passedTargets[imp]; done && remember {
+		r.Depend(target.DocName)
+		return target, true
 	}
 	var target *symbols.Symbol
-	var ok bool
+	var ok, passed bool
 	r.resolvingImports[imp] = true
-	r.Enter()
 	// The target is read on its own, apart from the lookup that needs it.
-	r.aside(func() { target, ok = r.resolveImportTarget(scope, imp) })
-	read, passing := r.passed(target)
-	settled := r.Leave()
+	r.aside(func() { target, passed, ok = r.importName(scope, imp.Imported, imp) })
 	r.resume(imp)
 	switch {
 	case !ok || !remember:
-	case settled:
+	case !passed:
 		journalNew(r, r.importTargets, imp, imp)
 		r.importTargets[imp] = resolution{sym: target, ok: true}
-	case passing:
-		r.passing.targets[imp] = read
+	case len(r.resolvingImports) != 0:
+		r.passedTargets[imp] = target
 	}
 	return target, ok
 }
 
-// suspended reports whether imp is passed over while its own target resolves,
-// which cuts short every lookup made since that began: they read without it.
-func (r *Resolver) suspended(imp *ast.Import) bool {
-	if !r.resolvingImports[imp] {
-		return false
-	}
-	if depth := r.resolving[imp.Imported]; depth != 0 {
-		r.passedOver++
-		r.CutShort(depth)
-	}
-	return true
-}
-
-// resume ends the suspension of imp. What was read past a suspended import
-// (passing) stands only until the outermost of them has resolved.
+// resume ends the suspension of imp while its target resolved. A target read
+// past a suspended import stands only until the outermost of them has resolved.
 func (r *Resolver) resume(imp *ast.Import) {
 	delete(r.resolvingImports, imp)
 	if len(r.resolvingImports) == 0 {
-		clear(r.passing.targets)
-		clear(r.passing.leads)
-		clear(r.passing.names)
+		clear(r.passedTargets)
+	}
+}
+
+// passOver notes that the lookup of name among scope's imports skipped imp,
+// whose target is resolving, when name leads the target of a sibling import.
+func (r *Resolver) passOver(scope *symbols.Scope, imp *ast.Import, name string) {
+	lead := r.leadOf
+	if lead == nil || lead == imp || scope != r.leadScope || lead.Imported.Parts[0].Text != name {
+		return
+	}
+	// Only another element of that name could be what imp binds it to.
+	if r.idx.NamesSeveral(name) {
+		r.leadPassed = true
 	}
 }
 

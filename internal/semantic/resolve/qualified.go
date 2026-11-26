@@ -74,20 +74,10 @@ func (r *Resolver) leadingSegment(scope *symbols.Scope, qn *ast.QualifiedName, h
 		r.Depend(lead.DocName)
 		return lead
 	}
-	if read, done := r.passing.leads[imp]; done && remember && r.holds(read) {
-		r.Depend(read.sym.DocName)
-		return read.sym
-	}
-	r.Enter()
 	res := r.walkUnqualifiedHiding(scope, qn.Parts[0].Text, hide.forLeadingSegment())
-	read, passing := r.passed(res.sym)
-	switch settled := r.Leave(); {
-	case res.sym == nil || !remember:
-	case settled:
+	if res.sym != nil && remember && !r.leadPassed {
 		journalNew(r, r.importLeads, imp, imp)
 		r.importLeads[imp] = res.sym
-	case passing:
-		r.passing.leads[imp] = read
 	}
 	return res.sym
 }

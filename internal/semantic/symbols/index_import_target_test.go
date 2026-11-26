@@ -146,3 +146,16 @@ func TestWildcardImportTargetTheIndexReads(t *testing.T) {
 		wantNamed(t, idx, fqn, want)
 	}
 }
+
+// A name several elements bear, or one may carry as a short name, may be rebound.
+func TestNamesSeveral(t *testing.T) {
+	idx := buildIndex(t, map[string]string{"d.sysml": `
+		package Q { package X { part def B; } part def <s> Long; }
+		package R { package X; alias Other for Q; }
+		package W { public import Q::*; }`})
+	for name, want := range map[string]bool{"X": true, "B": false, "Q": false, "s": true, "Other": false, "None": false} {
+		if got := idx.NamesSeveral(name); got != want {
+			t.Errorf("NamesSeveral(%q) = %t, want %t", name, got, want)
+		}
+	}
+}
