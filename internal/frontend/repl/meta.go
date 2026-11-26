@@ -388,6 +388,26 @@ func (s *Session) RunMeta(line string) (out []string, quit bool, err error) {
 	return append(s.drainTrace(), out...), quit, err
 }
 
+// RunCommand is RunMeta for a caller that reports whether the command ran: one
+// answered with its usage fails with a *UsageError holding the answer's lines.
+func (s *Session) RunCommand(line string) (out []string, quit bool, err error) {
+	out, quit, err = s.RunMeta(line)
+	if err == nil && usageAnswer(out) {
+		return nil, quit, &UsageError{Lines: out}
+	}
+	return out, quit, err
+}
+
+const usageLead = "usage: %"
+
+// usageAnswer reads a usage answer back from its text, as the line or closing
+// one, because the commands return their usage as plain output.
+func usageAnswer(lines []string) bool {
+	return slices.ContainsFunc(lines, func(line string) bool {
+		return strings.HasPrefix(line, usageLead) || strings.Contains(line, "; "+usageLead)
+	})
+}
+
 func (s *Session) runMeta(line string) (out []string, quit bool, err error) {
 	fields := parseArgs(strings.TrimSpace(line))
 	if len(fields) == 0 {

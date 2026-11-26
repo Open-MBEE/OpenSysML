@@ -122,7 +122,7 @@ func (e *REPLEngine) meta(line string, out Output) error {
 		}
 		return nil
 	}
-	lines, quit, err := e.session.RunMeta(line)
+	lines, quit, err := e.session.RunCommand(line)
 	if err != nil {
 		var usage *repl.UsageError
 		if errors.As(err, &usage) {
@@ -145,9 +145,6 @@ func (e *REPLEngine) meta(line string, out Output) error {
 			name = "KeyboardInterrupt"
 		}
 		return execError(name, summary(lines), lines)
-	}
-	if repl.UsageAnswer(lines) {
-		return execError("UsageError", summary(lines), lines)
 	}
 	if cmd == "%features" && len(args) >= 2 && args[len(args)-1] == "json" {
 		if bundle, ok := jsonBundle(lines); ok {

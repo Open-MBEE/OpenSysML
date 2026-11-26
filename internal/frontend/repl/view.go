@@ -3,7 +3,6 @@ package repl
 import (
 	"errors"
 	"fmt"
-	"slices"
 	"sort"
 	"strings"
 
@@ -111,17 +110,6 @@ func (e *UsageError) Error() string {
 		return "usage"
 	}
 	return strings.TrimPrefix(e.Lines[0], errPrefix)
-}
-
-// usageLead opens the usage line a meta command answers with instead of running.
-const usageLead = "usage: %"
-
-// UsageAnswer reports whether lines answer a meta command with its usage: the
-// usage line itself, or one closing the line that names the problem.
-func UsageAnswer(lines []string) bool {
-	return slices.ContainsFunc(lines, func(line string) bool {
-		return strings.HasPrefix(line, usageLead) || strings.Contains(line, "; "+usageLead)
-	})
 }
 
 // Render runs %render with its arguments and answers what it wrote, with the
