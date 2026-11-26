@@ -201,3 +201,25 @@ func TestElementPropertiesReadALoopVariableByEveryNameItAnswers(t *testing.T) {
 		t.Errorf("a loop named 'step::inner' answers another loop's variable: %v %q", resp.Element, resp.Error)
 	}
 }
+
+// A loop reached through a type whose quoted name differs from another type's only by its quoting is that type's loop.
+func TestElementPropertiesReadALoopVariableThroughAQuotedAncestor(t *testing.T) {
+	r := parseForElementProperties(t, `package P {
+    action def Spaced { action 'a::b' for v in (1, 2) { } }
+    action def Bare { action 'a::b' for v in (1, 2) { } }
+    action def 'Base ' :> Spaced;
+    action def Base :> Bare;
+}`)
+	for name, declared := range map[string]string{
+		"P::'Base '::'a::b'::v": "P::Spaced::'a::b'::v",
+		"P::Base::'a::b'::v":    "P::Bare::'a::b'::v",
+	} {
+		resp, want := r.read(name, "qualifiedName"), r.read(declared, "qualifiedName")
+		if want.Error != "" || want.Element == nil {
+			t.Fatalf("%s: %q, want the declared variable", declared, want.Error)
+		}
+		if resp.Error != "" || resp.Element == nil || resp.Element.Id != want.Element.Id {
+			t.Errorf("%s: answered %v %q, want %s", name, resp.Element, resp.Error, want.Element.Id)
+		}
+	}
+}
