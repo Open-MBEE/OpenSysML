@@ -6,10 +6,10 @@ import (
 	"testing"
 )
 
-// A wildcard import reads the namespace its target resolves to: the one its own
-// or an enclosing namespace imports by name, not a same-named one owned further
-// out, whose members it must not surface as well (KerML 8.2.3.5.4).
-func TestWildcardImportTargetFollowsAMembershipImport(t *testing.T) {
+// A wildcard import whose target its own or an enclosing namespace imports by
+// name is left to name lookup: the index re-exports no member for it, least of
+// all those of a same-named namespace owned further out (KerML 8.2.3.5.4).
+func TestWildcardImportTargetBelowAMembershipImport(t *testing.T) {
 	const q = "package Q { package X { part def B; package Y { part def C; } private package Kept { part def Z; } } }"
 	const r = "package R { package X { part def E; } }"
 	const m = `
@@ -67,38 +67,38 @@ func TestWildcardImportTargetFollowsAMembershipImport(t *testing.T) {
 		}`})
 
 	for fqn, want := range map[string]int{
-		"P::K::N::B":             1,
+		"P::K::N::B":             0,
 		"P::K::N::A":             0,
-		"P::Own::B":              1,
+		"P::Own::B":              0,
 		"P::Own::A":              0,
-		"P::Deep::DeepIn::C":     1,
+		"P::Deep::DeepIn::C":     0,
 		"P::Deep::DeepIn::D":     0,
-		"P::Rooted::RootedIn::B": 1,
+		"P::Rooted::RootedIn::B": 0,
 		"P::Rooted::RootedIn::A": 0,
-		"P::Self::A":             1,
-		"P::Missing::A":          1,
-		"P::Hidden::HiddenIn::A": 1,
+		"P::Self::A":             0,
+		"P::Missing::A":          0,
+		"P::Hidden::HiddenIn::A": 0,
 		"P::Hidden::HiddenIn::B": 0,
 		"P::Hidden::HiddenIn::E": 0,
-		"P::Twice::TwiceIn::B":   1,
+		"P::Twice::TwiceIn::B":   0,
 		"P::Twice::TwiceIn::A":   0,
-		"P::Repeated::A":         1,
-		"P::Above::AboveIn::A":   1,
-		"P::Lattice::A":          1,
+		"P::Repeated::A":         0,
+		"P::Above::AboveIn::A":   0,
+		"P::Lattice::A":          0,
 		"P::Alias::AliasIn::A":   0,
 		"P::Named::NamedIn::A":   0,
-		"P::Chain::ChainIn::B":   1,
+		"P::Chain::ChainIn::B":   0,
 		"P::Chain::ChainIn::A":   0,
-		"P::Path::PathIn::C":     1,
+		"P::Path::PathIn::C":     0,
 		"P::Private::Z":          0,
-		"P::Half::HalfIn::A":     1,
+		"P::Half::HalfIn::A":     0,
 		"P::Half::HalfIn::E":     0,
 		"P::HalfPath::E":         0,
-		"P::Same::B":             1,
-		"P::Unseen::UnseenIn::A": 1,
+		"P::Same::B":             0,
+		"P::Unseen::UnseenIn::A": 0,
 		"P::Unseen::UnseenIn::B": 0,
-		"P::Loop::LoopIn::A":     1,
-		"P::Wild::WildIn::B":     1,
+		"P::Loop::LoopIn::A":     0,
+		"P::Wild::WildIn::B":     0,
 		"P::Wild::WildIn::A":     0,
 		"P::None::NoneIn::A":     1,
 		"P::None::NoneIn::B":     0,

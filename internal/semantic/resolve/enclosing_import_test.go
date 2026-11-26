@@ -1,9 +1,15 @@
 package resolve
 
 import (
+	"slices"
+
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // A name an enclosing namespace imports is found there before a same-named
@@ -190,5 +196,80 @@ func TestWildcardImportBelowAnAlias(t *testing.T) {
 		if sym, ok := r.ResolveQualified(scope, qn(false, importer, "N", "A")); ok {
 			t.Errorf("%s::N::A resolves to %s, want it unresolved", importer, r.registeredFQN(sym))
 		}
+	}
+}
+
+// A wildcard import exposes the members of the namespace its target names by
+// name lookup and no others, whichever way an enclosing namespace binds the
+// target's first segment; the index agrees or leaves the members to the lookup.
+func TestWildcardImportExposesWhatItsTargetNames(t *testing.T) {
+	const libs = `
+		package Q { package X { part def B; package Y { part def C; } private package Z { part def D; } } }
+		package R { package X { part def E; package Y { part def F; } } }
+		package Named { public import Q::X; }
+		package Chained { public import Named::X; }
+		package Mixed { private import Q::X; public import R::X; }
+		package Both { private import Q::X; public import Q::X; }
+		package Kept { private import Q::*; }
+		package Wild { public import Q::*; }
+		package WildNamed { public import Q::*; public import R::X; }
+		package Aliased { alias X for Q::X; }
+		package KeptWild { private import Q::*; public import R::*; }`
+	for name, c := range map[string]struct {
+		k, target string
+		want      []string
+	}{
+		"named import":                  {"private import Q::X;", "X", []string{"Q::X::B", "Q::X::Y"}},
+		"named import, deeper target":   {"private import Q::X;", "X::Y", []string{"Q::X::Y::C"}},
+		"named import, private segment": {"private import Q::X;", "X::Z", nil},
+		"wildcard import":               {"private import Q::*;", "X", []string{"Q::X::B", "Q::X::Y"}},
+		"wildcard, deeper target":       {"private import Q::*;", "X::Y", []string{"Q::X::Y::C"}},
+		"wildcard, private segment":     {"private import Q::*;", "X::Z", nil},
+		"named below a wildcard":        {"private import Named::*;", "X", []string{"Q::X::B", "Q::X::Y"}},
+		"chained below a wildcard":      {"private import Chained::*;", "X::Y", []string{"Q::X::Y::C"}},
+		"chained path":                  {"", "Chained::X", []string{"Q::X::B", "Q::X::Y"}},
+		"private segment on a path":     {"", "Named::X::Z", nil},
+		"hiding named imports":          {"private import Q::X; private import R::X;", "X", []string{"P::X::A", "P::X::Y"}},
+		"hiding pair on a path":         {"", "Mixed::X", nil},
+		"hiding pair below a wildcard":  {"private import Mixed::*;", "X", []string{"P::X::A", "P::X::Y"}},
+		"wildcard hiding a named":       {"private import Q::*; private import R::X;", "X", []string{"P::X::A", "P::X::Y"}},
+		"wildcard and named re-export":  {"private import WildNamed::*;", "X::Y", []string{"P::X::Y::G"}},
+		"one namespace twice":           {"", "Both::X", []string{"Q::X::B", "Q::X::Y"}},
+		"private and public wildcards":  {"private import KeptWild::*;", "X::Y", []string{"P::X::Y::G"}},
+		"private wildcard from inside":  {"private import Kept::*;", "X", []string{"P::X::A", "P::X::Y"}},
+		"alias":                         {"private alias X for Q::X;", "X::Y", []string{"Q::X::Y::C"}},
+		"alias below a wildcard":        {"private import Aliased::*;", "X::Y", []string{"Q::X::Y::C"}},
+		"no import":                     {"", "X::Y", []string{"P::X::Y::G"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			p := parser.New(source.New("d.sysml", []byte(libs+`
+				package P {
+					package X { part def A; package Y { part def G; } }
+					package K { `+c.k+` package N { public import `+c.target+`::*; } package S { } }
+				}`)))
+			root := p.ParseFile()
+			if len(p.Diagnostics) != 0 {
+				t.Fatalf("parse diagnostics: %v", p.Diagnostics)
+			}
+			idx := symbols.NewIndexFromDoc("d.sysml", root)
+			idx.ExpandWildcardImports()
+			r := New(idx)
+			r.ResolveDocument("d.sysml", root)
+
+			scope := scopeNamed(t, r, "d.sysml", "S")
+			var got []string
+			for _, member := range []string{"A", "B", "C", "D", "E", "F", "G", "Y", "Z"} {
+				sym, ok := r.ResolveQualified(scope, qn(false, "N", member))
+				if ok {
+					got = append(got, symbols.FQNOf(sym))
+				}
+				if !ok && len(idx.LookupQualified("P::K::N::"+member)) != 0 {
+					t.Errorf("the index exposes N::%s, which does not resolve", member)
+				}
+			}
+			if !slices.Equal(got, c.want) {
+				t.Errorf("N exposes %v, want %v", got, c.want)
+			}
+		})
 	}
 }

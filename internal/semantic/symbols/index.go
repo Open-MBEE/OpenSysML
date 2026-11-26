@@ -780,30 +780,23 @@ func (idx *Index) expandImporter(pkgFQN string) {
 // enclosing packages before the global namespace, as KerML 8.2.3.5 resolves a
 // name: KerML::Core's `import Root::*` names its sibling KerML::Root.
 func (idx *Index) resolveWildcardTarget(pkgFQN, targetText string) string {
-	return idx.resolveImportTarget(pkgFQN, targetText, map[importLookup]string{})
-}
-
-// importLookup is a name sought among the membership imports of a namespace,
-// the public ones only when it is sought from outside.
-type importLookup struct {
-	namespace, name string
-	public          bool
-}
-
-// resolveImportTarget is resolveWildcardTarget over the import lookups already
-// made on the way; one still being made binds nothing, so each is made once.
-//
-// A namespace on the way out that imports the target's first segment by name
-// binds it there, before anything further out declares it (KerML 8.2.3.5.4).
-func (idx *Index) resolveImportTarget(pkgFQN, targetText string, made map[importLookup]string) string {
+	first, rest, qualified := strings.Cut(targetText, "::")
 	for prefix := pkgFQN; prefix != ""; {
-		idx.readName(prefix + "::" + targetText)
-		if fqn, ok := idx.wildcardTargetAt(prefix + "::" + targetText); ok {
-			return fqn
+		idx.readName(prefix)
+		idx.readName(prefix + "::" + first)
+		if idx.namedByLookupOnly(prefix, first) {
+			return ""
 		}
-		first, rest, _ := strings.Cut(targetText, "::")
-		if fqn := idx.membershipImportTargetAt(importLookup{namespace: prefix, name: first}, made); fqn != "" {
-			return idx.memberTarget(fqn, rest, made)
+		// The nearest namespace binding the first segment binds the target. Past a
+		// segment a wildcard import brought, the rest is left to name lookup too.
+		if fqn, ok := idx.wildcardTargetAt(prefix + "::" + first); ok {
+			switch {
+			case !qualified:
+				return fqn
+			case idx.declaresUnder(prefix + "::" + first):
+				return idx.memberTarget(fqn, rest)
+			}
+			return ""
 		}
 		i := lastSeparator(prefix)
 		if i < 0 {
@@ -818,35 +811,35 @@ func (idx *Index) resolveImportTarget(pkgFQN, targetText string, made map[import
 		return fqn
 	}
 
-	// A member its qualifier only imports by name
-	if i := lastSeparator(targetText); i >= 0 {
-		if qualifier := idx.resolveImportTarget(pkgFQN, targetText[:i], made); qualifier != "" {
-			return idx.memberTarget(qualifier, targetText[i+2:], made)
-		}
-	}
-
 	// Target not found or ambiguous
 	return ""
 }
 
 // memberTarget resolves path, the rest of a wildcard import's target, inside the
-// namespace declared under fqn: each segment a member it owns or a wildcard
-// import re-exported, or else one it imports publicly by name.
-func (idx *Index) memberTarget(fqn, path string, made map[importLookup]string) string {
-	for fqn != "" && path != "" {
+// namespace declared under fqn, to "" when a segment is not a single member that
+// namespace shows outside itself.
+func (idx *Index) memberTarget(fqn, path string) string {
+	for more := true; more && fqn != ""; {
 		var name string
-		name, path, _ = strings.Cut(path, "::")
-		idx.readName(fqn + "::" + name)
-		if member, ok := idx.wildcardTargetAt(fqn + "::" + name); ok {
-			if !idx.namedFromOutside(fqn + "::" + name) {
-				return ""
-			}
-			fqn = member
-			continue
+		name, path, more = strings.Cut(path, "::")
+		key := fqn + "::" + name
+		idx.readName(key)
+		if fqn, _ = idx.wildcardTargetAt(key); !idx.namedFromOutside(key) {
+			return ""
 		}
-		fqn = idx.membershipImportTargetAt(importLookup{namespace: fqn, name: name, public: true}, made)
 	}
 	return fqn
+}
+
+// declaresUnder reports whether a declaration, not only an import, is registered under key.
+func (idx *Index) declaresUnder(key string) bool {
+	imported := idx.reexported.at(key)
+	for _, sym := range idx.fqn.at(key) {
+		if !imported.has(sym) {
+			return true
+		}
+	}
+	return false
 }
 
 // namedFromOutside reports whether no declaration registered under key is one
@@ -861,54 +854,48 @@ func (idx *Index) namedFromOutside(key string) bool {
 	return true
 }
 
-// membershipImportTargetAt resolves the name of lookup through an `import A::B;`
-// its namespace states, to "" when none resolves. Imports of distinct namespaces
-// under that name hide each other and bind nothing.
-func (idx *Index) membershipImportTargetAt(lookup importLookup, made map[importLookup]string) string {
-	if fqn, ok := made[lookup]; ok {
-		return fqn
+// namedByLookupOnly reports whether the namespace declared under fqn binds name
+// by an `import A::name;` or an alias, its own or one a wildcard import of its
+// brings. Only name lookup follows those (KerML 8.2.3.5.4), so a wildcard target
+// they bind is left to it, not read further out.
+func (idx *Index) namedByLookupOnly(fqn, name string) bool {
+	return idx.namesByLookup(fqn, name, true, map[string]bool{})
+}
+
+// namesByLookup is namedByLookupOnly from inside the namespace or, through a
+// wildcard import, from outside it, over the namespaces not yet seen.
+func (idx *Index) namesByLookup(fqn, name string, inside bool, seen map[string]bool) bool {
+	if seen[fqn] {
+		return false
 	}
-	made[lookup] = ""
-	idx.readName(lookup.namespace)
-	reexported := idx.reexported.at(lookup.namespace)
-	var target string
-	var stated, resolved []string // each import target as written, and what it resolves to
-	seen := !lookup.public        // whether an import the lookup may follow states the target
-	for _, sym := range idx.fqn.at(lookup.namespace) {
+	seen[fqn] = true
+	idx.readName(fqn)
+	reexported := idx.reexported.at(fqn)
+	for _, sym := range idx.fqn.at(fqn) {
 		if sym.Scope == nil || reexported.has(sym) {
 			continue
 		}
 		for _, imp := range sym.Scope.Imports() {
-			if imp.Kind != ast.ImportMembership || imp.Imported == nil || len(imp.Imported.Parts) == 0 ||
-				imp.Imported.Parts[len(imp.Imported.Parts)-1].Text != lookup.name {
-				continue
+			if imp.Kind == ast.ImportMembership && imp.Imported != nil && len(imp.Imported.Parts) > 0 &&
+				imp.Imported.Parts[len(imp.Imported.Parts)-1].Text == name &&
+				(inside || VisibleOutside(imp.Visibility)) {
+				return true
 			}
-			from, text := lookup.namespace, imp.Imported.Text()
-			if imp.Imported.Global {
-				from = ""
-			}
-			i := slices.Index(stated, from+"::"+text)
-			if i < 0 {
-				i = len(stated)
-				stated = append(stated, from+"::"+text)
-				resolved = append(resolved, idx.resolveImportTarget(from, text, made))
-			}
-			fqn := resolved[i]
-			if fqn == "" {
-				continue
-			}
-			seen = seen || VisibleOutside(imp.Visibility)
-			if target != "" && fqn != target {
-				return ""
-			}
-			target = fqn
 		}
 	}
-	if !seen {
-		return ""
+	idx.readName(fqn + "::" + name)
+	reexported = idx.reexported.at(fqn + "::" + name)
+	for _, sym := range idx.fqn.at(fqn + "::" + name) {
+		if sym.Kind == SymbolAlias && !reexported.has(sym) && (inside || VisibleOutside(sym.Visibility)) {
+			return true
+		}
 	}
-	made[lookup] = target
-	return target
+	for _, imp := range idx.lastTargets.at(fqn) {
+		if imp.fqn != "" && (inside || !imp.private) && idx.namesByLookup(imp.fqn, name, false, seen) {
+			return true
+		}
+	}
+	return false
 }
 
 // wildcardTargetAt reports the FQN a wildcard import reads its members from
