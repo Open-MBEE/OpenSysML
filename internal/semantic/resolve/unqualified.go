@@ -763,7 +763,7 @@ func (r *Resolver) eachMatchOfImport(into, scope *symbols.Scope, imp *ast.Import
 		return
 	}
 	target, ok := r.importTargetOf(scope, imp)
-	if !ok {
+	if !ok || r.leadsInCycle(imp, name) {
 		return
 	}
 	// A membership the import brings under a name another import of scope
@@ -918,6 +918,20 @@ func (r *Resolver) resume(imp *ast.Import) {
 	if len(r.resolvingImports) == 0 {
 		clear(r.passedTargets)
 	}
+}
+
+// leadsInCycle reports whether name leads both the import whose target is
+// resolving and imp, whose own target was read past a suspended import: neither binds it.
+func (r *Resolver) leadsInCycle(imp *ast.Import, name string) bool {
+	lead := r.leadOf
+	if lead == nil || lead == imp || !r.resolvingImports[lead] {
+		return false
+	}
+	if _, passed := r.passedTargets[imp]; !passed {
+		return false
+	}
+	return lead.Imported != nil && len(lead.Imported.Parts) > 0 &&
+		lead.Imported.Parts[0].Text == name && imp.Imported.Parts[0].Text == name
 }
 
 // passOver notes that a lookup of name skipped imp, whose target is resolving,

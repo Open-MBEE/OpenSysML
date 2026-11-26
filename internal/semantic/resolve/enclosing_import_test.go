@@ -327,3 +327,23 @@ func TestWildcardImportReadsASuspendedEnclosingImport(t *testing.T) {
 		}
 	}
 }
+
+// Two imports of one namespace that each lead with a name the other could bind
+// read it as though neither stood there, in either order.
+func TestImportsLeadingWithOneNameBindItOutsideBoth(t *testing.T) {
+	for _, imports := range []string{
+		"private import Lib; private import Lib::*;",
+		"private import Lib::*; private import Lib;",
+	} {
+		r := resolveDoc(t, "d.sysml", `
+			package Lib { part def A; package Lib { part def A2; } }
+			package P { `+imports+` }`)
+		scope := scopeNamed(t, r, "d.sysml", "P")
+		if sym, ok := r.LookupName(scope, "A"); !ok || symbols.FQNOf(sym) != "Lib::A" {
+			t.Errorf("%s: A = %v, %t; want Lib::A", imports, sym, ok)
+		}
+		if sym, ok := r.LookupName(scope, "A2"); ok {
+			t.Errorf("%s: A2 resolves to %s, want unresolved", imports, symbols.FQNOf(sym))
+		}
+	}
+}
