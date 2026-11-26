@@ -162,6 +162,31 @@ func Diagrams(document *docir.Document, opts DiagramOptions) ([]Diagram, error) 
 	return diagrams, nil
 }
 
+// RefusedPictures states the pictures the document's diagrams leave out, each
+// notice led by the name of its diagram, in document order.
+func RefusedPictures(document *docir.Document) []string {
+	if document == nil {
+		return nil
+	}
+	var notices []string
+	var walk func(nodes []docir.Content)
+	walk = func(nodes []docir.Content) {
+		for _, node := range nodes {
+			if node.Kind() != docir.ContentDiagram {
+				walk(node.Children())
+				continue
+			}
+			if rendering := node.Rendering(); rendering != nil {
+				for _, notice := range rendering.RefusedPictures() {
+					notices = append(notices, node.Name()+": "+notice)
+				}
+			}
+		}
+	}
+	walk(document.Content())
+	return notices
+}
+
 // Image is one image block of a document: its name, the location it shows,
 // the directory of the source file stating that location ("" when the
 // source is no file on disk), its alt text and caption.

@@ -1,1 +1,0 @@
-- The documentation states the bundled library count the conformance gate reports — 111 files, the 94 OMG files and 17 OpenSysML extensions, `NPR7123` among them — and the troubleshooting guide names Go 1.26, the version `go.mod` requires.

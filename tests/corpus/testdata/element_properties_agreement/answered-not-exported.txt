@@ -300,7 +300,7 @@ Feature::output	1	symbol-72
 Feature::ownedRedefinition	340	symbol-72
 Feature::ownedSpecialization	340	symbol-72
 Feature::ownedSubsetting	340	symbol-72
-Feature::type	6620	symbol-19
+Feature::type	6601	symbol-19
 FeatureChainExpression::instantiatedType	311	symbol-29
 FeatureChainExpression::operand	503	symbol-30
 FeatureChaining::relatedElement	297	symbol-10

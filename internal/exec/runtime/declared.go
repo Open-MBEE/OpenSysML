@@ -39,6 +39,8 @@ func NewDeclaredReaderIn(held *Context) *DeclaredReader {
 	}
 	r.ctx.SetToolRunner(held.ToolRunner())
 	r.ctx.forwardNotes = held.note
+	// A note held reports keeps the serial it was made under.
+	r.ctx.choiceSerials = held.choiceSerials
 	return r
 }
 

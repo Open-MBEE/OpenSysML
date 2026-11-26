@@ -1,1 +1,0 @@
-- Lowering an action that restates inherited successions looks a repeated succession up by its target, evaluates end multiplicities only for successions that state one, and does so through one semantic model instead of a new one per comparison.
