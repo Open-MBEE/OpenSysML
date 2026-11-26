@@ -1,0 +1,1 @@
+- An external analysis engine that stops reading requests while keeping its output open now fails the refused request within a second, as the engine's exit carrying the write error. The request used to wait the engine's whole timeout before failing.
