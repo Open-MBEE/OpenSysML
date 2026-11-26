@@ -652,3 +652,59 @@ func TestQueryComputedColumnDoesNotInheritAHiddenShadow(t *testing.T) {
 		t.Fatalf("operand error = %+v, want value ready", failure)
 	}
 }
+
+// A projected shadow removed by an earlier conjunction term still excuses an
+// incompatible cell, so reversing the terms cannot turn no rows into an error.
+const projectedShadowConjunctionOrderFixture = `
+private import ScalarValues::*;
+part def NumericAnnotations { attribute annotations : Integer = 5; }
+part def TextAnnotations { attribute annotations : String = "text"; }
+part numericAnnotations : NumericAnnotations;
+part textAnnotations : TextAnnotations;
+calc def NameThenFilter :> Query {
+	in root : Element;
+	WhereFeature(
+		source = WhereName(
+			source = Project(
+				source = Union(
+					source = Named(qualifiedName = "Observatory::numericAnnotations"),
+					other = Named(qualifiedName = "Observatory::textAnnotations")
+				),
+				properties = ("annotations")
+			),
+			operator = "=", value = "textAnnotations"
+		),
+		'feature' = "annotations", operator = ">", value = "3"
+	)
+}
+calc def FilterThenName :> Query {
+	in root : Element;
+	WhereName(
+		source = WhereFeature(
+			source = Project(
+				source = Union(
+					source = Named(qualifiedName = "Observatory::numericAnnotations"),
+					other = Named(qualifiedName = "Observatory::textAnnotations")
+				),
+				properties = ("annotations")
+			),
+			'feature' = "annotations", operator = ">", value = "3"
+		),
+		operator = "=", value = "textAnnotations"
+	)
+}
+`
+
+func TestQueryProjectedShadowOperandIsTermOrderIndependent(t *testing.T) {
+	fixture := loadExecutionFixture(t, projectedShadowConjunctionOrderFixture)
+	bindings := Bindings{"root": {ElementValue(fixture.symbol(t, "numericAnnotations"))}}
+	for _, name := range []string{"NameThenFilter", "FilterThenName"} {
+		result, err := fixture.execute(t, name, bindings, Options{})
+		if err != nil {
+			t.Fatalf("execute %s: %v", name, err)
+		}
+		if n := len(result.Rows()); n != 0 {
+			t.Errorf("%s rows = %d, want none in either order", name, n)
+		}
+	}
+}

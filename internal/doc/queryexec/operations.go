@@ -32,9 +32,8 @@ func keyOfRow(row Value) rowKey {
 	return rowKey{element: symbols.KeyOf(sym)}
 }
 
-// valueSource names the layer that supplied a value a filter compares.
-// Ordinary declared values stay strict; built-ins, shadowing features and
-// computed cells may defer when the read they came from allows it.
+// valueSource names the layer that supplied a compared value. Declared values stay
+// strict; built-ins, shadows and computed cells may defer when their read allows it.
 type valueSource uint8
 
 const (
@@ -597,9 +596,8 @@ func terminalProperty(property string) string {
 	return property
 }
 
-// builtinShadowEvidence reports a shadowed built-in name's evidence: whether a
-// feature shadows it and whether one can take the operand. Evidence comes from
-// the values the filter actually reads, not from a model path it no longer uses.
+// builtinShadowEvidence reports whether a shadowing feature was read and can take
+// the operand, from the values the filter reads, not an unused model path.
 type builtinShadowEvidence struct {
 	shadowed   bool
 	comparable bool
@@ -627,9 +625,9 @@ func (e *executor) builtinShadowEvidence(source sequence, property string, compa
 		return evidence.comparable
 	}
 	if columnIndex >= 0 {
-		// A projected column supplies its own cells: a feature hidden beneath
-		// a computed cell is not read and cannot supply evidence.
-		for _, cells := range source.cells {
+		// A projected column supplies its own cells, including those of the
+		// starting rows: a feature hidden beneath a computed cell is not read.
+		for _, cells := range startingCells(source) {
 			if columnIndex < len(cells) {
 				cell := cells[columnIndex]
 				if note(cell.Values(), cell.sources) {
@@ -650,9 +648,8 @@ func (e *executor) builtinShadowEvidence(source sequence, property string, compa
 	return evidence
 }
 
-// shadowFeatureSource labels a declared feature read of a shadowable built-in
-// name. A literal dotted feature or an explicitly selected feature keeps the
-// ordinary model source, so its comparison stays strict.
+// shadowFeatureSource labels a feature read of a shadowable built-in name; a
+// literal dotted or explicitly selected feature stays strict.
 func (e *executor) shadowFeatureSource(sym *symbols.Symbol, property string) valueSource {
 	if e.context.Features[property] {
 		return sourceModel
@@ -797,8 +794,9 @@ func (e *executor) evaluateOrderBy(expression queryplan.Expression) (sequence, e
 		return sequence{}, e.invalidOrder(expression, property, sortKeys[0], sortKeys[1])
 	}
 	result := sequence{
-		columns:    append([]Column(nil), source.columns...),
-		unfiltered: source.unfiltered,
+		columns:         append([]Column(nil), source.columns...),
+		unfiltered:      source.unfiltered,
+		unfilteredCells: source.unfilteredCells,
 	}
 	if len(source.depths) > 0 {
 		result.depths = make([]int64, 0, len(items))
@@ -1854,8 +1852,9 @@ func (e *executor) resolveClassification(name string) *symbols.Symbol {
 // even when no row is selected.
 func filtered(source sequence) sequence {
 	return sequence{
-		columns:    append([]Column(nil), source.columns...),
-		unfiltered: startingRows(source),
+		columns:         append([]Column(nil), source.columns...),
+		unfiltered:      startingRows(source),
+		unfilteredCells: startingCells(source),
 	}
 }
 

@@ -89,9 +89,10 @@ type sequence struct {
 	columns []Column
 	cells   [][]Cell
 	depths  []int64
-	// unfiltered are the rows before any filter narrowed them; a filter
-	// classifies a built-in here so term order cannot change its verdict.
-	unfiltered []Value
+	// unfiltered and unfilteredCells are the rows and cells before any filter;
+	// term order must not change how a filter classifies its operand.
+	unfiltered      []Value
+	unfilteredCells [][]Cell
 }
 
 // startingRows are the rows a sequence descends from before any filter.
@@ -100,6 +101,14 @@ func startingRows(s sequence) []Value {
 		return s.unfiltered
 	}
 	return s.values
+}
+
+// startingCells are the cells of those rows, when the sequence was projected.
+func startingCells(s sequence) [][]Cell {
+	if s.unfilteredCells != nil {
+		return s.unfilteredCells
+	}
+	return s.cells
 }
 
 // depthAt is the nesting depth of row index; 0 when none was assigned.

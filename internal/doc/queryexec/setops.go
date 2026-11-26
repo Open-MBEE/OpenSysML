@@ -94,6 +94,7 @@ func (e *executor) evaluateUnion(expression queryplan.Expression) (sequence, err
 	// A union is a new scope: a row an arm filtered out supplies no evidence
 	// above it, while each arm kept its own scope for its internal filters.
 	result.unfiltered = nil
+	result.unfilteredCells = nil
 	for _, input := range []sequence{source, other} {
 		for i, value := range input.values {
 			key := setKeyOf(value)
