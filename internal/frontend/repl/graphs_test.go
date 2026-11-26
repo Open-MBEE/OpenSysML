@@ -70,8 +70,8 @@ func TestGraphsRefusesAVertexOrAnEdgeOfAMachine(t *testing.T) {
 	s := NewSession()
 	s.Submit("package P { state def Machine { state off; state on; transition off_on first off then on; } }")
 	for name, want := range map[string]string{
-		"P::Machine::off":    "no lowered graph for the state usage P::Machine::off: a state declared without a body is a vertex of its state machine's graph",
-		"P::Machine::off_on": "no lowered graph for the action usage P::Machine::off_on: a transition is an edge of its state machine's graph",
+		"P::Machine::off":    "no lowered graph for the state usage P::Machine::off: a state declared without a body is a vertex of its owner's graph",
+		"P::Machine::off_on": "no lowered graph for the action usage P::Machine::off_on: a transition is an edge of its owner's graph",
 	} {
 		if _, err := s.Graphs(name); err == nil || err.Error() != want {
 			t.Errorf("Graphs(%s) = %v, want the error %q", name, err, want)

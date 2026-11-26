@@ -442,12 +442,13 @@ func TestGraphsRefusesSubjectsWithoutAGraph(t *testing.T) {
 func TestGraphsRefusesAVertexOrAnEdgeOfAMachine(t *testing.T) {
 	model, idx := graphsModelOf(t, `package P {
 		state def Machine { state off; state on; transition off_on first off then on; }
-		action def Split { fork f; }
+		action def Split { fork f; action a; action b; succession guarded first a if true then b; }
 	}`)
 	for name, want := range map[string]string{
-		"P::Machine::off":    "no lowered graph for the state usage P::Machine::off: a state declared without a body is a vertex of its state machine's graph",
-		"P::Machine::off_on": "no lowered graph for the action usage P::Machine::off_on: a transition is an edge of its state machine's graph",
-		"P::Split::f":        "no lowered graph for the action usage P::Split::f: a control node is a node of its action's graph",
+		"P::Machine::off":    "no lowered graph for the state usage P::Machine::off: a state declared without a body is a vertex of its owner's graph",
+		"P::Machine::off_on": "no lowered graph for the action usage P::Machine::off_on: a transition is an edge of its owner's graph",
+		"P::Split::f":        "no lowered graph for the action usage P::Split::f: a control node is a node of its owner's graph",
+		"P::Split::guarded":  "no lowered graph for the action usage P::Split::guarded: a transition is an edge of its owner's graph",
 	} {
 		_, err := GraphsOf(model, lookupOne(t, idx, name))
 		if !errors.Is(err, ErrGraphsSubject) || err.Error() != want {

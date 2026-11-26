@@ -135,10 +135,16 @@ func TestExportGraphsRefusalKeepsTheRequestedID(t *testing.T) {
 func TestExportGraphsRefusesAVertexOrAnEdgeOfAMachine(t *testing.T) {
 	srv := mustNewService(t, 10)
 	t.Cleanup(srv.Close)
-	parsed, _ := parseContent(t, srv, "package P { state def Machine { state off; state on; transition off_on first off then on; } }")
+	parsed, _ := parseContent(t, srv, `package P {
+		state def Machine { state off; state on; transition off_on first off then on; }
+		part def Sig;
+		part p;
+		action def Notify { send new Sig() to p { action inner; } }
+	}`)
 	for subject, want := range map[string]string{
-		"P::Machine::off":    "invalid_argument: no lowered graph for the state usage P::Machine::off: a state declared without a body is a vertex of its state machine's graph",
-		"P::Machine::off_on": "invalid_argument: no lowered graph for the action usage P::Machine::off_on: a transition is an edge of its state machine's graph",
+		"P::Machine::off":    "invalid_argument: no lowered graph for the state usage P::Machine::off: a state declared without a body is a vertex of its owner's graph",
+		"P::Machine::off_on": "invalid_argument: no lowered graph for the action usage P::Machine::off_on: a transition is an edge of its owner's graph",
+		"P::Notify::@0":      "invalid_argument: P::Notify::@0: no lowered graph for the unnamed action usage of P::Notify: it is lowered as part of its owner's graph",
 	} {
 		_, err := srv.ExportGraphs(context.Background(), &pb.ExportGraphsRequest{ModelHash: parsed.ModelHash, Subject: subject})
 		if err == nil || err.Error() != want {

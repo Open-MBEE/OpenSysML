@@ -83,20 +83,20 @@ func actionMembers(actionDecl ast.Node) ([]ast.Node, error) {
 	case *ast.Definition:
 		return n.Members, nil
 	}
-	return nil, errNoBody(actionDecl)
+	return nil, errPartOfOwner(actionDecl)
 }
 
-// errNoBody says in words why decl, no usage or definition, has no body to lower.
-func errNoBody(decl ast.Node) error {
+// errPartOfOwner says in words that decl, no usage or definition, has no graph but its owner's.
+func errPartOfOwner(decl ast.Node) error {
 	switch decl.(type) {
 	case *ast.TransitionMember:
-		return errors.New("a transition is an edge of its state machine's graph")
+		return errors.New("a transition is an edge of its owner's graph")
 	case *ast.SubstateMember:
-		return errors.New("a state declared without a body is a vertex of its state machine's graph")
+		return errors.New("a state declared without a body is a vertex of its owner's graph")
 	case *ast.ForkNode, *ast.JoinNode, *ast.MergeNode, *ast.DecisionNode:
-		return errors.New("a control node is a node of its action's graph")
+		return errors.New("a control node is a node of its owner's graph")
 	}
-	return errors.New("it is declared without a body of its own")
+	return errors.New("it is lowered as part of its owner's graph")
 }
 
 func collectActionNodes(members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) (*ActionGraph, error) {

@@ -106,7 +106,7 @@ func TestGraphsRefusals(t *testing.T) {
 		{"not a behavior, by its bare name", []string{"-graphs", "Product"}, exitUnevaluable,
 			"sysml: -graphs: Product: no lowered graph for the part definition Pipeline::Product: the subject must be an action or a state machine\n"},
 		{"a state without a body", []string{"-graphs", "Pipeline::Machine::idle"}, exitUnevaluable,
-			"sysml: -graphs: no lowered graph for the state usage Pipeline::Machine::idle: a state declared without a body is a vertex of its state machine's graph\n"},
+			"sysml: -graphs: no lowered graph for the state usage Pipeline::Machine::idle: a state declared without a body is a vertex of its owner's graph\n"},
 		{"a package", []string{"-graphs", "Pipeline"}, exitUnevaluable,
 			"sysml: -graphs: no lowered graph for the package Pipeline: the subject must be an action or a state machine\n"},
 		{"unknown subject", []string{"-graphs", "Pipeline::Missing"}, exitUnevaluable, "sysml: -graphs: unresolved reference: Pipeline::Missing\n"},
