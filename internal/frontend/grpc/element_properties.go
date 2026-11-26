@@ -447,9 +447,8 @@ func (r *elementReader) stepAddress(from metamodel.Element, siblings []metamodel
 	return ""
 }
 
-// held is the symbol the reader's own model holds for the element sym stands for. A name resolves through the
-// symbol context's model, which synthesizes apart; a parameter no element of the form stands for reads as
-// the feature of its action's kind it redefines, false when it redefines none.
+// held is the symbol the reader's own model holds for the element sym stands for, as a name resolves through the symbol
+// context's model; a parameter the form holds no element for reads as the feature it redefines, false when it redefines none.
 func (r *elementReader) held(sym *symbols.Symbol) (*symbols.Symbol, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
