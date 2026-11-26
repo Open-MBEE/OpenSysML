@@ -21,7 +21,9 @@
 ;; - read-only buffers of the bundled library documents, whose text the
 ;;   server serves through `opensysml/stdlibContent'.
 ;;
-;; The server is `sysml-lsp' on `exec-path'.
+;; The server is `sysml-lsp' on `exec-path'.  Its settings are set in
+;; `eglot-workspace-configuration' under `:sysml', for instance
+;; (:sysml (:strictConformance t)).
 
 ;;; Code:
 
