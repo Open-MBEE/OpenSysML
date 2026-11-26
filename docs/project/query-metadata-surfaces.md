@@ -139,16 +139,23 @@ What was still missing at that baseline:
   under a bare built-in name, the translator defers type validation for that
   name to the row reader, so a filter on the feature is not judged by the
   built-in's type. An explicit built-in spelling keeps Boolean validation even
-  when the bare name is shadowed. A filter defers only the values the evaluator
-  itself read, and it decides whether the name is shadowed from the rows the
-  query started with, so reversing the terms of an `and` cannot change the
-  verdict. It skips an incompatible built-in row instead of failing the whole
-  query, including when the shadow is declared by a state, verdict, event or
-  object row's declaration. A computed column named like a built-in is compared
-  from its cells: an incompatible cell does not hide a matching one, and a
-  column with no comparable cell reports the operator error. A value read from
-  a declared feature and an explicitly selected `@` built-in always report an
-  invalid operand rather than being silently skipped.
+  when the bare name is shadowed. A filter decides operand validity from the
+  rows the query started with, so reversing the terms of an `and` cannot change
+  the verdict: an incompatible built-in value defers to a shadowing feature,
+  and an incompatible declared value under a shadowed name is skipped when
+  another starting row supplies a comparable value. A name with no comparable
+  value reports the operator error. A state, verdict or event row delegating a
+  dotted read keeps the terminal value's source, so built-in text is not
+  mistaken for a declared feature. A union starts a new scope from the rows it
+  emits; a row an arm filtered out cannot supply operand evidence above it.
+  Every read carries its source into a projection: cells from a computed
+  expression are compared from all of their values, where a comparison that
+  returns false still counts as comparable and only a column with no comparable
+  value reports the error, while a directly projected declared feature stays
+  as strict as the same value before projection. An explicitly selected `@`
+  built-in never probes a model feature of the same name, on element rows or on
+  held objects, so reading declaration metadata cannot materialize a lazy part
+  and start its behaviors.
 - **One activity index per execution, not one session walk per state.** The
   first read walks the session once, charges that walk to the visit budget once
   and merges the active declarations of every machine. Invoked document queries
@@ -216,6 +223,10 @@ this change.
 | A state row's text `isActive` feature shadows activity in a filter, while `@isActive` still rejects a text operand | `internal/doc/queryexec/shadow_deferral_regressions_test.go:TestQueryStateDeclarationShadowsActivityInAFilter` |
 | A scoped filter on a text feature named like a built-in rejects an ordering operand | `internal/frontend/grpc/query_shadow_deferral_regressions_test.go:TestOSLCScopedTextFeatureRejectsOrderingOperand` |
 | Reversing the terms of an `and` does not change whether a shadowed operand is accepted | `internal/frontend/grpc/query_shadow_deferral_regressions_test.go:TestQueryConjunctionOrderDoesNotChangeShadowDeferral` |
+| Reversing the terms of an `and` does not change an ordering operand over declared numeric and text features | `internal/frontend/grpc/query_shadow_deferral_regressions_test.go:TestOSLCConjunctionOrderDoesNotChangeDeclaredFeatureOperand` |
+| A mixed computed column with only nonmatching comparable cells returns no rows, and a projected declared feature keeps strict operand validation | `internal/doc/queryexec/shadow_deferral_regressions_test.go:TestQueryValidNonmatchingComputedCellIsNotAnOperatorError`, `:TestQueryProjectedDeclaredFeatureKeepsStrictOperandValidation` |
+| A delegated dotted read on a state row keeps its built-in value's source, and a union's empty arm supplies no operand evidence | `internal/doc/queryexec/shadow_deferral_regressions_test.go:TestQueryStateDelegatedDottedReadKeepsBuiltinProvenance`, `:TestQueryUnionEmptyArmDoesNotSupplyOperandEvidence` |
+| An explicit `@annotations` read on a held object leaves a namesake lazy part unmaterialized | `internal/doc/queryexec/object_explicit_annotation_lazy_part_test.go:TestExplicitAnnotationsOnAHeldObjectDoNotMaterializeANamesakePart` |
 
 The tests execute document queries over real `.sysml` fixtures through the
 shared `queryexec` executor, which is the executor behind the CLI, the REPL, the
