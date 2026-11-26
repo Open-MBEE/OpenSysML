@@ -281,9 +281,9 @@ type Client interface {
 	// edit_documents capabilities.
 	ApplyDocumentEdits(ctx context.Context, model *Model, document string, edits ...Edit) (*EditResult, error)
 
-	// Close releases what the implementation holds. The Client answers no
-	// further calls: each is refused with CodeUnavailable. Closing twice is
-	// not an error.
+	// Close waits for the calls in flight, then releases what the
+	// implementation holds. The Client answers no further calls: each is
+	// refused with CodeUnavailable. Closing twice is not an error.
 	Close() error
 
 	sealed()
@@ -414,6 +414,12 @@ type client struct {
 
 	mu     sync.Mutex
 	closed bool
+	// calls counts the calls admitted that are not over yet, and idle closes
+	// once a closed client has none left.
+	calls int
+	idle  chan struct{}
+	// released closes once Close has released the implementation.
+	released chan struct{}
 	// info is the service's answer to ServerInfo, kept once a preflight asks
 	// for it: a service does not change build while a client is open to it.
 	info *ServerInfo
@@ -421,21 +427,49 @@ type client struct {
 
 func (c *client) sealed() { /* marker: Client is closed to outside implementations */ }
 
-// live refuses a call on a closed Client, the way a closed connection refuses
-// one.
-func (c *client) live() error {
+// begin admits a call on an open Client and refuses one on a closed Client,
+// the way a closed connection refuses one. The caller runs the returned func
+// when the call is over: Close waits for every call it admitted.
+func (c *client) begin() (done func(), err error) {
+	return c.admit(false)
+}
+
+// within admits a step of a call already admitted, such as its preflight's
+// ServerInfo: a closing Client refuses it only once no call is left in flight.
+func (c *client) within() (done func(), err error) {
+	return c.admit(true)
+}
+
+func (c *client) admit(inCall bool) (done func(), err error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.closed {
-		return &StatusError{Code: CodeUnavailable, Message: "the client is closed"}
+	if c.closed && (!inCall || c.calls == 0) {
+		return nil, &StatusError{Code: CodeUnavailable, Message: "the client is closed"}
 	}
-	return nil
+	c.calls++
+	return c.end, nil
+}
+
+func (c *client) end() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.calls--
+	if c.closed && c.calls == 0 {
+		close(c.idle)
+	}
 }
 
 func (c *client) ServerInfo(ctx context.Context) (*ServerInfo, error) {
-	if err := c.live(); err != nil {
+	return c.askServerInfo(ctx, c.begin)
+}
+
+// askServerInfo asks the service for its ServerInfo as a call admit lets in.
+func (c *client) askServerInfo(ctx context.Context, admit func() (func(), error)) (*ServerInfo, error) {
+	done, err := admit()
+	if err != nil {
 		return nil, err
 	}
+	defer done()
 	resp, err := c.caller.serverInfo(ctx)
 	if err != nil {
 		return nil, err
@@ -447,9 +481,11 @@ func (c *client) ServerInfo(ctx context.Context) (*ServerInfo, error) {
 }
 
 func (c *client) ParseFile(ctx context.Context, path string, opts ...ParseOption) (*Model, error) {
-	if err := c.live(); err != nil {
+	done, err := c.begin()
+	if err != nil {
 		return nil, err
 	}
+	defer done()
 	req, err := parseRequest(opts)
 	if err != nil {
 		return nil, err
@@ -459,9 +495,11 @@ func (c *client) ParseFile(ctx context.Context, path string, opts ...ParseOption
 }
 
 func (c *client) ParseSource(ctx context.Context, content string, opts ...ParseOption) (*Model, error) {
-	if err := c.live(); err != nil {
+	done, err := c.begin()
+	if err != nil {
 		return nil, err
 	}
+	defer done()
 	req, err := parseRequest(opts)
 	if err != nil {
 		return nil, err
@@ -479,9 +517,11 @@ func (c *client) ParseFiles(ctx context.Context, paths []string, opts ...ParseOp
 }
 
 func (c *client) ParseDocuments(ctx context.Context, documents []Document, opts ...ParseOption) (*Model, error) {
-	if err := c.live(); err != nil {
+	done, err := c.begin()
+	if err != nil {
 		return nil, err
 	}
+	defer done()
 	if len(documents) == 0 {
 		return nil, &StatusError{Code: CodeInvalidArgument, Message: "parse needs at least one document"}
 	}
@@ -603,9 +643,11 @@ func EnableLint(codes ...string) DiagnosticsOption {
 }
 
 func (c *client) Diagnostics(ctx context.Context, model *Model, opts ...DiagnosticsOption) ([]Diagnostic, error) {
-	if err := c.live(); err != nil {
+	done, err := c.begin()
+	if err != nil {
 		return nil, err
 	}
+	defer done()
 	hash, err := modelHash(model)
 	if err != nil {
 		return nil, err
@@ -658,9 +700,11 @@ func AsMemberOf(typeID string) SymbolOption {
 }
 
 func (c *client) LookupSymbol(ctx context.Context, model *Model, symbolID string, opts ...SymbolOption) (*Symbol, error) {
-	if err := c.live(); err != nil {
+	done, err := c.begin()
+	if err != nil {
 		return nil, err
 	}
+	defer done()
 	hash, err := modelHash(model)
 	if err != nil {
 		return nil, err
@@ -703,9 +747,11 @@ func (c *client) LookupSymbol(ctx context.Context, model *Model, symbolID string
 }
 
 func (c *client) Evaluate(ctx context.Context, model *Model, expression string, opts ...EvaluateOption) (Value, error) {
-	if err := c.live(); err != nil {
+	done, err := c.begin()
+	if err != nil {
 		return nil, err
 	}
+	defer done()
 	hash, err := modelHash(model)
 	if err != nil {
 		return nil, err
@@ -735,9 +781,11 @@ func (c *client) Evaluate(ctx context.Context, model *Model, expression string, 
 }
 
 func (c *client) Instantiate(ctx context.Context, model *Model, symbolID string) (*Instantiation, error) {
-	if err := c.live(); err != nil {
+	done, err := c.begin()
+	if err != nil {
 		return nil, err
 	}
+	defer done()
 	hash, err := modelHash(model)
 	if err != nil {
 		return nil, err
@@ -761,9 +809,11 @@ func (c *client) Instantiate(ctx context.Context, model *Model, symbolID string)
 }
 
 func (c *client) InstancePaths(ctx context.Context, model *Model, ref ObjectRef) (*InstancePaths, error) {
-	if err := c.live(); err != nil {
+	done, err := c.begin()
+	if err != nil {
 		return nil, err
 	}
+	defer done()
 	hash, err := modelHash(model)
 	if err != nil {
 		return nil, err
@@ -785,14 +835,24 @@ func (c *client) InstancePaths(ctx context.Context, model *Model, ref ObjectRef)
 }
 
 // Close releases the implementation once: a second call is a no-op, so a
-// deferred Close beside an explicit one is safe.
+// deferred Close beside an explicit one is safe. A call that began before Close
+// runs to its end first; one that begins after it is refused.
 func (c *client) Close() error {
 	c.mu.Lock()
-	defer c.mu.Unlock()
 	if c.closed {
+		released := c.released
+		c.mu.Unlock()
+		<-released
 		return nil
 	}
 	c.closed = true
+	c.idle, c.released = make(chan struct{}), make(chan struct{})
+	if c.calls == 0 {
+		close(c.idle)
+	}
+	c.mu.Unlock()
+	<-c.idle
+	defer close(c.released)
 	return c.caller.close()
 }
 
@@ -808,13 +868,19 @@ func modelHash(model *Model) (string, error) {
 	return model.Hash, nil
 }
 
-// call is the shared preamble of every model operation: a live client and the
-// hash the model is named by.
-func (c *client) call(model *Model) (string, error) {
-	if err := c.live(); err != nil {
-		return "", err
+// call is the shared preamble of every model operation: a live client, whose
+// done the caller runs when the call is over, and the hash the model is named by.
+func (c *client) call(model *Model) (hash string, done func(), err error) {
+	done, err = c.begin()
+	if err != nil {
+		return "", nil, err
 	}
-	return modelHash(model)
+	hash, err = modelHash(model)
+	if err != nil {
+		done()
+		return "", nil, err
+	}
+	return hash, done, nil
 }
 
 // requireValueCapabilities refuses to send a value of a kind whose capability
@@ -864,7 +930,7 @@ func (c *client) serverInfo(ctx context.Context) (*ServerInfo, error) {
 	if info != nil {
 		return info, nil
 	}
-	info, err := c.ServerInfo(ctx)
+	info, err := c.askServerInfo(ctx, c.within)
 	var status *StatusError
 	if errors.As(err, &status) && status.Code == CodeUnimplemented {
 		info, err = &ServerInfo{}, nil

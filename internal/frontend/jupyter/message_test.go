@@ -3,6 +3,7 @@ package jupyter
 import (
 	"bytes"
 	"errors"
+	"math"
 	"testing"
 )
 
@@ -167,5 +168,45 @@ func TestContentAccessorsReadWhatJSONDecodesTo(t *testing.T) {
 	}
 	if m.int("cursor_pos", 0) != 7 || m.int("missing", 3) != 3 {
 		t.Error("int accessor")
+	}
+}
+
+// A number no int holds reads as the fallback: converting it is undefined in Go.
+func TestIntAccessorRefusesWhatNoIntHolds(t *testing.T) {
+	for name, value := range map[string]float64{
+		"NaN": math.NaN(), "+Inf": math.Inf(1), "-Inf": math.Inf(-1), "huge": 1e300, "huge negative": -1e300,
+	} {
+		m := Message{Content: map[string]any{"detail_level": value}}
+		if got := m.int("detail_level", 3); got != 3 {
+			t.Errorf("%s read as %d, want the fallback 3", name, got)
+		}
+	}
+}
+
+// The cursor of a request is a position within its code, whatever the client sent.
+func TestCursorStaysWithinTheCode(t *testing.T) {
+	code := "part é;"
+	end := len([]rune(code))
+	for name, c := range map[string]struct {
+		pos  any
+		want int
+	}{
+		"absent": {nil, end}, "inside": {float64(2), 2}, "negative": {float64(-4), 0},
+		"past the end": {float64(400), end}, "NaN": {math.NaN(), end}, "huge": {1e300, end},
+	} {
+		m := Message{Content: map[string]any{}}
+		if c.pos != nil {
+			m.Content["cursor_pos"] = c.pos
+		}
+		if got := m.cursor(code); got != c.want {
+			t.Errorf("%s: cursor %d, want %d", name, got, c.want)
+		}
+	}
+}
+
+func TestNewIDIsAUUIDAndFresh(t *testing.T) {
+	a, b := newID(), newID()
+	if len(a) != 36 || a[14] != '4' || a == b {
+		t.Errorf("ids %q and %q, want two distinct version-4 UUIDs", a, b)
 	}
 }
