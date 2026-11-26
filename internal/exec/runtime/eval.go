@@ -1659,7 +1659,7 @@ func (ctx *Context) arithmeticValues(op program.Operator, left, right Value, spa
 		}
 	}
 
-	res, err := constArithmetic(op, left.Const, right.Const, ctx.maxIntegerBits)
+	res, err := constArithmetic(op, left.Const, right.Const, ctx.maxIntegerBits, span)
 	if err != nil {
 		return Value{}, err
 	}
@@ -1688,14 +1688,19 @@ func definiteArithmeticError(op program.Operator, left, right Value) error {
 // evaluator and the compiled calc tier share so both report the same results
 // and the same errors. An Integer result is exact, refused only when it would
 // need more than maxBits.
-func constArithmetic(op program.Operator, left, right semantics.Value, maxBits int64) (semantics.Value, error) {
+func constArithmetic(op program.Operator, left, right semantics.Value, maxBits int64, span source.Span) (semantics.Value, error) {
+	// A Boolean is no number: the mismatch the type check reports in a model.
+	if !left.IsExtendedNumeric() || !right.IsExtendedNumeric() {
+		return semantics.Value{}, &OperandTypeError{
+			Op:    op.String(),
+			Left:  DescribeValue(Value{Kind: ValConst, Const: left}),
+			Right: DescribeValue(Value{Kind: ValConst, Const: right}),
+			Span:  span,
+		}
+	}
 	// An infinity is a Real (KerML 9.3.2.2.9): the extended reals answer what
 	// the limit determines and report an indeterminate form.
 	if left.IsInfinite() || right.IsInfinite() {
-		if !left.IsExtendedNumeric() || !right.IsExtendedNumeric() {
-			return semantics.Value{}, fmt.Errorf("%w: operator '%s' requires numeric operands, got %s and %s",
-				ErrTypeMismatch, op, semantics.FormatConst(left), semantics.FormatConst(right))
-		}
 		return semantics.InfinityArith(lower.OperatorKindOf(op), left, right)
 	}
 
@@ -2138,7 +2143,7 @@ func (ec *EvalContext) valueOperandExpr(x lowered) (Value, error) {
 func boolOperand(what string, v Value) (bool, error) {
 	v = soleElement(v)
 	if v.Kind != ValConst || v.Const.Kind != semantics.ValBool {
-		return false, fmt.Errorf("%w: %s must be Boolean, got %s", ErrTypeMismatch, what, v.Kind)
+		return false, fmt.Errorf("%w: %s must be Boolean, got %s", ErrTypeMismatch, what, describeOperand(v))
 	}
 	return v.Const.Bool, nil
 }
@@ -2188,7 +2193,7 @@ func (ctx *Context) unaryValue(op program.Operator, operand Value) (Value, error
 	switch op {
 	case program.OpNot:
 		if operand.Kind != ValConst {
-			return Value{}, fmt.Errorf("%w: logical not requires bool operand, got %v", ErrTypeMismatch, operand.Kind)
+			return Value{}, fmt.Errorf("%w: logical not requires bool operand, got %s", ErrTypeMismatch, describeOperand(operand))
 		}
 	case program.OpNeg, program.OpPos:
 		if operand.Kind == ValQuantity {
@@ -2223,7 +2228,7 @@ func constUnary(op program.Operator, operand semantics.Value) (semantics.Value, 
 	if op == program.OpNot {
 		// Logical not: not bool
 		if operand.Kind != semantics.ValBool {
-			return semantics.Value{}, fmt.Errorf("%w: logical not requires bool operand, got %s", ErrTypeMismatch, semantics.FormatConst(operand))
+			return semantics.Value{}, fmt.Errorf("%w: logical not requires bool operand, got %s", ErrTypeMismatch, DescribeValue(Value{Kind: ValConst, Const: operand}))
 		}
 		return semantics.Value{Kind: semantics.ValBool, Bool: !operand.Bool}, nil
 	}

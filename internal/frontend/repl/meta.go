@@ -478,16 +478,22 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		}
 		return metaOut(lines, false, nil), true
 	case "%print":
+		if len(fields) > 2 {
+			return metaOut(s.usage("usage: %print [name]"), false, nil), true
+		}
 		if len(fields) < 2 {
 			return metaOut(s.doPrint("")), true
 		}
 		return metaOut(s.doPrint(fields[1])), true
 	case "%save":
-		if len(fields) < 2 {
+		if len(fields) != 2 {
 			return metaOut(s.usage("usage: %save <file.sysml|file.ttl|file.json>"), false, nil), true
 		}
 		return metaOut(s.doSave(nameText(fields[1]))), true
 	case "%verbosity":
+		if len(fields) > 2 {
+			return metaOut(s.usage("usage: %verbosity [quiet|normal|debug]"), false, nil), true
+		}
 		if len(fields) < 2 {
 			return metaOut([]string{fmt.Sprintf("verbosity: %s", s.verbosity)}, false, nil), true
 		}
@@ -526,7 +532,7 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 	case "%replay":
 		return metaOut(s.doReplay(fields[1:]), false, nil), true
 	case "%search":
-		if len(fields) < 2 {
+		if len(fields) != 2 {
 			return metaOut(s.usage("usage: %search <substring>"), false, nil), true
 		}
 		return metaOut(s.doSearch(nameText(fields[1]))), true
@@ -543,12 +549,12 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 func (s *Session) metaViewCommand(fields []string) (metaResult, bool) {
 	switch fields[0] {
 	case "%view":
-		if len(fields) < 2 {
+		if len(fields) != 2 {
 			return metaOut(s.usage("usage: %view <name>"), false, nil), true
 		}
 		return metaOut(s.doView(fields[1])), true
 	case "%graphs":
-		if len(fields) < 2 {
+		if len(fields) != 2 {
 			return metaOut(s.usage("usage: %graphs <name>"), false, nil), true
 		}
 		return metaOut(s.doGraphs(fields[1])), true
@@ -774,7 +780,7 @@ func (r *renderArgs) readPalette(word string) string {
 func (s *Session) metaModelCommand(fields []string, line string) (metaResult, bool) {
 	switch fields[0] {
 	case "%instantiate":
-		if len(fields) < 2 {
+		if len(fields) != 2 {
 			return metaOut(s.usage("usage: %instantiate <name>"), false, nil), true
 		}
 		return metaOut(s.doInstantiate(fields[1])), true
@@ -861,17 +867,17 @@ func (s *Session) metaModelCommand(fields []string, line string) (metaResult, bo
 		}
 		return metaOut(s.doValidate(fields[1])), true
 	case "%check":
-		if len(fields) < 2 {
+		if len(fields) != 2 {
 			return metaOut(s.usage("usage: %check <name>"), false, nil), true
 		}
 		return metaOut(s.doCheck(fields[1])), true
 	case "%explain":
-		if len(fields) < 2 {
+		if len(fields) != 2 {
 			return metaOut(s.usage("usage: %explain <name>"), false, nil), true
 		}
 		return metaOut(s.doExplain(fields[1])), true
 	case "%solve":
-		if len(fields) < 2 {
+		if len(fields) != 2 {
 			return metaOut(s.usage("usage: %solve <name>"), false, nil), true
 		}
 		return metaOut(s.doSolve(fields[1])), true
@@ -900,14 +906,14 @@ func (s *Session) metaDebugCommand(fields []string, line string) (metaResult, bo
 	case "%tokens":
 		return metaOut(s.doTokens()), true
 	case "%break":
-		if len(fields) < 2 {
+		if len(fields) != 2 {
 			return metaOut(s.usage("usage: %break <node>"), false, nil), true
 		}
 		return metaOut(s.doBreak(nameText(fields[1]))), true
 	case "%stop":
 		return metaOut(s.doStop()), true
 	case "%occurrence":
-		if len(fields) < 2 {
+		if len(fields) != 2 {
 			return metaOut(s.usage("usage: %occurrence <name>"), false, nil), true
 		}
 		return metaOut(s.withTrace(s.runOccurrence(nameText(fields[1]))).Lines, false, nil), true
@@ -955,7 +961,7 @@ func (s *Session) metaDebugCommand(fields []string, line string) (metaResult, bo
 		if len(fields) < 2 {
 			return metaOut(s.usage("usage: %advance <time>"), false, nil), true
 		}
-		return metaOut(s.doAdvance(fields[1])), true
+		return metaOut(s.doAdvance(strings.Join(fields[1:], " "))), true
 	}
 	return metaResult{}, false
 }
@@ -4095,9 +4101,16 @@ func currentStateName(exec *runtime.StateExecutor) string {
 }
 
 // parseDuration reads the argument of %advance: a number of time units, with
-// an optional trailing "s".
+// an optional trailing "s", "[s]" or "[SI::s]", the clock's unit as a model
+// writes it.
 func parseDuration(arg string) (float64, error) {
-	text := strings.TrimSuffix(strings.TrimSpace(arg), "s")
+	text := strings.TrimSpace(arg)
+	for _, unit := range []string{"[SI::s]", "[s]", "s"} {
+		if number, ok := strings.CutSuffix(text, unit); ok {
+			text = strings.TrimSpace(number)
+			break
+		}
+	}
 	d, err := strconv.ParseFloat(text, 64)
 	if err != nil {
 		return 0, fmt.Errorf("invalid time %q (expected a number of time units, e.g. 30 or 30s)", arg)

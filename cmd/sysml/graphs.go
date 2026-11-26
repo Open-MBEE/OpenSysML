@@ -19,7 +19,7 @@ func runGraphs(files []string) error {
 	}
 	raw, err := sess.Graphs(graphsSubject)
 	if err != nil {
-		return fmt.Errorf("-graphs %s: %w", graphsSubject, err)
+		return fmt.Errorf("-graphs: %w", err)
 	}
 	if outputPath == "" {
 		_, err := os.Stdout.Write(raw)
