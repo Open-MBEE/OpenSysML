@@ -1,1 +1,0 @@
-- The nightly workflow no longer moves the `nightly` alias, or prunes the per-night releases past retention, on a night whose PyPI or npm upload failed. The alias job needed only the per-night release, so the alias named a night whose clients were not installable from a registry; it now needs both registry jobs, and re-running the failed jobs finishes the night.

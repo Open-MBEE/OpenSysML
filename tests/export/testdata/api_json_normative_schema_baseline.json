@@ -1,11 +1,10 @@
 {
   "fixtures": 63,
-  "elements": 6609,
+  "elements": 6605,
   "invalidElements": 1037,
   "missingRequired": {
     "action": 97,
     "actionDefinition": 7,
-    "argument": 2,
     "assertedConstraint": 26,
     "associationEnd": 5,
     "attributeDefinition": 13,
