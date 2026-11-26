@@ -209,3 +209,40 @@ func TestElementPropertiesReadLoopBodyParameter(t *testing.T) {
 		t.Errorf("spin: parameter = %v, want the empty parameter, the written body action and the until condition", got)
 	}
 }
+
+// TestElementPropertiesReadLoopBodyImport pins the owner of an import a loop's `{ … }` body
+// writes: the body action alone, as the conversion writes it, and the names it imports resolve
+// in that body.
+func TestElementPropertiesReadLoopBodyImport(t *testing.T) {
+	r := parseForElementProperties(t, `package Q { part def T; }
+package P {
+    action def A {
+        action named loop { private import Q::*; part t : T; }
+        loop { private import Q::*; part u : T; }
+        for i : ScalarValues::Integer in (1, 2) { private import Q::*; part v : T; }
+    }
+}`)
+	ids := func(element, property string) []string {
+		var out []string
+		for _, value := range r.property(element, property).GetValues() {
+			out = append(out, value.GetElement().GetId())
+		}
+		return out
+	}
+	for _, loop := range []string{"P__A__named", "P__A___401", "P__A___402"} {
+		if got := ids(loop, "ownedImport"); len(got) != 0 {
+			t.Errorf("%s: ownedImport = %v, want none: the body owns it", loop, got)
+		}
+		body := loop + "_loopBody"
+		imports := ids(body, "ownedImport")
+		if len(imports) != 1 {
+			t.Fatalf("%s: ownedImport = %v, want the one import the body writes", body, imports)
+		}
+		if got := ids(imports[0], "importOwningNamespace"); !slices.Equal(got, []string{body}) {
+			t.Errorf("%s: importOwningNamespace = %v, want %s", imports[0], got, body)
+		}
+		if got := ids(body, "ownedRelationship"); len(got) != 2 || got[0] != imports[0] {
+			t.Errorf("%s: ownedRelationship = %v, want the import, then the part's membership", body, got)
+		}
+	}
+}

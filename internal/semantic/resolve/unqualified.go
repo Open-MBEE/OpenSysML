@@ -673,6 +673,8 @@ func importsOf(node ast.Node) []*ast.Import {
 		members = n.Members
 	case *ast.Usage:
 		members = n.Members
+	case *ast.WhileLoopActionNode:
+		members = n.Body
 	default:
 		return nil
 	}

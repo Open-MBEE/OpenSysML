@@ -627,6 +627,10 @@ func (m *Model) OwnedImports(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym.Scope == nil {
 		return nil
 	}
+	if loop := loopStatementOf(sym); loop != nil && loopBodyParameter(loop) == nil {
+		// A `{ … }` body's imports are its own: the loop shares the scope the body declares into.
+		return nil
+	}
 	defer m.own(sym).LeaveDoc()
 	if cached, ok := m.ownedImports[sym]; ok {
 		return cached
