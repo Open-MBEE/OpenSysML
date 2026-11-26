@@ -217,17 +217,17 @@ func (r *Resolver) resolveImportName(scope *symbols.Scope, qn *ast.QualifiedName
 }
 
 // importName is resolveImportName, reporting also whether the answer was read
-// past a sibling import that may yet bind its leading segment (leadPassed).
+// past a resolving import that may yet bind its leading segment (leadPassed).
 func (r *Resolver) importName(scope *symbols.Scope, qn *ast.QualifiedName, imp *ast.Import) (sym *symbols.Symbol, passed, ok bool) {
 	if !r.resolvingImports[imp] {
 		r.resolvingImports[imp] = true
 		defer r.resume(imp)
 	}
-	defer func(outer *ast.Import, in *symbols.Scope, was bool) {
+	defer func(outer *ast.Import, was bool) {
 		passed = r.leadPassed
-		r.leadOf, r.leadScope, r.leadPassed = outer, in, was
-	}(r.leadOf, r.leadScope, r.leadPassed)
-	r.leadOf, r.leadScope, r.leadPassed = imp, scope, false
+		r.leadOf, r.leadPassed = outer, was
+	}(r.leadOf, r.leadPassed)
+	r.leadOf, r.leadPassed = imp, false
 	if !importAllowsPrivate(imp) {
 		// A plain import keeps the boundary even when it is consulted while an
 		// enclosing `import all` resolves its own target.

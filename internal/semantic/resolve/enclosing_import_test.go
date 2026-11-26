@@ -301,3 +301,29 @@ func TestWildcardImportReadsASiblingImport(t *testing.T) {
 		})
 	}
 }
+
+// An enclosing namespace's import, suspended while it asks the nested namespace
+// for its own first segment, still binds the nested wildcard import's target.
+func TestWildcardImportReadsASuspendedEnclosingImport(t *testing.T) {
+	r := resolveDoc(t, "d.sysml", `
+		package R { package X { part def E; } }
+		package P {
+			package X { part def A; }
+			package K {
+				private import R::X; public import N::*;
+				package N { public import X::*; }
+			}
+			package S { }
+		}`)
+	scope := scopeNamed(t, r, "d.sysml", "S")
+	for _, path := range [][]string{{"K", "N", "E"}, {"K", "E"}} {
+		if sym, ok := r.ResolveQualified(scope, qn(false, path...)); !ok || symbols.FQNOf(sym) != "R::X::E" {
+			t.Errorf("%s = %v, %t; want R::X::E", strings.Join(path, "::"), sym, ok)
+		}
+	}
+	for _, path := range [][]string{{"K", "N", "A"}, {"K", "A"}} {
+		if sym, ok := r.ResolveQualified(scope, qn(false, path...)); ok {
+			t.Errorf("%s resolves to %s, want unresolved", strings.Join(path, "::"), symbols.FQNOf(sym))
+		}
+	}
+}

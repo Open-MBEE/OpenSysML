@@ -560,7 +560,7 @@ func simpleName(sym *symbols.Symbol) string {
 func (r *Resolver) lookupImports(scope *symbols.Scope, name string) (*symbols.Symbol, bool) {
 	for _, imp := range r.scopeImports(scope) {
 		if r.resolvingImports[imp] {
-			r.passOver(scope, imp, name)
+			r.passOver(imp, name)
 			continue
 		}
 		if !r.importPrefixAvailable(scope, imp, name) {
@@ -920,11 +920,11 @@ func (r *Resolver) resume(imp *ast.Import) {
 	}
 }
 
-// passOver notes that the lookup of name among scope's imports skipped imp,
-// whose target is resolving, when name leads the target of a sibling import.
-func (r *Resolver) passOver(scope *symbols.Scope, imp *ast.Import, name string) {
+// passOver notes that a lookup of name skipped imp, whose target is resolving,
+// when name leads the target of another import, beside imp or nested below it.
+func (r *Resolver) passOver(imp *ast.Import, name string) {
 	lead := r.leadOf
-	if lead == nil || lead == imp || scope != r.leadScope {
+	if lead == nil || lead == imp {
 		return
 	}
 	if lead.Imported == nil || len(lead.Imported.Parts) == 0 || lead.Imported.Parts[0].Text != name {

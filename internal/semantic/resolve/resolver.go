@@ -223,9 +223,8 @@ type Resolver struct {
 	// importTargets are; leadOf is the import whose target is being resolved.
 	importLeads map[*ast.Import]*symbols.Symbol
 	leadOf      *ast.Import
-	// leadScope is the namespace leadOf is written in. leadPassed holds once its
-	// leading segment was looked up past a sibling import that may yet bind it.
-	leadScope  *symbols.Scope
+	// leadPassed holds once the leading segment of leadOf's target was looked
+	// up past another import that is resolving and may yet bind it.
 	leadPassed bool
 	// passedTargets holds the targets so read, until no import is resolving.
 	passedTargets map[*ast.Import]*symbols.Symbol
