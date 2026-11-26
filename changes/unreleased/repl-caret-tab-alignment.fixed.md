@@ -1,0 +1,1 @@
+- The caret under a diagnostic's echoed source line sits under the finding when tabs come before it: the tabs are repeated on the caret line instead of counted as one cell each, so `sysml -validate` on tab-indented source, and an expression or inline query fault after a tab, no longer point left of the token.
