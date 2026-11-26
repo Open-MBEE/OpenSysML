@@ -514,3 +514,79 @@ func TestSequenceRenderingKeepsAReferencingUsagesOrderOffTheUsageReferenced(t *t
 		t.Errorf("got %q\nwant %q", got, want)
 	}
 }
+
+// A lifeline that redefines a named succession it inherits draws the redefining
+// succession alone; a lifeline that only inherits it still reads the original.
+func TestSequenceRenderingDropsAnInheritedSuccessionTheLifelineRedefines(t *testing.T) {
+	rendering := renderSequenceOf(t, `package P {
+	item def Ping;
+	part server {
+		event occurrence a;
+		event occurrence b;
+		event occurrence c;
+		event occurrence d;
+	}
+	part source {
+		event occurrence sent;
+		event occurrence got;
+		succession original first sent then got;
+	}
+	part client :> source {
+		succession replacement :>> original first sent then got;
+	}
+	part heir :> client;
+	part other :> source;
+	message m1 of Ping from client.sent to server.a;
+	message m2 of Ping from server.b to client.got;
+	message m3 of Ping from heir.sent to server.a;
+	message m4 of Ping from server.b to heir.got;
+	message m5 of Ping from other.sent to server.c;
+	message m6 of Ping from server.d to other.got;
+}`, "server", "source", "client", "heir", "other", "m1", "m2", "m3", "m4", "m5", "m6")
+	want := []string{
+		"m1 of Ping: P::client.sent -> a",
+		"replacement: P::client.sent -> P::client.got",
+		"m2 of Ping: b -> P::client.got",
+		"m3 of Ping: P::heir.sent -> a",
+		"replacement: P::heir.sent -> P::heir.got",
+		"m4 of Ping: b -> P::heir.got",
+		"m5 of Ping: P::other.sent -> c",
+		"original: P::other.sent -> P::other.got",
+		"m6 of Ping: d -> P::other.got",
+		"original: sent -> got",
+	}
+	if got := sequenceEnds(rendering); !slices.Equal(got, want) {
+		t.Errorf("got %q\nwant %q", got, want)
+	}
+}
+
+// The same holds for a succession over events its usage holds by reference subsetting.
+func TestSequenceRenderingDropsARedefinedSuccessionOverReferenceSubsetEvents(t *testing.T) {
+	rendering := renderSequenceOf(t, `package P {
+	item def Ping;
+	part server {
+		event occurrence a;
+		event occurrence b;
+	}
+	part source {
+		event occurrence sent;
+		event occurrence got;
+	}
+	ref part observer ::> source {
+		succession original first sent then got;
+	}
+	part client :> observer, source {
+		succession replacement :>> original first sent then got;
+	}
+	message ask of Ping from client.sent to server.a;
+	message reply of Ping from server.b to client.got;
+}`, "server", "observer", "client", "ask", "reply")
+	want := []string{
+		"ask of Ping: P::client.sent -> a",
+		"replacement: P::client.sent -> P::client.got",
+		"reply of Ping: b -> P::client.got",
+	}
+	if got := sequenceEnds(rendering); !slices.Equal(got, want) {
+		t.Errorf("got %q\nwant %q", got, want)
+	}
+}

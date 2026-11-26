@@ -624,7 +624,8 @@ func (e *lifelineEnds) orderEnd(o order, occurrence, through *symbols.Symbol) li
 // inheritedOrders are, per order, its readings on the lifelines that inherit it,
 // in the order drawn: an order a type states between two events of its own or
 // inherited holds on every lifeline specializing it that holds one of them, the
-// events it redefines standing in for the ones redefined. A chain of orders carries
+// events it redefines standing in for the ones redefined; a lifeline that redefines
+// the succession stating it reads the redefining one instead. A chain of orders carries
 // a lifeline's events along it, so the readings are taken until none adds an event.
 func (r *Renderer) inheritedOrders(orders []order, ends *lifelineEnds, lifelines []*Node) [][]timing {
 	shown := make(map[*Node]*symbols.Symbol, len(ends.lifelines))
@@ -649,6 +650,10 @@ func (r *Renderer) inheritedOrders(orders []order, ends *lifelineEnds, lifelines
 			}
 			for at, lifeline := range lifelines {
 				if read[[2]int{i, at}] || !r.specializes(shown[lifeline], o.within) {
+					continue
+				}
+				// A succession the lifeline redefines is read there as the one redefining it.
+				if o.succession != nil && r.memberFor(shown[lifeline], o.succession) != o.succession {
 					continue
 				}
 				from := lifelineEnd{lifeline, r.memberFor(shown[lifeline], o.from)}
