@@ -304,16 +304,20 @@ branch that moves the integration state onto `main`:
    When the release was a `hotfix/` branch, `develop`'s lockfile still locks
    the platform packages of the previous release: run the same
    `npm install --package-lock-only` on the back-merge branch so they lock the
-   release's:
+   release's. `develop` takes no direct push — its ruleset requires a pull
+   request and the merge queue — so the merge is made on a branch and opened
+   as a pull request against `develop`; the queue merges with a merge commit,
+   which keeps `main` an ancestor of `develop`:
 
    ```bash
-   git checkout develop && git pull
-   git merge main
+   git fetch origin
+   git checkout -b chore/back-merge-main-x.y.z origin/develop
+   git merge origin/main
    git rm -q docs/project/spec-compliance.md   # the release's combined page; develop builds it
    (cd client/node && npm install --package-lock-only --ignore-scripts)   # after a hotfix
    (cd packaging/npm/sysml-mcp && npm install --package-lock-only --ignore-scripts)
    git commit -am "chore(docs): drop the released compliance page from develop"
-   git push origin develop
+   git push -u origin chore/back-merge-main-x.y.z   # then open the pull request against develop
    ```
 
 A `hotfix/` branch follows the same path from `main`: cut from `main`, pull
