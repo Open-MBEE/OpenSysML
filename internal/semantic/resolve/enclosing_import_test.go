@@ -1,0 +1,100 @@
+package resolve
+
+import (
+	"fmt"
+	"strings"
+	"testing"
+)
+
+// A name an enclosing namespace imports is found there before a same-named
+// member owned further out (KerML 8.2.3.5.4).
+func TestEnclosingImportPrecedesOuterMember(t *testing.T) {
+	r := resolveDoc(t, "d.sysml", `
+		package Q { part def T; }
+		package P {
+			part def T;
+			package K1 { private import Q::*; part v : T; }
+			package K2 { private import Q::*; package K3 { part v : T; } }
+			package K4 { public import Q::*; package K5 { part v : T; } }
+			package K6 { private import Q::T; package K7 { part v : T; } }
+			package K8 { private import Q::*; package K9 { package K10 { part v : T; } } }
+			part def C { private import Q::*; part cInner { part v : T; } }
+			part usage { private import Q::*; part uInner { part v : T; } }
+			state def S { private import Q::*; state sInner { part v : T; } }
+			action def A {
+				action plainOuter {
+					private import Q::*;
+					action plainInner { part v : T; }
+					action innerLoop loop { part v : T; }
+				}
+			}
+			package Own { private import Q::*; package Mid { part def T; package In { part v : T; } } }
+			package None { package NoneIn { part v : T; } }
+		}
+	`)
+	assertNoUnresolved(t, r)
+
+	for _, tc := range []struct{ scope, want string }{
+		{"K1", "Q::T"},
+		{"K3", "Q::T"},
+		{"K5", "Q::T"},
+		{"K7", "Q::T"},
+		{"K10", "Q::T"},
+		{"cInner", "Q::T"},
+		{"uInner", "Q::T"},
+		{"sInner", "Q::T"},
+		{"plainInner", "Q::T"},
+		{"innerLoop", "Q::T"},
+		{"In", "P::Own::Mid::T"},
+		{"NoneIn", "P::T"},
+	} {
+		sym, ok := r.LookupName(scopeNamed(t, r, "d.sysml", tc.scope), "T")
+		if !ok {
+			t.Errorf("%s: T does not resolve", tc.scope)
+			continue
+		}
+		if got := r.registeredFQN(sym); got != tc.want {
+			t.Errorf("%s: T resolves to %s, want %s", tc.scope, got, tc.want)
+		}
+	}
+}
+
+// A member a namespace inherits is still found before a name imported further out.
+func TestInheritedMemberPrecedesOuterImport(t *testing.T) {
+	r := resolveDoc(t, "d.sysml", `
+		package Q { part def T; }
+		package P {
+			private import Q::*;
+			part def Base { part def T; }
+			part def C :> Base { part inner { part v : T; } }
+		}
+	`)
+	assertNoUnresolved(t, r)
+
+	sym, ok := r.LookupName(scopeNamed(t, r, "d.sysml", "inner"), "T")
+	if !ok {
+		t.Fatal("T does not resolve")
+	}
+	if got := r.registeredFQN(sym); got != "P::Base::T" {
+		t.Errorf("T resolves to %s, want P::Base::T", got)
+	}
+}
+
+// The leading segment of a qualified name follows the same order: a package
+// importing its own name reaches the import, not itself, and `$::` roots the name.
+func TestImportedNameHidesTheImportingPackageFromItself(t *testing.T) {
+	const src = `
+		package U { part def V; }
+		package V {
+			private import U::*;
+			part def G;
+			part x : %s;
+		}
+	`
+	r := resolveDoc(t, "d.sysml", fmt.Sprintf(src, "V::G"))
+	if len(r.Diagnostics) != 1 || !strings.Contains(r.Diagnostics[0].Message, "V::G") {
+		t.Errorf("V::G inside V: diagnostics %v, want it unresolved under U::V", r.Diagnostics)
+	}
+
+	assertNoUnresolved(t, resolveDoc(t, "d.sysml", fmt.Sprintf(src, "$::V::G")))
+}

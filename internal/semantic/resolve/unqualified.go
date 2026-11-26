@@ -51,11 +51,11 @@ func (r *Resolver) walkUnqualifiedHiding(scope *symbols.Scope, name string, hide
 			return resolution{sym: sym, ok: true}
 		}
 
-		if sym, ok := r.enclosingLocal(s.Parent(), name, hide); ok {
+		if sym, ok := r.lookupImports(s, name); ok && !hide.hides(sym) {
 			return resolution{sym: sym, ok: true}
 		}
 
-		if sym, ok := r.lookupImports(s, name); ok && !hide.hides(sym) {
+		if sym, ok := r.enclosingLocal(s.Parent(), name, hide); ok {
 			return resolution{sym: sym, ok: true}
 		}
 	}
@@ -75,7 +75,7 @@ func (r *Resolver) walkUnqualifiedHiding(scope *symbols.Scope, name string, hide
 }
 
 // enclosingLocal finds name among the bindings the enclosing scopes declare, an
-// accept payload counting as one of its body's, before any import is consulted.
+// accept payload counting as one of its body's, up to the nearest one importing it.
 func (r *Resolver) enclosingLocal(scope *symbols.Scope, name string, hide *refFilter) (*symbols.Symbol, bool) {
 	for ; scope != nil; scope = scope.Parent() {
 		if sym, ok := r.localBinding(scope, name, hide); ok {
@@ -84,8 +84,21 @@ func (r *Resolver) enclosingLocal(scope *symbols.Scope, name string, hide *refFi
 		if sym, ok := r.acceptPayload(scope, name); ok && !hide.hides(sym) {
 			return sym, true
 		}
+		if r.importsName(scope, name, hide) {
+			return nil, false
+		}
 	}
 	return nil, false
+}
+
+// importsName reports whether scope makes name visible by an import, its own or an
+// inherited one: such a name hides the members owned further out (KerML 8.2.3.5.4).
+func (r *Resolver) importsName(scope *symbols.Scope, name string, hide *refFilter) bool {
+	if sym, ok := r.lookupInheritedImports(scope, name); ok && !hide.hides(sym) {
+		return true
+	}
+	sym, ok := r.lookupImports(scope, name)
+	return ok && !hide.hides(sym)
 }
 
 // localBinding is lookupLocal less the members that bind no name of their own.
