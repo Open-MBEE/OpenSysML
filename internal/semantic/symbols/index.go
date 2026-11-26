@@ -123,6 +123,9 @@ type Index struct {
 	// leftToLookup holds, while every importer is derived afresh, the imports whose
 	// targets were left to name lookup: they stay so, which lets the derivation settle.
 	leftToLookup map[namedIn]bool
+	// leaving holds, while one wildcard import's target is resolved, whether each
+	// namespace read for it leaves an import of its own to name lookup.
+	leaving map[string]bool
 
 	// cyclic maps a namespace to the ones it is on a cycle of wildcard imports
 	// with, itself included, in name order.
@@ -792,9 +795,21 @@ func (idx *Index) expandImporter(pkgFQN string) {
 // enclosing packages before the global namespace, as KerML 8.2.3.5 resolves a
 // name: KerML::Core's `import Root::*` names its sibling KerML::Root.
 func (idx *Index) resolveWildcardTarget(pkgFQN, targetText string, all bool) string {
+	fqn, _ := idx.wildcardTarget(pkgFQN, targetText, all)
+	return fqn
+}
+
+// wildcardTarget is resolveWildcardTarget, and whether the target is left to name
+// lookup: a namespace on the way binds its first segment by a named import or an
+// alias, or states an import so left, which may bring that segment.
+func (idx *Index) wildcardTarget(pkgFQN, targetText string, all bool) (fqn string, left bool) {
 	stated := namedIn{pkgFQN, targetText}
 	if idx.leftToLookup[stated] {
-		return ""
+		return "", true
+	}
+	if idx.leaving == nil {
+		idx.leaving = map[string]bool{}
+		defer func() { idx.leaving = nil }()
 	}
 	first, rest, qualified := strings.Cut(targetText, "::")
 	walk := lookupWalk{name: first, importer: pkgFQN, target: targetText}
@@ -804,11 +819,11 @@ func (idx *Index) resolveWildcardTarget(pkgFQN, targetText string, all bool) str
 		idx.readName(key)
 		// A member the namespace owns is found before any import of its name.
 		owned := idx.declaresUnder(key)
-		if !owned && idx.namesByLookup(prefix, key, true, &walk) {
+		if !owned && (idx.namesByLookup(prefix, key, true, &walk) || idx.leavesToLookup(prefix)) {
 			if idx.leftToLookup != nil {
 				idx.leftToLookup[stated] = true
 			}
-			return ""
+			return "", true
 		}
 		// The nearest namespace binding the first segment binds the target. Past a
 		// segment a wildcard import brought, the rest is left to name lookup too.
@@ -816,11 +831,11 @@ func (idx *Index) resolveWildcardTarget(pkgFQN, targetText string, all bool) str
 			idx.noteUnnamed(&walk)
 			switch {
 			case !qualified:
-				return fqn
+				return fqn, false
 			case owned:
-				return idx.memberTarget(fqn, rest, all)
+				return idx.memberTarget(fqn, rest, all), false
 			}
-			return ""
+			return "", false
 		}
 		i := lastSeparator(prefix)
 		if i < 0 {
@@ -834,13 +849,48 @@ func (idx *Index) resolveWildcardTarget(pkgFQN, targetText string, all bool) str
 	idx.readName(first)
 	if fqn, ok := idx.wildcardTargetAt(first); ok {
 		if !qualified {
-			return fqn
+			return fqn, false
 		}
-		return idx.memberTarget(fqn, rest, all)
+		return idx.memberTarget(fqn, rest, all), false
 	}
 
 	// Target not found or ambiguous
-	return ""
+	return "", false
+}
+
+// leavesToLookup reports whether the namespace under fqn states a wildcard import
+// left to name lookup, which may then bring any name: one whose first segment a
+// named import or an alias binds, or an enclosing namespace's such import may bring.
+func (idx *Index) leavesToLookup(fqn string) bool {
+	if left, done := idx.leaving[fqn]; done {
+		return left
+	}
+	idx.leaving[fqn] = false
+	for _, imp := range idx.imports(fqn) {
+		first, _, _ := strings.Cut(imp.target, "::")
+		walk := lookupWalk{name: first, importer: fqn, target: imp.target}
+		for prefix := fqn; prefix != ""; {
+			key := prefix + "::" + first
+			idx.readName(prefix)
+			idx.readName(key)
+			if idx.declaresUnder(key) {
+				break
+			}
+			if idx.namesByLookup(prefix, key, true, &walk) || (prefix != fqn && idx.leavesToLookup(prefix)) {
+				idx.leaving[fqn] = true
+				return true
+			}
+			if _, ok := idx.wildcardTargetAt(key); ok {
+				break
+			}
+			i := lastSeparator(prefix)
+			if i < 0 {
+				break
+			}
+			prefix = prefix[:i]
+		}
+	}
+	return false
 }
 
 // memberTarget resolves path, the rest of a wildcard import's target, under fqn: to "" when

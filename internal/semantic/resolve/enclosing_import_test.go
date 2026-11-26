@@ -366,3 +366,66 @@ func TestImportLedByANameItCannotBringReadsTheSiblingImport(t *testing.T) {
 		}
 	}
 }
+
+// A wildcard import whose target is an alias its own namespace declares reads
+// the aliased namespace's members, as one declared further out does.
+func TestWildcardImportBelowAnAliasOfItsOwnNamespace(t *testing.T) {
+	for _, target := range []string{"X::*", "Z::*", "X::Y::*"} {
+		r := resolveDoc(t, "d.sysml", `
+			package R { package X { part def E; package Y { part def E; } } }
+			package P {
+				package X { part def A; package Y { part def A; } }
+				package N { private alias X for R::X; private alias Z for R::X; public import `+target+`; }
+				package S { }
+			}`)
+		want := "R::" + strings.TrimSuffix(strings.Replace(target, "Z", "X", 1), "*") + "E"
+		for _, scope := range []string{"N", "S"} {
+			path := []string{"E"}
+			if scope == "S" {
+				path = []string{"N", "E"}
+			}
+			if sym, ok := r.ResolveQualified(scopeNamed(t, r, "d.sysml", scope), qn(false, path...)); !ok || symbols.FQNOf(sym) != want {
+				t.Errorf("%s: %s from %s = %v, %t; want %s", target, strings.Join(path, "::"), scope, sym, ok, want)
+			}
+		}
+		if sym, ok := r.ResolveQualified(scopeNamed(t, r, "d.sysml", "S"), qn(false, "N", "A")); ok {
+			t.Errorf("%s: N::A = %v; want it unresolved", target, sym)
+		}
+	}
+}
+
+// A wildcard import left to name lookup may bring any name, so the index binds
+// no later segment past it: N exposes what its own `import Q::*` brings as X,
+// not the X an enclosing namespace owns or imports.
+func TestWildcardImportBesideOneLeftToNameLookup(t *testing.T) {
+	for _, inK := range []string{
+		"private import Q;",
+		"public import R::*; private import Q;",
+		"private import Q; public import R::*;",
+		"private import Q::*; private import Q;",
+	} {
+		r := resolveDoc(t, "d.sysml", `
+			package Q { package X { part def B; } }
+			package R { package X { part def E; } }
+			package P {
+				package X { part def A; }
+				package K { `+inK+` package N { private import Q::*; public import X::*; } }
+				package S { }
+			}`)
+		outside := scopeNamed(t, r, "d.sysml", "S")
+		for member, want := range map[string]string{"A": "", "B": "Q::X::B", "E": ""} {
+			got := ""
+			if sym, ok := r.ResolveQualified(outside, qn(false, "K", "N", member)); ok {
+				got = symbols.FQNOf(sym)
+			}
+			if got != want {
+				t.Errorf("K { %s }: K::N::%s = %q, want %q", inK, member, got, want)
+			}
+			for _, sym := range r.idx.LookupQualified("P::K::N::" + member) {
+				if symbols.FQNOf(sym) != want {
+					t.Errorf("K { %s }: the index holds %s under P::K::N::%s", inK, symbols.FQNOf(sym), member)
+				}
+			}
+		}
+	}
+}
