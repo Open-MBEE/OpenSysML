@@ -158,6 +158,26 @@ func (r *Renderer) laneNodes(subject actionSubject, frame *Node, from int, eleme
 		}
 	}
 	frame.Children = kept
+	placeLanesOnce(frame)
+}
+
+// placeLanesOnce leaves a performer's Layout to one lane under frame, the outermost and then
+// the first drawn: its lanes in other flows are drawn around the nodes they hold.
+func placeLanesOnce(frame *Node) {
+	placed := map[Origin]bool{}
+	for level := frame.Children; len(level) > 0; {
+		var next []*Node
+		for _, node := range level {
+			if node.Kind == swimlaneKind && node.Geometry.placed() {
+				if placed[node.Origin] {
+					node.Geometry = nil
+				}
+				placed[node.Origin] = true
+			}
+			next = append(next, node.Children...)
+		}
+		level = next
+	}
 }
 
 // performerLabel names a performer in a swimlane or a `performed by` row: its

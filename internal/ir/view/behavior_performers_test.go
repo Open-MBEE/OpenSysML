@@ -283,6 +283,36 @@ func TestSwimlaneIsPlacedByTheLayoutOfItsPerformer(t *testing.T) {
 	}
 }
 
+// A placed lane the unplaced flow's frame moves under its header takes the nodes placed in it along.
+func TestPlacedSwimlaneKeepsItsPlacedNodesWhereTheFrameMovesIt(t *testing.T) {
+	rendering := render(t, "action-swimlane-layout.sysml", "PlacedLane::heldView")
+	lane := laneOf(t, rendering, "load")
+	if lane == nil {
+		t.Fatal("load is in no lane")
+	}
+	a := newArranger(labelsOf(rendering.Roots, false, nil, rendering.Shown), rendering.portView(Options{}.Ports))
+	a.layout(rendering)
+	frame, box := a.boxes[lane.ID], a.boxes[findNode(t, rendering.Roots, "load").ID]
+	if dx, dy := box.X-frame.X, box.Y-frame.Y; dx != 30 || dy != 70 {
+		t.Errorf("load at %+v in its lane at %+v, want the stated offset of 30,70", box, frame)
+	}
+}
+
+// One Layout about a performer places one lane, the outermost: a lane in a nested flow is drawn around its nodes.
+func TestSwimlaneLayoutPlacesTheOutermostLaneOfItsPerformer(t *testing.T) {
+	rendering := render(t, "action-swimlane-layout.sysml", "PlacedLane::nestedView")
+	outer, inner := laneOf(t, rendering, "fetch"), laneOf(t, rendering, "cut")
+	if outer == nil || inner == nil {
+		t.Fatalf("lanes of fetch and cut: %v, %v, want both", outer, inner)
+	}
+	if g := outer.Geometry; !g.placed() || g.X != 320 || g.Y != 120 {
+		t.Errorf("outer lane geometry %+v, want the Layout about arm", g)
+	}
+	if inner.Geometry.placed() {
+		t.Errorf("nested lane geometry %+v, want none", inner.Geometry)
+	}
+}
+
 // The nodes of a performed flow are the ones the perform action usage inherits,
 // so a Layout naming one through that usage places it.
 func TestPerformedFlowNodesArePlacedThroughThePerformActionUsage(t *testing.T) {
