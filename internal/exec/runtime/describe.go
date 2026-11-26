@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -14,13 +15,14 @@ func notOfKind(sentinel error, sym *symbols.Symbol, kind string) error {
 		sentinel, sym.Name, describeDecl(sym.Decl), articleFor(kind), kind)
 }
 
-// articleFor is the indefinite article a word reads with, so a kind beginning
-// with a vowel is "an analysis" rather than "a analysis".
-func articleFor(word string) string {
-	if word == "" {
+// articleFor is the indefinite article a kind reads with, which follows how its
+// first word is said: "an analysis case", but "a use case".
+func articleFor(kind string) string {
+	first, _, _ := strings.Cut(kind, " ")
+	if first == "" || first == "use" {
 		return "a"
 	}
-	switch word[0] {
+	switch first[0] {
 	case 'a', 'e', 'i', 'o', 'u', 'A', 'E', 'I', 'O', 'U':
 		return "an"
 	}

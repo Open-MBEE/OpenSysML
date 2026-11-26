@@ -417,7 +417,7 @@ func TestActionDebuggerRunsAUseCase(t *testing.T) {
 	wants(t, run(t, s, "%continue"), "✓ Action completed", "charge.charge = 1", "weigh.m = [3.5]", "total = [4.5]")
 	run(t, s, "%stop")
 
-	wants(t, run(t, s, "%analysis Drones::chargeDrone"), "error: not an analysis case: Drones::chargeDrone is an use case usage")
+	wants(t, run(t, s, "%analysis Drones::chargeDrone"), "error: not an analysis case: Drones::chargeDrone is a use case usage")
 }
 
 // A perform usage states no flow of its own: the debugger runs the flow of the
