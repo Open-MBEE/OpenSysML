@@ -32,10 +32,6 @@
   :prefix "sysml-lsp-"
   :link '(url-link "https://github.com/Open-MBEE/OpenSysML"))
 
-(defconst sysml-lsp--executable
-  (if (eq system-type 'windows-nt) "sysml-lsp.exe" "sysml-lsp")
-  "File name of the language server.")
-
 (defconst sysml-lsp--tool
   (if (eq system-type 'windows-nt) "sysml.exe" "sysml")
   "File name of the command-line tool a Run or Evaluate lens runs.")
@@ -47,18 +43,6 @@
     ("constraint" . "-constraint")
     ("requirement" . "-requirement"))
   "The `sysml' flag that runs each kind of element a lens names.")
-
-(defcustom sysml-lsp-server-path nil
-  "Absolute path to the `sysml-lsp' executable.
-When nil, `bin/sysml-lsp' in the project root is used if it exists, then
-`sysml-lsp' on the variable `exec-path'."
-  :type '(choice (const :tag "Find it" nil) file)
-  :risky t)
-
-(defcustom sysml-lsp-server-args nil
-  "Extra arguments passed to the language server."
-  :type '(repeat string)
-  :risky t)
 
 (lsp-defcustom sysml-lsp-strict-conformance nil
   "Judge documents as conforming SysML v2.
@@ -91,19 +75,11 @@ client always handles it and only these functions act on it.")
 
 (defun sysml-lsp--project-root ()
   "Return the root of the current project, or nil."
-  (or (lsp-workspace-root)
-      (when-let* ((project (project-current)))
-        (project-root project))))
+  (or (lsp-workspace-root) (sysml--project-root)))
 
 (defun sysml-lsp--find-server ()
   "Return the language server executable, or nil when none is found."
-  (cond
-   (sysml-lsp-server-path
-    (and (file-executable-p sysml-lsp-server-path) sysml-lsp-server-path))
-   ((when-let* ((root (sysml-lsp--project-root))
-                (candidate (expand-file-name (concat "bin/" sysml-lsp--executable) root)))
-      (and (file-executable-p candidate) candidate)))
-   (t (executable-find sysml-lsp--executable))))
+  (sysml--find-server (sysml-lsp--project-root)))
 
 (defun sysml-lsp--find-tool ()
   "Return the `sysml' executable to run Run and Evaluate lenses with, or nil.
@@ -212,11 +188,7 @@ Its text is asked of the current buffer's server; see
 
 (defun sysml-lsp--server-command ()
   "Return the command to start the language server with."
-  (let ((server (sysml-lsp--find-server)))
-    (unless server
-      (user-error "Could not find %s: build it with `make build' and set `sysml-lsp-server-path', or put it on `exec-path'"
-                  sysml-lsp--executable))
-    (cons server sysml-lsp-server-args)))
+  (sysml--server-command (sysml-lsp--project-root)))
 
 (defun sysml-lsp--enable-semantic-tokens ()
   "Turn on semantic tokens in this buffer when `sysml-lsp-semantic-tokens' is set."

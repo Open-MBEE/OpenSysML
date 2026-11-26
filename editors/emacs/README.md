@@ -81,11 +81,11 @@ The server is found in this order, as the VS Code extension finds it:
 2. `bin/sysml-lsp` in the project root (a checkout that ran `make build`);
 3. `sysml-lsp` on `exec-path`.
 
-After rebuilding the server, `M-x lsp-workspace-restart` picks the new binary up.
+Both clients look in that order and pass `sysml-lsp-server-args`. After rebuilding
+the server, `M-x lsp-workspace-restart` picks the new binary up, or
+`M-x eglot-reconnect` under Eglot.
 
-Under Eglot the server is `sysml-lsp` on `exec-path`, and `M-x eglot-reconnect`
-picks a rebuilt one up. Code lenses and the `sysml-lsp-strict-conformance`
-setting are lsp-mode's only.
+Code lenses and the `sysml-lsp-strict-conformance` setting are lsp-mode's only.
 
 ## Code lenses
 

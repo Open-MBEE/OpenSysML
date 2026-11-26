@@ -17,8 +17,95 @@
 ;;;; Registration
 
 (ert-deftest sysml-eglot-registers-the-server ()
-  (should (equal (alist-get '(sysml-mode kerml-mode) eglot-server-programs nil nil #'equal)
-                 '("sysml-lsp"))))
+  (should (eq (alist-get '(sysml-mode kerml-mode) eglot-server-programs nil nil #'equal)
+              #'sysml-eglot--server-command)))
+
+;;;; Server resolution
+
+(defmacro sysml-eglot-test--with-project-build (root exe &rest body)
+  "Run BODY with ROOT bound to a fresh project and EXE to its `bin/sysml-lsp'."
+  (declare (indent 2))
+  `(let* ((,root (file-name-as-directory (make-temp-file "proj" t)))
+          (,exe (expand-file-name "bin/sysml-lsp" ,root)))
+     (unwind-protect
+         (progn
+           (make-directory (file-name-directory ,exe))
+           (write-region "" nil ,exe)
+           (set-file-modes ,exe #o755)
+           ,@body)
+       (delete-directory ,root t))))
+
+(ert-deftest sysml-eglot-prefers-the-configured-path ()
+  (sysml-eglot-test--with-project-build root _exe
+    (let* ((configured (make-temp-file "sysml-lsp"))
+           (sysml-lsp-server-path configured)
+           (sysml-lsp-server-args nil))
+      (unwind-protect
+          (progn
+            (set-file-modes configured #o755)
+            (should (equal (sysml-eglot--server-command nil (cons 'transient root))
+                           (list configured))))
+        (delete-file configured)))))
+
+(ert-deftest sysml-eglot-refuses-a-configured-path-that-is-not-executable ()
+  (let ((sysml-lsp-server-path "/nonexistent/sysml-lsp"))
+    (should-error (sysml-eglot--server-command) :type 'user-error)))
+
+(ert-deftest sysml-eglot-finds-the-project-build ()
+  (sysml-eglot-test--with-project-build root exe
+    (let ((sysml-lsp-server-path nil)
+          (sysml-lsp-server-args nil)
+          (exec-path nil))
+      (should (equal (sysml-eglot--server-command nil (cons 'transient root))
+                     (list exe))))))
+
+(ert-deftest sysml-eglot-finds-the-build-in-the-buffer-project ()
+  (sysml-eglot-test--with-project-build root exe
+    (let ((sysml-lsp-server-path nil)
+          (sysml-lsp-server-args nil)
+          (exec-path nil)
+          (default-directory root)
+          (project-find-functions (list (lambda (dir) (cons 'transient dir)))))
+      (should (equal (sysml-eglot--server-command) (list exe))))))
+
+(ert-deftest sysml-eglot-falls-back-to-exec-path ()
+  (sysml-eglot-test--with-project-build root exe
+    (let* ((empty (file-name-as-directory (make-temp-file "empty" t)))
+           (sysml-lsp-server-path nil)
+           (sysml-lsp-server-args nil)
+           (exec-path (list (file-name-directory exe))))
+      (unwind-protect
+          (should (equal (sysml-eglot--server-command nil (cons 'transient empty))
+                         (list exe)))
+        (delete-directory empty t)))))
+
+(ert-deftest sysml-eglot-passes-server-args ()
+  (sysml-eglot-test--with-project-build root exe
+    (let ((sysml-lsp-server-path nil)
+          (sysml-lsp-server-args '("-strict")))
+      (should (equal (sysml-eglot--server-command nil (cons 'transient root))
+                     (list exe "-strict"))))))
+
+(ert-deftest sysml-eglot-starts-the-server-it-finds ()
+  (sysml-test--require-server)
+  (let* ((file (sysml-test--fixture "package P;\n"))
+         (buffer (find-file-noselect file))
+         (sysml-lsp-server-path sysml-test--server)
+         (sysml-lsp-server-args '("-strict"))
+         (exec-path nil))
+    (unwind-protect
+        (with-current-buffer buffer
+          (apply #'eglot (eglot--guess-contact))
+          (sysml-test--wait #'eglot-current-server)
+          (should (equal (process-command (jsonrpc--process (eglot-current-server)))
+                         (list sysml-test--server "-strict"))))
+      (let ((server (with-current-buffer buffer
+                      (set-buffer-modified-p nil)
+                      (eglot-current-server))))
+        (kill-buffer buffer)
+        (when server
+          (eglot-shutdown server)))
+      (delete-directory (file-name-directory file) t))))
 
 (ert-deftest sysml-eglot-passes-render-changed-on ()
   (let* (seen

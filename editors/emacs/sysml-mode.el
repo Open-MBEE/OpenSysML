@@ -24,6 +24,7 @@
 
 ;;; Code:
 
+(require 'project)
 (require 'seq)
 (require 'sysml-mode-keywords)
 (require 'url-parse)
@@ -394,6 +395,50 @@ Point is at the line's first non-blank character."
 (add-to-list 'auto-mode-alist '("\\.sysml\\'" . sysml-mode))
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.kerml\\'" . kerml-mode))
+
+;;;; The language server
+
+(defconst sysml--server-executable
+  (if (eq system-type 'windows-nt) "sysml-lsp.exe" "sysml-lsp")
+  "File name of the language server.")
+
+(defcustom sysml-lsp-server-path nil
+  "Absolute path to the `sysml-lsp' executable.
+When nil, `bin/sysml-lsp' in the project root is used if it exists, then
+`sysml-lsp' on the variable `exec-path'.  lsp-mode and Eglot both start
+the server this names."
+  :type '(choice (const :tag "Find it" nil) file)
+  :risky t)
+
+(defcustom sysml-lsp-server-args nil
+  "Extra arguments passed to the language server, under lsp-mode and Eglot."
+  :type '(repeat string)
+  :risky t)
+
+(defun sysml--project-root ()
+  "Return the root of the current buffer's project, or nil."
+  (when-let* ((project (project-current)))
+    (project-root project)))
+
+(defun sysml--find-server (root)
+  "Return the language server executable, or nil when none is found.
+ROOT is the project root to look for a build in, or nil."
+  (cond
+   (sysml-lsp-server-path
+    (and (file-executable-p sysml-lsp-server-path) sysml-lsp-server-path))
+   ((when-let* ((candidate (and root (expand-file-name
+                                      (concat "bin/" sysml--server-executable) root))))
+      (and (file-executable-p candidate) candidate)))
+   (t (executable-find sysml--server-executable))))
+
+(defun sysml--server-command (root)
+  "Return the command to start the language server with.
+ROOT is the project root to look for a build in, or nil."
+  (let ((server (sysml--find-server root)))
+    (unless server
+      (user-error "Could not find %s: build it with `make build' and set `sysml-lsp-server-path', or put it on `exec-path'"
+                  sysml--server-executable))
+    (cons server sysml-lsp-server-args)))
 
 ;;;; Bundled library documents
 

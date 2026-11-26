@@ -325,9 +325,9 @@ checkout rather than installed from MELPA; with lsp-mode:
 With Eglot, `sysml-eglot` takes the place of the `sysml-lsp` block, hooking
 `eglot-ensure` instead of `lsp-deferred`; `editors/emacs/README.md` shows it.
 
-Under lsp-mode the server is found as the VS Code extension finds it:
+Under either client the server is found as the VS Code extension finds it:
 `sysml-lsp-server-path`, then `bin/sysml-lsp` in the project root, then
-`sysml-lsp` on `exec-path`. Under Eglot it is `sysml-lsp` on `exec-path`.
+`sysml-lsp` on `exec-path`.
 
 - **Highlighting** colours each keyword group — declarations, behaviour,
   modifiers, relationships, word operators — with its own customizable face, plus

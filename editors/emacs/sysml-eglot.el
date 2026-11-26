@@ -21,7 +21,9 @@
 ;; - read-only buffers of the bundled library documents, whose text the
 ;;   server serves through `opensysml/stdlibContent'.
 ;;
-;; The server is `sysml-lsp' on `exec-path'.
+;; The server is found as under lsp-mode: the `sysml-lsp-server-path'
+;; setting, else `bin/sysml-lsp' in the project root, else `sysml-lsp' on
+;; `exec-path', and it is passed `sysml-lsp-server-args'.
 
 ;;; Code:
 
@@ -88,7 +90,16 @@ Modifiers are left off for the same reason: the server marks an
 
 (add-hook 'eglot-managed-mode-hook #'sysml-eglot--keep-mode-faces)
 
-(add-to-list 'eglot-server-programs '((sysml-mode kerml-mode) "sysml-lsp"))
+;;;; Registration
+
+(defun sysml-eglot--server-command (&optional _interactive project)
+  "Return the command to start the language server with under Eglot.
+A build is looked for in the root of PROJECT, the project Eglot starts
+the server for, or of the current buffer's when Eglot passes none."
+  (sysml--server-command (if project (project-root project) (sysml--project-root))))
+
+(add-to-list 'eglot-server-programs
+             '((sysml-mode kerml-mode) . sysml-eglot--server-command))
 
 (provide 'sysml-eglot)
 
