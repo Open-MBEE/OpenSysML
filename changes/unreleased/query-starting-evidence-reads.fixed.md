@@ -1,0 +1,3 @@
+- A projection after a filter no longer reads the excluded rows' features to collect operand evidence: evidence for a projected column is gathered only when a later filter compares that column, so an empty result cannot create lazy parts or start their behaviors in the live session. Reads of a held object's shadowing feature go through a rollback-safe runtime probe.
+- Evidence for a projected column is gathered per column, so an unevaluable sibling property on an excluded row no longer discards a comparable shadow the later filter needs.
+- A failed scan of the session's state activities is now reported on every read of the activity index instead of publishing an incomplete index that reports unvisited active states as inactive.

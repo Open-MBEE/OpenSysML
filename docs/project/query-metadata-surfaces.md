@@ -235,7 +235,11 @@ this change.
 | A feature literally named `owner.annotations` reads its own value and rejects an ordering operand, without borrowing the owner's `annotations` feature | `internal/doc/queryexec/shadow_deferral_regressions_test.go:TestQueryLiteralDottedFeatureDoesNotBorrowAPathShadow` |
 | A feature hidden beneath a computed column cannot excuse an invalid operand on a built-in cell | `internal/doc/queryexec/shadow_deferral_regressions_test.go:TestQueryComputedColumnDoesNotInheritAHiddenShadow` |
 | A projected shadow removed by an earlier conjunction term still excuses an incompatible cell, so reversing the terms cannot turn no rows into an error | `internal/doc/queryexec/shadow_deferral_regressions_test.go:TestQueryProjectedShadowOperandIsTermOrderIndependent` |
-| A filter before `Project` does not hide a shadow from the filter after it, because projection rebuilds the pre-filter rows' cells | `internal/doc/queryexec/shadow_deferral_regressions_test.go:TestQueryShadowEvidenceSurvivesProjectionAfterAFilter` |
+| A filter before `Project` does not hide a shadow from the filter after it, because projection keeps the pre-filter rows for on-demand evidence | `internal/doc/queryexec/shadow_deferral_regressions_test.go:TestQueryShadowEvidenceSurvivesProjectionAfterAFilter` |
+| Projecting a row a filter excluded does not read that row's features, so a lazy part stays unmaterialized and its behavior does not start | `internal/doc/queryexec/starting_evidence_regressions_test.go:TestQueryProjectionOfExcludedRowsKeepsLazyPartsLazy` |
+| Operand evidence reads a held object's lazy feature through a rollback-safe probe, leaving no materialization in the live session | `internal/doc/queryexec/starting_evidence_regressions_test.go:TestQueryHeldShadowEvidenceDoesNotMaterializeLazyParts` |
+| A failed activity scan is reported rather than published as an incomplete index | `internal/doc/queryexec/starting_evidence_regressions_test.go:TestQueryFailedActivityScanIsNotTreatedAsInactive`, `:TestStateActivityIndexDoesNotPublishAFailedScan` |
+| An unevaluable sibling column on an excluded row does not erase evidence from another projected column | `internal/doc/queryexec/starting_evidence_regressions_test.go:TestQueryExcludedRowKeepsEvidenceFromAnotherColumn` |
 
 The tests execute document queries over real `.sysml` fixtures through the
 shared `queryexec` executor, which is the executor behind the CLI, the REPL, the
