@@ -264,11 +264,11 @@ func (a *arranger) settleLanes(lanes []*Node, origin drawioBox, gap float64) flo
 	return origin.Y + height + gap
 }
 
-// childShift is what a container's placed children move by: nothing when the
-// container is placed too, else the offset putting their bounds under its header.
+// childShift is what a container's placed children move by: what a placed container
+// itself moved by, else the offset putting their bounds under its header.
 func (a *arranger) childShift(node *Node, box drawioBox) drawioBox {
 	if node.Geometry.placed() {
-		return drawioBox{}
+		return drawioBox{X: box.X - node.Geometry.X, Y: box.Y - node.Geometry.Y}
 	}
 	if bodySectionKind(node.Kind) {
 		// A body section is no element and never placed: its nodes are placed
