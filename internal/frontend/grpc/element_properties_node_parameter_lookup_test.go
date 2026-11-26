@@ -150,3 +150,29 @@ func TestElementPropertiesReadANodeParameterOfAnExcludedDocument(t *testing.T) {
 		}
 	}
 }
+
+// A loop's variable reads by the name its id read answers: quoted, by its short name, and through an inheriting definition.
+func TestElementPropertiesReadALoopVariableByEveryNameItAnswers(t *testing.T) {
+	r := parseForElementProperties(t, `package P {
+    action def Base {
+        action quoted for 'my var' in (1, 2) { }
+        action short for <sv> in (1, 2) { }
+        action plain for i in (1, 2) { }
+    }
+    action def Derived :> Base;
+}`)
+	for name, declared := range map[string]string{
+		"P::Base::quoted::'my var'": "P::Base::quoted::'my var'",
+		"P::Base::short::sv":        "P::Base::short::sv",
+		"P::Derived::plain::i":      "P::Base::plain::i",
+	} {
+		resp := r.read(name, "qualifiedName")
+		if resp.Error != "" || resp.Element == nil {
+			t.Errorf("%s: %q, want the loop's variable", name, resp.Error)
+			continue
+		}
+		if want := r.read(declared, "qualifiedName"); want.Element == nil || resp.Element.Id != want.Element.Id {
+			t.Errorf("%s: answered %v, want the element of %s", name, resp.Element, declared)
+		}
+	}
+}

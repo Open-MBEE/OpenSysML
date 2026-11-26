@@ -13,6 +13,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -271,15 +272,21 @@ func (r *elementReader) statedParameter(name string) *symbols.Symbol {
 	if cut < 0 {
 		return nil
 	}
+	// The loop is reached as a name reaches any member: declared, or inherited by the type the path names.
 	owners := symbolfacts.LookupNamed(r.model.Index, name[:cut])
+	if len(owners) == 0 {
+		owners = r.model.LookupNamedMember(name[:cut])
+	}
 	if len(owners) != 1 || r.model.Index.Library(owners[0]) {
 		return nil
 	}
+	segment := naming.Unquote(name[cut+2:])
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	parameters, _ := r.semantics.ReflectiveElements(owners[0], "parameter")
 	for _, parameter := range parameters {
-		if stated, ok := r.semantics.EffectiveNamed(parameter); ok && stated == name[cut+2:] {
+		source := r.semantics.NameSourceOf(parameter)
+		if source != nil && (source.Named() && source.Name == segment || source.ShortName != "" && source.ShortName == segment) {
 			return parameter
 		}
 	}
