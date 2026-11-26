@@ -98,3 +98,34 @@ func TestImportedNameHidesTheImportingPackageFromItself(t *testing.T) {
 
 	assertNoUnresolved(t, resolveDoc(t, "d.sysml", fmt.Sprintf(src, "$::V::G")))
 }
+
+// A call reaches what its name resolves to: the calculation an enclosing
+// namespace imports, not a same-named one owned further out.
+func TestEnclosingImportPrecedesOuterMemberForInvocation(t *testing.T) {
+	r := resolveDoc(t, "d.sysml", `
+		package Q { calc def f { return : ScalarValues::Integer = 2; } }
+		package P {
+			calc def f { return : ScalarValues::Integer = 1; }
+			package K1 { private import Q::*; package In1 { attribute x = f(); } }
+			package K2 { private import Q::f; package In2 { attribute x = f(); } }
+			package Own { private import Q::*; package Mid { calc def f; package In3 { attribute x = f(); } } }
+			package None { package In4 { attribute x = f(); } }
+		}
+	`)
+
+	for _, tc := range []struct{ scope, want string }{
+		{"In1", "Q::f"},
+		{"In2", "Q::f"},
+		{"In3", "P::Own::Mid::f"},
+		{"In4", "P::f"},
+	} {
+		cands := r.InvocationCandidates(scopeNamed(t, r, "d.sysml", tc.scope), qn(false, "f"))
+		if len(cands) != 1 {
+			t.Errorf("%s: f has %d candidates, want 1", tc.scope, len(cands))
+			continue
+		}
+		if got := r.registeredFQN(cands[0]); got != tc.want {
+			t.Errorf("%s: f calls %s, want %s", tc.scope, got, tc.want)
+		}
+	}
+}
