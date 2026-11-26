@@ -614,3 +614,31 @@ func TestSequenceRenderingDrawsAPrivateEventNamedThroughAnInheritedAlias(t *test
 		t.Errorf("edges = %q, want the message to end on the client lifeline", got)
 	}
 }
+
+// A private alias is no more inherited than the private event it names, so the
+// order from that event stays off the lifeline.
+func TestSequenceRenderingKeepsAPrivateEventWithAPrivateAliasOffTheLifeline(t *testing.T) {
+	rendering := renderSequenceOf(t, `package P {
+	item def Ping;
+	part def Client {
+		private event occurrence hidden;
+		private alias shown for hidden;
+		event occurrence got;
+		succession first hidden then got;
+	}
+	part def Scene {
+		part server {
+			event occurrence a;
+		}
+		part client : Client;
+		message reply of Ping from server.a to client.got;
+	}
+}`, "Client", "Scene")
+	got := sequenceEnds(rendering)
+	if slices.Contains(got, ": client.hidden -> client.got") {
+		t.Errorf("edges = %q, want no order from the private event on the client lifeline", got)
+	}
+	if proxies := len(lifelineNamed(t, rendering, "client").Children); proxies != 1 {
+		t.Errorf("client lifeline holds %d events, want got alone; edges %q", proxies, got)
+	}
+}
