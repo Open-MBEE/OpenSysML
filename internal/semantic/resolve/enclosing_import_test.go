@@ -136,9 +136,8 @@ func TestEnclosingImportPrecedesOuterMemberForInvocation(t *testing.T) {
 	}
 }
 
-// Imports of distinct namespaces under one name hide each other (KerML 7.2.5.4),
-// so a wildcard import of that name below them reads the namespace owned further
-// out, and surfaces the members of neither import.
+// Imports of distinct namespaces under one name hide each other (KerML 7.2.5.4):
+// a wildcard import of that name below them reads the namespace owned further out.
 func TestWildcardImportBelowMutuallyHidingImports(t *testing.T) {
 	r := resolveDoc(t, "d.sysml", `
 		package Q { package X { part def B; } }
@@ -199,9 +198,8 @@ func TestWildcardImportBelowAnAlias(t *testing.T) {
 	}
 }
 
-// A wildcard import exposes the members of the namespace its target names by
-// name lookup and no others, whichever way an enclosing namespace binds the
-// target's first segment; the index agrees or leaves the members to the lookup.
+// A wildcard import exposes the members of the namespace name lookup finds for its
+// target and no others, however an enclosing namespace binds the first segment.
 func TestWildcardImportExposesWhatItsTargetNames(t *testing.T) {
 	const libs = `
 		package Q { package X { part def B; package Y { part def C; } private package Z { part def D; } } }

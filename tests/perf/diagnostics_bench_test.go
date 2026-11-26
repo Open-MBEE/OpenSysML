@@ -35,9 +35,8 @@ func BenchmarkAnalyzeManyDiagnostics(b *testing.B) {
 	}
 }
 
-// Analysis of a ring of packages that each import the next one's unresolved T by
-// name and its members by wildcard, the one after privately (repeat times), and
-// the third from a nested package: every lookup of T goes round the ring.
+// Analysis of a ring of packages, each importing the next one's unresolved T and
+// its members, so that every lookup of T goes round the ring.
 func BenchmarkAnalyzeImportRing(b *testing.B) {
 	for _, c := range []struct{ ring, repeat int }{{5, 12}, {6, 1}, {6, 12}} {
 		var src strings.Builder

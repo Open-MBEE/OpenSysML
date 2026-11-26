@@ -219,11 +219,8 @@ type Resolver struct {
 	// cross-reference. Without it, resolving each of n sibling imports searched
 	// the others' unresolved targets in every order (issue #636).
 	importTargets map[*ast.Import]resolution
-	// importLeads are the namespaces the first segments of imports' targets
-	// name, kept as importTargets are: an unresolved target is resolved again
-	// by every lookup that reaches its import, and each would search the
-	// enclosing namespaces' imports for the segment anew. leadOf is the import
-	// whose target is being resolved.
+	// importLeads are what the first segments of imports' targets name, kept as
+	// importTargets are; leadOf is the import whose target is being resolved.
 	importLeads map[*ast.Import]*symbols.Symbol
 	leadOf      *ast.Import
 	// collisions memoizes, per namespace, what its imports bring and the

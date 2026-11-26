@@ -815,9 +815,8 @@ func (idx *Index) resolveWildcardTarget(pkgFQN, targetText string) string {
 	return ""
 }
 
-// memberTarget resolves path, the rest of a wildcard import's target, inside the
-// namespace declared under fqn, to "" when a segment is not a single member that
-// namespace shows outside itself.
+// memberTarget resolves path, the rest of a wildcard import's target, under fqn:
+// to "" when a segment is not a single member its namespace shows outside itself.
 func (idx *Index) memberTarget(fqn, path string) string {
 	for more := true; more && fqn != ""; {
 		var name string
@@ -854,10 +853,8 @@ func (idx *Index) namedFromOutside(key string) bool {
 	return true
 }
 
-// namedByLookupOnly reports whether the namespace declared under fqn binds name
-// by an `import A::name;` or an alias, its own or one a wildcard import of its
-// brings. Only name lookup follows those (KerML 8.2.3.5.4), so a wildcard target
-// they bind is left to it, not read further out.
+// namedByLookupOnly reports whether the namespace under fqn binds name by an
+// `import A::name;` or an alias, which only name lookup follows (KerML 8.2.3.5.4).
 func (idx *Index) namedByLookupOnly(fqn, name string) bool {
 	return idx.namesByLookup(fqn, name, true, map[string]bool{})
 }

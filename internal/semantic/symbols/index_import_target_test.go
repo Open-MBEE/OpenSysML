@@ -6,9 +6,8 @@ import (
 	"testing"
 )
 
-// A wildcard import whose target its own or an enclosing namespace imports by
-// name is left to name lookup: the index re-exports no member for it, least of
-// all those of a same-named namespace owned further out (KerML 8.2.3.5.4).
+// A wildcard import whose target its own or an enclosing namespace imports by name
+// is left to name lookup: the index re-exports no member for it (KerML 8.2.3.5.4).
 func TestWildcardImportTargetBelowAMembershipImport(t *testing.T) {
 	const q = "package Q { package X { part def B; package Y { part def C; } private package Kept { part def Z; } } }"
 	const r = "package R { package X { part def E; } }"
