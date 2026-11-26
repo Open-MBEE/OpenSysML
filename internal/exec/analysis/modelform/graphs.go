@@ -40,7 +40,7 @@ type Graphs struct {
 
 // ErrGraphsSubject reports a subject no lowered graph is exported for: not an
 // action or a state machine, or one the lowering refuses.
-var ErrGraphsSubject = errors.New("graphs: subject has no lowered graph")
+var ErrGraphsSubject = errors.New("no lowered graph")
 
 // ErrGraphsOrder reports two graph elements the export cannot tell apart, which
 // would make the output depend on memory layout; the lowering never produces them.
@@ -109,7 +109,7 @@ func (x *graphsExporter) lowerSubject(out *Graphs, sym *symbols.Symbol) error {
 	case sym.Kind == symbols.SymbolActionDef || sym.Kind.IsActionUsage():
 		graph, err := lower.ToActionGraphWith(sym.Decl, runtime.DeclScope(sym), x.model.Resolver())
 		if err != nil {
-			return fmt.Errorf("%w: %s: %w", ErrGraphsSubject, symbols.FQNOf(sym), err)
+			return fmt.Errorf("%w: %w", noGraphFor(sym), err)
 		}
 		form, err := x.actionForm(sym, graph)
 		if err != nil {
@@ -120,7 +120,7 @@ func (x *graphsExporter) lowerSubject(out *Graphs, sym *symbols.Symbol) error {
 		graph, err := lower.ToStateGraphWithEndpoints(sym.Decl, runtime.DeclScope(sym),
 			lower.NewLibraryStateTypes(x.model.Resolver()))
 		if err != nil {
-			return fmt.Errorf("%w: %s: %w", ErrGraphsSubject, symbols.FQNOf(sym), err)
+			return fmt.Errorf("%w: %w", noGraphFor(sym), err)
 		}
 		form, err := x.stateForm(sym, graph)
 		if err != nil {
@@ -128,9 +128,15 @@ func (x *graphsExporter) lowerSubject(out *Graphs, sym *symbols.Symbol) error {
 		}
 		out.States = append(out.States, form)
 	default:
-		return fmt.Errorf("%w: %s is a %s", ErrGraphsSubject, symbols.FQNOf(sym), sym.Kind)
+		return fmt.Errorf("%w: the subject must be an action or a state machine", noGraphFor(sym))
 	}
 	return nil
+}
+
+// noGraphFor is ErrGraphsSubject naming the subject once, by its kind in words
+// and its name as the notation writes it.
+func noGraphFor(sym *symbols.Symbol) error {
+	return fmt.Errorf("%w for the %s %s", ErrGraphsSubject, sym.Kind.Phrase(), source.QualifiedNameText(symbols.FQNOf(sym)))
 }
 
 // lowerPerformed exports a behavior the subject performs. A lowering the runtime

@@ -82,7 +82,8 @@ func TestExportGraphsRefusals(t *testing.T) {
 		{"unknown model", &pb.ExportGraphsRequest{ModelHash: "nope", Subject: "Test::race"}, connect.CodeNotFound, "nope"},
 		{"no subject", &pb.ExportGraphsRequest{ModelHash: hash}, connect.CodeInvalidArgument, "subject is required"},
 		{"unknown subject", &pb.ExportGraphsRequest{ModelHash: hash, Subject: "Test::Missing"}, connect.CodeNotFound, "symbol not found: Test::Missing"},
-		{"not a behavior", &pb.ExportGraphsRequest{ModelHash: hash, Subject: "Test"}, connect.CodeInvalidArgument, "no lowered graph"},
+		{"not a behavior", &pb.ExportGraphsRequest{ModelHash: hash, Subject: "Test"}, connect.CodeInvalidArgument,
+			"invalid_argument: no lowered graph for the package Test: the subject must be an action or a state machine"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -90,8 +91,8 @@ func TestExportGraphsRefusals(t *testing.T) {
 			if connect.CodeOf(err) != test.code {
 				t.Fatalf("status = %s, want %s: %v", connect.CodeOf(err), test.code, err)
 			}
-			if err == nil || !strings.Contains(err.Error(), test.message) {
-				t.Errorf("error %v does not mention %q", err, test.message)
+			if err == nil || !strings.HasSuffix(err.Error(), test.message) {
+				t.Errorf("error %v does not end in %q", err, test.message)
 			}
 		})
 	}

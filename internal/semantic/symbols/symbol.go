@@ -246,6 +246,18 @@ func (k SymbolKind) Family() string {
 	return spacedWords(name)
 }
 
+// Phrase names the kind in words for a message: "part definition", "attribute usage", "package".
+func (k SymbolKind) Phrase() string {
+	family := k.Family()
+	switch {
+	case k.IsDefinition():
+		return family + " definition"
+	case k.IsFeature():
+		return family + " usage"
+	}
+	return family
+}
+
 // IsFeature reports whether k classifies a KerML Feature (KerML 1.0 §8.3.3): a
 // usage of any kind, a connector end or a multiplicity, never a type or a namespace.
 func (k SymbolKind) IsFeature() bool {

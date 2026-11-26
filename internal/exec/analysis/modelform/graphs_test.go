@@ -423,8 +423,14 @@ func TestGraphsStateCarriesTheLoweredGraph(t *testing.T) {
 func TestGraphsRefusesSubjectsWithoutAGraph(t *testing.T) {
 	model, idx := graphsModel(t)
 	sym := lookupOne(t, idx, "test")
-	if _, err := GraphsOf(model, sym); !errors.Is(err, ErrGraphsSubject) {
-		t.Fatalf("GraphsOf(package) = %v, want ErrGraphsSubject", err)
+	for name, want := range map[string]string{
+		"test":               "no lowered graph for the package test: the subject must be an action or a state machine",
+		"test::Machine::log": "no lowered graph for the attribute usage test::Machine::log: the subject must be an action or a state machine",
+	} {
+		_, err := GraphsOf(model, lookupOne(t, idx, name))
+		if !errors.Is(err, ErrGraphsSubject) || err.Error() != want {
+			t.Errorf("GraphsOf(%s) = %v, want ErrGraphsSubject reading %q", name, err, want)
+		}
 	}
 	if _, err := GraphsOf(nil, sym); !errors.Is(err, ErrGraphsSubject) {
 		t.Fatalf("GraphsOf(nil model) = %v, want ErrGraphsSubject", err)

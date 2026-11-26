@@ -26,6 +26,9 @@ func (s *Session) graphs(name string) ([]byte, error) {
 		return nil, fmt.Errorf("%w: %w", errRuntimeInit, err)
 	}
 	graphs, err := modelform.GraphsOf(ctx.Model(), sym)
+	if errors.Is(err, modelform.ErrGraphsSubject) {
+		return nil, err // names the subject itself
+	}
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", notationName(fqn), err)
 	}
