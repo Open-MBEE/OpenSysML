@@ -873,12 +873,12 @@ func (idx *Index) declaresUnder(key string) bool {
 	return false
 }
 
-// namedFromOutside reports whether no declaration registered under key is one
-// its namespace keeps to itself.
+// namedFromOutside reports whether nothing registered under key is kept to its
+// namespace: a private declaration, or what only a private import brought.
 func (idx *Index) namedFromOutside(key string) bool {
-	imported := idx.reexported.at(key)
+	imported, hidden := idx.reexported.at(key), idx.hidden.at(key)
 	for _, sym := range idx.fqn.at(key) {
-		if !imported.has(sym) && !VisibleOutside(sym.Visibility) {
+		if hidden.has(sym) || !imported.has(sym) && !VisibleOutside(sym.Visibility) {
 			return false
 		}
 	}
