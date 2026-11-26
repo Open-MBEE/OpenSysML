@@ -240,9 +240,9 @@ func (e *executor) objectPropertyValues(row Value, property string) ([]Value, bo
 	}
 	if isBuiltin && !query.IsBuiltinAlias(property) && !e.context.Builtins[property] {
 		// The bare name reads a feature the object holds before the evaluator's
-		// own property of that name.
+		// own property of that name. Its live value shadows the evaluator's.
 		if values, present, err := e.objectFeatureValues(row, builtin); present || err != nil {
-			return values, present, sourceModel, err
+			return values, present, sourceShadow, err
 		}
 	}
 	inst, label, _ := row.Object()

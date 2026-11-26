@@ -105,7 +105,7 @@ func (e *executor) memberPathValuesWithSource(sym *symbols.Symbol, segments []st
 	present := false
 	for _, current := range reached {
 		found, ok, err := e.declaredFeatureValues(current, last)
-		source := sourceModel
+		source := e.shadowFeatureSource(current, last)
 		if err != nil {
 			return nil, pathAbsent, nil, nil, err
 		}

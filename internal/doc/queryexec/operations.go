@@ -33,7 +33,8 @@ func keyOfRow(row Value) rowKey {
 }
 
 // valueSource names the layer that supplied a value a filter compares.
-// Projected declared values stay strict; built-ins and computed cells may defer.
+// Ordinary declared values stay strict; built-ins, shadowing features and
+// computed cells may defer when the read they came from allows it.
 type valueSource uint8
 
 const (
@@ -42,6 +43,8 @@ const (
 	sourceColumn
 	sourceProjectedModel
 	sourceProjectedBuiltin
+	sourceShadow
+	sourceProjectedShadow
 )
 
 // sourcesOf repeats one source for every value of a read.
@@ -511,7 +514,7 @@ func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequen
 	columnIndex := projectedColumn(source, property)
 	// Operand evidence comes from the query's starting rows, so conjunction
 	// term order cannot change an operand's verdict.
-	evidence := e.builtinShadowEvidence(source, property, comparison)
+	evidence := e.builtinShadowEvidence(source, property, comparison, columnIndex)
 	var columnErr error
 	columnComparable := false
 	for i := range source.values {
@@ -549,9 +552,9 @@ func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequen
 					// A built-in defers only to a shadow that can take the
 					// operand; a filtered-out, incompatible shadow cannot.
 					continue
-				case origin == sourceModel && evidence.comparable:
-					// A declared value under a shadowed name is skipped when
-					// another starting row compares, whatever the term order.
+				case (origin == sourceShadow || origin == sourceProjectedShadow) && evidence.comparable:
+					// A value read from a feature shadowing a built-in name
+					// follows the shadow's operand, whatever the term order.
 					continue
 				}
 				if compareErr != errComparison {
@@ -559,9 +562,9 @@ func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequen
 				}
 				return sequence{}, e.operatorError(expression, operator)
 			}
-			if origin == sourceColumn {
-				columnComparable = true
-			}
+			// Any successful comparison in the selected column shows its
+			// operand is valid, whatever layer supplied the value.
+			columnComparable = true
 			if match {
 				appendSelected(&result, source, i)
 				break
@@ -594,56 +597,73 @@ func terminalProperty(property string) string {
 	return property
 }
 
-// builtinShadowEvidence reports a shadowed built-in name's starting-row
-// evidence: whether a feature shadows it and whether one can be compared.
+// builtinShadowEvidence reports a shadowed built-in name's evidence: whether a
+// feature shadows it and whether one can take the operand. Evidence comes from
+// the values the filter actually reads, not from a model path it no longer uses.
 type builtinShadowEvidence struct {
 	shadowed   bool
 	comparable bool
 }
 
-func (e *executor) builtinShadowEvidence(source sequence, property string, comparison comparison) builtinShadowEvidence {
-	canonical, ok := e.deferredBuiltin(terminalProperty(property))
-	if !ok {
+func (e *executor) builtinShadowEvidence(source sequence, property string, comparison comparison, columnIndex int) builtinShadowEvidence {
+	if _, ok := e.deferredBuiltin(terminalProperty(property)); !ok {
 		return builtinShadowEvidence{}
 	}
 	var evidence builtinShadowEvidence
-	segments := strings.Split(property, ".")
-	for _, row := range startingRows(source) {
-		targets := []Value{row}
-		if len(segments) > 1 {
-			related, reached, err := e.relatedElements(row, segments[:len(segments)-1])
-			if err != nil || !reached {
-				continue
+	note := func(values []Value, origins []valueSource) bool {
+		for i, value := range values {
+			origin := sourceModel
+			if i < len(origins) {
+				origin = origins[i]
 			}
-			targets = related
-		}
-		for _, target := range targets {
-			var values []Value
-			if sym := target.Declaration(); sym != nil {
-				found, present, err := e.shadowingFeatureValues(sym, canonical)
-				if err != nil || !present {
-					continue
-				}
-				values = found
-			} else if _, _, isObject := target.Object(); isObject {
-				found, present, err := e.objectFeatureValues(target, canonical)
-				if err != nil || !present {
-					continue
-				}
-				values = found
-			} else {
+			if origin != sourceShadow && origin != sourceProjectedShadow {
 				continue
 			}
 			evidence.shadowed = true
-			for _, value := range values {
-				if _, err := e.compareValue(value, comparison); err == nil {
-					evidence.comparable = true
+			if _, err := e.compareValue(value, comparison); err == nil {
+				evidence.comparable = true
+			}
+		}
+		return evidence.comparable
+	}
+	if columnIndex >= 0 {
+		// A projected column supplies its own cells: a feature hidden beneath
+		// a computed cell is not read and cannot supply evidence.
+		for _, cells := range source.cells {
+			if columnIndex < len(cells) {
+				cell := cells[columnIndex]
+				if note(cell.Values(), cell.sources) {
 					return evidence
 				}
 			}
 		}
+		return evidence
+	}
+	// Direct reads take their evidence from the starting rows so a preceding
+	// conjunction term cannot change an operand's verdict.
+	for _, row := range startingRows(source) {
+		values, _, origins, err := e.propertyReachWithSource(row, property)
+		if err == nil && note(values, origins) {
+			return evidence
+		}
 	}
 	return evidence
+}
+
+// shadowFeatureSource labels a declared feature read of a shadowable built-in
+// name. A literal dotted feature or an explicitly selected feature keeps the
+// ordinary model source, so its comparison stays strict.
+func (e *executor) shadowFeatureSource(sym *symbols.Symbol, property string) valueSource {
+	if e.context.Features[property] {
+		return sourceModel
+	}
+	if _, ok := e.deferredBuiltin(property); !ok {
+		return sourceModel
+	}
+	if _, present, err := e.shadowingFeatureValues(sym, property); err == nil && present {
+		return sourceShadow
+	}
+	return sourceModel
 }
 
 // deferredBuiltin names the evaluator property a terminal spelling leaves to
@@ -1082,9 +1102,12 @@ func (p *projection) cells(value Value) ([]Cell, error) {
 		p.known[column].note(reach)
 		sources := make([]valueSource, len(values))
 		for i, source := range readSources {
-			if source == sourceBuiltin {
+			switch source {
+			case sourceBuiltin:
 				sources[i] = sourceProjectedBuiltin
-			} else {
+			case sourceShadow:
+				sources[i] = sourceProjectedShadow
+			default:
 				sources[i] = sourceProjectedModel
 			}
 		}
@@ -1323,7 +1346,7 @@ func (e *executor) propertyValuesBeforeMemberPathWithSource(row Value, property 
 	}
 	if isBuiltin && !explicitBuiltin && !explicitFeature {
 		if values, present, err := e.shadowingFeatureValues(sym, builtin); present || err != nil {
-			return values, present, sourcesOf(len(values), sourceModel), err
+			return values, present, sourcesOf(len(values), e.shadowFeatureSource(sym, builtin)), err
 		}
 	}
 	if isBuiltin && !explicitFeature {

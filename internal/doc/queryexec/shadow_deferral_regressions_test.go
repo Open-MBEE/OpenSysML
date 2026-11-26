@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
 // A projected column is read from its cell, so a numeric feature on the unused
@@ -323,7 +324,7 @@ func TestQueryStateDelegatedDottedReadKeepsBuiltinProvenance(t *testing.T) {
 		path, _ := pathValues[0].String()
 		want := sourceProjectedBuiltin
 		if path == "both.right" {
-			want = sourceProjectedModel
+			want = sourceProjectedShadow
 		}
 		sources := cells[1].sources
 		if len(sources) != 1 || sources[0] != want {
@@ -412,4 +413,242 @@ func TestQueryStateDeclarationShadowsActivityInAFilter(t *testing.T) {
 	// the text operand even though the declaration shadows the bare name.
 	_, err = Execute(fixture.program(t, "Strict"), context, bindings, Options{})
 	executionError(t, err, ErrorInvalidArgument)
+}
+
+// A live value written into an otherwise uninitialized feature is the evidence
+// a filter needs before it can skip a built-in annotation's incompatible text.
+const liveHeldAnnotationFixture = `
+private import ScalarValues::*;
+metadata def Tag { attribute label : String; }
+part def Holder { attribute annotations : Integer; }
+part holder : Holder;
+part annotated;
+@Tag about annotated { label = "text"; }
+calc def Matches :> Query {
+	WhereFeature(
+		source = Objects(type = "PartUsage"),
+		'feature' = "annotations", operator = ">", value = "3"
+	)
+}
+calc def NoRows :> Query {
+	WhereFeature(
+		source = Objects(type = "PartUsage"),
+		'feature' = "annotations", operator = ">", value = "9"
+	)
+}
+`
+
+func TestQueryLiveHeldShadowSuppliesOperandEvidence(t *testing.T) {
+	fixture := loadExecutionFixture(t, liveHeldAnnotationFixture)
+	ctx := runtime.NewContext(runtime.NewModel(fixture.model, fixture.resolver), runtime.DefaultMaxSteps)
+	holder, err := ctx.Instantiate(fixture.symbol(t, "holder"))
+	if err != nil {
+		t.Fatalf("Instantiate holder: %v", err)
+	}
+	if err := holder.SetFeatureValue(ctx, "annotations", runtime.Value{
+		Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 5},
+	}); err != nil {
+		t.Fatalf("SetFeatureValue annotations: %v", err)
+	}
+	annotated, err := ctx.Instantiate(fixture.symbol(t, "annotated"))
+	if err != nil {
+		t.Fatalf("Instantiate annotated: %v", err)
+	}
+	context := Context{
+		Index: fixture.index, Resolver: fixture.resolver, Model: fixture.model, Runtime: ctx,
+		Roots: []Root{{Label: "holder", Object: holder}, {Label: "annotated", Object: annotated}},
+	}
+	result, err := Execute(fixture.program(t, "Matches"), context, Bindings{}, Options{})
+	if err != nil {
+		t.Fatalf("execute Matches: %v", err)
+	}
+	rows := result.Rows()
+	if len(rows) != 1 {
+		t.Fatalf("live annotation rows = %d, want the holder alone", len(rows))
+	}
+	_, label, isObject := rows[0].Element().Object()
+	if !isObject || label != "holder" {
+		t.Fatalf("live annotation row = %q, want holder", label)
+	}
+	// A live value that compares but does not match is still a comparable
+	// shadow: it may yield no rows, but must not become an operand error.
+	result, err = Execute(fixture.program(t, "NoRows"), context, Bindings{}, Options{})
+	if err != nil {
+		t.Fatalf("execute NoRows: %v", err)
+	}
+	if n := len(result.Rows()); n != 0 {
+		t.Fatalf("nonmatching rows = %d, want none", n)
+	}
+}
+
+// A direct projection of a shadowed name must defer to the same comparable
+// feature its unprojected read defers to, without making ordinary features lax.
+const projectedShadowFixture = `
+private import ScalarValues::*;
+part def NumericAnnotations { attribute annotations : Integer = 5; }
+part def TextAnnotations { attribute annotations : String = "text"; }
+part numericAnnotations : NumericAnnotations;
+part textAnnotations : TextAnnotations;
+calc def BeforeProjection :> Query {
+	in root : Element;
+	WhereFeature(
+		source = Union(
+			source = Named(qualifiedName = "Observatory::numericAnnotations"),
+			other = Named(qualifiedName = "Observatory::textAnnotations")
+		),
+		'feature' = "annotations", operator = ">", value = "3"
+	)
+}
+calc def AfterProjection :> Query {
+	in root : Element;
+	WhereFeature(
+		source = Project(
+			source = Union(
+				source = Named(qualifiedName = "Observatory::numericAnnotations"),
+				other = Named(qualifiedName = "Observatory::textAnnotations")
+			),
+			properties = ("annotations")
+		),
+		'feature' = "annotations", operator = ">", value = "3"
+	)
+}
+`
+
+func TestQueryProjectedShadowKeepsDeferralEligibility(t *testing.T) {
+	fixture := loadExecutionFixture(t, projectedShadowFixture)
+	bindings := Bindings{"root": {ElementValue(fixture.symbol(t, "numericAnnotations"))}}
+	for _, name := range []string{"BeforeProjection", "AfterProjection"} {
+		result, err := fixture.execute(t, name, bindings, Options{})
+		if err != nil {
+			t.Fatalf("execute %s: %v", name, err)
+		}
+		if got, want := rowNames(result), []string{"Observatory::numericAnnotations"}; !slices.Equal(got, want) {
+			t.Errorf("%s rows = %v, want %v", name, got, want)
+		}
+	}
+}
+
+// A computed cell's incompatible text does not hide a successful comparison
+// against a directly projected number in the same column.
+const projectedComputedMixedColumnFixture = `
+private import ScalarValues::*;
+part def Level { attribute level : Integer = 5; }
+part levelPart : Level;
+part plain;
+calc def Filter :> Query {
+	in root : Element;
+	WhereFeature(
+		source = Union(
+			source = Project(
+				source = Named(qualifiedName = "Observatory::levelPart"),
+				properties = ("level")
+			),
+			other = Project(
+				source = Named(qualifiedName = "Observatory::plain"),
+				columns = (Column(name = "level", expression = "five"))
+			)
+		),
+		'feature' = "level", operator = ">", value = "3"
+	)
+}
+`
+
+func TestQueryComparableProjectedCellClearsComputedColumnError(t *testing.T) {
+	fixture := loadExecutionFixture(t, projectedComputedMixedColumnFixture)
+	result, err := fixture.execute(t, "Filter", Bindings{
+		"root": {ElementValue(fixture.symbol(t, "levelPart"))},
+	}, Options{})
+	if err != nil {
+		t.Fatalf("execute Filter: %v", err)
+	}
+	if got, want := rowNames(result), []string{"Observatory::levelPart"}; !slices.Equal(got, want) {
+		t.Fatalf("mixed column rows = %v, want %v", got, want)
+	}
+}
+
+// A feature whose name is literally the dotted spelling is read as that
+// feature; the owner's separate annotations feature is not its shadow.
+const literalDottedFeatureFixture = `
+private import ScalarValues::*;
+part def Owner {
+	attribute annotations : Integer = 5;
+	part literal { attribute 'owner.annotations' : String = "text"; }
+}
+calc def Read :> Query {
+	in root : Element;
+	Project(
+		source = Named(qualifiedName = "Observatory::Owner::literal"),
+		properties = ("owner.annotations")
+	)
+}
+calc def Filter :> Query {
+	in root : Element;
+	WhereFeature(
+		source = Named(qualifiedName = "Observatory::Owner::literal"),
+		'feature' = "owner.annotations", operator = ">", value = "3"
+	)
+}
+`
+
+func TestQueryLiteralDottedFeatureDoesNotBorrowAPathShadow(t *testing.T) {
+	fixture := loadExecutionFixture(t, literalDottedFeatureFixture)
+	bindings := Bindings{"root": {ElementValue(fixture.symbol(t, "Owner"))}}
+	result, err := fixture.execute(t, "Read", bindings, Options{})
+	if err != nil {
+		t.Fatalf("execute Read: %v", err)
+	}
+	if got := cellStrings(t, result, "owner.annotations"); !slices.EqualFunc(got, [][]string{{"text"}}, slices.Equal) {
+		t.Fatalf("literal dotted feature = %v, want text", got)
+	}
+	_, err = fixture.execute(t, "Filter", bindings, Options{})
+	failure := executionError(t, err, ErrorInvalidOperator)
+	if failure.Actual != ">" {
+		t.Fatalf("operator error = %+v, want >", failure)
+	}
+}
+
+// A computed column replaces the declared feature under its name, so that
+// hidden declaration cannot excuse an invalid operand on a built-in cell.
+const computedColumnHidesShadowFixture = `
+private import ScalarValues::*;
+state def Machine { entry; then ready; state ready; }
+part def TextActivity { attribute isActive : String = "ready"; }
+part def Controller { exhibit state modes : Machine; }
+part controller : Controller;
+part textActivity : TextActivity;
+calc def Filter :> Query {
+	in root : Element;
+	WhereFeature(
+		source = Union(
+			source = Project(
+				source = States(source = root),
+				properties = ("isActive")
+			),
+			other = Project(
+				source = Named(qualifiedName = "Observatory::textActivity"),
+				columns = (Column(name = "isActive", expression = "other"))
+			)
+		),
+		'feature' = "isActive", operator = "=", value = "ready"
+	)
+}
+`
+
+func TestQueryComputedColumnDoesNotInheritAHiddenShadow(t *testing.T) {
+	fixture := loadExecutionFixture(t, computedColumnHidesShadowFixture)
+	ctx := runtime.NewContext(runtime.NewModel(fixture.model, fixture.resolver), runtime.DefaultMaxSteps)
+	controller, err := ctx.Instantiate(fixture.symbol(t, "controller"))
+	if err != nil {
+		t.Fatalf("Instantiate controller: %v", err)
+	}
+	context := Context{
+		Index: fixture.index, Resolver: fixture.resolver, Model: fixture.model, Runtime: ctx,
+		Roots: []Root{{Label: "controller", Object: controller}},
+	}
+	_, err = Execute(fixture.program(t, "Filter"), context,
+		Bindings{"root": {ObjectValue(controller, "controller")}}, Options{})
+	failure := executionError(t, err, ErrorInvalidArgument)
+	if failure.Parameter != "value" || failure.Actual != "ready" {
+		t.Fatalf("operand error = %+v, want value ready", failure)
+	}
 }
