@@ -57,6 +57,9 @@ export const STATEMENT_ROW_KIND = "statement";
 /** SWIMLANE_KIND is the kind of a perform-actions swimlane (§8.2.3.17). */
 export const SWIMLANE_KIND = "swimlane";
 
+/** PERFORMER_ROW_KIND is a row of a `performed by` compartment: it lists a performer, which no Layout of the row's own places. */
+export const PERFORMER_ROW_KIND = "performer";
+
 /** SECTION_KINDS are the body compartments of a compound node drawn as a container: a loop body, a branch, a swimlane. */
 export const SECTION_KINDS: ReadonlySet<string> = new Set(["loop body", "then body", "else body", SWIMLANE_KIND]);
 
@@ -2312,9 +2315,24 @@ function midpoint(points: RenderPoint[]): RenderPoint {
   return points[0] ?? { x: 0, y: 0 };
 }
 
-/** movable reports whether a node can be dragged: a workspace document declares it, so a Layout can reach it. */
+/** movable reports whether a node can be dragged: a workspace document declares it, so a Layout can reach it, and it is no row listing a performer. */
 export function movable(layout: CanvasLayout, entry: PlacedNode): boolean {
-  return layout.placeable && reachable(entry.node);
+  return layout.placeable && reachable(entry.node) && entry.node.kind !== PERFORMER_ROW_KIND;
+}
+
+/** fixedReason says why a node of a placeable diagram cannot be dragged, undefined for one that can or a diagram nothing moves in. */
+export function fixedReason(layout: CanvasLayout, entry: PlacedNode): string | undefined {
+  if (!layout.placeable || movable(layout, entry)) {
+    return undefined;
+  }
+  const name = entry.node.name || entry.node.kind;
+  if (entry.node.kind === PERFORMER_ROW_KIND) {
+    return `${name} is listed as a performer here and moves with the action it performs; drag its swimlane to place it.`;
+  }
+  if (entry.node.kind === "initial" || entry.node.kind === "final") {
+    return `${name} is a standard library element the behavior inherits, not one this model declares, so it cannot be moved here.`;
+  }
+  return `No workspace document declares ${name}, so it cannot be moved here.`;
 }
 
 /** steerable reports whether an edge's route can be edited by hand: the layout draws the model's routes and a workspace document declares the connection. */

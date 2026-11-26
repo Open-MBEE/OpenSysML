@@ -179,9 +179,9 @@ func (a *arranger) settleChildren(node *Node, box drawioBox) {
 	}
 }
 
-// holdsPlaced reports whether node is a swimlane holding a node the model places.
+// holdsPlaced reports whether node is a swimlane the model leaves unplaced holding a node it places.
 func holdsPlaced(node *Node) bool {
-	if node.Kind != swimlaneKind {
+	if node.Kind != swimlaneKind || node.Geometry.placed() {
 		return false
 	}
 	for _, child := range node.Children {
@@ -192,8 +192,8 @@ func holdsPlaced(node *Node) bool {
 	return false
 }
 
-// settleHeld draws a swimlane around the nodes it holds: a lane is no element and has no Layout,
-// so its placed nodes sit where the flow's frame puts them, the rest in a grid under them.
+// settleHeld draws a swimlane no Layout places around the nodes it holds:
+// its placed nodes sit where the flow's frame puts them, the rest in a grid under them.
 func (a *arranger) settleHeld(lane *Node, shift drawioBox) {
 	var unplaced []*Node
 	var bounds drawioBox

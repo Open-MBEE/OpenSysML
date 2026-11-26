@@ -135,11 +135,11 @@ func performerName(sym *symbols.Symbol) string {
 
 // laneNodes moves each node one performer performs into that performer's lane
 // and lists the performers of a node several perform in its `performed by`.
-func (r *Renderer) laneNodes(frame *Node, from int, elements map[*Node]*symbols.Symbol, context *symbols.Symbol, ids *nodeIDs) {
+func (r *Renderer) laneNodes(subject actionSubject, frame *Node, from int, elements map[*Node]*symbols.Symbol, ids *nodeIDs, out *Rendering) {
 	lanes := map[symbols.ElementKey]*Node{}
 	kept := frame.Children[:from:from]
 	for _, child := range frame.Children[from:] {
-		performers := r.performersIn(elements[child], context)
+		performers := r.performersIn(elements[child], subject.context)
 		switch len(performers) {
 		case 0:
 			kept = append(kept, child)
@@ -147,7 +147,7 @@ func (r *Renderer) laneNodes(frame *Node, from int, elements map[*Node]*symbols.
 			key := symbols.KeyOf(performers[0])
 			lane := lanes[key]
 			if lane == nil {
-				lane = r.laneNode(performers[0], ids)
+				lane = r.laneNode(subject.view, performers[0], ids, out)
 				lanes[key] = lane
 				kept = append(kept, lane)
 			}
@@ -172,10 +172,13 @@ func (r *Renderer) performerLabel(performer *symbols.Symbol) string {
 	return ""
 }
 
-// laneNode is the swimlane of one performer, headed by its name.
-func (r *Renderer) laneNode(performer *symbols.Symbol, ids *nodeIDs) *Node {
-	return &Node{ID: ids.take(), Kind: swimlaneKind, Name: r.performerLabel(performer),
+// laneNode is the swimlane of one performer, headed by its name and placed and
+// dressed in view as the performer is: the lane is the node the view draws for it.
+func (r *Renderer) laneNode(view, performer *symbols.Symbol, ids *nodeIDs, out *Rendering) *Node {
+	lane := &Node{ID: ids.take(), Kind: swimlaneKind, Name: r.performerLabel(performer),
 		Detail: performActionsLabel, Origin: nodeOrigin(performer.DocName, performer.Decl)}
+	lane.Geometry = r.geometryOf(view, performer, out)
+	return r.dress(view, performer, lane, out)
 }
 
 // performedBy is the `performed by` compartment naming performers.

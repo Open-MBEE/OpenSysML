@@ -970,7 +970,7 @@ func (r *Renderer) flowNodes(subject actionSubject, graph *lower.ActionGraph, fr
 			r.flowNodes(bodySubject, body.block.Graph, section, r.declaredSymbol(subject.elem, node), d, depth+1)
 		}
 	}
-	r.laneNodes(frame, first, elements, subject.context, ids)
+	r.laneNodes(subject, frame, first, elements, ids, out)
 	r.actionEdges(subject, graph, nodes, out)
 	r.bindingEdges(subject, graph, frame, nodes, drawn, out)
 }

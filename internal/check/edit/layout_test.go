@@ -1,6 +1,7 @@
 package edit
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -81,6 +82,44 @@ func TestSetLayoutInViewBody(t *testing.T) {
 		"        render asInterconnectionDiagram;\n    }\n",
 		"        render asInterconnectionDiagram;\n        metadata DiagramLayout::Layout about Plant::Loop::pump { x = 40; y = 60; }\n    }\n",
 		got)
+}
+
+const swimlaneModel = `package Line {
+    action run {
+        action load;
+        action ship;
+        first load then ship;
+    }
+    part line {
+        part robot {
+            perform run.load;
+        }
+    }
+}
+package LineViews {
+    private import StandardViewDefinitions::*;
+    view runView : ActionFlowView {
+        expose Line::run;
+    }
+}
+`
+
+// A swimlane is the node an action flow draws for a performer the view does not expose.
+func TestSetLayoutOfSwimlanePerformerInViewBody(t *testing.T) {
+	got := applyLayout(t, swimlaneModel, SetLayout("Line::line::robot", "LineViews::runView", at(320, 120)))
+	requireReplaced(t, swimlaneModel,
+		"        expose Line::run;\n    }\n",
+		"        expose Line::run;\n        metadata DiagramLayout::Layout about Line::line::robot { x = 320; y = 120; }\n    }\n",
+		got)
+}
+
+func TestSetLayoutRefusesAPartNoSwimlaneIsDrawnFor(t *testing.T) {
+	m := loadContent(t, "plant.sysml", swimlaneModel)
+	_, err := Apply(m, []Operation{SetLayout("Line::line", "LineViews::runView", at(1, 2))})
+	var refused *Error
+	if !errors.As(err, &refused) || refused.Failure != FailureNotExposed {
+		t.Fatalf("Apply: %v, want a %s refusal", err, FailureNotExposed)
+	}
 }
 
 func TestSetLayoutWithSizeAndCollapsed(t *testing.T) {

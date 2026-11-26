@@ -225,8 +225,8 @@ func TestDrawioImportNeverPlacesThePerformerOfASwimlane(t *testing.T) {
 	}
 }
 
-// A swimlane is no element and has no Layout: a node it holds sits where the flow's
-// frame puts it, whatever else the flow places, and the lane is drawn around its nodes.
+// A swimlane no Layout places is drawn around its nodes: one it holds sits where the
+// flow's frame puts it, whatever else the flow places.
 func TestSwimlaneIsDrawnAroundThePlacedNodesItHolds(t *testing.T) {
 	rendering := render(t, "action-swimlanes-placed.sysml", "PlacedLanes::placedView")
 	a := newArranger(labelsOf(rendering.Roots, false, nil, rendering.Shown), rendering.portView(Options{}.Ports))
@@ -247,6 +247,39 @@ func TestSwimlaneIsDrawnAroundThePlacedNodesItHolds(t *testing.T) {
 		if box.X <= frame.X || box.Y <= frame.Y || box.right() >= frame.right() || box.bottom() >= frame.bottom() {
 			t.Errorf("%q at %+v is not inside its lane %+v", held.Name, box, frame)
 		}
+	}
+}
+
+// A Layout about a performer in the view places the swimlane drawn for it, the nodes it holds inside.
+func TestSwimlaneIsPlacedByTheLayoutOfItsPerformer(t *testing.T) {
+	r, idx := loadFixtures(t, "action-swimlane-layout.sysml")
+	viewSym := lookup(t, idx, "PlacedLane::laneView")
+	rendering, err := r.Render(viewSym)
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	lane := laneOf(t, rendering, "load")
+	if lane == nil {
+		t.Fatal("load is in no lane")
+	}
+	if g := lane.Geometry; !g.placed() || g.X != 320 || g.Y != 120 || !g.HasSize {
+		t.Fatalf("lane geometry %+v, want the Layout about line::robot", g)
+	}
+	a := newArranger(labelsOf(rendering.Roots, false, nil, rendering.Shown), rendering.portView(Options{}.Ports))
+	a.layout(rendering)
+	frame := a.boxes[lane.ID]
+	if frame.X != 320 || frame.Y != 120 || frame.Width != 220 || frame.Height != 180 {
+		t.Errorf("lane at %+v, want its Layout's 320,120 220x180", frame)
+	}
+	if box := a.boxes[findNode(t, rendering.Roots, "load").ID]; box.X <= frame.X || box.Y <= frame.Y || box.right() >= frame.right() || box.bottom() >= frame.bottom() {
+		t.Errorf("load at %+v is not inside its lane %+v", box, frame)
+	}
+	drawn, err := r.DrawnIn(viewSym)
+	if err != nil {
+		t.Fatalf("DrawnIn: %v", err)
+	}
+	if !drawn.Node(lookup(t, idx, "PlacedLane::line::robot")) {
+		t.Error("the view does not draw the performer as a node a Layout positions")
 	}
 }
 

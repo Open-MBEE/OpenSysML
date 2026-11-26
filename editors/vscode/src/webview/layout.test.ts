@@ -37,6 +37,7 @@ import {
   portName,
   simpleName,
   simpleNames,
+  fixedReason,
   layoutCanvas,
   liftedEdges,
   MARGIN,
@@ -1123,6 +1124,26 @@ test("movable and steerable need the placeable kind and a declared target", () =
   assert.equal(steerable(placeable, placeable.edges[1]), false);
   const table = layoutCanvas(rendering([declared], [], { kind: "table" }));
   assert.equal(movable(table, table.nodes.get("a")!), false);
+});
+
+test("fixedReason says why a start or done node, and any node no workspace document declares, does not move", () => {
+  const placeable = layoutCanvas(
+    rendering([
+      node("a", "a"),
+      node("s", "start", { kind: "initial", fqn: undefined }),
+      node("d", "done", { kind: "final", fqn: undefined }),
+      node("b", "b", { fqn: undefined }),
+    ]),
+  );
+  assert.equal(fixedReason(placeable, placeable.nodes.get("a")!), undefined);
+  assert.match(fixedReason(placeable, placeable.nodes.get("s")!) ?? "", /^start is a standard library element/);
+  assert.match(fixedReason(placeable, placeable.nodes.get("d")!) ?? "", /^done is a standard library element/);
+  assert.match(fixedReason(placeable, placeable.nodes.get("b")!) ?? "", /^No workspace document declares b/);
+  const listed = layoutCanvas(rendering([node("a", "a"), node("p", "robot", { kind: "performer", parent: "a" })]));
+  assert.equal(movable(listed, listed.nodes.get("p")!), false);
+  assert.match(fixedReason(listed, listed.nodes.get("p")!) ?? "", /^robot is listed as a performer here/);
+  const table = layoutCanvas(rendering([node("s", "start", { kind: "initial", fqn: undefined })], [], { kind: "table" }));
+  assert.equal(fixedReason(table, table.nodes.get("s")!), undefined);
 });
 
 test("movable and steerable take a target another document declares, named or not, and no library's", () => {
