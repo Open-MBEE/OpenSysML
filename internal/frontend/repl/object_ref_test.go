@@ -235,8 +235,25 @@ func TestUnknownMemberOfPackageInDefinitionIsUnresolved(t *testing.T) {
 	wants(t, run(t, s, "%validate Garage::Car::Kit::jack"), `error: no instance of "Garage::Car::Kit::jack"`)
 	run(t, s, "%instantiate car")
 	unresolved()
+}
+
+// A held object is walked from, as before: what follows its name is a path of
+// its features, and a package it owns or inherits is not one.
+func TestPackageMemberUnderHeldObjectIsNoFeature(t *testing.T) {
+	s := submitted(t, `package Garage {
+	part def Car {
+		package Kit {
+			part jack;
+		}
+		part engine;
+	}
+	part car : Car;
+}`)
+	run(t, s, "%instantiate car")
+	wants(t, run(t, s, "%validate Garage::car::Kit"), `error: Garage::car has no feature "Kit"`)
+	wants(t, run(t, s, "%validate Garage::car::Kit::Nope"), `error: Garage::car has no feature "Kit"`)
 	run(t, s, "%instantiate Garage::Car")
-	unresolved()
+	wants(t, run(t, s, "%validate Garage::Car::Kit::Nope"), `error: Garage::Car has no feature "Kit"`)
 }
 
 // A multi-valued feature is walked by a 1-based index; leaving the index out, or

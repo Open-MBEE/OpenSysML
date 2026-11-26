@@ -333,6 +333,15 @@ func TestGRPCObjectBindingRobustness(t *testing.T) {
 			Bindings: []*pb.DocumentQueryBinding{binding("root", objectByPath("Garage::Car::Kit::nowhere"))},
 		})
 		expect(t, err, connect.CodeNotFound, "binding root", "symbol not found: Garage::Car::Kit::nowhere")
+		// A held object is walked from: a package it owns or inherits is not a feature.
+		for _, held := range []string{"Garage::car", "Garage::Car"} {
+			holdObject(t, nested, parsed.ModelHash, held)
+			_, err = nested.RunDocumentQuery(context.Background(), &pb.RunDocumentQueryRequest{
+				ModelHash: parsed.ModelHash, QueryId: "Garage::Parts",
+				Bindings: []*pb.DocumentQueryBinding{binding("root", objectByPath(held+"::Kit::nowhere"))},
+			})
+			expect(t, err, connect.CodeInvalidArgument, "binding root", held+` has no feature "Kit"`)
+		}
 	})
 
 	t.Run("path_reaches_no_object", func(t *testing.T) {
