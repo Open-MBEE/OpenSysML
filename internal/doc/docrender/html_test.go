@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 )
@@ -821,5 +822,17 @@ func TestHTMLReferencedReportGolden(t *testing.T) {
 	}
 	if strings.Contains(plain, "Section 2.1") || strings.Contains(plain, "Table 1") {
 		t.Errorf("an unnumbered document numbers no reference:\n%s", plain)
+	}
+}
+
+// A bundle whose themes cannot be listed still has the default theme, which is
+// built in, rather than stopping the program.
+func TestThemeNamesOfAnUnreadableBundle(t *testing.T) {
+	got := themeNames(fstest.MapFS{})
+	if !slices.Equal(got, []string{DefaultTheme}) {
+		t.Errorf("themes of an unreadable bundle = %v, want the default alone", got)
+	}
+	if all := Themes(); len(all) < 2 || all[0] != DefaultTheme {
+		t.Errorf("bundled themes = %v, want the default first and the rest after", all)
 	}
 }
