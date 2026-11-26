@@ -95,12 +95,14 @@ func (m *Model) controlPartsOf(sym *symbols.Symbol) *controlParts {
 		if d.Target != nil {
 			span = source.Span{Offset: d.Target.Span().Offset}
 		}
+		stated := span
 		if chain, ok := d.Target.(*ast.FeatureChainExpr); ok {
-			base, parts.referent = chain.Operand, chain.Member
+			// The target a chain states is written where its operand is, as a terminate's occurrence.
+			base, parts.referent, stated = chain.Operand, chain.Member, chain.Operand.Span()
 		} else {
 			_, parts.referent, _ = expressionReference(d.Target)
 		}
-		target := reference("target", span, "target", base)
+		target := reference("target", stated, "target", base)
 		nested := func(owner *symbols.Symbol) *symbols.Symbol {
 			decl := &ast.Usage{Kind: ast.UsageAttribute, IsReference: true}
 			decl.NodeSpan = span
@@ -425,8 +427,8 @@ func (m *Model) NamedByNodeParameterRole(sym *symbols.Symbol) bool {
 	return m != nil && sym != nil && !sym.Named() && m.nodeParameterOwner(sym) != nil
 }
 
-// IsNodeParameter reports whether sym is a parameter the notation of a send or control action states:
-// an element no scope declares, qualified by its action.
-func (m *Model) IsNodeParameter(sym *symbols.Symbol) bool {
-	return m.nodeParameterOwner(sym) != nil
+// NodeParameterOwner is the send or control action whose notation states the parameter sym, an element
+// no scope declares; nil for any other symbol.
+func (m *Model) NodeParameterOwner(sym *symbols.Symbol) *symbols.Symbol {
+	return m.nodeParameterOwner(sym)
 }

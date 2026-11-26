@@ -13,7 +13,11 @@ import (
 
 const nodeParameterQueryModel = `package P {
     attribute def Sig;
+    part def Q { attribute q : ScalarValues::Integer; }
     action def Base {
+        part p : Q;
+        part other : Q;
+        action assignChain assign p.q := 1;
         attribute count : ScalarValues::Integer;
         attribute total : ScalarValues::Integer;
         action nested;
@@ -24,7 +28,7 @@ const nodeParameterQueryModel = `package P {
         action termArg terminate nested;
         action termBare terminate;
         action acc1 accept r : Sig;
-        action s send new Sig() to nested;
+        action s send new Sig() to other;
     }
 }`
 
@@ -51,6 +55,7 @@ func TestOSLCQueryReadsTheParametersAnActionNodeStates(t *testing.T) {
 			"parameter": "P::Base::assignCount::target", "input": "P::Base::assignCount::target",
 			"feature": "P::Base::assignCount::target", "ownedFeature": "P::Base::assignCount::target",
 		}},
+		{"assignChain", "parameter,feature", map[string]string{"parameter": "p", "feature": "p"}},
 		{"forAct", "parameter,input,feature", map[string]string{
 			"parameter": "P::Base::forAct::i", "input": "P::Base::forAct::i", "feature": "P::Base::forAct::i",
 		}},
@@ -99,6 +104,34 @@ func TestOSLCQueryReadsTheParametersAnActionNodeStates(t *testing.T) {
 		}
 		if lines[0] != line {
 			t.Errorf("%s: REPL line = %q, gRPC line = %q", row.node, lines[0], line)
+		}
+	}
+}
+
+// A filter matches such a parameter by the text a query reads it as, in a body no name reaches included.
+func TestOSLCQueryFiltersByTheParametersAnActionNodeStates(t *testing.T) {
+	srv := grpc.MustNewServiceForTest(t, 10)
+	parsed, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
+		Source: &pb.ParseFileRequest_Content{Content: nodeParameterQueryModel},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, row := range []struct{ parameter, element, read string }{
+		{"P::Base::assignCount::target", "P::Base::assignCount", "P::Base::assignCount::target"},
+		{"P::Base::forAct::i", "P::Base::forAct", "P::Base::forAct::i"},
+		{"new Sig()", "P::Base::s", "new Sig()"},
+		{"nested", "P::Base::termArg", "nested"},
+		{"p", "P::Base::assignChain", "p"},
+		{"P::Base::forAct::@0::@0::target", "P::Base::forAct::@0::@0", "P::Base::forAct::@0::@0::target"},
+	} {
+		text := fmt.Sprintf(`oslc.where=sysml:parameter=%q&oslc.select=sysml:parameter`, row.parameter)
+		resp, err := srv.Query(context.Background(), &pb.QueryRequest{ModelHash: parsed.ModelHash, OslcQuery: text})
+		if err != nil {
+			t.Fatalf("%s: Query: %v", row.parameter, err)
+		}
+		if len(resp.Elements) != 1 || resp.Elements[0].Id != row.element || resp.Elements[0].Properties["parameter"] != row.read {
+			t.Errorf("parameter %q selects %v, want %s reading %q", row.parameter, resp.Elements, row.element, row.read)
 		}
 	}
 }

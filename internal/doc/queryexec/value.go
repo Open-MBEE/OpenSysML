@@ -541,29 +541,30 @@ func (c Context) WrittenExpression(sym *symbols.Symbol) (string, bool) {
 func (c Context) PropertyText(v Value) (string, bool) {
 	text, ok := v.Text(c.Identity)
 	if sym, isElement := v.Element(); isElement && text == "" {
-		written, ok := c.WrittenExpression(sym)
-		if written == "" {
-			// A parameter an action's notation states with no expression of its own is named under its action.
-			if name, named := c.nodeParameterName(sym); named {
-				return name, true
-			}
+		if stated, _, isParameter := c.statedParameterText(sym); isParameter {
+			return stated, stated != ""
 		}
-		return written, ok
+		return c.WrittenExpression(sym)
 	}
 	return text, ok
 }
 
-// nodeParameterName is Element::qualifiedName as the model derives it for a parameter the notation of
-// its action states; false for any other element, and for one it derives no name for.
-func (c Context) nodeParameterName(sym *symbols.Symbol) (string, bool) {
-	if !c.Model.IsNodeParameter(sym) {
-		return "", false
+// statedParameterText is how a surface reads a parameter the notation of its action states, an element no
+// scope declares: the expression written for it, else its name under its action. ok is false for any other.
+func (c Context) statedParameterText(sym *symbols.Symbol) (text string, written, ok bool) {
+	owner := c.Model.NodeParameterOwner(sym)
+	if owner == nil {
+		return "", false, false
 	}
-	values, ok := c.Model.ReflectiveFeatureValues(sym, "qualifiedName")
-	if !ok || len(values) != 1 || values[0].Kind != symbols.FilterValueString || values[0].Str == "" {
-		return "", false
+	if text, _ := c.WrittenExpression(sym); text != "" {
+		return text, true, true
 	}
-	return values[0].Str, true
+	name, named := c.Model.EffectiveNamed(sym)
+	action, _ := ElementValue(owner).Text(c.Identity)
+	if !named || action == "" {
+		return "", false, true
+	}
+	return action + "::" + name, false, true
 }
 
 // elementText is what an element compares and orders as: its qualified name,
