@@ -945,20 +945,27 @@ func (r *Resolver) passOver(imp *ast.Import, name string) {
 		return
 	}
 	// Only another element of that name could be what imp binds it to.
-	if r.idx.NamesSeveral(name) {
+	if r.importMayName(imp, name) && r.idx.NamesSeveral(name) {
 		r.leadPassed = true
 	}
+}
+
+// importMayName reports whether imp could bring name: a membership import names
+// only its last segment or the target's short name.
+func (r *Resolver) importMayName(imp *ast.Import, name string) bool {
+	if imp.Kind != ast.ImportMembership || imp.IsRecursive || imp.Imported == nil || len(imp.Imported.Parts) == 0 {
+		return true
+	}
+	last := imp.Imported.Parts[len(imp.Imported.Parts)-1].Text
+	return last == name || r.idx == nil || r.idx.ShortNamed(name) || r.idx.ShortNamed(last)
 }
 
 // importPrefixAvailable reports whether imp can surface name from scope: a
 // membership import names only its last segment or the target's short name, and
 // a prefix unbound while sibling imports resolve cannot name the target.
 func (r *Resolver) importPrefixAvailable(scope *symbols.Scope, imp *ast.Import, name string) bool {
-	if imp.Kind == ast.ImportMembership && !imp.IsRecursive && imp.Imported != nil && len(imp.Imported.Parts) > 0 {
-		last := imp.Imported.Parts[len(imp.Imported.Parts)-1].Text
-		if last != name && r.idx != nil && !r.idx.ShortNamed(name) && !r.idx.ShortNamed(last) {
-			return false
-		}
+	if !r.importMayName(imp, name) {
+		return false
 	}
 	if len(r.resolvingImports) == 0 || imp.Imported == nil || len(imp.Imported.Parts) == 0 {
 		return true

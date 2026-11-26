@@ -347,3 +347,22 @@ func TestImportsLeadingWithOneNameBindItOutsideBoth(t *testing.T) {
 		}
 	}
 }
+
+// An import that cannot bring a name does not stand between it and the sibling
+// import that binds it, in either order.
+func TestImportLedByANameItCannotBringReadsTheSiblingImport(t *testing.T) {
+	for _, imports := range []string{
+		"private import X::Z; private import X::X;",
+		"private import X::X; private import X::Z;",
+	} {
+		r := resolveDoc(t, "d.sysml", `
+			package X { part def Z; package X { part def Z; } }
+			package P { `+imports+` }`)
+		scope := scopeNamed(t, r, "d.sysml", "P")
+		for name, want := range map[string]string{"Z": "X::X::Z", "X": "X::X"} {
+			if sym, ok := r.LookupName(scope, name); !ok || symbols.FQNOf(sym) != want {
+				t.Errorf("%s: %s = %v, %t; want %s", imports, name, sym, ok, want)
+			}
+		}
+	}
+}
