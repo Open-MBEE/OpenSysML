@@ -229,6 +229,12 @@ this change.
 | A mixed computed column with only nonmatching comparable cells returns no rows, and a projected declared feature keeps strict operand validation | `internal/doc/queryexec/shadow_deferral_regressions_test.go:TestQueryValidNonmatchingComputedCellIsNotAnOperatorError`, `:TestQueryProjectedDeclaredFeatureKeepsStrictOperandValidation` |
 | A delegated dotted read on a state row keeps its built-in value's source, and a union's empty arm supplies no operand evidence | `internal/doc/queryexec/shadow_deferral_regressions_test.go:TestQueryStateDelegatedDottedReadKeepsBuiltinProvenance`, `:TestQueryUnionEmptyArmDoesNotSupplyOperandEvidence` |
 | An explicit `@annotations` read on a held object leaves a namesake lazy part unmaterialized | `internal/doc/queryexec/object_explicit_annotation_lazy_part_test.go:TestExplicitAnnotationsOnAHeldObjectDoNotMaterializeANamesakePart` |
+| A live value written into a held object's otherwise uninitialized `annotations` feature supplies operand evidence beside a built-in annotation's text | `internal/doc/queryexec/shadow_deferral_regressions_test.go:TestQueryLiveHeldShadowSuppliesOperandEvidence` |
+| A directly projected shadowing feature keeps the deferral of the same unprojected read | `internal/doc/queryexec/shadow_deferral_regressions_test.go:TestQueryProjectedShadowKeepsDeferralEligibility` |
+| A successful comparison against a directly projected number clears an incompatible computed cell's error in the same column | `internal/doc/queryexec/shadow_deferral_regressions_test.go:TestQueryComparableProjectedCellClearsComputedColumnError` |
+| A feature literally named `owner.annotations` reads its own value and rejects an ordering operand, without borrowing the owner's `annotations` feature | `internal/doc/queryexec/shadow_deferral_regressions_test.go:TestQueryLiteralDottedFeatureDoesNotBorrowAPathShadow` |
+| A feature hidden beneath a computed column cannot excuse an invalid operand on a built-in cell | `internal/doc/queryexec/shadow_deferral_regressions_test.go:TestQueryComputedColumnDoesNotInheritAHiddenShadow` |
+| A projected shadow removed by an earlier conjunction term still excuses an incompatible cell, so reversing the terms cannot turn no rows into an error | `internal/doc/queryexec/shadow_deferral_regressions_test.go:TestQueryProjectedShadowOperandIsTermOrderIndependent` |
 
 The tests execute document queries over real `.sysml` fixtures through the
 shared `queryexec` executor, which is the executor behind the CLI, the REPL, the
@@ -255,7 +261,8 @@ All commands were run from the repository root.
 - `go test ./internal/frontend/grpc -run 'TestQuery' -timeout 15m -count=1` — passed.
 - `go test ./internal/frontend/grpc -run 'TestQuerySelectsAnnotationAndActivityProperties|TestQueryReadsAnnotationsWithNoPerElementSymbolLookups|TestQueryFiltersByAnnotationAndActivityProperties' -count=1` — passed.
 - `go test ./internal/frontend/grpc -run 'TestQuerySymbolKind' -count=1` — passed.
-- `go test ./... -timeout 30m -count=1` — 128 packages passed. The run was terminated by its 40-minute harness limit while other worktrees competed for the container's CPU and `/tmp` quota. The packages that failed did so for environmental reasons unrelated to this change: test-built binaries could not be written under `/tmp` ("disk quota exceeded") in `cmd/sysml`, its sibling commands and `tests/codegen`; downloaded corpora were absent in `tests/corpus` and `internal/translate/export`; a solver timed out in `internal/exec/smt` and `internal/exec/solve`; an exploration test exceeded its time budget in `internal/exec/runtime`; `internal/frontend/grpc` hit its package timeout; and `internal/ir/view` reported a `dot` warning about a non-ASCII glyph. Every package whose code this change touches passed in the targeted runs above.
+- `GOMAXPROCS=8 go test -count=1 -p 8 ./internal/doc/queryexec/... ./internal/doc/querytranslate/... ./internal/frontend/grpc/...` — all three packages passed; these are the targeted gates for this worktree, not a full `go test ./...` run.
+- `python3 scripts/changelog-test.py` — 30 tests passed; `python3 scripts/spec_compliance-test.py` — 16 tests passed.
 
 ## Known limitations and follow-ups
 
