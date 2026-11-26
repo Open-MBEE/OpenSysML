@@ -1146,7 +1146,7 @@ actually produces and for what:
 | `unimplemented` | 501 | A capability the running service was started without (`capability "query" is unavailable`) or a method it does not have | `UnsupportedOperationError` — do not retry |
 | `unavailable` | 503 | Not produced by the service itself; a proxy or a shutting-down process answers it | `ConnectionError` — retry with backoff |
 | `deadline_exceeded` | 504 | The client's deadline passed | `ServiceTimeoutError` |
-| `canceled` | 499 | The client cancelled | `ServiceTimeoutError` |
+| `canceled` | 499 | The client cancelled | `ServiceTimeoutError` (in the Node client its subclass `ServiceCancelledError`) |
 | `resource_exhausted` | 429 | A document query (`RunDocumentQuery`, or one a `RenderDocument` runs) exhausted its visit, invocation or invocation-depth budget | `ServiceError` — the query, not the request, is at fault |
 | `already_exists` | 409 | Not currently produced | `ServiceError` |
 | `aborted` | 409 | Not currently produced | `ServiceError` |
