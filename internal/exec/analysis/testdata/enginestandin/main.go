@@ -157,7 +157,7 @@ func serve() error {
 		}
 		if e.mode == ModeExitHoldingOutput && msg.Method == enginewire.MethodDescribe {
 			// Exits with a status while a helper keeps its standard output open.
-			helper := exec.Command(os.Args[0]) // #nosec G204 -- the stand-in runs itself
+			helper := exec.Command(os.Args[0]) // #nosec G204 G702 -- the stand-in runs itself
 			helper.Env = append(os.Environ(), ModeEnv+"="+ModeHoldOutput)
 			helper.Stdout = os.Stdout
 			if err := helper.Start(); err != nil {
