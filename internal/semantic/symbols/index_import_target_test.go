@@ -47,6 +47,7 @@ func TestWildcardImportTargetFollowsAMembershipImport(t *testing.T) {
 			package Hidden { private import Q::X; private import R::X; package HiddenIn { public import X::*; } }
 			package Twice { private import Q::X; private import $::Q::X; package TwiceIn { public import X::*; } }
 			package Repeated { ` + strings.Repeat("private import X; ", 12) + ` public import X::*; }
+			package Above { ` + strings.Repeat("private import X; ", 12) + ` package AboveIn { public import X::*; } }
 			package Lattice { ` + lattice.String() + ` public import X::*; }
 			package Chain { private import M2::X; package ChainIn { public import X::*; } }
 			package Path { private import $::M2; package PathIn { public import M2::X::Y::*; } }
@@ -73,6 +74,7 @@ func TestWildcardImportTargetFollowsAMembershipImport(t *testing.T) {
 		"P::Twice::TwiceIn::B":   1,
 		"P::Twice::TwiceIn::A":   0,
 		"P::Repeated::A":         1,
+		"P::Above::AboveIn::A":   1,
 		"P::Lattice::A":          1,
 		"P::Chain::ChainIn::B":   1,
 		"P::Chain::ChainIn::A":   0,

@@ -129,3 +129,38 @@ func TestEnclosingImportPrecedesOuterMemberForInvocation(t *testing.T) {
 		}
 	}
 }
+
+// Imports of distinct namespaces under one name hide each other (KerML 7.2.5.4),
+// so a wildcard import of that name below them reads the namespace owned further
+// out, and surfaces the members of neither import.
+func TestWildcardImportBelowMutuallyHidingImports(t *testing.T) {
+	r := resolveDoc(t, "d.sysml", `
+		package Q { package X { part def B; } }
+		package R { package X { part def C; } }
+		package P {
+			package X { part def A; }
+			package K { private import Q::X; private import R::X; package N { public import X::*; } }
+			part a : K::N::A;
+			part b : K::N::B;
+			part c : K::N::C;
+		}
+	`)
+
+	if len(r.Diagnostics) != 2 || !strings.Contains(r.Diagnostics[0].Message, "K::N::B") ||
+		!strings.Contains(r.Diagnostics[1].Message, "K::N::C") {
+		t.Errorf("diagnostics %v, want K::N::B and K::N::C unresolved", r.Diagnostics)
+	}
+
+	scope := scopeNamed(t, r, "d.sysml", "P")
+	sym, ok := r.ResolveQualified(scope, qn(false, "K", "N", "A"))
+	if !ok {
+		t.Error("K::N::A does not resolve")
+	} else if got := r.registeredFQN(sym); got != "P::X::A" {
+		t.Errorf("K::N::A resolves to %s, want P::X::A", got)
+	}
+	for _, name := range []string{"B", "C"} {
+		if sym, ok := r.ResolveQualified(scope, qn(false, "K", "N", name)); ok {
+			t.Errorf("K::N::%s resolves to %s, want it unresolved", name, r.registeredFQN(sym))
+		}
+	}
+}
