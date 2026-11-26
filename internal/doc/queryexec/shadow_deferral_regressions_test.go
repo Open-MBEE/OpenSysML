@@ -193,6 +193,72 @@ calc def Strict :> Query {
 }
 `
 
+// A shadow whose only value cannot take the operand does not justify deferring
+// the built-in when an earlier conjunction term removes that shadow's row.
+const filteredTextShadowFixture = `
+metadata def Tag { attribute label : String; }
+state def Machine {
+	entry; then ready;
+	state ready;
+	@Tag about ready { label = "txt"; }
+}
+part def TextShadow { attribute annotations : String = "x"; }
+part def Controller { exhibit state modes : Machine; }
+part controller : Controller;
+part textShadow : TextShadow;
+calc def BareShadow :> Query {
+	in root : Element;
+	WhereFeature(
+		source = States(source = root),
+		'feature' = "annotations", operator = ">", value = "3"
+	)
+}
+calc def UnionShadow :> Query {
+	in root : Element;
+	WhereFeature(
+		source = Union(
+			source = States(source = root),
+			other = Named(qualifiedName = "Observatory::textShadow")
+		),
+		'feature' = "annotations", operator = ">", value = "3"
+	)
+}
+calc def FilteredShadow :> Query {
+	in root : Element;
+	WhereFeature(
+		source = WhereName(
+			source = Union(
+				source = States(source = root),
+				other = Named(qualifiedName = "Observatory::textShadow")
+			),
+			operator = "=", value = "ready"
+		),
+		'feature' = "annotations", operator = ">", value = "3"
+	)
+}
+`
+
+func TestQueryFilteredTextShadowStillRejectsOrderingOperand(t *testing.T) {
+	fixture := loadExecutionFixture(t, filteredTextShadowFixture)
+	ctx := runtime.NewContext(runtime.NewModel(fixture.model, fixture.resolver), runtime.DefaultMaxSteps)
+	controller, err := ctx.Instantiate(fixture.symbol(t, "controller"))
+	if err != nil {
+		t.Fatalf("Instantiate controller: %v", err)
+	}
+	context := Context{
+		Index: fixture.index, Resolver: fixture.resolver, Model: fixture.model, Runtime: ctx,
+		Roots: []Root{{Label: "controller", Object: controller}},
+	}
+	bindings := Bindings{"root": {ObjectValue(controller, "controller")}}
+	for _, name := range []string{"BareShadow", "UnionShadow", "FilteredShadow"} {
+		_, err := Execute(fixture.program(t, name), context, bindings, Options{})
+		failure := executionError(t, err, ErrorInvalidOperator)
+		if failure.Actual != ">" {
+			t.Errorf("%s operator error = %+v, want >", name, failure)
+		}
+	}
+}
+
 // A delegated dotted read keeps the terminal property's source: the annotated
 // owner's built-in text is not mislabelled as a declared feature of the owner.
 const delegatedBuiltinOnStateFixture = `
@@ -206,7 +272,7 @@ state def Regions {
 		}
 		@Tag about regionL { label = "text"; }
 		state regionR {
-			attribute annotations : String = "feature";
+			attribute annotations : Integer = 5;
 			entry; then right;
 			state right;
 		}
@@ -214,6 +280,13 @@ state def Regions {
 }
 part def Controller { exhibit state modes : Regions; }
 part controller : Controller;
+calc def DelegatedValues :> Query {
+	in root : Element;
+	Project(
+		source = States(source = root),
+		properties = ("statePath", "owner.annotations"), tolerate = true
+	)
+}
 calc def ScopedOwners :> Query {
 	in root : Element;
 	WhereFeature(
@@ -236,8 +309,28 @@ func TestQueryStateDelegatedDottedReadKeepsBuiltinProvenance(t *testing.T) {
 		Index: fixture.index, Resolver: fixture.resolver, Model: fixture.model, Runtime: ctx,
 		Roots: []Root{{Label: "controller", Object: controller}},
 	}
-	result, err := Execute(fixture.program(t, "ScopedOwners"), context,
-		Bindings{"root": {ObjectValue(controller, "controller")}}, Options{})
+	bindings := Bindings{"root": {ObjectValue(controller, "controller")}}
+	values, err := Execute(fixture.program(t, "DelegatedValues"), context, bindings, Options{})
+	if err != nil {
+		t.Fatalf("execute DelegatedValues: %v", err)
+	}
+	for _, row := range values.Rows() {
+		cells := row.Cells()
+		pathValues := cells[0].Values()
+		if len(pathValues) != 1 {
+			t.Fatalf("state path = %v, want one value", pathValues)
+		}
+		path, _ := pathValues[0].String()
+		want := sourceProjectedBuiltin
+		if path == "both.right" {
+			want = sourceProjectedModel
+		}
+		sources := cells[1].sources
+		if len(sources) != 1 || sources[0] != want {
+			t.Errorf("owner.annotations of %s has sources %v, want %v", path, sources, want)
+		}
+	}
+	result, err := Execute(fixture.program(t, "ScopedOwners"), context, bindings, Options{})
 	if err != nil {
 		t.Fatalf("execute ScopedOwners: %v", err)
 	}

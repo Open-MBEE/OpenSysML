@@ -141,10 +141,11 @@ What was still missing at that baseline:
   built-in's type. An explicit built-in spelling keeps Boolean validation even
   when the bare name is shadowed. A filter decides operand validity from the
   rows the query started with, so reversing the terms of an `and` cannot change
-  the verdict: an incompatible built-in value defers to a shadowing feature,
-  and an incompatible declared value under a shadowed name is skipped when
-  another starting row supplies a comparable value. A name with no comparable
-  value reports the operator error. A state, verdict or event row delegating a
+  the verdict: an incompatible declared value under a shadowed name is skipped
+  when another starting row supplies a comparable value, and a built-in defers
+  only to such a comparable shadow. A shadow whose only value cannot take the
+  operand never excuses it, even when an earlier term filtered that shadow's
+  row out; a name with no comparable value reports the operator error. A state, verdict or event row delegating a
   dotted read keeps the terminal value's source, so built-in text is not
   mistaken for a declared feature. A union starts a new scope from the rows it
   emits; a row an arm filtered out cannot supply operand evidence above it.
@@ -224,6 +225,7 @@ this change.
 | A scoped filter on a text feature named like a built-in rejects an ordering operand | `internal/frontend/grpc/query_shadow_deferral_regressions_test.go:TestOSLCScopedTextFeatureRejectsOrderingOperand` |
 | Reversing the terms of an `and` does not change whether a shadowed operand is accepted | `internal/frontend/grpc/query_shadow_deferral_regressions_test.go:TestQueryConjunctionOrderDoesNotChangeShadowDeferral` |
 | Reversing the terms of an `and` does not change an ordering operand over declared numeric and text features | `internal/frontend/grpc/query_shadow_deferral_regressions_test.go:TestOSLCConjunctionOrderDoesNotChangeDeclaredFeatureOperand` |
+| A text-only shadow filtered out by an earlier term still rejects an ordering operand on the built-in | `internal/doc/queryexec/shadow_deferral_regressions_test.go:TestQueryFilteredTextShadowStillRejectsOrderingOperand` |
 | A mixed computed column with only nonmatching comparable cells returns no rows, and a projected declared feature keeps strict operand validation | `internal/doc/queryexec/shadow_deferral_regressions_test.go:TestQueryValidNonmatchingComputedCellIsNotAnOperatorError`, `:TestQueryProjectedDeclaredFeatureKeepsStrictOperandValidation` |
 | A delegated dotted read on a state row keeps its built-in value's source, and a union's empty arm supplies no operand evidence | `internal/doc/queryexec/shadow_deferral_regressions_test.go:TestQueryStateDelegatedDottedReadKeepsBuiltinProvenance`, `:TestQueryUnionEmptyArmDoesNotSupplyOperandEvidence` |
 | An explicit `@annotations` read on a held object leaves a namesake lazy part unmaterialized | `internal/doc/queryexec/object_explicit_annotation_lazy_part_test.go:TestExplicitAnnotationsOnAHeldObjectDoNotMaterializeANamesakePart` |

@@ -545,9 +545,9 @@ func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequen
 						columnErr = compareErr
 					}
 					continue
-				case (origin == sourceBuiltin || origin == sourceProjectedBuiltin) && evidence.shadowed:
-					// Only a built-in read may defer its kind to a feature
-					// shadowing the bare name in the query's starting rows.
+				case (origin == sourceBuiltin || origin == sourceProjectedBuiltin) && evidence.shadowed && evidence.comparable:
+					// A built-in defers only to a shadow that can take the
+					// operand; a filtered-out, incompatible shadow cannot.
 					continue
 				case origin == sourceModel && evidence.comparable:
 					// A declared value under a shadowed name is skipped when
