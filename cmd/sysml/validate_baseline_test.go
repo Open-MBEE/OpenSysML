@@ -42,18 +42,29 @@ func TestValidateBaselineNotAReport(t *testing.T) {
 	}
 }
 
-// TestValidateBaselineWithoutFindings: the report of a run that found nothing
-// spells its diagnostics `null`, and is a baseline that knows no finding.
+// TestValidateBaselineWithoutFindings: a report whose diagnostics are `null`,
+// for a run that found nothing or had every finding suppressed, is a baseline.
 func TestValidateBaselineWithoutFindings(t *testing.T) {
 	binary := buildCLI(t)
 	dir := reportWorkspace(t)
-	recorded := checkPathsIn(t, dir, binary, "-validate", "-json", "-o", "baseline.json", "models/clean.sysml")
-	wantReport(t, recorded, exitHolds)
-	if data, err := os.ReadFile(filepath.Join(dir, "baseline.json")); err != nil {
-		t.Fatal(err)
-	} else if !strings.Contains(string(data), `"diagnostics": null`) {
-		t.Fatalf("a clean run recorded its diagnostics as other than null:\n%s", data)
+	wantReport(t, checkPathsIn(t, dir, binary, "-validate", "-json", "-o", "known.json", "models/notation.sysml"), exitHolds)
+	for _, tc := range []struct {
+		name string
+		args []string
+	}{
+		{"nothing found", []string{"models/clean.sysml"}},
+		{"every finding suppressed", []string{"-baseline", "known.json", "models/notation.sysml"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			record := append([]string{"-validate", "-json", "-o", "baseline.json"}, tc.args...)
+			wantReport(t, checkPathsIn(t, dir, binary, record...), exitHolds)
+			if data, err := os.ReadFile(filepath.Join(dir, "baseline.json")); err != nil {
+				t.Fatal(err)
+			} else if !strings.Contains(string(data), `"diagnostics": null`) {
+				t.Fatalf("the run recorded its diagnostics as other than null:\n%s", data)
+			}
+			got := checkPathsIn(t, dir, binary, "-validate", "-baseline", "baseline.json", "models/clean.sysml")
+			wantReport(t, got, exitHolds, "no errors")
+		})
 	}
-	got := checkPathsIn(t, dir, binary, "-validate", "-baseline", "baseline.json", "models/clean.sysml")
-	wantReport(t, got, exitHolds, "no errors")
 }
