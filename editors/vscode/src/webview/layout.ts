@@ -2315,9 +2315,36 @@ function midpoint(points: RenderPoint[]): RenderPoint {
   return points[0] ?? { x: 0, y: 0 };
 }
 
-/** movable reports whether a node can be dragged: a workspace document declares it, so a Layout can reach it, and it is no row listing a performer. */
+/** movable reports whether a node can be dragged: a workspace document declares it, so a Layout can reach it, and it is no row listing a performer nor a lane another lane of its performer is placed for. */
 export function movable(layout: CanvasLayout, entry: PlacedNode): boolean {
-  return layout.placeable && reachable(entry.node) && entry.node.kind !== PERFORMER_ROW_KIND;
+  return (
+    layout.placeable &&
+    reachable(entry.node) &&
+    entry.node.kind !== PERFORMER_ROW_KIND &&
+    placedLane(layout, entry) === entry
+  );
+}
+
+// placedLane is the lane a Layout about a swimlane's performer places: the outermost of the
+// performer's lanes under one root, then the first drawn. Any other node is its own.
+function placedLane(layout: CanvasLayout, entry: PlacedNode): PlacedNode {
+  if (entry.node.kind !== SWIMLANE_KIND || entry.node.fqn === undefined) {
+    return entry;
+  }
+  const depth = (of: PlacedNode): number => (of.parent ? depth(of.parent) + 1 : 0);
+  const root = (of: PlacedNode): PlacedNode => (of.parent ? root(of.parent) : of);
+  let placed: PlacedNode | undefined;
+  for (const other of layout.nodes.values()) {
+    if (
+      other.node.kind === SWIMLANE_KIND &&
+      other.node.fqn === entry.node.fqn &&
+      root(other) === root(entry) &&
+      (placed === undefined || depth(other) < depth(placed))
+    ) {
+      placed = other;
+    }
+  }
+  return placed ?? entry;
 }
 
 /** fixedReason says why a node of a placeable diagram cannot be dragged, undefined for one that can or a diagram nothing moves in. */
@@ -2326,6 +2353,9 @@ export function fixedReason(layout: CanvasLayout, entry: PlacedNode): string | u
     return undefined;
   }
   const name = entry.node.name || entry.node.kind;
+  if (entry.node.kind === SWIMLANE_KIND && reachable(entry.node)) {
+    return `${name} has another swimlane in this flow, the outermost, and its Layout places that one; drag that swimlane instead.`;
+  }
   if (entry.node.kind === PERFORMER_ROW_KIND) {
     return `${name} is listed as a performer here and moves with the action it performs; drag its swimlane to place it.`;
   }

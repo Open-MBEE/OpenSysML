@@ -1146,6 +1146,28 @@ test("fixedReason says why a start or done node, and any node no workspace docum
   assert.equal(fixedReason(table, table.nodes.get("s")!), undefined);
 });
 
+test("a lane in a nested flow does not move when its performer has a lane in an enclosing flow", () => {
+  const lane = (id: string, parent: string, performer: string) =>
+    node(id, performer, { kind: "swimlane", parent, fqn: `Parts::${performer}` });
+  const nested = layoutCanvas(
+    rendering([
+      node("run", "run"),
+      lane("outer", "run", "arm"),
+      node("build", "build", { parent: "run" }),
+      lane("inner", "build", "arm"),
+      lane("only", "build", "robot"),
+      node("other", "other"),
+      lane("apart", "other", "arm"),
+    ]),
+  );
+  assert.equal(movable(nested, nested.nodes.get("outer")!), true);
+  assert.equal(movable(nested, nested.nodes.get("only")!), true);
+  assert.equal(movable(nested, nested.nodes.get("apart")!), true);
+  assert.equal(movable(nested, nested.nodes.get("inner")!), false);
+  assert.equal(movedNode(nested, "inner", 10, 10), undefined);
+  assert.match(fixedReason(nested, nested.nodes.get("inner")!) ?? "", /^arm has another swimlane in this flow/);
+});
+
 test("movable and steerable take a target another document declares, named or not, and no library's", () => {
   const foreignOrigin = { ...origin, uri: "file:///work/parts.sysml" };
   const declaration = {
