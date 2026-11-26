@@ -198,18 +198,22 @@ type memberOfValueError struct {
 }
 
 func (e *memberOfValueError) Error() string {
+	read := "cannot read member " + e.member
+	if e.from != "" {
+		read += " of " + e.from
+	}
 	what := DescribeValue(e.value)
 	switch e.value.Kind {
+	case ValUndetermined:
+		// What the model leaves open may hold objects, so it is not said to have no members.
+		return read + ": the model does not determine the value it is read from"
 	case ValString:
 		what = "a String"
-	case ValNull, ValConst, ValComplex:
+	case ValNull, ValConst, ValComplex, ValQuantity:
 	default:
 		what = "a value that is " + what
 	}
-	if e.from == "" {
-		return fmt.Sprintf("cannot read member %s: %s has no members", e.member, what)
-	}
-	return fmt.Sprintf("cannot read member %s of %s: %s has no members", e.member, e.from, what)
+	return read + ": " + what + " has no members"
 }
 
 // readFrom names the feature chain base spells as the source of a member read
@@ -322,7 +326,7 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 		}
 	case ValMetaobject:
 		// A metaobject answers its metaclass's features for the element it denotes.
-		return ec.chainOwnFeature(value, parts, from)
+		return ec.chainOwnFeature(value, parts)
 	case ValUndetermined:
 		return ec.chainThroughUndetermined(value, parts, from)
 	default:
@@ -403,7 +407,7 @@ func (ec *EvalContext) chainObjectMember(value Value, parts []ast.NameSegment, f
 func (ec *EvalContext) chainThroughStructured(value Value, parts []ast.NameSegment, from string) (Value, error) {
 	inst, ok := ec.ctx.structuredObject(value)
 	if !ok || !(isStructuredValue(&value) || value.Kind == ValQuantity) {
-		return ec.chainOwnFeature(value, parts, from)
+		return ec.chainOwnFeature(value, parts)
 	}
 	// A scalar quantity answers its own features (`num`, `mRef`) as the value it
 	// is; its object answers the members a specialization adds.
@@ -483,12 +487,12 @@ func (ec *EvalContext) chainFeatureValue(inst *Instance, name string, rest []ast
 
 // chainOwnFeature continues a chain through a feature the value answers from
 // itself rather than from an object it names.
-func (ec *EvalContext) chainOwnFeature(value Value, parts []ast.NameSegment, from string) (Value, error) {
+func (ec *EvalContext) chainOwnFeature(value Value, parts []ast.NameSegment) (Value, error) {
 	member, err := ec.ownFeature(value, parts[0].Text)
 	if err != nil {
 		return Value{}, err
 	}
-	return ec.chainMemberValue(member, parts[1:], from)
+	return ec.chainMemberValue(member, parts[1:], parts[0].Text)
 }
 
 // chainOverElements reads the rest of a chain from every element of a

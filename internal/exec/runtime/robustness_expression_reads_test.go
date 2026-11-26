@@ -19,6 +19,7 @@ func TestRuntimeRobustnessExpressionReads(t *testing.T) {
 	t.Run("structured_attribute_chain_of_an_unknown_feature", testStructuredAttributeChainOfAnUnknownFeature)
 	t.Run("elements_chain_of_a_non_numeric_collection", testElementsChainOfANonNumericCollection)
 	t.Run("member_read_of_a_value", testMemberReadOfAValue)
+	t.Run("member_read_past_a_computed_feature", testMemberReadPastAComputedFeature)
 	t.Run("indeterminate_form_over_an_infinity", testIndeterminateFormOverAnInfinity)
 	t.Run("unbounded_value_compared_with_a_string", testUnboundedValueComparedWithAString)
 	t.Run("negative_infinity_read_as_a_natural", testNegativeInfinityReadAsANatural)
@@ -250,6 +251,36 @@ func testMemberReadOfAValue(t *testing.T) {
 				t.Errorf("%s: error = %v, want %q", tc.expr, err, tc.want)
 			}
 		})
+	}
+}
+
+// testMemberReadPastAComputedFeature: the error names the feature whose value has no
+// members, not the one the chain began at, and says so of no value the model leaves open.
+func testMemberReadPastAComputedFeature(t *testing.T) {
+	src := `
+		package test {
+			private import ScalarValues::*;
+			private import VectorValues::*;
+			attribute two : NumericalVectorValue { :>> dimension = 2; :>> elements = (1, 2); }
+			attribute sum = two + two;
+			part def A { attribute n : Integer = 1; }
+			part def Chooser {
+				attribute c : Boolean;
+				part a1 : A;
+				part a2 : A;
+			}
+			part chooser : Chooser;
+		}
+	`
+	for _, tc := range []struct{ expr, want string }{
+		{"test::sum.rank.x", "cannot read member x of rank: an Integer has no members"},
+		{"(test::two + test::two).rank.x", "cannot read member x of rank: an Integer has no members"},
+		{"(if test::chooser.c ? test::chooser.a1 else test::chooser.a2).n", "cannot read member n: the model does not determine the value it is read from"},
+	} {
+		_, _, err := evalDeclaredExpr(t, src, tc.expr)
+		if err == nil || !strings.HasSuffix(err.Error(), tc.want) {
+			t.Errorf("%s: error = %v, want %q", tc.expr, err, tc.want)
+		}
 	}
 }
 
