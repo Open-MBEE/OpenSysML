@@ -708,3 +708,59 @@ func TestQueryProjectedShadowOperandIsTermOrderIndependent(t *testing.T) {
 		}
 	}
 }
+
+// A filter before Project must not hide a shadow from the filter after it:
+// projection rebuilds the pre-filter rows' cells, so both orders agree.
+const filterBeforeProjectFixture = `
+private import ScalarValues::*;
+part def NumericAnnotations { attribute annotations : Integer = 5; }
+part def TextAnnotations { attribute annotations : String = "text"; }
+part numericAnnotations : NumericAnnotations;
+part textAnnotations : TextAnnotations;
+calc def FilterProjectFilter :> Query {
+	in root : Element;
+	WhereFeature(
+		source = Project(
+			source = WhereName(
+				source = Union(
+					source = Named(qualifiedName = "Observatory::numericAnnotations"),
+					other = Named(qualifiedName = "Observatory::textAnnotations")
+				),
+				operator = "=", value = "textAnnotations"
+			),
+			properties = ("annotations")
+		),
+		'feature' = "annotations", operator = ">", value = "3"
+	)
+}
+calc def ProjectFilterName :> Query {
+	in root : Element;
+	WhereName(
+		source = WhereFeature(
+			source = Project(
+				source = Union(
+					source = Named(qualifiedName = "Observatory::numericAnnotations"),
+					other = Named(qualifiedName = "Observatory::textAnnotations")
+				),
+				properties = ("annotations")
+			),
+			'feature' = "annotations", operator = ">", value = "3"
+		),
+		operator = "=", value = "textAnnotations"
+	)
+}
+`
+
+func TestQueryShadowEvidenceSurvivesProjectionAfterAFilter(t *testing.T) {
+	fixture := loadExecutionFixture(t, filterBeforeProjectFixture)
+	bindings := Bindings{"root": {ElementValue(fixture.symbol(t, "numericAnnotations"))}}
+	for _, name := range []string{"FilterProjectFilter", "ProjectFilterName"} {
+		result, err := fixture.execute(t, name, bindings, Options{})
+		if err != nil {
+			t.Fatalf("execute %s: %v", name, err)
+		}
+		if n := len(result.Rows()); n != 0 {
+			t.Errorf("%s rows = %d, want none in either order", name, n)
+		}
+	}
+}

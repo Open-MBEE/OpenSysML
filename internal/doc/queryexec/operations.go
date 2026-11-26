@@ -893,7 +893,31 @@ func (e *executor) evaluateProject(expression queryplan.Expression) (sequence, e
 			return sequence{}, err
 		}
 	}
+	if source.unfiltered != nil {
+		result.unfilteredCells = p.startingCells(source.unfiltered)
+	}
 	return result, nil
+}
+
+// startingCells projects pre-filter rows with fresh bookkeeping, reading only
+// direct properties so a computed column hides its feature.
+func (p *projection) startingCells(rows []Value) [][]Cell {
+	if len(rows) == 0 {
+		return nil
+	}
+	q := *p
+	q.known = make([]pathEvidence, len(p.properties))
+	q.missing = make([][]*Error, len(p.properties))
+	q.seen = newCandidates()
+	out := make([][]Cell, len(rows))
+	for i, value := range rows {
+		cells, err := q.propertyCells(value)
+		if err != nil {
+			continue
+		}
+		out[i] = cells
+	}
+	return out
 }
 
 // wildcardPrefix is the path a wildcard property reads through, "" for the
@@ -1077,8 +1101,25 @@ func (e *executor) newProjection(expression queryplan.Expression) (*projection, 
 
 // cells reads one row's columns, noting the properties it carries and lacks.
 func (p *projection) cells(value Value) ([]Cell, error) {
+	cells, err := p.propertyCells(value)
+	if err != nil {
+		return nil, err
+	}
+	for _, column := range p.computed {
+		values, err := p.e.evaluateColumnCell(column, value, p.tracker)
+		if err != nil {
+			return nil, err
+		}
+		cells = append(cells, Cell{values: values, sources: sourcesOf(len(values), sourceColumn), origin: value.Origin()})
+	}
+	return cells, nil
+}
+
+// propertyCells reads a row's direct property columns with their filter sources;
+// it does not evaluate computed columns, whose hidden features supply no evidence.
+func (p *projection) propertyCells(value Value) ([]Cell, error) {
 	p.e.note(p.seen, value)
-	cells := make([]Cell, len(p.properties)+len(p.computed))
+	cells := make([]Cell, len(p.properties))
 	for column, property := range p.properties {
 		values, reach, readSources, err := p.e.propertyReachWithSource(value, property)
 		if err != nil {
@@ -1113,13 +1154,6 @@ func (p *projection) cells(value Value) ([]Cell, error) {
 			sources = sourcesOf(len(values), sourceProjectedModel)
 		}
 		cells[column] = Cell{values: values, sources: sources, origin: value.Origin()}
-	}
-	for i, column := range p.computed {
-		values, err := p.e.evaluateColumnCell(column, value, p.tracker)
-		if err != nil {
-			return nil, err
-		}
-		cells[len(p.properties)+i] = Cell{values: values, sources: sourcesOf(len(values), sourceColumn), origin: value.Origin()}
 	}
 	return cells, nil
 }
