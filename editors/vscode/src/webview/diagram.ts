@@ -34,6 +34,7 @@ import {
 import {
   byCodeUnit,
   CanvasLayout,
+  fixedReason,
   insertedWaypoint,
   layoutCanvas,
   listedEdges,
@@ -705,6 +706,8 @@ interface NodeGesture {
   pointer: number;
   routing: Routing;
   fixed: boolean;
+  /** Why a fixed node does not move, shown once the pointer drags it. */
+  reason?: string;
   placements?: Placements;
   at?: RenderPoint;
   drop?: Drop;
@@ -750,7 +753,15 @@ function beginGesture(event: PointerEvent): void {
       };
     } else {
       const entry = layout.nodes.get(node.id);
-      gesture = { kind: "node", id: node.id, start, pointer: event.pointerId, routing, fixed: !entry || !movable(layout, entry) };
+      gesture = {
+        kind: "node",
+        id: node.id,
+        start,
+        pointer: event.pointerId,
+        routing,
+        fixed: !entry || !movable(layout, entry),
+        reason: entry && fixedReason(layout, entry),
+      };
     }
   }
   event.preventDefault();
@@ -766,6 +777,10 @@ function moveGesture(event: PointerEvent): void {
     return;
   }
   if (gesture.kind === "node" && gesture.fixed) {
+    const at = canvasPoint(event);
+    if (gesture.reason && Math.hypot(at.x - gesture.start.x, at.y - gesture.start.y) >= DRAG_THRESHOLD) {
+      showHint(gesture.reason);
+    }
     return;
   }
   if (gesture.kind === "pan") {

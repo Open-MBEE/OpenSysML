@@ -31,22 +31,6 @@
   :prefix "sysml-lsp-"
   :link '(url-link "https://github.com/Open-MBEE/OpenSysML"))
 
-(defconst sysml-lsp--executable
-  (if (eq system-type 'windows-nt) "sysml-lsp.exe" "sysml-lsp")
-  "File name of the language server.")
-
-(defcustom sysml-lsp-server-path nil
-  "Absolute path to the `sysml-lsp' executable.
-When nil, `bin/sysml-lsp' in the project root is used if it exists, then
-`sysml-lsp' on the variable `exec-path'."
-  :type '(choice (const :tag "Find it" nil) file)
-  :risky t)
-
-(defcustom sysml-lsp-server-args nil
-  "Extra arguments passed to the language server."
-  :type '(repeat string)
-  :risky t)
-
 (lsp-defcustom sysml-lsp-strict-conformance nil
   "Judge documents as conforming SysML v2.
 When non-nil, notation only OpenSysML accepts is reported as an error
@@ -78,19 +62,11 @@ client always handles it and only these functions act on it.")
 
 (defun sysml-lsp--project-root ()
   "Return the root of the current project, or nil."
-  (or (lsp-workspace-root)
-      (when-let* ((project (project-current)))
-        (project-root project))))
+  (or (lsp-workspace-root) (sysml--project-root)))
 
 (defun sysml-lsp--find-server ()
   "Return the language server executable, or nil when none is found."
-  (cond
-   (sysml-lsp-server-path
-    (and (file-executable-p sysml-lsp-server-path) sysml-lsp-server-path))
-   ((when-let* ((root (sysml-lsp--project-root))
-                (candidate (expand-file-name (concat "bin/" sysml-lsp--executable) root)))
-      (and (file-executable-p candidate) candidate)))
-   (t (executable-find sysml-lsp--executable))))
+  (sysml--find-server (sysml-lsp--project-root)))
 
 (defun sysml-lsp--find-tool ()
   "Return the `sysml' executable to run Run and Evaluate lenses with, or nil.
@@ -127,7 +103,8 @@ See `sysml-run-element'."
     (sysml-run-element (and args (lsp-get args :kind))
                        (and args (lsp-get args :element))
                        (and uri (sysml-lsp--run-paths (lsp--uri-to-path uri)))
-                       (sysml-lsp--find-tool))))
+                       (sysml-lsp--find-tool)
+                       (sysml-lsp--project-root))))
 
 ;;;; Bundled library documents
 
@@ -180,11 +157,17 @@ They follow the locations in files."
 
 (defun sysml-lsp--server-command ()
   "Return the command to start the language server with."
-  (let ((server (sysml-lsp--find-server)))
-    (unless server
-      (user-error "Could not find %s: build it with `make build' and set `sysml-lsp-server-path', or put it on `exec-path'"
-                  sysml-lsp--executable))
-    (cons server sysml-lsp-server-args)))
+  (sysml--server-command (sysml-lsp--project-root)))
+
+(defun sysml-lsp--server-found-p ()
+  "Return non-nil when a language server is found for this buffer.
+Say so when the only one is a build the project may not run, which
+lsp-mode would otherwise report as no server at all."
+  (let ((root (sysml-lsp--project-root)))
+    (cond ((sysml--find-server root) t)
+          ((sysml--refused-project-build sysml--server-executable root)
+           (message "%s" (sysml--missing-server root))
+           nil))))
 
 (defun sysml-lsp--enable-semantic-tokens ()
   "Turn on semantic tokens in this buffer when `sysml-lsp-semantic-tokens' is set."
@@ -207,7 +190,7 @@ They follow the locations in files."
 (lsp-register-client
  (make-lsp-client
   :new-connection (lsp-stdio-connection #'sysml-lsp--server-command
-                                        (lambda () (and (sysml-lsp--find-server) t)))
+                                        #'sysml-lsp--server-found-p)
   :activation-fn (lsp-activate-on "sysml" "kerml")
   :server-id 'sysml-lsp
   :synchronize-sections '("sysml")

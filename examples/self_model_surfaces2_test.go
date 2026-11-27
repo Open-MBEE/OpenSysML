@@ -342,8 +342,8 @@ func TestSelfModelEditorsBeyondVsCode(t *testing.T) {
 	if !strings.Contains(client, "("+emacs.str("lspClient")+" ") || !strings.Contains(client, "Package-Requires:") {
 		t.Errorf("surfaces.sysml says EmacsMode.lspClient = %q, which sysml-lsp.el does not require", emacs.str("lspClient"))
 	}
-	if !strings.Contains(client, `"`+emacs.str("speaksTo")+`"`) {
-		t.Errorf("surfaces.sysml says EmacsMode speaks to %s, which sysml-lsp.el does not start", emacs.str("speaksTo"))
+	if !strings.Contains(mode, `"`+emacs.str("speaksTo")+`"`) {
+		t.Errorf("surfaces.sysml says EmacsMode speaks to %s, which sysml-mode.el does not name as the server", emacs.str("speaksTo"))
 	}
 	requireRepoPath(t, "EmacsMode", "keywordTable", emacs.str("keywordTable"))
 	requireRepoPath(t, "EmacsMode", "keywordGenerator", emacs.str("keywordGenerator"))
