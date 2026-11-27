@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -112,5 +113,32 @@ func TestCallOfAnEndedRequestIsNotStarted(t *testing.T) {
 	defer release()
 	if local.Err() != nil {
 		t.Error("a call no POST carried was ended")
+	}
+}
+
+// TestToolOfAnEndedRequestIsNotRun checks the tool of a call whose POST already
+// ended is never entered: one that ignores its context would run to completion.
+func TestToolOfAnEndedRequestIsNotRun(t *testing.T) {
+	srv, err := New(context.Background(), Config{Root: t.TempDir(), Groups: []Group{GroupSession}, Version: "test",
+		NewSession: func() (*repl.Session, error) { return repl.NewSession(), nil }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { srv.Close(context.Background()) })
+	var carried http.Header
+	srv.requests.track(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) { carried = r.Header })).
+		ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodPost, HTTPPath, nil))
+
+	ran := false
+	call := srv.authorize(func(context.Context, string, sdk.Request) (sdk.Result, error) {
+		ran = true
+		return &sdk.CallToolResult{}, nil
+	})
+	req := &sdk.CallToolRequest{Params: &sdk.CallToolParamsRaw{Name: "wait"}, Extra: &sdk.RequestExtra{Header: carried}}
+	if _, err := call(context.Background(), methodCallTool, req); !errors.Is(err, context.Canceled) {
+		t.Errorf("the call answered %v, want %v", err, context.Canceled)
+	}
+	if ran {
+		t.Error("the tool of a POST that already ended was run")
 	}
 }

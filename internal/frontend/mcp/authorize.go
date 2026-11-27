@@ -109,7 +109,10 @@ func (s *Server) authorize(next sdk.MethodHandler) sdk.MethodHandler {
 			err = toolkit.InsufficientScope(tool, entry.Scope)
 		default:
 			called, release := s.requests.bound(ctx, req)
-			res, err = next(called, method, req)
+			// A call already over is not started: a tool need not watch its context.
+			if err = called.Err(); err == nil {
+				res, err = next(called, method, req)
+			}
 			release()
 		}
 		scope := entry.Scope
