@@ -555,24 +555,25 @@ func (m Model) checkLane(i int, op Operation, renderer *view.Renderer, target la
 	if len(lanes) < 2 || m.namesLane(op.Within, lanes) {
 		return nil
 	}
-	hint := "drag that swimlane instead, naming the nodes it is drawn in, outermost first"
-	if lanes[0].Unnamed {
-		hint = "that swimlane is drawn in an action with no name, which no edit can name, so no edit places it"
-	}
 	return &Error{Failure: FailureNotDrawn, OperationIndex: i,
-		Message: fmt.Sprintf("%s has several swimlanes in %s and its Layout places one, the outermost or the first, drawn or folded away; %s",
-			m.label(op), in, hint)}
+		Message: fmt.Sprintf("%s has several swimlanes in %s and its Layout places one, the outermost or the first, drawn or folded away; drag that swimlane instead, naming the nodes it is drawn in, outermost first, a node with no name by an empty name",
+			m.label(op), in)}
 }
 
 // namesLane reports whether within names the nodes the first of lanes is drawn in and those
-// of no other: a name stands for whichever of its declarations the rendering drew there.
+// of no other: a name stands for whichever of its declarations the rendering drew there,
+// and an empty one for a node no qualified name reaches.
 func (m Model) namesLane(within []string, lanes []view.DrawnLane) bool {
 	names := func(lane view.DrawnLane) bool {
-		if lane.Unnamed || len(lane.Holders) != len(within) {
+		if len(lane.Holders) != len(within) {
 			return false
 		}
 		for at, holder := range lane.Holders {
-			if !slices.ContainsFunc(m.declared(within[at]), func(sym *symbols.Symbol) bool {
+			if within[at] == "" {
+				if m.qualified(holder) {
+					return false
+				}
+			} else if !slices.ContainsFunc(m.declared(within[at]), func(sym *symbols.Symbol) bool {
 				at := sym.Origin()
 				return at.Doc == holder.Doc && at.Span == holder.Span
 			}) {
@@ -582,6 +583,25 @@ func (m Model) namesLane(within []string, lanes []view.DrawnLane) bool {
 		return true
 	}
 	return names(lanes[0]) && !slices.ContainsFunc(lanes[1:], names)
+}
+
+// qualified reports whether a qualified name reaches the declaration at origin: it and
+// each of its owners is named.
+func (m Model) qualified(origin symbols.Origin) bool {
+	root := m.Index.DocumentRoot(origin.Doc)
+	if root == nil || !origin.Located() {
+		return false
+	}
+	sym := root.DeclaredAt(origin.Span)
+	if sym == nil || !sym.Named() {
+		return false
+	}
+	for scope := sym.OwnerScope; scope != nil && scope.Owner() != nil; scope = scope.Owner().OwnerScope {
+		if !scope.Owner().Named() {
+			return false
+		}
+	}
+	return true
 }
 
 // drawnIn is what the rendering a performer's Layout was moved in draws: the view the

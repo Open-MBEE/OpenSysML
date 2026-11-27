@@ -62,11 +62,10 @@ func (d *Drawn) Inherits(owner Origin, name string) bool {
 	return d != nil && d.inherited[owner][name]
 }
 
-// DrawnLane is one swimlane a rendering draws for a performer: the nodes it is drawn in, outermost
-// first, and whether one of them has no name, so that no operation can name the lane.
+// DrawnLane is one swimlane a rendering draws for a performer: the nodes it is drawn in,
+// outermost first.
 type DrawnLane struct {
 	Holders []Origin
-	Unnamed bool
 }
 
 // Lanes are the swimlanes a rendering draws for performer. A Layout about the performer
@@ -83,10 +82,9 @@ func (d *Drawn) noteLane(performer Origin, holders []*Node) {
 	if d == nil {
 		return
 	}
-	lane := DrawnLane{Holders: make([]Origin, len(holders)), Unnamed: len(holders) == 0}
+	lane := DrawnLane{Holders: make([]Origin, len(holders))}
 	for i, holder := range holders {
 		lane.Holders[i] = holder.Origin
-		lane.Unnamed = lane.Unnamed || holder.Name == "" || !holder.Origin.Located()
 	}
 	d.lanes[performer] = append(d.lanes[performer], lane)
 }

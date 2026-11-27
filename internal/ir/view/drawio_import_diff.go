@@ -653,7 +653,7 @@ func (m *drawioMatcher) placedLane(id string) (Origin, string, bool) {
 }
 
 // laneHolders are the qualified names of the nodes the rendering draws the placed swimlane
-// of performer in, outermost first, whether or not the file draws them: its first lane's.
+// of performer in, outermost first and empty for a node with none, drawn in the file or not.
 func (m *drawioMatcher) laneHolders(performer Origin) []string {
 	if m.drawn == nil || len(m.drawn.lanes[performer]) == 0 {
 		return nil

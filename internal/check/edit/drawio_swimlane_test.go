@@ -19,7 +19,13 @@ func swimlaneRoundTrip(t *testing.T, viewName string, pick func(*view.DrawioFile
 	if err != nil {
 		t.Fatal(err)
 	}
-	m, rendering, options := drawioModel(t, string(content), viewName)
+	return swimlaneRoundTripOf(t, string(content), viewName, pick, edit)
+}
+
+// swimlaneRoundTripOf is swimlaneRoundTrip over the model content declares.
+func swimlaneRoundTripOf(t *testing.T, content, viewName string, pick func(*view.DrawioFile) *view.DrawioCell, edit func(document, id string) string) (*view.DrawioFile, *view.DrawioImport, *view.DrawioFile) {
+	t.Helper()
+	m, rendering, options := drawioModel(t, content, viewName)
 	document, exported := drawioExport(t, rendering, options)
 	cell := pick(exported)
 	if cell == nil {
@@ -224,6 +230,38 @@ func TestDrawioMovedPlacedSwimlaneBesideANestedLane(t *testing.T) {
 	}
 	if layout := imp.Edits[0].Layout; layout.X != 360 || layout.Y != 150 {
 		t.Errorf("layout = %+v, want 360,150", layout)
+	}
+	if was, again := lane(edited), lane(re); again == nil || !drawioSameBox(was.Geometry, again.Geometry) {
+		t.Errorf("swimlane was at %+v, re-exported at %+v", was.Geometry, again)
+	}
+}
+
+const unnamedHolderSwimlaneModel = `package K {
+	private import DiagramLayout::*;
+	part def Robot;
+	action run {
+		action build { action cut; }
+		then action pack { action wrap; }
+	}
+	part arm { perform run.build.cut; perform run.pack.wrap; }
+	part : Robot { perform run.build; perform run.pack; }
+	view v : StandardViewDefinitions::ActionFlowView {
+		expose run;
+		metadata Layout about arm { x = 320; y = 120; width = 220; height = 180; }
+	}
+}
+`
+
+// The placed lane drawn inside the lane of a performer with no name, moved in the file, is
+// still named by the nodes it is drawn in.
+func TestDrawioMovedPlacedSwimlaneInsideAnUnnamedPerformersLane(t *testing.T) {
+	lane := func(f *view.DrawioFile) *view.DrawioCell {
+		return drawioFirst(f, func(c *view.DrawioCell) bool { return c.Vertex && strings.Contains(c.Label, "arm") })
+	}
+	edited, imp, re := swimlaneRoundTripOf(t, unnamedHolderSwimlaneModel, "K::v", lane, shifted(t, 40, 30))
+	about := slices.IndexFunc(imp.Edits, func(e view.DrawioEdit) bool { return e.Kind == view.DrawioEditLayout && e.FQN == "K::arm" })
+	if about < 0 || !slices.Equal(imp.Edits[about].Within, []string{"K::run", "", "K::run::build"}) {
+		t.Fatalf("edits = %+v, want a Layout about K::arm within K::run, a node with no name, K::run::build", imp.Edits)
 	}
 	if was, again := lane(edited), lane(re); again == nil || !drawioSameBox(was.Geometry, again.Geometry) {
 		t.Errorf("swimlane was at %+v, re-exported at %+v", was.Geometry, again)

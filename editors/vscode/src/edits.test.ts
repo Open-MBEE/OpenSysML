@@ -342,6 +342,16 @@ test("placementOperations names the action a dragged swimlane is drawn in", () =
   ]);
 });
 
+test("placementOperations names a node with no name a dragged swimlane is drawn in by an empty name", () => {
+  const flow: RenderNode = { id: "n1", kind: "action", name: "run", type: "", detail: "", fqn: "K::run", declaredHere: true };
+  const outer: RenderNode = { id: "n2", kind: "swimlane", name: ": Robot", type: "", detail: "perform actions", parent: "n1" };
+  const step: RenderNode = { id: "n3", kind: "action", name: "build", type: "", detail: "", parent: "n2", fqn: "K::run::build", declaredHere: true };
+  const lane: RenderNode = { id: "n4", kind: "swimlane", name: "arm", type: "", detail: "perform actions", parent: "n3", fqn: "K::arm", declaredHere: true };
+  assert.deepEqual(placementOperations({ nodes: [flow, outer, step, lane], view: "K::v", version: 1 }, [{ id: "n4", layout: { x: 10, y: 20 } }], []), [
+    { kind: "setLayout", target: "K::arm", view: "K::v", within: ["K::run", "", "K::run::build"], layout: { x: 10, y: 20 } },
+  ]);
+});
+
 test("placementOperations names the pseudo-view a dragged swimlane is drawn in, with its action", () => {
   const flow: RenderNode = { id: "n1", kind: "action", name: "run", type: "", detail: "", fqn: "Line::run", declaredHere: true };
   const lane: RenderNode = { id: "n2", kind: "swimlane", name: "line.robot", type: "", detail: "perform actions", parent: "n1", fqn: "Line::line::robot", declaredHere: true };

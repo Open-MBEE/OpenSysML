@@ -177,7 +177,7 @@ type Operation struct {
 	Annotation string
 	View       string
 	// Within names the nodes a swimlane placed by a Layout about its performer is drawn
-	// in, by FQN and outermost first: which of the performer's lanes the operation moved.
+	// in, by FQN and outermost first, a node with none by an empty one: which lane the operation moved.
 	Within []string
 	// Rendering names the view, or the pseudo-view (`#<kind>` or `#<kind>:<fqn>`) of the
 	// edited document, that swimlane was moved in, for a Layout written inline, without View.

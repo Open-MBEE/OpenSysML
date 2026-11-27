@@ -2,6 +2,7 @@ package lsp
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"testing"
 
@@ -159,7 +160,7 @@ func TestApplyModelEditPlacesASwimlaneInAPseudoView(t *testing.T) {
 }
 
 // laneWithin is what a client names as within for a swimlane it drew: the fqn of each node
-// up its parent chain, outermost first.
+// up its parent chain, outermost first, empty for a node with none.
 func laneWithin(t *testing.T, drawn *RenderResult, lane RenderNode) []string {
 	t.Helper()
 	byID := map[string]RenderNode{}
@@ -168,9 +169,6 @@ func laneWithin(t *testing.T, drawn *RenderResult, lane RenderNode) []string {
 	}
 	var within []string
 	for id := lane.Parent; id != ""; id = byID[id].Parent {
-		if byID[id].FQN == "" {
-			t.Fatalf("node %s holding swimlane %s has no fqn", id, lane.ID)
-		}
 		within = append([]string{byID[id].FQN}, within...)
 	}
 	return within
@@ -232,5 +230,50 @@ func TestApplyModelEditTellsInheritedSwimlanesApart(t *testing.T) {
 		View: drawn.View, Within: laneWithin(t, drawn, lanes[0]), Layout: at})
 	if first.Edit == nil || len(first.Refused) != 0 {
 		t.Errorf("the first lane: result = %+v, want it placed", first)
+	}
+}
+
+const unnamedHolderSwimlaneEditModel = `package K {
+	part def Robot;
+	action run {
+		action build { action cut; }
+		then action pack { action wrap; }
+	}
+	part arm { perform run.build.cut; perform run.pack.wrap; }
+	part : Robot { perform run.build; perform run.pack; }
+	view v : StandardViewDefinitions::ActionFlowView {
+		expose run;
+		metadata DiagramLayout::Layout about arm { x = 320; y = 120; width = 220; height = 180; }
+	}
+}
+`
+
+// A lane drawn inside the lane of a performer with no name is still named by its nodes: the
+// one with no name is an empty name at its place.
+func TestApplyModelEditPlacesASwimlaneInsideAnUnnamedPerformersLane(t *testing.T) {
+	s, docURI := renderServer(t, "k.sysml", unnamedHolderSwimlaneEditModel)
+	drawn := render(t, s, docURI, "K::v")
+	var lanes []RenderNode
+	for _, lane := range swimlanes(drawn) {
+		if lane.FQN == "K::arm" {
+			lanes = append(lanes, lane)
+		}
+	}
+	if len(lanes) != 2 || lanes[0].Fitted || !lanes[1].Fitted {
+		t.Fatalf("swimlanes of K::arm = %+v, want the first placeable and the second fitted", lanes)
+	}
+	if within := laneWithin(t, drawn, lanes[0]); !slices.Equal(within, []string{"K::run", "", "K::run::build"}) {
+		t.Fatalf("the placed lane is drawn in %q, want K::run, a node with no name, K::run::build", within)
+	}
+	at := &ModelEditLayout{X: float(138), Y: float(398)}
+	fitted := applyModelEdit(t, s, docURI, drawn.Version, ModelEditOperation{Kind: EditSetLayout, Target: "K::arm",
+		View: drawn.View, Within: laneWithin(t, drawn, lanes[1]), Layout: at})
+	if fitted.Edit != nil || len(fitted.Refused) != 1 || fitted.Refused[0].Failure != "not-drawn" {
+		t.Errorf("the fitted lane: result = %+v, want one not-drawn refusal and no edit", fitted)
+	}
+	first := applyModelEdit(t, s, docURI, drawn.Version, ModelEditOperation{Kind: EditSetLayout, Target: "K::arm",
+		View: drawn.View, Within: laneWithin(t, drawn, lanes[0]), Layout: at})
+	if first.Edit == nil || len(first.Refused) != 0 {
+		t.Errorf("the placed lane: result = %+v, want it placed", first)
 	}
 }
