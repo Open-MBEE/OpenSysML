@@ -168,17 +168,8 @@ func FilterNestsTooDeep(expr ast.Node) bool {
 	for len(pending) > 0 {
 		at := pending[len(pending)-1]
 		pending = pending[:len(pending)-1]
-		var operands []ast.Node
-		switch e := at.node.(type) {
-		case *ast.OperatorExpr:
-			operands = e.Operands
-		case *ast.SequenceExpr:
-			operands = e.Elements
-		case *ast.ConstructorExpr:
-			operands = constructorArgs(e)
-		case *ast.FeatureChainExpr:
-			operands = []ast.Node{e.Operand}
-		default:
+		operands, nests := nestedOperands(at.node)
+		if !nests {
 			continue
 		}
 		if at.depth > MaxFilterDepth {
@@ -189,6 +180,22 @@ func FilterNestsTooDeep(expr ast.Node) bool {
 		}
 	}
 	return false
+}
+
+// nestedOperands is the expressions one level below an expression that nests others,
+// and false for one that nests none.
+func nestedOperands(n ast.Node) ([]ast.Node, bool) {
+	switch e := n.(type) {
+	case *ast.OperatorExpr:
+		return e.Operands, true
+	case *ast.SequenceExpr:
+		return e.Elements, true
+	case *ast.ConstructorExpr:
+		return constructorArgs(e), true
+	case *ast.FeatureChainExpr:
+		return []ast.Node{e.Operand}, true
+	}
+	return nil, false
 }
 
 // compileCondition compiles one filter expression, resolving every element it
@@ -1184,9 +1191,16 @@ func (m *Model) CheckElementFilter(f symbols.ElementFilter) []FilterProblem {
 	}
 	// The constraints are on the membership stating the condition (KerML 8.2.4),
 	// so each fault is reported there, once.
+	found := m.appendFilterProblems(nil, pred, true)
+	if FilterNestsTooDeep(f.Expr) {
+		// A condition that is in error is not also reported as merely not evaluated.
+		if faults := m.appendDeepFilterProblems(nil, f); len(faults) > 0 {
+			found = faults
+		}
+	}
 	var out []FilterProblem
 	seen := map[FilterProblemKind]bool{}
-	for _, p := range m.appendFilterProblems(nil, pred, true) {
+	for _, p := range found {
 		if seen[p.Kind] {
 			continue
 		}
@@ -1201,6 +1215,89 @@ func (m *Model) CheckElementFilter(f symbols.ElementFilter) []FilterProblem {
 		return dropUnsupportedProblems(out)
 	}
 	return out
+}
+
+// appendDeepFilterProblems collects the faults a condition nested past MaxFilterDepth has
+// where it needs a truth value, descending the Boolean operators with a stack of its own.
+func (m *Model) appendDeepFilterProblems(out []FilterProblem, f symbols.ElementFilter) []FilterProblem {
+	pending := []ast.Node{f.Expr}
+	for len(pending) > 0 {
+		n := pending[len(pending)-1]
+		pending = pending[:len(pending)-1]
+		if op, ok := n.(*ast.OperatorExpr); ok && composesTruthValues(op) {
+			for i := len(op.Operands) - 1; i >= 0; i-- {
+				pending = append(pending, op.Operands[i])
+			}
+			continue
+		}
+		if !FilterNestsTooDeep(n) {
+			var pred *symbols.FilterPredicate
+			m.resolver.InCondition(func() { pred = m.compileCondition(f.Scope, n) })
+			out = m.appendFilterProblems(out, pred, true)
+			continue
+		}
+		if !neverBoolean(n) {
+			continue
+		}
+		// What it rests on decides, as it does within the bound: an operand that cannot
+		// be evaluated leaves no result to call non-Boolean.
+		if reason, ok := m.restsOnUnevaluable(f.Scope, n); ok {
+			out = append(out, FilterProblem{Kind: FilterProblemNotEvaluable, Reason: reason, Span: spanOf(n)})
+		} else {
+			out = append(out, FilterProblem{Kind: FilterProblemNotBoolean, Reason: "a non-Boolean result", Span: spanOf(n)})
+		}
+	}
+	return out
+}
+
+// restsOnUnevaluable reports whether some expression under one nested past MaxFilterDepth
+// cannot be evaluated at the model level, and why, descending with a stack of its own.
+func (m *Model) restsOnUnevaluable(scope *symbols.Scope, n ast.Node) (string, bool) {
+	pending := []ast.Node{n}
+	for len(pending) > 0 {
+		at := pending[len(pending)-1]
+		pending = pending[:len(pending)-1]
+		if FilterNestsTooDeep(at) {
+			operands, _ := nestedOperands(at)
+			pending = append(pending, operands...)
+			continue
+		}
+		var pred *symbols.FilterPredicate
+		m.resolver.InCondition(func() { pred = m.compileCondition(scope, at) })
+		for _, p := range m.appendFilterProblems(nil, pred, false) {
+			if p.Kind == FilterProblemNotEvaluable {
+				return p.Reason, true
+			}
+		}
+	}
+	return "", false
+}
+
+// composesTruthValues reports whether a well-formed operator is one compileOperator gives
+// operands that each need a truth value.
+func composesTruthValues(e *ast.OperatorExpr) bool {
+	switch e.Operator {
+	case ast.OpNot:
+		return len(e.Operands) == 1
+	case ast.OpAnd, ast.OpConditionalAnd, ast.OpOr, ast.OpConditionalOr, ast.OpXor, ast.OpImplies:
+		return len(e.Operands) == 2
+	}
+	return false
+}
+
+// neverBoolean reports whether an expression yields no truth value whatever its operands
+// are: an arithmetic or range operator, or a constructor.
+func neverBoolean(n ast.Node) bool {
+	switch e := n.(type) {
+	case *ast.ConstructorExpr:
+		return true
+	case *ast.OperatorExpr:
+		switch e.Operator {
+		case ast.OpRange, ast.OpAdd, ast.OpSub, ast.OpMul, ast.OpDiv, ast.OpMod, ast.OpPow, ast.OpNeg, ast.OpPos:
+			return true
+		}
+	}
+	return false
 }
 
 // appendFilterProblems collects the faults of a compiled condition. wantBool

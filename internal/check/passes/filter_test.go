@@ -337,3 +337,53 @@ func TestAFilterNestedPastTheBoundInsideAConstructorIsNotEvaluated(t *testing.T)
 		t.Fatalf("got %v, want one filter-not-evaluated", diags)
 	}
 }
+
+// TestAFilterNestedPastTheBoundStillMustBeBoolean: the bound stops the evaluation of a
+// condition, not the rule that it yields a truth value.
+func TestAFilterNestedPastTheBoundStillMustBeBoolean(t *testing.T) {
+	n := semantics.MaxFilterDepth + 1
+	nots, closes := strings.Repeat("not (", n), strings.Repeat(")", n)
+	for _, tc := range []struct{ name, condition string }{
+		{"a sum", "1" + strings.Repeat(" + 1", n)},
+		{"a negation", strings.Repeat("-(", n) + "1" + closes},
+		{"an integer under nots", nots + "1" + closes},
+		{"a sum under nots", nots + "1 + 1" + closes},
+		{"an integer ending a conjunction", strings.Repeat("@Safety and ", n) + "1"},
+		{"an integer heading a conjunction", "1" + strings.Repeat(" and @Safety", n)},
+		{"a constructor", "new Safety(" + nots + "true" + closes + ")"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			diags := filterDiags(t, filterMetadata+"package P { filter "+tc.condition+"; }\n")
+			if len(diags) != 1 || diags[0].Code != "filter-not-boolean" || diags[0].Severity != diag.SeverityError {
+				t.Fatalf("got %v, want one filter-not-boolean error", diags)
+			}
+		})
+	}
+}
+
+// TestAFilterNestedPastTheBoundOnAnUnresolvedTypeSaysNothingMore: the lower tier's failure
+// gates a condition at any depth.
+func TestAFilterNestedPastTheBoundOnAnUnresolvedTypeSaysNothingMore(t *testing.T) {
+	n := semantics.MaxFilterDepth + 1
+	src := "package P { filter " + strings.Repeat("not (", n) + "@Missing" + strings.Repeat(")", n) + "; }\n"
+	if diags := filterDiags(t, src); len(diags) != 0 {
+		t.Fatalf("got %v, want no filter findings", diags)
+	}
+}
+
+// TestAFilterNestedPastTheBoundOnAnUnresolvedNameIsNotEvaluable: an operand that names
+// nothing leaves the condition without a result, as it does within the bound.
+func TestAFilterNestedPastTheBoundOnAnUnresolvedNameIsNotEvaluable(t *testing.T) {
+	n := semantics.MaxFilterDepth + 1
+	for _, tc := range []struct{ name, condition string }{
+		{"a sum", "missing" + strings.Repeat(" + missing", n)},
+		{"a negation", strings.Repeat("-(", n) + "missing" + strings.Repeat(")", n)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			diags := filterDiags(t, "package P { filter "+tc.condition+"; }\n")
+			if len(diags) != 1 || diags[0].Code != "filter-not-evaluable" {
+				t.Fatalf("got %v, want one filter-not-evaluable error", diags)
+			}
+		})
+	}
+}
