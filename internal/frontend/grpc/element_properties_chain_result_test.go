@@ -3,7 +3,7 @@ package grpc
 import "testing"
 
 // A feature chain expression instantiates the '.' operator function and its result has the
-// target feature's types (KerML 8.3.4.8.4, checkFeatureChainExpressionResultSpecialization).
+// target feature's types, its kind's when it is untyped (KerML 8.3.4.8.4).
 func TestGetElementPropertiesTypesAFeatureChainExpression(t *testing.T) {
 	r := parseForElementProperties(t, `package Example {
 		part def M { attribute id : ScalarValues::String; attribute n : ScalarValues::Integer; }
@@ -16,6 +16,9 @@ func TestGetElementPropertiesTypesAFeatureChainExpression(t *testing.T) {
 			attribute nested = line.station.n;
 			part special : S;
 			attribute inherited = special.id;
+			part plain { part inner; attribute text; }
+			ref untypedPart = plain.inner;
+			attribute untypedAttribute = plain.text;
 		}
 		part def S :> M;
 	}`)
@@ -31,6 +34,9 @@ func TestGetElementPropertiesTypesAFeatureChainExpression(t *testing.T) {
 		{"Example__W__nested_pvalue", "instantiatedType", "ControlFunctions::."},
 		{"Example__W__nested_pvalue_pout", "type", "ScalarValues::Integer"},
 		{"Example__W__inherited_pvalue_pout", "type", "ScalarValues::String"},
+		{"Example__W__untypedPart_pvalue", "instantiatedType", "ControlFunctions::."},
+		{"Example__W__untypedPart_pvalue_pout", "type", "Parts::Part"},
+		{"Example__W__untypedAttribute_pvalue_pout", "type", "Base::DataValue"},
 	} {
 		t.Run(tc.element+"/"+tc.property, func(t *testing.T) {
 			resp := r.read(tc.element, tc.property)
