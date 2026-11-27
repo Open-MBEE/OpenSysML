@@ -256,6 +256,78 @@ func TestPackageMemberUnderHeldObjectIsNoFeature(t *testing.T) {
 	wants(t, run(t, s, "%validate Garage::Car::Kit::Nope"), `error: Garage::Car has no feature "Kit"`)
 }
 
+// TestPackageMemberUnderUnheldDeclarationIsUnresolved: a package a declaration
+// owns or inherits only encloses an unknown name, whatever else holds an object.
+func TestPackageMemberUnderUnheldDeclarationIsUnresolved(t *testing.T) {
+	roots := []string{"Garage::car", "Garage::truck", "Garage::Truck"}
+	for _, held := range [][]string{
+		{"Garage::car"}, {"Garage::Car"}, {"Garage::car", "Garage::Car"},
+		{"Garage::truck"}, {"Garage::Truck"}, {"Garage::spare"},
+	} {
+		s := submitted(t, `package Garage {
+	part def Car {
+		package Kit {
+			part jack;
+			package Deep {
+				part bolt;
+			}
+		}
+		part engine;
+	}
+	part def Truck :> Car;
+	part car : Car;
+	part truck : Truck;
+	part spare;
+}`)
+		for _, name := range held {
+			run(t, s, "%instantiate "+name)
+		}
+		for _, root := range roots {
+			if slices.Contains(held, root) {
+				continue
+			}
+			for _, rest := range []string{"::Kit::Nope", "::Kit::Deep::Nope"} {
+				wants(t, run(t, s, "%validate "+root+rest), "error: unresolved reference: "+root+rest)
+			}
+			// A member the package does declare is the declaration lacking an object.
+			wants(t, run(t, s, "%validate "+root+"::Kit::jack"), `no instance of the usage "Garage::Car::Kit::jack"`)
+			wants(t, run(t, s, "%validate "+root+"::engine::Nope"), `no instance of the usage "Garage::Car::engine"`)
+		}
+	}
+}
+
+// A quoted segment holding `::` is one member of the type it is inherited from,
+// not a path through the member its first half names.
+func TestQuotedInheritedMemberIsOneName(t *testing.T) {
+	fleet := func(held ...string) *Session {
+		s := submitted(t, `package Fleet {
+	part def Drive {
+		part motor;
+	}
+	part def Car {
+		part drive : Drive;
+		part 'drive::motor';
+	}
+	part car : Car;
+}`)
+		for _, name := range held {
+			run(t, s, "%instantiate "+name)
+		}
+		return s
+	}
+
+	s := fleet("Fleet::Drive::motor")
+	wants(t, run(t, s, "%validate Fleet::car::'drive::motor'"), `no instance of the usage "Fleet::Car::'drive::motor'"`)
+	wants(t, run(t, s, "%validate Fleet::car::'drive::motor'::nowhere"), `no instance of the usage "Fleet::Car::'drive::motor'"`)
+	wants(t, run(t, s, "%validate Fleet::car::drive::motor::nowhere"), `error: Fleet::Drive::motor has no feature "nowhere"`)
+
+	s = fleet("Fleet::Car::'drive::motor'")
+	wants(t, run(t, s, "%validate Fleet::car::'drive::motor'::nowhere"), `error: Fleet::Car::'drive::motor' has no feature "nowhere"`)
+
+	s = fleet("Fleet::car", "Fleet::Drive::motor")
+	wants(t, run(t, s, "%validate Fleet::car::'drive::motor'::nowhere"), `error: Fleet::car.'drive::motor' has no feature "nowhere"`)
+}
+
 // A multi-valued feature is walked by a 1-based index; leaving the index out, or
 // giving one that names no element, says how many there are.
 func TestMultiValuedFeatureNeedsIndex(t *testing.T) {

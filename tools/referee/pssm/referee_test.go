@@ -407,6 +407,15 @@ func TestReproducesByCount(t *testing.T) {
 		}
 	}
 
+	renamed, _ := refereeFixture(t, "", "", []string{"other"}, Options{})
+	renamed.Tests[0].Name = "Area 002"
+	err = Reproduces(was, renamed)
+	for _, want := range []string{"added: Area 002 (fail)", "removed: Area 001 (pass)"} {
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("%v\nlacks %q", err, want)
+		}
+	}
+
 	other, _ := refereeFixture(t, "", "", nil, Options{})
 	other.Provenance.Digest = "different"
 	err = Reproduces(was, other)
