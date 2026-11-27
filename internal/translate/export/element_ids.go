@@ -274,6 +274,7 @@ func (ids *ElementIDs) recordStatementOperands(e *encoder, node ast.Node, subjec
 	case *ast.WhileLoopActionNode:
 		switch n.Kind {
 		case ast.LoopFor:
+			ids.recordLoopVariable(e, n, subject)
 			record(xCollection, n.Collection)
 		case ast.LoopWhile:
 			record(xWhileCondition, n.Condition)
@@ -281,6 +282,22 @@ func (ids *ElementIDs) recordStatementOperands(e *encoder, node ast.Node, subjec
 		default:
 			record(xUntilCondition, n.Condition)
 		}
+	}
+}
+
+// recordLoopVariable records the ReferenceUsage a `for` loop writes for its variable
+// (loopVariable), the membership owning it and the relationships its head states.
+func (ids *ElementIDs) recordLoopVariable(e *encoder, loop *ast.WhileLoopActionNode, subject rdf.Term) {
+	variable := e.ids.mintedNode(rdf.ExpressionIRI(subject, xLoopVariable), subject, xLoopVariable)
+	membership := e.ids.minted(rdf.OwningMembershipIRIOf(variable), variable, rdf.OwningMembershipSuffix)
+	recorded := partIDs{element: rdf.LocalName(variable.Value), membership: rdf.LocalName(membership.Value)}
+	ids.partByNode[partKey{loop, xLoopVariable}] = recorded
+	ids.partBySpan[spanPartKey{spanKey{e.file.Name(), loop.Span()}, xLoopVariable}] = recorded
+	head := map[ast.Node]string{}
+	e.clauseRelationshipIDs(variable, false, loop.VariableRelationships, head)
+	for key, id := range head {
+		ids.relationshipByNode[key] = id
+		ids.relationshipBySpan[spanKey{e.file.Name(), key.Span()}] = id
 	}
 }
 
@@ -814,8 +831,12 @@ func (e *encoder) writtenDependencyAnnotation(node, parent ast.Node, subject rdf
 // writtenClauseRelationships records the relationship written for each distinct target of the
 // head's clauses (materializeRelationships), by the clause or by the target of an implicit one.
 func (e *encoder) writtenClauseRelationships(node, parent ast.Node, subject rdf.Term, parents map[ast.Node]ast.Node, out map[ast.Node]string) {
-	classifier := isClassifier(declaredMetaclass(node))
-	clauses := e.writtenHeadClauses(node, parent, parents)
+	e.clauseRelationshipIDs(subject, isClassifier(declaredMetaclass(node)), e.writtenHeadClauses(node, parent, parents), out)
+}
+
+// clauseRelationshipIDs records, into out, the relationship materialized under subject for
+// each of clauses, by the clause or by the target of an implicit one.
+func (e *encoder) clauseRelationshipIDs(subject rdf.Term, classifier bool, clauses []*ast.Relationship, out map[ast.Node]string) {
 	chains := chainTargets(clauses)
 	for _, kind := range materializedKinds {
 		objects, at := e.clauseObjects(subject, clauses, kind, chains)
@@ -847,25 +868,29 @@ func (e *encoder) writtenHeadClauses(node, parent ast.Node, parents map[ast.Node
 	return clauses
 }
 
-// clauseObjects are the distinct objects the head's clauses of kind state, in clause order, and
-// each clause's position among them: clauses repeating a target (`: T, T`) share one relationship,
-// while each `about` name is its own Annotation (`about x, x` states two).
+// clauseObjects are the objects the head's clauses of kind state and each clause's position among
+// them, as pendingRelationships orders them: the distinct ones, then each repeat (`: T, T`).
 func (e *encoder) clauseObjects(subject rdf.Term, clauses []*ast.Relationship, kind ast.RelationshipKind, chains map[*ast.Relationship]int) ([]string, map[*ast.Relationship]int) {
-	var objects []string
+	var objects, repeated []string
+	var repeats []*ast.Relationship
 	at := map[*ast.Relationship]int{}
 	for _, rel := range clauses {
 		if rel == nil || rel.Target == nil || rel.Kind != kind {
 			continue
 		}
 		object := e.clauseObject(subject, rel, chains)
-		i := slices.Index(objects, object)
-		if i < 0 || kind == ast.RelAnnotates {
-			i = len(objects)
-			objects = append(objects, object)
+		if kind != ast.RelAnnotates && slices.Contains(objects, object) {
+			repeated = append(repeated, object)
+			repeats = append(repeats, rel)
+			continue
 		}
-		at[rel] = i
+		at[rel] = len(objects)
+		objects = append(objects, object)
 	}
-	return objects, at
+	for i, rel := range repeats {
+		at[rel] = len(objects) + i
+	}
+	return append(objects, repeated...), at
 }
 
 // writtenBoundEndReferences records the ReferenceSubsetting of each end feature a head
@@ -930,7 +955,12 @@ func (e *encoder) clauseObject(subject rdf.Term, rel *ast.Relationship, chains m
 		return rdf.ExpressionIRI(subject, fmt.Sprintf("chain%d", k)).Value
 	}
 	if name, ok := rel.Target.(*ast.QualifiedName); ok && !qualifiedNameHasChain(name) {
-		return e.reference(name).Value
+		object := e.reference(name)
+		if rel.Kind == ast.RelTyping && rel.Conjugated {
+			// `: ~P` names P's conjugate, an object of its own beside `: P` (relationships).
+			object = e.conjugateReference(object)
+		}
+		return object.Value
 	}
 	return "expr:" + e.text(rel.Target)
 }
@@ -1464,6 +1494,11 @@ func (e *encoder) registerExpressionIDs(ids *ElementIDs, subject rdf.Term, node 
 	}
 	if resultBearing[expressionMetaclass(node)] {
 		e.registerExpressionPart(ids, subject, node, "out")
+		if ast.ExpressionTypeResult(node) != nil {
+			// The result's FeatureTyping by the type a cast or extent names is minted off the result.
+			typing := ids.partByNode[partKey{node, "out"}].element + relationshipSuffix(ast.RelTyping, false, 1, 0)
+			ids.recordPart(e, node, "out.ft0", partIDs{element: typing})
+		}
 	}
 }
 

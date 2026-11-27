@@ -260,7 +260,8 @@ func exprError(expr, msg string, span source.Span, base int) error {
 }
 
 // caretLine builds "   ^~~~" under the span starting at byte offset start of
-// line, measured in printed cells so multi-byte runes stay aligned.
+// line, measured in printed cells; a tab before the span is repeated, since
+// only the terminal knows how far it advances.
 func caretLine(line string, start, spanLen int) string {
 	if start < 0 {
 		start = 0
@@ -280,7 +281,16 @@ func caretLine(line string, start, spanLen int) string {
 		width = 1
 	}
 	var b strings.Builder
-	b.WriteString(strings.Repeat(" ", displayWidth(line[:start])))
+	lead := line[:start]
+	for {
+		text, rest, tabbed := strings.Cut(lead, "\t")
+		b.WriteString(strings.Repeat(" ", displayWidth(text)))
+		if !tabbed {
+			break
+		}
+		b.WriteByte('\t')
+		lead = rest
+	}
 	b.WriteByte('^')
 	if width > 1 {
 		b.WriteString(strings.Repeat("~", width-1))

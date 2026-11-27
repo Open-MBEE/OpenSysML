@@ -2,13 +2,15 @@
 
 Major modes for `.sysml` and `.kerml` files, with highlighting generated from
 OpenSysML's lexer, indentation that agrees with the language server's formatter,
-an lsp-mode client for `sysml-lsp`, and a buffer showing views of the model.
+clients for `sysml-lsp` through lsp-mode or Eglot, and a buffer showing views of
+the model.
 
 | File | What it gives you | Needs |
 | --- | --- | --- |
 | `sysml-mode.el` | `sysml-mode` and `kerml-mode`: highlighting, indentation, comments, imenu | Emacs 29.1+ |
 | `sysml-lsp.el` | Diagnostics, hover, go-to-definition, references, symbols, completion, formatting, rename, quick fixes, semantic tokens | [lsp-mode](https://emacs-lsp.github.io/lsp-mode/) 9.0+ and `sysml-lsp` |
-| `sysml-diagram.el` | `M-x sysml-diagram-show`: a view of the model, redrawn as you type | `sysml-lsp.el`; [Mermaid CLI](https://github.com/mermaid-js/mermaid-cli) for pictures |
+| `sysml-eglot.el` | The same through Eglot, which serves them itself; this file adds the OpenSysML methods the model views use | [Eglot](https://github.com/joaotavora/eglot) 1.20+ (GNU ELPA on Emacs 29 and 30) and `sysml-lsp` |
+| `sysml-diagram.el` | `M-x sysml-diagram-show`: a view of the model, redrawn as you type | `sysml-lsp.el` or `sysml-eglot.el`; [Mermaid CLI](https://github.com/mermaid-js/mermaid-cli) for pictures |
 
 The package is installed from this repository. Like the VS Code extension, it is
 deliberately not published to MELPA.
@@ -37,8 +39,17 @@ Then, with `use-package` (adjust the path to your checkout):
 
 (use-package sysml-diagram
   :load-path "~/src/OpenSysML/editors/emacs"
-  :after sysml-lsp
   :bind (:map sysml-base-mode-map ("C-c C-v" . sysml-diagram-show)))
+```
+
+With Eglot instead of lsp-mode, replace the `sysml-lsp` block with:
+
+```elisp
+(use-package sysml-eglot
+  :load-path "~/src/OpenSysML/editors/emacs"
+  :after eglot
+  :demand t
+  :hook ((sysml-mode kerml-mode) . eglot-ensure))
 ```
 
 If your `use-package` installs packages by default (`use-package-always-ensure`,
@@ -50,10 +61,18 @@ Without `use-package`:
 ```elisp
 (add-to-list 'load-path "~/src/OpenSysML/editors/emacs")
 (require 'sysml-mode)
+(require 'sysml-diagram)
 (with-eval-after-load 'lsp-mode
-  (require 'sysml-lsp)
-  (require 'sysml-diagram))
+  (require 'sysml-lsp))
 (add-hook 'sysml-base-mode-hook #'lsp-deferred)
+```
+
+or, with Eglot, the last two forms are:
+
+```elisp
+(with-eval-after-load 'eglot
+  (require 'sysml-eglot))
+(add-hook 'sysml-base-mode-hook #'eglot-ensure)
 ```
 
 The server is found in this order, as the VS Code extension finds it:
@@ -63,6 +82,10 @@ The server is found in this order, as the VS Code extension finds it:
 3. `sysml-lsp` on `exec-path`.
 
 After rebuilding the server, `M-x lsp-workspace-restart` picks the new binary up.
+
+Under Eglot the server is `sysml-lsp` on `exec-path`, and `M-x eglot-reconnect`
+picks a rebuilt one up. Code lenses and the `sysml-lsp-strict-conformance`
+setting are lsp-mode's only.
 
 ## Code lenses
 
@@ -107,7 +130,8 @@ With the server attached, `sysml-lsp` adds its semantic tokens, which colour
 names by what they resolve to: a feature's name differently from a definition's.
 The server's keyword, comment, string and number tokens are left out, so the
 keyword groups above keep their faces. Turn the tokens off with
-`(setq sysml-lsp-semantic-tokens nil)`.
+`(setq sysml-lsp-semantic-tokens nil)`, or under Eglot by adding
+`:semanticTokensProvider` to `eglot-ignored-server-capabilities`.
 
 ## Indentation
 
@@ -115,8 +139,8 @@ keyword groups above keep their faces. Turn the tokens off with
 `sysml-indent-offset` (default 4) per open brace, and one more for a line that
 continues the statement above it — a line starting with an infix operator, or
 following one or an open bracket. The text of a multi-line comment is left as
-written. `M-x lsp-format-buffer` asks the server to reformat the whole file with
-the same rule.
+written. `M-x lsp-format-buffer` (`M-x eglot-format-buffer`) asks the server to
+reformat the whole file with the same rule.
 
 ## Model views
 
@@ -125,9 +149,10 @@ renderings the REPL's `%view` prints and the VS Code diagram panel shows:
 
 - **What it shows.** The one view the document declares, or the document itself
   as a model tree. `C-u M-x sysml-diagram-show`, or `v` in the view buffer, picks
-  another: a declared view, or the document as a tree, interconnection diagram,
-  state machine, action flow, table or matrix. A view whose rendering is not supported
-  (`sequence`, `geometry`, `textual`) is listed with the reason and refused.
+  another: a declared view, or the document as any rendering the server lists: a
+  tree, interconnection diagram, state machine, action flow, message sequence,
+  table or matrix among them. A view whose rendering is not supported
+  (`geometry`, `textual`) is listed with the reason and refused.
 - **Navigation.** `RET` or a click on an element visits its declaration, with its
   name selected. Moving point in the model highlights the innermost element
   declared around it. A standard library declaration opens read-only, its text
@@ -183,10 +208,13 @@ go test ./editors/...  # fails if the committed file is stale
 ```bash
 make emacs-compile   # byte-compile and checkdoc, warnings as errors
 make emacs-test      # the ERT suites; the live ones need `make build` first
+make emacs-test EMACS_CLIENT=eglot   # the same under Eglot
 ```
 
-Both run under `emacs -Q`, installing lsp-mode from MELPA into `build/emacs-deps`
-the first time, so your own configuration plays no part. The live suites start
+Both run under `emacs -Q` with one client, `EMACS_CLIENT` (`lsp-mode` by
+default, or `eglot`), installing it into `build/emacs-deps` the first time: lsp-mode
+from MELPA, Eglot from GNU ELPA when the one Emacs ships is older than 1.20. Your
+own configuration plays no part, and the other client is not on `load-path`. The live suites start
 `bin/sysml-lsp`; without it they skip, unless `OPENSYSML_REQUIRE_EMACS_LSP` is
 set, as CI sets it. The indentation suite indents the formatter's own fixture,
 `internal/syntax/format/testdata/continuation.sysml`, and compares it with the

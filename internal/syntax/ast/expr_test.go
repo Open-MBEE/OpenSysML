@@ -40,3 +40,16 @@ func TestOperatorExprOperands(t *testing.T) {
 		t.Fatalf("bad operator expr: %+v", e)
 	}
 }
+
+func TestIndexExprOperatorSpelling(t *testing.T) {
+	var none *IndexExpr
+	if got := none.OperatorSpelling(); got != "" {
+		t.Errorf("nil index expression spells %q, want none", got)
+	}
+	if got := (&IndexExpr{Bracket: true}).OperatorSpelling(); got != "[" {
+		t.Errorf("bracket form spells %q", got)
+	}
+	if got := (&IndexExpr{}).OperatorSpelling(); got != "#" {
+		t.Errorf("hash form spells %q", got)
+	}
+}

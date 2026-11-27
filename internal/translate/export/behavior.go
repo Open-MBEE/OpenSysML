@@ -434,7 +434,7 @@ func (e *encoder) encodeLoop(n *ast.WhileLoopActionNode, head func(rdf.Term), su
 				Note: "its iteration variable has no name, so the variable the body binds cannot be written back",
 			}
 		}
-		e.graph.Add(subject, e.sysx(xLoopVariable), rdf.String(n.Variable.Name))
+		e.loopVariable(subject, owner, n)
 		if err := e.expression(subject, e.sysx(xCollection), xCollection, owner, n.Collection); err != nil {
 			return err
 		}
@@ -455,6 +455,18 @@ func (e *encoder) encodeLoop(n *ast.WhileLoopActionNode, head func(rdf.Term), su
 	}
 	e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(e.bracedBody(n, n.Body)))
 	return e.encode(n.Body, fqn, subject)
+}
+
+// loopVariable emits a `for` loop's variable as the ReferenceUsage the loop owns first
+// (SysML.xtext ForVariableDeclarationMember), its declared type as structure.
+func (e *encoder) loopVariable(subject rdf.Term, owner string, n *ast.WhileLoopActionNode) {
+	node := e.ids.mintedNode(rdf.ExpressionIRI(subject, xLoopVariable), subject, xLoopVariable)
+	e.graph.Add(node, rdf.IRI(rdf.RDFType), rdf.SysMLTerm(keywordMetaclass["ref"]))
+	e.graph.Add(node, e.sysml(pElementID), rdf.String(rdf.LocalName(node.Value)))
+	e.ident(node, n.Variable)
+	e.relationships(node, owner, n.VariableRelationships)
+	e.bodyMembership(subject, node, mFeatureMembership)
+	e.graph.Add(subject, e.sysml(pLoopVariable), node)
 }
 
 // encodeSubaction emits one of a state's entry/do/exit subactions. The kind is
@@ -811,7 +823,7 @@ func (e *encoder) transitionSourceTerm(edge ast.Node, source *ast.QualifiedName,
 	case qualifiedText(source) == "":
 		if sourceMember == nil {
 			// A guarded target after a state leaves that state (SysML.xtext TargetTransitionUsage).
-			if _, ok := stands.(*ast.SubstateMember); ok {
+			if ast.LeavableByTransition(stands) {
 				sourceMember = stands
 			}
 		}
@@ -2102,17 +2114,45 @@ func (d *decoder) behaviorUnannotatable(el *element, form string) error {
 	}
 }
 
+// loopVariableWords writes the variable a `for` loop declares, after `for`: the name and
+// head of its sysml:loopVariable, or the name alone an older graph states as sysx:loopVariable.
+func (d *decoder) loopVariableWords(el *element) ([]string, error) {
+	stated, ok := d.graph.Object(rdf.IRI(el.iri), rdf.SysML+pLoopVariable)
+	if !ok {
+		if name, ok := d.nameOf(el, rdf.OpenSysML+xLoopVariable); ok {
+			return []string{nameText(name)}, nil
+		}
+		return nil, nil
+	}
+	variable := d.expressionElement(stated, el)
+	words := d.identWords(variable)
+	if _, named := d.graph.Lexical(stated, rdf.SysML+pDeclaredName); !named {
+		return nil, &UnsupportedError{
+			What: fmt.Sprintf("the loop variable <%s>", stated.Value),
+			Note: "a for loop's variable is named, and this one states no sysml:declaredName",
+		}
+	}
+	relationships, err := d.relationshipWords(variable, "")
+	if err != nil {
+		return nil, err
+	}
+	return append(words, relationships...), nil
+}
+
 // loopText writes a loop and the conditions around its body.
 func (d *decoder) loopText(el *element, depth int) (string, error) {
 	var head string
 	switch el.metaclass {
 	case mForLoop:
-		variable, hasVariable := d.nameOf(el, rdf.OpenSysML+xLoopVariable)
-		collection, hasCollection := d.stringOf(el, rdf.OpenSysML+xCollection)
-		if !hasVariable || !hasCollection {
-			return "", d.missing(el, "sysx:"+xLoopVariable+" and sysx:"+xCollection, "a for loop binds a variable over a collection")
+		variable, err := d.loopVariableWords(el)
+		if err != nil {
+			return "", err
 		}
-		head = "for " + nameText(variable) + " in " + collection
+		collection, hasCollection := d.stringOf(el, rdf.OpenSysML+xCollection)
+		if len(variable) == 0 || !hasCollection {
+			return "", d.missing(el, "sysml:"+pLoopVariable+" and sysx:"+xCollection, "a for loop binds a variable over a collection")
+		}
+		head = "for " + strings.Join(variable, " ") + " in " + collection
 	default:
 		if condition, ok := d.stringOf(el, rdf.OpenSysML+xWhileCondition); ok {
 			head = "while " + condition

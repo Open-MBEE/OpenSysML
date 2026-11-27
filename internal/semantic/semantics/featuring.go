@@ -100,6 +100,10 @@ func (m *Model) impliedTypeFeaturings(feature *symbols.Symbol, deriving map[*sym
 			}
 		}
 		return out
+	case m.nodeParameterOwner(feature) != nil || feature.Expr != nil && feature.Expr.Role == symbols.ExpressionAccess:
+		// KerML checkFeatureFeatureMembershipTypeFeaturing: a node owns its parameters, an assignment's target
+		// its access features; each may time vary, its owner being an occurrence (SysML 8.3.6.4 mayTimeVary).
+		return []FeaturingType{m.impliedFeaturingType(owner, feature.Kind != symbols.SymbolExpression && !m.isKerMLDoc(feature))}
 	case isExpressionParameterSymbol(feature):
 		// KerML checkFeatureFeatureMembershipTypeFeaturing: an expression owns its parameters.
 		return []FeaturingType{m.plainFeaturingType(owner)}
@@ -114,8 +118,8 @@ func (m *Model) impliedTypeFeaturings(feature *symbols.Symbol, deriving map[*sym
 			return m.derivedFeaturingTypes(end, deriving)
 		}
 		return m.impliedTypeFeaturings(bounded, deriving)
-	case feature.Expr != nil && feature.Expr.Role == symbols.ExpressionValue:
-		// KerML checkExpressionTypeFeaturing: a value shares its featureWithValue's.
+	case feature.Expr != nil && (feature.Expr.Role == symbols.ExpressionValue || feature.Expr.Role == symbols.ExpressionArgument):
+		// KerML checkExpressionTypeFeaturing: a value shares its featureWithValue's, an operand its parameter's.
 		return m.derivedFeaturingTypes(owner, deriving)
 	case IsVariant(feature) && IsVariation(owner):
 		// SysML checkUsageVariationUsageTypeFeaturing: a variant shares its variation usage's.

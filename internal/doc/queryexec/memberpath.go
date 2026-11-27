@@ -14,15 +14,43 @@ func parseMemberPath(property string) ([]string, bool) {
 }
 
 // memberPathStep resolves one inner segment on an element: the member it names, own members
-// first, else the elements of the metaclass feature it names (`type`, `owner`, …).
-func (e *executor) memberPathStep(current *symbols.Symbol, segment string) []*symbols.Symbol {
+// first, else the elements of the metaclass feature it names; known is false where it names neither.
+func (e *executor) memberPathStep(current *symbols.Symbol, segment string) (elements []*symbols.Symbol, known bool) {
 	if member, ok := e.context.Model.LookupMember(current, segment); ok && member != nil {
-		return []*symbols.Symbol{member}
+		return []*symbols.Symbol{member}, true
 	}
-	if elements, ok := e.context.Model.StatedReflectiveElements(current, segment); ok {
-		return elements
+	return e.context.Model.StatedReflectiveElements(current, segment)
+}
+
+// pathReach is how far a row carries a property path: not at all, to a step it has that holds no element, or to its end.
+type pathReach int
+
+const (
+	pathAbsent pathReach = iota
+	pathVacant
+	pathPresent
+)
+
+// reachOf is the reach of a property read that is either present or absent.
+func reachOf(present bool) pathReach {
+	if present {
+		return pathPresent
 	}
-	return nil
+	return pathAbsent
+}
+
+// pathEvidence is what the rows of one read say of a property: carried, cut short at an empty step, lacked.
+type pathEvidence struct{ present, vacant, absent bool }
+
+func (p *pathEvidence) note(reach pathReach) {
+	p.present = p.present || reach == pathPresent
+	p.vacant = p.vacant || reach == pathVacant
+	p.absent = p.absent || reach == pathAbsent
+}
+
+// unknown reports a property no row carried, unless empty steps alone kept every row from its end.
+func (p pathEvidence) unknown() bool {
+	return !p.present && (p.absent || !p.vacant)
 }
 
 // memberOverflow names a declared member a path reached holding more values than its multiplicity admits.
@@ -31,17 +59,23 @@ type memberOverflow struct {
 	count  int
 }
 
-// memberPathValues walks a member path from the row element; a segment naming neither a member nor a
-// metaclass feature makes the path absent. The first declared member read over its multiplicity is reported.
-func (e *executor) memberPathValues(sym *symbols.Symbol, segments []string) ([]Value, bool, *memberOverflow, error) {
+// memberPathValues walks a member path from the row element. A segment naming neither a member nor a metaclass
+// feature makes the path absent, one holding no element leaves it vacant. The first overfull member is reported.
+func (e *executor) memberPathValues(sym *symbols.Symbol, segments []string) ([]Value, pathReach, *memberOverflow, error) {
 	reached := []*symbols.Symbol{sym}
 	for _, segment := range segments[:len(segments)-1] {
 		var next []*symbols.Symbol
+		known := false
 		for _, current := range reached {
-			next = append(next, e.memberPathStep(current, segment)...)
+			elements, ok := e.memberPathStep(current, segment)
+			known = known || ok
+			next = append(next, elements...)
 		}
 		if len(next) == 0 {
-			return nil, false, nil, nil
+			if known {
+				return nil, pathVacant, nil, nil
+			}
+			return nil, pathAbsent, nil, nil
 		}
 		reached = next
 	}
@@ -52,7 +86,7 @@ func (e *executor) memberPathValues(sym *symbols.Symbol, segments []string) ([]V
 	for _, current := range reached {
 		found, ok, err := e.declaredFeatureValues(current, last)
 		if err != nil {
-			return nil, false, nil, err
+			return nil, pathAbsent, nil, err
 		}
 		if ok {
 			if m, _ := e.context.Model.LookupMember(current, last); m != nil && overflow == nil && e.exceedsMultiplicity(m, len(found)) {
@@ -61,7 +95,7 @@ func (e *executor) memberPathValues(sym *symbols.Symbol, segments []string) ([]V
 		} else {
 			found, ok, err = e.metaclassSegmentValues(current, last)
 			if err != nil {
-				return nil, false, nil, err
+				return nil, pathAbsent, nil, err
 			}
 		}
 		if ok {
@@ -70,9 +104,9 @@ func (e *executor) memberPathValues(sym *symbols.Symbol, segments []string) ([]V
 		}
 	}
 	if !present {
-		return nil, false, nil, nil
+		return nil, pathAbsent, nil, nil
 	}
-	return values, true, overflow, nil
+	return values, pathPresent, overflow, nil
 }
 
 // exceedsMultiplicity reports whether count values are more than member's governing multiplicity admits.
@@ -98,7 +132,7 @@ func (e *executor) metaclassSegmentValues(current *symbols.Symbol, last string) 
 func (e *executor) memberPathStop(sym *symbols.Symbol, segments []string) (*symbols.Symbol, string) {
 	current := sym
 	for _, segment := range segments {
-		next := e.memberPathStep(current, segment)
+		next, _ := e.memberPathStep(current, segment)
 		if len(next) == 0 {
 			return current, segment
 		}

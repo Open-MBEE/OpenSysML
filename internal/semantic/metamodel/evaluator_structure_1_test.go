@@ -974,22 +974,22 @@ func TestStructureBackedActionArguments(t *testing.T) {
 	}
 }
 
-// KerML §8.3.3.1 derives Type::input from directed features; a SendActionUsage
-// contributes both its owned payload and receiver input arguments (lines 9553–9562).
+// KerML 8.3.3.1.10 derives Type::input from the features FeatureMemberships relate to the type with
+// direction in or inout: a SendActionUsage's payload and receiver parameters, not their argument values.
 func TestStructureSendActionInputIncludesPayloadAndReceiver(t *testing.T) {
 	evaluator, _ := newTestEvaluator(t, "send-action-input.sysml", "package P {}")
 	send := Element{Aspect: "send"}
 	payload := Element{Aspect: "payload"}
 	receiver := Element{Aspect: "receiver"}
-	payloadMembership := MembershipElement(Membership{Aspect: "payload-membership", kind: "OwningMembership"})
-	receiverMembership := MembershipElement(Membership{Aspect: "receiver-membership", kind: "OwningMembership"})
+	payloadMembership := MembershipElement(Membership{Aspect: "payload-membership", kind: "FeatureMembership"})
+	receiverMembership := MembershipElement(Membership{Aspect: "receiver-membership", kind: "FeatureMembership"})
 	evaluator.options.Structure = testStructure{
 		metaclasses: map[ElementKey]string{
 			send.Key():               "SendActionUsage",
-			payload.Key():            "Expression",
-			receiver.Key():           "Expression",
-			payloadMembership.Key():  "OwningMembership",
-			receiverMembership.Key(): "OwningMembership",
+			payload.Key():            "ReferenceUsage",
+			receiver.Key():           "ReferenceUsage",
+			payloadMembership.Key():  "FeatureMembership",
+			receiverMembership.Key(): "FeatureMembership",
 		},
 		ownedRelationships: map[ElementKey][]Element{
 			send.Key(): {payloadMembership, receiverMembership},
@@ -997,6 +997,10 @@ func TestStructureSendActionInputIncludesPayloadAndReceiver(t *testing.T) {
 		ownedRelatedElements: map[ElementKey][]Element{
 			payloadMembership.Key():  {payload},
 			receiverMembership.Key(): {receiver},
+		},
+		attributes: map[testRelatedKey]Value{
+			{element: payload.Key(), property: "direction"}:  stringValue("in"),
+			{element: receiver.Key(), property: "direction"}: stringValue("in"),
 		},
 	}
 

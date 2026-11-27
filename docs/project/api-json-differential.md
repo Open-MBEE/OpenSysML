@@ -368,6 +368,8 @@ Re-recorded on the usage-collection derivation change (`nestedMetadata` and `own
 
 Re-recorded on the redefined member-name change (an owning membership states `memberName` and `memberShortName` beside `ownedMemberName` and `ownedMemberShortName`, with their values, null where the member has no such name: KerML 1.0 § 10.4.5 serializes a redefined property whose redefining property has a different name, and § 8.3.2.4.8 has the owned pair redefine them): 912 fragments move, only in `memberName` and `memberShortName` rows. 175 `memberName` rows move from ours-missing to present-equal (`FeatureMembership` 95, `StateSubactionMembership` 80), the memberships whose name the element form completed as `ownedMemberName` alone; 18941 `memberName` and 48097 `memberShortName` rows are new both-absent ones, the null the pilot writes too. No row moved to present-different or pilot-missing.
 
+Re-recorded on the cast and extent result typing change (`x as T`, `x meta T`, `(as T)` and `all T` type their result by the type they name through an owned `FeatureTyping`, KerMLExpressions.xtext `TypeResultMember`, where the type had typed an extra `in` parameter as it does for `istype`, `hastype` and `@`, and `all T` had taken it as an argument too): 24 fragments move in 64 rows. 120 ours-only elements go — the surplus parameter, its `ParameterMembership` and its `FeatureTyping` — and two `FeatureTyping`s gain a match; present-equal properties rise by 582 and present-different fall by 572, in the `OperatorExpression` rows that list parameters, features and memberships (`parameter`, `result`, `input`, `ownedFeature` and the rest) and the result's own membership rows. Five rows hold a movement that is not to present-equal, each one or two properties: the two newly matched `FeatureTyping`s join the `FeatureTyping.owner` pilot-missing row every other one is in; in `Classifications.kerml` the result of `all T` now states `type` where it stated none, the pilot listing the library's `Object` beside `T` (`Feature.type` ours-missing to present-different, and `Feature.member` and `Feature.membership` present-different to ours-missing for one feature); and in `10b-Trade-off Among Alternative Configurations.sysml` one result whose `type` is now equal states an `inheritedMembership` it did not, which differs from the pilot's as the present-different rows of that property do.
+
 <!-- doc-counts:begin apijson-roots -->
 The per-root table, rendered from the baseline when the site builds.
 <!-- doc-counts:end apijson-roots -->
@@ -417,6 +419,29 @@ and the operands and links a specification snippet never declares are written as
 everywhere — five `Unioning` targets (`kerml/7.3.2.7/2`–`4`: `unions Adult, Child`) and two chain
 links (`kerml/7.4.5.2/4`: `crosses ownedAsset.owningEntities`) are ours-missing with the
 `relatedElement`, `chainingFeature`, `featureTarget` and `type` derived from them.
+
+**A declaration's Disjoining, FeatureInverting and TypeFeaturing** (re-recorded when the writer
+began stating one `Disjoining`, `FeatureInverting` or `TypeFeaturing` per target of a declaration's
+`disjoint from`, `inverse of` and `featured by` clause, with the chain `Feature` and
+`FeatureChaining`s of a chain target — KerML.xtext `OwnedDisjoining`, `OwnedFeatureInverting`,
+`OwnedTypeFeaturing`, each an `ownedRelationship` of the type or feature — where the collapsed
+`disjointFrom`, `inverseOf` and `featuringType` alone stood): 23 fragments moved. 96 more elements
+match, every one a pilot-only element before (matched 114698 → 114794, pilot-only 26925 → 26829;
+ours-only and type mismatches unchanged): 79 `TypeFeaturing`, 10 `Disjoining` and 7
+`FeatureInverting`. Present-equal grows 2333281 → 2334432, present-different falls 168600 → 168515
+and ours-missing falls 186353 → 186247: `ownedTypeFeaturing`, `ownedDisjoining` and
+`ownedFeatureInverting` go from ours-missing to equal on every owner (78, 9 and 7 values),
+`ownedRelationship` gains 89 equal values on the owners, and `featuringType` goes from ours-missing
+to equal on 6 `Feature`s and 26 `MultiplicityRange`s. No row loses an equal value. What the new
+elements add to the other buckets is what their classes already carry: `owner` on each of the 96
+relationships is pilot-missing, as on every relationship element (the pilot states none), and two
+of them join the unkeyable elements. The targets a specification snippet never declares are written
+as no reference, as everywhere — four `Disjoining` targets (`kerml/7.3.2.2/1`, `kerml/7.3.2.5/3`),
+two `TypeFeaturing` targets and one `FeatureInverting` target (`kerml/7.3.4.2/7`) are ours-missing
+with the `relatedElement` and `target` derived from them. One `TypeFeaturing` of
+`sysml/8.4.13.3/2` (`featured by AC` on a member the snippet completes with undeclared names)
+states a `featuringType` that differs from the pilot's; which of the three there it is was not
+determined.
 
 **Every connector end's `[1..1]`** (re-recorded when the writer began stating the implicit `[1..1]`
 of a positional end — `connect a to b`, `bind a = b`, `first s1 then s2`, `allocate a to b` — as it

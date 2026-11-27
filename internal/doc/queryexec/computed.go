@@ -59,27 +59,29 @@ func (e *executor) computedColumns(project, value queryplan.Expression) ([]compu
 	return columns, nil
 }
 
-// propertyTracker records the row properties a projection read and whether
-// each was ever present, so an unknown property stays a typed failure.
+// propertyTracker records the row properties a projection read and how far
+// the rows carried each, so an unknown property stays a typed failure.
 type propertyTracker struct {
-	order   []string
-	present map[string]bool
+	order    []string
+	evidence map[string]pathEvidence
 }
 
 func newPropertyTracker() *propertyTracker {
-	return &propertyTracker{present: make(map[string]bool)}
+	return &propertyTracker{evidence: make(map[string]pathEvidence)}
 }
 
-func (t *propertyTracker) record(property string, present bool) {
-	if _, seen := t.present[property]; !seen {
+func (t *propertyTracker) record(property string, reach pathReach) {
+	evidence, seen := t.evidence[property]
+	if !seen {
 		t.order = append(t.order, property)
 	}
-	t.present[property] = t.present[property] || present
+	evidence.note(reach)
+	t.evidence[property] = evidence
 }
 
 func (t *propertyTracker) missing() (string, bool) {
 	for _, property := range t.order {
-		if !t.present[property] {
+		if t.evidence[property].unknown() {
 			return property, true
 		}
 	}
@@ -221,11 +223,11 @@ func (e *executor) rowPropertyValues(
 	property := expression.Target()
 	_, declaring := expression.Literal()
 	if declaringIsElement(declaring) {
-		values, present, err := e.propertyValues(row, property)
+		values, reach, err := e.propertyReach(row, property)
 		if err != nil {
 			return nil, e.unevaluable(expression, property, row, err)
 		}
-		tracker.record(property, present)
+		tracker.record(property, reach)
 		return values, nil
 	}
 	if inst, _, isObject := row.Object(); isObject {
@@ -279,7 +281,7 @@ func (e *executor) rowMemberValues(
 	sym, isElement := row.Element()
 	if declaring != "" {
 		if !isElement {
-			tracker.record(path, false)
+			tracker.record(path, pathAbsent)
 			return nil, nil
 		}
 		if !e.rowConformsTo(sym, declaring) {
@@ -295,41 +297,41 @@ func (e *executor) rowMemberValues(
 			return nil, e.unevaluable(expression, path, row, err)
 		}
 		if present {
-			tracker.record(path, true)
+			tracker.record(path, pathPresent)
 			return values, nil
 		}
 		if !isElement {
-			tracker.record(path, false)
+			tracker.record(path, pathAbsent)
 			return nil, nil
 		}
 	}
 	if isElement {
-		values, present, err := e.memberPathRowValues(expression, column, sym, row, path)
+		values, reach, err := e.memberPathRowValues(expression, column, sym, row, path)
 		if err != nil {
 			return nil, err
 		}
-		if present {
-			tracker.record(path, true)
+		if reach != pathAbsent {
+			tracker.record(path, reach)
 			return values, nil
 		}
 	}
-	tracker.record(path, false)
+	tracker.record(path, pathAbsent)
 	return nil, nil
 }
 
 // memberPathRowValues walks a member path of two or more segments from an
 // element row, refusing more values than the member's multiplicity admits.
-func (e *executor) memberPathRowValues(expression queryplan.Expression, column string, sym *symbols.Symbol, row Value, path string) ([]Value, bool, error) {
+func (e *executor) memberPathRowValues(expression queryplan.Expression, column string, sym *symbols.Symbol, row Value, path string) ([]Value, pathReach, error) {
 	segments, ok := parseMemberPath(path)
 	if !ok || len(segments) <= 1 {
-		return nil, false, nil
+		return nil, pathAbsent, nil
 	}
-	values, present, overflow, err := e.memberPathValues(sym, segments)
+	values, reach, overflow, err := e.memberPathValues(sym, segments)
 	if err != nil {
-		return nil, false, e.unevaluable(expression, path, row, err)
+		return nil, pathAbsent, e.unevaluable(expression, path, row, err)
 	}
-	if !present {
-		return nil, false, nil
+	if reach != pathPresent {
+		return nil, reach, nil
 	}
 	if overflow != nil {
 		rng := e.context.Model.GoverningMultiplicityOf(overflow.member)
@@ -341,9 +343,9 @@ func (e *executor) memberPathRowValues(expression queryplan.Expression, column s
 			UpperInfinite: rng.Upper.Infinite,
 			Known:         rng.Lower.Known && rng.Upper.Known,
 		})
-		return nil, false, failure
+		return nil, pathAbsent, failure
 	}
-	return values, true, nil
+	return values, pathPresent, nil
 }
 
 // objectRowValues reads a declared or metaclass feature of an object row.

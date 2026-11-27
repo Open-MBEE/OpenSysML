@@ -103,10 +103,11 @@ func (c *client) Sweep(ctx context.Context, model *Model, symbolID string, range
 	for _, opt := range opts {
 		opt(&options)
 	}
-	hash, err := c.call(model)
+	hash, done, err := c.call(model)
 	if err != nil {
 		return nil, err
 	}
+	defer done()
 	if err := c.requireCapabilities(ctx, CapabilityVerification); err != nil {
 		return nil, err
 	}

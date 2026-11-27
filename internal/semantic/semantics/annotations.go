@@ -1304,7 +1304,7 @@ func declaredMetaclassName(sym *symbols.Symbol) string {
 	case *ast.IfBranchNode:
 		return "ActionUsage"
 	case *ast.WhileLoopActionNode:
-		if sym.Kind == symbols.SymbolReferenceUsage {
+		if IsLoopVariable(sym) {
 			// The loop variable shares the loop's node (SysML 8.3.16.7 loopVariable).
 			return "ReferenceUsage"
 		}
@@ -1932,11 +1932,11 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	case "ownedElement":
 		return m.ownedElementsOf(sym), true
 	case "member":
-		return m.withDefaultMultiplicityMember(sym, leadWithPrefixMetadata(sym, append(m.nodeParameters(sym), m.withSynthesizedMembers(sym, m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, m.membersIncludingAnonymous(sym)))))...))), true
+		return m.withDefaultMultiplicityMember(sym, leadWithPrefixMetadata(sym, m.leadWithNodeParameters(sym, m.withSynthesizedMembers(sym, m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, m.membersIncludingAnonymous(sym)))))))), true
 	case "feature":
 		features := m.nodeParameters(sym)
 		for _, member := range m.withSynthesizedMembers(sym, m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, m.membersIncludingAnonymous(sym))))) {
-			if (member.IsFeature() || isExpressionSymbol(member)) && m.ownedThroughFeatureMembership(m.ownerOf(member), member) {
+			if (member.IsFeature() || isExpressionSymbol(member)) && !slices.Contains(features, member) && m.ownedThroughFeatureMembership(m.ownerOf(member), member) {
 				features = append(features, member)
 			}
 		}
@@ -1981,9 +1981,13 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		return []*symbols.Symbol{}, true
 	case "ownedFeature":
 		features := append([]*symbols.Symbol(nil), m.expressionOwnedParts(sym)...)
-		features = append(features, m.sendParameters(sym)...)
+		for _, param := range m.nodeParameters(sym) {
+			if !slices.Contains(features, param) {
+				features = append(features, param)
+			}
+		}
 		for _, member := range m.withSynthesizedMembers(sym, m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, ownedMembersOf(sym))))) {
-			if (member.IsFeature() || isExpressionSymbol(member)) && m.ownedThroughFeatureMembership(sym, member) {
+			if (member.IsFeature() || isExpressionSymbol(member)) && !slices.Contains(features, member) && m.ownedThroughFeatureMembership(sym, member) {
 				features = append(features, member)
 			}
 		}
@@ -2340,8 +2344,9 @@ func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 		members = append(members, value)
 	}
 	members = append(members, m.expressionOwnedElements(sym)...)
-	members = append(members, m.nodeParameters(sym)...)
-	members = leadWithPrefixMetadata(sym, append(members, m.withSynthesizedMembers(sym, m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, ownedMembersOf(sym)))))...))
+	members = append(members, m.constructorResultFeatures(sym)...)
+	members = append(members, m.accessFeatures(sym)...)
+	members = leadWithPrefixMetadata(sym, append(members, m.leadWithNodeParameters(sym, m.withSynthesizedMembers(sym, m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, ownedMembersOf(sym))))))...))
 	seen := make(map[*symbols.Symbol]bool, len(members))
 	for _, member := range members {
 		seen[member] = true
@@ -2572,7 +2577,14 @@ func (m *Model) successionEndsOf(sym, owner *symbols.Symbol) []ActionSuccessionE
 			return []ActionSuccessionEnd{succession.Source, succession.Target}
 		}
 	}
-	for _, succession := range m.DeclaredSuccessions(sym.OwnerScope, owner, []ast.Node{sym.Decl}) {
+	members := []ast.Node{sym.Decl}
+	if trans, ok := sym.Decl.(*ast.TransitionMember); ok && trans.Source == nil && owner.Decl == sym.Decl {
+		// A sourceless transition's succession leaves a member of the body declaring the transition.
+		if body := m.ownerOf(owner); body != nil {
+			members = bodyMembers(body)
+		}
+	}
+	for _, succession := range m.DeclaredSuccessions(sym.OwnerScope, owner, members) {
 		if succession.Decl == sym.Decl {
 			return []ActionSuccessionEnd{succession.Source, succession.Target}
 		}
@@ -2693,6 +2705,22 @@ func (m *Model) owningMembershipMembers(sym *symbols.Symbol) []*symbols.Symbol {
 		}
 	}
 	return members
+}
+
+// leadWithNodeParameters are the parameters the accept, send or control action sym owns, then
+// members without those parameters: one the action declares, as an accept's payload, stands once.
+func (m *Model) leadWithNodeParameters(sym *symbols.Symbol, members []*symbols.Symbol) []*symbols.Symbol {
+	params := m.nodeParameters(sym)
+	if len(params) == 0 {
+		return members
+	}
+	out := slices.Clone(params)
+	for _, member := range members {
+		if !slices.Contains(params, member) {
+			out = append(out, member)
+		}
+	}
+	return out
 }
 
 func ownedMembersOf(sym *symbols.Symbol) []*symbols.Symbol {
@@ -2898,15 +2926,22 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 		if !named {
 			return emptyValue(), true
 		}
-		if sym.Named() {
+		// A `for` loop's variable is declared in the loop's body, where the index spells it bare.
+		owner := ownerSymbol(sym)
+		if IsLoopVariable(sym) {
+			owner = m.ownerOf(sym)
+		} else if sym.Named() {
 			return stringIfPresent(m.fqnOf(sym), true), true
 		}
-		// A derived name qualifies under the owner's qualified name, which the index does not spell.
-		owner, ok := m.reflectiveFeatureValue(ownerSymbol(sym), "qualifiedName")
-		if !ok || owner.Kind != symbols.FilterValueString || owner.Str == "" {
+		if owner == nil {
 			return emptyValue(), true
 		}
-		return stringOrEmpty(owner.Str + "::" + name), true
+		// A derived name qualifies under the owner's qualified name, which the index does not spell.
+		qualifier, ok := m.reflectiveFeatureValue(owner, "qualifiedName")
+		if !ok || qualifier.Kind != symbols.FilterValueString || qualifier.Str == "" {
+			return emptyValue(), true
+		}
+		return stringOrEmpty(qualifier.Str + "::" + name), true
 	case "direction":
 		direction, ok := m.flowEndFeatureDirection(sym)
 		if !ok {

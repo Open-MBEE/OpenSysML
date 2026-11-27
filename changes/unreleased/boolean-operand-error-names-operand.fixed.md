@@ -1,0 +1,1 @@
+- A non-Boolean operand of `and`, `or`, `xor`, `implies`, `not`, a conditional expression, or an `if`, `while` or `until` statement condition is now named by its type in the error, such as `right operand of 'and' must be Boolean, got an Integer`. The message used to print the value's internal kind (`got constant`).

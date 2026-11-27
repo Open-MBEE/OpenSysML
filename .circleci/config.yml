@@ -194,8 +194,7 @@ commands:
       - run:
           name: Install Z3
           command: |
-            sudo apt-get update
-            sudo apt-get install -y z3
+            scripts/ci-apt-install.sh z3
             z3 --version
 
       # The second verified backend, for the portability gate: cvc5 has no apt
@@ -212,8 +211,7 @@ commands:
       - run:
           name: Install fmpy
           command: |
-            sudo apt-get update
-            sudo apt-get install -y --no-install-recommends python3-venv
+            scripts/ci-apt-install.sh --no-install-recommends python3-venv
             python3 -m venv "$HOME/fmpy-venv"
             "$HOME/fmpy-venv/bin/pip" install --only-binary ":all:" fmpy==0.3.32
             echo 'export PATH="$HOME/fmpy-venv/bin:$PATH"' >> "$BASH_ENV"
@@ -265,8 +263,7 @@ commands:
       - run:
           name: Extract the OMG specification examples
           command: |
-            sudo apt-get update
-            sudo apt-get install -y --no-install-recommends poppler-utils
+            scripts/ci-apt-install.sh --no-install-recommends poppler-utils
             ./scripts/download-spec-examples.sh
 
       - save_cache:
@@ -550,6 +547,11 @@ jobs:
               python3 scripts/spec_compliance.py check
             fi
 
+      # The release binary: `go run buf@version` resolves buf's module graph against sum.golang.org on every run.
+      - run:
+          name: Install buf
+          command: scripts/ci-install-buf.sh
+
       # Baseline is an ancestor of HEAD, never a live branch tip (a merge landing meanwhile would
       # read as deletions): the first parent on main or develop, the previous release on a `v*` tag.
       - run:
@@ -568,7 +570,7 @@ jobs:
               baseline=HEAD^1
               echo "branch build: comparing against the first parent, $(git rev-parse --short HEAD^1)"
             fi
-            make proto-breaking BUF_BREAKING_REF="$baseline"
+            make proto-breaking BUF=buf BUF_BREAKING_REF="$baseline"
 
       # Everything below re-checks what the queue or full tier already proved on a verified tree; the two
       # checks above stay ahead of the halt because a tag has verdicts no branch run reaches.
@@ -600,7 +602,7 @@ jobs:
       - run:
           name: Verify the committed manual pages are current
           command: |
-            sudo apt-get update && sudo apt-get install -y --no-install-recommends mandoc
+            scripts/ci-apt-install.sh --no-install-recommends mandoc
             make man-check
 
       # Internal work-item labels (waves, F<n>, P<n>, K<n>/S<n>) have no public
@@ -676,7 +678,7 @@ jobs:
 
       - run:
           name: Lint the protobuf schema
-          command: make proto-lint
+          command: make proto-lint BUF=buf
 
       # Committed stubs must be what buf generates, or the checked-in code and
       # the schema can drift apart silently. `git add -N` puts a regenerated
@@ -684,7 +686,7 @@ jobs:
       - run:
           name: Verify the committed Go stubs are current
           command: |
-            make proto-buf
+            make proto-buf BUF=buf
             git add -N api/proto
             git diff --exit-code api/proto
 
@@ -996,8 +998,10 @@ jobs:
 
   # The gates that re-run part of the suite on their own so their verdicts are
   # legible in the log, and the conformance suite over every transport.
+  # On medium's 2 CPUs and 4 GB the corpus sweep was killed and the WebAssembly gate ran past its 25 minutes.
   go-gates:
     executor: go-executor
+    resource_class: large
     steps:
       - checkout
       - rehearsal-checkout-tag
@@ -1078,11 +1082,12 @@ jobs:
 
       # The RDF and api-json round-trip ratchets over every example alone, so their
       # per-verdict counts are legible in the log and a skip cannot hide behind a green suite.
+      # Two models in hand peak near 4 GiB; four, large's CPU count, near 7 GiB of its 8.
       - run:
           name: Run corpus round-trip gates
           command: |
             set -o pipefail
-            go test -count=1 -v ./tests/corpus -run 'TestExamplesSweep' | tee corpus-roundtrip-gate.log
+            go test -count=1 -v -timeout 30m -parallel 2 ./tests/corpus -run 'TestExamplesSweep' | tee corpus-roundtrip-gate.log
             grep -E ': corpus round trip: [0-9]+ files:' corpus-roundtrip-gate.log
             grep -E 'api-json corpus round trip: [0-9]+ files:' corpus-roundtrip-gate.log
             if grep -qE '^\s*--- SKIP' corpus-roundtrip-gate.log; then
@@ -1619,12 +1624,7 @@ jobs:
       # rather than `go run`, pinned by digest so a substituted asset is not run.
       - run:
           name: Install buf
-          command: |
-            curl -fsSL -o /tmp/buf \
-              https://github.com/bufbuild/buf/releases/download/v1.57.2/buf-Linux-x86_64
-            echo "644e6fa4a62afc2b0d425d3ac9538d2f512947c0f2e82fc95c41a5eab6729414  /tmp/buf" | sha256sum --check --strict
-            sudo install -m 0755 /tmp/buf /usr/local/bin/buf
-            buf --version
+          command: scripts/ci-install-buf.sh
 
       # Committed stubs must be what buf generates, or the checked-in client and
       # the schema can drift apart silently.
@@ -1701,12 +1701,7 @@ jobs:
 
       - run:
           name: Install Buf
-          command: |
-            curl -fsSL -o /tmp/buf \
-              https://github.com/bufbuild/buf/releases/download/v1.57.2/buf-Linux-x86_64
-            echo "644e6fa4a62afc2b0d425d3ac9538d2f512947c0f2e82fc95c41a5eab6729414  /tmp/buf" | sha256sum --check --strict
-            chmod +x /tmp/buf
-            /tmp/buf --version
+          command: scripts/ci-install-buf.sh /tmp/buf
 
       - run:
           name: Verify Rust generated artifacts
@@ -1732,12 +1727,11 @@ jobs:
       - halt-if-verified
 
       # The julia image carries no make, which the build and conformance steps
-      # run; it runs as root, so apt needs no sudo.
+      # run; it runs as root and carries no sudo, which the installer allows for.
       - run:
           name: Install make
           command: |
-            apt-get update
-            apt-get install -y --no-install-recommends make
+            scripts/ci-apt-install.sh --no-install-recommends make
             make_version="$(make --version)"
             echo "${make_version%%$'\n'*}"
 
@@ -1781,8 +1775,7 @@ jobs:
       - run:
           name: Install GNU Octave
           command: |
-            sudo apt-get update
-            sudo apt-get install -y octave
+            scripts/ci-apt-install.sh octave
 
       - run:
           name: Build sysml-grpc
@@ -1971,8 +1964,7 @@ jobs:
       - run:
           name: Install Z3
           command: |
-            sudo apt-get update
-            sudo apt-get install -y z3
+            scripts/ci-apt-install.sh z3
             z3 --version
 
       - run:
@@ -2025,12 +2017,7 @@ jobs:
       # rather than `go run`, pinned by digest so a substituted asset is not run.
       - run:
           name: Install buf
-          command: |
-            curl -fsSL -o /tmp/buf \
-              https://github.com/bufbuild/buf/releases/download/v1.57.2/buf-Linux-x86_64
-            echo "644e6fa4a62afc2b0d425d3ac9538d2f512947c0f2e82fc95c41a5eab6729414  /tmp/buf" | sha256sum --check --strict
-            sudo install -m 0755 /tmp/buf /usr/local/bin/buf
-            buf --version
+          command: scripts/ci-install-buf.sh
 
       # Committed stubs must be what buf generates, or the checked-in client and
       # the schema can drift apart silently.
@@ -3292,7 +3279,7 @@ jobs:
           name: Stamp this release's service digests into the package
           command: |
             if ! command -v python3 >/dev/null; then
-              sudo apt-get update -q && sudo apt-get install -yq python3
+              scripts/ci-apt-install.sh python3
             fi
             python3 client/python/scripts/pin_release_checksums.py \
               --version "${CIRCLE_TAG}" \
@@ -3662,7 +3649,7 @@ jobs:
           name: Stamp this release's service digests into the package
           command: |
             if ! command -v python3 >/dev/null; then
-              sudo apt-get update -q && sudo apt-get install -yq python3
+              scripts/ci-apt-install.sh python3
             fi
             python3 client/python/scripts/pin_release_checksums.py \
               --version "${CIRCLE_TAG}" \
@@ -3725,8 +3712,7 @@ jobs:
       - run:
           name: Install Z3
           command: |
-            sudo apt-get update
-            sudo apt-get install -y z3
+            scripts/ci-apt-install.sh z3
             z3 --version
 
       - run:
@@ -3939,7 +3925,7 @@ jobs:
           name: Stamp this release's service digests into the jar's resources
           command: |
             if ! command -v python3 >/dev/null; then
-              sudo apt-get update -q && sudo apt-get install -yq python3
+              scripts/ci-apt-install.sh python3
             fi
             python3 client/python/scripts/pin_release_checksums.py \
               --version "${CIRCLE_TAG}" \
@@ -4034,7 +4020,7 @@ jobs:
           name: Import the signing key
           command: |
             if ! command -v gpg > /dev/null; then
-              sudo apt-get update && sudo apt-get install -y gnupg
+              scripts/ci-apt-install.sh gnupg
             fi
             # The context may hold the key ASCII-armoured or base64-encoded (the
             # CircleCI UI does not keep newlines), so accept both.
@@ -4153,7 +4139,7 @@ jobs:
           name: Stamp this release's service digests into the crate
           command: |
             if ! command -v python3 >/dev/null; then
-              sudo apt-get update -q && sudo apt-get install -yq python3
+              scripts/ci-apt-install.sh python3
             fi
             python3 client/python/scripts/pin_release_checksums.py \
               --version "${CIRCLE_TAG}" \
