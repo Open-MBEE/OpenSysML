@@ -3,6 +3,9 @@ package export_test
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -104,5 +107,30 @@ func TestAPIJSONInterchangeLeavesTheDefaultFormAlone(t *testing.T) {
 	document, _ := interchangeElements(t, export.APIJSONOptions{})
 	if !bytes.Contains(document, []byte(`"sysx:`)) {
 		t.Error("the default form lost its sysx: keys")
+	}
+}
+
+// The interchange form states each body member's derived edges back to the expression
+// that owns it; reading one refuses the cycle instead of following it without end.
+func TestAPIJSONInterchangeExpressionBodyCycleIsRefused(t *testing.T) {
+	t.Parallel()
+	for _, name := range []string{"expression_body_members.sysml", "expression_body_order.sysml"} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			source, err := os.ReadFile(filepath.Join("testdata", "convert", name))
+			if err != nil {
+				t.Fatal(err)
+			}
+			document, err := convert.ConvertWith(name, source, convert.FormatSysML, convert.FormatAPIJSON,
+				convert.Options{Interchange: true})
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = convert.Convert("model.json", document, convert.FormatAPIJSON, convert.FormatSysML)
+			var unsupported *export.UnsupportedError
+			if !errors.As(err, &unsupported) {
+				t.Fatalf("expected an UnsupportedError, got %v", err)
+			}
+		})
 	}
 }
