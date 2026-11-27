@@ -331,7 +331,9 @@ With Eglot, `sysml-eglot` takes the place of the `sysml-lsp` block, hooking
 
 Under either client the server is found as the VS Code extension finds it:
 `sysml-lsp-server-path`, then `bin/sysml-lsp` in the project root, then
-`sysml-lsp` on `exec-path`.
+`sysml-lsp` on `exec-path`. Emacs asks once per checkout before it runs the
+`sysml-lsp` or `sysml` built in that checkout's `bin/`, and remembers the answer
+in `sysml-project-builds`.
 
 - **Highlighting** colours each keyword group — declarations, behaviour,
   modifiers, relationships, word operators — with its own customizable face, plus

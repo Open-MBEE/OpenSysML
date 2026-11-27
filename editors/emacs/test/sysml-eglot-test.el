@@ -27,10 +27,12 @@
 (declare-function tramp-cleanup-all-connections "tramp-cmds")
 
 (defmacro sysml-eglot-test--with-project-build (root exe &rest body)
-  "Run BODY with ROOT bound to a fresh project and EXE to its `bin/sysml-lsp'."
+  "Run BODY with ROOT bound to a fresh project and EXE to its `bin/sysml-lsp'.
+The user has allowed the project's build to be run."
   (declare (indent 2))
   `(let* ((,root (file-name-as-directory (make-temp-file "proj" t)))
-          (,exe (expand-file-name "bin/sysml-lsp" ,root)))
+          (,exe (expand-file-name "bin/sysml-lsp" ,root))
+          (sysml-project-builds (list (cons ,root t))))
      (unwind-protect
          (progn
            (make-directory (file-name-directory ,exe))
@@ -121,8 +123,13 @@
           (make-directory (file-name-directory exe))
           (write-region "" nil exe)
           (set-file-modes exe #o755)
-          (should (equal (sysml-eglot--server-command nil (cons 'transient root))
-                         (list (file-local-name exe)))))
+          ;; The answer on record for the same directory of this machine is not its.
+          (let ((sysml-project-builds (list (cons (file-local-name root) t))))
+            (should-error (sysml-eglot--server-command nil (cons 'transient root))
+                          :type 'user-error))
+          (let ((sysml-project-builds (list (cons root t))))
+            (should (equal (sysml-eglot--server-command nil (cons 'transient root))
+                           (list (file-local-name exe))))))
       (delete-directory root t)
       (tramp-cleanup-all-connections))))
 
@@ -133,6 +140,18 @@
           (exec-path nil))
       (should (equal (sysml-eglot--server-command nil (cons 'transient root))
                      (list exe))))))
+
+(ert-deftest sysml-eglot-does-not-start-a-project-build-the-user-refused ()
+  (sysml-eglot-test--with-project-build root _exe
+    (let ((sysml-project-builds (list (cons root nil)))
+          (sysml-lsp-server-path nil)
+          (sysml-lsp-server-args nil)
+          (exec-path nil))
+      (should-error (sysml-eglot--server-command nil (cons 'transient root))
+                    :type 'user-error)
+      ;; \[eglot] is left to prompt for a server, as when there is none.
+      (should (equal (sysml-eglot--server-command t (cons 'transient root))
+                     '("sysml-lsp"))))))
 
 (ert-deftest sysml-eglot-finds-the-build-in-the-buffer-project ()
   (sysml-eglot-test--with-project-build root exe

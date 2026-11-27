@@ -81,7 +81,17 @@ The server is found in this order, as the VS Code extension finds it:
 2. `bin/sysml-lsp` in the project root (a checkout that ran `make build`);
 3. `sysml-lsp` on `exec-path`.
 
-Both clients look in that order and pass `sysml-lsp-server-args`. After rebuilding
+Both clients look in that order and pass `sysml-lsp-server-args`.
+
+A checkout's own build is run only with your say. The first time a project holds a
+`bin/sysml-lsp` or `bin/sysml` that would be used, Emacs asks whether to run what is
+built there, and saves the answer in `sysml-project-builds`, so each checkout is asked
+about once, whichever client you use. Answer no and the lookup goes on to `exec-path`;
+change an answer with `M-x customize-option RET sysml-project-builds`. A batch Emacs,
+which cannot ask, runs neither. A checkout reached over TRAMP is asked about separately,
+under its remote name.
+
+After rebuilding
 the server, `M-x lsp-workspace-restart` picks the new binary up, or
 `M-x eglot-reconnect` under Eglot.
 
@@ -108,7 +118,7 @@ commands, carried out here rather than sent back to the server:
   `sysml -action`/`-state`/`-calc`/`-constraint`/`-requirement` check over every
   workspace folder of the session (the file alone when none holds it), in a
   compilation buffer. Nothing runs while a model buffer is left unsaved. `sysml` is looked for beside the server, then
-  in the project's `bin/`, then on `exec-path`.
+  in the project's `bin/` if you allowed its build, then on `exec-path`.
 
 Eglot shows no code lenses. `M-x xref-find-references` lists a definition's
 references, and `M-x sysml-eglot-run-element` runs or evaluates the element whose
@@ -116,7 +126,7 @@ name point is on, the same way: it asks the server for the buffer's Run and
 Evaluate lenses, so it offers exactly the elements lsp-mode shows one on. Away
 from such a name, or with a prefix argument, it reads the element from the
 minibuffer by its qualified name. `sysml` is looked for beside the server, then in
-the project's `bin/`, then on `exec-path`. Bind it if you like:
+the project's `bin/` if you allowed its build, then on `exec-path`. Bind it if you like:
 
 ```elisp
 (with-eval-after-load 'sysml-eglot
@@ -207,6 +217,7 @@ is refused when the server does not advertise the render methods
 | `sysml-indent-offset` | `4` | Columns per nesting level, for indentation and formatting. |
 | `sysml-lsp-server-path` | `nil` | Absolute path to `sysml-lsp`; `nil` falls back to the project build, then `exec-path`. |
 | `sysml-lsp-server-args` | `nil` | Extra server arguments, e.g. `("-strict")`. |
+| `sysml-project-builds` | `nil` | Project roots and whether the `sysml-lsp` and `sysml` in their `bin/` may be run; filled in as you answer. |
 | `sysml-lsp-strict-conformance` | `nil` | Report notation only OpenSysML accepts as errors. Takes effect at once, without a restart. |
 | `sysml-lsp-semantic-tokens` | `t` | Add the server's semantic tokens to highlighting. |
 | `sysml-diagram-mmdc-program` | `"mmdc"` | The Mermaid CLI pictures are drawn with. |

@@ -24,8 +24,9 @@
 ;;   server's Run and Evaluate code lenses do.  Eglot shows no code lenses.
 ;;
 ;; The server is found as under lsp-mode: the `sysml-lsp-server-path'
-;; setting, else `bin/sysml-lsp' in the project root, else `sysml-lsp' on
-;; `exec-path', and it is passed `sysml-lsp-server-args'.  Its settings are
+;; setting, else `bin/sysml-lsp' in the project root once the user has
+;; allowed that project's build (`sysml-project-builds'), else `sysml-lsp'
+;; on `exec-path', and it is passed `sysml-lsp-server-args'.  Its settings are
 ;; set in `eglot-workspace-configuration' under `:sysml', for instance
 ;; (:sysml (:strictConformance t)).
 

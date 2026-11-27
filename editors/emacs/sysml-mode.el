@@ -406,9 +406,9 @@ Point is at the line's first non-blank character."
 
 (defcustom sysml-lsp-server-path nil
   "Absolute path to the `sysml-lsp' executable.
-When nil, `bin/sysml-lsp' in the project root is used if it exists, then
-`sysml-lsp' on the variable `exec-path'.  lsp-mode and Eglot both start
-the server this names."
+When nil, `bin/sysml-lsp' in the project root is used if it exists and
+`sysml-project-builds' allows it, then `sysml-lsp' on the variable
+`exec-path'.  lsp-mode and Eglot both start the server this names."
   :type '(choice (const :tag "Find it" nil) file)
   :risky t)
 
@@ -417,21 +417,59 @@ the server this names."
   :type '(repeat string)
   :risky t)
 
+(defcustom sysml-project-builds nil
+  "Whether the `sysml-lsp' and `sysml' a project builds in its `bin/' may be run.
+An alist of project roots, a remote one under its full remote name, and
+whether the executables there may be run.  A project not listed is asked
+about once, when it holds one of them, and the answer saved here; a
+session that cannot ask, such as a batch one, runs neither."
+  :type '(alist :key-type directory
+                :value-type (choice (const :tag "Run them" t)
+                                    (const :tag "Do not run them" nil)))
+  :risky t)
+
 (defun sysml--project-root ()
   "Return the root of the current buffer's project, or nil."
   (when-let* ((project (project-current)))
     (project-root project)))
 
+(defun sysml--project-build-allowed-p (root)
+  "Return non-nil when the executables in the `bin/' of project ROOT may be run.
+The user is asked the first time, and `sysml-project-builds' records
+the answer, since opening a file of a checkout would otherwise run
+what that checkout supplies."
+  (let* ((root (file-name-as-directory (expand-file-name root)))
+         (known (assoc root sysml-project-builds)))
+    (cond
+     (known (cdr known))
+     (noninteractive nil)
+     (t (let ((allowed (y-or-n-p (format "Run the sysml-lsp and sysml built in %sbin/? "
+                                         root))))
+          ;; The answer holds for this session when it cannot be saved.
+          (with-demoted-errors "Could not save `sysml-project-builds': %S"
+            (customize-save-variable 'sysml-project-builds
+                                     (cons (cons root allowed) sysml-project-builds)))
+          allowed)))))
+
+(defun sysml--project-build (name root)
+  "Return the executable NAME in the `bin/' of project ROOT, or nil.
+It is nil when ROOT is nil, holds no such executable, or is not allowed
+to run it; see `sysml--project-build-allowed-p'."
+  (when-let* ((root)
+              (candidate (expand-file-name (concat "bin/" name) root))
+              ((file-executable-p candidate))
+              ((sysml--project-build-allowed-p root)))
+    candidate))
+
 (defun sysml--find-server (root &optional remote)
   "Return the language server executable, or nil when none is found.
-ROOT is the project root to look for a build in, or nil.  With REMOTE
+ROOT is the project root to look for a build in, or nil; a build there
+is used only when `sysml-project-builds' allows it.  With REMOTE
 non-nil, variable `exec-path' is that of the host of `default-directory'."
   (cond
    (sysml-lsp-server-path
     (and (file-executable-p sysml-lsp-server-path) sysml-lsp-server-path))
-   ((when-let* ((candidate (and root (expand-file-name
-                                      (concat "bin/" sysml--server-executable) root))))
-      (and (file-executable-p candidate) candidate)))
+   ((sysml--project-build sysml--server-executable root))
    (t (executable-find sysml--server-executable remote))))
 
 (defun sysml--server-command (root &optional remote)
@@ -515,14 +553,13 @@ a match: the buffer is read-only, so a replacement must pass it by."
 (defun sysml-find-tool (server root)
   "Return the `sysml' executable to run Run and Evaluate lenses with, or nil.
 It is looked for beside the language server executable SERVER, then in
-the `bin/' of the project root ROOT, then on the variable `exec-path',
-as the VS Code extension looks.  SERVER and ROOT may be nil."
+the `bin/' of the project root ROOT when `sysml-project-builds' allows
+it, then on the variable `exec-path', as the VS Code extension looks.
+SERVER and ROOT may be nil."
   (or (when-let* ((server)
                   (sibling (expand-file-name sysml--tool (file-name-directory server))))
         (and (file-executable-p sibling) sibling))
-      (when-let* ((root)
-                  (candidate (expand-file-name (concat "bin/" sysml--tool) root)))
-        (and (file-executable-p candidate) candidate))
+      (sysml--project-build sysml--tool root)
       (executable-find sysml--tool)))
 
 (defun sysml-run-paths (file folders)
