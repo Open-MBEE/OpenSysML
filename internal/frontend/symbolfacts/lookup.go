@@ -36,7 +36,7 @@ func LookupNamedMember(idx *symbols.Index, model *semantics.Model, id string) []
 		return syms
 	}
 	// The notation's own segments are walked, so a quoted one holding `::` stays one member.
-	if sym, _ := MemberChainSegments(idx, model, nameSegments(id)); sym != nil {
+	if sym, _ := MemberChainSegments(idx, model, NameSegments(id)); sym != nil {
 		return []*symbols.Symbol{sym}
 	}
 	return nil
@@ -159,9 +159,9 @@ func notationSegments(id string) ([]string, bool) {
 	return segments, true
 }
 
-// nameSegments is the segments of a qualified name in either spelling: the
+// NameSegments is the segments of a qualified name in either spelling: the
 // notation's, or the unquoted one the index records.
-func nameSegments(id string) []string {
+func NameSegments(id string) []string {
 	if segments, ok := notationSegments(id); ok {
 		return segments
 	}

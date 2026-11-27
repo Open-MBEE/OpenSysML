@@ -1250,6 +1250,10 @@ func (r *Renderer) inheritedPorts(elem *symbols.Symbol, node ast.Node, id string
 		if !ok || !lower.DeclaresNodeFeature(usage) || usage.Direction == ast.DirNone && !usage.IsResult {
 			continue
 		}
+		// A control node is drawn by its notation, whose rows stand for the parameters of its kind.
+		if r.model.IsControlKindMember(sym, member) {
+			continue
+		}
 		if usage.IsResult {
 			if result {
 				continue

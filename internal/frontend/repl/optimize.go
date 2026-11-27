@@ -161,7 +161,7 @@ func extremeWord(dir solve.Direction) string {
 func (s *Session) doOptimize(args []string) ([]string, bool, error) {
 	args, asJSON := solveJSONFlag(args)
 	if len(args) == 0 {
-		return []string{optimizeUsage}, false, nil
+		return s.usage(optimizeUsage), false, nil
 	}
 	return solveOutput("optimize", s.optimizeSolve(args[0]), asJSON)
 }
