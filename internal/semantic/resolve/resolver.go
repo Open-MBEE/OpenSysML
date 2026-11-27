@@ -219,6 +219,15 @@ type Resolver struct {
 	// cross-reference. Without it, resolving each of n sibling imports searched
 	// the others' unresolved targets in every order (issue #636).
 	importTargets map[*ast.Import]resolution
+	// importLeads are what the first segments of imports' targets name, kept as
+	// importTargets are; leadOf is the import whose target is being resolved.
+	importLeads map[*ast.Import]*symbols.Symbol
+	leadOf      *ast.Import
+	// leadPassed holds once the leading segment of leadOf's target was looked
+	// up past another import that is resolving and may yet bind it.
+	leadPassed bool
+	// passedTargets holds the targets so read, until no import is resolving.
+	passedTargets map[*ast.Import]*symbols.Symbol
 	// collisions memoizes, per namespace, what its imports bring and the
 	// memberships hidden among them: see (*Resolver).importedCollisions.
 	// colliding marks the namespaces whose collisions are being computed.
@@ -365,6 +374,8 @@ func New(idx *symbols.Index) *Resolver {
 		implicitParams:        map[*symbols.Scope][]*symbols.Symbol{},
 		derivedNamed:          map[*symbols.Scope][]*symbols.Symbol{},
 		importTargets:         map[*ast.Import]resolution{},
+		importLeads:           map[*ast.Import]*symbols.Symbol{},
+		passedTargets:         map[*ast.Import]*symbols.Symbol{},
 		collisions:            map[*symbols.Scope]*importCollisions{},
 		colliding:             map[*symbols.Scope]bool{},
 		below:                 map[*symbols.Scope]bool{},
@@ -716,7 +727,7 @@ func (r *Resolver) resolveQualified(scope *symbols.Scope, qn *ast.QualifiedName,
 	// A feature that took its name from qn is never what qn names.
 	res := r.walkQualified(scope, qn, hide.hiding(qn))
 	delete(r.resolving, qn)
-	if !r.Leave() {
+	if !r.Leave() || (r.leadPassed && r.leadOf.Imported == qn) {
 		return r.found(res)
 	}
 	// A failure met during a semantic query is not memoized: the reference it

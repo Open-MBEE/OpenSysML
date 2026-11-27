@@ -30,6 +30,8 @@ func (r *Resolver) LookupName(scope *symbols.Scope, name string) (*symbols.Symbo
 // imports are still consulted, so a perform statement's borrowed name does not
 // hide the action its owner inherits from its type.
 func (r *Resolver) walkUnqualifiedHiding(scope *symbols.Scope, name string, hide *refFilter) resolution {
+	var importer *symbols.Scope
+	var imported *symbols.Symbol
 	for s := scope; s != nil; s = s.Parent() {
 		if sym, ok := r.localBinding(s, name, hide); ok {
 			return resolution{sym: sym, ok: true}
@@ -47,16 +49,22 @@ func (r *Resolver) walkUnqualifiedHiding(scope *symbols.Scope, name string, hide
 			return resolution{sym: sym, ok: true}
 		}
 
-		if sym, ok := r.lookupInheritedImports(s, name); ok && !hide.hides(sym) {
+		// The scopes around the first were searched from it, imports included.
+		if s != scope {
+			if s == importer {
+				return resolution{sym: imported, ok: true}
+			}
+			continue
+		}
+
+		if sym, ok := r.importedName(s, name, hide); ok {
 			return resolution{sym: sym, ok: true}
 		}
 
-		if sym, ok := r.enclosingLocal(s.Parent(), name, hide); ok {
-			return resolution{sym: sym, ok: true}
-		}
-
-		if sym, ok := r.lookupImports(s, name); ok && !hide.hides(sym) {
-			return resolution{sym: sym, ok: true}
+		var local *symbols.Symbol
+		local, importer, imported = r.enclosingLocal(s.Parent(), name, hide)
+		if local != nil {
+			return resolution{sym: local, ok: true}
 		}
 	}
 	if root := rootOf(scope); root != nil {
@@ -74,16 +82,30 @@ func (r *Resolver) walkUnqualifiedHiding(scope *symbols.Scope, name string, hide
 	return resolution{}
 }
 
-// enclosingLocal finds name among the bindings the enclosing scopes declare, an
-// accept payload counting as one of its body's, before any import is consulted.
-func (r *Resolver) enclosingLocal(scope *symbols.Scope, name string, hide *refFilter) (*symbols.Symbol, bool) {
+// enclosingLocal finds name among the scopes around a namespace, nearest first: a
+// binding one declares, or else the first to import it (KerML 8.2.3.5.4).
+func (r *Resolver) enclosingLocal(scope *symbols.Scope, name string, hide *refFilter) (local *symbols.Symbol, importer *symbols.Scope, imported *symbols.Symbol) {
 	for ; scope != nil; scope = scope.Parent() {
 		if sym, ok := r.localBinding(scope, name, hide); ok {
-			return sym, true
+			return sym, nil, nil
 		}
 		if sym, ok := r.acceptPayload(scope, name); ok && !hide.hides(sym) {
-			return sym, true
+			return sym, nil, nil
 		}
+		if sym, ok := r.importedName(scope, name, hide); ok {
+			return nil, scope, sym
+		}
+	}
+	return nil, nil, nil
+}
+
+// importedName finds name among the imports scope inherits, then its own.
+func (r *Resolver) importedName(scope *symbols.Scope, name string, hide *refFilter) (*symbols.Symbol, bool) {
+	if sym, ok := r.lookupInheritedImports(scope, name); ok && !hide.hides(sym) {
+		return sym, true
+	}
+	if sym, ok := r.lookupImports(scope, name); ok && !hide.hides(sym) {
+		return sym, true
 	}
 	return nil, false
 }
@@ -538,6 +560,7 @@ func simpleName(sym *symbols.Symbol) string {
 func (r *Resolver) lookupImports(scope *symbols.Scope, name string) (*symbols.Symbol, bool) {
 	for _, imp := range r.scopeImports(scope) {
 		if r.resolvingImports[imp] {
+			r.passOver(imp, name)
 			continue
 		}
 		if !r.importPrefixAvailable(scope, imp, name) {
@@ -740,7 +763,7 @@ func (r *Resolver) eachMatchOfImport(into, scope *symbols.Scope, imp *ast.Import
 		return
 	}
 	target, ok := r.importTargetOf(scope, imp)
-	if !ok {
+	if !ok || r.leadsInCycle(imp, name) {
 		return
 	}
 	// A membership the import brings under a name another import of scope
@@ -864,28 +887,92 @@ func (r *Resolver) importTargetOf(scope *symbols.Scope, imp *ast.Import) (*symbo
 		}
 		return res.sym, res.ok
 	}
+	if imp.Imported == nil {
+		return nil, false
+	}
+	if target, done := r.passedTargets[imp]; done && remember {
+		r.Depend(target.DocName)
+		return target, true
+	}
 	var target *symbols.Symbol
-	var ok bool
+	var ok, passed bool
 	r.resolvingImports[imp] = true
 	// The target is read on its own, apart from the lookup that needs it.
-	r.aside(func() { target, ok = r.resolveImportTarget(scope, imp) })
-	delete(r.resolvingImports, imp)
-	if ok && remember {
+	r.aside(func() { target, passed, ok = r.importName(scope, imp.Imported, imp) })
+	r.resume(imp)
+	if ok && target != nil && imp.Kind == ast.ImportNamespace {
+		// A namespace import reads the members of the element its target names.
+		// An alias whose own target is still resolving names none yet.
+		if target = r.AliasedElement(target); target.Kind == symbols.SymbolAlias {
+			return nil, false
+		}
+	}
+	switch {
+	case !ok || !remember:
+	case !passed:
 		journalNew(r, r.importTargets, imp, imp)
 		r.importTargets[imp] = resolution{sym: target, ok: true}
+	case len(r.resolvingImports) != 0:
+		r.passedTargets[imp] = target
 	}
 	return target, ok
+}
+
+// resume ends the suspension of imp while its target resolved. A target read
+// past a suspended import stands only until the outermost of them has resolved.
+func (r *Resolver) resume(imp *ast.Import) {
+	delete(r.resolvingImports, imp)
+	if len(r.resolvingImports) == 0 {
+		clear(r.passedTargets)
+	}
+}
+
+// leadsInCycle reports whether name leads both the import whose target is
+// resolving and imp, whose own target was read past a suspended import: neither binds it.
+func (r *Resolver) leadsInCycle(imp *ast.Import, name string) bool {
+	lead := r.leadOf
+	if lead == nil || lead == imp || !r.resolvingImports[lead] {
+		return false
+	}
+	if _, passed := r.passedTargets[imp]; !passed {
+		return false
+	}
+	return lead.Imported != nil && len(lead.Imported.Parts) > 0 &&
+		lead.Imported.Parts[0].Text == name && imp.Imported.Parts[0].Text == name
+}
+
+// passOver notes that a lookup of name skipped imp, whose target is resolving,
+// when name leads the target of another import, beside imp or nested below it.
+func (r *Resolver) passOver(imp *ast.Import, name string) {
+	lead := r.leadOf
+	if lead == nil || lead == imp {
+		return
+	}
+	if lead.Imported == nil || len(lead.Imported.Parts) == 0 || lead.Imported.Parts[0].Text != name {
+		return
+	}
+	// Only another element of that name could be what imp binds it to.
+	if r.importMayName(imp, name) && r.idx.NamesSeveral(name) {
+		r.leadPassed = true
+	}
+}
+
+// importMayName reports whether imp could bring name: a membership import names
+// only its last segment or the target's short name.
+func (r *Resolver) importMayName(imp *ast.Import, name string) bool {
+	if imp.Kind != ast.ImportMembership || imp.IsRecursive || imp.Imported == nil || len(imp.Imported.Parts) == 0 {
+		return true
+	}
+	last := imp.Imported.Parts[len(imp.Imported.Parts)-1].Text
+	return last == name || r.idx == nil || r.idx.ShortNamed(name) || r.idx.ShortNamed(last)
 }
 
 // importPrefixAvailable reports whether imp can surface name from scope: a
 // membership import names only its last segment or the target's short name, and
 // a prefix unbound while sibling imports resolve cannot name the target.
 func (r *Resolver) importPrefixAvailable(scope *symbols.Scope, imp *ast.Import, name string) bool {
-	if imp.Kind == ast.ImportMembership && !imp.IsRecursive && imp.Imported != nil && len(imp.Imported.Parts) > 0 {
-		last := imp.Imported.Parts[len(imp.Imported.Parts)-1].Text
-		if last != name && r.idx != nil && !r.idx.ShortNamed(name) && !r.idx.ShortNamed(last) {
-			return false
-		}
+	if !r.importMayName(imp, name) {
+		return false
 	}
 	if len(r.resolvingImports) == 0 || imp.Imported == nil || len(imp.Imported.Parts) == 0 {
 		return true

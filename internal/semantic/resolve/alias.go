@@ -54,9 +54,13 @@ func (r *Resolver) ResolveAliasTarget(sym *symbols.Symbol) (*symbols.Symbol, boo
 	r.resolvingAlias[sym] = true
 	defer delete(r.resolvingAlias, sym)
 
+	r.Enter()
 	target, ok := r.resolveAliasTarget(sym)
-	journalNew(r, r.aliasTargets, sym, sym.Decl)
-	r.aliasTargets[sym] = resolution{sym: target, ok: ok}
+	// A miss met while the alias's own target reference resolves is not its answer.
+	if r.Leave() || ok {
+		journalNew(r, r.aliasTargets, sym, sym.Decl)
+		r.aliasTargets[sym] = resolution{sym: target, ok: ok}
+	}
 	return target, ok
 }
 

@@ -184,6 +184,8 @@ func (r *Resolver) unqualifiedCandidates(scope *symbols.Scope, name string) []*s
 		}
 		return []*symbols.Symbol{sym}, true
 	}
+	var importer *symbols.Scope
+	var imported []*symbols.Symbol
 	for s := scope; s != nil; s = s.Parent() {
 		if out, ok := r.localBindingCandidates(s, name); ok {
 			return out
@@ -197,7 +199,14 @@ func (r *Resolver) unqualifiedCandidates(scope *symbols.Scope, name string) []*s
 		if out, ok := r.visibleMemberCandidates(r.scopeOwner(s), name); ok {
 			return out
 		}
-		if out := r.namingSomething(r.inheritedImportCandidates(s, name)); len(out) > 0 {
+		// The scopes around the first were searched from it, imports included.
+		if s != scope {
+			if s == importer {
+				return imported
+			}
+			continue
+		}
+		if out := r.importedCandidates(s, name); len(out) > 0 {
 			return out
 		}
 		for enclosing := s.Parent(); enclosing != nil; enclosing = enclosing.Parent() {
@@ -207,9 +216,10 @@ func (r *Resolver) unqualifiedCandidates(scope *symbols.Scope, name string) []*s
 			if out, ok := one(r.acceptPayload(enclosing, name)); ok {
 				return out
 			}
-		}
-		if out := r.importMatches(s, name); len(out) > 0 {
-			return out
+			if imported = r.importedCandidates(enclosing, name); len(imported) > 0 {
+				importer = enclosing
+				break
+			}
 		}
 	}
 	if root := rootOf(scope); root != nil {
@@ -221,6 +231,14 @@ func (r *Resolver) unqualifiedCandidates(scope *symbols.Scope, name string) []*s
 		return out
 	}
 	return r.namingSomething(r.globalCandidates(scope, name))
+}
+
+// importedCandidates is importedName over every match the imports of scope yield.
+func (r *Resolver) importedCandidates(scope *symbols.Scope, name string) []*symbols.Symbol {
+	if out := r.namingSomething(r.inheritedImportCandidates(scope, name)); len(out) > 0 {
+		return out
+	}
+	return r.importMatches(scope, name)
 }
 
 // localBindingCandidates is localBinding over every owned member of scope binding name

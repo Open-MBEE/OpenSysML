@@ -10,7 +10,8 @@ import (
 const importModel = `package V {
 	private import ScalarValues::*;
 	private import ISQ::*;
-	private import SI::*;
+	private import SI::kg;
+	private import SI::m;
 	enum def Grade { enum low; enum high; }
 	part def Engine {
 		attribute mass : MassValue default = 175 [kg];
