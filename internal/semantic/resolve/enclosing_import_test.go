@@ -429,3 +429,66 @@ func TestWildcardImportBesideOneLeftToNameLookup(t *testing.T) {
 		}
 	}
 }
+
+// Beside a wildcard import whose target only name lookup follows, the index holds
+// under N what name lookup reads there for N's `public import Q::*`.
+func TestIndexHoldsWhatNameLookupReadsBesideAnImportOnlyItFollows(t *testing.T) {
+	const libs = `
+		package Q { part def B; }
+		package R { package Has { package Q { part def Z; } } }
+		package Names { public import R::Has; }
+		package Carry { public import R::Has::*; }`
+	const outer, brought = "Q::B", "R::Has::Q::Z"
+	for _, c := range []struct{ inK, inN, want string }{
+		// Name lookup reads no Q through a Has that only an import or an alias beside it binds.
+		{"", "private import R::Has; public import Has::*;", outer},
+		{"", "private import R::Has; private import Has::*;", outer},
+		{"", "private alias Has for R::Has; public import Has::*;", outer},
+		{"", "private alias A for R::Has; public import A::*;", outer},
+		{"", "private import Names::Has; public import Has::*;", outer},
+		{"", "private import Names::*; public import Has::*;", outer},
+		{"private import R::Has;", "public import Has::*;", outer},
+		{"private import R::Has;", "private import Has::*;", outer},
+		{"private import Names::*;", "public import Has::*;", outer},
+		{"private import R::Has; private import Has::*;", "", outer},
+		{"private import R::Has; public import Has::*;", "", outer},
+		// It reads the Q brought through a first segment declared further out.
+		{"private import R;", "private import R::Has::*;", brought},
+		{"private import R;", "public import R::Has::*;", brought},
+		{"private alias A for R::Has;", "public import A::*;", brought},
+		{"private import R; private import R::Has::*;", "", brought},
+		{"private import R::Has; private alias A for Has;", "public import A::*;", brought},
+		{"", "private import $::Carry; public import Carry::*;", brought},
+		{"", "public import R::Has::*;", brought},
+		{"", "private import Carry::*;", brought},
+	} {
+		p := parser.New(source.New("d.sysml", []byte(libs+`
+			package P { package K { `+c.inK+` package N { `+c.inN+` public import Q::*; } package S { } } }`)))
+		root := p.ParseFile()
+		if len(p.Diagnostics) != 0 {
+			t.Fatalf("parse diagnostics: %v", p.Diagnostics)
+		}
+		idx := symbols.NewIndexFromDoc("d.sysml", root)
+		idx.ExpandWildcardImports()
+		r := New(idx)
+		r.ResolveDocument("d.sysml", root)
+		outside := scopeNamed(t, r, "d.sysml", "S")
+		for _, member := range []string{"B", "Z"} {
+			want := ""
+			if strings.HasSuffix(c.want, "::"+member) {
+				want = c.want
+			}
+			read := ""
+			if sym, ok := r.ResolveQualified(outside, qn(false, "N", member)); ok {
+				read = symbols.FQNOf(sym)
+			}
+			var held []string
+			for _, sym := range idx.LookupQualified("P::K::N::" + member) {
+				held = append(held, symbols.FQNOf(sym))
+			}
+			if read != want || strings.Join(held, ",") != want {
+				t.Errorf("K { %s } N { %s }: N::%s reads %q and the index holds %q, want %q", c.inK, c.inN, member, read, held, want)
+			}
+		}
+	}
+}

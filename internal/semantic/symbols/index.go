@@ -817,11 +817,23 @@ func (idx *Index) wildcardTarget(pkgFQN, targetText string, all bool, look *targ
 		idx.readName(key)
 		// A member the namespace owns is found before any import of its name.
 		owned := idx.declaresUnder(key)
-		if !owned && (idx.namesByLookup(prefix, key, true, &walk) || idx.leftBrings(prefix, first, look)) {
+		if !owned && idx.namesByLookup(prefix, key, true, &walk) {
 			if idx.leftToLookup != nil {
 				idx.leftToLookup[stated] = true
 			}
 			return ""
+		}
+		// Beside an import left to name lookup that may bring the segment, the
+		// target is the one namespace name lookup reads there, when the index can tell.
+		if !owned && idx.leftBrings(prefix, first, look) {
+			fqn := idx.boundBeside(prefix, first, look)
+			if fqn != "" && qualified {
+				fqn = idx.memberTarget(fqn, rest, all)
+			}
+			if fqn == "" && idx.leftToLookup != nil {
+				idx.leftToLookup[stated] = true
+			}
+			return fqn
 		}
 		// The nearest namespace binding the first segment binds the target. Past a
 		// segment a wildcard import brought, the rest is left to name lookup too.

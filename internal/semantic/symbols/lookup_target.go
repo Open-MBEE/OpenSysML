@@ -119,10 +119,10 @@ func (idx *Index) leftBrings(fqn, name string, look *targetLookup) bool {
 		return false
 	}
 	for _, imp := range idx.imports(fqn) {
-		if !idx.leftBy(fqn, imp.target, look) {
+		if !idx.leftBy(fqn, imp.target, look) || !idx.surfacesBeside(fqn, imp.target, name) {
 			continue
 		}
-		targets, known := idx.lookupTargets(fqn, imp.target, ofWildcardImport, nil, look)
+		targets, known := idx.lookupTargets(fqn, imp.target, ofWildcardImport, false, nil, look)
 		if !known {
 			return true
 		}
@@ -135,9 +135,44 @@ func (idx *Index) leftBrings(fqn, name string, look *targetLookup) bool {
 	return false
 }
 
+// boundBeside resolves name, the first segment of a wildcard import's target, where an
+// import the namespace under fqn leaves to name lookup may bring it: to the one
+// namespace name lookup reads there, or "" when the index cannot tell which.
+func (idx *Index) boundBeside(fqn, name string, look *targetLookup) string {
+	members, known := idx.membersByLookup(fqn, name, true, nil, look)
+	if !known || len(members) != 1 {
+		return ""
+	}
+	return members[0]
+}
+
+// surfacesBeside reports whether name lookup, resolving another import's target, reads
+// name through the import of target stated under fqn (the resolver's importPrefixAvailable).
+//
+// It does when the target's first segment is name itself, is declared on the way out
+// or names a top-level element; not when only an import binds it, or an alias beside it.
+func (idx *Index) surfacesBeside(fqn, target, name string) bool {
+	first, _, _ := strings.Cut(target, "::")
+	if first == name {
+		return true
+	}
+	for prefix := fqn; prefix != ""; prefix = prefix[:max(lastSeparator(prefix), 0)] {
+		key := prefix + "::" + first
+		idx.readName(key)
+		reexported := idx.reexported.at(key)
+		for _, sym := range idx.fqn.at(key) {
+			if !reexported.has(sym) {
+				return sym.Kind != SymbolAlias || prefix != fqn
+			}
+		}
+	}
+	idx.readName(first)
+	return len(idx.fqn.at(first)) != 0
+}
+
 // lookupTargets lists every namespace path may name from the namespace under fqn, as
 // name lookup reads it through named imports and aliases; not known when the index cannot tell.
-func (idx *Index) lookupTargets(fqn, path, of string, pending *ast.Import, look *targetLookup) (targets []string, known bool) {
+func (idx *Index) lookupTargets(fqn, path, of string, global bool, pending *ast.Import, look *targetLookup) (targets []string, known bool) {
 	reading := namedIn{fqn, of + path}
 	if kept, ok := look.targets[reading]; ok && kept.holds(look) {
 		look.passed |= kept.passed
@@ -152,6 +187,10 @@ func (idx *Index) lookupTargets(fqn, path, of string, pending *ast.Import, look 
 		look.targets[reading] = lookedUp{targets, known, passed, frame}
 	}()
 
+	// A path qualified from the root (`$::`) is sought there alone.
+	if global {
+		fqn = ""
+	}
 	name, rest, more := strings.Cut(path, "::")
 	for prefix := fqn; ; prefix = prefix[:max(lastSeparator(prefix), 0)] {
 		members, known := idx.membersByLookup(prefix, name, true, pending, look)
@@ -220,13 +259,13 @@ func (idx *Index) membersByLookup(fqn, name string, inside bool, pending *ast.Im
 		if !inside && imp.private {
 			continue
 		}
-		if look.passes(namedIn{fqn, ofWildcardImport + imp.target}) {
+		if look.passes(namedIn{fqn, ofWildcardImport + imp.target}) || !idx.surfacesBeside(fqn, imp.target, name) {
 			continue
 		}
 		if !idx.leftBy(fqn, imp.target, look) {
 			continue
 		}
-		targets, known := idx.lookupTargets(fqn, imp.target, ofWildcardImport, nil, look)
+		targets, known := idx.lookupTargets(fqn, imp.target, ofWildcardImport, false, nil, look)
 		if !known {
 			return nil, false
 		}
@@ -254,13 +293,10 @@ func (idx *Index) boundByLookup(fqn, key, name string, inside bool, pending *ast
 				imp.Imported.Parts[len(imp.Imported.Parts)-1].Text != name || (!inside && !VisibleOutside(imp.Visibility)) {
 				continue
 			}
-			if imp.Imported.Global {
-				return nil, false
-			}
 			if look.passes(namedIn{fqn, ofNamedImport + imp.Imported.Text()}) {
 				continue
 			}
-			targets, known := idx.lookupTargets(fqn, imp.Imported.Text(), ofNamedImport, imp, look)
+			targets, known := idx.lookupTargets(fqn, imp.Imported.Text(), ofNamedImport, imp.Imported.Global, imp, look)
 			if !known {
 				return nil, false
 			}
@@ -280,10 +316,10 @@ func (idx *Index) boundByLookup(fqn, key, name string, inside bool, pending *ast
 			continue
 		}
 		al, ok := sym.Decl.(*ast.Alias)
-		if !ok || al.For == nil || al.For.Global {
+		if !ok || al.For == nil {
 			return nil, false
 		}
-		targets, known := idx.lookupTargets(fqn, al.For.Text(), ofAlias, nil, look)
+		targets, known := idx.lookupTargets(fqn, al.For.Text(), ofAlias, al.For.Global, nil, look)
 		if !known {
 			return nil, false
 		}
