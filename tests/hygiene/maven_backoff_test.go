@@ -19,6 +19,10 @@ var mavenBackoff = []string{
 	"-Daether.connector.http.retryHandler.count=8",
 }
 
+// Maven 3.10 asks every remote repository for its prefix file in each run, whatever the local
+// repository holds, and backs off from a 429 to that for minutes: a tree asks for none.
+const mavenNoPrefixFiles = "-Daether.remoteRepositoryFilter.prefixes.resolvePrefixFiles=false"
+
 var mavenFile = regexp.MustCompile(`\bmvn\b[^\n]*?-f (\S+)/pom\.xml`)
 
 // mavenTrees lists the directories whose pom.xml no parent directory's pom.xml aggregates.
@@ -49,7 +53,7 @@ func TestEveryMavenTreeRetriesARateLimit(t *testing.T) {
 			continue
 		}
 		lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
-		for _, want := range mavenBackoff {
+		for _, want := range append([]string{mavenNoPrefixFiles}, mavenBackoff...) {
 			found := false
 			for _, line := range lines {
 				found = found || line == want
@@ -250,7 +254,7 @@ func TestMavenCacheIsSavedOnDevelopAlone(t *testing.T) {
 }
 
 // TestJavaAuditFallsBackToAMirror holds the SBOM plugin, which the Maven cache lacks, behind the
-// script that asks a mirror when Maven Central refuses it.
+// script that asks a mirror, and Maven Central when the mirror refuses it.
 func TestJavaAuditFallsBackToAMirror(t *testing.T) {
 	raw, err := os.ReadFile("../../Makefile")
 	if err != nil {

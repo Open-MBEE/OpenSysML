@@ -134,6 +134,18 @@ func (w *dotWriter) anchorPoint(node *Node, box nodeBox) Point {
 	if w.lines != LinesOrtho {
 		return centre
 	}
+	obstacles := w.anchorObstacles(node, box)
+	if clearOf(obstacles, centre) {
+		return centre
+	}
+	if p, found := nearestClearPoint(box, obstacles, centre); found {
+		return p
+	}
+	return clearestPoint(box, obstacles, centre)
+}
+
+// anchorObstacles are the boxes a cluster's anchor keeps off: the nodes drawn in it, the pins and the notes not around it.
+func (w *dotWriter) anchorObstacles(node *Node, box nodeBox) []nodeBox {
 	var obstacles []nodeBox
 	var members func(nodes []*Node)
 	members = func(nodes []*Node) {
@@ -154,18 +166,22 @@ func (w *dotWriter) anchorPoint(node *Node, box nodeBox) Point {
 			obstacles = append(obstacles, note)
 		}
 	}
-	free := func(p Point) bool {
-		for _, o := range obstacles {
-			if p.X > o.low.X-dotAnchorClearance && p.X < o.high.X+dotAnchorClearance &&
-				p.Y > o.low.Y-dotAnchorClearance && p.Y < o.high.Y+dotAnchorClearance {
-				return false
-			}
+	return obstacles
+}
+
+// clearOf reports whether p lies a clearance or more off every obstacle.
+func clearOf(obstacles []nodeBox, p Point) bool {
+	for _, o := range obstacles {
+		if p.X > o.low.X-dotAnchorClearance && p.X < o.high.X+dotAnchorClearance &&
+			p.Y > o.low.Y-dotAnchorClearance && p.Y < o.high.Y+dotAnchorClearance {
+			return false
 		}
-		return true
 	}
-	if free(centre) {
-		return centre
-	}
+	return true
+}
+
+// nearestClearPoint is the point inside the box nearest centre that is clear of the obstacles, if there is one.
+func nearestClearPoint(box nodeBox, obstacles []nodeBox, centre Point) (Point, bool) {
 	// Beside an obstacle the nearest clear point lies on a line one clearance off a box's side.
 	xs, ys := []float64{centre.X}, []float64{centre.Y}
 	for _, o := range obstacles {
@@ -176,7 +192,7 @@ func (w *dotWriter) anchorPoint(node *Node, box nodeBox) Point {
 	for _, x := range xs {
 		for _, y := range ys {
 			p := Point{X: x, Y: y}
-			if x <= box.low.X || x >= box.high.X || y <= box.low.Y || y >= box.high.Y || !free(p) {
+			if x <= box.low.X || x >= box.high.X || y <= box.low.Y || y >= box.high.Y || !clearOf(obstacles, p) {
 				continue
 			}
 			if !found || nearer(p, best, centre) {
@@ -184,10 +200,7 @@ func (w *dotWriter) anchorPoint(node *Node, box nodeBox) Point {
 			}
 		}
 	}
-	if found {
-		return best
-	}
-	return clearestPoint(box, obstacles, centre)
+	return best, found
 }
 
 // clearestPoint is the point in the box farthest from the obstacles when none is a clearance off them all:
@@ -202,12 +215,12 @@ func clearestPoint(box nodeBox, obstacles []nodeBox, centre Point) Point {
 	best, room := centre, 0.0
 	for _, x := range xs {
 		for _, y := range ys {
-			p, clear := Point{X: x, Y: y}, math.Inf(1)
+			p, gap := Point{X: x, Y: y}, math.Inf(1)
 			for _, o := range obstacles {
-				clear = math.Min(clear, max(o.low.X-x, x-o.high.X, o.low.Y-y, y-o.high.Y))
+				gap = math.Min(gap, max(o.low.X-x, x-o.high.X, o.low.Y-y, y-o.high.Y))
 			}
-			if clear > room || clear == room && room > 0 && nearer(p, best, centre) {
-				best, room = p, clear
+			if gap > room || gap == room && room > 0 && nearer(p, best, centre) {
+				best, room = p, gap
 			}
 		}
 	}

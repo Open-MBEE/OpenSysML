@@ -1,1 +1,0 @@
-- The query leg answers `isAbstract` and `isIndividual` as reflection derives them, not from the declaring keyword alone: an enumeration definition is abstract (a variation), and a `state s;` of a state body, a transition, a connector's port end and a metadata or constraint usage carry an `isIndividual` of their own — as the pilot exports them.

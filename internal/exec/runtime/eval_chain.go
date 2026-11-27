@@ -109,6 +109,13 @@ func (ec *EvalContext) enactedConstraintChain(base ast.Node, parts []ast.NameSeg
 
 // occurrenceChainValue reads the chain's members from the object sym denotes.
 func (ec *EvalContext) occurrenceChainValue(sym *symbols.Symbol, parts []ast.NameSegment) (Value, error) {
+	// A connection the behavior performed declares is the performance's connector, as a bare `link` reads it.
+	if val, ok, err := ec.performedConnector(sym); ok {
+		if err != nil {
+			return Value{}, err
+		}
+		return ec.chainMemberValue(val, parts, sym.Name)
+	}
 	// A usage of the behavior performed is read from its performance, so `fresh.n`
 	// inside `go` reads the part the performance holds, as a bare `fresh` does.
 	if val, ok, err := ec.performanceFeatureOf(sym); ok {
@@ -174,12 +181,53 @@ func (ec *EvalContext) operandChainValue(operand Value, base ast.Node, parts []a
 		}
 		// Objects the probe took back stay unread, but how many the model fixes is read.
 		if open, err := ec.chainMemberValue(operand, parts, ""); held == nil || err != nil || open.Kind != ValUndetermined {
-			return open, err
+			return open, readFrom(err, base)
 		} else {
 			return open.Undetermined().counting(*held), nil
 		}
 	}
-	return ec.chainMemberValue(operand, parts, "")
+	val, err := ec.chainMemberValue(operand, parts, "")
+	return val, readFrom(err, base)
+}
+
+// memberOfValueError reports a member read from a value that is no object and so has none.
+type memberOfValueError struct {
+	member string
+	from   string // the feature the value was read from, empty for a computed value
+	value  Value
+}
+
+func (e *memberOfValueError) Error() string {
+	read := "cannot read member " + e.member
+	if e.from != "" {
+		read += " of " + e.from
+	}
+	what := DescribeValue(e.value)
+	switch e.value.Kind {
+	case ValUndetermined:
+		// What the model leaves open may hold objects, so it is not said to have no members.
+		return read + ": the model does not determine the value it is read from"
+	case ValString:
+		what = "a String"
+	case ValNull, ValConst, ValComplex, ValQuantity:
+	default:
+		what = "a value that is " + what
+	}
+	return read + ": " + what + " has no members"
+}
+
+// readFrom names the feature chain base spells as the source of a member read
+// refused for a value, when the read itself knew no name for it.
+func readFrom(err error, base ast.Node) error {
+	var refused *memberOfValueError
+	if !errors.As(err, &refused) || refused.from != "" {
+		return err
+	}
+	switch base.(type) {
+	case *ast.FeatureReference, *ast.FeatureChainExpr:
+		refused.from = chainText(base)
+	}
+	return err
 }
 
 // chainMembersDeclared reports the first chain member nothing declares, so
@@ -278,14 +326,14 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 		}
 	case ValMetaobject:
 		// A metaobject answers its metaclass's features for the element it denotes.
-		return ec.chainOwnFeature(value, parts, from)
+		return ec.chainOwnFeature(value, parts)
 	case ValUndetermined:
 		return ec.chainThroughUndetermined(value, parts, from)
 	default:
 		if err := metadataOfAValue(value, parts); err != nil {
 			return Value{}, err
 		}
-		return Value{}, fmt.Errorf("cannot chain through non-instance member %s (%v)", from, value.Kind)
+		return Value{}, &memberOfValueError{member: parts[0].Text, from: from, value: value}
 	}
 
 	return ec.chainObjectMember(value, parts, from)
@@ -301,7 +349,7 @@ func (ec *EvalContext) chainObjectMember(value Value, parts []ast.NameSegment, f
 		if err := metadataOfAValue(value, parts); err != nil {
 			return Value{}, err
 		}
-		return Value{}, fmt.Errorf("cannot chain through non-instance member %s (%v)", from, value.Kind)
+		return Value{}, &memberOfValueError{member: parts[0].Text, from: from, value: value}
 	}
 	inst, ok := ec.ctx.instances[id]
 	if !ok {
@@ -359,7 +407,7 @@ func (ec *EvalContext) chainObjectMember(value Value, parts []ast.NameSegment, f
 func (ec *EvalContext) chainThroughStructured(value Value, parts []ast.NameSegment, from string) (Value, error) {
 	inst, ok := ec.ctx.structuredObject(value)
 	if !ok || !(isStructuredValue(&value) || value.Kind == ValQuantity) {
-		return ec.chainOwnFeature(value, parts, from)
+		return ec.chainOwnFeature(value, parts)
 	}
 	// A scalar quantity answers its own features (`num`, `mRef`) as the value it
 	// is; its object answers the members a specialization adds.
@@ -439,12 +487,12 @@ func (ec *EvalContext) chainFeatureValue(inst *Instance, name string, rest []ast
 
 // chainOwnFeature continues a chain through a feature the value answers from
 // itself rather than from an object it names.
-func (ec *EvalContext) chainOwnFeature(value Value, parts []ast.NameSegment, from string) (Value, error) {
+func (ec *EvalContext) chainOwnFeature(value Value, parts []ast.NameSegment) (Value, error) {
 	member, err := ec.ownFeature(value, parts[0].Text)
 	if err != nil {
 		return Value{}, err
 	}
-	return ec.chainMemberValue(member, parts[1:], from)
+	return ec.chainMemberValue(member, parts[1:], parts[0].Text)
 }
 
 // chainOverElements reads the rest of a chain from every element of a

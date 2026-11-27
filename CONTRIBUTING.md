@@ -322,10 +322,10 @@ syntactic construct the whole corpus does; unset, they walk the whole corpus.
 
 **The quick tier** is what every push to a pull request gets, draft or ready, in about half the
 runner time of the full tier and a third of its wall time: the binaries, the same Go suite without
-`-race` in nine groups of the race shards (`make test-quick`), the download-free static checks
-(gofmt, vet, the production build, grpc imports, proto lint and breaking), the WebAssembly, Xpect
-and conformance gates, and only the clients, editors and docs whose own paths changed. The lint,
-the corpus and solver gates, the PDF toolchain and the fan-out from a service change to every
+`-race` in nine groups of the race shards (`make test-quick`), the cheap static checks
+(gofmt, vet, `make lint`, the production build, grpc imports, proto lint and breaking), the WebAssembly, Xpect
+and conformance gates, and only the clients, editors and docs whose own paths changed. The
+corpus and solver gates, the PDF toolchain and the fan-out from a service change to every
 client wait for the full tier. Only a push touching a path no area claims escalates itself to
 the full tier (`scripts/ci-changed-areas.sh`, and its test pins it).
 
@@ -406,7 +406,11 @@ Maven is held to the same policy. Each Maven tree (`client/java`, `editors/mdk`,
 carries a `.mvn/maven.config` that raises the resolver's retries on a 429 or 503 from three to
 eight, about three minutes of backoff, or as long as the server's `Retry-After` asks. It names the
 count twice because Maven 3.9 (Wagon) reads only `aether.connector.http.retryHandler.count` and
-Maven 3.10 (the Apache transport) only `aether.transport.http.retryHandler.count`. Run `mvn` with
+Maven 3.10 (the Apache transport) only `aether.transport.http.retryHandler.count`. A third line,
+`aether.remoteRepositoryFilter.prefixes.resolvePrefixFiles=false`, stops Maven 3.10 asking each
+remote repository for its prefix file (`.meta/prefixes.txt`) in every run: it asks for that file
+even when the cache holds every artifact, and a 429 to it costs each `mvn` call the whole backoff
+per repository. Run `mvn` with
 `-f <tree>/pom.xml` so the file applies. `.github/workflows/maven-cache.yml` resolves the three
 trees on every push to `develop` that changes a `pom.xml`, and daily, and saves `~/.m2/repository`
 keyed on the hash of every `pom.xml` and of that workflow. It runs the tests and ignores their
@@ -422,11 +426,12 @@ holds a single tree's dependencies. A pull request that changes a `pom.xml` rest
 earlier entry.
 
 The cache holds what the builds resolve, which leaves out the CycloneDX plugin `make audit-java`
-runs, so the audit is the one Maven step that asks Maven Central in every job. It runs the plugin
+runs, so the audit is the one Maven step that fetches from a remote repository in every job. It runs the plugin
 through `scripts/maven-sbom.sh`, which makes up to four attempts (`MAVEN_SBOM_ATTEMPTS`) when Maven
-reports an artifact it could not fetch: the second and fourth read
+reports an artifact it could not fetch: the first and third read
 `scripts/maven-central-mirror-settings.xml` as Maven's global settings (`-gs`, so a user's own
-`settings.xml` and its proxy still apply), which sends `central` to Google's mirror of it, and
+`settings.xml` and its proxy still apply), which sends `central` to Google's mirror of it, so the
+audit asks Maven Central only when the mirror refuses, and
 every attempt after the first passes `-U` so that Maven asks again for what it was just refused.
 Any other Maven failure fails the audit on the first attempt, and osv-scanner scans only an SBOM
 Maven wrote. Each attempt runs under GNU `timeout` for 90 seconds (`MAVEN_SBOM_TIMEOUT_SECONDS`),

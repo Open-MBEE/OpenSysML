@@ -1,7 +1,9 @@
 package lower
 
 import (
+	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -417,6 +419,84 @@ func TestAssignIDs_RegionOriginsCarryDocumentAndOwner(t *testing.T) {
 		origin := graph.RegionOrigins[id]
 		if origin.Doc != "test.sysml" || !strings.HasPrefix(origin.Path, "test::Machine") {
 			t.Errorf("region %d origin = %#v", id, origin)
+		}
+	}
+}
+
+// Transitions out of graph-only region owners are in no vertex list; their
+// order follows the region tables, not the iteration of the Transitions map.
+func TestTransitionsInOrder_GraphOnlySourcesFollowRegionOrder(t *testing.T) {
+	const regions = 8
+	parent := &ast.StateNode{Name: "outer"}
+	graph := &StateGraph{
+		States:          []*ast.StateNode{parent},
+		HiddenStates:    map[*ast.StateNode]bool{},
+		RegionState:     map[*ast.StateRegion]*ast.StateNode{},
+		ParentState:     map[*ast.StateNode]*ast.StateNode{},
+		CompositeStates: map[*ast.StateNode][]*ast.StateRegion{},
+		Transitions:     map[ast.Node][]*Transition{},
+	}
+	var want []*Transition
+	for i := 0; i < regions; i++ {
+		// One span for all: nothing but the region table orders them.
+		owner := &ast.StateNode{Name: fmt.Sprintf("r%d", i)}
+		region := &ast.StateRegion{Name: owner.Name}
+		graph.HiddenStates[owner] = true
+		graph.RegionState[region] = owner
+		graph.ParentState[owner] = parent
+		graph.CompositeStates[parent] = append(graph.CompositeStates[parent], region)
+		trans := &Transition{}
+		graph.Transitions[owner] = []*Transition{trans}
+		want = append(want, trans)
+	}
+	for run := 0; run < 20; run++ {
+		if got := graph.transitionsInOrder(); !slices.Equal(got, want) {
+			t.Fatalf("run %d: transitions are not in region order", run)
+		}
+		sources := graph.transitionSources()
+		for i, source := range sources {
+			if source.(*ast.StateNode).Name != fmt.Sprintf("r%d", i) {
+				t.Fatalf("run %d: source %d is %s", run, i, source.(*ast.StateNode).Name)
+			}
+		}
+		if len(sources) != regions {
+			t.Fatalf("run %d: %d sources, want %d", run, len(sources), regions)
+		}
+	}
+}
+
+// The graph-only owners of a parallel state's regions are its children in
+// declaration order, however the ParentState map iterates.
+func TestChildren_HiddenRegionOwnersInDeclarationOrder(t *testing.T) {
+	graph, err := ToStateGraph(stateDefinitionIn(t, `
+		package test {
+			state def Machine {
+				entry; then outer;
+				state outer parallel {
+					state a { entry; then a1; state a1; }
+					state b { entry; then b1; state b1; }
+					state c { entry; then c1; state c1; }
+					state d { entry; then d1; state d1; }
+					state e { entry; then e1; state e1; }
+					state f { entry; then f1; state f1; }
+				}
+			}
+		}
+	`), nil)
+	if err != nil {
+		t.Fatalf("ToStateGraph: %v", err)
+	}
+	outer := stateNamed(graph, "outer")
+	for run := 0; run < 20; run++ {
+		var names []string
+		for _, child := range graph.children(outer) {
+			if !graph.HiddenStates[child] {
+				t.Fatalf("child %s of the parallel state is not a region owner", child.Name)
+			}
+			names = append(names, child.Name)
+		}
+		if want := []string{"a", "b", "c", "d", "e", "f"}; !slices.Equal(names, want) {
+			t.Fatalf("run %d: children = %v, want %v", run, names, want)
 		}
 	}
 }

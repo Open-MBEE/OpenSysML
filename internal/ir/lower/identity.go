@@ -1,7 +1,6 @@
 package lower
 
 import (
-	"sort"
 	"strconv"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
@@ -296,6 +295,7 @@ func (g *StateGraph) assignStateIDs(paths originPaths) {
 		}
 		g.Origins = append(g.Origins, g.vertexOrigin(state, scope, sym, state.Name, paths))
 	}
+	g.machineID = program.StateID(tableIndex(len(g.Provenance.states)))
 }
 
 // regionsInOrder lists the graph's regions once each: the machine's own, then
@@ -375,29 +375,8 @@ func (g *StateGraph) vertexOrigin(decl ast.Node, scope *symbols.Scope, sym *symb
 // state in state order, then each pseudostate's, then any other source's by position.
 func (g *StateGraph) transitionsInOrder() []*Transition {
 	var out []*Transition
-	seen := make(map[ast.Node]bool)
-	add := func(source ast.Node) {
-		if seen[source] {
-			return
-		}
-		seen[source] = true
+	for _, source := range g.transitionSources() {
 		out = append(out, g.Transitions[source]...)
-	}
-	for _, state := range g.States {
-		add(state)
-	}
-	for _, ps := range g.Pseudostates {
-		add(ps)
-	}
-	var rest []ast.Node
-	for source := range g.Transitions {
-		if !seen[source] {
-			rest = append(rest, source)
-		}
-	}
-	sort.Slice(rest, func(i, j int) bool { return rest[i].Span().Offset < rest[j].Span().Offset })
-	for _, source := range rest {
-		add(source)
 	}
 	return out
 }

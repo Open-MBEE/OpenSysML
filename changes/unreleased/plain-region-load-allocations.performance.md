@@ -1,1 +1,0 @@
-- Loading a model no longer builds new tables on every name lookup to decide whether a namespace's imports can be read in one visit: the resolver keeps them between lookups.

@@ -609,7 +609,16 @@ func (e *StateExecutor) stateAttributeContext(state *ast.StateNode, scope *symbo
 // initializeStateAttributes gives every state that owns attributes its own
 // values, so two usages of one state definition never share them.
 func (e *StateExecutor) initializeStateAttributes() error {
-	for state, attrs := range e.graph.StateAttributes {
+	// A state's defaults are evaluated after those of the states around it, which they
+	// may read, and otherwise in the order of the states' ids, the same every run.
+	states := slices.SortedFunc(maps.Keys(e.graph.StateAttributes), func(a, b *ast.StateNode) int {
+		return cmp.Or(
+			cmp.Compare(len(e.getParentChain(a)), len(e.getParentChain(b))),
+			cmp.Compare(e.stateID(a), e.stateID(b)),
+		)
+	})
+	for _, state := range states {
+		attrs := e.graph.StateAttributes[state]
 		if len(attrs) == 0 {
 			continue
 		}
@@ -667,6 +676,16 @@ func (e *StateExecutor) initializeStateAttributes() error {
 	return nil
 }
 
+// attrFrame is the frame of the attributes state itself owns, if it owns any.
+func (e *StateExecutor) attrFrame(state *ast.StateNode) (frame, bool) {
+	id := e.stateID(state)
+	data := e.stateAttrs[id]
+	if data == nil {
+		return frame{}, false
+	}
+	return frame{vars: data, cells: e.stateAttrCells[id], held: e.stateAttrIndex[id]}, true
+}
+
 // attrFramesFor are the attribute values a behavior of state reads, outermost
 // state first so an inner state's attribute shadows an enclosing one's.
 func (e *StateExecutor) attrFramesFor(state *ast.StateNode) []frame {
@@ -676,8 +695,8 @@ func (e *StateExecutor) attrFramesFor(state *ast.StateNode) []frame {
 	var frames []frame
 	chain := e.getParentChain(state)
 	for i := len(chain) - 1; i >= 0; i-- {
-		if data := e.stateAttrs[e.stateID(chain[i])]; data != nil {
-			frames = append(frames, frame{vars: data, cells: e.stateAttrCells[e.stateID(chain[i])], held: e.stateAttrIndex[e.stateID(chain[i])]})
+		if fr, ok := e.attrFrame(chain[i]); ok {
+			frames = append(frames, fr)
 		}
 	}
 	return frames
@@ -1207,7 +1226,7 @@ func (e *StateExecutor) nextEvent() (Event, error) {
 		fps[i] = e.eventFootprint(tied[i])
 	}
 	choice.alike = e.ctx.heldAlike
-	classifyChoice(&choice, fps, nil)
+	classifyChoice(e.ctx.choiceSerials, &choice, fps, nil)
 	scheduling := e.ctx.scheduling()
 	choice.Taken = scheduling.choose(choice, nil)
 	if err := scheduling.refusal(); err != nil {
@@ -1802,7 +1821,7 @@ func (e *StateExecutor) regionOrderChoice(where string, states []*ast.StateNode,
 		fps[i] = footprint(state)
 	}
 	choice.alike = e.ctx.heldAlike
-	classifyChoice(&choice, fps, nil)
+	classifyChoice(e.ctx.choiceSerials, &choice, fps, nil)
 	choice.Taken = e.ctx.scheduling().choose(choice, nil)
 	choice.Span = states[choice.Taken].Span()
 	return choice
@@ -2254,7 +2273,7 @@ func (e *StateExecutor) transitionChoice(transitions []*lower.Transition, enable
 		alts[i] = transitionName(transitions, pos)
 	}
 	choice := ChoicePoint{Kind: ChoiceTransition, Alternatives: alts}
-	classifyExclusive(&choice, e.transitionFootprints(transitions, enabled))
+	classifyExclusive(e.ctx.choiceSerials, &choice, e.transitionFootprints(transitions, enabled))
 	return choice, true
 }
 
@@ -4422,7 +4441,7 @@ func (e *StateExecutor) stepOrderChoice(due []*doAction, dispatch string) Choice
 		steps = unionFootprints(steps, doStepFootprint(e, e.stateDecl(act.state)))
 	}
 	choice.alike = e.ctx.heldAlike
-	classifyChoice(&choice, []lower.Footprint{steps, dispatchFootprint(e)}, nil)
+	classifyChoice(e.ctx.choiceSerials, &choice, []lower.Footprint{steps, dispatchFootprint(e)}, nil)
 	return choice
 }
 

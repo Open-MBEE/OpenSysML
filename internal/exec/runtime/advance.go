@@ -307,7 +307,7 @@ func (ctx *Context) drawDueOrder(due []clockWaiter) (int, error) {
 	}
 	choice.alike = ctx.heldAlike
 	holder := ctx.slotHolders()
-	classifyChoice(&choice, fps, func(i, j int) lower.Relation { return ctx.relationBy(due[i], due[j], holder) })
+	classifyChoice(ctx.choiceSerials, &choice, fps, func(i, j int) lower.Relation { return ctx.relationBy(due[i], due[j], holder) })
 	scheduling := ctx.scheduling()
 	pick := scheduling.choose(choice, nil)
 	if err := scheduling.refusal(); err != nil {

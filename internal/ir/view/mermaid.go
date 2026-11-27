@@ -1543,6 +1543,9 @@ func mermaidPictureSource(picture Picture) (string, string, bool) {
 		}
 		return src, "", true
 	}
+	if picture.outside() {
+		return "", ErrOutsidePicture.Error(), false
+	}
 	path := picture.Path()
 	info, err := os.Stat(path)
 	if err != nil {
