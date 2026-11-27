@@ -68,7 +68,35 @@ package PlacedLane {
 		metadata Layout about runB::pack { x = 350; y = 190; }
 	}
 
-	// The first of the two flows folded: its lane is not drawn.
+	// Both flows placed, and a node of the second.
+	view pinnedView : ActionFlowView {
+		expose runA;
+		expose runB;
+		metadata Layout about runA { x = 40; y = 40; width = 600; height = 400; }
+		metadata Layout about runB { x = 700; y = 40; width = 600; height = 400; }
+		metadata Layout about station::robot { x = 320; y = 120; width = 220; height = 180; }
+		metadata Layout about runB::pack { x = 900; y = 200; }
+	}
+
+	// pinnedView with its first flow folded, and with its second.
+	view pinnedFirstFoldedView : ActionFlowView {
+		expose runA;
+		expose runB;
+		metadata Layout about runA { x = 40; y = 40; width = 600; height = 400; collapsed = true; }
+		metadata Layout about runB { x = 700; y = 40; width = 600; height = 400; }
+		metadata Layout about station::robot { x = 320; y = 120; width = 220; height = 180; }
+		metadata Layout about runB::pack { x = 900; y = 200; }
+	}
+	view pinnedSecondFoldedView : ActionFlowView {
+		expose runA;
+		expose runB;
+		metadata Layout about runA { x = 40; y = 40; width = 600; height = 400; }
+		metadata Layout about runB { x = 700; y = 40; width = 600; height = 400; collapsed = true; }
+		metadata Layout about station::robot { x = 320; y = 120; width = 220; height = 180; }
+		metadata Layout about runB::pack { x = 900; y = 200; }
+	}
+
+	// The first of the two flows folded: its lane, the placed one, is not drawn.
 	view foldedFlowView : ActionFlowView {
 		expose runA;
 		expose runB;

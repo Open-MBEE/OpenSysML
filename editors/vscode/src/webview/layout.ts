@@ -2315,41 +2315,14 @@ function midpoint(points: RenderPoint[]): RenderPoint {
   return points[0] ?? { x: 0, y: 0 };
 }
 
-/** movable reports whether a node can be dragged: a workspace document declares it, so a Layout can reach it, and it is no row listing a performer nor a lane another lane of its performer is placed for. */
+/** movable reports whether a node can be dragged: a workspace document declares it, so a Layout can reach it, and it is no row listing a performer nor a lane the Layout about its performer leaves to another. */
 export function movable(layout: CanvasLayout, entry: PlacedNode): boolean {
   return (
     layout.placeable &&
     reachable(entry.node) &&
     entry.node.kind !== PERFORMER_ROW_KIND &&
-    placedLane(layout, entry) === entry
+    !entry.node.fitted
   );
-}
-
-// placedLane is the lane a Layout about a swimlane's performer places: the outermost of the
-// performer's lanes in the diagram, then the first drawn. Any other node is its own.
-function placedLane(layout: CanvasLayout, entry: PlacedNode): PlacedNode {
-  const performer = laneOrigin(entry);
-  if (performer === undefined) {
-    return entry;
-  }
-  const depth = (of: PlacedNode): number => (of.parent ? depth(of.parent) + 1 : 0);
-  let placed: PlacedNode | undefined;
-  for (const other of layout.nodes.values()) {
-    if (laneOrigin(other) === performer && (placed === undefined || depth(other) < depth(placed))) {
-      placed = other;
-    }
-  }
-  return placed ?? entry;
-}
-
-// laneOrigin names the declaration of a swimlane's performer, as the renderer tells its lanes apart; undefined for any other node.
-function laneOrigin(entry: PlacedNode): string | undefined {
-  const origin = entry.node.origin;
-  if (entry.node.kind !== SWIMLANE_KIND || origin === undefined) {
-    return undefined;
-  }
-  const { start, end } = origin.range;
-  return `${origin.uri}#${start.line}:${start.character}-${end.line}:${end.character}`;
 }
 
 /** fixedReason says why a node of a placeable diagram cannot be dragged, undefined for one that can or a diagram nothing moves in. */
@@ -2359,7 +2332,7 @@ export function fixedReason(layout: CanvasLayout, entry: PlacedNode): string | u
   }
   const name = entry.node.name || entry.node.kind;
   if (entry.node.kind === SWIMLANE_KIND && reachable(entry.node)) {
-    return `${name} has another swimlane in this diagram, the outermost or the first drawn, and its Layout places that one; drag that swimlane instead.`;
+    return `${name} has another swimlane in this view, the outermost or the first, and its Layout places that one, drawn or folded away; drag that swimlane instead.`;
   }
   if (entry.node.kind === PERFORMER_ROW_KIND) {
     return `${name} is listed as a performer here and moves with the action it performs; drag its swimlane to place it.`;

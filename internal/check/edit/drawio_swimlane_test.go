@@ -3,6 +3,7 @@ package edit
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -126,24 +127,87 @@ func TestDrawioMovedSwimlaneLeavesItsPerformersOtherLane(t *testing.T) {
 	}
 }
 
-// With the performer's first flow folded, the lane drawn in the next flow is the placed one:
-// moved in the file, it is a Layout about the performer, and it is re-exported where the file put it.
-func TestDrawioMovedSwimlaneOfTheFlowBesideAFoldedOne(t *testing.T) {
-	lane := laneOf("PlacedLane::runB::pack")
-	edited, imp, re := swimlaneRoundTrip(t, "PlacedLane::foldedFlowView", lane, shifted(t, 40, 30))
-	at := slices.IndexFunc(imp.Edits, func(e view.DrawioEdit) bool {
-		return e.Kind == view.DrawioEditLayout && e.FQN == "PlacedLane::station::robot"
-	})
-	if at < 0 {
-		t.Fatalf("edits = %+v, want a Layout about PlacedLane::station::robot", imp.Edits)
+// foldedIn sets the fold of the cell id of the document.
+func foldedIn(t *testing.T, collapsed string) func(document, id string) string {
+	return func(document, id string) string {
+		return drawioMutate(t, document, id, func(cell string) string {
+			if strings.Contains(cell, ` collapsed="`) {
+				return regexp.MustCompile(` collapsed="[01]"`).ReplaceAllString(cell, ` collapsed="`+collapsed+`"`)
+			}
+			return strings.Replace(cell, "<mxCell ", `<mxCell collapsed="`+collapsed+`" `, 1)
+		})
 	}
-	for name, pick := range map[string]func(*view.DrawioFile) *view.DrawioCell{"flow": cellNamed("PlacedLane::runB"), "swimlane": lane, "pack": cellNamed("PlacedLane::runB::pack")} {
-		was, again := pick(edited), pick(re)
-		if was == nil || again == nil {
-			t.Fatalf("%s: in the file %v, re-exported %v, want both", name, was, again)
-		}
-		if !drawioSameBox(was.Geometry, again.Geometry) {
-			t.Errorf("%s was at %+v, re-exported at %+v (edits %+v)", name, was.Geometry, again.Geometry, imp.Edits)
+}
+
+// laneIn picks the swimlane drawn in the frame of the flow of a qualified name.
+func laneIn(flow string) func(*view.DrawioFile) *view.DrawioCell {
+	return func(f *view.DrawioFile) *view.DrawioCell {
+		frame := cellNamed(flow)(f)
+		return drawioFirst(f, func(c *view.DrawioCell) bool {
+			return frame != nil && c.Vertex && c.Parent == frame.ID && strings.Contains(c.Label, "«performer»")
+		})
+	}
+}
+
+// Folding a flow in the file moves no lane of another flow: the Layout about the performer
+// stays with its first lane, drawn or folded away.
+func TestDrawioFoldedFlowLeavesTheSwimlaneOfAnother(t *testing.T) {
+	for _, c := range []struct {
+		name, view, flow, other, step string
+		alone                         bool // the fold is the import's one edit: nothing else needs pinning
+	}{
+		{"the placed lane's flow", "PlacedLane::sharedView", "PlacedLane::runA", "PlacedLane::runB", "PlacedLane::runB::pack", false},
+		{"the other flow", "PlacedLane::sharedView", "PlacedLane::runB", "PlacedLane::runA", "PlacedLane::runA::load", false},
+		{"the placed lane's flow, both flows placed", "PlacedLane::pinnedView", "PlacedLane::runA", "PlacedLane::runB", "PlacedLane::runB::pack", true},
+		{"the other flow, both flows placed", "PlacedLane::pinnedView", "PlacedLane::runB", "PlacedLane::runA", "", true},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			edited, imp, re := swimlaneRoundTrip(t, c.view, cellNamed(c.flow), foldedIn(t, "1"))
+			if !slices.ContainsFunc(imp.Edits, func(e view.DrawioEdit) bool { return e.FQN == c.flow && e.Layout != nil && e.Layout.Collapsed }) {
+				t.Fatalf("edits = %+v, want the fold of %s", imp.Edits, c.flow)
+			}
+			if c.alone && len(imp.Edits) != 1 {
+				t.Errorf("edits = %+v, want the fold of %s alone", imp.Edits, c.flow)
+			}
+			if folded := cellNamed(c.flow)(re); folded == nil || !folded.Collapsed {
+				t.Errorf("%s re-exported as %+v, want it folded", c.flow, folded)
+			}
+			// A flow no Layout places is arranged anew beside the folded one, as with no lane at all: its lane and step keep their place in it.
+			wasFlow, flow := cellNamed(c.other)(edited), cellNamed(c.other)(re)
+			if wasFlow == nil || flow == nil {
+				t.Fatalf("%s: in the file %v, re-exported %v, want both", c.other, wasFlow, flow)
+			}
+			if c.alone && !drawioSameBox(wasFlow.Geometry, flow.Geometry) {
+				t.Errorf("%s was at %+v, re-exported at %+v", c.other, wasFlow.Geometry, flow.Geometry)
+			}
+			picks := map[string]func(*view.DrawioFile) *view.DrawioCell{"swimlane": laneIn(c.other)}
+			if c.step != "" {
+				picks["step"] = cellNamed(c.step)
+			}
+			for name, pick := range picks {
+				was, again := pick(edited), pick(re)
+				if was == nil || again == nil {
+					t.Fatalf("%s of %s: in the file %v, re-exported %v, want both", name, c.other, was, again)
+				}
+				in := again.Geometry
+				in.X, in.Y = in.X-flow.Geometry.X+wasFlow.Geometry.X, in.Y-flow.Geometry.Y+wasFlow.Geometry.Y
+				if !drawioSameBox(was.Geometry, in) || was.Parent != again.Parent {
+					t.Errorf("%s of %s was at %+v in %s, re-exported at %+v in %s, its flow from %+v to %+v", name, c.other, was.Geometry, was.Parent, again.Geometry, again.Parent, wasFlow.Geometry, flow.Geometry)
+				}
+			}
+			if c.step != "" && cellNamed(c.step)(re).Parent != laneIn(c.other)(re).ID {
+				t.Errorf("%s re-exported outside its swimlane", c.step)
+			}
+		})
+	}
+}
+
+// Beside the folded flow of the placed lane, a moved lane is one no Layout places: no Layout about the performer is written.
+func TestDrawioMovedSwimlaneBesideItsFoldedPlacedLane(t *testing.T) {
+	_, imp, _ := swimlaneRoundTrip(t, "PlacedLane::foldedFlowView", laneOf("PlacedLane::runB::pack"), shifted(t, 40, 30))
+	for _, e := range imp.Edits {
+		if e.FQN == "PlacedLane::station::robot" {
+			t.Errorf("edits = %+v, want none about PlacedLane::station::robot", imp.Edits)
 		}
 	}
 }

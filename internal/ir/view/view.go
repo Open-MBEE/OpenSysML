@@ -366,6 +366,9 @@ type Node struct {
 	// StandIn marks a node a migration made up that stands for no element of its
 	// source, so no diagram symbol is at it: a join it wrote several edges through.
 	StandIn bool
+	// Fitted marks a swimlane the Layout about its performer does not place, another lane
+	// of the performer in the rendering being that Layout's: it is drawn around its nodes.
+	Fitted bool
 	// Elided marks a node whose Layout hid compartment rows; the notation marks
 	// the box with an ellipsis at its lower left (§8.2.3.2 ellipsis-at-lower-left-corner).
 	Elided bool

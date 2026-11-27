@@ -1167,12 +1167,12 @@ test("a lane does not move when its performer has a lane drawn earlier or in an 
       lane("outer", "run", "arm"),
       lane("anon", "run", "", { ...unnamed, origin: declared("file:///parts.sysml", 9) }),
       node("build", "build", { parent: "run" }),
-      lane("inner", "build", "arm"),
+      lane("inner", "build", "arm", { fitted: true }),
       lane("only", "build", "robot"),
       lane("namesake", "build", "arm", { origin: declared("file:///more.sysml", 3) }),
-      lane("anonInner", "build", "", { ...unnamed, origin: declared("file:///parts.sysml", 9) }),
+      lane("anonInner", "build", "", { ...unnamed, origin: declared("file:///parts.sysml", 9), fitted: true }),
       node("other", "other"),
-      lane("apart", "other", "arm"),
+      lane("apart", "other", "arm", { fitted: true }),
     ]),
   );
   for (const id of ["outer", "anon", "only", "namesake"]) {
@@ -1182,8 +1182,8 @@ test("a lane does not move when its performer has a lane drawn earlier or in an 
     assert.equal(movable(nested, nested.nodes.get(id)!), false, id);
     assert.equal(movedNode(nested, id, 10, 10), undefined, id);
   }
-  assert.match(fixedReason(nested, nested.nodes.get("inner")!) ?? "", /^arm has another swimlane in this diagram/);
-  assert.match(fixedReason(nested, nested.nodes.get("apart")!) ?? "", /^arm has another swimlane in this diagram/);
+  assert.match(fixedReason(nested, nested.nodes.get("inner")!) ?? "", /^arm has another swimlane in this view/);
+  assert.match(fixedReason(nested, nested.nodes.get("apart")!) ?? "", /^arm has another swimlane in this view/);
 });
 
 test("movable and steerable take a target another document declares, named or not, and no library's", () => {

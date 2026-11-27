@@ -346,8 +346,8 @@ func TestSwimlaneLayoutPlacesOneLaneAcrossTheFlowsOfAView(t *testing.T) {
 	}
 }
 
-// A lane in a folded flow is not drawn, so the Layout about its performer places the lane of the next flow.
-func TestSwimlaneLayoutPlacesALaneThatIsDrawn(t *testing.T) {
+// Folding the flow of the placed lane leaves the Layout with it: the lane of the next flow stays drawn around its nodes.
+func TestSwimlaneLayoutStaysWithItsFoldedLane(t *testing.T) {
 	rendering := render(t, "action-swimlane-layout.sysml", "PlacedLane::foldedFlowView")
 	for _, node := range allNodes(rendering.Roots) {
 		if node.Name == "load" {
@@ -358,8 +358,37 @@ func TestSwimlaneLayoutPlacesALaneThatIsDrawn(t *testing.T) {
 	if lane == nil {
 		t.Fatal("pack is in no lane")
 	}
-	if g := lane.Geometry; !g.placed() || g.X != 320 || g.Y != 120 || !g.HasSize {
-		t.Errorf("lane geometry %+v, want the Layout about station::robot", g)
+	if lane.Geometry != nil || !lane.Fitted {
+		t.Errorf("lane geometry %+v fitted %v, want the lane fitted around pack", lane.Geometry, lane.Fitted)
+	}
+}
+
+// Folding one flow changes nothing of the lane of another: which lane the Layout places does not depend on what is folded.
+func TestSwimlaneLayoutIsTheSameLanesWhateverIsFolded(t *testing.T) {
+	lanes := func(view string) map[string]Node {
+		out := map[string]Node{}
+		for _, flow := range render(t, "action-swimlane-layout.sysml", view).Roots {
+			for _, child := range flow.Children {
+				if child.Kind == swimlaneKind {
+					out[flow.Name] = Node{Geometry: child.Geometry, Fitted: child.Fitted}
+				}
+			}
+		}
+		return out
+	}
+	open := lanes("PlacedLane::pinnedView")
+	if len(open) != 2 || open["PlacedLane::runA"].Geometry == nil || !open["PlacedLane::runB"].Fitted {
+		t.Fatalf("lanes of pinnedView %+v, want the lane of runA placed and that of runB fitted", open)
+	}
+	for view, kept := range map[string]string{"PlacedLane::pinnedFirstFoldedView": "PlacedLane::runB", "PlacedLane::pinnedSecondFoldedView": "PlacedLane::runA"} {
+		folded := lanes(view)
+		if len(folded) != 1 {
+			t.Fatalf("%s draws lanes %+v, want that of %s alone", view, folded, kept)
+		}
+		was, now := open[kept], folded[kept]
+		if now.Fitted != was.Fitted || (now.Geometry == nil) != (was.Geometry == nil) || (was.Geometry != nil && *now.Geometry != *was.Geometry) {
+			t.Errorf("%s: lane of %s is %+v fitted %v, unfolded %+v fitted %v", view, kept, now.Geometry, now.Fitted, was.Geometry, was.Fitted)
+		}
 	}
 }
 
@@ -395,8 +424,8 @@ func TestSwimlaneLayoutPlacesOneLaneOutsideAView(t *testing.T) {
 		if g := outer.Geometry; !g.placed() || g.X != 320 || g.Y != 120 {
 			t.Errorf("%s: outer lane geometry %+v, want the Layout of torch", kind, g)
 		}
-		if inner.Geometry != nil {
-			t.Errorf("%s: nested lane geometry %+v, want none", kind, inner.Geometry)
+		if inner.Geometry != nil || !inner.Fitted || outer.Fitted {
+			t.Errorf("%s: nested lane geometry %+v fitted %v, outer fitted %v, want the nested lane alone fitted", kind, inner.Geometry, inner.Fitted, outer.Fitted)
 		}
 	}
 }

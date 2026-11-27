@@ -123,6 +123,8 @@ export interface RenderNode {
   /** The stated size, both or neither. */
   width?: number;
   height?: number;
+  /** On a swimlane the `Layout` about its performer does not place: the first of the performer's lanes in the view, drawn or folded away, has that `Layout`. */
+  fitted?: boolean;
   /** The model folds the node: the server sends only its boundary ports and pins beneath it, and the panel draws it closed with a `+` mark. */
   collapsed?: boolean;
   /** The colours the requested palette gives the node, `#RRGGBB`, the same its DOT and PlantUML forms take; each absent where the palette leaves it black and white (a sequence participant's border), both under no palette. */

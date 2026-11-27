@@ -160,25 +160,11 @@ func (r *Renderer) laneNodes(subject actionSubject, frame *Node, from int, eleme
 	frame.Children = kept
 }
 
-// placeLanesOnce leaves a performer's Layout to one lane the rendering draws, the outermost and
-// then the first drawn: its other lanes are drawn around the nodes they hold. Run before
-// foldCollapsed, it passes over the lanes that folds away, which are not drawn.
+// placeLanesOnce leaves a performer's Layout to the first of its lanes, the outermost and then
+// the first in the view's order, and marks the others Fitted. Which lane that is does not
+// depend on what is folded: a lane folded away keeps the Layout, as any folded node keeps its own.
 func placeLanesOnce(out *Rendering) {
-	folds := map[*Node]bool{} // the nodes foldCollapsed walks
-	var under func(*Node)
-	under = func(node *Node) {
-		if folds[node] {
-			return
-		}
-		folds[node] = true
-		for _, child := range node.Children {
-			under(child)
-		}
-	}
-	for _, root := range out.folds {
-		under(root)
-	}
-	laid := map[Origin]bool{}
+	first := map[Origin]bool{}
 	seen := map[*Node]bool{} // a rendering may list a node under several others
 	for level := out.Roots; len(level) > 0; {
 		var next []*Node
@@ -187,15 +173,13 @@ func placeLanesOnce(out *Rendering) {
 				continue
 			}
 			seen[node] = true
-			if node.Kind == swimlaneKind && node.Geometry != nil {
-				if laid[node.Origin] {
-					node.Geometry = nil
+			if node.Kind == swimlaneKind {
+				if first[node.Origin] {
+					node.Geometry, node.Fitted = nil, true
 				}
-				laid[node.Origin] = true
+				first[node.Origin] = true
 			}
-			if !folds[node] || !collapsed(node) {
-				next = append(next, node.Children...)
-			}
+			next = append(next, node.Children...)
 		}
 		level = next
 	}
