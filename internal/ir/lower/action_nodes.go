@@ -1,6 +1,7 @@
 package lower
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -81,9 +82,21 @@ func actionMembers(actionDecl ast.Node) ([]ast.Node, error) {
 		return n.Members, nil
 	case *ast.Definition:
 		return n.Members, nil
-	default:
-		return nil, fmt.Errorf("action must be Usage or Definition, got %T", actionDecl)
 	}
+	return nil, errPartOfOwner(actionDecl)
+}
+
+// errPartOfOwner says in words that decl, no usage or definition, has no graph but its owner's.
+func errPartOfOwner(decl ast.Node) error {
+	switch decl.(type) {
+	case *ast.TransitionMember:
+		return errors.New("a transition is an edge of its owner's graph")
+	case *ast.SubstateMember:
+		return errors.New("a state declared without a body is a vertex of its owner's graph")
+	case *ast.ForkNode, *ast.JoinNode, *ast.MergeNode, *ast.DecisionNode:
+		return errors.New("a control node is a node of its owner's graph")
+	}
+	return errors.New("it is lowered as part of its owner's graph")
 }
 
 func collectActionNodes(members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) (*ActionGraph, error) {

@@ -468,6 +468,29 @@
         },
         "assignments": {
           "featureName": "assignments",
+          "values": [
+            {
+              "instanceId": "3"
+            },
+            {
+              "instanceId": "4"
+            },
+            {
+              "instanceId": "7"
+            },
+            {
+              "instanceId": "8"
+            },
+            {
+              "instanceId": "6"
+            },
+            {
+              "instanceId": "9"
+            },
+            {
+              "instanceId": "10"
+            }
+          ],
           "materialized": true
         },
         "awaitGo": {
@@ -607,20 +630,23 @@
         "splashdown": {
           "featureName": "splashdown",
           "value": {
-            "instanceId": "8"
+            "instanceId": "10"
           },
           "materialized": true
         },
         "start": {
           "featureName": "start",
           "value": {
-            "instanceId": "9"
+            "instanceId": "11"
           },
           "materialized": true
         },
         "subactions": {
           "featureName": "subactions",
           "values": [
+            {
+              "instanceId": "5"
+            },
             {
               "instanceId": "3"
             },
@@ -631,19 +657,16 @@
               "instanceId": "7"
             },
             {
-              "instanceId": "10"
+              "instanceId": "8"
             },
             {
               "instanceId": "6"
             },
             {
-              "instanceId": "11"
+              "instanceId": "9"
             },
             {
-              "instanceId": "8"
-            },
-            {
-              "instanceId": "5"
+              "instanceId": "10"
             }
           ],
           "materialized": true
@@ -651,7 +674,7 @@
         "surfaceOperations": {
           "featureName": "surfaceOperations",
           "value": {
-            "instanceId": "10"
+            "instanceId": "8"
           },
           "materialized": true
         },
@@ -662,7 +685,7 @@
         "transEarthInjection": {
           "featureName": "transEarthInjection",
           "value": {
-            "instanceId": "11"
+            "instanceId": "9"
           },
           "materialized": true
         },
@@ -1361,7 +1384,7 @@
       }
     },
     {
-      "id": "8",
+      "id": "10",
       "typeSymbolId": "MissionSequence::LunarMission::splashdown",
       "featureValues": {
         "acceptSubactions": {
@@ -1437,7 +1460,7 @@
       }
     },
     {
-      "id": "10",
+      "id": "8",
       "typeSymbolId": "MissionSequence::LunarMission::surfaceOperations",
       "featureValues": {
         "acceptSubactions": {
@@ -1513,7 +1536,7 @@
       }
     },
     {
-      "id": "11",
+      "id": "9",
       "typeSymbolId": "MissionSequence::LunarMission::transEarthInjection",
       "featureValues": {
         "acceptSubactions": {

@@ -1,0 +1,8 @@
+{
+	"type": "calc",
+	"evaluate": "test::Total",
+	"inputs": [
+		{"type": "Integer", "value": 2}
+	],
+	"result": {"type": "Sequence", "elements": [{"type": "Integer", "value": 39}]}
+}

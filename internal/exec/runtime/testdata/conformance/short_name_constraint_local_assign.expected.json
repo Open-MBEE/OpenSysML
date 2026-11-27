@@ -1,0 +1,11 @@
+{
+	"libraries": true,
+	"type": "instance",
+	"instantiate": "test::Vehicle",
+	"constraints": {
+		"shortThenShort": true,
+		"shortThenName": true,
+		"nameThenShort": true,
+		"unvalued": true
+	}
+}

@@ -87,6 +87,11 @@ func (m *Model) nestedSubsettingFQN(sym *symbols.Symbol) string {
 		}
 	case *ast.SendStatement:
 		u.Send = true
+	case *ast.AssignmentActionNode, *ast.IfActionNode, *ast.WhileLoopActionNode:
+		if IsLoopVariable(sym) {
+			return ""
+		}
+		u.Control = controlFormOf(d)
 	case *ast.AssumeMember, *ast.RequireMember:
 		// The constraint an `assume`/`require` member owns is composite: its
 		// grammar has no `ref` (SysML.xtext RequirementConstraintUsage).
@@ -99,13 +104,18 @@ func (m *Model) nestedSubsettingFQN(sym *symbols.Symbol) string {
 	return m.implicitSubsettingFQN(sym, usage, owner, u)
 }
 
-// loopBodyNestedFQN is the feature a usage declared in an unnamed loop body implicitly subsets:
+// loopBodyNestedFQN is the feature a member of an unnamed loop body implicitly subsets:
 // the body is an action usage no symbol stands for (SysML.xtext ActionBodyParameter).
 func (m *Model) loopBodyNestedFQN(sym *symbols.Symbol) string {
 	if _, loop := sym.OwnerScope.Node().(*ast.WhileLoopActionNode); !loop {
 		return ""
 	}
 	usage, ok := sym.Decl.(*ast.Usage)
+	if form := controlFormOf(sym.Decl); !ok && form != ControlNone && !IsLoopVariable(sym) {
+		// A bare control statement of the body is composite, so its subaction of that kind
+		// (SysML v2 Table 32); a declared one takes the usage rules below, `ref` included.
+		return controlSubactionFQNs[form]
+	}
 	if !ok || usage.IsVariant || usage.IsBodyParameter || !m.isSysMLUsage(sym) {
 		return ""
 	}
@@ -139,6 +149,7 @@ func nestedUsageOf(d *ast.Usage) NestedUsage {
 		Accept:                hasAcceptPayload(d),
 		Send:                  isSendNode(d),
 		Terminate:             d.IsTerminate,
+		Control:               controlFormOf(d),
 		Verified:              d.IsVerifiedRequirement(),
 	}
 }
@@ -184,6 +195,8 @@ type NestedUsage struct {
 	// Event, Accept, Send, Terminate and Verified are the `event occurrence`,
 	// accept, send and terminate action and objective `verify` roles.
 	Event, Accept, Send, Terminate, Verified bool
+	// Control is the assignment, conditional or loop a control action node is written as.
+	Control ControlForm
 	// EntryExitAction is a state's `entry` or `exit` action: a subperformance of
 	// the state but no subaction, since `StateAction::subactions :> middle`.
 	EntryExitAction bool
@@ -425,6 +438,9 @@ func actionKindNestedFQN(u NestedUsage, owner NestedOwner) string {
 	case u.Terminate:
 		return "Actions::Action::terminateSubactions"
 	}
+	if fqn := controlSubactionFQNs[u.Control]; fqn != "" {
+		return fqn
+	}
 	return ""
 }
 
@@ -570,7 +586,7 @@ func ownerUsageKind(owner *symbols.Symbol) (ast.UsageKind, bool) {
 		if owner.DeclaresTransition() {
 			return ast.UsageTransition, true
 		}
-	case *ast.SendStatement:
+	case *ast.SendStatement, *ast.AssignmentActionNode, *ast.IfActionNode, *ast.WhileLoopActionNode:
 		return ast.UsageAction, true
 	case *ast.AssumeMember, *ast.RequireMember:
 		return ast.UsageConstraint, true
@@ -827,6 +843,14 @@ func expressionNestedFQN(sym *symbols.Symbol) string {
 	switch sym.Expr.Role {
 	case symbols.ExpressionBody, symbols.ExpressionBodyResult, symbols.ExpressionChangeCondition:
 		return "Performances::Performance::enclosedPerformances"
+	case symbols.ExpressionOperand:
+		// The test of a conditional or a loop is a parameter its action owns.
+		if sym.Expr.Owner != nil && controlStatementOf(sym.Expr.Owner.Decl) != nil {
+			switch sym.Expr.Slot {
+			case "condition", "whileCondition", "untilCondition":
+				return "Performances::Performance::enclosedPerformances"
+			}
+		}
 	}
 	return ""
 }
