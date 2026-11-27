@@ -475,9 +475,8 @@ func evalOperator(e *ast.OperatorExpr, maxBits int64) (Value, bool) {
 	}
 }
 
-// evalConstUnnested is evalConst for an expression nested deeper than a call stack should
-// follow: the same value, by the same evaluation order, with a stack of its own.
-// It tells settled what each operator expression it finishes evaluating came to.
+// evalConstUnnested is evalConst in the same order with a stack of its own, for nesting
+// deeper than a call stack should follow. settled hears what each operator came to.
 func evalConstUnnested(n ast.Node, maxBits int64, settled func(e *ast.OperatorExpr, v Value, ok bool)) (Value, bool) {
 	// An operator waits on its first operand, then (last) on the last it evaluates.
 	type open struct {
