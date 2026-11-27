@@ -2,3 +2,4 @@
 - A Mermaid flowchart label that opens with a backtick (a node, subgraph, pin or edge label) is written with that backtick as `#96;`, so Mermaid no longer reads it as the start of a markdown string and refuses the diagram; a backtick anywhere else in a label stays literal.
 - A Mermaid note, comment, doc, rep or objective writes its text in brackets ahead of its `shape: notch-rect`, so SVG text labels (`htmlLabels: false`) no longer drop a span between backticks from it.
 - A Mermaid picture writes its alternative text in brackets ahead of its `img` shape data, so SVG text labels no longer drop a span between backticks from it.
+- A carriage return in a Mermaid label, as a string's `\r` escape writes, becomes a space like a line feed, so the label stays on one line and HTML and PDF export still embed a local picture whose alternative text has one.

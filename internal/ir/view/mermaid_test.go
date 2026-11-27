@@ -1131,3 +1131,28 @@ func TestMermaidEscapesOnlyALeadingBacktick(t *testing.T) {
 		}
 	}
 }
+
+// A carriage return reaches a label through a string's \r escape; Mermaid would break the line there.
+func TestMermaidWritesACarriageReturnAsASpace(t *testing.T) {
+	dir := t.TempDir()
+	data := twoByTwoPNG(t)
+	if err := os.WriteFile(filepath.Join(dir, "bench.png"), data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	flowchart := &Rendering{Kind: KindInterconnection, Shown: Shown{ElementEdgeLabels: true}, Roots: []*Node{
+		{ID: "a", Kind: "part", Name: "a"}, {ID: "b", Kind: "part", Name: "b"},
+	}, Edges: []Edge{{From: "a", To: "b", Kind: EdgeConnection, Label: "Front\rPanel"}},
+		Notes:    []Note{{Text: "Front\r\nPanel", Anchor: "a"}},
+		Pictures: []Picture{{Location: "bench.png", Dir: dir, Alt: "Front\r\nPanel", Width: 2, Height: 2}}}
+	sequence := &Rendering{Kind: KindSequence, Roots: []*Node{{ID: "a", Kind: "part", Name: "a"}},
+		Edges: []Edge{{From: "a", To: "a", Kind: EdgeFlow, Label: "Front\rPanel"}}}
+	for _, source := range []string{flowchart.Mermaid(), sequence.Mermaid()} {
+		if strings.Contains(source, "\r") {
+			t.Errorf("source carries a carriage return:\n%q", source)
+		}
+	}
+	inlined := InlineMermaidImages(flowchart.Mermaid(), dir)
+	if !strings.Contains(inlined, `["Front Panel"]@{ img: "data:image/png;base64,`+base64.StdEncoding.EncodeToString(data)+`"`) {
+		t.Errorf("picture with a carriage return in its alt text is not inlined:\n%s", inlined)
+	}
+}
