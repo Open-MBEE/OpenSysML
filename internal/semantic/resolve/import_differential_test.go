@@ -34,11 +34,13 @@ const importDifferentialLibs = `
 	package KeptWild { private import Q::*; public import R::*; }
 	package Ring1 { public import Ring2::*; public import Q::X; }
 	package Ring2 { public import Ring1::*; }
+	package U { part def H; }
 `
 
 // importDifferentialModels enumerates, in a fixed order, every model the
 // differential reads: N's `public import <target>::*` below each combination of
-// what K and N import or alias, with and without an X owned further out.
+// what K and N import or alias, with and without an X owned further out, and
+// with and without a second import in N, of a namespace nothing else names.
 func importDifferentialModels(yield func(key, src string)) {
 	var stmts []string
 	for _, vis := range []string{"private", "public"} {
@@ -59,12 +61,14 @@ func importDifferentialModels(yield func(key, src string)) {
 	}
 	inN := []string{"", "private import R::X;", "private import R::*;", "private import Q::*;", "private alias X for R::X;"}
 	targets := []string{"X", "X::Y", "X::Z", "Named::X", "Chained::X::Y", "Mixed::X", "Both::X", "Aliased::X::Y", "Wild::X::Y", "KeptWild::X", "Named::X::Z", "Ring2::X"}
-	for _, own := range []string{"package X { part def A; package Y { part def G; } }", ""} {
-		for _, k := range inK {
-			for _, n := range inN {
-				for _, target := range targets {
-					yield(fmt.Sprintf("own=%t|K{%s}|N{%s}|%s", own != "", k, n, target),
-						importDifferentialLibs+"package P { "+own+" package K { "+k+" package N { "+n+" public import "+target+"::*; } package S { } } }")
+	for _, second := range []string{"", " public import U::*;"} {
+		for _, own := range []string{"package X { part def A; package Y { part def G; } }", ""} {
+			for _, k := range inK {
+				for _, n := range inN {
+					for _, target := range targets {
+						yield(fmt.Sprintf("second=%t|own=%t|K{%s}|N{%s}|%s", second != "", own != "", k, n, target),
+							importDifferentialLibs+"package P { "+own+" package K { "+k+" package N { "+n+" public import "+target+"::*;"+second+" } package S { } } }")
+					}
 				}
 			}
 		}
@@ -125,9 +129,13 @@ func TestWildcardImportDifferential(t *testing.T) {
 		outside, inN := scopeNamed(t, r, "d.sysml", "S"), scopeNamed(t, r, "d.sysml", "N")
 		target := key[strings.LastIndex(key, "|")+1:]
 		targetSym, targetOK := r.ResolveQualified(inN, qn(false, strings.Split(target, "::")...))
-		for _, member := range []string{"A", "B", "C", "D", "E", "F", "G", "Y", "Z"} {
+		for _, member := range []string{"A", "B", "C", "D", "E", "F", "G", "H", "Y", "Z"} {
 			want := ""
-			if targetOK && targetSym != nil {
+			if member == "H" {
+				if strings.HasPrefix(key, "second=true") {
+					want = "U::H"
+				}
+			} else if targetOK && targetSym != nil {
 				path := append(strings.Split(symbols.FQNOf(targetSym), "::"), member)
 				if sym, ok := r.ResolveQualified(outside, qn(true, path...)); ok && sym != nil {
 					want = symbols.FQNOf(sym)
@@ -140,7 +148,12 @@ func TestWildcardImportDifferential(t *testing.T) {
 				reads = append(reads, "")
 			}
 			agrees := reads[0] == want
-			for _, sym := range idx.LookupQualified("P::K::N::" + member) {
+			held := idx.LookupQualified("P::K::N::" + member)
+			// The index may leave the first import to name lookup, never the second.
+			if member == "H" && want != "" && len(held) == 0 {
+				agrees = false
+			}
+			for _, sym := range held {
 				reads = append(reads, symbols.FQNOf(sym))
 				agrees = agrees && symbols.FQNOf(sym) == want
 			}
@@ -160,7 +173,7 @@ func TestWildcardImportDifferential(t *testing.T) {
 		}
 	})
 
-	const wantModels, knownGap = 30360, 12
+	const wantModels, knownGap = 60720, 24
 	if models != wantModels {
 		t.Errorf("enumerated %d models, want %d", models, wantModels)
 	}
