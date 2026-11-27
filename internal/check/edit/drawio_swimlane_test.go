@@ -3,6 +3,7 @@ package edit
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -121,6 +122,28 @@ func TestDrawioMovedSwimlaneLeavesItsPerformersOtherLane(t *testing.T) {
 	} {
 		if was, again := within(edited, c.pick, c.flow), within(re, c.pick, c.flow); !drawioSameBox(was, again) {
 			t.Errorf("%s was at %+v in its flow, re-exported at %+v (edits %+v)", c.name, was, again, imp.Edits)
+		}
+	}
+}
+
+// With the performer's first flow folded, the lane drawn in the next flow is the placed one:
+// moved in the file, it is a Layout about the performer, and it is re-exported where the file put it.
+func TestDrawioMovedSwimlaneOfTheFlowBesideAFoldedOne(t *testing.T) {
+	lane := laneOf("PlacedLane::runB::pack")
+	edited, imp, re := swimlaneRoundTrip(t, "PlacedLane::foldedFlowView", lane, shifted(t, 40, 30))
+	at := slices.IndexFunc(imp.Edits, func(e view.DrawioEdit) bool {
+		return e.Kind == view.DrawioEditLayout && e.FQN == "PlacedLane::station::robot"
+	})
+	if at < 0 {
+		t.Fatalf("edits = %+v, want a Layout about PlacedLane::station::robot", imp.Edits)
+	}
+	for name, pick := range map[string]func(*view.DrawioFile) *view.DrawioCell{"flow": cellNamed("PlacedLane::runB"), "swimlane": lane, "pack": cellNamed("PlacedLane::runB::pack")} {
+		was, again := pick(edited), pick(re)
+		if was == nil || again == nil {
+			t.Fatalf("%s: in the file %v, re-exported %v, want both", name, was, again)
+		}
+		if !drawioSameBox(was.Geometry, again.Geometry) {
+			t.Errorf("%s was at %+v, re-exported at %+v (edits %+v)", name, was.Geometry, again.Geometry, imp.Edits)
 		}
 	}
 }

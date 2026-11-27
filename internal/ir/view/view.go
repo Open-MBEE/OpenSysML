@@ -730,7 +730,7 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn, query bool) (*Rend
 		// Unreachable: KindOf refuses an unsupported kind.
 		return nil, &UnsupportedKindError{Kind: kind, View: r.notationName(view), Stated: stated}
 	}
-	placeLanesOnce(out.Roots)
+	placeLanesOnce(out)
 	foldCollapsed(out)
 	out.finishExpansionFold()
 	r.noteDepthCuts(view, out)
@@ -782,6 +782,7 @@ func (r *Renderer) RenderExposed(exposed []*symbols.Symbol, kind Kind, stated st
 	default:
 		return nil, &UnsupportedKindError{Kind: kind, Stated: stated, Remedy: remedyFor(kind)}
 	}
+	placeLanesOnce(out)
 	foldCollapsed(out)
 	out.finishExpansionFold()
 	r.noteDepthCuts(nil, out)

@@ -160,25 +160,42 @@ func (r *Renderer) laneNodes(subject actionSubject, frame *Node, from int, eleme
 	frame.Children = kept
 }
 
-// placeLanesOnce leaves a performer's Layout to one lane of the view, the outermost and then
-// the first drawn: its lanes in other flows are drawn around the nodes they hold.
-func placeLanesOnce(roots []*Node) {
-	placed := map[Origin]bool{}
+// placeLanesOnce leaves a performer's Layout to one lane the rendering draws, the outermost and
+// then the first drawn: its other lanes are drawn around the nodes they hold. Run before
+// foldCollapsed, it passes over the lanes that folds away, which are not drawn.
+func placeLanesOnce(out *Rendering) {
+	folds := map[*Node]bool{} // the nodes foldCollapsed walks
+	var under func(*Node)
+	under = func(node *Node) {
+		if folds[node] {
+			return
+		}
+		folds[node] = true
+		for _, child := range node.Children {
+			under(child)
+		}
+	}
+	for _, root := range out.folds {
+		under(root)
+	}
+	laid := map[Origin]bool{}
 	seen := map[*Node]bool{} // a rendering may list a node under several others
-	for level := roots; len(level) > 0; {
+	for level := out.Roots; len(level) > 0; {
 		var next []*Node
 		for _, node := range level {
 			if seen[node] {
 				continue
 			}
 			seen[node] = true
-			if node.Kind == swimlaneKind && node.Geometry.placed() {
-				if placed[node.Origin] {
+			if node.Kind == swimlaneKind && node.Geometry != nil {
+				if laid[node.Origin] {
 					node.Geometry = nil
 				}
-				placed[node.Origin] = true
+				laid[node.Origin] = true
 			}
-			next = append(next, node.Children...)
+			if !folds[node] || !collapsed(node) {
+				next = append(next, node.Children...)
+			}
 		}
 		level = next
 	}

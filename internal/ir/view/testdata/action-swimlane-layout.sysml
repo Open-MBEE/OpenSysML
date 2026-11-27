@@ -67,4 +67,34 @@ package PlacedLane {
 		metadata Layout about runA::load { x = 350; y = 190; }
 		metadata Layout about runB::pack { x = 350; y = 190; }
 	}
+
+	// The first of the two flows folded: its lane is not drawn.
+	view foldedFlowView : ActionFlowView {
+		expose runA;
+		expose runB;
+		metadata Layout about runA { collapsed = true; }
+		metadata Layout about station::robot { x = 320; y = 120; width = 220; height = 180; }
+		metadata Layout about runB::pack { x = 350; y = 190; }
+	}
+
+	// A Layout about the performer that only folds its lane.
+	view foldedLaneView : ActionFlowView {
+		expose runA;
+		expose runB;
+		metadata Layout about station::robot { collapsed = true; }
+	}
+
+	// A performer placed by a Layout of its own, with a lane in a flow and in a flow nested in it.
+	action weld {
+		action tack;
+		action seam {
+			action bead;
+		}
+		first tack then seam;
+	}
+	part torch {
+		metadata Layout { x = 320; y = 120; }
+		perform weld.tack;
+		perform weld.seam.bead;
+	}
 }

@@ -6,6 +6,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // laneOf is the swimlane holding the node named name, nil when none does.
@@ -341,5 +343,60 @@ func TestSwimlaneLayoutPlacesOneLaneAcrossTheFlowsOfAView(t *testing.T) {
 	}
 	if second.Geometry.placed() {
 		t.Errorf("second flow's lane geometry %+v, want none", second.Geometry)
+	}
+}
+
+// A lane in a folded flow is not drawn, so the Layout about its performer places the lane of the next flow.
+func TestSwimlaneLayoutPlacesALaneThatIsDrawn(t *testing.T) {
+	rendering := render(t, "action-swimlane-layout.sysml", "PlacedLane::foldedFlowView")
+	for _, node := range allNodes(rendering.Roots) {
+		if node.Name == "load" {
+			t.Fatal("load is drawn in its folded flow")
+		}
+	}
+	lane := laneOf(t, rendering, "pack")
+	if lane == nil {
+		t.Fatal("pack is in no lane")
+	}
+	if g := lane.Geometry; !g.placed() || g.X != 320 || g.Y != 120 || !g.HasSize {
+		t.Errorf("lane geometry %+v, want the Layout about station::robot", g)
+	}
+}
+
+// A Layout about a performer that only folds is one lane's too: its lane in another flow keeps its nodes.
+func TestSwimlaneLayoutFoldsOneLane(t *testing.T) {
+	rendering := render(t, "action-swimlane-layout.sysml", "PlacedLane::foldedLaneView")
+	var lanes []*Node
+	for _, node := range allNodes(rendering.Roots) {
+		if node.Kind == swimlaneKind {
+			lanes = append(lanes, node)
+		}
+	}
+	if len(lanes) != 2 || !collapsed(lanes[0]) || len(lanes[0].Children) != 0 {
+		t.Fatalf("lanes %+v, want two, the first folded", lanes)
+	}
+	if lanes[1].Geometry != nil || laneOf(t, rendering, "pack") != lanes[1] {
+		t.Errorf("second lane geometry %+v children %v, want no Layout and pack held", lanes[1].Geometry, lanes[1].Children)
+	}
+}
+
+// A rendering of an action outside any view reads the performer's own Layout, and places one lane by it as a view does.
+func TestSwimlaneLayoutPlacesOneLaneOutsideAView(t *testing.T) {
+	r, idx := loadFixtures(t, "action-swimlane-layout.sysml")
+	for _, kind := range []Kind{KindAction, KindMixed} {
+		rendering, err := r.RenderExposed([]*symbols.Symbol{lookup(t, idx, "PlacedLane::weld")}, kind, "#"+string(kind))
+		if err != nil {
+			t.Fatalf("render %s: %v", kind, err)
+		}
+		outer, inner := laneOf(t, rendering, "tack"), laneOf(t, rendering, "bead")
+		if outer == nil || inner == nil {
+			t.Fatalf("%s: lanes of tack and bead: %v, %v, want both", kind, outer, inner)
+		}
+		if g := outer.Geometry; !g.placed() || g.X != 320 || g.Y != 120 {
+			t.Errorf("%s: outer lane geometry %+v, want the Layout of torch", kind, g)
+		}
+		if inner.Geometry != nil {
+			t.Errorf("%s: nested lane geometry %+v, want none", kind, inner.Geometry)
+		}
 	}
 }
