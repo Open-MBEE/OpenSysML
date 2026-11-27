@@ -163,23 +163,35 @@ func TestRemoveAbandonedKeepsWhatARunningProcessOwns(t *testing.T) {
 // scratchHolderEnv makes this test binary hold a Scratch directory until it is signalled.
 const scratchHolderEnv = "GOBUILD_TEST_HOLD_SCRATCH"
 
-// TestScratchHolder is the process TestScratchIsRemovedOnInterrupt signals: it prints its
-// scratch directory and waits.
+// TestScratchHolder is the process TestScratchIsRemovedOnInterrupt signals: it prints the
+// scratch directories it still holds, having removed one already, and waits.
 func TestScratchHolder(t *testing.T) {
 	if os.Getenv(scratchHolderEnv) == "" {
 		t.Skip("run by TestScratchIsRemovedOnInterrupt")
 	}
-	scratch := Scratch{Pattern: "gobuild-test-held"}
-	dir, err := scratch.Dir()
-	if err != nil {
+	removed := Scratch{Pattern: "gobuild-test-held"}
+	if _, err := removed.Dir(); err != nil {
 		t.Fatal(err)
 	}
-	fmt.Println(dir)
+	if err := removed.Remove(); err != nil {
+		t.Fatal(err)
+	}
+	held := make([]Scratch, 16)
+	dirs := make([]string, len(held))
+	for i := range held {
+		held[i].Pattern = "gobuild-test-held"
+		dir, err := held[i].Dir()
+		if err != nil {
+			t.Fatal(err)
+		}
+		dirs[i] = dir
+	}
+	fmt.Println(strings.Join(dirs, string(os.PathListSeparator)))
 	select {}
 }
 
 // TestScratchIsRemovedOnInterrupt pins that an interrupted run, whose TestMain never gets
-// to remove the directory, leaves none.
+// to remove its directories, leaves none of them.
 func TestScratchIsRemovedOnInterrupt(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("a process cannot be sent an interrupt on Windows")
@@ -200,10 +212,12 @@ func TestScratchIsRemovedOnInterrupt(t *testing.T) {
 				_ = holder.Process.Kill()
 				t.Fatal(err)
 			}
-			dir := strings.TrimSpace(line)
-			if _, err := os.Stat(dir); err != nil {
-				_ = holder.Process.Kill()
-				t.Fatalf("the holder's directory: %v", err)
+			dirs := strings.Split(strings.TrimSpace(line), string(os.PathListSeparator))
+			for _, dir := range dirs {
+				if _, err := os.Stat(dir); err != nil {
+					_ = holder.Process.Kill()
+					t.Fatalf("the holder's directory: %v", err)
+				}
 			}
 			if err := holder.Process.Signal(sig); err != nil {
 				t.Fatal(err)
@@ -211,8 +225,10 @@ func TestScratchIsRemovedOnInterrupt(t *testing.T) {
 			if err := holder.Wait(); err == nil {
 				t.Error("the interrupted run reported success")
 			}
-			if _, err := os.Stat(dir); !os.IsNotExist(err) {
-				t.Errorf("%s is still there: %v", dir, err)
+			for _, dir := range dirs {
+				if _, err := os.Stat(dir); !os.IsNotExist(err) {
+					t.Errorf("%s is still there: %v", dir, err)
+				}
 			}
 		})
 	}

@@ -95,19 +95,42 @@ func (s *Scratch) Remove() error {
 	if s.dir == "" {
 		return nil
 	}
-	return os.RemoveAll(s.dir)
+	err := os.RemoveAll(s.dir)
+	interrupted.mu.Lock()
+	delete(interrupted.dirs, s.dir)
+	interrupted.mu.Unlock()
+	return err
+}
+
+// interrupted holds every scratch directory still to remove, and the one handler that
+// removes them all: a handler per directory would exit before the others had run.
+var interrupted struct {
+	mu     sync.Mutex
+	dirs   map[string]bool
+	handle sync.Once
 }
 
 // removeOnInterrupt removes the directory when the run is interrupted or terminated, which
 // would otherwise end the process before Main could.
 func (s *Scratch) removeOnInterrupt() {
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-signals
-		_ = os.RemoveAll(s.dir)
-		os.Exit(1)
-	}()
+	interrupted.mu.Lock()
+	if interrupted.dirs == nil {
+		interrupted.dirs = map[string]bool{}
+	}
+	interrupted.dirs[s.dir] = true
+	interrupted.mu.Unlock()
+	interrupted.handle.Do(func() {
+		signals := make(chan os.Signal, 1)
+		signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
+		go func() {
+			<-signals
+			interrupted.mu.Lock()
+			for dir := range interrupted.dirs {
+				_ = os.RemoveAll(dir)
+			}
+			os.Exit(1)
+		}()
+	})
 }
 
 // removeAbandoned deletes the scratch directories under root whose owning process is gone:
