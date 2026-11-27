@@ -339,7 +339,9 @@ Under lsp-mode the server is found as the VS Code extension finds it:
   the statement above.
 - **Strict conformance** is `sysml-lsp-strict-conformance`, sent as
   `sysml.strictConformance`; setting it republishes every open document's
-  diagnostics without a restart. It and the code lenses are lsp-mode's only.
+  diagnostics without a restart. Under Eglot it is `(:sysml (:strictConformance t))`
+  in `eglot-workspace-configuration`, sent again by
+  `M-x eglot-signal-didChangeConfiguration`. The code lenses are lsp-mode's only.
 - **`M-x sysml-diagram-show`** is the counterpart of [the diagram
   panel](#the-diagram-panel): the same renderings, drawn as a tree of elements
   with their edges and what could not be represented. `RET` on an element visits

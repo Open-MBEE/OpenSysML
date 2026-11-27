@@ -84,6 +84,30 @@
     (flymake-start)
     (sysml-test--wait #'flymake-diagnostics)))
 
+(defun sysml-eglot-test--severities ()
+  "Return the LSP severity of each diagnostic the server last published here."
+  (flymake-start)
+  (mapcar (lambda (diagnostic)
+            (plist-get (alist-get 'eglot-lsp-diag (flymake-diagnostic-data diagnostic))
+                       :severity))
+          (flymake-diagnostics)))
+
+(ert-deftest sysml-eglot-live-takes-strict-conformance-from-the-workspace-configuration ()
+  (let ((configuration (default-value 'eglot-workspace-configuration)))
+    (unwind-protect
+        (progn
+          (setq-default eglot-workspace-configuration '(:sysml (:strictConformance t)))
+          (sysml-eglot-test--with-session
+              (sysml-test--fixture "package P {\n    part def A;\n    part def A;\n}\n")
+            ;; Two duplicate names: errors (1) when strict, warnings (2) otherwise.
+            (sysml-test--wait (lambda () (equal (sysml-eglot-test--severities) '(1 1))))
+            ;; A changed value reaches a running server without a restart.
+            (setq-default eglot-workspace-configuration
+                          '(:sysml (:strictConformance :json-false)))
+            (eglot-signal-didChangeConfiguration (eglot-current-server))
+            (sysml-test--wait (lambda () (equal (sysml-eglot-test--severities) '(2 2))))))
+      (setq-default eglot-workspace-configuration configuration))))
+
 (ert-deftest sysml-eglot-live-goes-to-definition ()
   (sysml-eglot-test--with-session
       (sysml-test--fixture "package P {\n    part def Engine;\n    part e : Engine;\n}\n")
