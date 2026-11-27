@@ -8,7 +8,12 @@ import { test } from "node:test";
 
 import { ServiceStartError } from "../src/core/errors.js";
 import { BINARY_ENV } from "../src/node/index.js";
-import { acquirePrivateService, MAX_START_ATTEMPTS, PrivateService } from "../src/node/service.js";
+import {
+  acquirePrivateService,
+  MAX_FIRST_LINE_LENGTH,
+  MAX_START_ATTEMPTS,
+  PrivateService,
+} from "../src/node/service.js";
 
 test(
   "a child that dies after reporting its address is not restarted forever",
@@ -43,5 +48,33 @@ test(
         error instanceof ServiceStartError && /exited, 3 times/.test(error.message),
     );
     assert.equal(started, MAX_START_ATTEMPTS);
+  },
+);
+
+test(
+  "a child whose first line never ends is given up at the bound",
+  { skip: process.platform === "win32" },
+  async (t) => {
+    const script = join(mkdtempSync(join(tmpdir(), "opensysml-flooding-")), "sysml-grpc");
+    writeFileSync(script, "#!/bin/sh\nexec cat /dev/zero\n");
+    chmodSync(script, 0o700);
+    const saved = process.env[BINARY_ENV];
+    process.env[BINARY_ENV] = script;
+    t.after(() => {
+      if (saved === undefined) {
+        Reflect.deleteProperty(process.env, BINARY_ENV);
+      } else {
+        process.env[BINARY_ENV] = saved;
+      }
+    });
+
+    const began = Date.now();
+    await assert.rejects(PrivateService.start(), (error: unknown) => {
+      assert.ok(error instanceof ServiceStartError);
+      assert.match(error.message, new RegExp(`first line of output passed ${MAX_FIRST_LINE_LENGTH} characters`));
+      return true;
+    });
+    // Well inside the start timeout: the bound ended the read, not the clock.
+    assert.ok(Date.now() - began < 5000);
   },
 );
