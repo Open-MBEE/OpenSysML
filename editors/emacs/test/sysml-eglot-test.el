@@ -17,8 +17,196 @@
 ;;;; Registration
 
 (ert-deftest sysml-eglot-registers-the-server ()
-  (should (equal (alist-get '(sysml-mode kerml-mode) eglot-server-programs nil nil #'equal)
-                 '("sysml-lsp"))))
+  (should (eq (alist-get '(sysml-mode kerml-mode) eglot-server-programs nil nil #'equal)
+              #'sysml-eglot--server-command)))
+
+;;;; Server resolution
+
+(defvar tramp-methods)
+(defvar tramp-default-host-alist)
+(declare-function tramp-cleanup-all-connections "tramp-cmds")
+
+(defmacro sysml-eglot-test--with-project-build (root exe &rest body)
+  "Run BODY with ROOT bound to a fresh project and EXE to its `bin/sysml-lsp'.
+The user has allowed the project's build to be run."
+  (declare (indent 2))
+  `(let* ((,root (file-name-as-directory (make-temp-file "proj" t)))
+          (,exe (expand-file-name "bin/sysml-lsp" ,root))
+          (sysml-project-builds (list (cons ,root t))))
+     (unwind-protect
+         (progn
+           (make-directory (file-name-directory ,exe))
+           (write-region "" nil ,exe)
+           (set-file-modes ,exe #o755)
+           ,@body)
+       (delete-directory ,root t))))
+
+(ert-deftest sysml-eglot-prefers-the-configured-path ()
+  (sysml-eglot-test--with-project-build root _exe
+    (let* ((configured (make-temp-file "sysml-lsp"))
+           (sysml-lsp-server-path configured)
+           (sysml-lsp-server-args nil))
+      (unwind-protect
+          (progn
+            (set-file-modes configured #o755)
+            (should (equal (sysml-eglot--server-command nil (cons 'transient root))
+                           (list configured))))
+        (delete-file configured)))))
+
+(ert-deftest sysml-eglot-refuses-a-configured-path-that-is-not-executable ()
+  (let ((sysml-lsp-server-path "/nonexistent/sysml-lsp")
+        (current-prefix-arg nil))
+    (should-error (sysml-eglot--server-command) :type 'user-error)
+    ;; Not the bare name: Eglot would start another server from `exec-path'.
+    (should-error (sysml-eglot--server-command t) :type 'user-error)))
+
+(ert-deftest sysml-eglot-offers-a-stale-configured-path-to-the-prefix-prompt ()
+  (let ((sysml-lsp-server-path "/nonexistent/sysml-lsp")
+        (sysml-lsp-server-args '("-strict"))
+        (current-prefix-arg '(4)))
+    (should (equal (sysml-eglot--server-command t)
+                   '("/nonexistent/sysml-lsp" "-strict")))
+    (should-error (sysml-eglot--server-command) :type 'user-error)))
+
+(ert-deftest sysml-eglot-prompts-past-a-stale-configured-path ()
+  (let* ((file (sysml-test--fixture "package P;\n"))
+         (buffer (find-file-noselect file))
+         (sysml-lsp-server-path "/nonexistent/sysml-lsp")
+         (sysml-lsp-server-args nil)
+         (current-prefix-arg '(4))
+         offered)
+    (unwind-protect
+        (with-current-buffer buffer
+          (cl-letf (((symbol-function 'read-shell-command)
+                     (lambda (_prompt initial &rest _)
+                       (setq offered initial)
+                       "/opt/other/sysml-lsp -strict")))
+            (should (equal (nth 3 (eglot--guess-contact t))
+                           '("/opt/other/sysml-lsp" "-strict"))))
+          (should (equal offered "/nonexistent/sysml-lsp")))
+      (kill-buffer buffer)
+      (delete-directory (file-name-directory file) t))))
+
+(ert-deftest sysml-eglot-leaves-a-missing-server-to-the-prompt-when-interactive ()
+  (let* ((empty (file-name-as-directory (make-temp-file "empty" t)))
+         (sysml-lsp-server-path nil)
+         (sysml-lsp-server-args '("-strict"))
+         (exec-path nil))
+    (unwind-protect
+        (progn
+          (should (equal (sysml-eglot--server-command t (cons 'transient empty))
+                         '("sysml-lsp" "-strict")))
+          (should-error (sysml-eglot--server-command nil (cons 'transient empty))
+                        :type 'user-error))
+      (delete-directory empty t))))
+
+(ert-deftest sysml-eglot-names-a-remote-build-as-its-host-does ()
+  (skip-unless (not (eq system-type 'windows-nt)))
+  (require 'tramp)
+  ;; A TRAMP method that reaches this machine through a local shell.
+  (add-to-list 'tramp-methods
+               '("sysmlmock"
+                 (tramp-login-program "sh")
+                 (tramp-login-args (("-i")))
+                 (tramp-remote-shell "/bin/sh")
+                 (tramp-remote-shell-args ("-c"))
+                 (tramp-connection-timeout 10)))
+  (let* ((tramp-default-host-alist `(("\\`sysmlmock\\'" nil ,(system-name))))
+         (root (file-name-as-directory
+                (make-temp-file (concat "/sysmlmock::" temporary-file-directory "proj") t)))
+         (exe (expand-file-name "bin/sysml-lsp" root))
+         (sysml-lsp-server-path nil)
+         (sysml-lsp-server-args nil))
+    (unwind-protect
+        (progn
+          (should (file-remote-p exe))
+          (make-directory (file-name-directory exe))
+          (write-region "" nil exe)
+          (set-file-modes exe #o755)
+          ;; The answer on record for the same directory of this machine is not its.
+          (let ((sysml-project-builds (list (cons (file-local-name root) t))))
+            (should-error (sysml-eglot--server-command nil (cons 'transient root))
+                          :type 'user-error))
+          (let ((sysml-project-builds (list (cons root t))))
+            (should (equal (sysml-eglot--server-command nil (cons 'transient root))
+                           (list 'sysml-eglot-project-server (file-local-name exe)
+                                 :project-root root)))))
+      (delete-directory root t)
+      (tramp-cleanup-all-connections))))
+
+(ert-deftest sysml-eglot-finds-the-project-build ()
+  (sysml-eglot-test--with-project-build root exe
+    (let ((sysml-lsp-server-path nil)
+          (sysml-lsp-server-args nil)
+          (exec-path nil))
+      (should (equal (sysml-eglot--server-command nil (cons 'transient root))
+                     (list 'sysml-eglot-project-server exe :project-root root)))
+      ;; Under a prefix argument the command goes to the prompt as text.
+      (let ((current-prefix-arg '(4)))
+        (should (equal (sysml-eglot--server-command t (cons 'transient root))
+                       (list exe)))))))
+
+(ert-deftest sysml-eglot-does-not-start-a-project-build-the-user-refused ()
+  (sysml-eglot-test--with-project-build root _exe
+    (let ((sysml-project-builds (list (cons root nil)))
+          (sysml-lsp-server-path nil)
+          (sysml-lsp-server-args nil)
+          (exec-path nil))
+      (should-error (sysml-eglot--server-command nil (cons 'transient root))
+                    :type 'user-error)
+      ;; \[eglot] is left to prompt for a server, as when there is none.
+      (should (equal (sysml-eglot--server-command t (cons 'transient root))
+                     '("sysml-lsp"))))))
+
+(ert-deftest sysml-eglot-finds-the-build-in-the-buffer-project ()
+  (sysml-eglot-test--with-project-build root exe
+    (let ((sysml-lsp-server-path nil)
+          (sysml-lsp-server-args nil)
+          (exec-path nil)
+          (default-directory root)
+          (project-find-functions (list (lambda (dir) (cons 'transient dir)))))
+      (should (equal (sysml-eglot--server-command)
+                     (list 'sysml-eglot-project-server exe :project-root root))))))
+
+(ert-deftest sysml-eglot-falls-back-to-exec-path ()
+  (sysml-eglot-test--with-project-build root exe
+    (let* ((empty (file-name-as-directory (make-temp-file "empty" t)))
+           (sysml-lsp-server-path nil)
+           (sysml-lsp-server-args nil)
+           (exec-path (list (file-name-directory exe))))
+      (unwind-protect
+          (should (equal (sysml-eglot--server-command nil (cons 'transient empty))
+                         (list exe)))
+        (delete-directory empty t)))))
+
+(ert-deftest sysml-eglot-passes-server-args ()
+  (sysml-eglot-test--with-project-build root exe
+    (let ((sysml-lsp-server-path nil)
+          (sysml-lsp-server-args '("-strict")))
+      (should (equal (sysml-eglot--server-command nil (cons 'transient root))
+                     (list 'sysml-eglot-project-server exe "-strict"
+                           :project-root root))))))
+
+(ert-deftest sysml-eglot-starts-the-server-it-finds ()
+  (sysml-test--require-server)
+  (let* ((file (sysml-test--fixture "package P;\n"))
+         (buffer (find-file-noselect file))
+         (sysml-lsp-server-path sysml-test--server)
+         (sysml-lsp-server-args '("-strict"))
+         (exec-path nil))
+    (unwind-protect
+        (with-current-buffer buffer
+          (apply #'eglot (eglot--guess-contact))
+          (sysml-test--wait #'eglot-current-server)
+          (should (equal (process-command (jsonrpc--process (eglot-current-server)))
+                         (list sysml-test--server "-strict"))))
+      (let ((server (with-current-buffer buffer
+                      (set-buffer-modified-p nil)
+                      (eglot-current-server))))
+        (kill-buffer buffer)
+        (when server
+          (eglot-shutdown server)))
+      (delete-directory (file-name-directory file) t))))
 
 (ert-deftest sysml-eglot-passes-render-changed-on ()
   (let* (seen
@@ -69,7 +257,7 @@ Its range is on LINE, from column 15 to column END."
                 (lambda (_server method _params)
                   (should (eq method :textDocument/codeLens))
                   ,lenses))
-               ((symbol-function 'sysml-eglot--find-tool) (lambda (_) "/bin/sysml"))
+               ((symbol-function 'sysml-eglot--find-tool) (lambda (&rest _) "/bin/sysml"))
                ((symbol-function 'sysml-run-element)
                 (lambda (&rest args) (setq started args))))
        (with-temp-buffer
@@ -93,7 +281,7 @@ Its range is on LINE, from column 15 to column END."
     (goto-char (point-min))
     (search-forward "Land")
     (sysml-eglot-run-element)
-    (should (equal started '("action" "Demo::Land" ("/ws") "/bin/sysml")))))
+    (should (equal started '("action" "Demo::Land" ("/ws") "/bin/sysml" "/ws")))))
 
 (ert-deftest sysml-eglot-reads-the-element-away-from-a-name ()
   (sysml-eglot-test--with-lenses sysml-eglot-test--lenses
@@ -103,7 +291,7 @@ Its range is on LINE, from column 15 to column END."
                  (should (equal elements '("Demo::Fly" "Demo::Land")))
                  "Demo::Fly")))
       (sysml-eglot-run-element))
-    (should (equal started '("action" "Demo::Fly" ("/ws") "/bin/sysml")))))
+    (should (equal started '("action" "Demo::Fly" ("/ws") "/bin/sysml" "/ws")))))
 
 (ert-deftest sysml-eglot-reads-the-element-with-a-prefix-argument ()
   (sysml-eglot-test--with-lenses sysml-eglot-test--lenses
@@ -131,16 +319,65 @@ Its range is on LINE, from column 15 to column END."
   (with-temp-buffer
     (should-error (sysml-eglot-run-element) :type 'user-error)))
 
+(defmacro sysml-eglot-test--with-server-in (dir &rest body)
+  "Run BODY with DIR bound to a new directory holding `sysml-lsp' and `sysml'."
+  (declare (indent 1))
+  `(let ((,dir (file-name-as-directory (make-temp-file "bin" t))))
+     (unwind-protect
+         (progn
+           (dolist (f '("sysml-lsp" "sysml"))
+             (write-region "#!/bin/sh\nexec sleep 60\n" nil (expand-file-name f ,dir))
+             (set-file-modes (expand-file-name f ,dir) #o755))
+           ,@body)
+       (delete-directory ,dir t))))
+
 (ert-deftest sysml-eglot-finds-the-tool-beside-the-server ()
-  (let* ((dir (file-name-as-directory (make-temp-file "bin" t)))
-         (exec-path (list dir)))
-    (unwind-protect
-        (progn
-          (dolist (f '("sysml-lsp" "sysml"))
-            (write-region "" nil (expand-file-name f dir))
-            (set-file-modes (expand-file-name f dir) #o755))
-          (should (equal (sysml-eglot--find-tool nil) (expand-file-name "sysml" dir))))
-      (delete-directory dir t))))
+  (sysml-eglot-test--with-server-in dir
+    (let ((exec-path (list dir))
+          (sysml-lsp-server-path nil))
+      (cl-letf (((symbol-function 'sysml-eglot--running-server) #'ignore))
+        (should (equal (sysml-eglot--find-tool 'server nil)
+                       (expand-file-name "sysml" dir)))))))
+
+(ert-deftest sysml-eglot-finds-the-tool-beside-the-configured-server ()
+  (sysml-eglot-test--with-server-in dir
+    (let ((sysml-lsp-server-path (expand-file-name "sysml-lsp" dir))
+          (exec-path nil))
+      (cl-letf (((symbol-function 'sysml-eglot--running-server) #'ignore))
+        (should (equal (sysml-eglot--find-tool 'server nil)
+                       (expand-file-name "sysml" dir)))))))
+
+(ert-deftest sysml-eglot-finds-the-tool-beside-the-server-that-is-running ()
+  (skip-unless (not (eq system-type 'windows-nt)))
+  ;; The server entered at the prompt of C-u M-x eglot is one no setting names.
+  (sysml-eglot-test--with-server-in dir
+    (let* ((sysml-lsp-server-path "/nonexistent/sysml-lsp")
+           (exec-path nil)
+           (process (make-process :name "sysml-lsp" :noquery t
+                                  :command (list (expand-file-name "sysml-lsp" dir)))))
+      (unwind-protect
+          (cl-letf (((symbol-function 'jsonrpc--process) (lambda (_) process)))
+            (should (equal (sysml-eglot--find-tool 'server nil)
+                           (expand-file-name "sysml" dir))))
+        (delete-process process)))))
+
+(ert-deftest sysml-eglot-finds-the-tool-beside-a-server-named-from-the-project-root ()
+  (skip-unless (not (eq system-type 'windows-nt)))
+  ;; Eglot starts the server in the project root, so a relative name entered
+  ;; at its prompt is not one to resolve against the buffer's directory.
+  (sysml-eglot-test--with-server-in root
+    (sysml-eglot-test--with-server-in nested
+      (let* ((sysml-lsp-server-path nil)
+             (exec-path nil)
+             (process (let ((default-directory root))
+                        (make-process :name "sysml-lsp" :noquery t
+                                      :command '("./sysml-lsp"))))
+             (default-directory nested))
+        (unwind-protect
+            (cl-letf (((symbol-function 'jsonrpc--process) (lambda (_) process)))
+              (should (equal (sysml-eglot--find-tool 'server (list root))
+                             (expand-file-name "sysml" root))))
+          (delete-process process))))))
 
 ;;;; Live server
 
@@ -173,6 +410,103 @@ Its range is on LINE, from column 15 to column END."
                    (list :textDocument (list :uri (eglot-path-to-uri buffer-file-name))
                          :position (list :line (1- (line-number-at-pos))
                                          :character (current-column)))))
+
+(ert-deftest sysml-eglot-starts-a-configured-server-in-a-refused-project ()
+  ;; Naming the server is the user's own decision, whatever was answered
+  ;; about what the project builds.
+  (sysml-eglot-test--with-project-build root exe
+    (write-region "" nil (expand-file-name "bin/sysml" root))
+    (set-file-modes (expand-file-name "bin/sysml" root) #o755)
+    (dolist (sysml-project-builds (list nil (list (cons root nil))))
+      (let ((sysml-lsp-server-path exe)
+            (exec-path nil)
+            (noninteractive t))
+        (cl-letf (((symbol-function 'y-or-n-p)
+                   (lambda (&rest _) (ert-fail "asked about the project build"))))
+          (ert-with-message-capture said
+            (should (equal (sysml-eglot--server-command nil (cons 'transient root))
+                           (list exe)))
+            (should (equal (sysml-find-tool (sysml--find-server root) root)
+                           (expand-file-name "bin/sysml" root)))
+            (should (equal said ""))))))))
+
+(ert-deftest sysml-eglot-live-starts-a-configured-server-in-a-refused-project ()
+  (sysml-test--require-server)
+  (let* ((root (file-name-as-directory (make-temp-file "proj" t)))
+         (exe (expand-file-name "bin/sysml-lsp" root))
+         (file (expand-file-name "m.sysml" root))
+         (project `(transient . ,root))
+         (sysml-lsp-server-path exe)
+         (exec-path nil)
+         (sysml-project-builds (list (cons root nil)))
+         (noninteractive t)
+         (buffer nil))
+    (unwind-protect
+        (cl-letf (((symbol-function 'y-or-n-p)
+                   (lambda (&rest _) (ert-fail "asked about the project build"))))
+          (make-directory (file-name-directory exe))
+          (copy-file sysml-test--server exe)
+          (write-region "package P;\n" nil file)
+          (setq buffer (find-file-noselect file))
+          (with-current-buffer buffer
+            (let ((contact (sysml-eglot--server-command nil project)))
+              (eglot '(sysml-mode kerml-mode) project 'eglot-lsp-server contact
+                     '("sysml" "kerml")))
+            (sysml-test--wait #'eglot-current-server)
+            (let ((server (eglot-current-server)))
+              (should (equal (car (process-command (jsonrpc--process server))) exe))
+              (eglot-reconnect server)
+              (sysml-test--wait #'eglot-current-server)
+              (should (equal (car (process-command
+                                   (jsonrpc--process (eglot-current-server))))
+                             exe)))))
+      (when buffer
+        (let ((server (with-current-buffer buffer
+                        (set-buffer-modified-p nil)
+                        (eglot-current-server))))
+          (kill-buffer buffer)
+          (when server (ignore-errors (eglot-shutdown server)))))
+      (delete-directory root t))))
+
+(ert-deftest sysml-eglot-live-does-not-restart-a-build-no-longer-allowed ()
+  (sysml-test--require-server)
+  (let* ((root (file-name-as-directory (make-temp-file "proj" t)))
+         (exe (expand-file-name "bin/sysml-lsp" root))
+         (file (expand-file-name "m.sysml" root))
+         (project `(transient . ,root))
+         (sysml-lsp-server-path nil)
+         (exec-path nil)
+         (sysml-project-builds (list (cons root t)))
+         (buffer nil)
+         (started nil))
+    (unwind-protect
+        (progn
+          (make-directory (file-name-directory exe))
+          (copy-file sysml-test--server exe)
+          (write-region "package P;\n" nil file)
+          (setq buffer (find-file-noselect file))
+          (with-current-buffer buffer
+            (let ((contact (sysml-eglot--server-command nil project)))
+              (eglot '(sysml-mode kerml-mode) project (car contact) (cdr contact)
+                     '("sysml" "kerml")))
+            (sysml-test--wait #'eglot-current-server)
+            (let ((server (eglot-current-server)))
+              (should (equal (car (process-command (jsonrpc--process server))) exe))
+              ;; The user takes the answer back; the build may have changed since.
+              (setq sysml-project-builds (list (cons root nil)))
+              (cl-letf (((symbol-function 'make-process)
+                         (lambda (&rest args) (push args started) (error "Started"))))
+                (let ((message (cadr (should-error (eglot-reconnect server)
+                                                   :type 'user-error))))
+                  (should (string-search "sysml-project-builds" message))))
+              (should-not started))))
+      (when buffer
+        (let ((server (with-current-buffer buffer
+                        (set-buffer-modified-p nil)
+                        (eglot-current-server))))
+          (kill-buffer buffer)
+          (when server (ignore-errors (eglot-shutdown server)))))
+      (delete-directory root t))))
 
 (ert-deftest sysml-eglot-live-advertises-rendering ()
   (sysml-eglot-test--with-session (sysml-test--fixture "part def A;\n")
