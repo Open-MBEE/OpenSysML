@@ -106,6 +106,8 @@ type Server struct {
 
 	cfg    Config
 	groups []Group
+	// requests is what ends a tools/call over HTTP whose client hung up.
+	requests liveRequests
 	// mu guards tenants: the protocol server and workspace of each principal other
 	// than the operator's, keyed by guard.Principal.ID and made on its first session.
 	mu      sync.Mutex
