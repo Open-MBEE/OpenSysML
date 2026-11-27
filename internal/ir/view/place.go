@@ -65,7 +65,18 @@ func (d *Drawn) Inherits(owner Origin, name string) bool {
 // drawnLane is how a rendering draws the swimlanes of one performer.
 type drawnLane struct {
 	holder  Origin // the node the lane a Layout about the performer places is drawn in
+	unnamed bool   // that node has no name, so no operation can name it
 	several bool   // the performer has other lanes, drawn around their nodes
+}
+
+// LaneHolderUnnamed reports whether the swimlane a Layout about performer places is one of
+// several and drawn in a node with no name: a lane no operation can name the action of.
+func (d *Drawn) LaneHolderUnnamed(performer *symbols.Symbol) bool {
+	if d == nil || performer == nil {
+		return false
+	}
+	lane := d.lanes[nodeOrigin(performer.DocName, performer.Decl)]
+	return lane != nil && lane.several && lane.unnamed
 }
 
 // LanePlacedIn reports whether a Layout about performer places the swimlane drawn in holder.
@@ -87,7 +98,7 @@ func (d *Drawn) LanePlacedIn(performer, holder *symbols.Symbol) bool {
 }
 
 // noteLane records a swimlane of performer drawn in holder: the first is the one its Layout places.
-func (d *Drawn) noteLane(performer, holder Origin) {
+func (d *Drawn) noteLane(performer Origin, holder *Node) {
 	if d == nil {
 		return
 	}
@@ -95,7 +106,7 @@ func (d *Drawn) noteLane(performer, holder Origin) {
 		lane.several = true
 		return
 	}
-	d.lanes[performer] = &drawnLane{holder: holder}
+	d.lanes[performer] = &drawnLane{holder: holder.Origin, unnamed: holder.Name == ""}
 }
 
 // noteSteered records that a plain Route about elem steers an edge drawn for it.
@@ -183,6 +194,16 @@ func (d *Drawn) noteMember(owner, member *symbols.Symbol) {
 func (r *Renderer) DrawnIn(view *symbols.Symbol) (*Drawn, error) {
 	drawn := newDrawn()
 	if _, err := r.render(view, drawn, true); err != nil {
+		return nil, err
+	}
+	return drawn, nil
+}
+
+// DrawnExposed renders elements in the kind asked for, as RenderExposed does for a
+// pseudo-view, and reports what the rendering draws: what an inline Layout applies to there.
+func (r *Renderer) DrawnExposed(exposed []*symbols.Symbol, kind Kind) (*Drawn, error) {
+	drawn := newDrawn()
+	if _, err := r.renderExposed(exposed, kind, "", drawn); err != nil {
 		return nil, err
 	}
 	return drawn, nil

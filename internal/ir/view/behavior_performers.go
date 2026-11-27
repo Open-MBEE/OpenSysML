@@ -58,10 +58,18 @@ func (r *Renderer) Performer(sym *symbols.Symbol) bool {
 	return false
 }
 
+// PerformsInSeveral reports whether sym performs nodes of more than one action, so that
+// some rendering may draw it several swimlanes.
+func (r *Renderer) PerformsInSeveral(sym *symbols.Symbol) bool {
+	r.performersByAction()
+	return sym != nil && len(r.laneHolders[symbols.KeyOf(sym)]) > 1
+}
+
 // performersByAction are the performers of every action of the model, by the action's key.
 func (r *Renderer) performersByAction() map[symbols.ElementKey][]*symbols.Symbol {
 	if r.performers == nil {
 		r.performers = map[symbols.ElementKey][]*symbols.Symbol{}
+		r.laneHolders = map[symbols.ElementKey]map[symbols.ElementKey]bool{}
 		for _, sym := range r.modelElements() {
 			usage, ok := sym.Decl.(*ast.Usage)
 			if !ok || !usage.IsPerformedAction() {
@@ -74,6 +82,14 @@ func (r *Renderer) performersByAction() map[symbols.ElementKey][]*symbols.Symbol
 			key := symbols.KeyOf(target)
 			if !containsElement(r.performers[key], performer) {
 				r.performers[key] = append(r.performers[key], performer)
+			}
+			if holder := target.Owner(); holder != nil {
+				held := r.laneHolders[symbols.KeyOf(performer)]
+				if held == nil {
+					held = map[symbols.ElementKey]bool{}
+					r.laneHolders[symbols.KeyOf(performer)] = held
+				}
+				held[symbols.KeyOf(holder)] = true
 			}
 		}
 	}
@@ -200,7 +216,7 @@ func placeLanesOnce(out *Rendering) {
 				}
 				first[node.Origin] = true
 				if at.holder != nil {
-					out.drawn.noteLane(node.Origin, at.holder.Origin)
+					out.drawn.noteLane(node.Origin, at.holder)
 				}
 			}
 			for _, child := range node.Children {

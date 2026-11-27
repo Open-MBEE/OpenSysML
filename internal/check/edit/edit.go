@@ -179,6 +179,9 @@ type Operation struct {
 	// Within names the action a swimlane placed by a Layout about its performer is
 	// drawn in, by FQN: which of the performer's lanes in View the operation moved.
 	Within string
+	// Rendering names the view, or the pseudo-view (`#<kind>` or `#<kind>:<fqn>`) of the
+	// edited document, that swimlane was moved in, for a Layout written inline, without View.
+	Rendering string
 	// The geometry to write, the one Annotation names; all nil clears the
 	// annotation. NoteBox is the Note annotation, Note the text an OpAddNote adds.
 	Layout  *semantics.Layout
@@ -192,6 +195,12 @@ type Operation struct {
 // InLane names the action the swimlane a Layout operation about a performer moved is drawn in.
 func (op Operation) InLane(within string) Operation {
 	op.Within = within
+	return op
+}
+
+// MovedIn names the view or pseudo-view the swimlane an inline Layout operation moved is drawn in.
+func (op Operation) MovedIn(rendering string) Operation {
+	op.Rendering = rendering
 	return op
 }
 

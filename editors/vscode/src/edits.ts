@@ -27,6 +27,8 @@ export interface Rendering {
   nodes: RenderNode[];
   edges?: RenderEdge[];
   view?: string;
+  /** The pseudo-view rendered (`#<kind>` or `#<kind>:<fqn>`), when the rendering is of no declared view. */
+  pseudoView?: string;
   version: number;
   palette?: EditPalette;
   /** The element rows of a table-kind rendering; absent for a drawn kind. */
@@ -55,7 +57,7 @@ export function placementOperations(
     if (node?.fqn) {
       operations.push({ kind: "setLayout", target: node.fqn, ...declaredIn(node), view, ...laneHolder(rendering, node), layout: placement.layout });
     } else if (node?.declaration) {
-      operations.push({ kind: "setLayout", declaration: node.declaration, ...declaredIn(node), layout: placement.layout });
+      operations.push({ kind: "setLayout", declaration: node.declaration, ...declaredIn(node), ...laneHolder(rendering, node), layout: placement.layout });
     } else {
       return undefined;
     }
@@ -73,13 +75,16 @@ export function placementOperations(
   return operations;
 }
 
-/** laneHolder names the action a swimlane is drawn in: a performer may have several lanes in a view, and the server places the one its Layout is about only when the edit names that lane's action. */
-function laneHolder(rendering: Rendering, node: RenderNode): { within?: string } {
+/** laneHolder names the action a swimlane is drawn in and, for a pseudo-view, that rendering: a performer may have several lanes in a rendering, and the server places the one its Layout is about only when the edit names that lane's action. */
+function laneHolder(rendering: Rendering, node: RenderNode): { within?: string; rendering?: string } {
   if (node.kind !== SWIMLANE_KIND) {
     return {};
   }
   const within = rendering.nodes.find((candidate) => candidate.id === node.parent)?.fqn;
-  return within ? { within } : {};
+  if (!within) {
+    return {};
+  }
+  return !rendering.view && rendering.pseudoView ? { within, rendering: rendering.pseudoView } : { within };
 }
 
 /** declaredIn names the document declaring a node or edge, and the digest of its text as rendered, when the rendering located it: the server places the target in that text or answers stale. */

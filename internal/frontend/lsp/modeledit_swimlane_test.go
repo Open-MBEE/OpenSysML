@@ -89,3 +89,68 @@ func TestApplyModelEditPlacesAPerformersOnlySwimlane(t *testing.T) {
 		t.Errorf("the only lane was not placed:\n%s", applied)
 	}
 }
+
+// One performer with a swimlane in a flow and in the flow nested in it, placed by an inline
+// Layout; jig performs in one action only.
+const nestedSwimlaneEditModel = `package F9 {
+	private import DiagramLayout::*;
+	action assemble {
+		action fetch;
+		action build { action cut; then action weld; }
+		first fetch then build;
+	}
+	part arm {
+		@Layout { x = 320; y = 120; width = 220; height = 180; }
+		perform assemble.fetch;
+		perform assemble.build.cut;
+	}
+	part jig { perform assemble.build.weld; }
+}
+`
+
+// A pseudo-view states no view, so the Layout is written inline and a legacy request names
+// neither the rendering nor the lane. With lanes in several actions the server refuses it,
+// as it refuses the nested lane, which is drawn around its nodes there.
+func TestApplyModelEditRefusesAnInlinePerformerLayoutNamingNoLane(t *testing.T) {
+	const pseudo = "#action:F9::assemble"
+	s, docURI := renderServer(t, "f9.sysml", nestedSwimlaneEditModel)
+	drawn := render(t, s, docURI, pseudo)
+	legacy := ModelEditOperation{Kind: EditSetLayout, Target: "F9::arm", Layout: &ModelEditLayout{X: float(219), Y: float(120)}}
+	unrendered, unnamed, nested := legacy, legacy, legacy
+	unrendered.Within = "F9::assemble"
+	unnamed.Rendering = pseudo
+	nested.Rendering, nested.Within = pseudo, "F9::assemble::build"
+	for name, op := range map[string]ModelEditOperation{"legacy": legacy, "no rendering": unrendered, "no lane": unnamed, "the nested lane": nested} {
+		out := applyModelEdit(t, s, docURI, drawn.Version, op)
+		if out.Edit != nil || len(out.Refused) != 1 || out.Refused[0].Failure != "not-drawn" ||
+			!strings.Contains(out.Refused[0].Message, "the action it is drawn in") {
+			t.Errorf("%s: result = %+v, want one not-drawn refusal and no edit", name, out)
+		}
+	}
+}
+
+// The request naming the pseudo-view and the action holding the lane the inline Layout
+// places there moves that lane and keeps its size: the outer lane, or the nested flow's
+// lane where that flow is rendered alone. A performer of one action needs neither name.
+func TestApplyModelEditPlacesASwimlaneInAPseudoView(t *testing.T) {
+	for _, tc := range []struct{ name, pseudo, target, within, want string }{
+		{"the outer lane", "#action:F9::assemble", "F9::arm", "F9::assemble", "@Layout { x = 219; y = 140; width = 220; height = 180; }"},
+		{"the only lane", "#action:F9::assemble::build", "F9::arm", "F9::assemble::build", "@Layout { x = 219; y = 140; width = 220; height = 180; }"},
+		{"a performer of one action", "#action:F9::assemble", "F9::jig", "", "@DiagramLayout::Layout { x = 219; y = 140; width = 220; height = 180; }"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s, docURI := renderServer(t, "f9.sysml", nestedSwimlaneEditModel)
+			drawn := render(t, s, docURI, tc.pseudo)
+			op := ModelEditOperation{Kind: EditSetLayout, Target: tc.target, Within: tc.within,
+				Layout: &ModelEditLayout{X: float(219), Y: float(140), Width: float(220), Height: float(180)}}
+			if tc.within != "" {
+				op.Rendering = tc.pseudo
+			}
+			out := applyModelEdit(t, s, docURI, drawn.Version, op)
+			applied, _ := redraw(t, s, docURI, nestedSwimlaneEditModel, out, 2, tc.pseudo)
+			if !strings.Contains(applied, tc.want) {
+				t.Errorf("want %q in:\n%s", tc.want, applied)
+			}
+		})
+	}
+}

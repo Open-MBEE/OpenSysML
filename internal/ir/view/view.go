@@ -170,6 +170,8 @@ type Renderer struct {
 	included []*symbols.Symbol
 	// performers caches, by performed action, the elements performing it.
 	performers map[symbols.ElementKey][]*symbols.Symbol
+	// laneHolders caches, by performer, the actions whose nodes it performs.
+	laneHolders map[symbols.ElementKey]map[symbols.ElementKey]bool
 }
 
 // SetIncluded names elements every rendering draws besides what its view
@@ -759,7 +761,12 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn, query bool) (*Rend
 // name; stated says how the kind was decided. An unsupported kind is an
 // *UnsupportedKindError.
 func (r *Renderer) RenderExposed(exposed []*symbols.Symbol, kind Kind, stated string) (*Rendering, error) {
-	out := &Rendering{Kind: kind, Stated: stated}
+	return r.renderExposed(exposed, kind, stated, nil)
+}
+
+// renderExposed is RenderExposed recording in drawn, when set, what the rendering draws.
+func (r *Renderer) renderExposed(exposed []*symbols.Symbol, kind Kind, stated string, drawn *Drawn) (*Rendering, error) {
+	out := &Rendering{Kind: kind, Stated: stated, drawn: drawn}
 	exposed = r.withIncluded(exposed, out)
 	switch kind {
 	case KindTree:

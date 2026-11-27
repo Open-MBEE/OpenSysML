@@ -156,6 +156,48 @@ func TestSetLayoutOfASwimlanePerformerNamesItsLane(t *testing.T) {
 	}
 }
 
+// An inline Layout about such a performer names the rendering its lane was moved in, a view
+// or a pseudo-view of the edited document, and is held to that rendering's lanes.
+func TestSetInlineLayoutOfASwimlanePerformerNamesItsRendering(t *testing.T) {
+	inline := SetLayout("Line::line::robot", "", at(1, 2))
+	m := loadContent(t, "plant.sysml", twoLaneModel)
+	for name, op := range map[string]Operation{
+		"no rendering":             inline.InLane("Line::runA"),
+		"no lane":                  inline.MovedIn("LineViews::bothView"),
+		"another lane":             inline.InLane("Line::runB").MovedIn("LineViews::foldedView"),
+		"another lane of a pseudo": inline.InLane("Line::runB").MovedIn("#action"),
+	} {
+		_, err := Apply(m, []Operation{op})
+		var refused *Error
+		if !errors.As(err, &refused) || refused.Failure != FailureNotDrawn {
+			t.Errorf("%s: %v, want a %s refusal", name, err, FailureNotDrawn)
+		}
+	}
+	for name, op := range map[string]Operation{
+		"the first lane of a view":   inline.InLane("Line::runA").MovedIn("LineViews::foldedView"),
+		"the first lane of a pseudo": inline.InLane("Line::runA").MovedIn("#action"),
+		"the only lane of a pseudo":  inline.InLane("Line::runB").MovedIn("#action:Line::runB"),
+	} {
+		if got := applyLayout(t, twoLaneModel, op); !strings.Contains(got, "@DiagramLayout::Layout { x = 1; y = 2; }") {
+			t.Errorf("%s: the lane was not placed inline:\n%s", name, got)
+		}
+	}
+}
+
+// An action declared by its short name alone is named by it.
+func TestSetInlineLayoutOfASwimlaneInAShortNamedAction(t *testing.T) {
+	const model = `package Line {
+    action <s> { action load; }
+    action second { action pack; }
+    part robot { perform s.load; perform second.pack; }
+}
+`
+	got := applyLayout(t, model, SetLayout("Line::robot", "", at(1, 2)).InLane("Line::s").MovedIn("#action"))
+	if !strings.Contains(got, "@DiagramLayout::Layout { x = 1; y = 2; }") {
+		t.Errorf("the lane was not placed inline:\n%s", got)
+	}
+}
+
 func TestSetLayoutRefusesAPartNoSwimlaneIsDrawnFor(t *testing.T) {
 	m := loadContent(t, "plant.sysml", swimlaneModel)
 	_, err := Apply(m, []Operation{SetLayout("Line::line", "LineViews::runView", at(1, 2))})

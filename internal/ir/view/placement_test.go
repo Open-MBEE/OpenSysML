@@ -239,3 +239,19 @@ func written(t *testing.T, r *Rendering, form Form) string {
 	}
 	return artifact
 }
+
+// A lane drawn in a node with no name is one no operation can name, once the performer has another.
+func TestDrawnLaneHolderUnnamed(t *testing.T) {
+	_, idx := loadFixtures(t, "bookkeeping.sysml")
+	robot := idx.LookupQualified("Budget::Mirror")[0]
+	performer := nodeOrigin(robot.DocName, robot.Decl)
+	drawn := newDrawn()
+	drawn.noteLane(performer, &Node{})
+	if drawn.LaneHolderUnnamed(robot) {
+		t.Error("an only lane needs no name")
+	}
+	drawn.noteLane(performer, &Node{Name: "second"})
+	if !drawn.LaneHolderUnnamed(robot) {
+		t.Error("the first of two lanes, drawn in a node with no name, is not reported unnamed")
+	}
+}

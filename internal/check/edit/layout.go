@@ -526,17 +526,29 @@ func (m Model) checkPlaceable(i int, op Operation, renderer *view.Renderer, sem 
 		Message: fmt.Sprintf("the rendering of %s does not draw %s as %s", op.View, m.label(op), role)}
 }
 
-// checkLane refuses a Layout about a performer with several swimlanes in the view unless
-// the operation names, as Within, the action holding the lane that Layout places: the first
-// of them, drawn or folded away. The other lanes are drawn around their nodes, so the
-// Layout would move a lane the operation did not, and a client is not trusted to know which.
+// checkLane refuses a Layout about a performer with several swimlanes in the rendering it
+// was moved in unless the operation names, as Within, the action holding the lane that
+// Layout places: the first of them, drawn or folded away. The other lanes are drawn around
+// their nodes, so the Layout would move a lane the operation did not, and a client is not
+// trusted to know which. An inline Layout names that rendering, or its performer has one lane.
 func (m Model) checkLane(i int, op Operation, renderer *view.Renderer, target layoutTarget) error {
-	if op.Annotation != semantics.LayoutFQN || op.Layout == nil || target.view == nil || target.owner != nil || !renderer.Performer(target.sym) {
+	if op.Annotation != semantics.LayoutFQN || op.Layout == nil || target.owner != nil || !renderer.Performer(target.sym) {
 		return nil
 	}
-	drawn, err := renderer.DrawnIn(target.view)
+	in := op.View
+	if target.view == nil {
+		if in = op.Rendering; in == "" {
+			if !renderer.PerformsInSeveral(target.sym) {
+				return nil
+			}
+			return &Error{Failure: FailureNotDrawn, OperationIndex: i,
+				Message: fmt.Sprintf("%s performs in several actions, so a rendering may draw it several swimlanes and its Layout places one, the outermost or the first; name the view or pseudo-view the swimlane was dragged in and the action it is drawn in",
+					m.label(op))}
+		}
+	}
+	drawn, err := m.drawnIn(i, in, renderer, target)
 	if err != nil {
-		return nil // checkPlaceable reports a view that does not render
+		return err
 	}
 	var holder *symbols.Symbol
 	if op.Within != "" {
@@ -547,9 +559,46 @@ func (m Model) checkLane(i int, op Operation, renderer *view.Renderer, target la
 	if drawn.LanePlacedIn(target.sym, holder) {
 		return nil
 	}
+	hint := "drag that swimlane instead, naming the action it is drawn in"
+	if drawn.LaneHolderUnnamed(target.sym) {
+		hint = "that swimlane is drawn in an action with no name, which no edit can name, so no edit places it"
+	}
 	return &Error{Failure: FailureNotDrawn, OperationIndex: i,
-		Message: fmt.Sprintf("%s has several swimlanes in %s and its Layout places one, the outermost or the first, drawn or folded away; drag that swimlane instead, naming the action it is drawn in",
-			m.label(op), op.View)}
+		Message: fmt.Sprintf("%s has several swimlanes in %s and its Layout places one, the outermost or the first, drawn or folded away; %s",
+			m.label(op), in, hint)}
+}
+
+// drawnIn is what the rendering a performer's Layout was moved in draws: the view the
+// operation states it in, or for an inline one the view or pseudo-view named as rendering.
+// The view a Layout is stated in may not render, which checkPlaceable reports: nil then.
+func (m Model) drawnIn(i int, rendering string, renderer *view.Renderer, target layoutTarget) (*view.Drawn, error) {
+	viewSym := target.view
+	if viewSym == nil {
+		if kind, exposing, ok := view.ParsePseudoView(rendering); ok {
+			exposed := view.PseudoViewExposed(m.Index, m.Source.Name(), exposing)
+			if exposed == nil {
+				return nil, &Error{Failure: FailureUnknownTarget, OperationIndex: i,
+					Message: fmt.Sprintf("%s names nothing in %s for the pseudo-view %s to render", exposing, docLabel(m.Source.Name()), rendering)}
+			}
+			drawn, err := renderer.DrawnExposed(exposed, kind)
+			if err != nil {
+				return nil, &Error{Failure: FailureNotDrawn, OperationIndex: i,
+					Message: fmt.Sprintf("%s does not render: %v", rendering, err)}
+			}
+			return drawn, nil
+		}
+		var err error
+		if viewSym, err = m.viewNamed(i, rendering, "",
+			fmt.Sprintf("%s is no view or pseudo-view; name the rendering the swimlane was dragged in", rendering)); err != nil {
+			return nil, err
+		}
+	}
+	drawn, err := renderer.DrawnIn(viewSym)
+	if err != nil && target.view == nil {
+		return nil, &Error{Failure: FailureNotDrawn, OperationIndex: i,
+			Message: fmt.Sprintf("%s does not render: %v", rendering, err)}
+	}
+	return drawn, nil
 }
 
 // exposes reports whether view exposes sym or an element sym is nested in.
