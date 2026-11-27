@@ -667,6 +667,7 @@ func newEncoderOver(file *source.SourceFile, root *ast.RootNamespace, form IDFor
 		effects:            map[ast.Node]bool{},
 		triggerParams:      map[ast.Node]string{},
 		acceptPayloads:     map[ast.Node]rdf.Term{},
+		loopBodies:         map[ast.Node]bool{},
 		triggerMembers:     map[ast.Node]string{},
 		links:              map[*ast.QualifiedName]*symbols.Symbol{},
 		ids:                ids,
@@ -739,6 +740,8 @@ type encoder struct {
 	// acceptPayloads holds the payload parameter of each accept node, mapped
 	// to the AcceptActionUsage that owns it as its payloadParameter.
 	acceptPayloads map[ast.Node]rdf.Term
+	// loopBodies holds the action each loop's body is written as (`loop action a { … }`).
+	loopBodies     map[ast.Node]bool
 	triggerMembers map[ast.Node]string
 	// links is what each written reference resolves to, read with the rule of
 	// its position (a redefinition among the generals, an edge end as a vertex).
@@ -1592,6 +1595,10 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			// owns (SysML.xtext ReturnParameterMember).
 			parameterClass, parameterEnd = mReturnParameterMembership, pOwnedMemberParameter
 		}
+		if e.loopBodies[n] {
+			// A loop's written body is the parameter the loop owns (SysML.xtext ActionBodyParameterMember).
+			parameterClass, parameterEnd = mParameterMembership, pOwnedMemberParameter
+		}
 		if parameterClass != "" {
 			h.membershipClass = parameterClass
 			h.membershipExtra = func(membership rdf.Term) {
@@ -1683,6 +1690,8 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		// is the AcceptActionUsage the trigger implies, an action.
 		_, triggerParam := e.triggerParams[n]
 		triggerVaries := triggerParam && e.ids.model.UsageMayTimeVaryUnderKind(ast.UsageAction)
+		// So does a loop's written body, a parameter of the loop.
+		bodyVaries := e.loopBodies[n] && e.ids.model.UsageMayTimeVaryUnderKind(ast.UsageAction)
 		e.flags(subject, []boolProperty{
 			{"isAbstract", n.IsAbstract || n.IsVariation},
 			{"isVariation", n.IsVariation},
@@ -1695,8 +1704,8 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			// A declared end that varies in time is constant though `constant` is not notated (SysML v2.1 §8.2.2.6.1).
 			{"isConstant", n.IsConstant || (n.IsEnd && ontology.IsAncestorOrSelf(metaclass, "Usage") && e.usageMayTimeVary(n))},
 			// A payload is a PayloadFeature, a KerML Feature with no `var` keyword.
-			{"isVariable", !payload && (e.usageIsVariable(n) || triggerVaries)},
-			{"mayTimeVary", ontology.IsAncestorOrSelf(metaclass, "Usage") && (e.usageMayTimeVary(n) || triggerVaries)},
+			{"isVariable", !payload && (e.usageIsVariable(n) || triggerVaries || bodyVaries)},
+			{"mayTimeVary", ontology.IsAncestorOrSelf(metaclass, "Usage") && (e.usageMayTimeVary(n) || triggerVaries || bodyVaries)},
 			{"isEvent", n.IsEvent && metaclass != mEventOccurrenceUsage},
 			{"isIndividual", n.IsIndividual},
 			// A snapshot or timeslice is a portion by its kind (OccurrenceUsage::portionKind).

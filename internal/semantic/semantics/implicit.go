@@ -635,7 +635,7 @@ func (m *Model) usageBaseFeatureFQN(sym *symbols.Symbol) (string, bool) {
 	case *ast.SendStatement:
 		return sendActionsFQN, true
 	case *ast.AssignmentActionNode, *ast.IfActionNode, *ast.WhileLoopActionNode:
-		if IsLoopVariable(sym) {
+		if IsLoopVariable(sym) || isLoopBody(sym) {
 			return "", false
 		}
 		fqn := controlBaseFQNs[controlFormOf(d)]

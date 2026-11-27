@@ -503,6 +503,13 @@ func (s *SymbolIDs) expressionID(sym *symbols.Symbol) (string, bool) {
 			return rdf.ExpressionNodeID(base, "filter"), ok
 		}
 		return s.partID(owner, sym.Expr.Slot)
+	case symbols.ExpressionAccess:
+		// A feature an assignment's target nests is minted at its slot (nodeParameter).
+		return s.partID(owner, sym.Expr.Slot)
+	case symbols.ExpressionLoopBody:
+		// A loop's body is minted off the loop (loopBody).
+		base, ok := s.of(owner)
+		return base + loopBodySuffix, ok
 	case symbols.ExpressionTransitionSuccession:
 		// The conversion mints a transition's succession off the transition (recordTransitionSuccession).
 		return s.partID(owner, "succession")
@@ -530,6 +537,10 @@ func (s *SymbolIDs) expressionID(sym *symbols.Symbol) (string, bool) {
 			return base + encodedSegment(naming.TriggerSegment), true
 		}
 	case symbols.ExpressionPayload:
+		if slot, ok := semantics.NodeParameterSlot(sym); ok {
+			// An assignment's or loop's parameter is minted at its slot (nodeParameter).
+			return s.partID(owner, slot)
+		}
 		if owner.Kind == symbols.SymbolSendActionUsage {
 			// A send's argument parameter is its unnamed member at the argument's position (encodeSendArguments).
 			base, ok := s.of(owner)
@@ -550,6 +561,11 @@ func (s *SymbolIDs) expressionID(sym *symbols.Symbol) (string, bool) {
 // declaration it is written as, or an argument at its position under its expression.
 func (s *SymbolIDs) declaredExpressionID(sym, owner *symbols.Symbol) (string, bool) {
 	doc := sym.DocName
+	if _, stated := semantics.NodeParameterSlot(owner); stated && sym.Expr.Role == symbols.ExpressionValue {
+		// The value of an assignment's or loop's parameter is the parameter's `value` part (nodeParameterValue).
+		base, ok := s.of(owner)
+		return rdf.ExpressionNodeID(base, pValue), ok
+	}
 	if sym.Expr.Role == symbols.ExpressionValue && owner.Expr != nil && owner.Expr.Role == symbols.ExpressionPayload &&
 		owner.Expr.Owner != nil && owner.Expr.Owner.Kind == symbols.SymbolSendActionUsage {
 		// The value of a send's argument parameter is the parameter's `value` part.
