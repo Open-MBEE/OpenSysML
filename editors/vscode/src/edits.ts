@@ -75,16 +75,14 @@ export function placementOperations(
   return operations;
 }
 
-/** laneHolder names the action a swimlane is drawn in and, for a pseudo-view, that rendering: a performer may have several lanes in a rendering, and the server places the one its Layout is about only when the edit names that lane's action. */
-function laneHolder(rendering: Rendering, node: RenderNode): { within?: string; rendering?: string } {
+/** laneHolder names, for a pseudo-view, that rendering, and for a swimlane the nodes it is drawn in, outermost first: a performer may have several lanes in a rendering, and the server places the one its Layout is about only when the edit names that lane's nodes. */
+function laneHolder(rendering: Rendering, node: RenderNode): { within?: string[]; rendering?: string } {
+  const drawnIn = !rendering.view && rendering.pseudoView ? { rendering: rendering.pseudoView } : {};
   if (node.kind !== SWIMLANE_KIND) {
-    return {};
+    return drawnIn;
   }
-  const within = rendering.nodes.find((candidate) => candidate.id === node.parent)?.fqn;
-  if (!within) {
-    return {};
-  }
-  return !rendering.view && rendering.pseudoView ? { within, rendering: rendering.pseudoView } : { within };
+  const within = ancestors(node, rendering.nodes).map((holder) => holder.fqn).reverse();
+  return within.length > 0 && within.every((fqn) => fqn) ? { ...drawnIn, within: within as string[] } : drawnIn;
 }
 
 /** declaredIn names the document declaring a node or edge, and the digest of its text as rendered, when the rendering located it: the server places the target in that text or answers stale. */

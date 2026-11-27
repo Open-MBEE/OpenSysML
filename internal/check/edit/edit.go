@@ -176,9 +176,9 @@ type Operation struct {
 	// the annotation itself, not the element, when one of those is rewritten.
 	Annotation string
 	View       string
-	// Within names the action a swimlane placed by a Layout about its performer is
-	// drawn in, by FQN: which of the performer's lanes in View the operation moved.
-	Within string
+	// Within names the nodes a swimlane placed by a Layout about its performer is drawn
+	// in, by FQN and outermost first: which of the performer's lanes the operation moved.
+	Within []string
 	// Rendering names the view, or the pseudo-view (`#<kind>` or `#<kind>:<fqn>`) of the
 	// edited document, that swimlane was moved in, for a Layout written inline, without View.
 	Rendering string
@@ -192,8 +192,8 @@ type Operation struct {
 	Picture *semantics.Picture
 }
 
-// InLane names the action the swimlane a Layout operation about a performer moved is drawn in.
-func (op Operation) InLane(within string) Operation {
+// InLane names the nodes the swimlane a Layout operation about a performer moved is drawn in.
+func (op Operation) InLane(within ...string) Operation {
 	op.Within = within
 	return op
 }

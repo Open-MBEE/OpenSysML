@@ -3,6 +3,7 @@ package edit
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -527,7 +528,7 @@ func (m Model) checkPlaceable(i int, op Operation, renderer *view.Renderer, sem 
 }
 
 // checkLane refuses a Layout about a performer with several swimlanes in the rendering it
-// was moved in unless the operation names, as Within, the action holding the lane that
+// was moved in unless the operation names, as Within, the nodes holding the lane that
 // Layout places: the first of them, drawn or folded away. The other lanes are drawn around
 // their nodes, so the Layout would move a lane the operation did not, and a client is not
 // trusted to know which. An inline Layout names that rendering, or its performer has one lane.
@@ -542,7 +543,7 @@ func (m Model) checkLane(i int, op Operation, renderer *view.Renderer, target la
 				return nil
 			}
 			return &Error{Failure: FailureNotDrawn, OperationIndex: i,
-				Message: fmt.Sprintf("%s performs in several actions, so a rendering may draw it several swimlanes and its Layout places one, the outermost or the first; name the view or pseudo-view the swimlane was dragged in and the action it is drawn in",
+				Message: fmt.Sprintf("%s performs in several actions, so a rendering may draw it several swimlanes and its Layout places one, the outermost or the first; name the view or pseudo-view it was dragged in and, for a swimlane, the nodes it is drawn in",
 					m.label(op))}
 		}
 	}
@@ -550,22 +551,37 @@ func (m Model) checkLane(i int, op Operation, renderer *view.Renderer, target la
 	if err != nil {
 		return err
 	}
-	var holder *symbols.Symbol
-	if op.Within != "" {
-		if holder, err = m.declaredOnceIn(i, op.Within, ""); err != nil {
-			return err
-		}
-	}
-	if drawn.LanePlacedIn(target.sym, holder) {
+	lanes := drawn.Lanes(target.sym)
+	if len(lanes) < 2 || m.namesLane(op.Within, lanes) {
 		return nil
 	}
-	hint := "drag that swimlane instead, naming the action it is drawn in"
-	if drawn.LaneHolderUnnamed(target.sym) {
+	hint := "drag that swimlane instead, naming the nodes it is drawn in, outermost first"
+	if lanes[0].Unnamed {
 		hint = "that swimlane is drawn in an action with no name, which no edit can name, so no edit places it"
 	}
 	return &Error{Failure: FailureNotDrawn, OperationIndex: i,
 		Message: fmt.Sprintf("%s has several swimlanes in %s and its Layout places one, the outermost or the first, drawn or folded away; %s",
 			m.label(op), in, hint)}
+}
+
+// namesLane reports whether within names the nodes the first of lanes is drawn in and those
+// of no other: a name stands for whichever of its declarations the rendering drew there.
+func (m Model) namesLane(within []string, lanes []view.DrawnLane) bool {
+	names := func(lane view.DrawnLane) bool {
+		if lane.Unnamed || len(lane.Holders) != len(within) {
+			return false
+		}
+		for at, holder := range lane.Holders {
+			if !slices.ContainsFunc(m.declared(within[at]), func(sym *symbols.Symbol) bool {
+				at := sym.Origin()
+				return at.Doc == holder.Doc && at.Span == holder.Span
+			}) {
+				return false
+			}
+		}
+		return true
+	}
+	return names(lanes[0]) && !slices.ContainsFunc(lanes[1:], names)
 }
 
 // drawnIn is what the rendering a performer's Layout was moved in draws: the view the

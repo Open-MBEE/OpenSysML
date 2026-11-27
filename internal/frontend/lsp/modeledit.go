@@ -92,7 +92,7 @@ type ModelEditOperation struct {
 	To             string               `json:"to,omitempty"`
 	Cascade        bool                 `json:"cascade,omitzero"`
 	View           string               `json:"view,omitempty"`
-	Within         string               `json:"within,omitempty"`
+	Within         []string             `json:"within,omitempty"`
 	Rendering      string               `json:"rendering,omitempty"`
 	Keyword        string               `json:"keyword,omitempty"`
 	Ref            string               `json:"ref,omitempty"`
@@ -459,7 +459,7 @@ func (op ModelEditOperation) renderingOperation(content []byte) (modeledit.Opera
 		if op.Declaration != nil {
 			placed = modeledit.SetLayoutAt(rangeToSpan(content, *op.Declaration), op.View, layout)
 		}
-		return placed.InLane(op.Within).MovedIn(op.Rendering), nil
+		return placed.InLane(op.Within...).MovedIn(op.Rendering), nil
 	case EditSetRoute:
 		var route *semantics.Route
 		if len(op.Route) > 0 {

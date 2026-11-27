@@ -338,7 +338,7 @@ test("placementOperations names the action a dragged swimlane is drawn in", () =
   const flow: RenderNode = { id: "n1", kind: "action", name: "run", type: "", detail: "", fqn: "Line::run", declaredHere: true };
   const lane: RenderNode = { id: "n2", kind: "swimlane", name: "line.robot", type: "", detail: "perform actions", parent: "n1", fqn: "Line::line::robot", declaredHere: true };
   assert.deepEqual(placementOperations({ nodes: [flow, lane], view: "Line::runView", version: 1 }, [{ id: "n2", layout: { x: 10, y: 20 } }], []), [
-    { kind: "setLayout", target: "Line::line::robot", view: "Line::runView", within: "Line::run", layout: { x: 10, y: 20 } },
+    { kind: "setLayout", target: "Line::line::robot", view: "Line::runView", within: ["Line::run"], layout: { x: 10, y: 20 } },
   ]);
 });
 
@@ -346,8 +346,8 @@ test("placementOperations names the pseudo-view a dragged swimlane is drawn in, 
   const flow: RenderNode = { id: "n1", kind: "action", name: "run", type: "", detail: "", fqn: "Line::run", declaredHere: true };
   const lane: RenderNode = { id: "n2", kind: "swimlane", name: "line.robot", type: "", detail: "perform actions", parent: "n1", fqn: "Line::line::robot", declaredHere: true };
   assert.deepEqual(placementOperations({ nodes: [flow, lane], view: "", pseudoView: "#action:Line::run", version: 1 }, [{ id: "n2", layout: { x: 10, y: 20 } }, { id: "n1", layout: { x: 1, y: 2 } }], []), [
-    { kind: "setLayout", target: "Line::line::robot", view: undefined, within: "Line::run", rendering: "#action:Line::run", layout: { x: 10, y: 20 } },
-    { kind: "setLayout", target: "Line::run", view: undefined, layout: { x: 1, y: 2 } },
+    { kind: "setLayout", target: "Line::line::robot", view: undefined, within: ["Line::run"], rendering: "#action:Line::run", layout: { x: 10, y: 20 } },
+    { kind: "setLayout", target: "Line::run", view: undefined, rendering: "#action:Line::run", layout: { x: 1, y: 2 } },
   ]);
 });
 

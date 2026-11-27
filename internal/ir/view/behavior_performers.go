@@ -1,6 +1,7 @@
 package view
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -195,7 +196,10 @@ func (r *Renderer) laneNodes(subject actionSubject, frame *Node, from int, eleme
 // the first in the view's order, and marks the others Fitted. Which lane that is does not
 // depend on what is folded: a lane folded away keeps the Layout, as any folded node keeps its own.
 func placeLanesOnce(out *Rendering) {
-	type held struct{ node, holder *Node }
+	type held struct {
+		node    *Node
+		holders []*Node // the nodes it is drawn in, outermost first
+	}
 	first := map[Origin]bool{}
 	seen := map[*Node]bool{} // a rendering may list a node under several others
 	level := make([]held, 0, len(out.Roots))
@@ -215,12 +219,11 @@ func placeLanesOnce(out *Rendering) {
 					node.Geometry, node.Fitted = nil, true
 				}
 				first[node.Origin] = true
-				if at.holder != nil {
-					out.drawn.noteLane(node.Origin, at.holder)
-				}
+				out.drawn.noteLane(node.Origin, at.holders)
 			}
+			holders := append(slices.Clip(at.holders), node)
 			for _, child := range node.Children {
-				next = append(next, held{node: child, holder: node})
+				next = append(next, held{node: child, holders: holders})
 			}
 		}
 		level = next

@@ -1,8 +1,11 @@
 package lsp
 
 import (
+	"context"
 	"strings"
 	"testing"
+
+	"go.lsp.dev/protocol"
 )
 
 // One performer with a swimlane in each of two flows; folded folds the first flow, whose
@@ -40,7 +43,7 @@ func TestApplyModelEditRefusesAPerformerLayoutNamingNoLane(t *testing.T) {
 			legacy := ModelEditOperation{Kind: EditSetLayout, Target: "Two::line::robot", View: drawn.View,
 				Layout: &ModelEditLayout{X: float(219), Y: float(120)}}
 			fitted := legacy
-			fitted.Within = "Two::runB"
+			fitted.Within = []string{"Two::runB"}
 			for name, op := range map[string]ModelEditOperation{"no lane": legacy, "the fitted lane": fitted} {
 				out := applyModelEdit(t, s, docURI, drawn.Version, op)
 				if out.Edit != nil || len(out.Refused) != 1 || out.Refused[0].Failure != "not-drawn" ||
@@ -58,7 +61,7 @@ func TestApplyModelEditPlacesTheSwimlaneItsLayoutPlaces(t *testing.T) {
 	s, docURI := renderServer(t, "two.sysml", swimlaneEditModel)
 	drawn := render(t, s, docURI, "Two::unfolded")
 	out := applyModelEdit(t, s, docURI, drawn.Version, ModelEditOperation{Kind: EditSetLayout, Target: "Two::line::robot",
-		View: drawn.View, Within: "Two::runA", Layout: &ModelEditLayout{X: float(219), Y: float(120), Width: float(220), Height: float(180)}})
+		View: drawn.View, Within: []string{"Two::runA"}, Layout: &ModelEditLayout{X: float(219), Y: float(120), Width: float(220), Height: float(180)}})
 	applied, redrawn := redraw(t, s, docURI, swimlaneEditModel, out, 2, drawn.View)
 	if !strings.Contains(applied, "metadata Layout about line::robot { x = 219; y = 120; width = 220; height = 180; }") {
 		t.Errorf("the lane's Layout was not rewritten in place:\n%s", applied)
@@ -117,13 +120,13 @@ func TestApplyModelEditRefusesAnInlinePerformerLayoutNamingNoLane(t *testing.T) 
 	drawn := render(t, s, docURI, pseudo)
 	legacy := ModelEditOperation{Kind: EditSetLayout, Target: "F9::arm", Layout: &ModelEditLayout{X: float(219), Y: float(120)}}
 	unrendered, unnamed, nested := legacy, legacy, legacy
-	unrendered.Within = "F9::assemble"
+	unrendered.Within = []string{"F9::assemble"}
 	unnamed.Rendering = pseudo
-	nested.Rendering, nested.Within = pseudo, "F9::assemble::build"
+	nested.Rendering, nested.Within = pseudo, []string{"F9::assemble", "F9::assemble::build"}
 	for name, op := range map[string]ModelEditOperation{"legacy": legacy, "no rendering": unrendered, "no lane": unnamed, "the nested lane": nested} {
 		out := applyModelEdit(t, s, docURI, drawn.Version, op)
 		if out.Edit != nil || len(out.Refused) != 1 || out.Refused[0].Failure != "not-drawn" ||
-			!strings.Contains(out.Refused[0].Message, "the action it is drawn in") {
+			!strings.Contains(out.Refused[0].Message, "the nodes it is drawn in") {
 			t.Errorf("%s: result = %+v, want one not-drawn refusal and no edit", name, out)
 		}
 	}
@@ -141,10 +144,10 @@ func TestApplyModelEditPlacesASwimlaneInAPseudoView(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			s, docURI := renderServer(t, "f9.sysml", nestedSwimlaneEditModel)
 			drawn := render(t, s, docURI, tc.pseudo)
-			op := ModelEditOperation{Kind: EditSetLayout, Target: tc.target, Within: tc.within,
+			op := ModelEditOperation{Kind: EditSetLayout, Target: tc.target,
 				Layout: &ModelEditLayout{X: float(219), Y: float(140), Width: float(220), Height: float(180)}}
 			if tc.within != "" {
-				op.Rendering = tc.pseudo
+				op.Rendering, op.Within = tc.pseudo, []string{tc.within}
 			}
 			out := applyModelEdit(t, s, docURI, drawn.Version, op)
 			applied, _ := redraw(t, s, docURI, nestedSwimlaneEditModel, out, 2, tc.pseudo)
@@ -152,5 +155,82 @@ func TestApplyModelEditPlacesASwimlaneInAPseudoView(t *testing.T) {
 				t.Errorf("want %q in:\n%s", tc.want, applied)
 			}
 		})
+	}
+}
+
+// laneWithin is what a client names as within for a swimlane it drew: the fqn of each node
+// up its parent chain, outermost first.
+func laneWithin(t *testing.T, drawn *RenderResult, lane RenderNode) []string {
+	t.Helper()
+	byID := map[string]RenderNode{}
+	for _, n := range drawn.Nodes {
+		byID[n.ID] = n
+	}
+	var within []string
+	for id := lane.Parent; id != ""; id = byID[id].Parent {
+		if byID[id].FQN == "" {
+			t.Fatalf("node %s holding swimlane %s has no fqn", id, lane.ID)
+		}
+		within = append([]string{byID[id].FQN}, within...)
+	}
+	return within
+}
+
+// swimlanes are the swimlanes a rendering draws, in its order.
+func swimlanes(drawn *RenderResult) []RenderNode {
+	var lanes []RenderNode
+	for _, n := range drawn.Nodes {
+		if n.Kind == "swimlane" {
+			lanes = append(lanes, n)
+		}
+	}
+	return lanes
+}
+
+// An action another document declares under the same qualified name is not the one the
+// rendering drew the lane in, and does not make the name of that one ambiguous.
+func TestApplyModelEditPlacesASwimlaneWhoseActionHasANamesake(t *testing.T) {
+	s, docURI := renderServer(t, "two.sysml", swimlaneEditModel)
+	if err := s.DidOpen(context.Background(), &protocol.DidOpenTextDocumentParams{TextDocument: protocol.TextDocumentItem{
+		URI: testDocURI(t, "namesake.sysml"), LanguageID: "sysml", Version: 1, Text: "package Two { action runA { action other; } }\n",
+	}}); err != nil {
+		t.Fatalf("DidOpen err = %v", err)
+	}
+	drawn := render(t, s, docURI, "Two::unfolded")
+	out := applyModelEdit(t, s, docURI, drawn.Version, ModelEditOperation{Kind: EditSetLayout, Target: "Two::line::robot",
+		View: drawn.View, Within: []string{"Two::runA"}, Layout: &ModelEditLayout{X: float(219), Y: float(120), Width: float(220), Height: float(180)}})
+	if out.Edit == nil || len(out.Refused) != 0 {
+		t.Fatalf("result = %+v, want the first lane placed", out)
+	}
+}
+
+const inheritedSwimlaneEditModel = `package Inh {
+	action def Base { action build { action cut; } }
+	action def A :> Base;
+	action def B :> Base;
+	part robot { perform Base::build::cut; }
+	view both : StandardViewDefinitions::ActionFlowView { expose A; expose B; }
+}
+`
+
+// Two flows inheriting one nested action draw a lane each in a node of the same declaration.
+// The nodes around it tell them apart: only the first flow's lane is the one the Layout places.
+func TestApplyModelEditTellsInheritedSwimlanesApart(t *testing.T) {
+	s, docURI := renderServer(t, "inh.sysml", inheritedSwimlaneEditModel)
+	drawn := render(t, s, docURI, "Inh::both")
+	lanes := swimlanes(drawn)
+	if len(lanes) != 2 || lanes[0].Fitted || !lanes[1].Fitted {
+		t.Fatalf("swimlanes = %+v, want the first placeable and the second fitted", lanes)
+	}
+	at := &ModelEditLayout{X: float(219), Y: float(120)}
+	fitted := applyModelEdit(t, s, docURI, drawn.Version, ModelEditOperation{Kind: EditSetLayout, Target: lanes[1].FQN,
+		View: drawn.View, Within: laneWithin(t, drawn, lanes[1]), Layout: at})
+	if fitted.Edit != nil || len(fitted.Refused) != 1 || fitted.Refused[0].Failure != "not-drawn" {
+		t.Errorf("the fitted lane: result = %+v, want one not-drawn refusal and no edit", fitted)
+	}
+	first := applyModelEdit(t, s, docURI, drawn.Version, ModelEditOperation{Kind: EditSetLayout, Target: lanes[0].FQN,
+		View: drawn.View, Within: laneWithin(t, drawn, lanes[0]), Layout: at})
+	if first.Edit == nil || len(first.Refused) != 0 {
+		t.Errorf("the first lane: result = %+v, want it placed", first)
 	}
 }

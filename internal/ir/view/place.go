@@ -12,7 +12,7 @@ import (
 type Drawn struct {
 	nodes, edges map[ast.Node]bool
 	steered      map[Origin]bool                // origins of the edges a plain Route steers
-	lanes        map[Origin]*drawnLane          // origins of the performers drawn as swimlanes
+	lanes        map[Origin][]DrawnLane         // origins of the performers drawn as swimlanes
 	generalEdged map[Origin]bool                // origins of the elements whose edge to a general a Route naming it steers
 	inherited    map[Origin]map[string]bool     // owner origin -> local names of the members drawn as its own
 	members      map[ast.Node]map[ast.Node]bool // member decl -> owner decls it is drawn as a member of
@@ -41,7 +41,7 @@ func (d *Drawn) MemberNode(owner, sym *symbols.Symbol) bool {
 }
 
 func newDrawn() *Drawn {
-	return &Drawn{nodes: map[ast.Node]bool{}, edges: map[ast.Node]bool{}, steered: map[Origin]bool{}, lanes: map[Origin]*drawnLane{}, generalEdged: map[Origin]bool{},
+	return &Drawn{nodes: map[ast.Node]bool{}, edges: map[ast.Node]bool{}, steered: map[Origin]bool{}, lanes: map[Origin][]DrawnLane{}, generalEdged: map[Origin]bool{},
 		inherited: map[Origin]map[string]bool{}, members: map[ast.Node]map[ast.Node]bool{}, generals: map[ast.Node]map[ast.Node]bool{}}
 }
 
@@ -62,51 +62,33 @@ func (d *Drawn) Inherits(owner Origin, name string) bool {
 	return d != nil && d.inherited[owner][name]
 }
 
-// drawnLane is how a rendering draws the swimlanes of one performer.
-type drawnLane struct {
-	holder  Origin // the node the lane a Layout about the performer places is drawn in
-	unnamed bool   // that node has no name, so no operation can name it
-	several bool   // the performer has other lanes, drawn around their nodes
+// DrawnLane is one swimlane a rendering draws for a performer: the nodes it is drawn in, outermost
+// first, and whether one of them has no name, so that no operation can name the lane.
+type DrawnLane struct {
+	Holders []Origin
+	Unnamed bool
 }
 
-// LaneHolderUnnamed reports whether the swimlane a Layout about performer places is one of
-// several and drawn in a node with no name: a lane no operation can name the action of.
-func (d *Drawn) LaneHolderUnnamed(performer *symbols.Symbol) bool {
+// Lanes are the swimlanes a rendering draws for performer. A Layout about the performer
+// places the first of them, drawn or folded away; the others are drawn around their nodes.
+func (d *Drawn) Lanes(performer *symbols.Symbol) []DrawnLane {
 	if d == nil || performer == nil {
-		return false
+		return nil
 	}
-	lane := d.lanes[nodeOrigin(performer.DocName, performer.Decl)]
-	return lane != nil && lane.several && lane.unnamed
+	return d.lanes[nodeOrigin(performer.DocName, performer.Decl)]
 }
 
-// LanePlacedIn reports whether a Layout about performer places the swimlane drawn in holder.
-// It does when that is the performer's one lane in the rendering. Of several, the Layout
-// places the first, drawn or folded away, so holder has to be the node that one is drawn in.
-func (d *Drawn) LanePlacedIn(performer, holder *symbols.Symbol) bool {
-	if d == nil || performer == nil {
-		return true
-	}
-	lane := d.lanes[nodeOrigin(performer.DocName, performer.Decl)]
-	if lane == nil || !lane.several {
-		return true
-	}
-	if holder == nil {
-		return false
-	}
-	at := holder.Origin()
-	return lane.holder.Located() && lane.holder.Doc == at.Doc && lane.holder.Span == at.Span
-}
-
-// noteLane records a swimlane of performer drawn in holder: the first is the one its Layout places.
-func (d *Drawn) noteLane(performer Origin, holder *Node) {
+// noteLane records a swimlane of performer drawn in holders, outermost first.
+func (d *Drawn) noteLane(performer Origin, holders []*Node) {
 	if d == nil {
 		return
 	}
-	if lane := d.lanes[performer]; lane != nil {
-		lane.several = true
-		return
+	lane := DrawnLane{Holders: make([]Origin, len(holders)), Unnamed: len(holders) == 0}
+	for i, holder := range holders {
+		lane.Holders[i] = holder.Origin
+		lane.Unnamed = lane.Unnamed || holder.Name == "" || !holder.Origin.Located()
 	}
-	d.lanes[performer] = &drawnLane{holder: holder.Origin, unnamed: holder.Name == ""}
+	d.lanes[performer] = append(d.lanes[performer], lane)
 }
 
 // noteSteered records that a plain Route about elem steers an edge drawn for it.

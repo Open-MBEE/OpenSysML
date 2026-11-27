@@ -22,7 +22,7 @@ func DrawioOperations(imp *view.DrawioImport, inline bool) []Operation {
 		var op Operation
 		switch e.Kind {
 		case view.DrawioEditLayout:
-			op = drawioTargeted(e, SetLayout(e.FQN, viewName, e.Layout), SetLayoutAt(e.Origin.Span, viewName, e.Layout)).InLane(e.Within)
+			op = drawioTargeted(e, SetLayout(e.FQN, viewName, e.Layout), SetLayoutAt(e.Origin.Span, viewName, e.Layout)).InLane(e.Within...)
 			if viewName == "" {
 				op = op.MovedIn(imp.View)
 			}
