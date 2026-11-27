@@ -15,6 +15,24 @@ const (
 	assignmentAccessedFeatureFQN = assignmentStartingAtFQN + "::accessedFeature"
 )
 
+// controlParameterSlots are the slots the conversion files an assignment's or loop's ReferenceUsage
+// parameters at, by the name of the feature each redefines.
+var controlParameterSlots = map[string]string{
+	"target": "targetParameter", "replacementValues": "valueParameter", "seq": "collectionParameter", "whileTest": "emptyParameter",
+}
+
+// NodeParameterSlot is the slot the conversion files sym at where it is a ReferenceUsage an assignment
+// or loop states as its parameter, or a feature an assignment's target nests; ok is false otherwise.
+func NodeParameterSlot(sym *symbols.Symbol) (slot string, ok bool) {
+	if sym == nil || sym.Expr == nil || sym.Expr.Slot == "" {
+		return "", false
+	}
+	if sym.Expr.Role != symbols.ExpressionPayload && sym.Expr.Role != symbols.ExpressionAccess {
+		return "", false
+	}
+	return sym.Expr.Slot, true
+}
+
 // controlParts are the parameters the notation of an assignment, loop, conditional or terminate action
 // implies (SysML.xtext AssignmentNode to TerminateNode), in order, with the values the bound ones own.
 type controlParts struct {
@@ -52,6 +70,8 @@ func (m *Model) controlPartsOf(sym *symbols.Symbol) *controlParts {
 	journal(m, m.controlParts, sym, sym.Decl)
 	parts := &controlParts{values: map[*symbols.Symbol]*symbols.Symbol{}, names: map[*symbols.Symbol]string{}}
 	m.controlParts[sym] = parts
+	// The conversion files the parameters under the statement itself, not under a usage nesting it as a node.
+	filed := statementOf(sym) != nil
 	operand := func(slot string) *symbols.Symbol {
 		for _, candidate := range m.statementOperands(sym) {
 			if candidate.Expr.Slot == slot {
@@ -66,6 +86,9 @@ func (m *Model) controlPartsOf(sym *symbols.Symbol) *controlParts {
 		decl.NodeSpan = span
 		param := transitionPart(sym, decl, span, symbols.SymbolReferenceUsage, sym, symbols.ExpressionPayload)
 		param.Expr.Index = len(parts.params)
+		if filed {
+			param.Expr.Slot = controlParameterSlots[name]
+		}
 		parts.names[param] = name
 		parts.params = append(parts.params, param)
 		if value != nil {
@@ -103,13 +126,17 @@ func (m *Model) controlPartsOf(sym *symbols.Symbol) *controlParts {
 			_, parts.referent, _ = expressionReference(d.Target)
 		}
 		target := reference("target", stated, "target", base)
-		nested := func(owner *symbols.Symbol) *symbols.Symbol {
+		nested := func(owner *symbols.Symbol, slot string) *symbols.Symbol {
 			decl := &ast.Usage{Kind: ast.UsageAttribute, IsReference: true}
 			decl.NodeSpan = span
-			return transitionPart(sym, decl, span, symbols.SymbolReferenceUsage, owner, symbols.ExpressionAccess)
+			part := transitionPart(sym, decl, span, symbols.SymbolReferenceUsage, owner, symbols.ExpressionAccess)
+			if filed {
+				part.Expr.Slot = slot
+			}
+			return part
 		}
-		parts.startingAt = nested(target)
-		parts.accessedFeature = nested(parts.startingAt)
+		parts.startingAt = nested(target, "targetFeature")
+		parts.accessedFeature = nested(parts.startingAt, "accessedFeature")
 		if d.Value != nil {
 			reference("replacementValues", d.Value.Span(), "value", d.Value)
 		}
@@ -295,15 +322,19 @@ func (m *Model) loopBody(sym *symbols.Symbol, loop *ast.WhileLoopActionNode) *sy
 	if declared := m.declaredLoopBody(sym, loop); declared != nil {
 		return declared
 	}
-	decl := &ast.Usage{Kind: ast.UsageAction, Direction: ast.DirIn, IsBodyParameter: true, Members: loop.Body}
-	span := source.Span{Offset: loop.Span().End()}
-	if len(loop.Body) > 0 {
-		span = source.Span{Offset: loop.Body[0].Span().Offset}
+	// The body a loop writes in braces is the action statementNodes gives it, which owns what it declares.
+	nodes := m.statementNodes(sym)
+	if len(nodes) != 1 {
+		return nil
 	}
-	decl.NodeSpan = span
-	body := transitionPart(sym, decl, span, symbols.SymbolActionUsage, sym, symbols.ExpressionPayload)
-	body.Expr.Index = 2
-	return body
+	if !isLoopBody(nodes[0]) && nodes[0].Decl == ast.Node(loop) {
+		// A usage that nests the loop as a node reads the body of that node.
+		return m.loopBody(nodes[0], loop)
+	}
+	if isLoopBody(nodes[0]) {
+		return nodes[0]
+	}
+	return nil
 }
 
 // declaredLoopBody is the action usage the loop sym writes as its body (`while c action b { … }`).

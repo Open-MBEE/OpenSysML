@@ -332,6 +332,10 @@ func mappingMembershipMemberIsElementUncached(
 	if !owner.IsIRI() {
 		owner = firstIRI(graph, membership, pOwner)
 	}
+	if graph.BoolValue(owner, rdf.OpenSysML+xIsLoopBody) {
+		// A loop's body has no address: what it owns is addressed under the loop (loopBody).
+		owner = firstIRI(graph, firstIRI(graph, owner, pOwningMembership), pMembershipOwningNamespace)
+	}
 	resultExpression := context.conforms(graph, membership, "ResultExpressionMembership")
 	ownerIsElement := owner.IsIRI() &&
 		mappingElementSubjectWithContext(graph, owner, seen, context)

@@ -640,12 +640,12 @@ func (e *Encoding) collectBody(node Node, body []lower.Statement, label string, 
 			}
 		case lower.Loop:
 			if s.ConditionID != 0 {
-				if _, err := e.boolean(node.entry(s.ConditionID), s.Body.Scope, "condition of '"+s.Word()+"'", label); err != nil {
+				if _, err := e.boolean(node.entry(s.ConditionID), s.Body.Scope.LoopGuard(), "condition of '"+s.Word()+"'", label); err != nil {
 					return err
 				}
 			}
 			if s.UntilID != 0 {
-				if _, err := e.boolean(node.entry(s.UntilID), s.Body.Scope, "condition of 'until'", label); err != nil {
+				if _, err := e.boolean(node.entry(s.UntilID), s.Body.Scope.LoopGuard(), "condition of 'until'", label); err != nil {
 					return err
 				}
 			}

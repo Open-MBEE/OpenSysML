@@ -382,3 +382,26 @@ func TestRenameBindingConnectorEnd(t *testing.T) {
 		t.Fatalf("got:\n%s\nwant:\n%s", got[name], want)
 	}
 }
+
+// A body expression in a loop's `until` condition keeps its parameter in the document's
+// scope tree when the loop's body states an import, so the parameter is still renamed.
+func TestRenameLoopGuardBodyParameterBesideBodyImport(t *testing.T) {
+	ws := model.NewWorkspace()
+	src := `package Q { attribute other : ScalarValues::Integer; }
+package P {
+	action def A {
+		attribute xs : ScalarValues::Integer[*];
+		loop { private import Q::*; } until xs->exists { in x : ScalarValues::Integer; x > 1 };
+	}
+}
+`
+	name := openRenameDoc(t, ws, "/tmp/rename_loop_guard.sysml", src)
+
+	got, err := applyRename(t, ws, name, "x > 1", "y")
+	if err != nil {
+		t.Fatalf("Rename err = %v", err)
+	}
+	if want := strings.Replace(src, "in x : ScalarValues::Integer; x > 1", "in y : ScalarValues::Integer; y > 1", 1); got[name] != want {
+		t.Fatalf("got:\n%s\nwant:\n%s", got[name], want)
+	}
+}
