@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"maps"
-	"os"
 	"slices"
 	"strings"
 
@@ -33,11 +32,11 @@ func (s *Service) Migrate(ctx context.Context, req *pb.MigrateRequest) (*pb.Migr
 	if err != nil {
 		return nil, err
 	}
-	name, data, err := migrateSource(req)
+	name, data, err := s.migrateSource(req)
 	if err != nil {
 		return nil, err
 	}
-	opts, err := migrateOptions(req)
+	opts, err := s.migrateOptions(req)
 	if err != nil {
 		return nil, err
 	}
@@ -108,16 +107,14 @@ func migrationReport(report *convert.MigrationReport, full bool) (*pb.MigrationR
 
 // migrateSource reads the v1 model the request names, and the name to report
 // it by.
-func migrateSource(req *pb.MigrateRequest) (string, []byte, error) {
+func (s *Service) migrateSource(req *pb.MigrateRequest) (string, []byte, error) {
 	switch src := req.Source.(type) {
 	case *pb.MigrateRequest_Content:
 		return "<content>", src.Content, nil
 	case *pb.MigrateRequest_FilePath:
-		// #nosec G304 -- reading the model file the client names is the point,
-		// and the service runs with the caller's own privileges.
-		data, err := os.ReadFile(src.FilePath)
+		data, err := s.readNamedFile(src.FilePath)
 		if err != nil {
-			return "", nil, statusErrorf(connect.CodeNotFound, msgFileNotFound, err)
+			return "", nil, err
 		}
 		return src.FilePath, data, nil
 	default:
@@ -158,7 +155,7 @@ func migrateFrom(req *pb.MigrateRequest) (convert.Format, error) {
 
 // migrateOptions reads the migration's augments as the command's -layout,
 // -image-base-url and -strict read theirs.
-func migrateOptions(req *pb.MigrateRequest) (convert.MigrateOptions, error) {
+func (s *Service) migrateOptions(req *pb.MigrateRequest) (convert.MigrateOptions, error) {
 	opts := convert.MigrateOptions{ImageBaseURL: req.ImageBaseUrl, Strict: req.Strict}
 	var data []byte
 	switch layout := req.Layout.(type) {
@@ -168,11 +165,9 @@ func migrateOptions(req *pb.MigrateRequest) (convert.MigrateOptions, error) {
 		data = []byte(layout.LayoutContent)
 		opts.LayoutSource = "<layout_content>"
 	case *pb.MigrateRequest_LayoutPath:
-		// #nosec G304 -- reading the layout file the client names is the point,
-		// and the service runs with the caller's own privileges.
-		read, err := os.ReadFile(layout.LayoutPath)
+		read, err := s.readNamedFile(layout.LayoutPath)
 		if err != nil {
-			return opts, statusErrorf(connect.CodeNotFound, msgFileNotFound, err)
+			return opts, err
 		}
 		data = read
 		opts.LayoutSource = layout.LayoutPath

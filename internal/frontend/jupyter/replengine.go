@@ -122,7 +122,7 @@ func (e *REPLEngine) meta(line string, out Output) error {
 		}
 		return nil
 	}
-	lines, quit, err := e.session.RunMeta(line)
+	lines, quit, err := e.session.RunCommand(line)
 	if err != nil {
 		var usage *repl.UsageError
 		if errors.As(err, &usage) {

@@ -1,1 +1,0 @@
-- The HTML, Markdown and AsciiDoc document backends no longer generate a diagram's source when a drawn SVG or image is written in its place.

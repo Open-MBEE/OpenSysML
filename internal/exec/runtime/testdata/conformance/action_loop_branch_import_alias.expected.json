@@ -1,0 +1,10 @@
+{
+	"type": "action",
+	"outputs": {
+		"w": {"type": "Integer", "value": 2},
+		"l": {"type": "Integer", "value": 3},
+		"f": {"type": "Integer", "value": 6},
+		"taken": {"type": "Integer", "value": 1},
+		"skipped": {"type": "Integer", "value": 3}
+	}
+}

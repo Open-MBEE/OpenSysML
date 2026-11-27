@@ -1,1 +1,0 @@
-- `sysml -migrate` on a document none of whose elements is mapped or approximated now opens its summary with `nothing of the model was written`, exits `3` after writing the output and report, and refuses to push the empty model to a repository branch; it used to exit `0`. The gRPC and MCP migration report summaries open the same way.

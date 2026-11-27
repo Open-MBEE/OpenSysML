@@ -35,6 +35,7 @@ tools="${OPENSYSML_TOOLS:-sysml,sysml-lsp}"
 prefix="${OPENSYSML_PREFIX:-}"
 bin_dir="${OPENSYSML_BIN_DIR:-}"
 base_url="${OPENSYSML_DOWNLOAD_BASE:-$DEFAULT_BASE_URL}"
+releases_api="${OPENSYSML_RELEASES_API:-}"
 target_os=""
 target_arch=""
 verify_signature=false
@@ -68,6 +69,13 @@ Options (each has an environment variable, so a piped `sh` can be configured):
   --base-url <url>     where the releases are, for a mirror; default
                        https://github.com/Open-MBEE/OpenSysML/releases
                        [OPENSYSML_DOWNLOAD_BASE]
+                       A release is marked latest before its assets are uploaded;
+                       until they are, `latest` installs the newest earlier release
+                       that has them, found through GitHub's releases API (a mirror
+                       names its own copy of that list in OPENSYSML_RELEASES_API;
+                       GITHUB_TOKEN or GH_TOKEN, when set, authenticates the
+                       request to api.github.com, whose anonymous rate limit a
+                       shared address such as a CI runner often exhausts)
   --verify-signature   also verify SHA256SUMS.txt's cosign bundle against the
                        identity that signs the releases (needs cosign on PATH)
   --dry-run            print what would be installed and from where, then exit
@@ -266,6 +274,18 @@ fi
 curl_proto=""
 case "$base_url" in https://*) curl_proto="--proto =https --proto-redir =https" ;; *) ;; esac
 
+# Where the list of releases is, for the fallback below: GitHub's releases API
+# for a GitHub release tree, and nowhere for a mirror that names none.
+if [ -z "$releases_api" ]; then
+	case "$base_url" in
+	https://github.com/*/*/releases)
+		releases_repo=${base_url#https://github.com/}
+		releases_api="https://api.github.com/repos/${releases_repo%/releases}/releases?per_page=100"
+		;;
+	*) ;;
+	esac
+fi
+
 download() { # <url> <destination>
 	if [ "$downloader" = curl ]; then
 		# shellcheck disable=SC2086  # curl_proto is a list of options
@@ -273,6 +293,28 @@ download() { # <url> <destination>
 	else
 		wget -q -O "$2" "$1"
 	fi
+}
+
+# probe <url> <destination>: downloads like `download` and prints 200 when the file arrived
+# whole, else the status the server refused with, 000 for anything else; only a 200 keeps the file.
+probe() {
+	probe_ok=false
+	if [ "$downloader" = curl ]; then
+		# shellcheck disable=SC2086  # curl_proto is a list of options
+		probe_status=$(curl -fsSL $curl_proto --retry 3 -o "$2" -w '%{http_code}' "$1" 2>/dev/null) && probe_ok=true
+	elif probe_status=$(wget -S -q -O "$2" "$1" 2>&1); then
+		probe_ok=true
+	else
+		probe_status=$(printf '%s\n' "$probe_status" | sed -n 's/^[[:space:]]*HTTP\/[0-9.]*[[:space:]][[:space:]]*\([0-9][0-9][0-9]\).*/\1/p' | tail -n 1)
+	fi
+	if [ "$probe_ok" = true ]; then
+		probe_status=200
+	else
+		rm -f "$2"
+		# A transfer that failed after the server answered 200 has no status to report.
+		case "$probe_status" in [345][0-9][0-9]) ;; *) probe_status=000 ;; esac
+	fi
+	printf '%s\n' "$probe_status"
 }
 
 sha256_of() { # <file>: the hex digest
@@ -328,6 +370,66 @@ asset_url() { printf '%s/%s\n' "$asset_dir" "$1"; }
 release_name="${tag:-the latest release}"
 [ "$version" != nightly ] || release_name="the nightly snapshot"
 
+# earlier_releases <tag>: the stable release tags the releases API lists below
+# <tag>, newest version first. Pre-releases, drafts and nightlies are never a fallback.
+earlier_releases() {
+	[ -n "$releases_api" ] || return 1
+	case "$1" in v[0-9]*.[0-9]*.[0-9]*) ;; *) return 1 ;; esac
+	api_token=""
+	case "$releases_api" in https://api.github.com/*) api_token="${GITHUB_TOKEN:-${GH_TOKEN:-}}" ;; *) ;; esac
+	if [ -z "$api_token" ]; then
+		download "$releases_api" "$work/releases.json" 2>/dev/null || return 1
+	elif [ "$downloader" = curl ]; then
+		# The token goes to curl on stdin: an argument is readable in the process list.
+		printf 'header = "Authorization: Bearer %s"\n' "$api_token" |
+			curl -fsSL --proto =https --proto-redir =https --retry 3 -K - \
+				-o "$work/releases.json" "$releases_api" 2>/dev/null || return 1
+	else
+		# wget takes a header only as an argument, so it asks without the token.
+		download "$releases_api" "$work/releases.json" 2>/dev/null || return 1
+	fi
+	# An answer that is not a list, such as an error object, lists no releases.
+	case "$(tr -d '[:space:]' <"$work/releases.json" | cut -c1)" in "[") ;; *) return 1 ;; esac
+	tr ',{}' '\n' <"$work/releases.json" |
+		awk '
+			# A release object names its tag before its draft and prerelease flags.
+			/^[[:space:]]*"tag_name"[[:space:]]*:/ { if (held != "") print held; held = $0; next }
+			/^[[:space:]]*"(draft|prerelease)"[[:space:]]*:[[:space:]]*true[[:space:]]*$/ { held = "" }
+			END { if (held != "") print held }' |
+		sed -n 's/^[[:space:]]*"tag_name"[[:space:]]*:[[:space:]]*"v\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)"[[:space:]]*$/\1/p' |
+		sort -u -t. -k1,1nr -k2,2nr -k3,3nr |
+		awk -F. -v latest="${1#v}" '
+			BEGIN { split(latest, l, /[^0-9]/) }
+			$1 < l[1] || ($1 == l[1] && ($2 < l[2] || ($2 == l[2] && $3 < l[3]))) { print "v" $0 }'
+}
+
+# A release is marked latest when it is published, which is before the release
+# pipeline has built and uploaded its assets. Until its manifest is there,
+# `latest` is the newest earlier release that has one.
+use_release_with_assets() {
+	latest_tag=$tag
+	manifest="$work/SHA256SUMS.txt"
+	# Only a manifest the server says is not there means the assets are not
+	# uploaded; any other failure is reported by the fetch that follows.
+	[ "$(probe "$(asset_url SHA256SUMS.txt)" "$manifest")" = 404 ] || return 0
+	candidates=$(earlier_releases "$latest_tag") ||
+		fail "$latest_tag is the latest release, but its assets are not uploaded yet ($(asset_url SHA256SUMS.txt) is missing) and the earlier releases could not be listed${releases_api:+ from $releases_api}; pass --version <tag> for an earlier release, or retry once $latest_tag has its assets. See $base_url"
+	for candidate in $candidates; do
+		case "$(probe "$base_url/download/$candidate/SHA256SUMS.txt" "$manifest")" in
+		200)
+			tag=$candidate
+			asset_dir="$base_url/download/$tag"
+			release_name=$tag
+			warn "$latest_tag is the latest release, but its assets are not uploaded yet; installing $tag, the newest release that has them. Run again later, or pass --version $latest_tag, for $latest_tag."
+			return 0
+			;;
+		404) ;;
+		*) fail "$latest_tag is the latest release, but its assets are not uploaded yet ($(asset_url SHA256SUMS.txt) is missing) and $base_url/download/$candidate/SHA256SUMS.txt could not be downloaded; retry, or pass --version <tag> for an earlier release. See $base_url" ;;
+		esac
+	done
+	fail "$latest_tag is the latest release, but its assets are not uploaded yet ($(asset_url SHA256SUMS.txt) is missing) and no earlier release has a SHA256SUMS.txt; retry once $latest_tag has its assets. See $base_url"
+}
+
 # --- the manifest -----------------------------------------------------------
 
 work=$(mktemp -d 2>/dev/null || mktemp -d -t opensysml)
@@ -340,8 +442,10 @@ fetch() { # <asset>: into the work directory
 
 # Fetches SHA256SUMS.txt and, when asked, checks its signature before anything
 # is read from it; --tools all needs it before the summary.
+manifest_ready=false
 fetch_manifest() {
-	fetch SHA256SUMS.txt
+	[ -f "$work/SHA256SUMS.txt" ] || fetch SHA256SUMS.txt
+	manifest_ready=true
 	[ "$verify_signature" = true ] || return 0
 	fetch SHA256SUMS.txt.bundle
 	if [ "$version" = nightly ]; then
@@ -365,6 +469,7 @@ manifest_digest() {
 	awk -v name="$name" '{ n = $2; sub(/^\*/, "", n); if (n == name && !seen[$1]++) print $1 }' "$work/SHA256SUMS.txt"
 }
 
+[ "$version" != latest ] || [ -z "$tag" ] || use_release_with_assets
 info "Installing OpenSysML ($release_name) for $platform"
 if [ "$install_all" = true ]; then
 	fetch_manifest
@@ -420,7 +525,7 @@ fi
 # --- download and verify ----------------------------------------------------
 
 info "Downloading..."
-[ -f "$work/SHA256SUMS.txt" ] || fetch_manifest
+[ "$manifest_ready" = true ] || fetch_manifest
 
 newline='
 '

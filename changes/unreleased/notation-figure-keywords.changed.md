@@ -1,1 +1,0 @@
-- View renderings write a node's keyword as its §8.2.3 figure does: `«satisfy requirement»`, `«verify requirement»` and `«frame concern»` in full where they read `«satisfy»`, `«verify»` and `«frame»`, and a declaration's user-defined prefix keywords ahead of its kind (`«#command part def»`); the text form writes the same words.

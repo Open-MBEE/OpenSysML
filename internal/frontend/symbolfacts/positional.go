@@ -192,7 +192,7 @@ func (sc *Context) lookupDeclared(id string) []*symbols.Symbol {
 	if syms := sc.unnamed(id); len(syms) > 0 {
 		return syms
 	}
-	return sc.Resolver.ResolveGlobal(nameSegments(id))
+	return sc.Resolver.ResolveGlobal(NameSegments(id))
 }
 
 // LookupID finds the element reported under id — its ElementIdentity, else the element
@@ -224,7 +224,7 @@ func (sc *Context) LookupMember(id string) []*symbols.Symbol {
 	if syms := LookupNamedMember(sc.Index, sc.Semantics, id); len(syms) > 0 {
 		return syms
 	}
-	return sc.Resolver.ResolveGlobal(nameSegments(id))
+	return sc.Resolver.ResolveGlobal(NameSegments(id))
 }
 
 // LookupDeclaredMember is LookupDeclared with a member chain (LookupMember) read as a
@@ -257,7 +257,7 @@ func (sc *Context) Resolve(id string) []*symbols.Symbol {
 // ResolveName resolves name as a qualified name from the root (resolve.Resolver.ResolveGlobal), or as
 // the declared name of a public member of a non-visible namespace; an id is never read as one.
 func (sc *Context) ResolveName(name string) []*symbols.Symbol {
-	if syms := sc.Resolver.ResolveGlobal(nameSegments(name)); len(syms) > 0 {
+	if syms := sc.Resolver.ResolveGlobal(NameSegments(name)); len(syms) > 0 {
 		return syms
 	}
 	var elements []*symbols.Symbol
@@ -285,7 +285,7 @@ func (sc *Context) ResolveMember(id string) []*symbols.Symbol {
 // ResolveMemberName is ResolveName with an alias answered as the alias membership its
 // namespace holds rather than as the element it names.
 func (sc *Context) ResolveMemberName(name string) []*symbols.Symbol {
-	if syms := sc.Resolver.ResolveGlobalMembers(nameSegments(name)); len(syms) > 0 {
+	if syms := sc.Resolver.ResolveGlobalMembers(NameSegments(name)); len(syms) > 0 {
 		return syms
 	}
 	if declared := sc.declaredPublic(name); len(declared) > 0 {

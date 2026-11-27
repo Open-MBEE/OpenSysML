@@ -1,1 +1,0 @@
-- `go test -tags sysml_re ./...` passes: tests of a feature group the build leaves out (SysML v1 migration, repository sync, native compilation, HTML and PDF documents, FMI, profiling) now carry that group's build constraint or skip when the group is not linked, instead of failing to compile or failing against the smaller build.

@@ -1,1 +1,0 @@
-- Packing a syntax tree no longer encodes every node's fields twice: the pass that only counts the nodes discards what it is handed instead of building a second stream, and so does finding the nodes reachable from an expression. The packed bytes are unchanged.

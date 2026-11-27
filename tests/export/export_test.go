@@ -188,25 +188,68 @@ func TestCastTypeIsSpelledForItsScope(t *testing.T) {
 		t.Errorf("notation does not write %q\n%s", want, notation)
 	}
 	structural := withoutTriples(t, graph, "sysx:sourceText")
-	// The collapsed sysx:typeArgument and the typed parameter's FeatureTyping
+	// The collapsed sysx:typeArgument and the typed result's FeatureTyping
 	// name the type twice; relinking only one of them is a disagreement.
 	collapsedOnly := relinked(t, structural, "sysx:typeArgument elmt:P__T", "sysx:typeArgument elmt:P__H__T")
 	refusedAsUnsupported(t, "cast_type", collapsedOnly, "its sysx:typeArgument names P::H::T and its typed parameter names P::T")
 	relinkedGraph := collapsedOnly
 	for _, property := range []string{"type", "general", "target"} {
-		relinkedGraph = relinkedProperty(t, relinkedGraph, "expr:P__H__v_pvalue_pin0_ft0", property, "elmt:P__T", "elmt:P__H__T")
+		relinkedGraph = relinkedProperty(t, relinkedGraph, "expr:P__H__v_pvalue_pout_ft0", property, "elmt:P__T", "elmt:P__H__T")
 	}
-	relinkedGraph = relinkedProperty(t, relinkedGraph, "expr:P__H__v_pvalue_pin0_ft0", "relatedElement",
-		"expr:P__H__v_pvalue_pin0, elmt:P__T", "expr:P__H__v_pvalue_pin0, elmt:P__H__T")
+	relinkedGraph = relinkedProperty(t, relinkedGraph, "expr:P__H__v_pvalue_pout_ft0", "relatedElement",
+		"expr:P__H__v_pvalue_pout, elmt:P__T", "expr:P__H__v_pvalue_pout, elmt:P__H__T")
 	relinkedGraph = relinked(t, relinkedGraph,
-		`json:relatedElement "[{\"@id\":\"P__H__v_pvalue_pin0\"},{\"@id\":\"P__T\"}]"`,
-		`json:relatedElement "[{\"@id\":\"P__H__v_pvalue_pin0\"},{\"@id\":\"P__H__T\"}]"`)
+		`json:relatedElement "[{\"@id\":\"P__H__v_pvalue_pout\"},{\"@id\":\"P__T\"}]"`,
+		`json:relatedElement "[{\"@id\":\"P__H__v_pvalue_pout\"},{\"@id\":\"P__H__T\"}]"`)
 	back, err := convert.Convert("cast_type.ttl", relinkedGraph, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v\n%s", err, relinkedGraph)
 	}
 	if want := "attribute v = (as T);"; !strings.Contains(string(back), want) {
 		t.Errorf("notation does not write %q\n%s", want, back)
+	}
+}
+
+// TestCastAndExtentTypeTheirResult covers the operators whose type is their
+// result's rather than an argument's: the graph types the result parameter,
+// states no parameter for the type, and alone writes each expression back.
+func TestCastAndExtentTypeTheirResult(t *testing.T) {
+	src := "package P {\n    part def T;\n    part def H {\n        ref part o : T;\n        ref part n = o as T;\n" +
+		"        ref part e = all T;\n        attribute m = o meta T;\n        attribute i = o istype T;\n    }\n}\n"
+	graph, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	for _, typing := range []string{"expr:P__H__n_pvalue_pout_ft0", "expr:P__H__e_pvalue_pout_ft0", "expr:P__H__m_pvalue_pout_ft0", "expr:P__H__i_pvalue_pin1_ft0"} {
+		if !strings.Contains(string(graph), "\n"+typing+"\n") {
+			t.Errorf("graph does not state the typing %s\n%s", typing, graph)
+		}
+	}
+	for _, parameter := range []string{"expr:P__H__n_pvalue_pin1", "expr:P__H__e_pvalue_pin0", "expr:P__H__m_pvalue_pin1"} {
+		if strings.Contains(string(graph), parameter) {
+			t.Errorf("graph states the parameter %s for a result type", parameter)
+		}
+	}
+	wants := []string{"ref part n = o as T;", "ref part e = all T;", "attribute m = o meta T;", "attribute i = o istype T;"}
+	notation := structuralRoundTrip(t, "cast_extent", graph)
+	for _, want := range wants {
+		if !strings.Contains(string(notation), want) {
+			t.Errorf("notation does not write %q\n%s", want, notation)
+		}
+	}
+	// The core ownership links alone name the type: no collapsed argument, no derived membership or typing.
+	core := withoutTriples(t, graph, "sysx:sourceText")
+	for _, property := range []string{"sysx:typeArgument", "sysml:ownedFeatureMembership", "sysml:ownedTyping"} {
+		core = withoutTriples(t, core, property)
+	}
+	fromCore, err := convert.Convert("cast_extent.ttl", core, convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation from the ownership links alone: %v", err)
+	}
+	for _, want := range wants {
+		if !strings.Contains(string(fromCore), want) {
+			t.Errorf("notation from the ownership links alone does not write %q\n%s", want, fromCore)
+		}
 	}
 }
 

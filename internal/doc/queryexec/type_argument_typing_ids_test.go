@@ -8,8 +8,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 )
 
-// The FeatureTyping of a type argument's parameter (`@M`, `x istype T`, `x as T`) reads the id the
-// conversion mints off the parameter (`_ft0`), a `filter` condition's included.
+// The FeatureTyping a type argument gives its parameter (`@M`, `x istype T`) or result (`x as T`) reads the id the
+// conversion mints off that feature (`_ft0`), a `filter` condition's included.
 func TestTypeArgumentTypingReadsTheConversionID(t *testing.T) {
 	fixture := loadExecutionSource(t, `package Observatory {
     metadata def M;
@@ -53,7 +53,7 @@ func TestTypeArgumentTypingReadsTheConversionID(t *testing.T) {
 		t.Fatalf("lookup Observatory: got %d symbols", len(observatory))
 	}
 	walk(observatory[0])
-	want := []string{"Observatory__x_pvalue_pin1_ft0", "Observatory__c___400_pin1_ft0", "Observatory___405_pfilter_pin0_ft0"}
+	want := []string{"Observatory__x_pvalue_pin1_ft0", "Observatory__c___400_pout_ft0", "Observatory___405_pfilter_pin0_ft0"}
 	if !slices.Equal(got, want) {
 		t.Errorf("type argument typing ids = %q, want %q", got, want)
 	}

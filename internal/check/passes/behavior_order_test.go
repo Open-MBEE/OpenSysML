@@ -115,6 +115,20 @@ func TestBehaviorOrderCycleWarning(t *testing.T) {
 	}
 }
 
+func TestBehaviorOrderCycleAcrossReferenceSubsetting(t *testing.T) {
+	diags := constraintDiags(t, `part source {
+		perform action a;
+		perform action b;
+		first a then b;
+	}
+	ref part observer ::> source {
+		first b then a;
+	}`)
+	if cycles := only(diags, "succession-order-cycle"); len(cycles) != 2 {
+		t.Fatalf("succession-order-cycle diagnostics = %+v, want one on each succession", cycles)
+	}
+}
+
 func TestBehaviorOrderCycleUsesTheWholeFeaturePath(t *testing.T) {
 	diags := constraintDiags(t, `part def Arm {
 		action earlier;

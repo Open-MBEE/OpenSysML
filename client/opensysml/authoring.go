@@ -175,10 +175,11 @@ type Conversion struct {
 }
 
 func (c *client) Convert(ctx context.Context, model *Model, to Format, opts ...ConvertOption) (*Conversion, error) {
-	hash, err := c.call(model)
+	hash, done, err := c.call(model)
 	if err != nil {
 		return nil, err
 	}
+	defer done()
 	req := convertRequest(to, opts)
 	if req.FromFormat != "" {
 		return nil, &StatusError{
@@ -191,9 +192,11 @@ func (c *client) Convert(ctx context.Context, model *Model, to Format, opts ...C
 }
 
 func (c *client) ConvertFile(ctx context.Context, path string, to Format, opts ...ConvertOption) (*Conversion, error) {
-	if err := c.live(); err != nil {
+	done, err := c.begin()
+	if err != nil {
 		return nil, err
 	}
+	defer done()
 	req := convertRequest(to, opts)
 	if Format(req.FromFormat).isV1() || (req.FromFormat == "" && pathIsV1(path)) {
 		return nil, notMigrated(path, "call MigrateFile with the same path")
@@ -215,9 +218,11 @@ func (c *client) ConvertSource(
 	to Format,
 	opts ...ConvertOption,
 ) (*Conversion, error) {
-	if err := c.live(); err != nil {
+	done, err := c.begin()
+	if err != nil {
 		return nil, err
 	}
+	defer done()
 	req := convertRequest(to, opts)
 	if Format(req.FromFormat).isV1() {
 		return nil, notMigrated("inline content", "call MigrateSource with the same content")
@@ -428,9 +433,11 @@ type MigrationEntry struct {
 }
 
 func (c *client) MigrateFile(ctx context.Context, path string, to Format, opts ...MigrateOption) (*Migration, error) {
-	if err := c.live(); err != nil {
+	done, err := c.begin()
+	if err != nil {
 		return nil, err
 	}
+	defer done()
 	req := migrateRequest(to, opts)
 	req.Source = &pb.MigrateRequest_FilePath{FilePath: path}
 	return c.migrate(ctx, req)
@@ -442,9 +449,11 @@ func (c *client) MigrateSource(
 	to Format,
 	opts ...MigrateOption,
 ) (*Migration, error) {
-	if err := c.live(); err != nil {
+	done, err := c.begin()
+	if err != nil {
 		return nil, err
 	}
+	defer done()
 	req := migrateRequest(to, opts)
 	req.Source = &pb.MigrateRequest_Content{Content: content}
 	return c.migrate(ctx, req)
@@ -920,10 +929,11 @@ func (c *client) requireCapabilities(ctx context.Context, capabilities ...string
 }
 
 func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document string, edits ...Edit) (*EditResult, error) {
-	hash, err := c.call(model)
+	hash, done, err := c.call(model)
 	if err != nil {
 		return nil, err
 	}
+	defer done()
 	// The notation is read from Documents, which only a service with the
 	// edit_documents capability answers (one without it ignores a document name).
 	if err := c.requireCapabilities(ctx, append(requiredCapabilities(edits), CapabilityEditDocuments)...); err != nil {
