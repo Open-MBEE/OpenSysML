@@ -18,7 +18,7 @@ func TestReflectiveMemosFollowTheDeclaringDocument(t *testing.T) {
 		import Q::*[true];
 		filter true;
 		calc c { 1 + 2 }
-		action a { action a1; first start then a1; then assign x := 1; then if true { action b1; } then for i in (1, 2) { action c1; } then done; action snd send x to a1; attribute x; }
+		action a { action a1; first start then a1; then assign x := 1; then if true { action b1; } then for i in (1, 2) { action c1; } then done; assign x := 2; action snd send x to a1; attribute x; }
 	}`
 	read := func(scope *symbols.Scope) {
 		p := sym(t, scope, "P")
@@ -39,6 +39,12 @@ func TestReflectiveMemosFollowTheDeclaringDocument(t *testing.T) {
 		for _, statement := range m.statementNodes(a) {
 			m.OwnedMemberships(statement)
 			m.nodeParameters(statement)
+		}
+		for _, rel := range m.OwnedRelationships(a) {
+			// The assignment is a member of its own, which owns its parameters.
+			if rel.Implicit != nil && rel.Implicit.Member != nil {
+				m.OwnedRelationships(rel.Implicit.Member)
+			}
 		}
 		m.nodeParameters(sym(t, a.Scope, "snd"))
 		m.RootNamespace(doc)

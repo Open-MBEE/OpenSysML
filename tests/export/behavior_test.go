@@ -1190,3 +1190,29 @@ func declaredOfType(turtle, metaclass string) int {
 	}
 	return n
 }
+
+// A loop body written as the action it is (`while c action a { … }`) is the parameter the loop
+// owns, not a second action wrapping it, and comes back as written from the mapping alone.
+func TestLoopBodyWrittenAsAnActionIsTheLoopsParameter(t *testing.T) {
+	src := "package P {\n    private import ScalarValues::*;\n    action def A {\n        attribute count : Integer;\n" +
+		"        action charge while count < 3 action charging {\n            action look;\n        }\n" +
+		"        action spin loop action {\n            action again;\n        } until count > 9;\n" +
+		"        action each for i : Integer in (1, 2, 3) action visit {\n            action see;\n        }\n    }\n}\n"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	if strings.Contains(string(turtle), "sysx:isLoopBody") {
+		t.Fatalf("a written body should not be wrapped in a second body action:\n%s", turtle)
+	}
+	if n := strings.Count(string(turtle), "\n    sysml:ownedMemberParameter elmt:"); n != 3 {
+		t.Fatalf("each loop should own its written body as a parameter, found %d:\n%s", n, turtle)
+	}
+	back, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation from the mapping alone: %v\n%s", err, turtle)
+	}
+	if string(back) != src {
+		t.Fatalf("the notation changed\n--- want ---\n%s\n--- got ---\n%s", src, back)
+	}
+}

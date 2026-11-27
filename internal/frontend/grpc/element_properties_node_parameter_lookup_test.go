@@ -64,8 +64,8 @@ func TestElementPropertiesReadANodeParameterByNameAsById(t *testing.T) {
 	}
 }
 
-// A parameter the element form holds no element for reads by name as the feature of its action's kind it
-// redefines, the one the name stated before the parameter was held; a bare terminate states none and inherits it.
+// A parameter the element form holds no element for, a terminate's, reads by name as the feature of its action's
+// kind it redefines; a bare terminate states none and inherits it. One the form holds reads as itself.
 func TestElementPropertiesReadAnUnwrittenNodeParameterAsTheOneItRedefines(t *testing.T) {
 	r := parseForElementProperties(t, `package P {
     private import ScalarValues::*;
@@ -82,12 +82,11 @@ func TestElementPropertiesReadAnUnwrittenNodeParameterAsTheOneItRedefines(t *tes
 	for _, tc := range []struct{ name, owner, parameter string }{
 		{"P::Base::termAct::terminatedOccurrence", "Actions::terminateActions", "terminatedOccurrence"},
 		{"P::Base::bare::terminatedOccurrence", "Actions::terminateActions", "terminatedOccurrence"},
-		// A nested assignment's target redefines that of the subaction feature (SysML v2 Table 33).
-		{"P::Base::assignCount::target", "Actions::Action::assignments", "target"},
-		{"P::Base::assignCount::replacementValues", "Actions::AssignmentAction", "replacementValues"},
-		{"P::Base::whileAct::body", "Actions::WhileLoopAction", "body"},
-		{"P::Base::forAct::seq", "Actions::ForLoopAction", "seq"},
-		{"P::Base::forAct::body", "Actions::ForLoopAction", "body"},
+		{"P::Base::assignCount::target", "P::Base::assignCount", "target"},
+		{"P::Base::assignCount::replacementValues", "P::Base::assignCount", "replacementValues"},
+		{"P::Base::whileAct::body", "P::Base::whileAct", "body"},
+		{"P::Base::forAct::seq", "P::Base::forAct", "seq"},
+		{"P::Base::forAct::body", "P::Base::forAct", "body"},
 	} {
 		resp := r.read(tc.name, "qualifiedName", "name", "owner", "owningType", "featuringType")
 		if resp.Error != "" || len(resp.Properties) != 5 {

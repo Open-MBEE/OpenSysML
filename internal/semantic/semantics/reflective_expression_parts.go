@@ -64,13 +64,9 @@ func expressionElementMetaclassName(sym *symbols.Symbol) string {
 			return "Expression"
 		case symbols.ExpressionTriggerAction:
 			return "AcceptActionUsage"
-		case symbols.ExpressionPayload:
-			if sym.Kind == symbols.SymbolActionUsage {
-				// A loop's body parameter (SysML.xtext ActionBodyParameter).
-				return "ActionUsage"
-			}
-			return "ReferenceUsage"
-		case symbols.ExpressionAccess, symbols.ExpressionConnectorEnd, symbols.ExpressionTransitionLinkParameter, symbols.ExpressionTransitionLink:
+		case symbols.ExpressionLoopBody:
+			return "ActionUsage"
+		case symbols.ExpressionPayload, symbols.ExpressionAccess, symbols.ExpressionConnectorEnd, symbols.ExpressionTransitionLinkParameter, symbols.ExpressionTransitionLink:
 			return "ReferenceUsage"
 		case symbols.ExpressionTransitionSuccession:
 			return "SuccessionAsUsage"
@@ -486,6 +482,13 @@ func (m *Model) expressionMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		m.memberships[sym] = out
 		return out
 	}
+	if isLoopBody(sym) {
+		// A loop's body owns what it declares and the statements it writes, in source order.
+		out := m.withBodyMemberships(sym, nil, 0, make(map[*symbols.Symbol]bool))
+		out = mergeMemberships(out, statementMembershipsOf(sym, m.statementNodes(sym)))
+		m.memberships[sym] = out
+		return out
+	}
 	out := m.ownedExpressionMemberships(sym)
 	m.memberships[sym] = out
 	return out
@@ -538,6 +541,15 @@ func (m *Model) ownedExpressionMemberships(sym *symbols.Symbol) []*symbols.Symbo
 		out = appendOwningMembership(out, sym, value)
 	} else if value := m.sendParameterValue(sym); value != nil {
 		out = appendOwningMembership(out, sym, value)
+	} else {
+		// A control action's parameter owns its value, then the feature an assignment's target nests.
+		if value := m.controlParameterValue(sym); value != nil && value.Expr.Slot != "target" {
+			// A chained target's base is owned by the chain the assignment writes whole.
+			out = appendOwningMembership(out, sym, value)
+		}
+		for _, feature := range m.accessFeatures(sym) {
+			out = appendOwningMembership(out, sym, feature)
+		}
 	}
 	return out
 }

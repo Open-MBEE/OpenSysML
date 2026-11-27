@@ -68,26 +68,34 @@ const (
 // Property names for the parts of a behavioral node that the SysML vocabulary
 // has no predicate for; see docs/reference/rdf-mapping.md § Behavior.
 const (
-	xGuard            = "guard"
-	xExpression       = "expression"
-	xIsElse           = "isElse"
-	xWhileCondition   = "whileCondition"
-	xUntilCondition   = "untilCondition"
-	xLoopVariable     = "loopVariable"
-	xCollection       = "collection"
-	xBranchKind       = "branchKind"
-	xSubactionKind    = "subactionKind"
-	xPseudostateKind  = "pseudostateKind"
-	xTransitionSyntax = "transitionSyntax"
-	xTrigger          = "trigger"
-	xTriggerKeyword   = "triggerKeyword"
-	xEffectMember     = "effectMember"
-	xHasEffect        = "hasEffect"
-	xBracedEffect     = "bracedEffect" // an older mapping's flat braced effect, refused
-	xBodyMember       = "bodyMember"
-	xAssignOperator   = "assignmentOperator"
-	xPayload          = "payload"
-	xTarget           = "target"
+	xGuard               = "guard"
+	xExpression          = "expression"
+	xIsElse              = "isElse"
+	xWhileCondition      = "whileCondition"
+	xUntilCondition      = "untilCondition"
+	xLoopVariable        = "loopVariable"
+	xCollection          = "collection"
+	xBranchKind          = "branchKind"
+	xSubactionKind       = "subactionKind"
+	xPseudostateKind     = "pseudostateKind"
+	xTransitionSyntax    = "transitionSyntax"
+	xTrigger             = "trigger"
+	xTriggerKeyword      = "triggerKeyword"
+	xEffectMember        = "effectMember"
+	xHasEffect           = "hasEffect"
+	xBracedEffect        = "bracedEffect" // an older mapping's flat braced effect, refused
+	xBodyMember          = "bodyMember"
+	xAssignOperator      = "assignmentOperator"
+	xPayload             = "payload"
+	xTarget              = "target"
+	xTargetParameter     = "targetParameter"
+	xTargetFeature       = "targetFeature"
+	xAccessedFeature     = "accessedFeature"
+	xValueParameter      = "valueParameter"
+	xAssignedValue       = "assignedValue"
+	xCollectionParameter = "collectionParameter"
+	xEmptyParameter      = "emptyParameter"
+	xIsLoopBody          = "isLoopBody"
 )
 
 // libraryDone is the library feature a `done;` member names.
@@ -180,10 +188,16 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 		if operator := e.between(n.Target, n.Value); operator != "" && operator != ":=" {
 			e.graph.Add(subject, e.sysx(xAssignOperator), rdf.String(operator))
 		}
+		if n.Target != nil {
+			// The target parameter nests the feature assigned and the one accessed
+			// (SysML.xtext TargetParameter, TargetFeature).
+			target := e.nodeParameter(subject, xTargetParameter, mParameterMembership)
+			e.nodeParameter(e.nodeParameter(target, xTargetFeature, mFeatureMembership), xAccessedFeature, mFeatureMembership)
+		}
 		if err := e.expression(subject, e.sysx(xTarget), xTarget, owner, n.Target); err != nil {
 			return true, err
 		}
-		return true, e.expression(subject, e.sysml(pValue), pValue, owner, n.Value)
+		return true, e.nodeParameterValue(subject, xValueParameter, e.sysx(xAssignedValue), owner, n.Value)
 
 	case *ast.SendStatement:
 		head(rdf.SysMLTerm(mSend))
@@ -435,7 +449,7 @@ func (e *encoder) encodeLoop(n *ast.WhileLoopActionNode, head func(rdf.Term), su
 			}
 		}
 		e.loopVariable(subject, owner, n)
-		if err := e.expression(subject, e.sysx(xCollection), xCollection, owner, n.Collection); err != nil {
+		if err := e.nodeParameterValue(subject, xCollectionParameter, e.sysx(xCollection), owner, n.Collection); err != nil {
 			return err
 		}
 	} else {
@@ -446,15 +460,83 @@ func (e *encoder) encodeLoop(n *ast.WhileLoopActionNode, head func(rdf.Term), su
 		if n.Kind == ast.LoopWhile {
 			while, until = n.Condition, n.Until
 		}
-		if err := e.expression(subject, e.sysx(xWhileCondition), xWhileCondition, fqn, while); err != nil {
+		if while == nil {
+			// A `loop` holds an empty parameter where a while condition would be
+			// (SysML.xtext EmptyParameterMember).
+			e.nodeParameter(subject, xEmptyParameter, mParameterMembership)
+		}
+		if err := e.expressionAs(subject, e.sysx(xWhileCondition), xWhileCondition, fqn, while, mParameterMembership); err != nil {
 			return err
 		}
-		if err := e.expression(subject, e.sysx(xUntilCondition), xUntilCondition, fqn, until); err != nil {
+		if err := e.loopBody(n, subject, fqn); err != nil {
 			return err
+		}
+		return e.expressionAs(subject, e.sysx(xUntilCondition), xUntilCondition, fqn, until, mParameterMembership)
+	}
+	return e.loopBody(n, subject, fqn)
+}
+
+// loopBodySuffix lengthens a loop's id to its body's.
+const loopBodySuffix = "_loopBody"
+
+// loopBody emits a loop's body as the ActionUsage the loop owns as a parameter
+// (SysML.xtext ActionBodyParameterMember), which owns what the body declares.
+func (e *encoder) loopBody(n *ast.WhileLoopActionNode, subject rdf.Term, fqn string) error {
+	e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(e.bracedBody(n, n.Body)))
+	if len(n.Body) == 1 {
+		written, _ := naming.UnwrapMember(n.Body[0])
+		if usage, isUsage := written.(*ast.Usage); isUsage && usage.IsBodyParameter {
+			// A body written as `action a { … }` is that action, which the loop owns as it stands.
+			e.loopBodies[usage] = true
+			return e.encode(n.Body, fqn, subject)
 		}
 	}
-	e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(e.bracedBody(n, n.Body)))
-	return e.encode(n.Body, fqn, subject)
+	body := e.ids.minted(rdf.IRI(subject.Value+loopBodySuffix), subject, loopBodySuffix)
+	e.typed(body, usageMetaclass[ast.UsageAction])
+	e.graph.Add(body, e.sysml(pElementID), rdf.String(rdf.LocalName(body.Value)))
+	e.graph.Add(body, e.sysx(xIsLoopBody), rdf.Bool(true))
+	membership := e.bodyMembership(subject, body, mParameterMembership)
+	e.graph.Add(membership, e.sysml(pOwnedMemberParameter), body)
+	e.graph.Add(body, e.sysml(pDirection), rdf.String("in"))
+	// A parameter is referential, and nested in the loop it varies over.
+	if e.ids.model.UsageMayTimeVaryUnderKind(ast.UsageAction) {
+		e.flags(body, []boolProperty{{"isVariable", true}, {"mayTimeVary", true}})
+	}
+	return e.encode(n.Body, fqn, body)
+}
+
+// nodeParameter emits the ReferenceUsage an assignment or loop owns at slot for a
+// part of its statement, through a membership of the given metaclass.
+func (e *encoder) nodeParameter(subject rdf.Term, slot, metaclass string) rdf.Term {
+	e.graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression
+	param := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
+	e.typed(param, mReferenceUsage)
+	e.graph.Add(param, e.sysml(pElementID), rdf.String(rdf.LocalName(param.Value)))
+	membership := e.bodyMembership(subject, param, metaclass)
+	if metaclass == mParameterMembership {
+		e.graph.Add(param, e.sysml(pDirection), rdf.String("in"))
+		e.graph.Add(membership, e.sysml(pOwnedMemberParameter), param)
+	}
+	// It is referential and nested in an occurrence it varies over: the action node, or the parameter nesting it.
+	if e.ids.model.UsageMayTimeVaryUnderKind(ast.UsageAction) {
+		e.flags(param, []boolProperty{{"isVariable", true}, {"mayTimeVary", true}})
+	}
+	return param
+}
+
+// nodeParameterValue emits the parameter at slot bound to value (SysML.xtext
+// NodeParameterMember), which the statement names through link to write it back.
+func (e *encoder) nodeParameterValue(subject rdf.Term, slot string, link rdf.Term, owner string, value ast.Node) error {
+	if value == nil {
+		return nil
+	}
+	param := e.nodeParameter(subject, slot, mParameterMembership)
+	target := e.ids.mintedNode(rdf.ExpressionIRI(param, pValue), param, pValue)
+	e.graph.Add(subject, link, target)
+	if err := e.expressionNode(target, owner, value); err != nil {
+		return err
+	}
+	return e.expressionOwnership(target, param, mFeatureValue)
 }
 
 // loopVariable emits a `for` loop's variable as the ReferenceUsage the loop owns first
@@ -1366,9 +1448,13 @@ func (d *decoder) behaviorHead(el *element) (string, bool, error) {
 
 	case mAssignment:
 		target, hasTarget := d.stringOf(el, rdf.OpenSysML+xTarget)
-		value, hasValue := d.stringOf(el, rdf.SysML+pValue)
+		value, hasValue := d.stringOf(el, rdf.OpenSysML+xAssignedValue)
+		if !hasValue {
+			// A graph written before the value parameter was states the value on the assignment.
+			value, hasValue = d.stringOf(el, rdf.SysML+pValue)
+		}
 		if !hasTarget || !hasValue {
-			return "", true, d.missing(el, "sysx:"+xTarget+" and sysml:"+pValue, "an assignment states what it assigns to what")
+			return "", true, d.missing(el, "sysx:"+xTarget+" and sysx:"+xAssignedValue, "an assignment states what it assigns to what")
 		}
 		words := nodeDeclaration(d, el)
 		if keyword, ok := d.stringOf(el, rdf.OpenSysML+xDeclaredKeyword); ok {
@@ -2160,7 +2246,20 @@ func (d *decoder) loopText(el *element, depth int) (string, error) {
 			head = "loop"
 		}
 	}
-	body, err := d.bodyText(el, depth)
+	block := el
+	for _, child := range el.children {
+		// The body is the action the loop owns as a parameter; a graph written
+		// before it was has the loop own the body's members itself.
+		if d.boolOf(child, rdf.OpenSysML+xIsLoopBody) {
+			block = child
+			break
+		}
+	}
+	children, err := d.bodyMembers(block)
+	if err != nil {
+		return "", err
+	}
+	body, err := d.membersText(children, d.boolOf(el, rdf.OpenSysML+xHasBody), depth)
 	if err != nil {
 		return "", err
 	}
@@ -2170,7 +2269,7 @@ func (d *decoder) loopText(el *element, depth int) (string, error) {
 	if until, ok := d.stringOf(el, rdf.OpenSysML+xUntilCondition); ok {
 		return text + " until " + until + ";", nil
 	}
-	if !d.boolOf(el, rdf.OpenSysML+xHasBody) && !strings.HasSuffix(text, ";") && el.metaclass != mForLoop {
+	if !d.boolOf(el, rdf.OpenSysML+xHasBody) && !strings.HasSuffix(text, ";") && !strings.HasSuffix(text, "}") && el.metaclass != mForLoop {
 		return text + ";", nil
 	}
 	return text, nil
