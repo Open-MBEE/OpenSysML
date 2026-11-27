@@ -213,6 +213,9 @@ type Options struct {
 	// InheritedMembers has the API JSON output repeat each Namespace's and Type's inherited
 	// members (export.APIJSONOptions.InheritedMembers); off, it holds the owned structure.
 	InheritedMembers bool
+	// Interchange has the API JSON output hold each element as the normative SysML.json
+	// describes it (export.APIJSONOptions.Interchange).
+	Interchange bool
 	// KeepLineBreaks keeps the input's line breaks on notation → notation (a
 	// save or echo); otherwise each statement of a body gets its own line.
 	KeepLineBreaks bool
@@ -510,7 +513,7 @@ func FromGraphTo(out io.Writer, graph *rdf.Graph, to Format, opts Options) error
 	case to == FormatAPIJSON:
 		return export.WriteAPIJSONTo(out, graph, export.APIJSONOptions{
 			IncludeLibraryStubs: opts.IncludeLibraryStubs, LibraryReferences: opts.LibraryReferences,
-			InheritedMembers: opts.InheritedMembers,
+			InheritedMembers: opts.InheritedMembers, Interchange: opts.Interchange,
 		})
 	default:
 		return &NotWritableError{Format: to}

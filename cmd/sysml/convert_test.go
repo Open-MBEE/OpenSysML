@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -1121,5 +1122,45 @@ func TestConvertFMUOverTheArchive(t *testing.T) {
 	}
 	if got, err := os.ReadFile(fmu); err != nil || !bytes.Equal(got, buf.Bytes()) {
 		t.Fatalf("the FMU archive was modified (err %v)", err)
+	}
+}
+
+// An FMU is converted through the notation, so its interchange form carries uuid ids.
+func TestConvertFMUInterchangeIDsAreUUIDs(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	fmu := filepath.Join(dir, "model.fmu")
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	entry, err := zw.Create("modelDescription.xml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := entry.Write([]byte(`<fmiModelDescription fmiVersion="2.0" modelName="M" guid="{m}"><ModelVariables/></fmiModelDescription>`)); err != nil {
+		t.Fatal(err)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(fmu, buf.Bytes(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	outPath := filepath.Join(dir, "model.json")
+	if out, err := exec.Command(binary, fmu, "-convert", "api-json", "-interchange", "-o", outPath).CombinedOutput(); err != nil {
+		t.Fatalf("%v:\n%s", err, out)
+	}
+	written, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := regexp.MustCompile(`"@id": "([^"]*)"`).FindAllSubmatch(written, -1)
+	uuid := regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+	if len(ids) == 0 {
+		t.Fatalf("no element:\n%s", written)
+	}
+	for _, id := range ids {
+		if !uuid.Match(id[1]) {
+			t.Fatalf("@id %q is no uuid", id[1])
+		}
 	}
 }
