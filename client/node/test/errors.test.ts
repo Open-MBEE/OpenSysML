@@ -11,7 +11,9 @@ import {
   SourceDocument,
   ModelNotFoundError,
   OpenSysMLError,
+  ServiceCancelledError,
   ServiceError,
+  ServiceTimeoutError,
   ServiceUnavailableError,
   SymbolNotFoundError,
   connect,
@@ -109,6 +111,16 @@ test("an RPC failure becomes the error its status names, and this client's error
   assert.ok(refused instanceof ServiceUnavailableError);
   assert.equal(refused.code, "UNKNOWN");
   assert.match(refused.message, /service unavailable: Failed to fetch/);
+  const late = fromRpcError(new ConnectError("too slow", Code.DeadlineExceeded));
+  assert.ok(late instanceof ServiceTimeoutError);
+  assert.ok(!(late instanceof ServiceCancelledError));
+  assert.equal(late.code, "DEADLINE_EXCEEDED");
+
+  const cancelled = fromRpcError(new ConnectError("stopped", Code.Canceled));
+  assert.ok(cancelled instanceof ServiceCancelledError);
+  assert.ok(cancelled instanceof ServiceTimeoutError);
+  assert.equal(cancelled.code, "CANCELLED");
+
   const unknown = fromRpcError(new ConnectError("odd", Code.Unknown));
   assert.ok(unknown instanceof ServiceError);
   assert.ok(!(unknown instanceof ServiceUnavailableError));

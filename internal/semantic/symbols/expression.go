@@ -64,6 +64,9 @@ const (
 	// ExpressionTransitionLink is the ReferenceUsage a transition owns last through a FeatureMembership,
 	// after its succession, as the pilot exports it (TransitionUsage::transitionLink); Owner is the transition.
 	ExpressionTransitionLink
+	// ExpressionAccess is a feature an assignment's target parameter owns to name the feature assigned:
+	// startingAt, owned by the target, and accessedFeature, owned by startingAt (SysML.xtext TargetParameter).
+	ExpressionAccess
 )
 
 // ExpressionElement is the side record of a symbol the reflective layer

@@ -1,6 +1,7 @@
 package semantics
 
 import (
+	"errors"
 	"slices"
 	"testing"
 
@@ -294,5 +295,39 @@ func TestUnitProductAbsorbsIdentity(t *testing.T) {
 	}
 	if _, ok := rad.Root(2); ok {
 		t.Error("rad.Root(2) succeeded; rad has no square root")
+	}
+}
+
+// TestUnitExprErrorNamesTheExpression: an expression in unit position that is
+// no unit is reported as the modeller wrote it, never by its syntax-tree type.
+func TestUnitExprErrorNamesTheExpression(t *testing.T) {
+	m, root := buildModel(t, `package test { }`)
+	tests := []struct{ src, want string }{
+		{"2", "not a measurement unit expression: the number 2"},
+		{"2.5", "not a measurement unit expression: the number 2.5"},
+		{`"m"`, `not a measurement unit expression: the string "m"`},
+		{"true", "not a measurement unit expression: the Boolean true"},
+		{"null", "not a measurement unit expression: null"},
+		{"f(1)", "not a measurement unit expression: an invocation of f"},
+		{"(1, 2)", "not a measurement unit expression: a sequence"},
+		{"m*2", "not a measurement unit expression: the number 2"},
+	}
+	for _, tc := range tests {
+		p := parser.New(source.New("<unit>", []byte(tc.src)))
+		expr := p.ParseExpression()
+		if expr == nil || len(p.Diagnostics) > 0 {
+			t.Fatalf("parse %q: %v", tc.src, p.Diagnostics)
+		}
+		_, err := m.UnitProductOfExprBy(expr, func(*ast.QualifiedName) (*symbols.Symbol, bool) { return nil, false })
+		if !errors.Is(err, ErrUnitExpr) || err.Error() != tc.want {
+			t.Errorf("UnitProductOfExprBy(%q) = %v, want %q", tc.src, err, tc.want)
+		}
+		if tc.src == "m*2" {
+			continue // the unresolved name m is reported first
+		}
+		_, err = m.UnitTermOfExpr(root, expr)
+		if !errors.Is(err, ErrUnitExpr) || err.Error() != tc.want {
+			t.Errorf("UnitTermOfExpr(%q) = %v, want %q", tc.src, err, tc.want)
+		}
 	}
 }

@@ -82,7 +82,8 @@ func TestExportGraphsRefusals(t *testing.T) {
 		{"unknown model", &pb.ExportGraphsRequest{ModelHash: "nope", Subject: "Test::race"}, connect.CodeNotFound, "nope"},
 		{"no subject", &pb.ExportGraphsRequest{ModelHash: hash}, connect.CodeInvalidArgument, "subject is required"},
 		{"unknown subject", &pb.ExportGraphsRequest{ModelHash: hash, Subject: "Test::Missing"}, connect.CodeNotFound, "symbol not found: Test::Missing"},
-		{"not a behavior", &pb.ExportGraphsRequest{ModelHash: hash, Subject: "Test"}, connect.CodeInvalidArgument, "no lowered graph"},
+		{"not a behavior", &pb.ExportGraphsRequest{ModelHash: hash, Subject: "Test"}, connect.CodeInvalidArgument,
+			"invalid_argument: no lowered graph for the package Test: the subject must be an action or a state machine"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -90,10 +91,65 @@ func TestExportGraphsRefusals(t *testing.T) {
 			if connect.CodeOf(err) != test.code {
 				t.Fatalf("status = %s, want %s: %v", connect.CodeOf(err), test.code, err)
 			}
-			if err == nil || !strings.Contains(err.Error(), test.message) {
-				t.Errorf("error %v does not mention %q", err, test.message)
+			if err == nil || !strings.HasSuffix(err.Error(), test.message) {
+				t.Errorf("error %v does not end in %q", err, test.message)
 			}
 		})
+	}
+}
+
+// A subject asked for by another spelling than the refusal writes (an id at any
+// depth, a short name, an inherited member's name) keeps that spelling in front.
+func TestExportGraphsRefusalKeepsTheRequestedID(t *testing.T) {
+	srv := mustNewService(t, 10)
+	t.Cleanup(srv.Close)
+	parsed, _ := parseContent(t, srv, `package P {
+		part def <C> Car { part wheel; }
+		alias Auto for Car;
+		part def Sub :> Car;
+		part def A { part : A { part x { part : A { part y; } } } }
+		part def B { part { part { part 'a::b'; } } }
+	}`)
+	const reason = ": the subject must be an action or a state machine"
+	tests := []struct{ subject, want string }{
+		{"P::Car", "no lowered graph for the part definition P::Car"},
+		{"P::C", "P::C: no lowered graph for the part definition P::Car"},
+		{"P::Auto", "no lowered graph for the alias P::Auto"},
+		{"P::Sub::wheel", "P::Sub::wheel: no lowered graph for the part usage P::Car::wheel"},
+		{"P::A::@0", "P::A::@0: no lowered graph for the unnamed part usage of P::A"},
+		{"P::A::@0::x", "P::A::@0::x: no lowered graph for the part usage x of an unnamed part usage of P::A"},
+		{"P::A::@0::x::@0", "P::A::@0::x::@0: no lowered graph for the unnamed part usage of the part usage x of an unnamed part usage of P::A"},
+		{"P::A::@0::x::@0::y", "P::A::@0::x::@0::y: no lowered graph for the part usage y of an unnamed part usage of the part usage x of an unnamed part usage of P::A"},
+		{"P::B::@0::@0", "P::B::@0::@0: no lowered graph for the unnamed part usage of an unnamed part usage of P::B"},
+		{"P::B::@0::@0::'a::b'", "P::B::@0::@0::'a::b': no lowered graph for the part usage 'a::b' of an unnamed part usage of an unnamed part usage of P::B"},
+	}
+	for _, test := range tests {
+		_, err := srv.ExportGraphs(context.Background(), &pb.ExportGraphsRequest{ModelHash: parsed.ModelHash, Subject: test.subject})
+		if want := "invalid_argument: " + test.want + reason; err == nil || err.Error() != want {
+			t.Errorf("%s: error = %v, want %s", test.subject, err, want)
+		}
+	}
+}
+
+// A state without a body and a transition are refused in words, like on the CLI.
+func TestExportGraphsRefusesAVertexOrAnEdgeOfAMachine(t *testing.T) {
+	srv := mustNewService(t, 10)
+	t.Cleanup(srv.Close)
+	parsed, _ := parseContent(t, srv, `package P {
+		state def Machine { state off; state on; transition off_on first off then on; }
+		part def Sig;
+		part p;
+		action def Notify { send new Sig() to p { action inner; } }
+	}`)
+	for subject, want := range map[string]string{
+		"P::Machine::off":    "invalid_argument: no lowered graph for the state usage P::Machine::off: a state declared without a body is a vertex of its owner's graph",
+		"P::Machine::off_on": "invalid_argument: no lowered graph for the action usage P::Machine::off_on: a transition is an edge of its owner's graph",
+		"P::Notify::@0":      "invalid_argument: P::Notify::@0: no lowered graph for the unnamed action usage of P::Notify: it is lowered as part of its owner's graph",
+	} {
+		_, err := srv.ExportGraphs(context.Background(), &pb.ExportGraphsRequest{ModelHash: parsed.ModelHash, Subject: subject})
+		if err == nil || err.Error() != want {
+			t.Errorf("%s: error = %v, want %s", subject, err, want)
+		}
 	}
 }
 

@@ -1,0 +1,1 @@
+- `sysml-lsp` no longer serves a message it read before `exit` but had not yet started when `exit` arrived: a queued request is answered `InvalidRequest` and a queued notification is dropped, where both used to run after the session had ended.
