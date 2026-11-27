@@ -218,9 +218,9 @@ export function createWasmTransport(host: WasmHost, options: TransportOptions): 
     input: Parameters<Transport["unary"]>[4],
     contextValues: Parameters<Transport["unary"]>[5],
   ): Promise<UnaryResponse<I, O>> => {
-    // Refused here, a call past the host's bound never joins the listeners of the
-    // caller's signal, whose cost grows with the calls already waiting on it.
-    const refusal = host.refusal?.();
+    // Refused here, a call past the bound never joins the listeners of the caller's
+    // signal. One already cancelled needs no place, and is left to report that.
+    const refusal = signal?.aborted === true ? undefined : host.refusal?.();
     if (refusal !== undefined) {
       return Promise.reject(refusal);
     }

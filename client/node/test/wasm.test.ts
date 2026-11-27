@@ -561,6 +561,32 @@ test("a call the host would refuse never listens on the caller's signal", async 
   assert.notEqual(listeners, 0);
 });
 
+test("a cancelled call on a full host is cancelled, not refused", async () => {
+  let calls = 0;
+  const client = clientFor({
+    version: "fake",
+    call: () => {
+      calls++;
+      return Promise.resolve('{"jsonrpc":"2.0","id":null,"result":{"version":"fake","capabilities":[]}}');
+    },
+    close: () => Promise.resolve(),
+    refusal: () => new ConnectError("the host holds its bound of calls", Code.ResourceExhausted),
+  });
+  // A call already cancelled needs no place, so the caller hears its own reason.
+  const reason = new Error("the caller gave up");
+  await assert.rejects(
+    client.getServerInfo({}, { signal: AbortSignal.abort(reason) }),
+    (error: unknown) => {
+      assert.ok(error instanceof ConnectError);
+      assert.equal(error.code, Code.Canceled);
+      assert.equal(error.cause, reason);
+      return true;
+    },
+  );
+  await assert.rejects(client.getServerInfo({}, { signal: AbortSignal.abort() }), { code: Code.Canceled });
+  assert.equal(calls, 0);
+});
+
 test("a worker port refuses a call past its bound on waiting calls", () => {
   const answers: WasmWorkerResponse[] = [];
   let deliver: ((event: MessageEvent<WasmWorkerRequest>) => void) | undefined;
