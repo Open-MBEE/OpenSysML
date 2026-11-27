@@ -323,6 +323,7 @@ var operationFieldDescriptions = map[string]string{
 	"to":             "addConnection: the end the connection goes to",
 	"cascade":        "delete: also delete what refers to the target instead of refusing",
 	"view":           "the view a layout annotation belongs to, as render_view reports in view",
+	"within":         "setLayout of a swimlane's performer: the qualified name of the action the swimlane is drawn in (the fqn of the node its parent names); required when the performer has several swimlanes in the view",
 	"keyword":        "addSequence: the succession keyword before the item (then, first)",
 	"ref":            "addSequence: the element the keyword refers to, by qualified name",
 	"after":          "the member after which to insert, by qualified name; omitted, at the end of the body",

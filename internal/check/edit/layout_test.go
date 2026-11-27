@@ -113,6 +113,49 @@ func TestSetLayoutOfSwimlanePerformerInViewBody(t *testing.T) {
 		got)
 }
 
+// One performer with a swimlane in each of two flows: its Layout places the first.
+const twoLaneModel = `package Line {
+    action runA { action load; }
+    action runB { action pack; }
+    part line {
+        part robot {
+            perform runA.load;
+            perform runB.pack;
+        }
+    }
+}
+package LineViews {
+    private import StandardViewDefinitions::*;
+    view bothView : ActionFlowView {
+        expose Line::runA;
+        expose Line::runB;
+    }
+    view foldedView : ActionFlowView {
+        expose Line::runA;
+        expose Line::runB;
+        metadata DiagramLayout::Layout about Line::runA { collapsed = true; }
+    }
+}
+`
+
+// Of several lanes of one performer, only the operation naming the first one's action places it.
+func TestSetLayoutOfASwimlanePerformerNamesItsLane(t *testing.T) {
+	for _, viewName := range []string{"LineViews::bothView", "LineViews::foldedView"} {
+		m := loadContent(t, "plant.sysml", twoLaneModel)
+		for _, within := range []string{"", "Line::runB"} {
+			_, err := Apply(m, []Operation{SetLayout("Line::line::robot", viewName, at(1, 2)).InLane(within)})
+			var refused *Error
+			if !errors.As(err, &refused) || refused.Failure != FailureNotDrawn {
+				t.Errorf("%s within %q: %v, want a %s refusal", viewName, within, err, FailureNotDrawn)
+			}
+		}
+		got := applyLayout(t, twoLaneModel, SetLayout("Line::line::robot", viewName, at(1, 2)).InLane("Line::runA"))
+		if !strings.Contains(got, "metadata DiagramLayout::Layout about Line::line::robot { x = 1; y = 2; }") {
+			t.Errorf("%s: the first lane was not placed:\n%s", viewName, got)
+		}
+	}
+}
+
 func TestSetLayoutRefusesAPartNoSwimlaneIsDrawnFor(t *testing.T) {
 	m := loadContent(t, "plant.sysml", swimlaneModel)
 	_, err := Apply(m, []Operation{SetLayout("Line::line", "LineViews::runView", at(1, 2))})

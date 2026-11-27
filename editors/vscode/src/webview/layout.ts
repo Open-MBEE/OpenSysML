@@ -11,7 +11,7 @@ import {
   type RenderNode,
   type RenderPort,
   type RenderPoint,
-  type RenderResult, type RenderFrame } from "../protocol";
+  type RenderResult, type RenderFrame, SWIMLANE_KIND } from "../protocol";
 import type { AutoLayout } from "./autolayout";
 import {
   GAP,
@@ -54,8 +54,7 @@ export const STATEMENT_KINDS: ReadonlySet<string> = new Set(["send action", "acc
 /** STATEMENT_ROW_KIND is a compartment row that is a statement as written, drawn as its text alone. */
 export const STATEMENT_ROW_KIND = "statement";
 
-/** SWIMLANE_KIND is the kind of a perform-actions swimlane (§8.2.3.17). */
-export const SWIMLANE_KIND = "swimlane";
+export { SWIMLANE_KIND };
 
 /** PERFORMER_ROW_KIND is a row of a `performed by` compartment: it lists a performer, which no Layout of the row's own places. */
 export const PERFORMER_ROW_KIND = "performer";

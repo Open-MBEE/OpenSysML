@@ -12,6 +12,7 @@ import (
 type Drawn struct {
 	nodes, edges map[ast.Node]bool
 	steered      map[Origin]bool                // origins of the edges a plain Route steers
+	lanes        map[Origin]*drawnLane          // origins of the performers drawn as swimlanes
 	generalEdged map[Origin]bool                // origins of the elements whose edge to a general a Route naming it steers
 	inherited    map[Origin]map[string]bool     // owner origin -> local names of the members drawn as its own
 	members      map[ast.Node]map[ast.Node]bool // member decl -> owner decls it is drawn as a member of
@@ -40,7 +41,7 @@ func (d *Drawn) MemberNode(owner, sym *symbols.Symbol) bool {
 }
 
 func newDrawn() *Drawn {
-	return &Drawn{nodes: map[ast.Node]bool{}, edges: map[ast.Node]bool{}, steered: map[Origin]bool{}, generalEdged: map[Origin]bool{},
+	return &Drawn{nodes: map[ast.Node]bool{}, edges: map[ast.Node]bool{}, steered: map[Origin]bool{}, lanes: map[Origin]*drawnLane{}, generalEdged: map[Origin]bool{},
 		inherited: map[Origin]map[string]bool{}, members: map[ast.Node]map[ast.Node]bool{}, generals: map[ast.Node]map[ast.Node]bool{}}
 }
 
@@ -59,6 +60,42 @@ func (d *Drawn) Steers(origin Origin, kind EdgeKind) bool {
 // element at owner's own, placed by a Layout about owner's name and its.
 func (d *Drawn) Inherits(owner Origin, name string) bool {
 	return d != nil && d.inherited[owner][name]
+}
+
+// drawnLane is how a rendering draws the swimlanes of one performer.
+type drawnLane struct {
+	holder  Origin // the node the lane a Layout about the performer places is drawn in
+	several bool   // the performer has other lanes, drawn around their nodes
+}
+
+// LanePlacedIn reports whether a Layout about performer places the swimlane drawn in holder.
+// It does when that is the performer's one lane in the rendering. Of several, the Layout
+// places the first, drawn or folded away, so holder has to be the node that one is drawn in.
+func (d *Drawn) LanePlacedIn(performer, holder *symbols.Symbol) bool {
+	if d == nil || performer == nil {
+		return true
+	}
+	lane := d.lanes[nodeOrigin(performer.DocName, performer.Decl)]
+	if lane == nil || !lane.several {
+		return true
+	}
+	if holder == nil {
+		return false
+	}
+	at := holder.Origin()
+	return lane.holder.Located() && lane.holder.Doc == at.Doc && lane.holder.Span == at.Span
+}
+
+// noteLane records a swimlane of performer drawn in holder: the first is the one its Layout places.
+func (d *Drawn) noteLane(performer, holder Origin) {
+	if d == nil {
+		return
+	}
+	if lane := d.lanes[performer]; lane != nil {
+		lane.several = true
+		return
+	}
+	d.lanes[performer] = &drawnLane{holder: holder}
 }
 
 // noteSteered records that a plain Route about elem steers an edge drawn for it.

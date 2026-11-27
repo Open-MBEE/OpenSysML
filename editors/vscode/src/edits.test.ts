@@ -334,6 +334,14 @@ test("placementOperations names each placed node and steered edge by its declara
   );
 });
 
+test("placementOperations names the action a dragged swimlane is drawn in", () => {
+  const flow: RenderNode = { id: "n1", kind: "action", name: "run", type: "", detail: "", fqn: "Line::run", declaredHere: true };
+  const lane: RenderNode = { id: "n2", kind: "swimlane", name: "line.robot", type: "", detail: "perform actions", parent: "n1", fqn: "Line::line::robot", declaredHere: true };
+  assert.deepEqual(placementOperations({ nodes: [flow, lane], view: "Line::runView", version: 1 }, [{ id: "n2", layout: { x: 10, y: 20 } }], []), [
+    { kind: "setLayout", target: "Line::line::robot", view: "Line::runView", within: "Line::run", layout: { x: 10, y: 20 } },
+  ]);
+});
+
 test("placementOperations places on the element when the rendering has no view, and clears a route", () => {
   assert.deepEqual(placementOperations({ ...placed, view: "" }, [{ id: "n2", layout: { x: 1, y: 2 } }], [{ index: 0 }]), [
     { kind: "setLayout", target: "Vehicle::Car::tank", view: undefined, layout: { x: 1, y: 2 } },

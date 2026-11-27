@@ -45,6 +45,21 @@ func (r *Renderer) performersOf(action *symbols.Symbol) []*symbols.Symbol {
 	if action == nil {
 		return nil
 	}
+	return r.performersByAction()[symbols.KeyOf(action)]
+}
+
+// Performer reports whether sym performs an action, so that a flow may draw a swimlane for it.
+func (r *Renderer) Performer(sym *symbols.Symbol) bool {
+	for _, performers := range r.performersByAction() {
+		if containsElement(performers, sym) {
+			return true
+		}
+	}
+	return false
+}
+
+// performersByAction are the performers of every action of the model, by the action's key.
+func (r *Renderer) performersByAction() map[symbols.ElementKey][]*symbols.Symbol {
 	if r.performers == nil {
 		r.performers = map[symbols.ElementKey][]*symbols.Symbol{}
 		for _, sym := range r.modelElements() {
@@ -62,7 +77,7 @@ func (r *Renderer) performersOf(action *symbols.Symbol) []*symbols.Symbol {
 			}
 		}
 	}
-	return r.performers[symbols.KeyOf(action)]
+	return r.performers
 }
 
 // flowMember reports whether performer is declared in the flow action is a node
@@ -164,11 +179,17 @@ func (r *Renderer) laneNodes(subject actionSubject, frame *Node, from int, eleme
 // the first in the view's order, and marks the others Fitted. Which lane that is does not
 // depend on what is folded: a lane folded away keeps the Layout, as any folded node keeps its own.
 func placeLanesOnce(out *Rendering) {
+	type held struct{ node, holder *Node }
 	first := map[Origin]bool{}
 	seen := map[*Node]bool{} // a rendering may list a node under several others
-	for level := out.Roots; len(level) > 0; {
-		var next []*Node
-		for _, node := range level {
+	level := make([]held, 0, len(out.Roots))
+	for _, root := range out.Roots {
+		level = append(level, held{node: root})
+	}
+	for len(level) > 0 {
+		var next []held
+		for _, at := range level {
+			node := at.node
 			if seen[node] {
 				continue
 			}
@@ -178,8 +199,13 @@ func placeLanesOnce(out *Rendering) {
 					node.Geometry, node.Fitted = nil, true
 				}
 				first[node.Origin] = true
+				if at.holder != nil {
+					out.drawn.noteLane(node.Origin, at.holder.Origin)
+				}
 			}
-			next = append(next, node.Children...)
+			for _, child := range node.Children {
+				next = append(next, held{node: child, holder: node})
+			}
 		}
 		level = next
 	}

@@ -49,8 +49,11 @@ func (m Model) layoutSplices(i int, op Operation) ([]splice, error) {
 		return nil, err
 	}
 	site := target.site
+	renderer := view.NewRenderer(sem, r, nil)
+	if err := m.checkLane(i, op, renderer, target); err != nil {
+		return nil, err
+	}
 	if site == nil {
-		renderer := view.NewRenderer(sem, r, nil)
 		if err := m.checkPlaceable(i, op, renderer, sem, target); err != nil {
 			return nil, err
 		}
@@ -521,6 +524,32 @@ func (m Model) checkPlaceable(i int, op Operation, renderer *view.Renderer, sem 
 	}
 	return &Error{Failure: FailureNotDrawn, OperationIndex: i,
 		Message: fmt.Sprintf("the rendering of %s does not draw %s as %s", op.View, m.label(op), role)}
+}
+
+// checkLane refuses a Layout about a performer with several swimlanes in the view unless
+// the operation names, as Within, the action holding the lane that Layout places: the first
+// of them, drawn or folded away. The other lanes are drawn around their nodes, so the
+// Layout would move a lane the operation did not, and a client is not trusted to know which.
+func (m Model) checkLane(i int, op Operation, renderer *view.Renderer, target layoutTarget) error {
+	if op.Annotation != semantics.LayoutFQN || op.Layout == nil || target.view == nil || target.owner != nil || !renderer.Performer(target.sym) {
+		return nil
+	}
+	drawn, err := renderer.DrawnIn(target.view)
+	if err != nil {
+		return nil // checkPlaceable reports a view that does not render
+	}
+	var holder *symbols.Symbol
+	if op.Within != "" {
+		if holder, err = m.declaredOnceIn(i, op.Within, ""); err != nil {
+			return err
+		}
+	}
+	if drawn.LanePlacedIn(target.sym, holder) {
+		return nil
+	}
+	return &Error{Failure: FailureNotDrawn, OperationIndex: i,
+		Message: fmt.Sprintf("%s has several swimlanes in %s and its Layout places one, the outermost or the first, drawn or folded away; drag that swimlane instead, naming the action it is drawn in",
+			m.label(op), op.View)}
 }
 
 // exposes reports whether view exposes sym or an element sym is nested in.

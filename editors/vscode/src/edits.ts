@@ -14,6 +14,7 @@ import {
   type RenderNode,
   type RenderOwner,
   type RenderRow,
+  SWIMLANE_KIND,
   type WorkspaceEdit,
 } from "./protocol";
 
@@ -52,7 +53,7 @@ export function placementOperations(
   for (const placement of nodes) {
     const node = rendering.nodes.find((candidate) => candidate.id === placement.id);
     if (node?.fqn) {
-      operations.push({ kind: "setLayout", target: node.fqn, ...declaredIn(node), view, layout: placement.layout });
+      operations.push({ kind: "setLayout", target: node.fqn, ...declaredIn(node), view, ...laneHolder(rendering, node), layout: placement.layout });
     } else if (node?.declaration) {
       operations.push({ kind: "setLayout", declaration: node.declaration, ...declaredIn(node), layout: placement.layout });
     } else {
@@ -70,6 +71,15 @@ export function placementOperations(
     }
   }
   return operations;
+}
+
+/** laneHolder names the action a swimlane is drawn in: a performer may have several lanes in a view, and the server places the one its Layout is about only when the edit names that lane's action. */
+function laneHolder(rendering: Rendering, node: RenderNode): { within?: string } {
+  if (node.kind !== SWIMLANE_KIND) {
+    return {};
+  }
+  const within = rendering.nodes.find((candidate) => candidate.id === node.parent)?.fqn;
+  return within ? { within } : {};
 }
 
 /** declaredIn names the document declaring a node or edge, and the digest of its text as rendered, when the rendering located it: the server places the target in that text or answers stale. */

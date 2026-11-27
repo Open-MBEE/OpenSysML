@@ -68,6 +68,9 @@ type DrawioEdit struct {
 	// Note or Picture — was declared.
 	FQN    string
 	Origin Origin
+	// Within is the qualified name of the action a swimlane's cell is drawn in, on the
+	// Layout of its performer: which of the performer's lanes the edit was read from.
+	Within string
 	// Edge is set for an edit on an edge: the ends it joins and its kind.
 	Edge *DrawioEdgeKey
 	// Index is a note's or picture's position in the rendering's list.
@@ -451,7 +454,7 @@ func (m *drawioMatcher) diffVertex(cell, base *DrawioCell) {
 	if performer, name, ok := m.placedLane(base.ID); ok {
 		// Its label and colours are the performer's own, drawn elsewhere too: only its place is read.
 		if layout := m.layoutDiff(cell, base); layout != nil {
-			m.out.Edits = append(m.out.Edits, DrawioEdit{Kind: DrawioEditLayout, Cell: cell.ID, Label: cell.Label, FQN: name, Origin: performer, Layout: layout})
+			m.out.Edits = append(m.out.Edits, DrawioEdit{Kind: DrawioEditLayout, Cell: cell.ID, Label: cell.Label, FQN: name, Origin: performer, Within: m.laneHolder(base), Layout: layout})
 		}
 		return
 	}
@@ -649,6 +652,14 @@ func (m *drawioMatcher) placedLane(id string) (Origin, string, bool) {
 	return node.Origin, m.w.siteName(node.Origin), true
 }
 
+// laneHolder is the qualified name of the action the swimlane of the baseline cell is drawn in.
+func (m *drawioMatcher) laneHolder(base *DrawioCell) string {
+	if holder := m.base.Cell(base.Parent); holder != nil {
+		return holder.FQN
+	}
+	return ""
+}
+
 // layoutDiff is the Layout a node needs for the file's box, nil when the box
 // is the baseline's within tolerance and the fold is the same.
 func (m *drawioMatcher) layoutDiff(cell, base *DrawioCell) *semantics.Layout {
@@ -777,8 +788,9 @@ func (m *drawioMatcher) editedOf(base *DrawioCell) *DrawioCell {
 func (m *drawioMatcher) framePlace(cell, base *DrawioCell, node *Node, sized bool) {
 	origin, _ := m.originOf(base.ID)
 	name := m.targetName(cell, base)
+	var within string
 	if performer, performerName, ok := m.placedLane(base.ID); ok {
-		origin, name = performer, performerName
+		origin, name, within = performer, performerName, m.laneHolder(base)
 	}
 	if base.FQN == "" && cell.FQN == "" && !origin.Located() {
 		return // a section of a node's box, standing for no declaration
@@ -791,7 +803,7 @@ func (m *drawioMatcher) framePlace(cell, base *DrawioCell, node *Node, sized boo
 	if node.Geometry != nil {
 		layout.Hidden = node.Geometry.Hidden
 	}
-	m.out.Edits = append(m.out.Edits, DrawioEdit{Kind: DrawioEditLayout, Cell: cell.ID, Label: cell.Label, FQN: name, Origin: origin, Layout: layout})
+	m.out.Edits = append(m.out.Edits, DrawioEdit{Kind: DrawioEditLayout, Cell: cell.ID, Label: cell.Label, FQN: name, Origin: origin, Within: within, Layout: layout})
 }
 
 // targetName is the name an annotation about the cell's element states: its

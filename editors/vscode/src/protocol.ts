@@ -311,14 +311,17 @@ export function reachable(element: RenderNode | RenderEdge): boolean {
   return element.fqn !== undefined || element.declaration !== undefined;
 }
 
+/** SWIMLANE_KIND is the kind of a perform-actions swimlane (§8.2.3.17). */
+export const SWIMLANE_KIND = "swimlane";
+
 /** One edit.Operation on the wire; `kind` selects which of the other fields are read. */
 export type ModelEditOperation =
   | { kind: "setValue"; target: string; value: string }
   | { kind: "rename"; target: string; newName: string }
   | { kind: "delete"; target: string; cascade?: boolean }
   | { kind: "move"; target: string; owner: string }
-  /** Places `target` in `view`'s body, or inline in its own declaration without a view; no `layout` clears the annotation. `declaredIn` names the document declaring `target`, whose text `digest` fingerprints as its origin reported, so that a namesake declared since is answered stale rather than placed. */
-  | { kind: "setLayout"; target: string; declaredIn?: string; digest?: string; view?: string; layout?: SetLayoutGeometry }
+  /** Places `target` in `view`'s body, or inline in its own declaration without a view; no `layout` clears the annotation. `declaredIn` names the document declaring `target`, whose text `digest` fingerprints as its origin reported, so that a namesake declared since is answered stale rather than placed. `within` names the action a dragged swimlane is drawn in, `target` being its performer: of several lanes of one performer in `view`, the server places the one the `Layout` is about and refuses any other. */
+  | { kind: "setLayout"; target: string; declaredIn?: string; digest?: string; view?: string; within?: string; layout?: SetLayoutGeometry }
   /** Places the node declared at `declaration`, which no qualified name reaches, inline: a view body cannot name it. The range is one of the document `declaredIn` names — whose text `digest` fingerprints, as its origin reported — or of the edited document without it. */
   | { kind: "setLayout"; declaration: Range; declaredIn?: string; digest?: string; layout?: SetLayoutGeometry }
   /** Steers the connection `target` through `route`, per view or inline as above; an empty or absent route clears it. */
