@@ -335,6 +335,24 @@ Its range is on LINE, from column 15 to column END."
                            (expand-file-name "sysml" dir))))
         (delete-process process)))))
 
+(ert-deftest sysml-eglot-finds-the-tool-beside-a-server-named-from-the-project-root ()
+  (skip-unless (not (eq system-type 'windows-nt)))
+  ;; Eglot starts the server in the project root, so a relative name entered
+  ;; at its prompt is not one to resolve against the buffer's directory.
+  (sysml-eglot-test--with-server-in root
+    (sysml-eglot-test--with-server-in nested
+      (let* ((sysml-lsp-server-path nil)
+             (exec-path nil)
+             (process (let ((default-directory root))
+                        (make-process :name "sysml-lsp" :noquery t
+                                      :command '("./sysml-lsp"))))
+             (default-directory nested))
+        (unwind-protect
+            (cl-letf (((symbol-function 'jsonrpc--process) (lambda (_) process)))
+              (should (equal (sysml-eglot--find-tool 'server (list root))
+                             (expand-file-name "sysml" root))))
+          (delete-process process))))))
+
 ;;;; Live server
 
 (defmacro sysml-eglot-test--with-session (file &rest body)

@@ -123,13 +123,15 @@ no two lenses share the qualified name, the one given to `sysml'."
   (mapcar (lambda (folder) (eglot-uri-to-path (plist-get folder :uri)))
           (eglot-workspace-folders server)))
 
-(defun sysml-eglot--running-server (server)
+(defun sysml-eglot--running-server (server root)
   "Return the executable of SERVER on this machine, or nil.
+A relative name is one in ROOT, the project root Eglot started SERVER in.
 It is nil for a server on another host or reached over a socket."
   (when-let* (((not (file-remote-p default-directory)))
               (command (process-command (jsonrpc--process server)))
               ((consp command)))
-    (executable-find (car command))))
+    (let ((default-directory (or root default-directory)))
+      (executable-find (car command)))))
 
 (defun sysml-eglot--find-tool (server folders)
   "Return the `sysml' executable to run elements with, or nil.
@@ -138,7 +140,7 @@ server is the one SERVER runs, which may be one entered at the prompt
 of \\[eglot], and otherwise the one found from the project root; see
 `sysml-find-tool'."
   (let ((root (car folders)))
-    (sysml-find-tool (or (sysml-eglot--running-server server)
+    (sysml-find-tool (or (sysml-eglot--running-server server root)
                          (sysml--find-server root))
                      root)))
 
