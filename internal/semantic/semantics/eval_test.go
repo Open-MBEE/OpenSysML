@@ -3,6 +3,8 @@ package semantics
 import (
 	"errors"
 	"math"
+	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -166,5 +168,74 @@ func TestWholeNumberRefusesFractionsAndNonFinite(t *testing.T) {
 	}
 	if _, ok := (Value{Kind: ValBool, Bool: true}).WholeNumber(); ok {
 		t.Error("a Boolean is no whole number")
+	}
+}
+
+// TestEvalConstUnnestedAgreesWithEvalConst: the evaluation that keeps a stack of its own
+// gives the value, or the refusal, the recursive one gives, for every operator it settles.
+func TestEvalConstUnnestedAgreesWithEvalConst(t *testing.T) {
+	for _, src := range []string{
+		"42", "1.5", "true", "x", "-5", "+2", "not true", "not 1", "-true",
+		"1 + 2 * 3 - 4", "2 ** 3 ** 2", "(1 + 2) * (3 - 4) / 5", "7 % 0", "1 / 0 + 1",
+		"1 < 2 and 3 >= 3", "true xor false implies 1 == 1.0", "1 and true", "1 + true",
+		"if true ? 1 else 2", "if false ? 1 else x", "if true ? 1 else x", "if 1 ? 1 else 2",
+		"if x ? 1 else 2", "if 1 < 2 ? (if false ? 3 else 4) + 1 else 5",
+		"(if true ? 1 else 2) + (if false ? 1 else 2)", "not (if true ? false else 1)",
+		"1 ?? 2", "1 + x", "x + 1", "-(x)", "(1, 2)", "1..3", "1 + (2, 3)", "(1 + 2) + (x + (3 + 4))",
+	} {
+		expr := parser.New(source.New("<e>", []byte(src))).ParseExpression()
+		if expr == nil {
+			t.Fatalf("failed to parse expression %q", src)
+		}
+		agrees := func(what string, n ast.Node, got Value, gotOK bool) {
+			if want, wantOK := evalConst(n, DefaultMaxIntegerBits); gotOK != wantOK || !reflect.DeepEqual(got, want) {
+				t.Errorf("%s of %q = %+v ok=%v, want %+v ok=%v", what, src, got, gotOK, want, wantOK)
+			}
+		}
+		got, gotOK := evalConstUnnested(expr, DefaultMaxIntegerBits, func(e *ast.OperatorExpr, v Value, ok bool) {
+			agrees("an operator", e, v, ok)
+		})
+		agrees("the whole", expr, got, gotOK)
+	}
+}
+
+// TestEvalConstUnnestedFollowsNestingOfAnyDepth: a chain far past what a filter condition
+// may nest folds to its value.
+func TestEvalConstUnnestedFollowsNestingOfAnyDepth(t *testing.T) {
+	const n = 100_000
+	for src, want := range map[string]int64{
+		"1" + strings.Repeat(" + 1", n):                                 n + 1,
+		strings.Repeat("if false ? 0 else ", n) + "7":                   7,
+		strings.Repeat("-(", n) + "3" + strings.Repeat(")", n):          3,
+		strings.Repeat("(1 + ", n/10) + "1" + strings.Repeat(")", n/10): n/10 + 1,
+	} {
+		expr := parser.New(source.New("<e>", []byte(src))).ParseExpression()
+		if expr == nil {
+			t.Fatalf("failed to parse a chain of %d", n)
+		}
+		v, ok := evalConstUnnested(expr, DefaultMaxIntegerBits, func(*ast.OperatorExpr, Value, bool) {})
+		if !ok || v.Kind != ValInt || v.Int != want {
+			t.Errorf("%.20q… = %+v ok=%v, want int %d", src, v, ok, want)
+		}
+	}
+}
+
+// TestEvalConstUnnestedLeavesTheBranchNotTakenAlone: a conditional costs what the branch
+// it takes costs, however much the other would.
+func TestEvalConstUnnestedLeavesTheBranchNotTakenAlone(t *testing.T) {
+	src := "if true ? true else (2 ** 1000000" + strings.Repeat(" + 1", 10_000) + " > 0)"
+	expr := parser.New(source.New("<e>", []byte(src))).ParseExpression()
+	if expr == nil {
+		t.Fatal("failed to parse the conditional")
+	}
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	v, ok := evalConstUnnested(expr, DefaultMaxIntegerBits, func(*ast.OperatorExpr, Value, bool) {})
+	runtime.ReadMemStats(&after)
+	if !ok || v.Kind != ValBool || !v.Bool {
+		t.Fatalf("got %+v ok=%v, want true", v, ok)
+	}
+	if spent := after.TotalAlloc - before.TotalAlloc; spent > 1<<20 {
+		t.Errorf("evaluating it allocated %d bytes, want under 1 MiB: the sum is in the branch not taken", spent)
 	}
 }

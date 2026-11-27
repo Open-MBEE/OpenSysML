@@ -84,33 +84,42 @@ func (fc *filterChecker) check(f symbols.ElementFilter) {
 	for _, p := range fc.model.CheckElementFilter(f) {
 		fc.diags = append(fc.diags, filterDiagnostic(p))
 	}
-	fc.expr.checkOperatorRules(f.Scope, f.Expr)
+	// The operator rules recurse per level, so a condition past the bound is not put to them.
+	if !semantics.FilterNestsTooDeep(f.Expr) {
+		fc.expr.checkOperatorRules(f.Scope, f.Expr)
+	}
 }
 
 // gated reports whether the condition rests on something a lower tier could not
 // resolve: the type a classification test names, or any operand of an operator
 // whose own result is Boolean whatever its operands turn out to be.
 func (fc *filterChecker) gated(expr ast.Node) bool {
-	op, ok := expr.(*ast.OperatorExpr)
-	if !ok {
-		return false
-	}
-	switch op.Operator {
-	case ast.OpAt, ast.OpMetaAt, ast.OpIsType, ast.OpHasType:
-		// A type the parser never produced is a resolution failure of its own.
-		if op.TypeRef == nil || fc.ctx.DownstreamOfFailure(op.TypeRef) {
-			return true
+	// The condition chooses the depth, so the walk keeps a stack of its own.
+	pending := []ast.Node{expr}
+	for len(pending) > 0 {
+		op, ok := pending[len(pending)-1].(*ast.OperatorExpr)
+		pending = pending[:len(pending)-1]
+		if !ok {
+			continue
 		}
-	case ast.OpNot, ast.OpAnd, ast.OpConditionalAnd, ast.OpOr, ast.OpConditionalOr,
-		ast.OpXor, ast.OpImplies,
-		ast.OpEq, ast.OpNeq, ast.OpEqEqEq, ast.OpNeqEqEq,
-		ast.OpLt, ast.OpGt, ast.OpLe, ast.OpGe:
-	default:
-		return false
-	}
-	for _, o := range op.Operands {
-		if fc.gated(o) || fc.ctx.DownstreamOfFailure(o) {
-			return true
+		switch op.Operator {
+		case ast.OpAt, ast.OpMetaAt, ast.OpIsType, ast.OpHasType:
+			// A type the parser never produced is a resolution failure of its own.
+			if op.TypeRef == nil || fc.ctx.DownstreamOfFailure(op.TypeRef) {
+				return true
+			}
+		case ast.OpNot, ast.OpAnd, ast.OpConditionalAnd, ast.OpOr, ast.OpConditionalOr,
+			ast.OpXor, ast.OpImplies,
+			ast.OpEq, ast.OpNeq, ast.OpEqEqEq, ast.OpNeqEqEq,
+			ast.OpLt, ast.OpGt, ast.OpLe, ast.OpGe:
+		default:
+			continue
+		}
+		for _, o := range op.Operands {
+			if fc.ctx.DownstreamOfFailure(o) {
+				return true
+			}
+			pending = append(pending, o)
 		}
 	}
 	return false
