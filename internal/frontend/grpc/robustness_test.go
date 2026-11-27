@@ -427,6 +427,47 @@ func TestGRPCObjectBindingRobustness(t *testing.T) {
 		}
 	})
 
+	t.Run("inherited_member_beside_held_root_and_quoted_name", func(t *testing.T) {
+		const model = `package Fleet {
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+	part def Drive {
+		part motor;
+	}
+	part def Car {
+		part drive : Drive;
+		part 'drive::motor';
+	}
+	part car : Car;
+	calc def Parts :> Query {
+		in root : Element;
+		Descendants(source = root, maxDepth = 1)
+	}
+}`
+		lookup := func(path string, held ...string) error {
+			srv := mustNewService(t, 10)
+			parsed, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{Source: &pb.ParseFileRequest_Content{Content: model}})
+			if err != nil {
+				t.Fatalf("ParseFile: %v", err)
+			}
+			for _, sym := range held {
+				holdObject(t, srv, parsed.ModelHash, sym)
+			}
+			_, err = srv.RunDocumentQuery(context.Background(), &pb.RunDocumentQueryRequest{
+				ModelHash: parsed.ModelHash, QueryId: "Fleet::Parts",
+				Bindings: []*pb.DocumentQueryBinding{binding("root", objectByPath(path))},
+			})
+			return err
+		}
+		// A quoted segment holding `::` is one member of Car, not a chain through drive.
+		expect(t, lookup("Fleet::car::'drive::motor'", "Fleet::Drive::motor"), connect.CodeNotFound, "binding root", `no instance of "Fleet::Car::drive::motor"`)
+		expect(t, lookup("Fleet::car::'drive::motor'::nowhere", "Fleet::Drive::motor"), connect.CodeNotFound, "binding root", `no instance of "Fleet::Car::drive::motor"`)
+		expect(t, lookup("Fleet::car::drive::motor::nowhere", "Fleet::Drive::motor"), connect.CodeInvalidArgument, "binding root", `Fleet::Drive::motor has no feature "nowhere"`)
+		// A held root as written is walked from, whatever is held under the inherited name.
+		expect(t, lookup("Fleet::car::drive::motor::nowhere", "Fleet::car", "Fleet::Drive::motor"), connect.CodeInvalidArgument, "binding root", `Fleet::car.drive.motor has no feature "nowhere"`)
+		expect(t, lookup("Fleet::car::'drive::motor'::nowhere", "Fleet::car", "Fleet::Drive::motor"), connect.CodeInvalidArgument, "binding root", `Fleet::car.'drive::motor' has no feature "nowhere"`)
+	})
+
 	t.Run("path_reaches_no_object", func(t *testing.T) {
 		expect(t, run(objectByPath("car.wheels")), connect.CodeInvalidArgument, "binding root", "wheels of Garage::car holds 2 objects", "wheels[1] to wheels[2]")
 		expect(t, run(objectByPath("car.wheels[3]")), connect.CodeInvalidArgument, "binding root", "wheels[3] names none")

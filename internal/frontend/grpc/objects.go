@@ -340,20 +340,33 @@ func (h *heldObjects) walked(inst *runtime.Instance, label string, err error) (*
 func (h *heldObjects) namedRoot(ref objref.Ref) (*runtime.Instance, string, []objref.Segment, error) {
 	head := objref.Head(ref.Segments)
 	noInstance, enclosed := "", false
+	// through is the object held under a member reached through a type, as car::Kit
+	// is: an object held under a shorter prefix as written is walked from instead.
+	var (
+		through     *runtime.Instance
+		throughFQN  string
+		throughRest []objref.Segment
+	)
 	for i := head; i > 0; i-- {
 		sym, err := h.lookup(ref.Segments[:i])
 		if err != nil {
 			return nil, "", nil, err
 		}
-		if sym == nil {
-			// A name reached through a type, as car::Kit is, is the member it resolves to.
+		declared := sym != nil
+		if !declared {
 			if sym = h.inherited(ref.Segments[:i]); sym == nil {
 				continue
 			}
 		}
 		fqn := h.idx.GetFQN(sym)
 		if inst, ok := h.named[fqn]; ok && inst != nil {
-			return inst, fqn, ref.Segments[i:], nil
+			if declared {
+				return inst, fqn, ref.Segments[i:], nil
+			}
+			if through == nil {
+				through, throughFQN, throughRest = inst, fqn, ref.Segments[i:]
+			}
+			continue
 		}
 		if i == head && head < len(ref.Segments) && objref.IsNamespace(sym) {
 			shown := source.QualifiedNameText(fqn)
@@ -367,6 +380,9 @@ func (h *heldObjects) namedRoot(ref objref.Ref) (*runtime.Instance, string, []ob
 		if noInstance == "" && !enclosed {
 			noInstance = fqn
 		}
+	}
+	if through != nil {
+		return through, throughFQN, throughRest, nil
 	}
 	if noInstance != "" {
 		if h.empty() {
