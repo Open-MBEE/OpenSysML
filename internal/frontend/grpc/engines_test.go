@@ -3,20 +3,16 @@ package grpc
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
-	"sync"
 	"testing"
 
 	"connectrpc.com/connect"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
-	"github.com/Open-MBEE/OpenSysML/tests/testutil/gobuild"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -275,32 +271,14 @@ func TestEngineExploreIsScheduleExplore(t *testing.T) {
 	}
 }
 
-var (
-	standinOnce sync.Once
-	standinPath string
-	standinErr  error
-)
-
 // engineStandin builds the analysis package's stand-in engine once per test binary.
 func engineStandin(t *testing.T) string {
 	t.Helper()
-	standinOnce.Do(func() {
-		dir, err := os.MkdirTemp("", "enginestandin")
-		if err != nil {
-			standinErr = err
-			return
-		}
-		standinPath = filepath.Join(dir, "enginestandin")
-		build := exec.Command("go", gobuild.Args(standinPath)...)
-		build.Dir = filepath.Join("..", "..", "exec", "analysis", "testdata", "enginestandin")
-		if out, err := build.CombinedOutput(); err != nil {
-			standinErr = fmt.Errorf("go build: %v\n%s", err, out)
-		}
-	})
-	if standinErr != nil {
-		t.Fatalf("building the stand-in engine: %v", standinErr)
+	path, err := testBuilds.Build("enginestandin", filepath.Join("..", "..", "exec", "analysis", "testdata", "enginestandin"))
+	if err != nil {
+		t.Fatalf("building the stand-in engine: %v", err)
 	}
-	return standinPath
+	return path
 }
 
 // A tool manifest entry composing its process from an invocation block and

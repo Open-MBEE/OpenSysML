@@ -3,12 +3,9 @@ package analysis
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
@@ -19,7 +16,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
-	"github.com/Open-MBEE/OpenSysML/tests/testutil/gobuild"
 )
 
 // replyDriver performs Thermal, a tool-computed action with five outputs, and Probe and
@@ -118,32 +114,14 @@ const replyDriver = `package ProbeR {
 
 var replyVariables = []string{"mass", "T_max", "v_out", "done", "code", "note"}
 
-var (
-	replyOnce    sync.Once
-	replyBinPath string
-	replyBinErr  error
-)
-
 // toolreply builds the reply stand-in once per test binary and returns its path.
 func toolreply(t *testing.T) string {
 	t.Helper()
-	replyOnce.Do(func() {
-		dir, err := os.MkdirTemp("", "toolreply")
-		if err != nil {
-			replyBinErr = err
-			return
-		}
-		replyBinPath = filepath.Join(dir, "toolreply")
-		build := exec.Command("go", gobuild.Args(replyBinPath)...)
-		build.Dir = filepath.Join("testdata", "toolreply")
-		if out, err := build.CombinedOutput(); err != nil {
-			replyBinErr = fmt.Errorf("go build: %v\n%s", err, out)
-		}
-	})
-	if replyBinErr != nil {
-		t.Fatalf("building the reply stand-in: %v", replyBinErr)
+	path, err := testBuilds.Build("toolreply", filepath.Join("testdata", "toolreply"))
+	if err != nil {
+		t.Fatalf("building the reply stand-in: %v", err)
 	}
-	return replyBinPath
+	return path
 }
 
 // rprobe is the reply driver indexed over the standard libraries.
