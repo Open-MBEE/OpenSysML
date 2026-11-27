@@ -24,12 +24,30 @@ import (
 // A set of choice points is a sorted, duplicate-free []int64 never written once
 // shared, so places, values and captures stand on one set (design/scheduling.md).
 
-// choiceSerials numbers the choice points a process classifies, so a mark names
-// a choice independently of where the run's notes keep it.
-var choiceSerials atomic.Int64
+// choiceSerials numbers the choice points a context classifies, so a mark names
+// a choice independently of where the run's notes keep it. The sequence is the
+// context's own and is never rewound: a serial drawn on a path a restore
+// abandoned is not drawn again, and a choice point's serial stays above every
+// serial of the sets it joins. A context whose notes another reports draws from
+// that context's sequence (NewDeclaredReaderIn), and one a held image is
+// materialized into draws above the serials the image carries.
+type choiceSerials struct {
+	last atomic.Int64
+}
 
-func nextChoiceSerial() int64 {
-	return choiceSerials.Add(1)
+// next is the serial of the next choice point; no serial is 0.
+func (s *choiceSerials) next() int64 {
+	return s.last.Add(1)
+}
+
+// atLeast raises the sequence so the next serial is above n.
+func (s *choiceSerials) atLeast(n int64) {
+	for {
+		last := s.last.Load()
+		if last >= n || s.last.CompareAndSwap(last, n) {
+			return
+		}
+	}
 }
 
 // markSeed is what a choice point left when it was noted: the instant drawn at,

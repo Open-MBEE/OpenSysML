@@ -1,0 +1,12 @@
+{
+	"type": "action",
+	"evaluate": "test::outer",
+	"outputs": {
+		"viaName": {"type": "Integer", "value": 5},
+		"viaShort": {"type": "Integer", "value": 5},
+		"afterName": {"type": "Integer", "value": 7},
+		"unvalued": {"type": "Integer", "value": 3},
+		"shadowed": {"type": "Integer", "value": 14},
+		"inner": {"type": "Integer", "value": 100}
+	}
+}

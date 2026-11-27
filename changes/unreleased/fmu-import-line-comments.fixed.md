@@ -1,1 +1,0 @@
-- Importing an FMU no longer lets a line terminator in its model identifier, a variable's name, unit or description end the `//` comment the text is written in: the terminator is written as a space, where before a `modelDescription.xml` holding `&#10;` in one of them added declarations of its own choosing to the generated SysML.

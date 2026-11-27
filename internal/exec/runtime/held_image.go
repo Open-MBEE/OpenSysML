@@ -60,6 +60,8 @@ type HeldImage struct {
 
 	activations, runs int64
 	clock             float64
+	// choiceSerial is the last choice serial the context imaged had drawn.
+	choiceSerial int64
 
 	occurrences      map[*symbols.Symbol][]int64
 	usageOccurrences map[calcUsageKey]int64
@@ -169,6 +171,7 @@ func (ctx *Context) Image(objects ...*Instance) (*HeldImage, error) {
 		activations:      ctx.activations,
 		runs:             ctx.runs,
 		clock:            ctx.clock.now,
+		choiceSerial:     ctx.choiceSerials.last.Load(),
 		occurrences:      make(map[*symbols.Symbol][]int64),
 		usageOccurrences: make(map[calcUsageKey]int64),
 		occurrenceTails:  make(map[*symbols.Symbol]*requiredMembers),
@@ -855,6 +858,8 @@ func (m *materializing) run() error {
 	dst.livesChanged()
 	dst.activations = max(dst.activations, img.activations)
 	dst.runs = max(dst.runs, img.runs)
+	// The runs made keep the serials they stood on: dst draws above them.
+	dst.choiceSerials.atLeast(img.choiceSerial)
 	dst.setClock(img.clock)
 	for _, run := range img.runStates {
 		m.runs = append(m.runs, m.runState(run))

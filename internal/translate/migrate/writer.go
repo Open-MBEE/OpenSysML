@@ -82,7 +82,8 @@ func (w *writer) fillHole(i int) {
 	w.indent = indent
 }
 
-// filled is the output with every hole's marker line replaced by its text.
+// filled is the output with every hole's marker line replaced by its text. A mark
+// that is not a hole's marker line (a NUL of the model's own text) stays as written.
 func (w *writer) filled(out string) string {
 	if len(w.holes) == 0 {
 		return out
@@ -94,12 +95,30 @@ func (w *writer) filled(out string) string {
 			b.WriteString(out)
 			return b.String()
 		}
-		end := start + 1 + strings.Index(out[start+1:], holeMark)
-		i, _ := strconv.Atoi(out[start+1 : end])
 		b.WriteString(out[:start])
+		i, after, ok := w.holeAt(out[start+1:])
+		if !ok {
+			b.WriteString(holeMark)
+			out = out[start+1:]
+			continue
+		}
 		b.WriteString(w.holes[i].text)
-		out = out[end+2:]
+		out = after
 	}
+}
+
+// holeAt reads the rest of a hole's marker line, its opening mark already taken:
+// the hole's index and the output after the line.
+func (w *writer) holeAt(rest string) (int, string, bool) {
+	number, after, found := strings.Cut(rest, holeMark+"\n")
+	if !found {
+		return 0, "", false
+	}
+	i, err := strconv.Atoi(number)
+	if err != nil || i < 0 || i >= len(w.holes) || strconv.Itoa(i) != number {
+		return 0, "", false
+	}
+	return i, after, true
 }
 
 func (w *writer) buf() *buffer {

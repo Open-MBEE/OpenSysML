@@ -37,16 +37,17 @@ func constraintStepOf(member ast.Node, scope *symbols.Scope, resolver *resolve.R
 		variable, _ := m.Variable.DeclaredName()
 		bodyScope := childScope(scope, m)
 		return Loop{
-			Kind:       m.Kind,
-			Condition:  m.Condition,
-			Until:      m.Until,
-			Variable:   variable,
-			Bound:      m.Variable.Declared(),
-			Collection: m.Collection,
-			Body:       constraintLowerBlock(m, m.Body, bodyScope, resolver, exprs),
-			BodyAction: loopBodyAction(m, bodyScope),
-			Node:       m,
-			Scope:      scope,
+			Kind:           m.Kind,
+			Condition:      m.Condition,
+			Until:          m.Until,
+			Variable:       variable,
+			VariableSymbol: bodyScope.MemberDeclaring(m),
+			Bound:          m.Variable.Declared(),
+			Collection:     m.Collection,
+			Body:           constraintLowerBlock(m, m.Body, bodyScope, resolver, exprs),
+			BodyAction:     loopBodyAction(m, bodyScope),
+			Node:           m,
+			Scope:          scope,
 		}, true
 	case *ast.IfActionNode:
 		lowered := If{Condition: m.Condition, Node: m, Scope: scope}

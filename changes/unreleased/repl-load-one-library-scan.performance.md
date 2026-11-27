@@ -1,1 +1,0 @@
-- Loading files in the REPL walks each library root once: expanding the paths, collecting the load's warnings and following dependencies share one scan of the installed projects instead of repeating it for each.

@@ -40,6 +40,9 @@ type ElementIDReader interface {
 // Multiplicity under: the property it states, as the declared range is.
 const defaultMultiplicitySlot = "multiplicity"
 
+// loopVariableSlot is the slot the conversion mints a `for` loop's variable under.
+const loopVariableSlot = "loopVariable"
+
 // defaultMultiplicityOwner is the node of the usage whose implicit [1..1] sym
 // states (semantics.DefaultMultiplicityMember), by its span when the usage is a record.
 func defaultMultiplicityOwner(sym *symbols.Symbol) (ast.Node, bool) {
@@ -222,6 +225,11 @@ func ElementIDOf(read ElementIDReader, idx *symbols.Index, sym *symbols.Symbol) 
 		element, _, err := read.ReadExpressionPart(sym.DocName, target, "chain")
 		return element, err
 	}
+	if semantics.IsLoopVariable(sym) {
+		// A `for` variable is minted under its loop, whose node its symbol shares.
+		element, _, err := read.ReadExpressionPart(sym.DocName, sym.Decl, loopVariableSlot)
+		return element, err
+	}
 	if span, slot, ok := bodyParameterSlot(sym); ok {
 		element, _, err := read.ReadExpressionPart(sym.DocName, spanNode{span}, slot)
 		return element, err
@@ -331,6 +339,10 @@ func implicitMembershipID(read ElementIDReader, idx *symbols.Index, member *symb
 	if flow, slot, ok := flowEndFeatureSlot(member); ok {
 		// The ReferenceUsage a flow's end owns is minted under the end with its FeatureMembership (`_pff_om`).
 		_, membership, err := read.ReadExpressionPart(member.DocName, flow, slot)
+		return membership, true, err
+	}
+	if semantics.IsLoopVariable(member) {
+		_, membership, err := read.ReadExpressionPart(member.DocName, member.Decl, loopVariableSlot)
 		return membership, true, err
 	}
 	if span, slot, ok := bodyParameterSlot(member); ok {

@@ -1,1 +1,0 @@
-- Three more reads are bounded: a SysML v2 API or Flexo response over 512 MiB is refused with a typed error rather than buffered; a SysML v1 archive whose model entries exceed 2 GiB together is refused, where only each entry was bounded before; and a long-running process keeps at most 1 GiB of project archives cached, evicting the least recently read.

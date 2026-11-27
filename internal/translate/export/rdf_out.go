@@ -2274,7 +2274,7 @@ func (e *encoder) memberNames(membership rdf.Term, node ast.Node) {
 	sym := e.ids.declSym[node]
 	// The membership names its member by the model's effective name whatever the
 	// member's identity: `require q.k;` is `k` here, positional in its id.
-	if !name.Named && sym != nil {
+	if !name.Named && sym != nil && !e.ids.model.NamedByNodeParameterRole(sym) {
 		name.Text, name.Named = e.ids.model.EffectiveNamed(sym)
 	}
 	if name.Named {
@@ -3536,6 +3536,9 @@ func (e *encoder) reference(name *ast.QualifiedName) rdf.Term {
 	if qualifiedText(name) == "" {
 		return rdf.String("")
 	}
+	if variable, ok := e.loopVariableReference(name); ok {
+		return variable
+	}
 	if decl, fqn, ok := e.referent(name); ok {
 		return e.ids.subjectForNode(decl, fqn)
 	}
@@ -3543,6 +3546,29 @@ func (e *encoder) reference(name *ast.QualifiedName) rdf.Term {
 		return conjugate
 	}
 	return rdf.String(qualifiedText(name))
+}
+
+// loopVariableReference links a name to the `for` variable it reads: the ReferenceUsage
+// minted under the loop, whose node the variable's symbol shares.
+func (e *encoder) loopVariableReference(name *ast.QualifiedName) (rdf.Term, bool) {
+	sym, ok := e.links[name]
+	if !ok {
+		sym, ok = e.res.PartSymbol(name, len(name.Parts)-1)
+	}
+	if !ok || !semantics.IsLoopVariable(sym) {
+		return rdf.Term{}, false
+	}
+	// A loop an action usage is written as (`action a for …`) is that usage's element.
+	node := sym.Decl
+	if usage, ok := sym.OwnerScope.Parent().Node().(*ast.Usage); ok && naming.NodeStatement(usage) == node {
+		node = usage
+	}
+	fqn, declared := e.names.FQN[node]
+	if !declared {
+		return rdf.Term{}, false
+	}
+	loop := e.ids.subjectForNode(node, fqn)
+	return e.ids.mintedNode(rdf.ExpressionIRI(loop, xLoopVariable), loop, xLoopVariable), true
 }
 
 // impliedConjugate links a name written as `P::'~P'` to the ConjugatedPortDefinition

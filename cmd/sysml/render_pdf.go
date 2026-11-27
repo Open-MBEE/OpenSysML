@@ -4,9 +4,12 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docpdf"
+	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
 	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/graphviz" // registers the Graphviz REPL commands
 )
@@ -40,6 +43,10 @@ func renderPDF(sess *repl.Session) error {
 	pdf, err := docpdf.Render(document, pdfEngine, opts)
 	if err != nil {
 		return err
+	}
+	// A drawn diagram's source, where the other forms state this, is not in a PDF.
+	for _, notice := range docrender.RefusedPictures(document) {
+		fmt.Fprintf(os.Stderr, "note: %s\n", notice)
 	}
 	return writePDFArtifact(pdf)
 }

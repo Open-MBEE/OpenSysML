@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Read by scripts/maven-sbom.sh as global settings when Maven Central refuses: Google's mirror of it answers for
+<!-- Read by scripts/maven-sbom.sh as global settings before it asks Maven Central: Google's mirror of it answers for
      `central`, under the same id so what the local repository already holds is not fetched again. -->
 <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"

@@ -1,1 +1,0 @@
-- `sysml -compile` for the C target now compiles a closure that captures a String, a sequence or a function value, and a record holding a String or a collection, which it refused and the Go target computed: what a closure or a record keeps is copied out of the run's arena as it is made and freed when the next run begins.
