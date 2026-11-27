@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"slices"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -233,13 +234,9 @@ func (m *Model) compileCondition(scope *symbols.Scope, n ast.Node) *symbols.Filt
 // compileConstructor compiles `new T(…)`: model-level evaluable when its
 // arguments are (KerML 7.4.9), and yielding an instance, never a truth value.
 func (m *Model) compileConstructor(scope *symbols.Scope, e *ast.ConstructorExpr) *symbols.FilterPredicate {
-	span := spanOf(e)
-	if e.Type == nil {
-		return unsupported(span, "the constructor names no type")
-	}
-	_, typeFQN, ok := m.resolveType(scope, e.Type)
-	if !ok {
-		return unsupported(span, fmt.Sprintf("the constructed type %s does not resolve", e.Type.Text()))
+	instance, fault := m.constructedInstance(scope, e)
+	if fault != nil {
+		return fault
 	}
 	for _, arg := range constructorArgs(e) {
 		if p := m.compileCondition(scope, arg); p.Op == symbols.FilterUnsupported {
@@ -251,11 +248,25 @@ func (m *Model) compileConstructor(scope *symbols.Scope, e *ast.ConstructorExpr)
 			return p
 		}
 	}
+	return instance
+}
+
+// constructedInstance is the instance `new T(…)` yields before its arguments are looked
+// at, or the reason its type cannot be constructed.
+func (m *Model) constructedInstance(scope *symbols.Scope, e *ast.ConstructorExpr) (instance, fault *symbols.FilterPredicate) {
+	span := spanOf(e)
+	if e.Type == nil {
+		return nil, unsupported(span, "the constructor names no type")
+	}
+	_, typeFQN, ok := m.resolveType(scope, e.Type)
+	if !ok {
+		return nil, unsupported(span, fmt.Sprintf("the constructed type %s does not resolve", e.Type.Text()))
+	}
 	return &symbols.FilterPredicate{
 		Op:    symbols.FilterConst,
 		Value: symbols.FilterValue{Kind: symbols.FilterValueInstance, RefFQN: typeFQN},
 		Span:  span,
-	}
+	}, nil
 }
 
 // compileOperator compiles the operators a filter condition is written with:
@@ -275,10 +286,8 @@ func (m *Model) compileOperator(scope *symbols.Scope, e *ast.OperatorExpr) *symb
 			Operands: []*symbols.FilterPredicate{m.compileCondition(scope, e.Operands[0])},
 			Span:     span,
 		}
-
-	case ast.OpAnd, ast.OpConditionalAnd, ast.OpOr, ast.OpConditionalOr,
-		ast.OpXor, ast.OpImplies, ast.OpEq, ast.OpNeq, ast.OpLt, ast.OpLe,
-		ast.OpGt, ast.OpGe:
+	}
+	if composesFilterOperands(e.Operator) {
 		if len(e.Operands) != 2 {
 			return unsupported(span, fmt.Sprintf("`%s` needs two operands", e.Operator))
 		}
@@ -292,6 +301,18 @@ func (m *Model) compileOperator(scope *symbols.Scope, e *ast.OperatorExpr) *symb
 		}
 	}
 	return unsupported(span, fmt.Sprintf("the `%s` operator is not supported in a filter condition", e.Operator))
+}
+
+// composesFilterOperands reports whether compileOperator compiles op from its two
+// operands: Boolean composition and comparison.
+func composesFilterOperands(op ast.OperatorKind) bool {
+	switch op {
+	case ast.OpAnd, ast.OpConditionalAnd, ast.OpOr, ast.OpConditionalOr,
+		ast.OpXor, ast.OpImplies, ast.OpEq, ast.OpNeq, ast.OpLt, ast.OpLe,
+		ast.OpGt, ast.OpGe:
+		return true
+	}
+	return false
 }
 
 // compileClassification compiles `@T` and `@@T`. The operand is the element the
@@ -1192,7 +1213,8 @@ func (m *Model) CheckElementFilter(f symbols.ElementFilter) []FilterProblem {
 	found := m.appendFilterProblems(nil, pred, true)
 	if FilterNestsTooDeep(f.Expr) {
 		// A condition that is in error is not also reported as merely not evaluated.
-		if faults := m.appendDeepFilterProblems(nil, f); len(faults) > 0 {
+		faults := m.appendDeepFilterProblems(nil, f)
+		if slices.ContainsFunc(faults, func(p FilterProblem) bool { return p.Kind != FilterProblemUnsupported }) {
 			found = faults
 		}
 	}
@@ -1215,87 +1237,85 @@ func (m *Model) CheckElementFilter(f symbols.ElementFilter) []FilterProblem {
 	return out
 }
 
-// appendDeepFilterProblems collects the faults a condition nested past MaxFilterDepth has
-// where it needs a truth value, descending the Boolean operators with a stack of its own.
+// appendDeepFilterProblems collects the faults of a condition nested past MaxFilterDepth:
+// those compiling it would find, reached with a stack of its own instead of by recursion.
 func (m *Model) appendDeepFilterProblems(out []FilterProblem, f symbols.ElementFilter) []FilterProblem {
-	pending := []ast.Node{f.Expr}
-	for len(pending) > 0 {
-		n := pending[len(pending)-1]
-		pending = pending[:len(pending)-1]
-		if op, ok := n.(*ast.OperatorExpr); ok && composesTruthValues(op) {
-			for i := len(op.Operands) - 1; i >= 0; i-- {
-				pending = append(pending, op.Operands[i])
-			}
-			continue
-		}
-		if !FilterNestsTooDeep(n) {
-			var pred *symbols.FilterPredicate
-			m.resolver.InCondition(func() { pred = m.compileCondition(f.Scope, n) })
-			out = m.appendFilterProblems(out, pred, true)
-			continue
-		}
-		if !neverBoolean(n) {
-			continue
-		}
-		// What it rests on decides, as it does within the bound: an operand that cannot
-		// be evaluated leaves no result to call non-Boolean.
-		if reason, ok := m.restsOnUnevaluable(f.Scope, n); ok {
-			out = append(out, FilterProblem{Kind: FilterProblemNotEvaluable, Reason: reason, Span: spanOf(n)})
-		} else {
-			out = append(out, FilterProblem{Kind: FilterProblemNotBoolean, Reason: "a non-Boolean result", Span: spanOf(n)})
-		}
+	type operand struct {
+		node     ast.Node
+		wantBool bool
 	}
+	folds := evalConstUnnested(f.Expr, DefaultMaxIntegerBits)
+	m.resolver.InCondition(func() {
+		pending := []operand{{f.Expr, true}}
+		for len(pending) > 0 {
+			at := pending[len(pending)-1]
+			pending = pending[:len(pending)-1]
+			pred, operandsWantBool := m.compileUnnested(f.Scope, at.node, folds)
+			if pred != nil {
+				out = m.appendFilterProblems(out, pred, at.wantBool)
+				continue
+			}
+			operands := at.node.(*ast.OperatorExpr).Operands
+			for i := len(operands) - 1; i >= 0; i-- {
+				pending = append(pending, operand{operands[i], operandsWantBool})
+			}
+		}
+	})
 	return out
 }
 
-// restsOnUnevaluable reports whether some expression under one nested past MaxFilterDepth
-// cannot be evaluated at the model level, and why, descending with a stack of its own.
-func (m *Model) restsOnUnevaluable(scope *symbols.Scope, n ast.Node) (string, bool) {
-	pending := []ast.Node{n}
+// compileUnnested is the predicate compileCondition gives n, or nil for an operator past
+// MaxFilterDepth that composes its operands, with whether each must yield a truth value.
+func (m *Model) compileUnnested(scope *symbols.Scope, n ast.Node, folds map[*ast.OperatorExpr]constFold) (pred *symbols.FilterPredicate, operandsWantBool bool) {
+	if !FilterNestsTooDeep(n) {
+		return m.compileCondition(scope, n), false
+	}
+	switch e := n.(type) {
+	case *ast.OperatorExpr:
+		if f := folds[e]; f.ok {
+			return &symbols.FilterPredicate{Op: symbols.FilterConst, Value: constValue(f.value), Span: spanOf(n)}, false
+		}
+		switch {
+		case e.Operator == ast.OpNot && len(e.Operands) == 1:
+			return nil, true
+		case composesFilterOperands(e.Operator) && len(e.Operands) == 2:
+			return nil, isFilterBoolOp(binaryFilterOp(e.Operator))
+		}
+		// Every other operator compiles without a look at its operands.
+		return m.compileOperator(scope, e), false
+	case *ast.ConstructorExpr:
+		return m.compileUnnestedConstructor(scope, e, folds), false
+	}
+	// Nothing else compiles by way of what it nests.
+	return m.compileCondition(scope, n), false
+}
+
+// compileUnnestedConstructor is compileConstructor for a constructor nested past
+// MaxFilterDepth: the first argument in written order that is no predicate decides.
+func (m *Model) compileUnnestedConstructor(scope *symbols.Scope, e *ast.ConstructorExpr, folds map[*ast.OperatorExpr]constFold) *symbols.FilterPredicate {
+	instance, fault := m.constructedInstance(scope, e)
+	if fault != nil {
+		return fault
+	}
+	pending := constructorArgs(e)
+	slices.Reverse(pending)
 	for len(pending) > 0 {
-		at := pending[len(pending)-1]
+		arg := pending[len(pending)-1]
 		pending = pending[:len(pending)-1]
-		if FilterNestsTooDeep(at) {
-			operands, _ := nestedOperands(at)
-			pending = append(pending, operands...)
+		if c, ok := arg.(*ast.ConstructorExpr); ok && FilterNestsTooDeep(arg) {
+			if _, fault := m.constructedInstance(scope, c); fault != nil {
+				return fault
+			}
+			args := constructorArgs(c)
+			slices.Reverse(args)
+			pending = append(pending, args...)
 			continue
 		}
-		var pred *symbols.FilterPredicate
-		m.resolver.InCondition(func() { pred = m.compileCondition(scope, at) })
-		for _, p := range m.appendFilterProblems(nil, pred, false) {
-			if p.Kind == FilterProblemNotEvaluable {
-				return p.Reason, true
-			}
+		if p, _ := m.compileUnnested(scope, arg, folds); p != nil && p.Op == symbols.FilterUnsupported {
+			return p
 		}
 	}
-	return "", false
-}
-
-// composesTruthValues reports whether a well-formed operator is one compileOperator gives
-// operands that each need a truth value.
-func composesTruthValues(e *ast.OperatorExpr) bool {
-	switch e.Operator {
-	case ast.OpNot:
-		return len(e.Operands) == 1
-	case ast.OpAnd, ast.OpConditionalAnd, ast.OpOr, ast.OpConditionalOr, ast.OpXor, ast.OpImplies:
-		return len(e.Operands) == 2
-	}
-	return false
-}
-
-// neverBoolean reports whether an expression yields no truth value whatever its operands
-// are: an arithmetic or range operator, or a constructor.
-func neverBoolean(n ast.Node) bool {
-	switch e := n.(type) {
-	case *ast.ConstructorExpr:
-		return true
-	case *ast.OperatorExpr:
-		switch e.Operator {
-		case ast.OpRange, ast.OpAdd, ast.OpSub, ast.OpMul, ast.OpDiv, ast.OpMod, ast.OpPow, ast.OpNeg, ast.OpPos:
-			return true
-		}
-	}
-	return false
+	return instance
 }
 
 // appendFilterProblems collects the faults of a compiled condition. wantBool

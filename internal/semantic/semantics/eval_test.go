@@ -3,6 +3,7 @@ package semantics
 import (
 	"errors"
 	"math"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -166,5 +167,54 @@ func TestWholeNumberRefusesFractionsAndNonFinite(t *testing.T) {
 	}
 	if _, ok := (Value{Kind: ValBool, Bool: true}).WholeNumber(); ok {
 		t.Error("a Boolean is no whole number")
+	}
+}
+
+// TestEvalConstUnnestedAgreesWithEvalConst: the evaluation that keeps a stack of its own
+// gives the value, or the refusal, the recursive one gives.
+func TestEvalConstUnnestedAgreesWithEvalConst(t *testing.T) {
+	for _, src := range []string{
+		"-5", "+2", "not true", "not 1", "-true",
+		"1 + 2 * 3 - 4", "2 ** 3 ** 2", "(1 + 2) * (3 - 4) / 5", "7 % 0", "1 / 0 + 1",
+		"1 < 2 and 3 >= 3", "true xor false implies 1 == 1.0", "1 and true", "1 + true",
+		"if true ? 1 else 2", "if false ? 1 else x", "if true ? 1 else x", "if 1 ? 1 else 2",
+		"if x ? 1 else 2", "if 1 < 2 ? (if false ? 3 else 4) + 1 else 5",
+		"(if true ? 1 else 2) + (if false ? 1 else 2)", "not (if true ? false else 1)",
+		"1 ?? 2", "1 + x", "x + 1", "-(x)", "(1, 2)", "1..3", "1 + (2, 3)",
+	} {
+		expr := parser.New(source.New("<e>", []byte(src))).ParseExpression()
+		if expr == nil {
+			t.Fatalf("failed to parse expression %q", src)
+		}
+		want, wantOK := evalConst(expr, DefaultMaxIntegerBits)
+		e, isOperator := expr.(*ast.OperatorExpr)
+		if !isOperator {
+			continue
+		}
+		got := evalConstUnnested(expr, DefaultMaxIntegerBits)[e]
+		if got.ok != wantOK || !reflect.DeepEqual(got.value, want) {
+			t.Errorf("%q = %+v ok=%v, want %+v ok=%v", src, got.value, got.ok, want, wantOK)
+		}
+	}
+}
+
+// TestEvalConstUnnestedFollowsNestingOfAnyDepth: a chain far past what a filter condition
+// may nest folds to its value.
+func TestEvalConstUnnestedFollowsNestingOfAnyDepth(t *testing.T) {
+	const n = 100_000
+	for src, want := range map[string]int64{
+		"1" + strings.Repeat(" + 1", n):                                 n + 1,
+		strings.Repeat("if false ? 0 else ", n) + "7":                   7,
+		strings.Repeat("-(", n) + "3" + strings.Repeat(")", n):          3,
+		strings.Repeat("(1 + ", n/10) + "1" + strings.Repeat(")", n/10): n/10 + 1,
+	} {
+		expr := parser.New(source.New("<e>", []byte(src))).ParseExpression()
+		if expr == nil {
+			t.Fatalf("failed to parse a chain of %d", n)
+		}
+		got := evalConstUnnested(expr, DefaultMaxIntegerBits)[expr.(*ast.OperatorExpr)]
+		if !got.ok || got.value.Kind != ValInt || got.value.Int != want {
+			t.Errorf("%.20q… = %+v ok=%v, want int %d", src, got.value, got.ok, want)
+		}
 	}
 }

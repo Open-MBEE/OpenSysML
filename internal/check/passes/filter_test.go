@@ -351,6 +351,10 @@ func TestAFilterNestedPastTheBoundStillMustBeBoolean(t *testing.T) {
 		{"an integer ending a conjunction", strings.Repeat("@Safety and ", n) + "1"},
 		{"an integer heading a conjunction", "1" + strings.Repeat(" and @Safety", n)},
 		{"a constructor", "new Safety(" + nots + "true" + closes + ")"},
+		{"a constructor over a sum", "new Safety(1" + strings.Repeat(" + 1", n) + ")"},
+		{"a conditional", strings.Repeat("if true ? 1 else ", n) + "2"},
+		{"a conditional under nots", nots + strings.Repeat("if true ? 1 else ", n) + "2" + closes},
+		{"a sum compared under nots", nots + "1" + strings.Repeat(" + 1", n) + closes},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			diags := filterDiags(t, filterMetadata+"package P { filter "+tc.condition+"; }\n")
@@ -383,6 +387,42 @@ func TestAFilterNestedPastTheBoundOnAnUnresolvedNameIsNotEvaluable(t *testing.T)
 			diags := filterDiags(t, "package P { filter "+tc.condition+"; }\n")
 			if len(diags) != 1 || diags[0].Code != "filter-not-evaluable" {
 				t.Fatalf("got %v, want one filter-not-evaluable error", diags)
+			}
+		})
+	}
+}
+
+// TestAFilterNestedPastTheBoundOnAnOperatorOutsideTheSubsetIsNotEvaluable: an operator a
+// condition cannot be written with is refused at any depth.
+func TestAFilterNestedPastTheBoundOnAnOperatorOutsideTheSubsetIsNotEvaluable(t *testing.T) {
+	n := semantics.MaxFilterDepth + 1
+	for _, tc := range []struct{ name, condition string }{
+		{"a null-coalescing chain", "1" + strings.Repeat(" ?? 1", n)},
+		{"a conditional on the candidate", strings.Repeat("if @Safety ? 1 else ", n) + "2"},
+		{"a division by zero", "1 / 0" + strings.Repeat(" + 1", n)},
+		{"a sequence", strings.Repeat("(1, ", n) + "1" + strings.Repeat(")", n)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			diags := filterDiags(t, filterMetadata+"package P { filter "+tc.condition+"; }\n")
+			if len(diags) != 1 || diags[0].Code != "filter-not-evaluable" || diags[0].Severity != diag.SeverityError {
+				t.Fatalf("got %v, want one filter-not-evaluable error", diags)
+			}
+		})
+	}
+}
+
+// TestAFilterNestedPastTheBoundThatFoldsToATruthValueIsOnlyNotEvaluated: a constant
+// condition is in no error however deep it is written.
+func TestAFilterNestedPastTheBoundThatFoldsToATruthValueIsOnlyNotEvaluated(t *testing.T) {
+	n := semantics.MaxFilterDepth + 1
+	for _, tc := range []struct{ name, condition string }{
+		{"a conditional", strings.Repeat("if false ? 1 else ", n) + "true"},
+		{"a comparison of sums", "1" + strings.Repeat(" + 1", n) + " == 1" + strings.Repeat(" + 1", n)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			diags := filterDiags(t, "package P { filter "+tc.condition+"; }\n")
+			if len(diags) != 1 || diags[0].Code != "filter-not-evaluated" || diags[0].Severity != diag.SeverityWarning {
+				t.Fatalf("got %v, want one filter-not-evaluated warning", diags)
 			}
 		})
 	}

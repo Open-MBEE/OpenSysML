@@ -475,6 +475,81 @@ func evalOperator(e *ast.OperatorExpr, maxBits int64) (Value, bool) {
 	}
 }
 
+// constFold is what evalConst gives one operator expression.
+type constFold struct {
+	value Value
+	ok    bool
+}
+
+// evalConstUnnested is evalConst for every operator expression at or under n at once,
+// for one nested deeper than a call stack should follow: it keeps a stack of its own.
+func evalConstUnnested(n ast.Node, maxBits int64) map[*ast.OperatorExpr]constFold {
+	folds := map[*ast.OperatorExpr]constFold{}
+	fold := func(operand ast.Node) (Value, bool) {
+		if e, ok := operand.(*ast.OperatorExpr); ok {
+			return folds[e].value, folds[e].ok
+		}
+		return evalConst(operand, maxBits)
+	}
+	// An operator is folded on its second visit, once the operators under it have been.
+	type visit struct {
+		node   ast.Node
+		folded bool
+	}
+	pending := []visit{{node: n}}
+	for len(pending) > 0 {
+		at := pending[len(pending)-1]
+		pending = pending[:len(pending)-1]
+		e, isOperator := at.node.(*ast.OperatorExpr)
+		if !at.folded {
+			if isOperator {
+				pending = append(pending, visit{e, true})
+			}
+			nested, _ := nestedOperands(at.node)
+			for _, o := range nested {
+				pending = append(pending, visit{node: o})
+			}
+			continue
+		}
+		operands := e.Operands
+		var f constFold
+		switch {
+		case len(operands) != constOperatorArity(e.Operator):
+		case len(operands) == 1:
+			if v, ok := fold(operands[0]); ok {
+				f.value, f.ok = EvalUnary(e.Operator, v)
+			}
+		case len(operands) == 3:
+			if cond, ok := fold(operands[0]); ok && cond.Kind == ValBool {
+				branch := operands[2]
+				if cond.Bool {
+					branch = operands[1]
+				}
+				f.value, f.ok = fold(branch)
+			}
+		default:
+			l, lok := fold(operands[0])
+			r, rok := fold(operands[1])
+			if lok && rok {
+				f.value, f.ok = evalBinaryWithin(e.Operator, l, r, maxBits)
+			}
+		}
+		folds[e] = f
+	}
+	return folds
+}
+
+// constOperatorArity is the number of operands evalOperator evaluates op over.
+func constOperatorArity(op ast.OperatorKind) int {
+	switch op {
+	case ast.OpNeg, ast.OpPos, ast.OpNot:
+		return 1
+	case ast.OpConditional:
+		return 3
+	}
+	return 2
+}
+
 // EvalUnary evaluates a unary operator on a constant value.
 // Returns (result, true) if successful, (zero, false) otherwise.
 func EvalUnary(op ast.OperatorKind, v Value) (Value, bool) {
