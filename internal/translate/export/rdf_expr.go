@@ -2014,6 +2014,18 @@ func (d *decoder) bodyDeclarationsText(node rdf.Term, in *element) ([]string, er
 // bodyMemberText writes one declaration of an expression body from its structure,
 // as a member of a namespace is written: its head, then the body it declares.
 func (d *decoder) bodyMemberText(member rdf.Term, in *element) (string, error) {
+	// A graph may state an edge from a body member back to the expression that owns it.
+	if d.openBodyMembers[member.Value] {
+		return "", &UnsupportedError{
+			What: fmt.Sprintf("the body member <%s>", member.Value),
+			Note: "an expression inside it leads back to it, so there is no finite notation to write; " + rdfLimitationsNote,
+		}
+	}
+	if d.openBodyMembers == nil {
+		d.openBodyMembers = map[string]bool{}
+	}
+	d.openBodyMembers[member.Value] = true
+	defer delete(d.openBodyMembers, member.Value)
 	el, err := d.localElement(member, in)
 	if err != nil {
 		return "", err

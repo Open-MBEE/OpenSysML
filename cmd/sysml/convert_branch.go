@@ -104,6 +104,9 @@ func readBranch(ref flexo.BranchRef, to convert.Format) (int, error) {
 			return 0, fmt.Errorf("a repository branch is read as its RDF graph; -from %s does not apply", fromFormat)
 		}
 	}
+	if interchangeForm && to != convert.FormatAPIJSON {
+		return 0, errors.New("-interchange requires -convert api-json")
+	}
 	for _, notice := range convert.Notices(convert.FormatTurtle, to) {
 		fmt.Fprintf(os.Stderr, "note: %s\n", notice)
 	}
@@ -136,7 +139,9 @@ func readBranch(ref flexo.BranchRef, to convert.Format) (int, error) {
 	if err != nil {
 		return failRepository(fmt.Errorf("read the repository: %w", err)), nil
 	}
-	err = writeProduced(to, func(out io.Writer) error { return convert.FromGraphTo(out, graph, to, convert.Options{}) })
+	err = writeProduced(to, func(out io.Writer) error {
+		return convert.FromGraphTo(out, graph, to, convert.Options{Interchange: interchangeForm})
+	})
 	if err != nil {
 		return 0, err
 	}
