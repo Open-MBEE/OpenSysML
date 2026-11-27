@@ -97,9 +97,10 @@ func (e *UndecidedError) Is(target error) bool { return target == ErrVerdictUnde
 // behavior rather than failing what ran it: any failure of a behavior the
 // object's type bound, at its start or while the creation ran it to quiescence,
 // except a bound of the context's own — on live objects, steps or events —
-// which no behavior owns and which stays the creation's failure.
+// which no behavior owns and which stays the creation's failure. A run stopped
+// from outside is no failure of the behavior either, which stays to be run again.
 func recordsFailure(b *ObjectBehavior, err error) bool {
-	return b != nil && b.typeBound && !exhaustsBudget(err)
+	return b != nil && b.typeBound && !exhaustsBudget(err) && !errors.Is(err, ErrInterrupted)
 }
 
 // keepsFailure reports whether the failure recorded on b is the performance's

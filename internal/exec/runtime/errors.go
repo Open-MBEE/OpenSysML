@@ -19,6 +19,11 @@ var (
 	// ErrInterrupted is returned when a run is stopped from outside, through the
 	// flag Context.SetInterrupt installs, before it ended on its own.
 	ErrInterrupted = errors.New("interrupted")
+	// ErrStartInterrupted is the failure recorded on a behavior whose held
+	// start was stopped midway by an interruption: the start is not taken
+	// again, and the failure is the behavior's from then on rather than an
+	// interruption of whichever run next asks for it.
+	ErrStartInterrupted = errors.New("its start was interrupted and is not taken again")
 
 	// ErrElementLimitExceeded is returned when the collection elements one run
 	// materializes exceed maxElements. It is a bound on memory rather than on

@@ -9,6 +9,9 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
+
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/subprocess"
 )
 
 // SetupStatus is the launcher's exit status when it cannot start the bridge;
@@ -93,13 +96,23 @@ func RefuseUnexported(roots []Root) error {
 
 var featureRelease = regexp.MustCompile(`^[0-9]+$`)
 
+// jvmTimeout and maxJVMAnswer bound the launcher's answer to --jvm; an error shows maxJVMShown of it.
+const (
+	jvmTimeout   = time.Minute
+	maxJVMAnswer = 64 << 10
+	maxJVMShown  = 200
+)
+
 // JVM asks the launcher which Java feature release it runs the export under.
 func JVM(launcher string) (string, error) {
-	// #nosec G204 -- launcher is an explicit CLI override or repo-local artifact.
-	out, err := exec.Command(launcher, "--jvm").Output()
+	out, _, err := subprocess.Output(jvmTimeout, maxJVMAnswer, launcher, "--jvm")
 	jvm := strings.TrimSpace(string(out))
 	if err != nil || !featureRelease.MatchString(jvm) {
-		return "", fmt.Errorf("%s --jvm names no Java feature release (%q, %v); re-provision it with %s --force", launcher, jvm, err, ProvisionCommand)
+		if err == nil {
+			err = errors.New("exit status 0")
+		}
+		shown := jvm[:min(len(jvm), maxJVMShown)]
+		return "", fmt.Errorf("%s --jvm names no Java feature release (%q, %w); re-provision it with %s --force", launcher, shown, err, ProvisionCommand)
 	}
 	return jvm, nil
 }

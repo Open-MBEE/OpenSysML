@@ -4,28 +4,20 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
-	"github.com/Open-MBEE/OpenSysML/tests/testutil/gobuild"
 )
 
-var (
-	buildOnce sync.Once
-	builtCLI  string
-	buildErr  error
-	// cliBuildFlags are extra `go build` flags for the binary, as a tagged test build's tags.
-	cliBuildFlags []string
-)
+// cliBuildFlags are extra `go build` flags for the binary, as a tagged test build's tags.
+var cliBuildFlags []string
 
 // needs skips a test of feature groups the build under test leaves out; re_test.go
 // holds what such a build answers instead.
@@ -72,22 +64,11 @@ func needsArgs(t *testing.T, args ...string) {
 // real command line, flag parsing included.
 func buildCLI(t *testing.T) string {
 	t.Helper()
-	buildOnce.Do(func() {
-		dir, err := os.MkdirTemp("", "sysml-build")
-		if err != nil {
-			buildErr = err
-			return
-		}
-		builtCLI = filepath.Join(dir, "sysml")
-		build := exec.Command("go", gobuild.Args(builtCLI, cliBuildFlags...)...)
-		if out, err := build.CombinedOutput(); err != nil {
-			buildErr = fmt.Errorf("go build: %v\n%s", err, out)
-		}
-	})
-	if buildErr != nil {
-		t.Fatalf("building sysml: %v", buildErr)
+	path, err := testBuilds.Build("sysml", ".", cliBuildFlags...)
+	if err != nil {
+		t.Fatalf("building sysml: %v", err)
 	}
-	return builtCLI
+	return path
 }
 
 const sampleModel = `package Demo {

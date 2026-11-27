@@ -9,6 +9,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
+
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/subprocess"
 )
 
 // Module is the product module path; the go.mod declaring it marks the root.
@@ -37,6 +40,12 @@ func Choose(path string) (string, error) {
 	return filepath.Join(root, path), nil
 }
 
+// gitTimeout and maxGitAnswer bound the one git query DevelopCommit makes.
+const (
+	gitTimeout   = time.Minute
+	maxGitAnswer = 64 << 10
+)
+
 // DevelopCommit is the given commit, or the develop commit the checkout at dir is based on.
 func DevelopCommit(dir, given string) (string, error) {
 	if given != "" {
@@ -46,7 +55,7 @@ func DevelopCommit(dir, given string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("git not found on PATH: %w; pass -develop", err)
 	}
-	out, err := exec.Command(git, "-C", dir, "merge-base", "HEAD", "origin/develop").Output() // #nosec G204 -- git is resolved once by LookPath above
+	out, _, err := subprocess.Output(gitTimeout, maxGitAnswer, git, "-C", dir, "merge-base", "HEAD", "origin/develop")
 	if err != nil {
 		return "", fmt.Errorf("git merge-base HEAD origin/develop: %w; pass -develop", err)
 	}

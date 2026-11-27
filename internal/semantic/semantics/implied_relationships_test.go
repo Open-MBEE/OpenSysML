@@ -132,7 +132,8 @@ var impliedDifferenceReasons = map[string]string{
 		"with it the end's Occurrences::occurrences is redundant",
 	"chain-target-feature": "checkFeatureChainExpressionTargetRedefinition, checkFeatureChainExpressionSourceTargetRedefinition and " +
 		"checkFeatureChainExpressionResultSpecialization name the feature nested in a chain expression's source parameter and " +
-		"the chain its result owns, elements the model does not hold yet",
+		"the chain its result owns, elements the model does not hold yet; the result specializes the target feature itself, " +
+		"so it has the types that chain would give it",
 	"lazy-operand": "the pilot owns the then and else operands of a conditional through a FeatureReferenceExpression referring to " +
 		"the written expression; the model holds the written expression as the operand, so the rows under it differ",
 	"valuation-result": "checkFeatureValuationSpecialization: a valued feature declaring no specialization subsets the result of its value, " +

@@ -261,7 +261,7 @@ var typeCodes = []Entry{
 	{
 		Code: "filter-not-evaluated", Tier: TierType, Severity: "warning",
 		Summary: "an element filter OpenSysML does not evaluate",
-		Meaning: "The filter condition is well formed but uses a form OpenSysML's model-level evaluator does not implement yet, so every candidate is kept as if the filter were absent. " +
+		Meaning: "The filter condition is well formed but uses a form OpenSysML's model-level evaluator does not implement yet, or nests its operators more than 256 deep, so every candidate is kept as if the filter were absent. " +
 			"Rewrite the condition with metadata tests and comparisons the evaluator covers, or expect the unfiltered members.",
 		Spec: "",
 	},

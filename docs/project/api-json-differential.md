@@ -35,7 +35,7 @@ go run -C tools ./cmd/pilot-apijson-diff -reindex # rebuilds its index.json from
 fragments alone and refolds the index; with `-check`, holds those roots' fragments and, with the
 other roots' committed fragments, the index figures — the full `-check` is CI's); `-exporter`,
 `-out` and `-timeout` override the launcher, the output directory and the per-root time allowed to
-the pilot. A run writes `pilot-apijson-diff.json` (the whole run's figures and scorecard in one
+the pilot (`-timeout 0` sets no limit). A run writes `pilot-apijson-diff.json` (the whole run's figures and scorecard in one
 document, the shape the baseline had before it was split), `pilot-apijson-diff.txt`
 (the ranked scorecard with one concrete example per differing row, the unmatched elements by
 metaclass and the pilot's diagnostics), `pilot-apijson-diff-examples.json` and

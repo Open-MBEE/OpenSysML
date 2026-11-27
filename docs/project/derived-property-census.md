@@ -35,7 +35,7 @@ go run -C tools ./cmd/derived-census -update   # re-records internal/semantic/me
 
 `-roots examples,testdata` restricts a run to named roots (never with `-update`); `-exporter`,
 `-out` and `-timeout` override the launcher, the output directory and the per-root time allowed to
-the pilot. A run writes `derived-census.json` (the baseline's shape) and `derived-census.txt` (the
+the pilot (`-timeout 0` sets no limit). A run writes `derived-census.json` (the baseline's shape) and `derived-census.txt` (the
 roots, the classes and every silent rule with its counts).
 
 **Without the exporter.** Our side needs no Java, and the pilot's column changes only when the

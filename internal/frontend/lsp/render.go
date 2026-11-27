@@ -238,7 +238,9 @@ type RenderNode struct {
 	Width           *float64        `json:"width,omitzero"`
 	Height          *float64        `json:"height,omitzero"`
 	Collapsed       bool            `json:"collapsed,omitzero"`
-	Verdict         string          `json:"verdict,omitempty"`
+	// Fitted marks a swimlane the Layout about its performer does not place, being another lane's.
+	Fitted  bool   `json:"fitted,omitzero"`
+	Verdict string `json:"verdict,omitempty"`
 	// Included marks a node the request's `include` drew rather than the view.
 	Included bool `json:"included,omitzero"`
 }
@@ -581,6 +583,7 @@ func (s *Server) renderNodes(out *RenderResult, snapshot *model.Snapshot, nodes 
 			Border:          fills[node.ID].Border,
 			Style:           wireStyle(node.Style),
 			Verdict:         node.Verdict,
+			Fitted:          node.Fitted,
 			Included:        node.Parent == "" && slices.Contains(included, node.Origin),
 		}
 		for _, port := range node.Ports {
