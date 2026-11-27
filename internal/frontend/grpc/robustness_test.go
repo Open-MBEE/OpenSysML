@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"testing"
 
@@ -341,6 +342,65 @@ func TestGRPCObjectBindingRobustness(t *testing.T) {
 				Bindings: []*pb.DocumentQueryBinding{binding("root", objectByPath(held+"::Kit::nowhere"))},
 			})
 			expect(t, err, connect.CodeInvalidArgument, "binding root", held+` has no feature "Kit"`)
+		}
+	})
+
+	t.Run("package_member_under_unheld_declaration", func(t *testing.T) {
+		const model = `package Garage {
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+	part def Car {
+		package Kit {
+			part jack;
+			package Deep {
+				part bolt;
+			}
+		}
+		part engine;
+	}
+	part def Truck :> Car;
+	part car : Car;
+	part truck : Truck;
+	part spare;
+	calc def Parts :> Query {
+		in root : Element;
+		Descendants(source = root, maxDepth = 1)
+	}
+}`
+		// Each root is looked up while it holds no object and another declaration does.
+		roots := []string{"Garage::car", "Garage::truck", "Garage::Truck"}
+		for _, held := range [][]string{
+			{"Garage::car"}, {"Garage::Car"}, {"Garage::car", "Garage::Car"},
+			{"Garage::truck"}, {"Garage::Truck"}, {"Garage::spare"},
+		} {
+			srv := mustNewService(t, 10)
+			parsed, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{Source: &pb.ParseFileRequest_Content{Content: model}})
+			if err != nil {
+				t.Fatalf("ParseFile: %v", err)
+			}
+			for _, sym := range held {
+				holdObject(t, srv, parsed.ModelHash, sym)
+			}
+			lookup := func(path string) error {
+				_, err := srv.RunDocumentQuery(context.Background(), &pb.RunDocumentQueryRequest{
+					ModelHash: parsed.ModelHash, QueryId: "Garage::Parts",
+					Bindings: []*pb.DocumentQueryBinding{binding("root", objectByPath(path))},
+				})
+				return err
+			}
+			for _, root := range roots {
+				if slices.Contains(held, root) {
+					continue
+				}
+				// A package the declaration owns or inherits only encloses the unknown name.
+				for _, rest := range []string{"::Kit::nowhere", "::Kit::Deep::nowhere"} {
+					expect(t, lookup(root+rest), connect.CodeNotFound, "binding root", "symbol not found: "+root+rest)
+				}
+				// A name that is no package there still blames the declaration.
+				for _, rest := range []string{"::nowhere::bolt", "::engine::nowhere"} {
+					expect(t, lookup(root+rest), connect.CodeNotFound, "binding root", `no instance of "`+root+`"`)
+				}
+			}
 		}
 	})
 

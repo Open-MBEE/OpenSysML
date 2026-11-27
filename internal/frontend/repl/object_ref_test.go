@@ -256,6 +256,43 @@ func TestPackageMemberUnderHeldObjectIsNoFeature(t *testing.T) {
 	wants(t, run(t, s, "%validate Garage::Car::Kit::Nope"), `error: Garage::Car has no feature "Kit"`)
 }
 
+// TestPackageMemberUnderUnheldDeclarationIsUnresolved: a package a declaration
+// owns or inherits only encloses an unknown name, whatever else holds an object.
+func TestPackageMemberUnderUnheldDeclarationIsUnresolved(t *testing.T) {
+	roots := []string{"Garage::car", "Garage::truck", "Garage::Truck"}
+	for _, held := range [][]string{
+		{"Garage::car"}, {"Garage::Car"}, {"Garage::car", "Garage::Car"},
+		{"Garage::truck"}, {"Garage::Truck"}, {"Garage::spare"},
+	} {
+		s := submitted(t, `package Garage {
+	part def Car {
+		package Kit {
+			part jack;
+			package Deep {
+				part bolt;
+			}
+		}
+		part engine;
+	}
+	part def Truck :> Car;
+	part car : Car;
+	part truck : Truck;
+	part spare;
+}`)
+		for _, name := range held {
+			run(t, s, "%instantiate "+name)
+		}
+		for _, root := range roots {
+			if slices.Contains(held, root) {
+				continue
+			}
+			for _, rest := range []string{"::Kit::Nope", "::Kit::Deep::Nope"} {
+				wants(t, run(t, s, "%validate "+root+rest), "error: unresolved reference: "+root+rest)
+			}
+		}
+	}
+}
+
 // A multi-valued feature is walked by a 1-based index; leaving the index out, or
 // giving one that names no element, says how many there are.
 func TestMultiValuedFeatureNeedsIndex(t *testing.T) {
