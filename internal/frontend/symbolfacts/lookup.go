@@ -36,7 +36,7 @@ func LookupNamedMember(idx *symbols.Index, model *semantics.Model, id string) []
 		return syms
 	}
 	// The notation's own segments are walked, so a quoted one holding `::` stays one member.
-	if sym, _ := memberChain(idx, model, nameSegments(id)); sym != nil {
+	if sym, _ := MemberChainSegments(idx, model, nameSegments(id)); sym != nil {
 		return []*symbols.Symbol{sym}
 	}
 	return nil
@@ -51,11 +51,12 @@ func LookupNamedMember(idx *symbols.Index, model *semantics.Model, id string) []
 // fully-qualified name the member is declared under; nil and "" when no prefix
 // is a declaration the rest walks from.
 func MemberChain(idx *symbols.Index, model *semantics.Model, name string) (*symbols.Symbol, string) {
-	return memberChain(idx, model, strings.Split(name, "::"))
+	return MemberChainSegments(idx, model, strings.Split(name, "::"))
 }
 
-// memberChain is MemberChain over a name already cut into its unquoted segments.
-func memberChain(idx *symbols.Index, model *semantics.Model, segments []string) (*symbols.Symbol, string) {
+// MemberChainSegments is MemberChain over a name already cut into its unquoted
+// segments, so one that holds `::` inside its quotes stays one member.
+func MemberChainSegments(idx *symbols.Index, model *semantics.Model, segments []string) (*symbols.Symbol, string) {
 	if idx == nil || model == nil {
 		return nil, ""
 	}

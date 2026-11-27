@@ -296,6 +296,38 @@ func TestPackageMemberUnderUnheldDeclarationIsUnresolved(t *testing.T) {
 	}
 }
 
+// A quoted segment holding `::` is one member of the type it is inherited from,
+// not a path through the member its first half names.
+func TestQuotedInheritedMemberIsOneName(t *testing.T) {
+	fleet := func(held ...string) *Session {
+		s := submitted(t, `package Fleet {
+	part def Drive {
+		part motor;
+	}
+	part def Car {
+		part drive : Drive;
+		part 'drive::motor';
+	}
+	part car : Car;
+}`)
+		for _, name := range held {
+			run(t, s, "%instantiate "+name)
+		}
+		return s
+	}
+
+	s := fleet("Fleet::Drive::motor")
+	wants(t, run(t, s, "%validate Fleet::car::'drive::motor'"), `no instance of the usage "Fleet::Car::'drive::motor'"`)
+	wants(t, run(t, s, "%validate Fleet::car::'drive::motor'::nowhere"), `no instance of the usage "Fleet::Car::'drive::motor'"`)
+	wants(t, run(t, s, "%validate Fleet::car::drive::motor::nowhere"), `error: Fleet::Drive::motor has no feature "nowhere"`)
+
+	s = fleet("Fleet::Car::'drive::motor'")
+	wants(t, run(t, s, "%validate Fleet::car::'drive::motor'::nowhere"), `error: Fleet::Car::'drive::motor' has no feature "nowhere"`)
+
+	s = fleet("Fleet::car", "Fleet::Drive::motor")
+	wants(t, run(t, s, "%validate Fleet::car::'drive::motor'::nowhere"), `error: Fleet::car.'drive::motor' has no feature "nowhere"`)
+}
+
 // A multi-valued feature is walked by a 1-based index; leaving the index out, or
 // giving one that names no element, says how many there are.
 func TestMultiValuedFeatureNeedsIndex(t *testing.T) {
