@@ -803,9 +803,11 @@ func (ctx *Context) claimID(id int64) {
 type runState struct {
 	steps    int64
 	elements int64
-	// unbounded frees an evidence probe from this context's step and element budgets.
-	unbounded bool
-	notes     []RunNote
+	// stepLimit and elementLimit override the context budgets for this run;
+	// zero uses the context's configured budgets.
+	stepLimit    int64
+	elementLimit int64
+	notes        []RunNote
 	// marks is what the run's values stand on (order_marks.go).
 	marks orderMarks
 	// performers are the objects the run's executors have performed on, kept
@@ -833,10 +835,33 @@ func (ctx *Context) newRunState() *runState {
 	return &runState{scheduler: ctx.newScheduler()}
 }
 
-// newEvidenceRunState starts the independent budget one evidence probe reads on.
+// stepBudget is the step limit the current run answers under.
+func (ctx *Context) stepBudget() int64 {
+	if ctx.run != nil && ctx.run.stepLimit > 0 {
+		return ctx.run.stepLimit
+	}
+	return ctx.maxSteps
+}
+
+// elementBudget is the element limit the current run answers under.
+func (ctx *Context) elementBudget() int64 {
+	if ctx.run != nil && ctx.run.elementLimit > 0 {
+		return ctx.run.elementLimit
+	}
+	return ctx.maxElements
+}
+
+// newEvidenceRunState starts an evidence probe on a fresh bounded budget, so a
+// caller that spent its own budget cannot suppress evidence or run without a limit.
 func (ctx *Context) newEvidenceRunState() *runState {
 	state := ctx.newRunState()
-	state.unbounded = true
+	state.stepLimit = min(ctx.maxSteps, DefaultMaxSteps)
+	state.elementLimit = min(ctx.maxElements, DefaultMaxElements)
+	// Continue the caller's seeded stream so a preview sees the next draw a
+	// regular read would; beginProbe restores the shared scheduler afterwards.
+	if outer := ctx.run; outer != nil {
+		state.scheduler = outer.scheduler
+	}
 	return state
 }
 
@@ -1142,7 +1167,7 @@ func (ctx *Context) incrementStep() error {
 	if ctx.interrupted() {
 		return ErrInterrupted
 	}
-	if !ctx.run.unbounded && ctx.run.steps >= ctx.maxSteps {
+	if ctx.run.steps >= ctx.stepBudget() {
 		if ctx.run.steps < math.MaxInt64 {
 			ctx.run.steps++
 		}
@@ -1169,7 +1194,7 @@ func (ctx *Context) interrupted() bool {
 //
 //go:noinline
 func (ctx *Context) stepLimitExceeded() error {
-	return fmt.Errorf("%w (%d steps; raise %s to allow more)", ErrStepLimitExceeded, ctx.maxSteps, MaxStepsEnvVar)
+	return fmt.Errorf("%w (%d steps; raise %s to allow more)", ErrStepLimitExceeded, ctx.stepBudget(), MaxStepsEnvVar)
 }
 
 // elementScope brackets one evaluation and returns the function releasing what
@@ -1195,8 +1220,9 @@ func (ctx *Context) beginStep() (int64, func()) {
 func (ctx *Context) chargeElements(n int64) error {
 	ctx.run.elements += n
 	// A count that overflowed is past any budget, so it reads as one.
-	if !ctx.run.unbounded && (ctx.run.elements > ctx.maxElements || ctx.run.elements < 0) {
-		return fmt.Errorf("%w (%d elements; raise %s to allow more)", ErrElementLimitExceeded, ctx.maxElements, MaxElementsEnvVar)
+	limit := ctx.elementBudget()
+	if ctx.run.elements > limit || ctx.run.elements < 0 {
+		return fmt.Errorf("%w (%d elements; raise %s to allow more)", ErrElementLimitExceeded, limit, MaxElementsEnvVar)
 	}
 	return nil
 }

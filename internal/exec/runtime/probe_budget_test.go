@@ -3,13 +3,16 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"math/rand/v2"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
-// An evidence probe reads on its own budget; nested probes share it and leave
-// the caller's counters untouched even when its steps or elements are spent.
+// An evidence probe reads on its own bounded budget; nested probes share it and
+// leave the caller's counters untouched even when its steps or elements are spent.
 func TestProbeEvidenceHasAnIndependentBudget(t *testing.T) {
 	_, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `package P { part def D; }`))
 	ctx.maxSteps = 10
@@ -34,9 +37,9 @@ func TestProbeEvidenceHasAnIndependentBudget(t *testing.T) {
 	if err != nil {
 		t.Fatalf("evidence preview after a nearly spent budget: %v", err)
 	}
-	err = ctx.ProbeEvidence(func() error { return ctx.chargeElements(5) })
+	err = ctx.ProbeEvidence(func() error { return ctx.chargeElements(2) })
 	if err != nil {
-		t.Fatalf("evidence preview past the element budget: %v", err)
+		t.Fatalf("evidence preview within its fresh element budget: %v", err)
 	}
 	if ctx.run != outer || outer.steps != 8 || outer.elements != 1 {
 		t.Fatalf("the probes left run %v with %d steps and %d elements, want the caller's %d and %d",
@@ -50,29 +53,34 @@ func TestProbeEvidenceHasAnIndependentBudget(t *testing.T) {
 	}
 }
 
-// Bulk compiled charges and required-tail listings bypass their budgets in an
-// evidence preview too; the caller's guards return once the probe ends.
-func TestProbeEvidenceIgnoresBulkStepAndElementGuards(t *testing.T) {
+// Bulk compiled charges and required-tail listings stay inside a preview's fresh
+// limits; the caller's guards return once the probe ends.
+func TestProbeEvidenceBoundsBulkStepAndElementGuards(t *testing.T) {
 	_, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `package P { part def D; }`))
 	ctx.maxSteps, ctx.maxElements = 6, 2
 	ctx.run.steps = 5
-	sequence := NewSequenceValue(&Sequence{required: &requiredMembers{ctx: ctx, count: 10}})
+	huge := NewSequenceValue(&Sequence{required: &requiredMembers{ctx: ctx, count: 10}})
+	small := NewSequenceValue(&Sequence{required: &requiredMembers{ctx: ctx, count: 2}})
 
+	if err := ctx.ProbeEvidence(func() error { return ctx.chargeSteps(1) }); err != nil {
+		t.Fatalf("a bulk charge inside the preview's fresh step budget: %v", err)
+	}
+	if err := ctx.ProbeEvidence(func() error { return ctx.chargeSteps(20) }); !errors.Is(err, ErrStepLimitExceeded) {
+		t.Fatalf("a bulk charge past the preview's step budget = %v, want %v", err, ErrStepLimitExceeded)
+	}
 	err := ctx.ProbeEvidence(func() error {
-		if err := ctx.chargeSteps(20); err != nil {
-			return err
-		}
-		held, err := ctx.HeldElements(sequence)
+		held, err := ctx.HeldElements(small)
 		if err != nil {
 			return err
 		}
-		if len(held) != 10 {
-			return fmt.Errorf("held elements = %d, want 10", len(held))
+		if len(held) != 2 {
+			return fmt.Errorf("held elements = %d, want 2", len(held))
 		}
-		return nil
+		_, err = ctx.HeldElements(huge)
+		return err
 	})
-	if err != nil {
-		t.Fatalf("evidence preview past both bulk budgets: %v", err)
+	if !errors.Is(err, ErrElementLimitExceeded) {
+		t.Fatalf("a listing past the preview's element budget = %v, want %v", err, ErrElementLimitExceeded)
 	}
 	if ctx.run.steps != 5 {
 		t.Fatalf("the caller's steps = %d, want 5", ctx.run.steps)
@@ -80,8 +88,103 @@ func TestProbeEvidenceIgnoresBulkStepAndElementGuards(t *testing.T) {
 	if err := ctx.chargeSteps(20); !errors.Is(err, ErrStepLimitExceeded) {
 		t.Fatalf("an ordinary bulk charge after the probe = %v, want %v", err, ErrStepLimitExceeded)
 	}
-	if _, err := ctx.HeldElements(sequence); !errors.Is(err, ErrElementLimitExceeded) {
+	if _, err := ctx.HeldElements(huge); !errors.Is(err, ErrElementLimitExceeded) {
 		t.Fatalf("an ordinary listing after the probe = %v, want %v", err, ErrElementLimitExceeded)
+	}
+}
+
+// A preview that charges steps in bulk — as a compiled default does — must fail
+// within its own budget instead of running on without a limit.
+func TestEvidenceProbeStopsARunawayCompiledDefault(t *testing.T) {
+	_, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `package P { part def D; }`))
+	budgets := ctx.Budgets()
+	budgets.MaxSteps = 8
+	if err := ctx.SetBudgets(budgets); err != nil {
+		t.Fatal(err)
+	}
+	ctx.run.steps = 1
+	err := ctx.ProbeEvidence(func() error {
+		for i := 0; i < 100; i++ {
+			if err := ctx.chargeSteps(1); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if !errors.Is(err, ErrStepLimitExceeded) {
+		t.Fatalf("a runaway preview = %v, want %v", err, ErrStepLimitExceeded)
+	}
+	if ctx.run.steps != 1 {
+		t.Fatalf("the caller's steps after the preview = %d, want 1", ctx.run.steps)
+	}
+}
+
+// Listing a huge lazy collection inside a preview refuses with the typed element
+// error before its members are made, rather than growing the held population.
+func TestEvidenceProbeRefusesAHugeLazyCollection(t *testing.T) {
+	_, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `package P { part def D; }`))
+	budgets := ctx.Budgets()
+	budgets.MaxElements = 3
+	if err := ctx.SetBudgets(budgets); err != nil {
+		t.Fatal(err)
+	}
+	before := len(ctx.InstanceIDs())
+	huge := NewSequenceValue(&Sequence{required: &requiredMembers{ctx: ctx, count: 1000000}})
+	err := ctx.ProbeEvidence(func() error {
+		_, err := ctx.HeldElements(huge)
+		return err
+	})
+	if !errors.Is(err, ErrElementLimitExceeded) {
+		t.Fatalf("a huge lazy listing in a preview = %v, want %v", err, ErrElementLimitExceeded)
+	}
+	if got := len(ctx.InstanceIDs()); got != before {
+		t.Fatalf("the refused preview made %d objects, want %d", got, before)
+	}
+}
+
+// A preview continues the caller's seeded stream: it sees the next draw a regular
+// read would, and leaves the stream where the caller left it.
+func TestEvidenceProbeContinuesTheSeededDrawStream(t *testing.T) {
+	m := parseLibraryModel(t, drawingModel)
+	ctx, _ := m.fresh()
+	mustSchedule(t, ctx, mustPolicy(t, "seed:5"))
+	ctx.SetModelSeed(11)
+	ctx.run.scheduler = ctx.schedulerUnder(ctx.schedule)
+	unit := distribution{
+		draw:   func(rng *rand.Rand) semantics.Value { return drawnReal(rng.Float64()) },
+		admits: realWithin(0, 1),
+	}
+	if _, err := ctx.draw("regular", unit); err != nil {
+		t.Fatal(err)
+	}
+	peek := func() semantics.Value {
+		t.Helper()
+		saved := *ctx.run.scheduler.modeled.pcg
+		v, err := ctx.run.scheduler.draw("peek", unit)
+		if err != nil {
+			t.Fatal(err)
+		}
+		*ctx.run.scheduler.modeled.pcg = saved
+		return v
+	}
+	next := peek()
+
+	var preview semantics.Value
+	if err := ctx.ProbeEvidence(func() error {
+		var err error
+		preview, err = ctx.draw("evidence", unit)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if preview != next {
+		t.Fatalf("the preview drew %v, want the regular read's next draw %v", preview, next)
+	}
+	if after := peek(); after != next {
+		t.Fatalf("the preview moved the seeded stream: next %v, now %v", next, after)
+	}
+	if draws := ctx.DrawsTaken(); len(draws) != 1 || draws[0].What != "regular" {
+		t.Fatalf("a preview draw was recorded: %v", draws)
 	}
 }
 

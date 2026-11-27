@@ -76,7 +76,7 @@ type compiledExpr func(ctx *Context, args []scalar) (scalar, error)
 // chargeSteps spends n evaluation steps at once, for a subtree of nodes none of
 // which can fail. It leaves the counter where the evaluator's would stop.
 func (ctx *Context) chargeSteps(n int64) error {
-	if !ctx.run.unbounded && n > ctx.maxSteps-ctx.run.steps {
+	if n > ctx.stepBudget()-ctx.run.steps {
 		return ctx.stepsExhausted()
 	}
 	ctx.run.steps += n
@@ -88,7 +88,7 @@ func (ctx *Context) chargeSteps(n int64) error {
 //
 //go:noinline
 func (ctx *Context) stepsExhausted() error {
-	ctx.run.steps = ctx.maxSteps
+	ctx.run.steps = ctx.stepBudget()
 	if ctx.run.steps < math.MaxInt64 {
 		ctx.run.steps++
 	}
