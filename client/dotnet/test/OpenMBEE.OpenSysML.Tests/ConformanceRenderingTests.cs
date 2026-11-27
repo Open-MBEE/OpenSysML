@@ -61,7 +61,84 @@ internal static class CompleteWire
         new() { Undetermined = new Wire.Undetermined { Reason = "d has no value", Count = new Wire.MultiplicityInfo { Lower = "1", Upper = "*" } } },
         new() { BigIntValue = "-9223372036854775809" },
         new() { RationalValue = new Wire.Rational { Numerator = "1", Denominator = "3" } },
+        new() { CoordinateFrame = PosedFrame },
+        new() { CoordinateFrame = Scale },
+        new() { CoordinateTransformation = Placement },
+        new() { CoordinateTransformation = Affine },
     ];
+
+    /// <summary>A frame posed in another by a sequence of both step kinds, every part set.</summary>
+    internal static Wire.CoordinateFrame PosedFrame => new()
+    {
+        Name = "lbcf",
+        FrameId = "Frames::lbcf",
+        TypeId = "ISQSpaceTime::CartesianSpatial3dCoordinateFrame",
+        InstanceId = 2,
+        Dimensions = { 3 },
+        Axes = { Axis(), Axis(), Axis() },
+        Transformation = new Wire.CoordinateTransformation
+        {
+            Name = "transformation",
+            TransformationId = "Frames::lbcf::transformation",
+            TypeId = "MeasurementReferences::TranslationRotationSequence",
+            InstanceId = 3,
+            Source = Datum,
+            Sequence = new Wire.TranslationRotationSequence
+            {
+                Steps =
+                {
+                    new Wire.FrameStep { InstanceId = 4, Translation = Vector(10, 0, 0) },
+                    new Wire.FrameStep
+                    {
+                        InstanceId = 5,
+                        Rotation = new Wire.FrameRotation { AxisDirection = Vector(0, 0, 1), Angle = Quantity(new Wire.Quantity { RealMagnitude = 90 }), IsIntrinsic = true },
+                    },
+                },
+            },
+            Pose = new Wire.FramePose { Origin = { 10, 0, 0 }, Basis = { 0, -1, 0, 1, 0, 0, 0, 0, 1 } },
+        },
+    };
+
+    /// <summary>A measurement scale defined against another reference.</summary>
+    internal static Wire.CoordinateFrame Scale => new()
+    {
+        Name = "celsius",
+        Scale = new Wire.MeasurementScale
+        {
+            Unit = Axis(),
+            Mapping = new Wire.QuantityValueMapping
+            {
+                Mapped = Quantity(new Wire.Quantity { RealMagnitude = 0 }),
+                Reference = Quantity(new Wire.Quantity { RealMagnitude = 273.15 }),
+            },
+        },
+    };
+
+    /// <summary>A transformation stated as a placement, naming both its frames.</summary>
+    internal static Wire.CoordinateTransformation Placement => new()
+    {
+        Name = "placement",
+        Source = Datum,
+        Target = new Wire.CoordinateFrame { Name = "target", FrameId = "Frames::target", Dimensions = { 3 }, Axes = { Axis(), Axis(), Axis() } },
+        Placement = new Wire.FramePlacement { Origin = Vector(1, 2, 3), BasisDirections = { Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1) } },
+    };
+
+    /// <summary>A transformation stated as an affine matrix.</summary>
+    internal static Wire.CoordinateTransformation Affine => new()
+    {
+        Name = "affine",
+        Affine = new Wire.AffineTransformation3d { Rotation = { 1, 0, 0, 0, 1, 0, 0, 0, 1 }, Translation = { 1, 2, 3 } },
+    };
+
+    private static Wire.CoordinateFrame Datum => new()
+    {
+        Name = "datum",
+        FrameId = "Frames::datum",
+        TypeId = "ISQSpaceTime::CartesianSpatial3dCoordinateFrame",
+        InstanceId = 1,
+        Dimensions = { 3 },
+        Axes = { Axis(), Axis(), Axis() },
+    };
 
     /// <summary>Values whose optional parts are left out, which must stay left out.</summary>
     internal static IReadOnlyList<Wire.Value> Sparse { get; } =
@@ -75,6 +152,10 @@ internal static class CompleteWire
         new() { Sequence = new Wire.ValueSequence() },
         new() { RealValue = -0.0 },
         new() { RealValue = double.NaN },
+        new() { CoordinateFrame = new Wire.CoordinateFrame { Name = "datum / s" } },
+        new() { CoordinateFrame = new Wire.CoordinateFrame { Name = "scale", Scale = new Wire.MeasurementScale { Unit = Axis() } } },
+        new() { CoordinateTransformation = new Wire.CoordinateTransformation { Name = "bare" } },
+        new() { CoordinateTransformation = new Wire.CoordinateTransformation { Name = "still", Sequence = new Wire.TranslationRotationSequence() } },
     ];
 
     /// <summary>A symbol with every fact set.</summary>
@@ -170,6 +251,7 @@ internal static class CompleteWire
             },
             new Wire.ElementProperty { Name = "connectorEnd", Unsupported = "PartDefinition declares no property connectorEnd" },
         },
+        ExcludedDocuments = { new Wire.ExcludedDocument { Document = "broken.sysml", Error = "broken.sysml:1:1: syntax error" } },
     };
 
     /// <summary>The paths to an object, a root without a name and a step into a multi-valued feature among them.</summary>
@@ -259,6 +341,13 @@ internal static class CompleteWire
         magnitude.ValueType = "ISQSpaceTime::LengthValue";
         return magnitude;
     }
+
+    private static Wire.MeasurementRef Axis() => new() { Unit = "km", UnitTerm = Term(), UnitId = "SI::kilometre" };
+
+    private static Wire.Value Vector(params double[] components) => new()
+    {
+        VectorQuantity = new Wire.VectorQuantity { Components = { components.Select(component => Quantity(new Wire.Quantity { RealMagnitude = component })) } },
+    };
 
     private static Wire.UnitTerm Term() =>
         new() { ScaleNum = 1000, ScaleDen = 1, Factors = { new Wire.UnitFactor { UnitId = "SI::metre", Exponent = 1 }, new Wire.UnitFactor { UnitId = "SI::second", Exponent = -1 } } };

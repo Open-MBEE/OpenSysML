@@ -111,6 +111,12 @@ public sealed class Capabilities : IEquatable<Capabilities>
     public const string ConvertLibraryStubs = "convert_library_stubs";
 
     /// <summary>
+    /// Names the capability of carrying a coordinate frame and a coordinate transformation as
+    /// Value.coordinate_frame and Value.coordinate_transformation, rather than as unsupported nulls.
+    /// </summary>
+    public const string CoordinateFrameValues = "coordinate_frame_values";
+
+    /// <summary>
     /// Names the capability of populating Diagnostic.code, so an empty code is a finding none was assigned
     /// rather than an older service.
     /// </summary>

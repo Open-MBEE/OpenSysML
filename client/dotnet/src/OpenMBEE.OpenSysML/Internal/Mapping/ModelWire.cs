@@ -91,7 +91,8 @@ internal static class ModelWire
                 property.Many,
                 property.Derived,
                 property.Values.Select((value, j) => PropertyValue(value, method, $"properties[{i}].values[{j}]")),
-                property.Unsupported)));
+                property.Unsupported)),
+            response.ExcludedDocuments.Select(excluded => new ExcludedDocument(excluded.Document, excluded.Error)));
     }
 
     /// <summary>Reads what an InstancePaths call answered without an error.</summary>

@@ -1,0 +1,1 @@
+- The .NET client's `ElementProperties` names the documents the model was read without as `ExcludedDocuments`, each with why it is left out.

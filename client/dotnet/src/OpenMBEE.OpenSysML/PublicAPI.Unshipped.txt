@@ -3378,3 +3378,129 @@
 [OSML0001]const OpenMBEE.OpenSysML.Capabilities.SymbolAnnotatingMetadata = "symbol_annotating_metadata" -> string!
 [OSML0001]const OpenMBEE.OpenSysML.Capabilities.SymbolLookupKind = "symbol_lookup_kind" -> string!
 [OSML0001]const OpenMBEE.OpenSysML.Capabilities.SymbolNameResolution = "symbol_name_resolution" -> string!
+[OSML0001]OpenMBEE.OpenSysML.AffineTransformation3D
+[OSML0001]OpenMBEE.OpenSysML.AffineTransformation3D.<Clone>$() -> OpenMBEE.OpenSysML.AffineTransformation3D!
+[OSML0001]OpenMBEE.OpenSysML.AffineTransformation3D.Equals(OpenMBEE.OpenSysML.AffineTransformation3D? other) -> bool
+[OSML0001]OpenMBEE.OpenSysML.AffineTransformation3D.Rotation.get -> OpenMBEE.OpenSysML.ValueList<double>
+[OSML0001]OpenMBEE.OpenSysML.AffineTransformation3D.Translation.get -> OpenMBEE.OpenSysML.ValueList<double>
+[OSML0001]OpenMBEE.OpenSysML.CoordinateFrame
+[OSML0001]OpenMBEE.OpenSysML.CoordinateFrame.Axes.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.Value.MeasurementRefValue!>
+[OSML0001]OpenMBEE.OpenSysML.CoordinateFrame.Dimensions.get -> OpenMBEE.OpenSysML.ValueList<long>
+[OSML0001]OpenMBEE.OpenSysML.CoordinateFrame.Equals(OpenMBEE.OpenSysML.CoordinateFrame? other) -> bool
+[OSML0001]OpenMBEE.OpenSysML.CoordinateFrame.FrameId.get -> string?
+[OSML0001]OpenMBEE.OpenSysML.CoordinateFrame.InstanceId.get -> long?
+[OSML0001]OpenMBEE.OpenSysML.CoordinateFrame.Name.get -> string!
+[OSML0001]OpenMBEE.OpenSysML.CoordinateFrame.Scale.get -> OpenMBEE.OpenSysML.MeasurementScale?
+[OSML0001]OpenMBEE.OpenSysML.CoordinateFrame.Transformation.get -> OpenMBEE.OpenSysML.CoordinateTransformation?
+[OSML0001]OpenMBEE.OpenSysML.CoordinateFrame.TypeId.get -> string?
+[OSML0001]OpenMBEE.OpenSysML.CoordinateTransformation
+[OSML0001]OpenMBEE.OpenSysML.CoordinateTransformation.Affine.get -> OpenMBEE.OpenSysML.AffineTransformation3D?
+[OSML0001]OpenMBEE.OpenSysML.CoordinateTransformation.Equals(OpenMBEE.OpenSysML.CoordinateTransformation? other) -> bool
+[OSML0001]OpenMBEE.OpenSysML.CoordinateTransformation.InstanceId.get -> long?
+[OSML0001]OpenMBEE.OpenSysML.CoordinateTransformation.Name.get -> string!
+[OSML0001]OpenMBEE.OpenSysML.CoordinateTransformation.Placement.get -> OpenMBEE.OpenSysML.FramePlacement?
+[OSML0001]OpenMBEE.OpenSysML.CoordinateTransformation.Pose.get -> OpenMBEE.OpenSysML.FramePose?
+[OSML0001]OpenMBEE.OpenSysML.CoordinateTransformation.Source.get -> OpenMBEE.OpenSysML.CoordinateFrame?
+[OSML0001]OpenMBEE.OpenSysML.CoordinateTransformation.Steps.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.FrameStep!>?
+[OSML0001]OpenMBEE.OpenSysML.CoordinateTransformation.Target.get -> OpenMBEE.OpenSysML.CoordinateFrame?
+[OSML0001]OpenMBEE.OpenSysML.CoordinateTransformation.TransformationId.get -> string?
+[OSML0001]OpenMBEE.OpenSysML.CoordinateTransformation.TypeId.get -> string?
+[OSML0001]OpenMBEE.OpenSysML.FramePlacement
+[OSML0001]OpenMBEE.OpenSysML.FramePlacement.<Clone>$() -> OpenMBEE.OpenSysML.FramePlacement!
+[OSML0001]OpenMBEE.OpenSysML.FramePlacement.BasisDirections.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.Value!>
+[OSML0001]OpenMBEE.OpenSysML.FramePlacement.Equals(OpenMBEE.OpenSysML.FramePlacement? other) -> bool
+[OSML0001]OpenMBEE.OpenSysML.FramePlacement.Origin.get -> OpenMBEE.OpenSysML.Value!
+[OSML0001]OpenMBEE.OpenSysML.FramePose
+[OSML0001]OpenMBEE.OpenSysML.FramePose.<Clone>$() -> OpenMBEE.OpenSysML.FramePose!
+[OSML0001]OpenMBEE.OpenSysML.FramePose.Basis.get -> OpenMBEE.OpenSysML.ValueList<double>
+[OSML0001]OpenMBEE.OpenSysML.FramePose.Equals(OpenMBEE.OpenSysML.FramePose? other) -> bool
+[OSML0001]OpenMBEE.OpenSysML.FramePose.Origin.get -> OpenMBEE.OpenSysML.ValueList<double>
+[OSML0001]OpenMBEE.OpenSysML.FrameRotation
+[OSML0001]OpenMBEE.OpenSysML.FrameRotation.<Clone>$() -> OpenMBEE.OpenSysML.FrameRotation!
+[OSML0001]OpenMBEE.OpenSysML.FrameRotation.Angle.get -> OpenMBEE.OpenSysML.Quantity!
+[OSML0001]OpenMBEE.OpenSysML.FrameRotation.AxisDirection.get -> OpenMBEE.OpenSysML.Value!
+[OSML0001]OpenMBEE.OpenSysML.FrameRotation.Equals(OpenMBEE.OpenSysML.FrameRotation? other) -> bool
+[OSML0001]OpenMBEE.OpenSysML.FrameRotation.IsIntrinsic.get -> bool
+[OSML0001]OpenMBEE.OpenSysML.FrameStep
+[OSML0001]OpenMBEE.OpenSysML.FrameStep.<Clone>$() -> OpenMBEE.OpenSysML.FrameStep!
+[OSML0001]OpenMBEE.OpenSysML.FrameStep.Equals(OpenMBEE.OpenSysML.FrameStep? other) -> bool
+[OSML0001]OpenMBEE.OpenSysML.FrameStep.InstanceId.get -> long?
+[OSML0001]OpenMBEE.OpenSysML.FrameStep.Rotation.get -> OpenMBEE.OpenSysML.FrameRotation?
+[OSML0001]OpenMBEE.OpenSysML.FrameStep.Translation.get -> OpenMBEE.OpenSysML.Value?
+[OSML0001]OpenMBEE.OpenSysML.MeasurementScale
+[OSML0001]OpenMBEE.OpenSysML.MeasurementScale.<Clone>$() -> OpenMBEE.OpenSysML.MeasurementScale!
+[OSML0001]OpenMBEE.OpenSysML.MeasurementScale.Equals(OpenMBEE.OpenSysML.MeasurementScale? other) -> bool
+[OSML0001]OpenMBEE.OpenSysML.MeasurementScale.Mapping.get -> OpenMBEE.OpenSysML.QuantityValueMapping?
+[OSML0001]OpenMBEE.OpenSysML.MeasurementScale.Unit.get -> OpenMBEE.OpenSysML.Value.MeasurementRefValue!
+[OSML0001]OpenMBEE.OpenSysML.QuantityValueMapping
+[OSML0001]OpenMBEE.OpenSysML.QuantityValueMapping.<Clone>$() -> OpenMBEE.OpenSysML.QuantityValueMapping!
+[OSML0001]OpenMBEE.OpenSysML.QuantityValueMapping.Equals(OpenMBEE.OpenSysML.QuantityValueMapping? other) -> bool
+[OSML0001]OpenMBEE.OpenSysML.QuantityValueMapping.Mapped.get -> OpenMBEE.OpenSysML.Quantity!
+[OSML0001]OpenMBEE.OpenSysML.QuantityValueMapping.Reference.get -> OpenMBEE.OpenSysML.Quantity!
+[OSML0001]OpenMBEE.OpenSysML.Value.CoordinateFrameValue
+[OSML0001]OpenMBEE.OpenSysML.Value.CoordinateFrameValue.Frame.get -> OpenMBEE.OpenSysML.CoordinateFrame!
+[OSML0001]OpenMBEE.OpenSysML.Value.CoordinateTransformationValue
+[OSML0001]OpenMBEE.OpenSysML.Value.CoordinateTransformationValue.Transformation.get -> OpenMBEE.OpenSysML.CoordinateTransformation!
+[OSML0001]OpenMBEE.OpenSysML.ValueKind.CoordinateFrame = 23 -> OpenMBEE.OpenSysML.ValueKind
+[OSML0001]OpenMBEE.OpenSysML.ValueKind.CoordinateTransformation = 24 -> OpenMBEE.OpenSysML.ValueKind
+[OSML0001]const OpenMBEE.OpenSysML.Capabilities.CoordinateFrameValues = "coordinate_frame_values" -> string!
+[OSML0001]override OpenMBEE.OpenSysML.AffineTransformation3D.Equals(object? obj) -> bool
+[OSML0001]override OpenMBEE.OpenSysML.AffineTransformation3D.GetHashCode() -> int
+[OSML0001]override OpenMBEE.OpenSysML.AffineTransformation3D.ToString() -> string!
+[OSML0001]override OpenMBEE.OpenSysML.CoordinateFrame.Equals(object? obj) -> bool
+[OSML0001]override OpenMBEE.OpenSysML.CoordinateFrame.GetHashCode() -> int
+[OSML0001]override OpenMBEE.OpenSysML.CoordinateFrame.ToString() -> string!
+[OSML0001]override OpenMBEE.OpenSysML.CoordinateTransformation.Equals(object? obj) -> bool
+[OSML0001]override OpenMBEE.OpenSysML.CoordinateTransformation.GetHashCode() -> int
+[OSML0001]override OpenMBEE.OpenSysML.CoordinateTransformation.ToString() -> string!
+[OSML0001]override OpenMBEE.OpenSysML.FramePlacement.Equals(object? obj) -> bool
+[OSML0001]override OpenMBEE.OpenSysML.FramePlacement.GetHashCode() -> int
+[OSML0001]override OpenMBEE.OpenSysML.FramePlacement.ToString() -> string!
+[OSML0001]override OpenMBEE.OpenSysML.FramePose.Equals(object? obj) -> bool
+[OSML0001]override OpenMBEE.OpenSysML.FramePose.GetHashCode() -> int
+[OSML0001]override OpenMBEE.OpenSysML.FramePose.ToString() -> string!
+[OSML0001]override OpenMBEE.OpenSysML.FrameRotation.Equals(object? obj) -> bool
+[OSML0001]override OpenMBEE.OpenSysML.FrameRotation.GetHashCode() -> int
+[OSML0001]override OpenMBEE.OpenSysML.FrameRotation.ToString() -> string!
+[OSML0001]override OpenMBEE.OpenSysML.FrameStep.Equals(object? obj) -> bool
+[OSML0001]override OpenMBEE.OpenSysML.FrameStep.GetHashCode() -> int
+[OSML0001]override OpenMBEE.OpenSysML.FrameStep.ToString() -> string!
+[OSML0001]override OpenMBEE.OpenSysML.MeasurementScale.Equals(object? obj) -> bool
+[OSML0001]override OpenMBEE.OpenSysML.MeasurementScale.GetHashCode() -> int
+[OSML0001]override OpenMBEE.OpenSysML.MeasurementScale.ToString() -> string!
+[OSML0001]override OpenMBEE.OpenSysML.QuantityValueMapping.Equals(object? obj) -> bool
+[OSML0001]override OpenMBEE.OpenSysML.QuantityValueMapping.GetHashCode() -> int
+[OSML0001]override OpenMBEE.OpenSysML.QuantityValueMapping.ToString() -> string!
+[OSML0001]override OpenMBEE.OpenSysML.Value.CoordinateFrameValue.Equals(OpenMBEE.OpenSysML.Value? other) -> bool
+[OSML0001]override OpenMBEE.OpenSysML.Value.CoordinateFrameValue.GetHashCode() -> int
+[OSML0001]override OpenMBEE.OpenSysML.Value.CoordinateFrameValue.Kind.get -> OpenMBEE.OpenSysML.ValueKind
+[OSML0001]override OpenMBEE.OpenSysML.Value.CoordinateFrameValue.ToString() -> string!
+[OSML0001]override OpenMBEE.OpenSysML.Value.CoordinateTransformationValue.Equals(OpenMBEE.OpenSysML.Value? other) -> bool
+[OSML0001]override OpenMBEE.OpenSysML.Value.CoordinateTransformationValue.GetHashCode() -> int
+[OSML0001]override OpenMBEE.OpenSysML.Value.CoordinateTransformationValue.Kind.get -> OpenMBEE.OpenSysML.ValueKind
+[OSML0001]override OpenMBEE.OpenSysML.Value.CoordinateTransformationValue.ToString() -> string!
+[OSML0001]static OpenMBEE.OpenSysML.AffineTransformation3D.operator !=(OpenMBEE.OpenSysML.AffineTransformation3D? left, OpenMBEE.OpenSysML.AffineTransformation3D? right) -> bool
+[OSML0001]static OpenMBEE.OpenSysML.AffineTransformation3D.operator ==(OpenMBEE.OpenSysML.AffineTransformation3D? left, OpenMBEE.OpenSysML.AffineTransformation3D? right) -> bool
+[OSML0001]static OpenMBEE.OpenSysML.FramePlacement.operator !=(OpenMBEE.OpenSysML.FramePlacement? left, OpenMBEE.OpenSysML.FramePlacement? right) -> bool
+[OSML0001]static OpenMBEE.OpenSysML.FramePlacement.operator ==(OpenMBEE.OpenSysML.FramePlacement? left, OpenMBEE.OpenSysML.FramePlacement? right) -> bool
+[OSML0001]static OpenMBEE.OpenSysML.FramePose.operator !=(OpenMBEE.OpenSysML.FramePose? left, OpenMBEE.OpenSysML.FramePose? right) -> bool
+[OSML0001]static OpenMBEE.OpenSysML.FramePose.operator ==(OpenMBEE.OpenSysML.FramePose? left, OpenMBEE.OpenSysML.FramePose? right) -> bool
+[OSML0001]static OpenMBEE.OpenSysML.FrameRotation.operator !=(OpenMBEE.OpenSysML.FrameRotation? left, OpenMBEE.OpenSysML.FrameRotation? right) -> bool
+[OSML0001]static OpenMBEE.OpenSysML.FrameRotation.operator ==(OpenMBEE.OpenSysML.FrameRotation? left, OpenMBEE.OpenSysML.FrameRotation? right) -> bool
+[OSML0001]static OpenMBEE.OpenSysML.FrameStep.operator !=(OpenMBEE.OpenSysML.FrameStep? left, OpenMBEE.OpenSysML.FrameStep? right) -> bool
+[OSML0001]static OpenMBEE.OpenSysML.FrameStep.operator ==(OpenMBEE.OpenSysML.FrameStep? left, OpenMBEE.OpenSysML.FrameStep? right) -> bool
+[OSML0001]static OpenMBEE.OpenSysML.MeasurementScale.operator !=(OpenMBEE.OpenSysML.MeasurementScale? left, OpenMBEE.OpenSysML.MeasurementScale? right) -> bool
+[OSML0001]static OpenMBEE.OpenSysML.MeasurementScale.operator ==(OpenMBEE.OpenSysML.MeasurementScale? left, OpenMBEE.OpenSysML.MeasurementScale? right) -> bool
+[OSML0001]static OpenMBEE.OpenSysML.QuantityValueMapping.operator !=(OpenMBEE.OpenSysML.QuantityValueMapping? left, OpenMBEE.OpenSysML.QuantityValueMapping? right) -> bool
+[OSML0001]static OpenMBEE.OpenSysML.QuantityValueMapping.operator ==(OpenMBEE.OpenSysML.QuantityValueMapping? left, OpenMBEE.OpenSysML.QuantityValueMapping? right) -> bool
+[OSML0001]OpenMBEE.OpenSysML.ElementProperties.ExcludedDocuments.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.ExcludedDocument!>
+[OSML0001]OpenMBEE.OpenSysML.ExcludedDocument
+[OSML0001]OpenMBEE.OpenSysML.ExcludedDocument.<Clone>$() -> OpenMBEE.OpenSysML.ExcludedDocument!
+[OSML0001]OpenMBEE.OpenSysML.ExcludedDocument.Document.get -> string!
+[OSML0001]OpenMBEE.OpenSysML.ExcludedDocument.Equals(OpenMBEE.OpenSysML.ExcludedDocument? other) -> bool
+[OSML0001]OpenMBEE.OpenSysML.ExcludedDocument.Error.get -> string!
+[OSML0001]override OpenMBEE.OpenSysML.ExcludedDocument.Equals(object? obj) -> bool
+[OSML0001]override OpenMBEE.OpenSysML.ExcludedDocument.GetHashCode() -> int
+[OSML0001]override OpenMBEE.OpenSysML.ExcludedDocument.ToString() -> string!
+[OSML0001]static OpenMBEE.OpenSysML.ExcludedDocument.operator !=(OpenMBEE.OpenSysML.ExcludedDocument? left, OpenMBEE.OpenSysML.ExcludedDocument? right) -> bool
+[OSML0001]static OpenMBEE.OpenSysML.ExcludedDocument.operator ==(OpenMBEE.OpenSysML.ExcludedDocument? left, OpenMBEE.OpenSysML.ExcludedDocument? right) -> bool

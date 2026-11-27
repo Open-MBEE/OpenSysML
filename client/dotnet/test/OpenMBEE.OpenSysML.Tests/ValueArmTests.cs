@@ -325,6 +325,78 @@ public sealed class ValueArmTests
     public void InfinityArm() =>
         Sendable(new Value.InfinityValue(), new Value.InfinityValue(), new Value.UnsetValue(), new Wire.Value { Infinity = true }, "*");
 
+    [Fact]
+    public void CoordinateFrameArm()
+    {
+        var posed = Frame(CompleteWire.PosedFrame);
+        var composed = Frame(new Wire.CoordinateFrame { Name = "datum / s", Dimensions = { 3 } });
+
+        ResponseOnly(posed, Frame(CompleteWire.PosedFrame), Frame(CompleteWire.Scale), new Wire.Value { CoordinateFrame = CompleteWire.PosedFrame }, "lbcf [km, km, km]");
+        Assert.Equal("celsius [km]", Frame(CompleteWire.Scale).ToString());
+        Assert.Equal(2, posed.Frame.InstanceId);
+        Assert.Null(posed.Frame.Transformation!.Target);
+        Assert.Null(composed.Frame.FrameId);
+        Assert.Null(composed.Frame.TypeId);
+        Assert.Null(composed.Frame.InstanceId);
+
+        // One object read twice is the frame, whatever else is said of it; with no object, what it states is.
+        var renamed = CompleteWire.PosedFrame;
+        renamed.Name = "other";
+        renamed.Dimensions.Add(1);
+        Assert.Equal(posed, Frame(renamed));
+        var moved = CompleteWire.PosedFrame;
+        moved.FrameId = "Frames::other";
+        Assert.NotEqual(posed, Frame(moved));
+        Assert.NotEqual(posed, composed);
+        Assert.Equal(composed, Frame(new Wire.CoordinateFrame { Name = "s * datum", Dimensions = { 3 } }));
+        Assert.Equal(composed.GetHashCode(), Frame(new Wire.CoordinateFrame { Name = "s * datum", Dimensions = { 3 } }).GetHashCode());
+        Assert.NotEqual(composed, Frame(new Wire.CoordinateFrame { Name = "datum / s", Dimensions = { 2 } }));
+        Assert.False(posed.Frame.Equals((object?)null));
+        Assert.True(posed.Frame.Equals((object)Frame(renamed).Frame));
+    }
+
+    [Fact]
+    public void CoordinateTransformationArm()
+    {
+        var placement = Transformation(CompleteWire.Placement);
+        var bare = Transformation(new Wire.CoordinateTransformation { Name = "bare", TransformationId = "T::bare", InstanceId = 7 });
+
+        ResponseOnly(
+            placement,
+            Transformation(CompleteWire.Placement),
+            Transformation(CompleteWire.Affine),
+            new Wire.Value { CoordinateTransformation = CompleteWire.Placement },
+            "placement (datum → target)");
+        Assert.Equal("affine (? → ?)", Transformation(CompleteWire.Affine).ToString());
+        Assert.Null(placement.Transformation.InstanceId);
+        Assert.Null(placement.Transformation.Steps);
+        Assert.Equal(3, placement.Transformation.Placement!.BasisDirections.Count);
+
+        // One object read twice is equal whatever else differs; otherwise the frames and the stated shape decide.
+        Assert.Equal(bare, Transformation(new Wire.CoordinateTransformation { Name = "renamed", TransformationId = "T::bare", InstanceId = 7, Affine = CompleteWire.Affine.Affine }));
+        Assert.NotEqual(bare, Transformation(new Wire.CoordinateTransformation { Name = "bare", TransformationId = "T::bare", InstanceId = 8 }));
+        var shifted = CompleteWire.Placement;
+        shifted.Placement.Origin = new Wire.Value { IntValue = 1 };
+        Assert.NotEqual(placement, Transformation(shifted));
+        var elsewhere = CompleteWire.Placement;
+        elsewhere.Source = null;
+        Assert.NotEqual(placement, Transformation(elsewhere));
+        Assert.False(placement.Transformation.Equals((object?)null));
+        Assert.True(placement.Transformation.Equals((object)Transformation(CompleteWire.Placement).Transformation));
+
+        // Steps are equal by what they do, whatever object each was read from.
+        var steps = CompleteWire.PosedFrame.Transformation;
+        var reread = CompleteWire.PosedFrame.Transformation;
+        reread.InstanceId = 0;
+        reread.Sequence.Steps[0].InstanceId = 40;
+        Assert.Equal(Transformation(steps), Transformation(reread));
+        Assert.Equal(Transformation(steps).Transformation.Steps!.Value[0].GetHashCode(), Transformation(reread).Transformation.Steps!.Value[0].GetHashCode());
+        reread.Sequence.Steps[1].Rotation.IsIntrinsic = false;
+        Assert.NotEqual(Transformation(steps), Transformation(reread));
+        Assert.Equal(4, Transformation(steps).Transformation.Steps!.Value[0].InstanceId);
+        Assert.Equal([10, 0, 0], Transformation(steps).Transformation.Pose!.Origin);
+    }
+
     internal static Quantity Metres(double magnitude) => new(new Value.RealValue(magnitude), "m", Metre);
 
     internal static Wire.Quantity WireMetres(double magnitude) => new()
@@ -333,6 +405,12 @@ public sealed class ValueArmTests
         Unit = "m",
         UnitTerm = new Wire.UnitTerm { ScaleNum = 1, ScaleDen = 1, Factors = { new Wire.UnitFactor { UnitId = "SI::m", Exponent = 1 } } },
     };
+
+    private static Value.CoordinateFrameValue Frame(Wire.CoordinateFrame frame) =>
+        Assert.IsType<Value.CoordinateFrameValue>(ValueWire.FromWire(new Wire.Value { CoordinateFrame = frame }, Method, "result"));
+
+    private static Value.CoordinateTransformationValue Transformation(Wire.CoordinateTransformation transformation) =>
+        Assert.IsType<Value.CoordinateTransformationValue>(ValueWire.FromWire(new Wire.Value { CoordinateTransformation = transformation }, Method, "result"));
 
     private static void Sendable(Value value, Value twin, Value other, Wire.Value wire, string text)
     {

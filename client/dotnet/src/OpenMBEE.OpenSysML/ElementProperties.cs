@@ -11,16 +11,18 @@ namespace OpenMBEE.OpenSysML;
 /// </summary>
 public sealed record ElementProperties
 {
-    /// <summary>Creates a read, copying its properties.</summary>
+    /// <summary>Creates a read, copying its properties and the excluded documents.</summary>
     /// <param name="element">The element read, whose <see cref="ElementRef.Id"/> names it again.</param>
     /// <param name="properties">One entry per property, answered or not.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
-    /// <exception cref="ArgumentException"><paramref name="properties"/> holds a null.</exception>
-    internal ElementProperties(ElementRef element, IEnumerable<ElementProperty> properties)
+    /// <param name="excludedDocuments">The documents the model was read without; null for none.</param>
+    /// <exception cref="ArgumentException"><paramref name="properties"/> or <paramref name="excludedDocuments"/> holds a null.</exception>
+    internal ElementProperties(ElementRef element, IEnumerable<ElementProperty> properties, IEnumerable<ExcludedDocument>? excludedDocuments = null)
     {
         ArgumentNullException.ThrowIfNull(element);
         Element = element;
         Properties = new ValueList<ElementProperty>(properties);
+        ExcludedDocuments = excludedDocuments is null ? default : new ValueList<ExcludedDocument>(excludedDocuments);
     }
 
     /// <summary>The element read, whose <see cref="ElementRef.Id"/> names it again.</summary>
@@ -28,6 +30,12 @@ public sealed record ElementProperties
 
     /// <summary>One entry per property, answered or not, in the order asked for, or the element form's order when none was named.</summary>
     public ValueList<ElementProperty> Properties { get; }
+
+    /// <summary>
+    /// The documents the model was read without, each with why; empty when the whole model was read. Any other
+    /// element is answered and may name one of theirs; asking for one of theirs fails with its document's error.
+    /// </summary>
+    public ValueList<ExcludedDocument> ExcludedDocuments { get; }
 
     /// <summary>The entry for one property.</summary>
     /// <param name="name">The specification name.</param>

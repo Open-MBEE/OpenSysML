@@ -175,7 +175,11 @@ internal static class Rendering
     internal static Wire.GetElementPropertiesResponse ElementProperties(ElementProperties read)
     {
         ArgumentNullException.ThrowIfNull(read);
-        var rendered = new Wire.GetElementPropertiesResponse { Element = ElementRef(read.Element) };
+        var rendered = new Wire.GetElementPropertiesResponse
+        {
+            Element = ElementRef(read.Element),
+            ExcludedDocuments = { read.ExcludedDocuments.Select(excluded => new Wire.ExcludedDocument { Document = excluded.Document, Error = excluded.Error }) },
+        };
         foreach (var property in read.Properties)
         {
             rendered.Properties.Add(new Wire.ElementProperty
@@ -1174,19 +1178,89 @@ internal static class Rendering
             {
                 TensorQuantity = new Wire.TensorQuantity { Dimensions = { tensor.Dimensions }, Components = { Quantities(tensor.Components) } },
             },
-            Value.MeasurementRefValue reference => new()
-            {
-                MeasurementRef = new Wire.MeasurementRef { Unit = reference.Unit, UnitTerm = Term(reference.Reduction), UnitId = reference.UnitId ?? string.Empty },
-            },
+            Value.MeasurementRefValue reference => new() { MeasurementRef = MeasurementRef(reference) },
             Value.FunctionValue function => new() { Function = new Wire.Function { CalcId = function.CalcId, SelfId = function.SelfId ?? 0 } },
             Value.MetaobjectValue metaobject => new() { Metaobject = new Wire.Metaobject { ElementId = metaobject.ElementId, MetaclassId = metaobject.MetaclassId } },
             Value.NullValue nothing => new() { Null = nothing.Unsupported },
             OpenSysML.Value.UnsetValue => new() { Unset = true },
             Value.UndeterminedValue undetermined => new() { Undetermined = Undetermined(undetermined) },
             OpenSysML.Value.InfinityValue => new() { Infinity = true },
+            Value.CoordinateFrameValue frame => new() { CoordinateFrame = Frame(frame.Frame) },
+            Value.CoordinateTransformationValue transformation => new() { CoordinateTransformation = Transformation(transformation.Transformation) },
             _ => throw new InvalidOperationException($"no rendering of a {value.GetType().FullName}, a value of kind {value.Kind}"),
         };
     }
+
+    private static Wire.CoordinateFrame Frame(CoordinateFrame frame) => new()
+    {
+        Name = frame.Name,
+        FrameId = frame.FrameId ?? string.Empty,
+        TypeId = frame.TypeId ?? string.Empty,
+        InstanceId = frame.InstanceId ?? 0,
+        Dimensions = { frame.Dimensions },
+        Axes = { frame.Axes.Select(MeasurementRef) },
+        Transformation = frame.Transformation is { } transformation ? Transformation(transformation) : null,
+        Scale = frame.Scale is { } scale
+            ? new Wire.MeasurementScale
+            {
+                Unit = MeasurementRef(scale.Unit),
+                Mapping = scale.Mapping is { } mapping
+                    ? new Wire.QuantityValueMapping { Mapped = Quantity(mapping.Mapped), Reference = Quantity(mapping.Reference) }
+                    : null,
+            }
+            : null,
+    };
+
+    private static Wire.CoordinateTransformation Transformation(CoordinateTransformation transformation)
+    {
+        var rendered = new Wire.CoordinateTransformation
+        {
+            Name = transformation.Name,
+            TransformationId = transformation.TransformationId ?? string.Empty,
+            TypeId = transformation.TypeId ?? string.Empty,
+            InstanceId = transformation.InstanceId ?? 0,
+            Source = transformation.Source is { } source ? Frame(source) : null,
+            Target = transformation.Target is { } target ? Frame(target) : null,
+            Pose = transformation.Pose is { } pose ? new Wire.FramePose { Origin = { pose.Origin }, Basis = { pose.Basis } } : null,
+        };
+        if (transformation.Placement is { } placement)
+        {
+            rendered.Placement = new Wire.FramePlacement { Origin = Value(placement.Origin), BasisDirections = { Values(placement.BasisDirections) } };
+        }
+        else if (transformation.Steps is { } steps)
+        {
+            rendered.Sequence = new Wire.TranslationRotationSequence { Steps = { steps.Select(Step) } };
+        }
+        else if (transformation.Affine is { } affine)
+        {
+            rendered.Affine = new Wire.AffineTransformation3d { Rotation = { affine.Rotation }, Translation = { affine.Translation } };
+        }
+
+        return rendered;
+    }
+
+    private static Wire.FrameStep Step(FrameStep step)
+    {
+        var rendered = new Wire.FrameStep { InstanceId = step.InstanceId ?? 0 };
+        if (step.Rotation is { } rotation)
+        {
+            rendered.Rotation = new Wire.FrameRotation
+            {
+                AxisDirection = Value(rotation.AxisDirection),
+                Angle = Quantity(rotation.Angle),
+                IsIntrinsic = rotation.IsIntrinsic,
+            };
+        }
+        else
+        {
+            rendered.Translation = Value(step.Translation!);
+        }
+
+        return rendered;
+    }
+
+    private static Wire.MeasurementRef MeasurementRef(Value.MeasurementRefValue reference) =>
+        new() { Unit = reference.Unit, UnitTerm = Term(reference.Reduction), UnitId = reference.UnitId ?? string.Empty };
 
     private static IEnumerable<Wire.Value> Values<T>(IEnumerable<T> values)
         where T : OpenSysML.Value

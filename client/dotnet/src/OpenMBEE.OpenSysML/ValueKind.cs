@@ -78,4 +78,10 @@ public enum ValueKind
 
     /// <summary>The unbounded value <c>*</c>: <see cref="Value.InfinityValue"/>.</summary>
     Infinity,
+
+    /// <summary>A coordinate frame or measurement scale: <see cref="Value.CoordinateFrameValue"/>.</summary>
+    CoordinateFrame,
+
+    /// <summary>A coordinate transformation: <see cref="Value.CoordinateTransformationValue"/>.</summary>
+    CoordinateTransformation,
 }

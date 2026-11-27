@@ -535,7 +535,8 @@ public sealed class ConformanceAdapterTests
 
     // Every value a request can send, one of each arm the API writes as given, by name.
     private static Dictionary<string, Wire.Value> SendableValues => CompleteWire.Values
-        .Where(value => value.KindCase is not (Wire.Value.KindOneofCase.Unset or Wire.Value.KindOneofCase.Undetermined or Wire.Value.KindOneofCase.Null)
+        .Where(value => value.KindCase is not (Wire.Value.KindOneofCase.Unset or Wire.Value.KindOneofCase.Undetermined or Wire.Value.KindOneofCase.Null
+                or Wire.Value.KindOneofCase.CoordinateFrame or Wire.Value.KindOneofCase.CoordinateTransformation)
             && value.Function?.SelfId is null or 0)
         .Append(new Wire.Value { Null = string.Empty })
         .Append(new Wire.Value { Function = new Wire.Function { CalcId = "F::Sq" } })

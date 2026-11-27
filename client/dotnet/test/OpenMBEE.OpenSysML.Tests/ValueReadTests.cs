@@ -118,6 +118,41 @@ public sealed class ValueReadTests
     }
 
     [Fact]
+    public void ACoordinateFrameOrTransformationMissingAPartItMustStateIsMalformed()
+    {
+        var unit = new Wire.MeasurementRef { Unit = "m", UnitTerm = new Wire.UnitTerm { ScaleNum = 1, ScaleDen = 1 } };
+        var metre = new Wire.Quantity { RealMagnitude = 1, Unit = "m" };
+        Wire.Value Frame(Wire.CoordinateFrame frame) => new() { CoordinateFrame = frame };
+        Wire.Value Transformation(Wire.CoordinateTransformation transformation) => new() { CoordinateTransformation = transformation };
+        Wire.Value Step(Wire.FrameStep step) => Transformation(new Wire.CoordinateTransformation { Sequence = new Wire.TranslationRotationSequence { Steps = { step } } });
+
+        Malformed(Frame(new Wire.CoordinateFrame { Axes = { unit, new Wire.MeasurementRef { Unit = "m" } } }), "result.coordinate_frame.axes[1]");
+        Malformed(Frame(new Wire.CoordinateFrame { Scale = new Wire.MeasurementScale() }), "result.coordinate_frame.scale");
+        Malformed(Frame(new Wire.CoordinateFrame { Scale = new Wire.MeasurementScale { Unit = unit, Mapping = new Wire.QuantityValueMapping { Reference = metre } } }), "result.coordinate_frame.scale.mapping");
+        Malformed(Frame(new Wire.CoordinateFrame { Scale = new Wire.MeasurementScale { Unit = unit, Mapping = new Wire.QuantityValueMapping { Mapped = metre } } }), "result.coordinate_frame.scale.mapping");
+        Malformed(
+            Frame(new Wire.CoordinateFrame { Transformation = new Wire.CoordinateTransformation { Placement = new Wire.FramePlacement() } }),
+            "result.coordinate_frame.transformation.placement");
+        Malformed(Transformation(new Wire.CoordinateTransformation { Source = new Wire.CoordinateFrame { Scale = new Wire.MeasurementScale() } }), "result.coordinate_transformation.source.scale");
+        Malformed(Step(new Wire.FrameStep()), "result.coordinate_transformation.sequence.steps[0]");
+        Malformed(Step(new Wire.FrameStep { Rotation = new Wire.FrameRotation { Angle = metre } }), "result.coordinate_transformation.sequence.steps[0].rotation");
+        Malformed(Step(new Wire.FrameStep { Rotation = new Wire.FrameRotation { AxisDirection = new Wire.Value { IntValue = 1 } } }), "result.coordinate_transformation.sequence.steps[0].rotation");
+        Malformed(Step(new Wire.FrameStep { Translation = new Wire.Value { Infinity = false } }), "result.coordinate_transformation.sequence.steps[0].translation");
+    }
+
+    [Fact]
+    public void FramesNestingInEachOtherBeyondTheDepthAreMalformed()
+    {
+        var frame = new Wire.CoordinateFrame { Name = "innermost" };
+        for (var i = 0; i <= ValueWire.MaxDepth / 2; i++)
+        {
+            frame = new Wire.CoordinateFrame { Transformation = new Wire.CoordinateTransformation { Source = frame } };
+        }
+
+        Assert.Contains("nests deeper than", Assert.Throws<TransportException>(() => Read(new Wire.Value { CoordinateFrame = frame })).Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AShapeTheElementsDoNotFillIsMalformed()
     {
         Assert.IsType<ArgumentException>(Malformed(new Wire.Value { Array = new Wire.Array { Dimensions = { 2, 2 }, Elements = { Ints(3) } } }, "result").InnerException);

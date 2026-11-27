@@ -300,12 +300,7 @@ internal static class ValueWire
                 Kind.TensorQuantity => new Value.TensorQuantityValue(
                     value.TensorQuantity.Dimensions,
                     value.TensorQuantity.Components.Select((component, i) => QuantityOf(component, method, $"{path}.tensor_quantity[{i}]")).ToList()),
-                Kind.MeasurementRef => new Value.MeasurementRefValue(
-                    value.MeasurementRef.Unit,
-                    value.MeasurementRef.UnitTerm is { } reduction
-                        ? TermOf(reduction)
-                        : throw Malformed(method, path, $"the measurement reference [{value.MeasurementRef.Unit}] has no reduction to base units"),
-                    value.MeasurementRef.UnitId.Length > 0 ? value.MeasurementRef.UnitId : null),
+                Kind.MeasurementRef => ReferenceOf(value.MeasurementRef, method, path),
                 Kind.Function => new Value.FunctionValue(value.Function.CalcId, value.Function.SelfId == 0 ? null : value.Function.SelfId),
                 Kind.Metaobject => new Value.MetaobjectValue(value.Metaobject.ElementId, value.Metaobject.MetaclassId),
                 Kind.Null => new Value.NullValue(value.Null),
@@ -315,6 +310,9 @@ internal static class ValueWire
                     value.Undetermined.Count?.Lower ?? string.Empty,
                     value.Undetermined.Count?.Upper ?? string.Empty),
                 Kind.Infinity => value.Infinity ? new Value.InfinityValue() : throw Malformed(method, path, "the infinity arm states no value unless it is true"),
+                Kind.CoordinateFrame => new Value.CoordinateFrameValue(FrameOf(value.CoordinateFrame, method, path + ".coordinate_frame", depth)),
+                Kind.CoordinateTransformation => new Value.CoordinateTransformationValue(
+                    TransformationOf(value.CoordinateTransformation, method, path + ".coordinate_transformation", depth)),
                 _ => throw Unsupported(value, method, path),
             };
         }
@@ -323,6 +321,86 @@ internal static class ValueWire
             throw Malformed(method, path, Reason(invalid), invalid);
         }
     }
+
+    // A frame's transformation and a transformation's frames nest in each other, so each counts a level of depth.
+    private static CoordinateFrame FrameOf(Wire.CoordinateFrame frame, string method, string path, int depth)
+    {
+        if (depth > MaxDepth)
+        {
+            throw Malformed(method, path, $"it nests deeper than {MaxDepth} values");
+        }
+
+        return new CoordinateFrame(
+            frame.Name,
+            frame.FrameId.Length > 0 ? frame.FrameId : null,
+            frame.TypeId.Length > 0 ? frame.TypeId : null,
+            frame.InstanceId == 0 ? null : frame.InstanceId,
+            frame.Dimensions,
+            frame.Axes.Select((axis, i) => ReferenceOf(axis, method, $"{path}.axes[{i}]")).ToList(),
+            frame.Transformation is { } transformation ? TransformationOf(transformation, method, path + ".transformation", depth + 1) : null,
+            frame.Scale is { } scale
+                ? new MeasurementScale(
+                    ReferenceOf(scale.Unit ?? throw Malformed(method, path + ".scale", "the scale states no unit"), method, path + ".scale.unit"),
+                    scale.Mapping is { } mapping
+                        ? new QuantityValueMapping(
+                            QuantityOf(mapping.Mapped ?? throw Malformed(method, path + ".scale.mapping", "the mapping states no point on the scale"), method, path + ".scale.mapping.mapped"),
+                            QuantityOf(mapping.Reference ?? throw Malformed(method, path + ".scale.mapping", "the mapping states no point on the reference"), method, path + ".scale.mapping.reference"))
+                        : null)
+                : null);
+    }
+
+    private static CoordinateTransformation TransformationOf(Wire.CoordinateTransformation transformation, string method, string path, int depth)
+    {
+        if (depth > MaxDepth)
+        {
+            throw Malformed(method, path, $"it nests deeper than {MaxDepth} values");
+        }
+
+        return new CoordinateTransformation(
+            transformation.Name,
+            transformation.TransformationId.Length > 0 ? transformation.TransformationId : null,
+            transformation.TypeId.Length > 0 ? transformation.TypeId : null,
+            transformation.InstanceId == 0 ? null : transformation.InstanceId,
+            transformation.Source is { } source ? FrameOf(source, method, path + ".source", depth + 1) : null,
+            transformation.Target is { } target ? FrameOf(target, method, path + ".target", depth + 1) : null,
+            transformation.Placement is { } placement
+                ? new FramePlacement(
+                    Part(placement.Origin, method, path + ".placement", "origin", depth),
+                    placement.BasisDirections.Select((direction, i) => Read(direction, method, $"{path}.placement.basis_directions[{i}]", depth + 1)).ToList())
+                : null,
+            transformation.Sequence?.Steps.Select((step, i) => StepOf(step, method, $"{path}.sequence.steps[{i}]", depth)).ToList(),
+            transformation.Affine is { } affine ? new AffineTransformation3D(affine.Rotation, affine.Translation) : null,
+            transformation.Pose is { } pose ? new FramePose(pose.Origin, pose.Basis) : null);
+    }
+
+    private static FrameStep StepOf(Wire.FrameStep step, string method, string path, int depth)
+    {
+        long? instance = step.InstanceId == 0 ? null : step.InstanceId;
+        return step.StepCase switch
+        {
+            Wire.FrameStep.StepOneofCase.Translation => new FrameStep(Read(step.Translation, method, path + ".translation", depth + 1), null, instance),
+            Wire.FrameStep.StepOneofCase.Rotation => new FrameStep(
+                null,
+                new FrameRotation(
+                    Part(step.Rotation.AxisDirection, method, path + ".rotation", "axis_direction", depth),
+                    QuantityOf(step.Rotation.Angle ?? throw Malformed(method, path + ".rotation", "the rotation states no angle"), method, path + ".rotation.angle"),
+                    step.Rotation.IsIntrinsic),
+                instance),
+            _ => throw Malformed(method, path, "the step is neither a translation nor a rotation"),
+        };
+    }
+
+    // A value a frame message must hold, read one level down.
+    private static Value Part(Wire.Value? value, string method, string path, string field, int depth) =>
+        Read(value ?? throw Malformed(method, path, $"it states no {field}"), method, $"{path}.{field}", depth + 1);
+
+    private static Value.MeasurementRefValue ReferenceOf(Wire.MeasurementRef reference, string method, string path) =>
+        new(
+            reference.Unit,
+            reference.UnitTerm is { } reduction
+                ? TermOf(reduction)
+                : throw Malformed(method, path, $"the measurement reference [{reference.Unit}] has no reduction to base units"),
+            reference.UnitId.Length > 0 ? reference.UnitId : null);
 
     private static List<Value> ReadAll(IEnumerable<Wire.Value> values, string method, string path, int depth) =>
         values.Select((value, i) => Read(value, method, $"{path}[{i}]", depth + 1)).ToList();
@@ -483,6 +561,8 @@ internal static class ValueWire
             Value.UndeterminedValue =>
                 throw Refused(path, "is undetermined, which is a result the model leaves open, never an argument"),
             Value.InfinityValue => new Wire.Value { Infinity = true },
+            Value.CoordinateFrameValue or Value.CoordinateTransformationValue =>
+                throw Refused(path, $"is a {(value is Value.CoordinateFrameValue ? "coordinate frame" : "coordinate transformation")}, which the service reports and never accepts"),
             _ => throw new InvalidOperationException($"No wire form is written for a {value.Kind} value."),
         };
     }

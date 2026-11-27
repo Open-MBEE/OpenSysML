@@ -1106,7 +1106,7 @@ that order before anything is sent.
 ## Values
 
 `Value` is an immutable value the service evaluates, or one sent to it: one nested sealed
-class per arm of the schema's `Value`, `IntegerValue` to `InfinityValue`, which `Kind`, a
+class per arm of the schema's `Value`, `IntegerValue` to `CoordinateTransformationValue`, which `Kind`, a
 `ValueKind`, names. No type outside the library can derive from it. A switch over the arms
 still needs a default case, since a release adds an arm whenever the service does. A
 model's evaluations, attributes and feature values are these values, and so are the inputs,
@@ -1128,6 +1128,15 @@ which keeps NaN, the infinities and a negative zero exactly. These four are
 `Value.NumberValue`, which a `Quantity`'s magnitude and a `VectorValue`'s components are;
 `ToDouble` gives the nearest `double`, ties to even. A `Quantity` keeps its unit as written
 and the `UnitTerm` it reduces to. `InfinityValue` is the model's unbounded `*`, not a Real.
+
+A feature typed by a coordinate frame evaluates to a `CoordinateFrameValue` over a
+`CoordinateFrame`: its name and ids, `Dimensions`, one `MeasurementRefValue` per axis, the
+`MeasurementScale` of a scale, and the `CoordinateTransformation` that places it in another
+frame. A `CoordinateTransformationValue` holds such a transformation by itself: its `Source`
+and `Target`, at most one of `Placement`, `Steps` and `Affine` as the model states it, and the
+`FramePose` that shape resolves to. Both compare as the service does: one object read twice
+is equal whatever else is said of it, and otherwise what the frame or transformation states
+decides, whatever names it.
 
 Equality is by content and never the model's numeric comparison: `IntegerValue(1)` is not
 `RealValue(1.0)`. Reals compare as `double.Equals` does, so NaN equals NaN and `0.0` equals
@@ -1153,7 +1162,8 @@ advertises. Over Connect JSON a value of an unknown kind arrives with no kind at
 the parser drops fields it does not know.
 
 Sending refuses what no service accepts as an argument, before anything is sent, with
-`ArgumentException`: `UnsetValue` and `UndeterminedValue`, which are answers only; a
+`ArgumentException`: `UnsetValue`, `UndeterminedValue`, `CoordinateFrameValue` and
+`CoordinateTransformationValue`, which are answers only; a
 null standing for a value the service could not send; a function closing over an instance,
 which lives only within the response that held it; and a quantity in a named unit without its
 reduction. A kind the service gates needs its capability wherever the service looks for it:

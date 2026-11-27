@@ -89,8 +89,10 @@ public sealed class ModelElementPropertiesTests
                         ],
                         string.Empty),
                     new ElementProperty("connectorEnd", string.Empty, false, false, [], "PartDefinition declares no property connectorEnd"),
-                ]),
+                ],
+                [new ExcludedDocument("broken.sysml", "broken.sysml:1:1: syntax error")]),
             read);
+        Assert.Equal("broken.sysml", Assert.Single(read.ExcludedDocuments).Document);
         Assert.Equal(read, every);
         var inherited = read.Find("inheritedFeature")!;
         Assert.Equal(["Demo::Unit::p", "lib-7"], inherited.Elements.Select(element => element.ToString()));
@@ -200,5 +202,7 @@ public sealed class ModelElementPropertiesTests
         Assert.Throws<ArgumentNullException>(() => new ElementRef(null!, string.Empty, string.Empty));
         Assert.Throws<ArgumentNullException>(() => new ElementProperty("p", string.Empty, false, false, [], null!));
         Assert.Throws<ArgumentException>(() => new ElementProperties(new ElementRef("e", string.Empty, string.Empty), [null!]));
+        Assert.Throws<ArgumentException>(() => new ElementProperties(new ElementRef("e", string.Empty, string.Empty), [], [null!]));
+        Assert.Empty(new ElementProperties(new ElementRef("e", string.Empty, string.Empty), []).ExcludedDocuments);
     }
 }
