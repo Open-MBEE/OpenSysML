@@ -22,6 +22,24 @@ type targetLookup struct {
 	// targets keeps what lookupTargets answered, so a lattice of named imports is
 	// read once per name.
 	targets map[namedIn]lookedUp
+	// spare holds the emptied sets of finished walks, for the next ones.
+	spare []map[string]bool
+}
+
+// unseen returns an empty set for a lookupWalk to mark the namespaces it saw in.
+func (look *targetLookup) unseen() map[string]bool {
+	if n := len(look.spare); n != 0 {
+		seen := look.spare[n-1]
+		look.spare = look.spare[:n-1]
+		return seen
+	}
+	return map[string]bool{}
+}
+
+// recycle takes back the set of a walk that is over.
+func (look *targetLookup) recycle(seen map[string]bool) {
+	clear(seen)
+	look.spare = append(look.spare, seen)
 }
 
 // lookedUp is one answer of lookupTargets: it holds while the innermost frame it

@@ -120,6 +120,8 @@ type Index struct {
 	// unnamed holds, while importersToRefresh reads an index nothing changes, the
 	// names namesByLookup found unbound from outside their namespaces.
 	unnamed map[namedIn]bool
+	// lookup holds, over the same reading, what the imports left to name lookup may bring.
+	lookup *targetLookup
 	// leftToLookup holds, while every importer is derived afresh, the imports whose
 	// targets were left to name lookup: they stay so, which lets the derivation settle.
 	leftToLookup map[namedIn]bool
@@ -601,8 +603,8 @@ func (idx *Index) importersToRefresh(changed map[string]nsChange, deriveOnly boo
 	pkgFQNs := idx.wildcardMeta.keys()
 	sort.Strings(pkgFQNs)
 	if idx.reads == nil {
-		idx.unnamed = map[namedIn]bool{}
-		defer func() { idx.unnamed = nil }()
+		idx.unnamed, idx.lookup = map[namedIn]bool{}, &targetLookup{leaving: map[string]bool{}}
+		defer func() { idx.unnamed, idx.lookup = nil, nil }()
 	}
 
 	for _, pkgFQN := range pkgFQNs {
@@ -676,7 +678,10 @@ func (idx *Index) imports(pkgFQN string) []statedImport {
 func (idx *Index) resolveImports(pkgFQN string) []resolvedImport {
 	stated := idx.imports(pkgFQN)
 	out := make([]resolvedImport, len(stated))
-	look := &targetLookup{leaving: map[string]bool{}}
+	look := idx.lookup
+	if look == nil {
+		look = &targetLookup{leaving: map[string]bool{}}
+	}
 	for i, imp := range stated {
 		out[i] = resolvedImport{
 			doc:     imp.doc,
@@ -804,7 +809,8 @@ func (idx *Index) wildcardTarget(pkgFQN, targetText string, all bool, look *targ
 		return ""
 	}
 	first, rest, qualified := strings.Cut(targetText, "::")
-	walk := lookupWalk{name: first, importer: pkgFQN, target: targetText}
+	walk := lookupWalk{name: first, importer: pkgFQN, target: targetText, seen: look.unseen()}
+	defer look.recycle(walk.seen)
 	for prefix := pkgFQN; prefix != ""; {
 		key := prefix + "::" + first
 		idx.readName(prefix)
@@ -873,26 +879,28 @@ func (idx *Index) leavesToLookup(fqn string, look *targetLookup) bool {
 // of target, a wildcard import fqn states, by a named import or an alias.
 func (idx *Index) leftBy(fqn, target string, look *targetLookup) bool {
 	first, _, _ := strings.Cut(target, "::")
-	walk := lookupWalk{name: first, importer: fqn, target: target}
+	walk := lookupWalk{name: first, importer: fqn, target: target, seen: look.unseen()}
+	defer look.recycle(walk.seen)
 	for prefix := fqn; prefix != ""; {
 		key := prefix + "::" + first
 		idx.readName(prefix)
 		idx.readName(key)
 		if idx.declaresUnder(key) {
-			return false
+			break
 		}
 		if idx.namesByLookup(prefix, key, true, &walk) || (prefix != fqn && idx.leftBrings(prefix, first, look)) {
 			return true
 		}
 		if _, ok := idx.wildcardTargetAt(key); ok {
-			return false
+			break
 		}
 		i := lastSeparator(prefix)
 		if i < 0 {
-			return false
+			break
 		}
 		prefix = prefix[:i]
 	}
+	idx.noteUnnamed(&walk)
 	return false
 }
 
