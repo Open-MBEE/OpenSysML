@@ -249,8 +249,8 @@ jobs:
     name: Go static and integrity checks
     needs: changes
     if: needs.changes.outputs.go == 'true'
-    # The quick tier runs the download-free checks (gofmt, vet, the prod build, the library snapshot, grpc
-    # imports, proto lint and breaking); the lint and every corpus and solver gate run under queue and full.
+    # The quick tier runs the cheap checks (gofmt, vet, the prod build, the lint, whose two tools come from the Go
+    # proxy, the library snapshot, grpc imports, proto lint and breaking); corpus and solver gates wait for queue and full.
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -367,7 +367,6 @@ jobs:
           go test -count=1 -tags sysml_re ./cmd/sysml -run TestREBuild
 
       - name: Run static analysis (staticcheck + gosec)
-        if: needs.changes.outputs.tier != 'quick'
         run: make lint
 
       - name: Check grpc-go stays out of production code

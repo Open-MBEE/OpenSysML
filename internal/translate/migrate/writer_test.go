@@ -191,3 +191,29 @@ func TestWriterMarksNothingWithoutMadeUpNames(t *testing.T) {
 		t.Errorf("got\n%s\nwant\n%s", got, want)
 	}
 }
+
+// A NUL in the output that is not a hole's marker line is text of the model:
+// filling the holes keeps it as written.
+func TestWriterFilledKeepsStrayMarks(t *testing.T) {
+	w := &writer{}
+	w.block("part def A", func() {
+		w.hole(func() { w.line("attribute late;") })
+		w.line("doc /* " + holeMark + " */")
+		w.line("doc /* " + holeMark + "7" + holeMark + " */")
+		w.line(holeMark + "9" + holeMark)
+		w.line(holeMark + "x" + holeMark)
+		w.line(holeMark + "-1" + holeMark)
+		w.line("attribute tail" + holeMark)
+	})
+	w.fill()
+	want := "part def A {\n    attribute late;\n" +
+		"    doc /* " + holeMark + " */\n" +
+		"    doc /* " + holeMark + "7" + holeMark + " */\n" +
+		"    " + holeMark + "9" + holeMark + "\n" +
+		"    " + holeMark + "x" + holeMark + "\n" +
+		"    " + holeMark + "-1" + holeMark + "\n" +
+		"    attribute tail" + holeMark + "\n}\n"
+	if got := w.String(); got != want {
+		t.Errorf("got\n%q\nwant\n%q", got, want)
+	}
+}

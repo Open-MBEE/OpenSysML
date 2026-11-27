@@ -578,6 +578,12 @@ func (p *Parser) parseActionMember() ast.Node {
 		return node
 	}
 
+	// A visibility prefix, an Import and an AliasMember open a NonBehaviorBodyItem (SysML.xtext),
+	// which the body member parser reads; a loop or branch body reaches them here.
+	if len(prefixes) == 0 && (p.atVisibility() || p.atKeyword("import") || p.atKeyword("alias")) {
+		return p.parseBodyMember()
+	}
+
 	// A member only some body kind owns is read by the body member parser,
 	// which reports it when this body is not that kind.
 	if _, owned := ownedMembers[p.peek().KeywordID]; owned && p.at(lexer.Keyword) {

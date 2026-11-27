@@ -92,6 +92,9 @@ func runUnbundle(file string) error {
 		if errors.As(err, &ae) {
 			err = ae.Err
 		}
+		if errors.Is(err, project.ErrNotZIP) {
+			return fmt.Errorf("cannot read %s: not a project interchange archive: %w", file, err)
+		}
 		return fmt.Errorf("cannot read %s: %w", file, err)
 	}
 	out := outputPath

@@ -55,7 +55,9 @@ func (s *Service) elementProperties(reader *elementReader, req *pb.GetElementPro
 		if excluded := reader.excluded[sym.DocName]; excluded != nil {
 			return &pb.GetElementPropertiesResponse{Error: excluded.Error}
 		}
-		return reader.read(sym, req.Properties)
+		if sym, ok = reader.held(sym); ok && !reader.model.Index.Library(sym) {
+			return reader.read(sym, req.Properties)
+		}
 	}
 	id := req.ElementId
 	if ok && sym.Named() {
@@ -256,7 +258,51 @@ func (r *elementReader) lookupNamed(name string, resolve func(string) []*symbols
 	if syms := r.model.LookupNamedMember(name); len(syms) > 0 {
 		return r.readable(syms), true, true
 	}
+	if parameter := r.statedParameter(name); parameter != nil {
+		return parameter, true, true
+	}
 	return nil, false, false
+}
+
+// statedParameter is the parameter an action's notation states under name where no member lookup reaches
+// it: a `for` loop's variable, declared in the loop's body, or an assignment's target.
+func (r *elementReader) statedParameter(name string) *symbols.Symbol {
+	segments := symbolfacts.NameSegments(name)
+	if len(segments) < 2 {
+		return nil
+	}
+	loop, variable := segments[len(segments)-2], segments[len(segments)-1]
+	// The loop is reached as a name reaches any member: declared, or inherited by the type the path names.
+	path := strings.Join(segments[:len(segments)-1], "::")
+	owners := r.model.Index.LookupQualified(path)
+	if len(owners) == 0 {
+		owners = r.model.LookupNamedMember(path)
+	}
+	if len(owners) == 0 {
+		// A segment that holds `::` is one segment only as the notation split it.
+		owners = r.model.ResolveMemberSegments(segments[:len(segments)-1])
+	}
+	if len(owners) != 1 || r.model.Index.Library(owners[0]) {
+		return nil
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	// The member walk splits a segment that holds `::`: the loop found must be the one the path names.
+	if !answersTo(r.semantics.NameSourceOf(owners[0]), loop) {
+		return nil
+	}
+	parameters, _ := r.semantics.ReflectiveElements(owners[0], "parameter")
+	for _, parameter := range parameters {
+		if answersTo(r.semantics.NameSourceOf(parameter), variable) {
+			return parameter
+		}
+	}
+	return nil
+}
+
+// answersTo reports whether name is the name or the short name source declares.
+func answersTo(source *symbols.Symbol, name string) bool {
+	return source != nil && (source.Named() && source.Name == name || source.ShortName != "" && source.ShortName == name)
 }
 
 // lookupID finds the element an id names: the id the API element form writes, else the id
@@ -395,6 +441,35 @@ func (r *elementReader) stepAddress(from metamodel.Element, siblings []metamodel
 		}
 	}
 	return ""
+}
+
+// held is the symbol the reader's own model holds for the element sym stands for, as a name resolves through the symbol
+// context's model; a parameter the form holds no element for reads as the feature it redefines, false when it redefines none.
+func (r *elementReader) held(sym *symbols.Symbol) (*symbols.Symbol, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for range maxPathDepth {
+		if sym.Expr == nil && sym.Named() {
+			return sym, true
+		}
+		sym = r.semantics.OwnNodeParameter(sym)
+		stated := r.semantics.NamedByNodeParameterRole(sym)
+		if id, ok := r.ids.Of(sym); ok {
+			// A parameter the form holds no element for shares its span, and so its id, with the expression it is bound to.
+			if held, ok := r.ids.Symbol(id); ok && !(stated && sym.Expr != nil && (held.Expr == nil || *held.Expr != *sym.Expr)) {
+				return held, true
+			}
+		}
+		if !stated {
+			return sym, true
+		}
+		redefined := r.semantics.ImpliedRedefinitions(sym)
+		if len(redefined) == 0 {
+			return sym, false
+		}
+		sym = redefined[0]
+	}
+	return sym, false
 }
 
 // read answers the properties of sym: the named ones, or every property its

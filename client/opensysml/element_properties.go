@@ -137,10 +137,11 @@ func (c *client) ElementPropertiesByID(ctx context.Context, model *Model, id str
 // elementProperties reads element as the kind lookup states, which a service without the
 // capability is not sent: it reads the string as either kind.
 func (c *client) elementProperties(ctx context.Context, model *Model, lookup pb.LookupKind, element string, properties []string) (*ElementProperties, error) {
-	hash, err := c.call(model)
+	hash, done, err := c.call(model)
 	if err != nil {
 		return nil, err
 	}
+	defer done()
 	if lookup != pb.LookupKind_LOOKUP_KIND_UNSPECIFIED {
 		info, err := c.serverInfo(ctx)
 		if err != nil {

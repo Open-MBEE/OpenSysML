@@ -360,6 +360,9 @@ CLIENT is the client RESULT came through."
                 ""
               (concat " " (propertize (format "(%s)" detail) 'face 'sysml-diagram-detail-face))))))
 
+(define-button-type 'sysml-diagram-element
+  'face nil)
+
 (defun sysml-diagram--insert-element (text origin id)
   "Insert TEXT as one element line, visiting ORIGIN when activated.
 ID is the node it draws, or nil for a table row."
@@ -367,11 +370,11 @@ ID is the node it draws, or nil for a table row."
     (insert text)
     (when origin
       (make-text-button start (point)
+                        'type 'sysml-diagram-element
                         'sysml-diagram-origin origin
                         'sysml-diagram-node id
                         'action #'sysml-diagram--visit-button
                         'follow-link t
-                        'face nil
                         'help-echo "RET or mouse-1: visit the declaration"))
     (when id
       (put-text-property start (point) 'sysml-diagram-node id))

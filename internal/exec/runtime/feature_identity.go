@@ -138,6 +138,24 @@ func (ec *EvalContext) lookupNamed(name string, unset *symbols.Symbol) (Value, b
 	return Value{}, false, nil
 }
 
+// writeHeld writes value to the innermost frame holding the feature sym, under the
+// name it binds it by and on the run's own write path, reporting whether one holds it.
+func (ec *EvalContext) writeHeld(sym *symbols.Symbol, value Value) (bool, error) {
+	for i := len(ec.frames) - 1; i >= 0; i-- {
+		f := ec.frames[i]
+		name, holds := f.heldName(sym)
+		if !holds {
+			continue
+		}
+		if f.write != nil {
+			return true, f.write(f, name, value)
+		}
+		f.setBody(ec.ctx, name, value)
+		return true, nil
+	}
+	return false, nil
+}
+
 // holdsAnother reports whether f binds name as a feature other than sym.
 func (f *frame) holdsAnother(name string, sym *symbols.Symbol) bool {
 	name = program.Canonical(f.aliases, name)

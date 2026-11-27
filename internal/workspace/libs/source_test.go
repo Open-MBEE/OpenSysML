@@ -114,6 +114,7 @@ func TestDirSourceRejectsSymlinksOutsideBase(t *testing.T) {
 		"outdir":       outside,
 		"Inside.kerml": "Real.kerml",
 		"Abs.kerml":    filepath.Join(base, "Real.kerml"),
+		"Around.kerml": filepath.Join("..", filepath.Base(base), "Real.kerml"),
 	} {
 		if err := os.Symlink(target, filepath.Join(base, link)); err != nil {
 			t.Skipf("symbolic links are not available: %v", err)
@@ -125,7 +126,7 @@ func TestDirSourceRejectsSymlinksOutsideBase(t *testing.T) {
 			t.Errorf("Read(%q) = %q, want an error for a link out of the directory", name, data)
 		}
 	}
-	for _, name := range []string{"Inside.kerml", "Abs.kerml"} {
+	for _, name := range []string{"Inside.kerml", "Abs.kerml", "Around.kerml"} {
 		if data, err := src.Read(name); err != nil || string(data) != "package Real;" {
 			t.Errorf("Read(%q), a link within the directory = %q, %v", name, data, err)
 		}
@@ -133,7 +134,7 @@ func TestDirSourceRejectsSymlinksOutsideBase(t *testing.T) {
 	// A directory named relative to the working directory reads the same links.
 	t.Chdir(filepath.Dir(base))
 	relative := &dirSource{dir: filepath.Base(base)}
-	for _, name := range []string{"Inside.kerml", "Abs.kerml"} {
+	for _, name := range []string{"Inside.kerml", "Abs.kerml", "Around.kerml"} {
 		if data, err := relative.Read(name); err != nil || string(data) != "package Real;" {
 			t.Errorf("Read(%q) under a relative directory = %q, %v", name, data, err)
 		}
