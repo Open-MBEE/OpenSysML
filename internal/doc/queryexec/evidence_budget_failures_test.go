@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"sync/atomic"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
@@ -91,11 +90,54 @@ func TestQueryProjectedEvidenceReportsAnExhaustedBudget(t *testing.T) {
 	}
 }
 
-// An operand the comparison itself cannot parse stays an invalid operand even
+// invalidOperandEvidenceQuery passes comparison construction with a text
+// operand, then fails on a Boolean row; the excluded shadow exhausts the budget.
+func invalidOperandEvidenceQuery(terms int) string {
+	return fmt.Sprintf(`
+private import ScalarValues::*;
+part def Excluded {
+	attribute base : Integer = 1;
+	attribute isActive : Boolean = base%s > 0;
+}
+part def Keeper { attribute isActive : Boolean = true; }
+part excluded : Excluded;
+part keeper : Keeper;
+calc def InvalidOperand :> Query {
+	in lazy : Element;
+	in kept : Element;
+	WhereFeature(
+		source = WhereName(
+			source = Union(source = lazy, other = kept),
+			operator = "=", value = "keeper"
+		),
+		'feature' = "isActive", operator = "=", value = "abc"
+	)
+}
+`, strings.Repeat("+1", terms))
+}
+
+// A comparison that only fails at row evaluation stays an invalid operand even
 // when an evidence preview elsewhere ran out of budget.
 func TestQueryKeepsAnInvalidOperandWhenEvidenceIsUnavailable(t *testing.T) {
-	body := strings.Replace(exhaustedEvidenceQuery(40, false), `value = "3"`, `value = "abc"`, 1)
-	_, err := executeExhaustedEvidence(t, body, 80)
+	fixture := loadExecutionFixture(t, invalidOperandEvidenceQuery(40))
+	ctx := runtime.NewContext(runtime.NewModel(fixture.model, fixture.resolver), 80)
+	excluded, err := ctx.Instantiate(fixture.symbol(t, "excluded"))
+	if err != nil {
+		t.Fatalf("Instantiate excluded: %v", err)
+	}
+	keeper, err := ctx.Instantiate(fixture.symbol(t, "keeper"))
+	if err != nil {
+		t.Fatalf("Instantiate keeper: %v", err)
+	}
+	context := Context{
+		Index: fixture.index, Resolver: fixture.resolver, Model: fixture.model, Runtime: ctx,
+		Roots: []Root{{Label: "excluded", Object: excluded}, {Label: "keeper", Object: keeper}},
+	}
+	bindings := Bindings{
+		"lazy": {ObjectValue(excluded, "excluded")},
+		"kept": {ObjectValue(keeper, "keeper")},
+	}
+	_, err = Execute(fixture.program(t, "InvalidOperand"), context, bindings, Options{})
 	failure := executionError(t, err, ErrorInvalidArgument)
 	if failure.Parameter != "value" {
 		t.Fatalf("invalid operand = %+v, want the value parameter", failure)
@@ -144,22 +186,58 @@ part textHolder : TextHolder;`, 1)
 	}
 }
 
+// interruptEvidenceQuery computes the excluded holder's only numeric value
+// through a tool, so the cancellation arises inside the evidence preview.
+const interruptEvidenceQuery = `
+private import ScalarValues::*;
+private import AnalysisTooling::*;
+calc def InterruptedValue {
+	metadata ToolExecution { toolName = "Interrupt"; uri = "interrupt://now"; }
+	in x : Real[1] { @ToolVariable { name = "x"; } }
+	return : Real[1] { @ToolVariable { name = "value"; } }
+}
+part def Excluded { attribute annotations : Real = InterruptedValue(1.0); }
+part def TextHolder { attribute annotations : String = "text"; }
+part excluded : Excluded;
+part textHolder : TextHolder;
+calc def NameThenFilter :> Query {
+	in lazy : Element;
+	in text : Element;
+	WhereFeature(
+		source = WhereName(
+			source = Union(source = lazy, other = text),
+			operator = "=", value = "textHolder"
+		),
+		'feature' = "annotations", operator = ">", value = "3"
+	)
+}
+`
+
+// interruptingTool stops the one computation the evidence preview asks for;
+// no global interrupt flag is set, so an ordinary read cannot see it.
+type interruptingTool struct{}
+
+func (interruptingTool) RunTool(*runtime.ToolCall) (runtime.ToolAnswer, error) {
+	return runtime.ToolAnswer{}, runtime.ErrInterrupted
+}
+
 // Cancellation reached during evidence collection ends the query instead of
 // being mistaken for an absent value or an invalid operand.
 func TestQueryEvidenceInterruptIsNotSuppressed(t *testing.T) {
-	fixture := loadExecutionFixture(t, exhaustedEvidenceQuery(40, false))
+	fixture := loadExecutionFixture(t, interruptEvidenceQuery)
 	ctx := runtime.NewContext(runtime.NewModel(fixture.model, fixture.resolver), runtime.DefaultMaxSteps)
+	ctx.SetToolRunner(interruptingTool{})
 	excluded, err := ctx.Instantiate(fixture.symbol(t, "excluded"))
 	if err != nil {
 		t.Fatalf("Instantiate excluded: %v", err)
+	}
+	if annotations := excluded.FeatureValues["annotations"]; annotations == nil || annotations.Materialized {
+		t.Fatalf("annotations before the query = %+v, want an unmaterialized default", annotations)
 	}
 	textHolder, err := ctx.Instantiate(fixture.symbol(t, "textHolder"))
 	if err != nil {
 		t.Fatalf("Instantiate textHolder: %v", err)
 	}
-	flag := &atomic.Bool{}
-	flag.Store(true)
-	ctx.SetInterrupt(flag)
 	context := Context{
 		Index: fixture.index, Resolver: fixture.resolver, Model: fixture.model, Runtime: ctx,
 		Roots: []Root{{Label: "excluded", Object: excluded}, {Label: "textHolder", Object: textHolder}},
