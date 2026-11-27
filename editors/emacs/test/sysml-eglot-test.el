@@ -129,7 +129,8 @@ The user has allowed the project's build to be run."
                           :type 'user-error))
           (let ((sysml-project-builds (list (cons root t))))
             (should (equal (sysml-eglot--server-command nil (cons 'transient root))
-                           (list (file-local-name exe))))))
+                           (list 'sysml-eglot-project-server (file-local-name exe)
+                                 :project-root root)))))
       (delete-directory root t)
       (tramp-cleanup-all-connections))))
 
@@ -139,7 +140,11 @@ The user has allowed the project's build to be run."
           (sysml-lsp-server-args nil)
           (exec-path nil))
       (should (equal (sysml-eglot--server-command nil (cons 'transient root))
-                     (list exe))))))
+                     (list 'sysml-eglot-project-server exe :project-root root)))
+      ;; Under a prefix argument the command goes to the prompt as text.
+      (let ((current-prefix-arg '(4)))
+        (should (equal (sysml-eglot--server-command t (cons 'transient root))
+                       (list exe)))))))
 
 (ert-deftest sysml-eglot-does-not-start-a-project-build-the-user-refused ()
   (sysml-eglot-test--with-project-build root _exe
@@ -160,7 +165,8 @@ The user has allowed the project's build to be run."
           (exec-path nil)
           (default-directory root)
           (project-find-functions (list (lambda (dir) (cons 'transient dir)))))
-      (should (equal (sysml-eglot--server-command) (list exe))))))
+      (should (equal (sysml-eglot--server-command)
+                     (list 'sysml-eglot-project-server exe :project-root root))))))
 
 (ert-deftest sysml-eglot-falls-back-to-exec-path ()
   (sysml-eglot-test--with-project-build root exe
@@ -178,7 +184,8 @@ The user has allowed the project's build to be run."
     (let ((sysml-lsp-server-path nil)
           (sysml-lsp-server-args '("-strict")))
       (should (equal (sysml-eglot--server-command nil (cons 'transient root))
-                     (list exe "-strict"))))))
+                     (list 'sysml-eglot-project-server exe "-strict"
+                           :project-root root))))))
 
 (ert-deftest sysml-eglot-starts-the-server-it-finds ()
   (sysml-test--require-server)
@@ -403,6 +410,46 @@ Its range is on LINE, from column 15 to column END."
                    (list :textDocument (list :uri (eglot-path-to-uri buffer-file-name))
                          :position (list :line (1- (line-number-at-pos))
                                          :character (current-column)))))
+
+(ert-deftest sysml-eglot-live-does-not-restart-a-build-no-longer-allowed ()
+  (sysml-test--require-server)
+  (let* ((root (file-name-as-directory (make-temp-file "proj" t)))
+         (exe (expand-file-name "bin/sysml-lsp" root))
+         (file (expand-file-name "m.sysml" root))
+         (project `(transient . ,root))
+         (sysml-lsp-server-path nil)
+         (exec-path nil)
+         (sysml-project-builds (list (cons root t)))
+         (buffer nil)
+         (started nil))
+    (unwind-protect
+        (progn
+          (make-directory (file-name-directory exe))
+          (copy-file sysml-test--server exe)
+          (write-region "package P;\n" nil file)
+          (setq buffer (find-file-noselect file))
+          (with-current-buffer buffer
+            (let ((contact (sysml-eglot--server-command nil project)))
+              (eglot '(sysml-mode kerml-mode) project (car contact) (cdr contact)
+                     '("sysml" "kerml")))
+            (sysml-test--wait #'eglot-current-server)
+            (let ((server (eglot-current-server)))
+              (should (equal (car (process-command (jsonrpc--process server))) exe))
+              ;; The user takes the answer back; the build may have changed since.
+              (setq sysml-project-builds (list (cons root nil)))
+              (cl-letf (((symbol-function 'make-process)
+                         (lambda (&rest args) (push args started) (error "Started"))))
+                (let ((message (cadr (should-error (eglot-reconnect server)
+                                                   :type 'user-error))))
+                  (should (string-search "sysml-project-builds" message))))
+              (should-not started))))
+      (when buffer
+        (let ((server (with-current-buffer buffer
+                        (set-buffer-modified-p nil)
+                        (eglot-current-server))))
+          (kill-buffer buffer)
+          (when server (ignore-errors (eglot-shutdown server)))))
+      (delete-directory root t))))
 
 (ert-deftest sysml-eglot-live-advertises-rendering ()
   (sysml-eglot-test--with-session (sysml-test--fixture "part def A;\n")

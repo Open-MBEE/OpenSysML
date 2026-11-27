@@ -85,13 +85,24 @@ Both clients look in that order and pass `sysml-lsp-server-args`.
 
 A checkout's own build is run only with your say. The first time a project holds a
 `bin/sysml-lsp` or `bin/sysml` that would be used, Emacs asks whether to run what is
-built there, and saves the answer in `sysml-project-builds`, so each checkout is asked
-about once, whichever client you use. Answer no and the lookup goes on to `exec-path`,
-with a message naming the build it passed over; when nothing is found there either, the
-error names that build and `sysml-project-builds` rather than telling you to build one.
-Change an answer with `M-x customize-option RET sysml-project-builds`; a root matches with
-or without its trailing slash. A batch Emacs, which cannot ask, runs neither. A checkout reached over TRAMP is asked about separately,
-under its remote name.
+built there, so each checkout is asked about once, whichever client you use. A batch
+Emacs, which cannot ask, runs neither, and a checkout reached over TRAMP is asked about
+separately, under its remote name.
+
+- **Where answers are kept.** In `sysml-project-builds-file`
+  (`sysml-project-builds.eld` in your Emacs directory), a file of its own: your Custom
+  file is never written. Saving an answer rereads the file and changes that checkout's
+  entry alone, so answers another running Emacs saved stay, and the file is read each
+  time a build is looked for, so an answer given or changed elsewhere holds at once.
+- **Deciding yourself.** List a root in `sysml-project-builds` (in your init file or
+  through Customize) with `t` or `nil`; it stands before any saved answer, and a root
+  matches with or without its trailing slash. To be asked again, delete the checkout's
+  entry from the file.
+- **After a refusal.** The lookup goes on to `exec-path`, with a message naming the build
+  it passed over; when nothing is found there either, the error names that build and
+  `sysml-project-builds` rather than telling you to build one.
+- **Taking an answer back.** Both clients check again each time they start the server,
+  so a restart or reconnect does not run a build you no longer allow.
 
 After rebuilding
 the server, `M-x lsp-workspace-restart` picks the new binary up, or
@@ -219,7 +230,8 @@ is refused when the server does not advertise the render methods
 | `sysml-indent-offset` | `4` | Columns per nesting level, for indentation and formatting. |
 | `sysml-lsp-server-path` | `nil` | Absolute path to `sysml-lsp`; `nil` falls back to the project build, then `exec-path`. |
 | `sysml-lsp-server-args` | `nil` | Extra server arguments, e.g. `("-strict")`. |
-| `sysml-project-builds` | `nil` | Project roots and whether the `sysml-lsp` and `sysml` in their `bin/` may be run; filled in as you answer. |
+| `sysml-project-builds` | `nil` | Project roots and whether the `sysml-lsp` and `sysml` in their `bin/` may be run; stands before the saved answers. |
+| `sysml-project-builds-file` | `sysml-project-builds.eld` in your Emacs directory | Where the answers to that question are saved. |
 | `sysml-lsp-strict-conformance` | `nil` | Report notation only OpenSysML accepts as errors. Takes effect at once, without a restart. |
 | `sysml-lsp-semantic-tokens` | `t` | Add the server's semantic tokens to highlighting. |
 | `sysml-diagram-mmdc-program` | `"mmdc"` | The Mermaid CLI pictures are drawn with. |

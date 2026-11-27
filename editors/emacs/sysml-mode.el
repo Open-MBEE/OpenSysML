@@ -421,13 +421,26 @@ When nil, `bin/sysml-lsp' in the project root is used if it exists and
   "Whether the `sysml-lsp' and `sysml' a project builds in its `bin/' may be run.
 An alist of project roots, a remote one under its full remote name, and
 whether the executables there may be run; a root matches with or without
-its trailing slash.  A project not listed is asked
-about once, when it holds one of them, and the answer saved here; a
+its trailing slash.  What is listed here stands before any answer given
+to the question.  A project not listed is asked about once, when it holds
+one of them, and the answer saved in `sysml-project-builds-file'; a
 session that cannot ask, such as a batch one, runs neither."
   :type '(alist :key-type directory
                 :value-type (choice (const :tag "Run them" t)
                                     (const :tag "Do not run them" nil)))
   :risky t)
+
+(defcustom sysml-project-builds-file
+  (locate-user-emacs-file "sysml-project-builds.eld")
+  "File the answers about running project builds are saved in.
+It holds an alist like `sysml-project-builds', read each time a build
+is looked for, so an answer given or changed in another Emacs holds
+here too.  Saving an answer changes the entry of its project alone."
+  :type 'file
+  :risky t)
+
+(defvar sysml--project-build-answers nil
+  "Answers of this session that could not be saved, like `sysml-project-builds'.")
 
 (defun sysml--project-root ()
   "Return the root of the current buffer's project, or nil."
@@ -439,17 +452,60 @@ session that cannot ask, such as a batch one, runs neither."
 A remote name is left unexpanded, which would need its host."
   (file-name-as-directory (if (file-remote-p root) root (expand-file-name root))))
 
+(defun sysml--saved-project-builds ()
+  "Return the answers saved in `sysml-project-builds-file'.
+Signal an error when the file is there and is not such an alist."
+  (when (file-exists-p sysml-project-builds-file)
+    (let ((answers (with-temp-buffer
+                     (insert-file-contents sysml-project-builds-file)
+                     (read (current-buffer)))))
+      (unless (and (listp answers)
+                   (seq-every-p (lambda (entry)
+                                  (and (consp entry) (stringp (car entry))
+                                       (booleanp (cdr entry))))
+                                answers))
+        (error "Not a list of project builds: %s" sysml-project-builds-file))
+      answers)))
+
+(defun sysml--save-project-build (root allowed)
+  "Save in `sysml-project-builds-file' whether the build of ROOT is ALLOWED.
+The file is read anew and written whole under another name first, so the
+answers another Emacs saved stay, and no reader sees half of it."
+  (let* ((file (expand-file-name sysml-project-builds-file))
+         (others (seq-remove (lambda (entry)
+                               (string= (sysml--project-build-key (car entry)) root))
+                             (sysml--saved-project-builds)))
+         (_ (make-directory (file-name-directory file) t))
+         (new (make-temp-file file)))
+    (with-temp-file new
+      (insert ";; Whether the sysml-lsp and sysml each project builds may be run.\n")
+      (let ((print-length nil)
+            (print-level nil))
+        (pp (cons (cons root allowed) others) (current-buffer))))
+    (rename-file new file t)))
+
 (defun sysml--project-build-answer (root)
-  "Return the entry of `sysml-project-builds' for the project root ROOT, or nil."
-  (let ((key (sysml--project-build-key root)))
-    (seq-find (lambda (entry) (string= (sysml--project-build-key (car entry)) key))
-              sysml-project-builds)))
+  "Return the entry for the project root ROOT, or nil when there is none.
+`sysml-project-builds' stands before an answer this session could not
+save, and that before those `sysml-project-builds-file' holds."
+  (let* ((key (sysml--project-build-key root))
+         (find (lambda (answers)
+                 (seq-find (lambda (entry)
+                             (string= (sysml--project-build-key (car entry)) key))
+                           answers))))
+    (or (funcall find sysml-project-builds)
+        (funcall find sysml--project-build-answers)
+        (funcall find (condition-case err
+                          (sysml--saved-project-builds)
+                        (error (message "Could not read the saved project builds: %s"
+                                        (error-message-string err))
+                               nil))))))
 
 (defun sysml--project-build-allowed-p (root)
   "Return non-nil when the executables in the `bin/' of project ROOT may be run.
-The user is asked the first time, and `sysml-project-builds' records
-the answer, since opening a file of a checkout would otherwise run
-what that checkout supplies."
+The user is asked the first time, and `sysml-project-builds-file'
+records the answer, since opening a file of a checkout would otherwise
+run what that checkout supplies."
   (let ((root (sysml--project-build-key root))
         (known (sysml--project-build-answer root)))
     (cond
@@ -457,10 +513,12 @@ what that checkout supplies."
      (noninteractive nil)
      (t (let ((allowed (y-or-n-p (format "Run the sysml-lsp and sysml built in %sbin/? "
                                          root))))
-          ;; The answer holds for this session when it cannot be saved.
-          (with-demoted-errors "Could not save `sysml-project-builds': %S"
-            (customize-save-variable 'sysml-project-builds
-                                     (cons (cons root allowed) sysml-project-builds)))
+          (condition-case err
+              (sysml--save-project-build root allowed)
+            (error
+             (push (cons root allowed) sysml--project-build-answers)
+             (message "Could not save the answer, which holds for this session: %s"
+                      (error-message-string err))))
           allowed)))))
 
 (defun sysml--project-build-file (name root)

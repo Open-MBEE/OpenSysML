@@ -25,7 +25,7 @@
 ;;
 ;; The server is found as under lsp-mode: the `sysml-lsp-server-path'
 ;; setting, else `bin/sysml-lsp' in the project root once the user has
-;; allowed that project's build (`sysml-project-builds'), else `sysml-lsp'
+;; allowed that project's build (asked once; `sysml-project-builds'), else `sysml-lsp'
 ;; on `exec-path', and it is passed `sysml-lsp-server-args'.  Its settings are
 ;; set in `eglot-workspace-configuration' under `:sysml', for instance
 ;; (:sysml (:strictConformance t)).
@@ -200,11 +200,26 @@ Modifiers are left off for the same reason: the server marks an
 
 ;;;; Registration
 
+(defclass sysml-eglot-project-server (eglot-lsp-server)
+  ((project-root :initarg :project-root
+                 :documentation "The project root whose build this runs."))
+  :documentation "A language server that is the build of a project.")
+
+(cl-defmethod initialize-instance :before ((_server sysml-eglot-project-server)
+                                           &optional slots)
+  "Refuse to start a project build that SLOTS names and may no longer be run.
+Eglot starts a server again with the command it first started it with."
+  (let ((root (plist-get slots :project-root)))
+    (unless (sysml--project-build sysml--server-executable root)
+      (user-error "%s" (sysml--missing-server root)))))
+
 (defun sysml-eglot--server-command (&optional interactive project)
   "Return the command to start the language server with under Eglot.
 A build is looked for in the root of PROJECT, the project Eglot starts
 the server for, or of the current buffer's when Eglot passes none.  The
 executable is named as its own host names it, since Eglot starts it there.
+A project build is started as a `sysml-eglot-project-server', which asks
+again whether it may be run each time Eglot starts it.
 When none is found and INTERACTIVE is non-nil, a command is returned for
 \\[eglot] to prompt with rather than an error signaled: the bare
 executable name when `sysml-lsp-server-path' is unset, and the configured
@@ -212,9 +227,14 @@ path under a prefix argument, which always prompts.  A configured path
 that is not executable is otherwise an error, never passed over for
 another server."
   (let* ((root (if project (project-root project) (sysml--project-root)))
-         (server (sysml--find-server root t)))
+         (server (sysml--find-server root t))
+         (command (and server (cons (file-local-name server) sysml-lsp-server-args))))
     (cond
-     (server (cons (file-local-name server) sysml-lsp-server-args))
+     ;; A command the user is about to confirm at the prompt is theirs.
+     ((and server (not current-prefix-arg)
+           (equal server (sysml--project-build-file sysml--server-executable root)))
+      `(sysml-eglot-project-server ,@command :project-root ,root))
+     (server command)
      ((and interactive (not sysml-lsp-server-path))
       (cons sysml--server-executable sysml-lsp-server-args))
      ((and interactive current-prefix-arg)
