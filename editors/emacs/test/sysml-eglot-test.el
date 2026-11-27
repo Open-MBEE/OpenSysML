@@ -411,6 +411,63 @@ Its range is on LINE, from column 15 to column END."
                          :position (list :line (1- (line-number-at-pos))
                                          :character (current-column)))))
 
+(ert-deftest sysml-eglot-starts-a-configured-server-in-a-refused-project ()
+  ;; Naming the server is the user's own decision, whatever was answered
+  ;; about what the project builds.
+  (sysml-eglot-test--with-project-build root exe
+    (write-region "" nil (expand-file-name "bin/sysml" root))
+    (set-file-modes (expand-file-name "bin/sysml" root) #o755)
+    (dolist (sysml-project-builds (list nil (list (cons root nil))))
+      (let ((sysml-lsp-server-path exe)
+            (exec-path nil)
+            (noninteractive t))
+        (cl-letf (((symbol-function 'y-or-n-p)
+                   (lambda (&rest _) (ert-fail "asked about the project build"))))
+          (ert-with-message-capture said
+            (should (equal (sysml-eglot--server-command nil (cons 'transient root))
+                           (list exe)))
+            (should (equal (sysml-find-tool (sysml--find-server root) root)
+                           (expand-file-name "bin/sysml" root)))
+            (should (equal said ""))))))))
+
+(ert-deftest sysml-eglot-live-starts-a-configured-server-in-a-refused-project ()
+  (sysml-test--require-server)
+  (let* ((root (file-name-as-directory (make-temp-file "proj" t)))
+         (exe (expand-file-name "bin/sysml-lsp" root))
+         (file (expand-file-name "m.sysml" root))
+         (project `(transient . ,root))
+         (sysml-lsp-server-path exe)
+         (exec-path nil)
+         (sysml-project-builds (list (cons root nil)))
+         (noninteractive t)
+         (buffer nil))
+    (unwind-protect
+        (cl-letf (((symbol-function 'y-or-n-p)
+                   (lambda (&rest _) (ert-fail "asked about the project build"))))
+          (make-directory (file-name-directory exe))
+          (copy-file sysml-test--server exe)
+          (write-region "package P;\n" nil file)
+          (setq buffer (find-file-noselect file))
+          (with-current-buffer buffer
+            (let ((contact (sysml-eglot--server-command nil project)))
+              (eglot '(sysml-mode kerml-mode) project 'eglot-lsp-server contact
+                     '("sysml" "kerml")))
+            (sysml-test--wait #'eglot-current-server)
+            (let ((server (eglot-current-server)))
+              (should (equal (car (process-command (jsonrpc--process server))) exe))
+              (eglot-reconnect server)
+              (sysml-test--wait #'eglot-current-server)
+              (should (equal (car (process-command
+                                   (jsonrpc--process (eglot-current-server))))
+                             exe)))))
+      (when buffer
+        (let ((server (with-current-buffer buffer
+                        (set-buffer-modified-p nil)
+                        (eglot-current-server))))
+          (kill-buffer buffer)
+          (when server (ignore-errors (eglot-shutdown server)))))
+      (delete-directory root t))))
+
 (ert-deftest sysml-eglot-live-does-not-restart-a-build-no-longer-allowed ()
   (sysml-test--require-server)
   (let* ((root (file-name-as-directory (make-temp-file "proj" t)))

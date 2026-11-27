@@ -101,6 +101,10 @@ separately, under its remote name.
 - **After a refusal.** The lookup goes on to `exec-path`, with a message naming the build
   it passed over; when nothing is found there either, the error names that build and
   `sysml-project-builds` rather than telling you to build one.
+- **A server you name is yours.** The question is only about a build found by looking
+  in the project. `sysml-lsp-server-path`, the `sysml` beside it, and a server entered at
+  the prompt of `C-u M-x eglot` are run as named, even when they are a checkout's own
+  `bin/` build that you refused or were never asked about.
 - **Taking an answer back.** Both clients check again each time they start the server,
   so a restart or reconnect does not run a build you no longer allow.
 

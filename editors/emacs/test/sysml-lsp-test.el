@@ -77,6 +77,29 @@
               (should (string-empty-p said)))))
       (delete-directory root t))))
 
+(ert-deftest sysml-lsp-starts-a-configured-server-in-a-refused-project ()
+  (let* ((root (file-name-as-directory (make-temp-file "proj" t)))
+         (exe (expand-file-name "bin/sysml-lsp" root))
+         (tool (expand-file-name "bin/sysml" root))
+         (sysml-lsp-server-path exe)
+         (exec-path nil)
+         (noninteractive t))
+    (unwind-protect
+        (cl-letf (((symbol-function 'sysml-lsp--project-root) (lambda () root))
+                  ((symbol-function 'y-or-n-p)
+                   (lambda (&rest _) (ert-fail "asked about the project build"))))
+          (make-directory (file-name-directory exe))
+          (dolist (f (list exe tool))
+            (write-region "" nil f)
+            (set-file-modes f #o755))
+          (dolist (sysml-project-builds (list nil (list (cons root nil))))
+            (ert-with-message-capture said
+              (should (sysml-lsp--server-found-p))
+              (should (equal (sysml-lsp--server-command) (list exe)))
+              (should (equal (sysml-find-tool (sysml-lsp--find-server) root) tool))
+              (should (equal said "")))))
+      (delete-directory root t))))
+
 (ert-deftest sysml-lsp-does-not-restart-a-build-no-longer-allowed ()
   ;; lsp-mode asks for the command again each time it starts the server.
   (let* ((root (file-name-as-directory (make-temp-file "proj" t)))

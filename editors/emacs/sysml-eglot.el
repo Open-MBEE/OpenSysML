@@ -218,8 +218,9 @@ Eglot starts a server again with the command it first started it with."
 A build is looked for in the root of PROJECT, the project Eglot starts
 the server for, or of the current buffer's when Eglot passes none.  The
 executable is named as its own host names it, since Eglot starts it there.
-A project build is started as a `sysml-eglot-project-server', which asks
-again whether it may be run each time Eglot starts it.
+A project build found there, not one `sysml-lsp-server-path' names, is
+started as a `sysml-eglot-project-server', which asks again whether it
+may be run each time Eglot starts it.
 When none is found and INTERACTIVE is non-nil, a command is returned for
 \\[eglot] to prompt with rather than an error signaled: the bare
 executable name when `sysml-lsp-server-path' is unset, and the configured
@@ -230,8 +231,8 @@ another server."
          (server (sysml--find-server root t))
          (command (and server (cons (file-local-name server) sysml-lsp-server-args))))
     (cond
-     ;; A command the user is about to confirm at the prompt is theirs.
-     ((and server (not current-prefix-arg)
+     ;; A server the user names, in the setting or at the prompt, is theirs.
+     ((and server (not sysml-lsp-server-path) (not current-prefix-arg)
            (equal server (sysml--project-build-file sysml--server-executable root)))
       `(sysml-eglot-project-server ,@command :project-root ,root))
      (server command)

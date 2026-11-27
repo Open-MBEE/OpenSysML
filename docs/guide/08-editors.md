@@ -335,7 +335,8 @@ Under either client the server is found as the VS Code extension finds it:
 `sysml-lsp` or `sysml` built in that checkout's `bin/`, and saves the answer in
 `sysml-project-builds-file`, a file of its own beside your init file, not your
 Custom file. List a root in `sysml-project-builds` to decide yourself; that
-stands before a saved answer, and is checked again at every server start.
+stands before a saved answer, and is checked again at every server start. A
+server you name in `sysml-lsp-server-path` is never asked about.
 
 - **Highlighting** colours each keyword group — declarations, behaviour,
   modifiers, relationships, word operators — with its own customizable face, plus
