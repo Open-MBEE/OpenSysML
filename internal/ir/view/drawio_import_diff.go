@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -455,7 +454,7 @@ func (m *drawioMatcher) diffVertex(cell, base *DrawioCell) {
 	if performer, name, ok := m.placedLane(base.ID); ok {
 		// Its label and colours are the performer's own, drawn elsewhere too: only its place is read.
 		if layout := m.layoutDiff(cell, base); layout != nil {
-			m.out.Edits = append(m.out.Edits, DrawioEdit{Kind: DrawioEditLayout, Cell: cell.ID, Label: cell.Label, FQN: name, Origin: performer, Within: m.laneHolders(base), Layout: layout})
+			m.out.Edits = append(m.out.Edits, DrawioEdit{Kind: DrawioEditLayout, Cell: cell.ID, Label: cell.Label, FQN: name, Origin: performer, Within: m.laneHolders(performer), Layout: layout})
 		}
 		return
 	}
@@ -653,19 +652,16 @@ func (m *drawioMatcher) placedLane(id string) (Origin, string, bool) {
 	return node.Origin, m.w.siteName(node.Origin), true
 }
 
-// laneHolders are the qualified names of the nodes the swimlane of the baseline cell is
-// drawn in, outermost first.
-func (m *drawioMatcher) laneHolders(base *DrawioCell) []string {
-	var names []string
-	for id := base.Parent; ; {
-		holder := m.base.Cell(id)
-		if holder == nil || m.nodes[id] == nil {
-			break
-		}
-		names = append(names, holder.FQN)
-		id = holder.Parent
+// laneHolders are the qualified names of the nodes the rendering draws the placed swimlane
+// of performer in, outermost first, whether or not the file draws them: its first lane's.
+func (m *drawioMatcher) laneHolders(performer Origin) []string {
+	if m.drawn == nil || len(m.drawn.lanes[performer]) == 0 {
+		return nil
 	}
-	slices.Reverse(names)
+	var names []string
+	for _, holder := range m.drawn.lanes[performer][0].Holders {
+		names = append(names, m.w.siteName(holder))
+	}
 	return names
 }
 
@@ -799,7 +795,7 @@ func (m *drawioMatcher) framePlace(cell, base *DrawioCell, node *Node, sized boo
 	name := m.targetName(cell, base)
 	var within []string
 	if performer, performerName, ok := m.placedLane(base.ID); ok {
-		origin, name, within = performer, performerName, m.laneHolders(base)
+		origin, name, within = performer, performerName, m.laneHolders(performer)
 	}
 	if base.FQN == "" && cell.FQN == "" && !origin.Located() {
 		return // a section of a node's box, standing for no declaration
