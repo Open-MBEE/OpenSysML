@@ -2125,8 +2125,8 @@ func (d *decoder) printBehavior(b *strings.Builder, el *element, indent string, 
 	annotations := d.identityAnnotations(el)
 	switch el.metaclass {
 	case mWhileLoop, mForLoop:
-		if len(annotations) > 0 {
-			return true, d.behaviorUnannotatable(el, "loop")
+		if err := d.identityStatedByOwner(el, "loop"); err != nil {
+			return true, err
 		}
 		text, err := d.loopText(el, depth)
 		if err != nil {
@@ -2136,8 +2136,8 @@ func (d *decoder) printBehavior(b *strings.Builder, el *element, indent string, 
 		return true, nil
 
 	case mIfAction:
-		if len(annotations) > 0 {
-			return true, d.behaviorUnannotatable(el, "if action")
+		if err := d.identityStatedByOwner(el, "if action"); err != nil {
+			return true, err
 		}
 		text, err := d.conditionalText(el, depth)
 		if err != nil {
@@ -3276,6 +3276,13 @@ func (d *decoder) membersText(members []*element, braced bool, depth int, lead .
 		memberDepth = depth + 1
 	}
 	var b strings.Builder
+	if braced {
+		about, err := d.memberNodeAnnotations(members)
+		if err != nil {
+			return "", err
+		}
+		lead = append(lead, about...)
+	}
 	for _, line := range lead {
 		b.WriteString(strings.Repeat("    ", memberDepth) + line + d.nl)
 	}

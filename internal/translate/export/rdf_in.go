@@ -739,12 +739,14 @@ type decoder struct {
 	// printed and usedExpr are written as source text in this pass and rebuilt
 	// canonically; demoted and demotedExpr had their text proved stale earlier.
 	// holders answers blame's reverse lookups over graph for one demoteStale pass.
-	holders     holderIndex
-	printed     map[*element]bool
-	rebuilt     map[*element]bool
-	demoted     map[*element]bool
-	usedExpr    map[string]bool
-	demotedExpr map[string]bool
+	holders holderIndex
+	printed map[*element]bool
+	// aboutWritten are the nodes whose identity the body they are a member of states about them.
+	aboutWritten map[*element]bool
+	rebuilt      map[*element]bool
+	demoted      map[*element]bool
+	usedExpr     map[string]bool
+	demotedExpr  map[string]bool
 	// folded maps a succession written as the `then` ahead of its target to
 	// that target, whose notation states it.
 	folded map[*element]*element
@@ -1989,6 +1991,18 @@ func (d *decoder) printElement(b *strings.Builder, el *element, depth int) error
 	// follow it, so a parallel state with none has no notation.
 	parallel := d.boolOf(el, rdf.SysML+"isParallel")
 	annotations := d.identityAnnotations(el)
+	if el.metaclass == mAssignment {
+		// An assignment takes no body: the body it is a member of states its identity.
+		if err := d.identityStatedByOwner(el, "assignment"); err != nil {
+			return err
+		}
+		annotations = nil
+	}
+	about, err := d.memberNodeAnnotations(children)
+	if err != nil {
+		return err
+	}
+	annotations = append(annotations, about...)
 	if cross := d.ownedCrossFeature(el); cross != nil {
 		about, err := d.headFeatureAnnotations(cross, "cross feature")
 		if err != nil {
@@ -2082,25 +2096,66 @@ func (d *decoder) identityAnnotations(el *element) []string {
 // payload — as `about` annotations in the owner's body, naming it by its name
 // or, failing that, its short name. what names the feature in a refusal.
 func (d *decoder) headFeatureAnnotations(feature *element, what string) ([]string, error) {
-	identity := d.identityOf(feature)
-	if len(identity) == 0 {
-		return nil, nil
-	}
-	name, ok := d.nameOf(feature, rdf.SysML+pDeclaredName)
-	if !ok {
-		name, ok = d.nameOf(feature, rdf.SysML+pDeclaredShortName)
-	}
-	if !ok {
+	out, named := d.aboutAnnotations(feature)
+	if !named {
 		return nil, &UnsupportedError{
 			What: fmt.Sprintf("the %s <%s>", what, feature.iri),
 			Note: "its identity is annotated `about` it in the body of the element whose head writes it, and it declares no name for the annotation to say",
 		}
 	}
+	return out, nil
+}
+
+// bodilessNodes names the action nodes whose notation takes no body of their own, as a refusal says them.
+var bodilessNodes = map[string]string{mAssignment: "assignment", mIfAction: "if action", mWhileLoop: "loop", mForLoop: "loop"}
+
+// memberNodeAnnotations writes the identity of each member node taking no body of its own `about` it,
+// for the head of the body the members are in: between two members it would end their `then` chain.
+func (d *decoder) memberNodeAnnotations(members []*element) ([]string, error) {
 	var out []string
+	for _, member := range members {
+		form, bodiless := bodilessNodes[member.metaclass]
+		if !bodiless {
+			continue
+		}
+		about, named := d.aboutAnnotations(member)
+		if !named {
+			return nil, d.behaviorUnannotatable(member, form)
+		}
+		if len(about) > 0 {
+			d.aboutWritten[member] = true
+			out = append(out, about...)
+		}
+	}
+	return out, nil
+}
+
+// identityStatedByOwner refuses a node taking no body of its own whose identity no enclosing body states.
+func (d *decoder) identityStatedByOwner(el *element, form string) error {
+	if len(d.identityOf(el)) > 0 && !d.aboutWritten[el] {
+		return d.behaviorUnannotatable(el, form)
+	}
+	return nil
+}
+
+// aboutAnnotations writes an element's identity as `about` annotations naming it by its name or,
+// failing that, its short name; named is false where it has an identity to state and neither name.
+func (d *decoder) aboutAnnotations(el *element) (out []string, named bool) {
+	identity := d.identityOf(el)
+	if len(identity) == 0 {
+		return nil, true
+	}
+	name, ok := d.nameOf(el, rdf.SysML+pDeclaredName)
+	if !ok {
+		name, ok = d.nameOf(el, rdf.SysML+pDeclaredShortName)
+	}
+	if !ok {
+		return nil, false
+	}
 	for _, a := range identity {
 		out = append(out, a.about(nameText(name)))
 	}
-	return out, nil
+	return out, true
 }
 
 // identityOf is the identity the notation must declare: a ProjectRef on a scope root,

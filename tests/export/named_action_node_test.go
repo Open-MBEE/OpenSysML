@@ -304,3 +304,58 @@ func TestAssignmentNodeValueStatedOnTheNodeIsItsOperand(t *testing.T) {
 		}
 	}
 }
+
+// A node taking no body of its own (an assignment, a conditional, a loop) whose id an ElementId annotation
+// declares comes back from the graph with that annotation about it, in the body it is a member of.
+func TestBodilessActionNodeKeepsItsDeclaredID(t *testing.T) {
+	const id = `metadata : IdentityMetadata::ElementId about n { id = "11111111-2222-3333-4444-555555555555"; }`
+	for _, tc := range []struct{ name, node, metaclass string }{
+		{"typed assignment", "action n : Act assign p.w := 1;", "AssignmentActionUsage"},
+		{"typed conditional", "action n : Act if true {\n            action x;\n        }", "IfActionUsage"},
+		{"typed while loop", "action n : Act while true {\n            action x;\n        }", "WhileLoopActionUsage"},
+		{"typed for loop", "action n : Act for i in (1, 2) {\n            action x;\n        }", "ForLoopActionUsage"},
+		{"multiplicity assignment", "action n[1] assign p.w := 1;", "AssignmentActionUsage"},
+		{"name-only assignment", "action n assign p.w := 1;", "AssignmentActionUsage"},
+		{"name-only conditional", "action n if true {\n            action x;\n        }", "IfActionUsage"},
+		{"name-only while loop", "action n while true {\n            action x;\n        }", "WhileLoopActionUsage"},
+		{"in a then chain", "first start;\n        then action n : Act assign p.w := 1;\n        then done;", "AssignmentActionUsage"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			src := "package P {\n    @IdentityMetadata::ProjectRef { projectId = \"proj-1\"; }\n" +
+				"    part def PD { attribute w; }\n    part p : PD;\n    action def Act;\n    action def A {\n        " +
+				tc.node + "\n        " + id + "\n    }\n}\n"
+			turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+			if err != nil {
+				t.Fatalf("to turtle: %v", err)
+			}
+			stated := "<urn:sysmlv2:element:11111111-2222-3333-4444-555555555555>\n    a sysml:" + tc.metaclass + " ;"
+			if !strings.Contains(string(turtle), stated) {
+				t.Fatalf("the graph does not state the node as one %s with its declared id:\n%s", tc.metaclass, turtle)
+			}
+			stripped := withoutTriples(t, turtle, "sysx:sourceText")
+			back, err := convert.Convert("m.ttl", stripped, convert.FormatTurtle, convert.FormatSysML)
+			if err != nil {
+				t.Fatalf("back to notation: %v", err)
+			}
+			for _, want := range []string{"        " + id + "\n", "        " + tc.node + "\n"} {
+				if !strings.Contains(string(back), want) {
+					t.Errorf("the notation does not write %q:\n%s", want, back)
+				}
+			}
+			again, err := convert.Convert("m.sysml", back, convert.FormatSysML, convert.FormatTurtle)
+			if err != nil {
+				t.Fatalf("the notation written back does not convert: %v\n%s", err, back)
+			}
+			if !strings.Contains(string(again), stated) {
+				t.Errorf("the node lost its metaclass or declared id on the way back:\n%s", again)
+			}
+			second, err := convert.Convert("m.ttl", withoutTriples(t, again, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
+			if err != nil {
+				t.Fatalf("second pass: %v", err)
+			}
+			if string(second) != string(back) {
+				t.Errorf("the notation is not a fixed point:\n%s\nthen\n%s", back, second)
+			}
+		})
+	}
+}
