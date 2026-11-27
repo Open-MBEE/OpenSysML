@@ -1146,7 +1146,7 @@ actually produces and for what:
 | `unimplemented` | 501 | A capability the running service was started without (`capability "query" is unavailable`) or a method it does not have | `UnsupportedOperationError` — do not retry |
 | `unavailable` | 503 | Not produced by the service itself; a proxy or a shutting-down process answers it | `ConnectionError` — retry with backoff |
 | `deadline_exceeded` | 504 | The client's deadline passed | `ServiceTimeoutError` |
-| `canceled` | 499 | The client cancelled | `ServiceTimeoutError` |
+| `canceled` | 499 | The client cancelled | `ServiceTimeoutError` (in the Node client its subclass `ServiceCancelledError`) |
 | `resource_exhausted` | 429 | A document query (`RunDocumentQuery`, or one a `RenderDocument` runs) exhausted its visit, invocation or invocation-depth budget | `ServiceError` — the query, not the request, is at fault |
 | `already_exists` | 409 | Not currently produced | `ServiceError` |
 | `aborted` | 409 | Not currently produced | `ServiceError` |
@@ -2625,11 +2625,13 @@ form](external-engines.md#the-graphs1-model-form)). `content` is that JSON with 
 newline, byte for byte what `sysml -graphs <subject>` writes; `version` is its `version` field and
 `subject` the qualified name as resolved. The subject names an action or state machine, definition
 or usage, by qualified name: a name no element has is `NOT_FOUND` (`symbol not found:
-Test::Missing`), one that is no behavior (`Test: graphs: subject has no lowered graph: Test is a
-package`) is `INVALID_ARGUMENT`, and so is a name the model declares more than once (`P::Run is
-ambiguous: the model declares 2 elements under that name`); a declaration of the model's shadows
-the library's of the same name. The service advertises this method as the `export_graphs`
-capability.
+Test::Missing`), one that is no behavior (`no lowered graph for the package Test: the subject
+must be an action or a state machine`, led by the subject as requested when that is an id or an
+inherited member's name; a state declared without a body, a transition and a control node are
+refused as parts of their owner's graph, and an element under an unnamed owner is described by its
+own name and its owners, `the part usage x of an unnamed part usage of P::A`) is `INVALID_ARGUMENT`, and so is a name the model declares more than once (`P::Run is ambiguous: the model declares 2 elements under that name`); a
+declaration of the model's shadows the library's of the same name. The service advertises this
+method as the `export_graphs` capability.
 
 This excerpt was captured by calling the gRPC service with `Test::race` from
 `conformance/fixtures/behavior.sysml` and marshaling the response with protobuf JSON; the

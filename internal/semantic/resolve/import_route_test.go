@@ -1,6 +1,8 @@
 package resolve
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -60,5 +62,28 @@ func TestRouteDepsSinceReportsCutsAndEntries(t *testing.T) {
 	}
 	if r.importMarks != 0 {
 		t.Errorf("importMarks = %d, want 0", r.importMarks)
+	}
+}
+
+// Every read of a namespace's imports asks whether its region is plain, so the
+// question reuses its tables: at most the import list of each namespace is new.
+func TestPlainRegionReusesItsTables(t *testing.T) {
+	const packages = 8
+	var src strings.Builder
+	for i := range packages {
+		fmt.Fprintf(&src, "package P%d { public import P%d::*; part def D%d; }\n", i, (i+1)%packages, i)
+	}
+	r := resolveDoc(t, "ring.sysml", src.String())
+	scope := scopeNamed(t, r, "ring.sysml", "P0")
+	if !r.plainRegion(scope) {
+		t.Fatal("a ring of packages importing each other is not a plain region")
+	}
+	allocs := testing.AllocsPerRun(100, func() {
+		if !r.plainRegion(scope) {
+			t.Fatal("the region stopped being plain")
+		}
+	})
+	if allocs > packages {
+		t.Errorf("asking again allocated %v times, want at most %d", allocs, packages)
 	}
 }

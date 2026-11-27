@@ -163,7 +163,7 @@ func TestInfinityArithmeticUndefined(t *testing.T) {
 		{"1..*", semantics.ErrArithmeticDomain, "'..' requires finite bounds, got * for upper"},
 		{"-*..1", semantics.ErrArithmeticDomain, "'..' requires finite bounds, got -* for lower"},
 		{"NaturalFunctions::ToString(-*)", ErrTypeMismatch, "requires a Natural value, got -*"},
-		{"* + true", ErrTypeMismatch, "operator '+' requires numeric operands, got * and true"},
+		{"* + true", ErrTypeMismatch, "operator '+' is not defined for an infinity and a Boolean"},
 		{"(-*) ** -0.5", semantics.ErrArithmeticDomain, "is undefined in the extended reals"},
 		{"OpenSysMLMathFunctions::atan2(*, -*)", semantics.ErrArithmeticDomain, "is undefined at (*, -*)"},
 		{"OpenSysMLMathFunctions::log(*, *)", semantics.ErrArithmeticDomain, "is undefined at (*, *)"},

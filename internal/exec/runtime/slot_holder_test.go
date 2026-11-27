@@ -26,7 +26,7 @@ func TestSlotHoldersSeeClassificationBetweenChoicesAtOneInstant(t *testing.T) {
 	classify := func() ChoicePoint {
 		c := ChoicePoint{Kind: ChoiceDueOrder, Alternatives: []string{"raw", "other"}}
 		holder := ctx.slotHolders()
-		classifyChoice(&c, fps, func(i, j int) lower.Relation { return ctx.relationBy(a, b, holder) })
+		classifyChoice(ctx.choiceSerials, &c, fps, func(i, j int) lower.Relation { return ctx.relationBy(a, b, holder) })
 		return c
 	}
 	now := ctx.clock.now

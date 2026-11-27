@@ -4,6 +4,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // The occurrences an interaction declares are its lifelines, flat and in
@@ -256,6 +258,55 @@ func TestSequenceRenderingOrdersAChainOfSuccessionsByTheirEvents(t *testing.T) {
 	}
 }
 
+// Successions no message orders are drawn in the order they are declared, whether
+// a `succession` usage or a member-attached `then` states each.
+func TestSequenceRenderingDrawsSuccessionsInDeclarationOrder(t *testing.T) {
+	for _, tc := range []struct {
+		name, body string
+		want       []string
+	}{
+		{"a then closing a chain of usages",
+			`event occurrence a; event occurrence b; event occurrence c;
+			succession first a then b; succession first b then c; then event occurrence d;`,
+			[]string{"a then b", "b then c", "c then d"}},
+		{"a then between usages it shares no event with",
+			`event occurrence a; event occurrence b; succession first a then b;
+			event occurrence c; then event occurrence d;
+			event occurrence e; event occurrence f; succession first e then f;`,
+			[]string{"a then b", "c then d", "e then f"}},
+		{"a then opening a chain of usages",
+			`event occurrence a; then event occurrence b;
+			event occurrence c; succession first b then c;`,
+			[]string{"a then b", "b then c"}},
+		{"a then opening a chain whose second step and a branch are declared above it",
+			`event occurrence c; event occurrence d; succession first b then d; succession first a then c;
+			event occurrence a; then event occurrence b;`,
+			[]string{"a then c", "a then b", "b then d"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rendering := renderSource(t, "Ordered::shown", `package Ordered {
+	private import StandardViewDefinitions::*;
+	part def System { part server { `+tc.body+` } }
+	view shown : SequenceView { expose System; }
+}`)
+			names := map[string]string{}
+			for _, proxy := range rendering.Roots[0].Children {
+				names[proxy.ID] = proxy.Name
+			}
+			var rows []string
+			for _, edge := range rendering.Edges {
+				rows = append(rows, names[edge.From]+" then "+names[edge.To])
+			}
+			if !slices.Equal(rows, tc.want) {
+				t.Errorf("rows = %v, want %v", rows, tc.want)
+			}
+			if len(rendering.Notices) != 0 {
+				t.Errorf("notices = %v, want none", rendering.Notices)
+			}
+		})
+	}
+}
+
 // Messages nothing orders keep declaration order.
 func TestSequenceRenderingKeepsDeclarationOrderWhereNothingIsStated(t *testing.T) {
 	rendering := render(t, "sequence-lifelines.sysml", "LifelineViews::unorderedView")
@@ -422,4 +473,283 @@ func lifelineName(rendering *Rendering, id string) string {
 		}
 	}
 	return ""
+}
+
+// An action exposed beside an interaction — as rendering a whole document does —
+// is behavior, not a participant: it is no lifeline, its control flow is not
+// drawn as successions on one, and it is reported rather than dropped.
+func TestSequenceRenderingReportsExposedBehavior(t *testing.T) {
+	const text = `package Demo {
+	item def Start;
+	action def Drive {
+		first start;
+		then action unlock;
+		then fork f;
+		then action startEngine;
+		first startEngine then done;
+	}
+	part scenario {
+		part driver {
+			event occurrence sendStart;
+		}
+		part car {
+			event occurrence recvStart;
+		}
+		message startMsg of Start from driver.sendStart to car.recvStart;
+	}
+}
+`
+	r, idx := loadSources(t, []string{"inline.sysml"}, [][]byte{[]byte(text)})
+	exposed := []*symbols.Symbol{lookup(t, idx, "Demo::Drive"), lookup(t, idx, "Demo::scenario")}
+	rendering, err := r.RenderExposed(exposed, KindSequence, "#sequence")
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	if got := lifelineNames(rendering); !slices.Equal(got, []string{"driver", "car"}) {
+		t.Errorf("lifelines = %v, want the parts of the interaction only", got)
+	}
+	if got := messageLabels(rendering); !slices.Equal(got, []string{"startMsg of Start"}) {
+		t.Errorf("messages = %v, want the one message", got)
+	}
+	for _, edge := range rendering.Edges {
+		if edge.Kind == EdgeSuccession {
+			t.Errorf("succession %s -> %s is drawn; the action's control flow is no order of the interaction", edge.From, edge.To)
+		}
+	}
+	if len(rendering.Notices) != 1 || !strings.Contains(rendering.Notices[0], "action def Drive is behavior, not a participant") {
+		t.Errorf("notices = %v, want the exposed action reported", rendering.Notices)
+	}
+}
+
+// An exposed action a message reaches stays a lifeline carrying that message,
+// without its control flow drawn on it.
+func TestSequenceRenderingKeepsBehaviorAMessageReaches(t *testing.T) {
+	const text = `package Demo {
+	item def Ping;
+	action def Run {
+		event occurrence sent;
+		first start;
+		then action step;
+	}
+	part server {
+		event occurrence got;
+	}
+	message ping of Ping from Run.sent to server.got;
+}
+`
+	r, idx := loadSources(t, []string{"inline.sysml"}, [][]byte{[]byte(text)})
+	exposed := []*symbols.Symbol{lookup(t, idx, "Demo::Run"), lookup(t, idx, "Demo::server"), lookup(t, idx, "Demo::ping")}
+	rendering, err := r.RenderExposed(exposed, KindSequence, "#sequence")
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	if len(rendering.Roots) != 2 || rendering.Roots[0].Kind != "action def" {
+		t.Fatalf("lifelines = %v, want the action a message reaches and the part's event", lifelineNames(rendering))
+	}
+	if len(rendering.Edges) != 1 || rendering.Edges[0].Label != "ping of Ping" {
+		t.Errorf("edges = %v, want the one message and no control flow", rendering.Edges)
+	}
+	if len(rendering.Notices) != 0 {
+		t.Errorf("notices = %v, want none", rendering.Notices)
+	}
+}
+
+// A succession stated in full between two events of an exposed action is an
+// order on its lifeline, as the member-attached form is.
+func TestSequenceRenderingOrdersEventsOfExposedBehavior(t *testing.T) {
+	const text = `package Demo {
+	action def Run {
+		event occurrence ready;
+		event occurrence sent;
+		succession first ready then sent;
+		action step;
+		succession first start then step;
+	}
+}
+`
+	r, idx := loadSources(t, []string{"inline.sysml"}, [][]byte{[]byte(text)})
+	rendering, err := r.RenderExposed([]*symbols.Symbol{lookup(t, idx, "Demo::Run")}, KindSequence, "#sequence")
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	if len(rendering.Roots) != 1 || len(rendering.Roots[0].Children) != 2 {
+		t.Fatalf("lifelines = %v, want the action with its two events", lifelineNames(rendering))
+	}
+	if len(rendering.Edges) != 1 || rendering.Edges[0].Kind != EdgeSuccession {
+		t.Errorf("edges = %v, want the one order between the events", rendering.Edges)
+	}
+}
+
+// A layout note about an exposed action that is not shown goes with its lifeline.
+func TestSequenceRenderingDropsNotesOfBehaviorNotShown(t *testing.T) {
+	const text = `package Demo {
+	private import DiagramLayout::*;
+	private import Views::*;
+	private import StandardViewDefinitions::*;
+	action def Run {
+		first start;
+		then action step;
+	}
+	part server;
+	metadata Note about Run { text = "runs once"; x = 40; y = 120; }
+	metadata Note about server { text = "listens"; x = 40; y = 20; }
+	view calls : SequenceView { expose Run; expose server; }
+}
+`
+	r, idx := loadSources(t, []string{"inline.sysml"}, [][]byte{[]byte(text)})
+	rendering, err := r.Render(lookup(t, idx, "Demo::calls"))
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	if got := lifelineNames(rendering); !slices.Equal(got, []string{"Demo::server"}) {
+		t.Fatalf("lifelines = %v, want the part only", got)
+	}
+	if len(rendering.Notes) != 1 || rendering.Notes[0].Text != "listens" || rendering.Notes[0].Anchor != rendering.Roots[0].ID {
+		t.Errorf("notes = %+v, want the one on the part's lifeline", rendering.Notes)
+	}
+}
+
+// A control-flow succession a view exposes by name is drawn whether the view
+// exposes it before or after the action that owns it.
+func TestSequenceRenderingOfAnExposedSuccessionIgnoresExposeOrder(t *testing.T) {
+	const text = `package Demo {
+	action def Run {
+		event occurrence ready;
+		action step;
+		succession toStep first ready then step;
+	}
+}
+`
+	r, idx := loadSources(t, []string{"inline.sysml"}, [][]byte{[]byte(text)})
+	run, flow := lookup(t, idx, "Demo::Run"), lookup(t, idx, "Demo::Run::toStep")
+	var counts []int
+	for _, exposed := range [][]*symbols.Symbol{{run, flow}, {flow, run}} {
+		rendering, err := r.RenderExposed(exposed, KindSequence, "#sequence")
+		if err != nil {
+			t.Fatalf("render: %v", err)
+		}
+		counts = append(counts, len(rendering.Edges))
+	}
+	if counts[0] != 1 || counts[1] != 1 {
+		t.Errorf("edges = %v, want the exposed succession drawn in either order", counts)
+	}
+}
+
+// A behavior left out takes the notes on its events with it: an event a message
+// that could not be drawn had put on its lifeline is gone as the lifeline is.
+func TestSequenceRenderingDropsNotesOnEventsOfBehaviorNotShown(t *testing.T) {
+	const text = `package Demo {
+	private import DiagramLayout::*;
+	private import Views::*;
+	private import StandardViewDefinitions::*;
+	item def Ping;
+	action def Run {
+		event occurrence sent;
+	}
+	part hidden {
+		event occurrence got;
+	}
+	message ping of Ping from Run.sent to hidden.got;
+	metadata Note about Run::sent { text = "sends once"; x = 40; y = 120; }
+	view calls : SequenceView { expose Run; expose ping; }
+}`
+	rendering := renderSource(t, "Demo::calls", text)
+	if len(rendering.Notes) != 0 {
+		t.Errorf("notes = %+v, want none: the event they are about is not shown", rendering.Notes)
+	}
+	if len(rendering.Roots) != 0 || len(rendering.Edges) != 0 {
+		t.Errorf("roots %v edges %v, want neither: the message has no receiver shown", lifelineNames(rendering), rendering.Edges)
+	}
+}
+
+// Successions declared out of order are drawn first step first, below the message
+// that reaches their first event and above the one their last event sends.
+func TestSequenceRenderingDrawsSuccessionChainInCausalOrder(t *testing.T) {
+	const reaching = `message ping of Ping from client.sent to server.a;`
+	const sending = `message pong of Ping from server.d to client.got;`
+	for _, tc := range []struct {
+		name, body, message string
+		want                []string
+	}{
+		{"the chain's second step declared before a branch and its first step",
+			`succession first b then d; succession first a then c; succession first a then b;`, reaching,
+			[]string{"sent then a", "a then c", "a then b", "b then d"}},
+		{"a three-step chain declared last step first",
+			`succession first c then d; succession first b then c; succession first a then b;`, reaching,
+			[]string{"sent then a", "a then b", "b then c", "c then d"}},
+		{"a chain declared in order beside a branch",
+			`succession first a then b; succession first a then c; succession first b then d;`, reaching,
+			[]string{"sent then a", "a then b", "a then c", "b then d"}},
+		{"a cycle is placed as declared",
+			`succession first b then d; succession first d then b; succession first a then b;`, reaching,
+			[]string{"sent then a", "a then b", "b then d", "d then b"}},
+		{"a chain declared last step first ending at a send, beside a branch",
+			`succession first b then d; succession first a then c; succession first a then b;`, sending,
+			[]string{"a then c", "a then b", "b then d", "d then got"}},
+		{"a chain between a message received and a message sent",
+			`succession first b then d; succession first a then c; succession first a then b;`, reaching + sending,
+			[]string{"sent then a", "a then c", "a then b", "b then d", "d then got"}},
+		{"a branch into a later step declared after an unordered one",
+			`succession first c then d; succession first a then b; succession first a then c;`, sending,
+			[]string{"a then b", "a then c", "c then d", "d then got"}},
+		{"a branch declared before the step leading to a send stays above it",
+			`succession first a then b; succession first b then e; succession first b then d;`, sending,
+			[]string{"a then b", "b then e", "b then d", "d then got"}},
+		{"a branch declared before a step between two sends stays above that step",
+			`succession first a then b; succession first a then c; succession first b then d;`,
+			`message ping of Ping from server.b to client.sent;` + sending,
+			[]string{"a then b", "b then sent", "a then c", "b then d", "d then got"}},
+		{"a succession sharing no event with the chain between two sends stays below them",
+			`succession first a then b; succession first c then e; succession first b then d;`,
+			`message ping of Ping from server.b to client.sent;` + sending,
+			[]string{"a then b", "b then sent", "b then d", "d then got", "c then e"}},
+		{"a step declared after a succession it shares no event with",
+			`succession first a then b; succession first c then d; succession first b then e;`, "",
+			[]string{"a then b", "c then d", "b then e"}},
+		{"a chain declared last step first after a cycle",
+			`succession first c then d; succession first d then c; succession first b then e; succession first a then b;`, "",
+			[]string{"c then d", "d then c", "a then b", "b then e"}},
+		{"a three-step cycle is placed as declared",
+			`succession first a then b; succession first c then a; succession first b then c;`, "",
+			[]string{"a then b", "c then a", "b then c"}},
+		{"a step into a cycle is drawn above all of it",
+			`succession first e then b; succession first b then e; succession first a then b;`, "",
+			[]string{"a then b", "e then b", "b then e"}},
+		{"a cycle through a send is placed as declared around its message",
+			`succession first e then d; succession first d then e;`, sending,
+			[]string{"e then d", "d then got", "d then e"}},
+		{"a chain ending at a send that a cycle follows",
+			`succession first d then c; succession first c then e; succession first e then c;
+			succession first b then d; succession first a then b;`, sending,
+			[]string{"a then b", "b then d", "d then got", "d then c", "c then e", "e then c"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rendering := renderSource(t, "Chained::shown", `package Chained {
+	private import StandardViewDefinitions::*;
+	item def Ping;
+	part def Run {
+		part client { event occurrence sent; event occurrence got; }
+		part server {
+			event occurrence a; event occurrence b; event occurrence c; event occurrence d; event occurrence e;
+			`+tc.body+`
+		}
+		`+tc.message+`
+	}
+	view shown : SequenceView { expose Run; }
+}`)
+			names := map[string]string{}
+			for _, lifeline := range rendering.Roots {
+				for _, proxy := range lifeline.Children {
+					names[proxy.ID] = proxy.Name
+				}
+			}
+			var rows []string
+			for _, edge := range rendering.Edges {
+				rows = append(rows, names[edge.From]+" then "+names[edge.To])
+			}
+			if !slices.Equal(rows, tc.want) {
+				t.Errorf("rows = %v, want %v", rows, tc.want)
+			}
+		})
+	}
 }

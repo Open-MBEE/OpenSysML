@@ -32,6 +32,9 @@ const (
 	mUnioning                          = "Unioning"
 	mIntersecting                      = "Intersecting"
 	mDifferencing                      = "Differencing"
+	mDisjoining                        = "Disjoining"
+	mFeatureInverting                  = "FeatureInverting"
+	mTypeFeaturing                     = "TypeFeaturing"
 	mFlow                              = "Flow"
 	mFlowUsage                         = "FlowUsage"
 	mSuccessionFlow                    = "SuccessionFlow"
@@ -71,6 +74,7 @@ const (
 	pGuardExpression                   = "guardExpression"
 	pTriggerAction                     = "triggerAction"
 	pPayloadParameter                  = "payloadParameter"
+	pLoopVariable                      = "loopVariable"
 	pPayloadArgument                   = "payloadArgument"
 	pReceiverArgument                  = "receiverArgument"
 	pSenderArgument                    = "senderArgument"
@@ -142,7 +146,8 @@ type headItem struct {
 // states them.
 var materializedKinds = []ast.RelationshipKind{
 	ast.RelTyping, ast.RelSpecializes, ast.RelSubsets, ast.RelRedefines, ast.RelReferences, ast.RelCrosses,
-	ast.RelUnions, ast.RelIntersects, ast.RelDifferences, ast.RelAnnotates,
+	ast.RelUnions, ast.RelIntersects, ast.RelDifferences, ast.RelDisjoint, ast.RelInverseOf, ast.RelFeaturedBy,
+	ast.RelAnnotates,
 }
 
 // materializeRelationships emits one relationship element per target of each
@@ -155,7 +160,7 @@ func (e *encoder) materializeRelationships(subject rdf.Term) {
 	if ontology.IsAncestorOrSelf(e.metaclassOf(subject), "Membership") {
 		return
 	}
-	targets, position, aboutPosition := e.pendingRelationships(subject)
+	targets, position := e.pendingRelationships(subject)
 	emitted := make([]bool, len(targets))
 	var block []rdf.Term
 	emit := func(at int) {
@@ -185,7 +190,7 @@ func (e *encoder) materializeRelationships(subject rdf.Term) {
 				block = append(block, item.element)
 				continue
 			}
-			if at, ok := pendingAt(item, position, aboutPosition); ok {
+			if at, ok := pendingAt(item, position); ok {
 				emit(at)
 			}
 		}
@@ -207,40 +212,73 @@ type pendingRelationship struct {
 	index  int
 }
 
-// pendingRelationships lists the targets of every collapsed head property
-// subject states, kind by kind, with the position of each head item among them.
-func (e *encoder) pendingRelationships(subject rdf.Term) (targets []pendingRelationship, position, aboutPosition map[headItem]int) {
-	position = map[headItem]int{}
-	aboutPosition = map[headItem]int{}
+// pendingRelationships lists the relationships every collapsed head property of subject
+// awaits, kind by kind, with the positions each head item's clauses take among them in order.
+func (e *encoder) pendingRelationships(subject rdf.Term) (targets []pendingRelationship, position map[headItem][]int) {
+	position = map[headItem][]int{}
 	for _, kind := range materializedKinds {
 		if kind == ast.RelAnnotates {
 			// Each `about` entry is its own Annotation, a repeated name included (KerML
 			// 8.3.2.3.2); the collapsed annotatedElement states each target once.
 			items := e.aboutItems(subject)
 			for i, item := range items {
-				aboutPosition[item] = len(targets)
+				position[item] = append(position[item], len(targets))
 				targets = append(targets, pendingRelationship{kind, item.element, len(items), i})
 			}
 			continue
 		}
+		if kind == ast.RelFeaturedBy && ontology.IsAncestorOrSelf(e.metaclassOf(subject), mTypeFeaturing) {
+			// A TypeFeaturing's featuringType is its own end, not a `featured by` clause.
+			continue
+		}
+		// A clause repeating a target (`: T, T`) is a relationship of its own, which the
+		// collapsed property cannot state: it follows the property's targets, in head order.
 		objects := e.graph.Objects(subject, rdf.SysML+relationshipProperty[kind])
-		for i, target := range objects {
-			position[headItem{kind: kind, element: target}] = len(targets)
-			targets = append(targets, pendingRelationship{kind, target, len(objects), i})
+		repeats := e.repeatedTargets(subject, kind)
+		count := len(objects) + len(repeats)
+		for i, target := range slices.Concat(objects, repeats) {
+			key := headItem{kind: kind, element: target}
+			position[key] = append(position[key], len(targets))
+			targets = append(targets, pendingRelationship{kind, target, count, i})
 		}
 	}
-	return targets, position, aboutPosition
+	return targets, position
 }
 
-// pendingAt finds the pending target a spelled head item names: an `about`
-// entry by the item itself, a specialization clause by its kind and object.
-func pendingAt(item headItem, position, aboutPosition map[headItem]int) (int, bool) {
-	if item.kind == ast.RelAnnotates {
-		at, ok := aboutPosition[item]
-		return at, ok
+// repeatedTargets are the targets subject's head spelled again under kind, once per
+// clause after the first naming the target, in head order.
+func (e *encoder) repeatedTargets(subject rdf.Term, kind ast.RelationshipKind) []rdf.Term {
+	head := e.heads[subject]
+	if head == nil {
+		return nil
 	}
-	at, ok := position[headItem{kind: item.kind, element: item.element}]
-	return at, ok
+	var repeats []rdf.Term
+	seen := map[rdf.Term]bool{}
+	for _, item := range head.spelled() {
+		if item.multiplicity || item.kind != kind {
+			continue
+		}
+		if seen[item.element] {
+			repeats = append(repeats, item.element)
+		}
+		seen[item.element] = true
+	}
+	return repeats
+}
+
+// pendingAt takes the next pending relationship a spelled head item names: an `about`
+// entry by the item itself, a specialization clause by its kind and object.
+func pendingAt(item headItem, position map[headItem][]int) (int, bool) {
+	key := item
+	if item.kind != ast.RelAnnotates {
+		key = headItem{kind: item.kind, element: item.element}
+	}
+	if len(position[key]) == 0 {
+		return 0, false
+	}
+	at := position[key][0]
+	position[key] = position[key][1:]
+	return at, true
 }
 
 // aboutItems are the `about` entries an annotating element's head spelled, in
@@ -388,6 +426,12 @@ func (e *encoder) relationshipSpec(subject rdf.Term, kind ast.RelationshipKind, 
 		return typeOperandSpec(mIntersecting, suffix, "typeIntersected", "intersectingType", "ownedIntersecting"), true
 	case ast.RelDifferences:
 		return typeOperandSpec(mDifferencing, suffix, "typeDifferenced", "differencingType", "ownedDifferencing"), true
+	case ast.RelDisjoint:
+		return ownedEndSpec(mDisjoining, suffix, "typeDisjoined", pOwningType, "disjoiningType", "ownedDisjoining"), true
+	case ast.RelInverseOf:
+		return ownedEndSpec(mFeatureInverting, suffix, "featureInverted", pOwningFeature, "invertingFeature", "ownedFeatureInverting"), true
+	case ast.RelFeaturedBy:
+		return ownedEndSpec(mTypeFeaturing, suffix, "featureOfType", "owningFeatureOfType", "featuringType", "ownedTypeFeaturing"), true
 	case ast.RelAnnotates:
 		// An `about` names an element the annotating element annotates through an
 		// Annotation it owns (KerML 8.3.2.3.2 AnnotatingElement::ownedAnnotatingRelationship).
@@ -434,6 +478,12 @@ func relationshipSuffix(kind ast.RelationshipKind, classifier bool, count, i int
 		return "_is" + index
 	case ast.RelDifferences:
 		return "_df" + index
+	case ast.RelDisjoint:
+		return "_dj" + index
+	case ast.RelInverseOf:
+		return "_iv" + index
+	case ast.RelFeaturedBy:
+		return "_tf" + index
 	}
 	return ""
 }
@@ -461,6 +511,15 @@ func crossSubsettingSuffix(count, i int) string {
 func typeOperandSpec(metaclass, suffix, source, target, owned string) normativeRelationship {
 	return normativeRelationship{metaclass, suffix,
 		[]string{source, pSource, pOwningRelatedElement},
+		[]string{target, pTarget},
+		[]string{owned, pOwnedRelationship}}
+}
+
+// ownedEndSpec is the materialization of one target of `disjoint from`, `inverse of` or
+// `featured by`: the relationship the declared element owns, naming it as source and as owner.
+func ownedEndSpec(metaclass, suffix, source, owner, target, owned string) normativeRelationship {
+	return normativeRelationship{metaclass, suffix,
+		[]string{source, owner, pSource, pOwningRelatedElement},
 		[]string{target, pTarget},
 		[]string{owned, pOwnedRelationship}}
 }

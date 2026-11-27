@@ -507,10 +507,12 @@ type Loop struct {
 	// iteration (`while c { … } until d;`), nil when it carries none.
 	Until ast.Node
 	// UntilID is Until in the table of the flow or body the statement was lowered for.
-	UntilID    program.ExprID
-	Variable   string   // `for` only: the name each element is bound to
-	Bound      bool     // `for` only: a variable is declared, the empty name included
-	Collection ast.Node // `for` only: the collection iterated over
+	UntilID  program.ExprID
+	Variable string // `for` only: the name each element is bound to
+	// VariableSymbol is the `for` variable's declaration, which its body reads by either name.
+	VariableSymbol *symbols.Symbol
+	Bound          bool     // `for` only: a variable is declared, the empty name included
+	Collection     ast.Node // `for` only: the collection iterated over
 	// CollectionID is Collection in the table of the flow or body the statement was lowered for.
 	CollectionID program.ExprID
 	Body         Block
@@ -1323,72 +1325,88 @@ func (l *actionEdgeLowerer) endpoint(ref, member ast.Node, source bool) (ast.Nod
 		return resolveActionEndpoint(l.graph, ref, source), nil
 	}
 	if member != nil {
-		for _, node := range l.graph.Nodes {
-			if node == member {
-				return node, nil
-			}
-		}
-		matches := inheritedNodeMatches(l.graph, l.scope, member)
-		if len(matches) > 1 {
-			return nil, fmt.Errorf("%w: %s", ErrAmbiguousInheritedStep, getNodeName(member))
-		}
-		if len(matches) == 1 {
-			return matches[0], nil
-		}
-		if replacement := l.incompatible[member]; replacement != nil {
-			return nil, fmt.Errorf("%w: succession end %q is replaced by %s, which is not an action step",
-				ErrIncompatibleRedefinedStep, getNodeName(member), ast.SimpleName(replacement))
-		}
-		if final, ok := member.(*ast.FinalNode); ok {
-			return ensureInheritedDone(l.graph, final, l.scope), nil
-		}
-		if name := getNodeName(member); name != "" {
-			if node := l.nodes(name); node != nil {
-				return node, nil
-			}
-			if name == "start" && source {
-				if l.graph.Initial != nil {
-					return l.graph.Initial, nil
-				}
-				return resolveActionEndpoint(l.graph, ref, true), nil
-			}
+		if node, found, err := l.memberEndpoint(ref, member, source); found || err != nil {
+			return node, err
 		}
 	}
+	return l.namedEndpoint(ref, source)
+}
+
+// memberEndpoint is the node the resolved member of an edge end stands for; found is false
+// when the end is left to the name ref writes.
+func (l *actionEdgeLowerer) memberEndpoint(ref, member ast.Node, source bool) (node ast.Node, found bool, err error) {
+	if slices.Contains(l.graph.Nodes, member) {
+		return member, true, nil
+	}
+	name := getNodeName(member)
+	if node, err := l.inheritedEndpoint(member, name); node != nil || err != nil {
+		return node, node != nil, err
+	}
+	if final, ok := member.(*ast.FinalNode); ok {
+		return ensureInheritedDone(l.graph, final, l.scope), true, nil
+	}
+	if name == "" {
+		return nil, false, nil
+	}
+	if node := l.nodes(name); node != nil {
+		return node, true, nil
+	}
+	if name != "start" || !source {
+		return nil, false, nil
+	}
+	if l.graph.Initial != nil {
+		return l.graph.Initial, true, nil
+	}
+	return resolveActionEndpoint(l.graph, ref, true), true, nil
+}
+
+// inheritedEndpoint is the one node of the graph standing for the inherited step decl, or
+// the error of a step that is ambiguous or replaced by something that is no action step.
+func (l *actionEdgeLowerer) inheritedEndpoint(decl ast.Node, name string) (ast.Node, error) {
+	matches := inheritedNodeMatches(l.graph, l.scope, decl)
+	if len(matches) > 1 {
+		return nil, fmt.Errorf("%w: %s", ErrAmbiguousInheritedStep, name)
+	}
+	if len(matches) == 1 {
+		return matches[0], nil
+	}
+	if replacement := l.incompatible[decl]; replacement != nil {
+		return nil, incompatibleStepError(name, replacement)
+	}
+	return nil, nil
+}
+
+func incompatibleStepError(name string, replacement ast.Node) error {
+	return fmt.Errorf("%w: succession end %q is replaced by %s, which is not an action step",
+		ErrIncompatibleRedefinedStep, name, ast.SimpleName(replacement))
+}
+
+// namedEndpoint is the node the name ref writes stands for, or nil.
+func (l *actionEdgeLowerer) namedEndpoint(ref ast.Node, source bool) (ast.Node, error) {
 	qn := actionEndpointQualifiedName(ref)
-	if qn != nil && len(qn.Parts) > 0 {
-		name := qn.Parts[len(qn.Parts)-1].Text
-		if node := l.nodes(name); node != nil {
-			return node, nil
-		}
-		if name == "start" && source && !isChainEnd(ref) {
-			return ensureImpliedStart(l.graph, ref), nil
-		}
-		if name == "done" && !source && !isChainEnd(ref) {
-			return ensureInheritedDone(l.graph, &ast.FinalNode{NodeBase: ast.NodeBase{NodeSpan: ref.Span()}}, l.scope), nil
-		}
-		decl, _, found, _ := resolve.ActionNodeInScope(l.scope, qn)
-		if !found {
-			decl, found = resolve.ActionNodeOfBody(l.scope, name)
-		}
-		if found {
-			matches := inheritedNodeMatches(l.graph, l.scope, decl)
-			if len(matches) > 1 {
-				return nil, fmt.Errorf("%w: %s", ErrAmbiguousInheritedStep, name)
-			}
-			if len(matches) == 1 {
-				return matches[0], nil
-			}
-			if replacement := l.incompatible[decl]; replacement != nil {
-				return nil, fmt.Errorf("%w: succession end %q is replaced by %s, which is not an action step",
-					ErrIncompatibleRedefinedStep, name, ast.SimpleName(replacement))
-			}
-			return nil, nil
-		}
-		for target, replacement := range l.incompatible {
-			if getNodeName(target) == name {
-				return nil, fmt.Errorf("%w: succession end %q is replaced by %s, which is not an action step",
-					ErrIncompatibleRedefinedStep, name, ast.SimpleName(replacement))
-			}
+	if qn == nil || len(qn.Parts) == 0 {
+		return nil, nil
+	}
+	name := qn.Parts[len(qn.Parts)-1].Text
+	if node := l.nodes(name); node != nil {
+		return node, nil
+	}
+	if name == "start" && source && !isChainEnd(ref) {
+		return ensureImpliedStart(l.graph, ref), nil
+	}
+	if name == "done" && !source && !isChainEnd(ref) {
+		return ensureInheritedDone(l.graph, &ast.FinalNode{NodeBase: ast.NodeBase{NodeSpan: ref.Span()}}, l.scope), nil
+	}
+	decl, _, found, _ := resolve.ActionNodeInScope(l.scope, qn)
+	if !found {
+		decl, found = resolve.ActionNodeOfBody(l.scope, name)
+	}
+	if found {
+		return l.inheritedEndpoint(decl, name)
+	}
+	for target, replacement := range l.incompatible {
+		if getNodeName(target) == name {
+			return nil, incompatibleStepError(name, replacement)
 		}
 	}
 	return nil, nil
@@ -2353,16 +2371,17 @@ func statementOf(member ast.Node, scope *symbols.Scope, resolver *resolve.Resolv
 		variable, _ := m.Variable.DeclaredName()
 		bodyScope := childScope(scope, m)
 		return Loop{
-			Kind:       m.Kind,
-			Condition:  m.Condition,
-			Until:      m.Until,
-			Variable:   variable,
-			Bound:      m.Variable.Declared(),
-			Collection: m.Collection,
-			Body:       lowerBlock(m, m.Body, bodyScope, resolver, exprs, ancestors),
-			BodyAction: loopBodyAction(m, bodyScope),
-			Node:       m,
-			Scope:      scope,
+			Kind:           m.Kind,
+			Condition:      m.Condition,
+			Until:          m.Until,
+			Variable:       variable,
+			VariableSymbol: bodyScope.MemberDeclaring(m),
+			Bound:          m.Variable.Declared(),
+			Collection:     m.Collection,
+			Body:           lowerBlock(m, m.Body, bodyScope, resolver, exprs, ancestors),
+			BodyAction:     loopBodyAction(m, bodyScope),
+			Node:           m,
+			Scope:          scope,
 		}
 	case *ast.IfActionNode:
 		lowered := If{Condition: m.Condition, Node: m, Scope: scope}
@@ -2574,7 +2593,7 @@ func lowerBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope, resolv
 	block := Block{Node: owner, Scope: scope}
 	for _, member := range members {
 		actual := unwrapMembership(member)
-		if actual == nil || isAnnotation(actual) {
+		if actual == nil || isAnnotation(actual) || statesNoStep(actual) {
 			continue
 		}
 		block.Statements = append(block.Statements, lowerStatement(actual, scope, resolver, exprs, ancestors))

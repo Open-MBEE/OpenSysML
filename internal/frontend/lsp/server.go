@@ -173,7 +173,7 @@ func runHandler(s *Server) jsonrpc2.Handler {
 	serve := s.stdlibHandler(s.debugHandler(s.renderHandler(s.importDiagramHandler(s.modelEditHandler(notificationErrorsStayLocal(s.changeHandler(s.cellHandler(protocol.ServerHandler(s, jsonrpc2.MethodNotFoundHandler)))))))))
 	// The lifecycle wrapper runs outside inOrder so that shutdown, exit and
 	// the messages after them are ordered as the client sent them.
-	return s.lifecycleHandler(protocol.CancelHandler(inOrder(answerCancelled(serve))))
+	return s.lifecycleHandler(protocol.CancelHandler(inOrder(s.endedByExit(answerCancelled(serve)))))
 }
 
 // inOrder frees the read loop at once but runs the handlers one at a time in

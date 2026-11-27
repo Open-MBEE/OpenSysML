@@ -54,7 +54,7 @@ func (m *Model) BehaviorSuccessionFeaturingType(owner *symbols.Symbol, paths [][
 				featuring.Kind == symbols.SymbolNamespace || IsAnything(featuring) {
 				continue
 			}
-			if !m.Conforms(owner, featuring) {
+			if !m.SpecializesThroughReferences(owner, featuring) {
 				return nil, false
 			}
 		}

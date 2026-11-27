@@ -78,10 +78,11 @@ func (c *client) ImportData(ctx context.Context, model *Model, imports []DataImp
 	for _, opt := range opts {
 		opt(&o)
 	}
-	hash, err := c.call(model)
+	hash, done, err := c.call(model)
 	if err != nil {
 		return nil, err
 	}
+	defer done()
 	if err := c.requireCapabilities(ctx, CapabilityImportData); err != nil {
 		return nil, err
 	}
@@ -250,10 +251,11 @@ func (c *Comparison) Holds() bool {
 // `sysml -migration-results` writes) indexes and tables the tool's distribution
 // of every observable beside the runs' (compare_results capability).
 func (c *client) CompareResults(ctx context.Context, model *Model, results string, opts ...CompareOption) (*Comparison, error) {
-	hash, err := c.call(model)
+	hash, done, err := c.call(model)
 	if err != nil {
 		return nil, err
 	}
+	defer done()
 	if err := c.requireCapabilities(ctx, CapabilityCompareResults); err != nil {
 		return nil, err
 	}

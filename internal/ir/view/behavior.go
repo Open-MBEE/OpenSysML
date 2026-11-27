@@ -11,6 +11,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
@@ -58,7 +59,7 @@ func recordDrawn(drawn map[symbols.ElementKey]*Node) func(*symbols.Symbol, *Node
 
 // notShown is the notice for an exposed element a rendering of a kind does not draw.
 func notShown(r *Renderer, elem *symbols.Symbol, what, rendering string) string {
-	return fmt.Sprintf("%s %s is no %s; %s %s rendering does not show it", declKind(elem), r.notationName(elem), what, article(rendering), rendering)
+	return fmt.Sprintf("%s %s is no %s; %s %s rendering does not show it", declKind(elem), r.notationName(elem), what, diag.IndefiniteArticle(rendering), rendering)
 }
 
 // rootsByOwner groups the roots whose kind isRoot by the nearest owner (kind isOwner) declaring
@@ -1247,6 +1248,10 @@ func (r *Renderer) inheritedPorts(elem *symbols.Symbol, node ast.Node, id string
 	for _, member := range r.model.MembersOf(sym) {
 		usage, ok := member.Decl.(*ast.Usage)
 		if !ok || !lower.DeclaresNodeFeature(usage) || usage.Direction == ast.DirNone && !usage.IsResult {
+			continue
+		}
+		// A control node is drawn by its notation, whose rows stand for the parameters of its kind.
+		if r.model.IsControlKindMember(sym, member) {
 			continue
 		}
 		if usage.IsResult {

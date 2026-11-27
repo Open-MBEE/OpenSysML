@@ -17,4 +17,33 @@ package R {
 	part def Fl { part src : PD { out item o : Msg; } part dst : PD { in item i : Msg; } flow fl of Msg from src.o to dst.i; }
 	occurrence def Occ { attribute t : AD; }
 	action def Loop { action lp for i in (1,2,3) { } }
+	item def Sig; part def PQ { attribute q : AD; }
+	action def W { in c : Boolean; action wl while c { } until c; }
+	action def L { in c : Boolean; action ll loop { } until c; }
+	action def I { in c : Boolean; action ifa if c { } else { } }
+	action def I2 { in c : Boolean; action ifb if c { } }
+	action def I3 { in c : Boolean; action ifc if c action t { } else action e { } }
+	action def W2 { in c : Boolean; action wm while c action step { } }
+	action def Snd { in s : Sig; part p : PQ; action sa send s via p to p; }
+	action def Acc { part p : PQ; action aa accept m : Sig via p; }
+	action def Ter { part p : PQ; action ta terminate p; action tb terminate; }
+	action def AsgC { part p : PQ; in v : AD; action ac assign p.q := v; }
+	action def LoopT { in xs : AD[*]; action lt for j : AD in xs { } }
+	calc def G2 { in a : AD; in b : AD; return r : AD; }
+	part def P2 { attribute px : AD; attribute py : AD; }
+	part def E {
+		attribute d1 : AD; attribute d2 : AD; part ps : P2;
+		attribute eop : AD = d1 + d2;
+		attribute einv : AD = G2(d1, d2);
+		part enew : P2 = new P2(d1, d2);
+		attribute echain : AD = (ps).px;
+		attribute elit = 1;
+		attribute eidx = d1#(1);
+		attribute esel = d1.?{in v : AD; true};
+		attribute ecol = d1.{in v : AD; v};
+		attribute econd = if true ? d1 else d2;
+		attribute enest : AD = G2(d1 + d2, G2(d1, d2));
+		calc cu : G2 { in a = d1; in b = d2; }
+		constraint cc { d1 == d2 }
+	}
 }

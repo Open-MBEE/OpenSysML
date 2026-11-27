@@ -1,6 +1,7 @@
 package lower
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
@@ -659,13 +660,19 @@ func (g *StateGraph) transitionSources() []ast.Node {
 	for _, ps := range g.Pseudostates {
 		add(ps)
 	}
+	// Graph-only states are in no vertex list, but statesInOrder reaches them.
+	for _, state := range g.statesInOrder() {
+		add(state)
+	}
 	var rest []ast.Node
 	for node := range g.Transitions {
 		if !seen[node] {
 			rest = append(rest, node)
 		}
 	}
-	slices.SortFunc(rest, func(a, b ast.Node) int { return a.Span().Offset - b.Span().Offset })
+	slices.SortFunc(rest, func(a, b ast.Node) int {
+		return cmp.Or(cmp.Compare(a.Span().Offset, b.Span().Offset), cmp.Compare(a.Span().Len, b.Span().Len))
+	})
 	return append(sources, rest...)
 }
 

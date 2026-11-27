@@ -87,17 +87,23 @@ func (e *Evaluator) structureProperty(element Element, class, name string) (Valu
 			}
 		}
 	}
-	if class == "Type" && oneOf(name, "feature", "input") && element.Symbol != nil &&
-		e.resolver != nil && e.resolver.Index() != nil {
-		if _, library := identity.LibraryCatalog(e.resolver.Index()).ElementForSymbol(element.Symbol); library {
-			if e.model == nil || !e.completeMembers(element.Symbol) {
-				return Value{}, true, false
+	if class == "Type" && oneOf(name, "feature", "input") && e.resolver != nil && e.resolver.Index() != nil {
+		symbol := element.Symbol
+		if symbol == nil && name == "feature" {
+			// A structure names a library type by identity; its features are the catalogued symbol's.
+			symbol = e.structureElementSymbol(element)
+		}
+		if symbol != nil {
+			if _, library := identity.LibraryCatalog(e.resolver.Index()).ElementForSymbol(symbol); library {
+				if e.model == nil || !e.completeMembers(symbol) {
+					return Value{}, true, false
+				}
+				features, ok := e.model.ReflectiveElements(symbol, "feature")
+				if !ok {
+					return Value{}, true, false
+				}
+				return symbolSequence(features), true, true
 			}
-			features, ok := e.model.ReflectiveElements(element.Symbol, "feature")
-			if !ok {
-				return Value{}, true, false
-			}
-			return symbolSequence(features), true, true
 		}
 	}
 	if _, ok := structure.Metaclass(element); !ok {
@@ -469,6 +475,10 @@ func (e *Evaluator) structureProperty(element Element, class, name string) (Valu
 		case "receiverArgument":
 			return e.structureActionArgument(element, "receiverArgument", 3)
 		}
+	case "ForLoopActionUsage":
+		if name == "loopVariable" {
+			return e.structureLoopVariable(element)
+		}
 	case "PerformActionUsage":
 		if name == "performedAction" {
 			return e.structurePerformedAction(element)
@@ -639,25 +649,6 @@ func (e *Evaluator) structureProperty(element Element, class, name string) (Valu
 					return Value{}, true, false
 				}
 				return elementValue(ElementOf(function)), true, true
-			}
-			if constructor, known := e.isMetaclass(element, "ConstructorExpression"); !known {
-				e.recordUnsupportedReason(
-					element, "Expression", name,
-					Reason{
-						Category: ReasonUnrepresentedElement,
-						Detail:   "Expression::function expression metaclass is unavailable",
-					},
-				)
-				return Value{}, true, false
-			} else if constructor {
-				e.recordUnsupportedReason(
-					element, "Expression", name,
-					Reason{
-						Category: ReasonNotApplicable,
-						Detail:   "Expression::function is not defined for a ConstructorExpression",
-					},
-				)
-				return Value{}, true, false
 			}
 			function, handled, ok := e.structureTypedFeatureTypes(element, "Function", true)
 			if !handled || !ok || function.Kind != NullValue {
@@ -4087,38 +4078,6 @@ func (e *Evaluator) structureDirectedFeatures(element Element, property string) 
 		e.recordUnsupportedReason(element, "Type", property, reason)
 		return Value{}, true, false
 	}
-	if property == "input" {
-		send, known := e.isMetaclass(element, "SendActionUsage")
-		if known && send {
-			members, handled, ok := e.structureOwnedMembers(element)
-			if !handled || !ok {
-				return unsupported(Reason{
-					Category: ReasonUnrepresentedEndpoint,
-					Detail:   "SendActionUsage::input owned arguments are unavailable",
-				})
-			}
-			var inputs []Value
-			for _, member := range members.Values {
-				if member.Kind != ElementValue {
-					return unsupported(Reason{
-						Category: ReasonUnrepresentedEndpoint,
-						Detail:   "SendActionUsage::input owned argument is not an element",
-					})
-				}
-				expression, known := e.isMetaclass(member.Element, "Expression")
-				if !known {
-					return unsupported(Reason{
-						Category: ReasonUnrepresentedEndpoint,
-						Detail:   "SendActionUsage::input owned argument has no represented metaclass",
-					})
-				}
-				if expression {
-					inputs = append(inputs, member)
-				}
-			}
-			return sequence(inputs...), true, true
-		}
-	}
 	ownedFeatures, ownedHandled, ownedOK := e.structureOwnedFeatures(element)
 	if !ownedHandled || !ownedOK {
 		return unsupported(Reason{
@@ -7281,6 +7240,27 @@ func (e *Evaluator) structureFirstParameter(element Element) (Value, bool, bool)
 	return parameters.Values[0], true, true
 }
 
+// structureLoopVariable derives ForLoopActionUsage::loopVariable: the first owned feature
+// when it is a ReferenceUsage, else null (SysML 8.3.17.9 deriveForLoopActionUsageLoopVariable).
+func (e *Evaluator) structureLoopVariable(element Element) (Value, bool, bool) {
+	features, handled, ok := e.structureOwnedFeatures(element)
+	if !handled || !ok {
+		return Value{}, true, false
+	}
+	if len(features.Values) == 0 || features.Values[0].Kind != ElementValue {
+		return nullValue(), true, true
+	}
+	first := features.Values[0]
+	matches, known := e.isMetaclass(first.Element, "ReferenceUsage")
+	if !known {
+		return Value{}, true, false
+	}
+	if !matches {
+		return nullValue(), true, true
+	}
+	return first, true, true
+}
+
 func (e *Evaluator) structurePerformedAction(element Element) (Value, bool, bool) {
 	target, handled, ok := e.structureReferencedFeature(element)
 	if !handled || !ok {
@@ -8532,7 +8512,12 @@ func (e *Evaluator) structureInvocationArguments(element Element) (Value, bool, 
 				if target.Kind != ElementValue {
 					return Value{}, true, false
 				}
-				explicit[index] = append(explicit[index], target.Element)
+				// A library formal is compared through its symbol, as the formal inputs spell it.
+				formal := target.Element
+				if symbol := e.structureElementSymbol(formal); symbol != nil {
+					formal = ElementOf(symbol)
+				}
+				explicit[index] = append(explicit[index], formal)
 			}
 		}
 		if len(explicit[index]) != 0 {
@@ -8558,7 +8543,7 @@ func (e *Evaluator) structureInvocationArguments(element Element) (Value, bool, 
 				if input.Kind != ElementValue {
 					return Value{}, true, false
 				}
-				if sameStructureElement(explicit[index][0], input.Element, e.options.Structure) {
+				if e.sameDeclaredElement(explicit[index][0], input.Element) {
 					formalIndex = candidate
 					break
 				}
@@ -9015,6 +9000,16 @@ func sameStructureElement(left, right Element, structure Structure) bool {
 		}
 	}
 	return left.Key() == right.Key()
+}
+
+// sameDeclaredElement also matches a library element the structure names by identity
+// against the catalogued symbol declaring it.
+func (e *Evaluator) sameDeclaredElement(left, right Element) bool {
+	if sameStructureElement(left, right, e.options.Structure) {
+		return true
+	}
+	leftSymbol := e.structureElementSymbol(left)
+	return leftSymbol != nil && leftSymbol == e.structureElementSymbol(right)
 }
 
 func slicesClone(values []Value) []Value {

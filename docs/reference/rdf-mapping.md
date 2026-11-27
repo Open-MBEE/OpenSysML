@@ -639,7 +639,8 @@ triples come); a set of classes with no such member is refused, naming the subje
   introduces its name; the notation is written back from the two ends, so
   swapping them in the graph swaps them in the notation. This is distinct from
   the clause of a declaration (`class C specializes A disjoint from B;`), which
-  stays a property of `C` (`sysml:specializes`, `sysml:disjointFrom`).
+  is a property of `C` (`sysml:specializes`, `sysml:disjointFrom`) beside the
+  relationship element `C` owns for it (`<C>_sc0`, `<C>_dj0`).
 - `sysml:lowerBound`, `sysml:upperBound` — multiplicity, as expression nodes
   ([Expressions](#expressions))
 - `sysml:value` — a feature's value, as an expression node, with
@@ -889,8 +890,10 @@ sees the same relationships SysML.xtext produces.
 | `:>> mass`, `redefines mass` | a `sysml:Redefinition` (`<S>_rd<i>`) with `redefiningFeature`/`redefinedFeature` |
 | `:> base`, `subsets base` | a `sysml:Subsetting`/`sysml:ReferenceSubsetting` (`<S>_ss<i>`/`<S>_rs<i>`) |
 | `crosses a.q`, `=> a.q` on an end | a `sysml:CrossSubsetting` (`<S>_cs`, or `<S>_cs<i>` where a head states several) with `crossingFeature`/`crossedFeature`, owning the chain `Feature` of a chain target |
+| `disjoint from A, B`, `inverse of f`, `featured by A, B` | one `sysml:Disjoining`/`sysml:FeatureInverting`/`sysml:TypeFeaturing` per target, in target order (`<S>_dj<i>`/`<S>_iv<i>`/`<S>_tf<i>`), with `typeDisjoined`/`disjoiningType`, `featureInverted`/`invertingFeature` and `featureOfType`/`featuringType`, owning the chain `Feature` of a chain target |
 | `unions A, B`, `intersects A, B`, `differences A, B` | one `sysml:Unioning`/`sysml:Intersecting`/`sysml:Differencing` per operand, in operand order (`<S>_un<i>`/`<S>_is<i>`/`<S>_df<i>`), with `typeUnioned`/`unioningType` and their counterparts |
 | `specializes Base`, `:>> Base` on a definition | a `sysml:Subclassification` (`<S>_sc<i>`) |
+| `: A, A`, `specializes A, A`, and any other head clause naming a target again | one relationship element per name, as the notation states one per clause: the repeat is numbered after the kind's distinct targets (`part t : A, A, B` owns `<S>_ft0`, `<S>_ft2`, `<S>_ft1`, in that order), so an id never moves when a name is repeated; the collapsed property states the target once, and the names read back from the elements |
 | `part p : ~P;` | a `sysml:ConjugatedPortDefinition` (`<S>_conjugated`) typed by `P`, and a `sysml:PortConjugation` (`<S>_pc`) joining it to `P`; the conjugate states no `declaredName` or `declaredShortName` — `~P` is its derived `name` (SysML v2.1 §8.3.12.2 `effectiveName`), addressing it as `P::'~P'`, while the conjugate of an unnamed `P` is addressed positionally as `<owner>::@conjugated`, so `port p`'s `FeatureTyping` reads `type: ~P` |
 | `subject v : Vehicle;` in a requirement | a `sysml:SubjectMembership` owning `v`, with `sysml:subjectParameter` on the membership's owner |
 | `require constraint { v.mass < 1500 [kg] }` | a `sysml:RequirementConstraintMembership` owning the `sysml:ConstraintUsage`, with `sysml:kind "requirement"`/`"assumption"` by keyword; the constraint carries `sysml:isVariable`/`sysml:mayTimeVary` as the model derives them (a feature of an Occurrence varies) |
@@ -1603,7 +1606,7 @@ the node, that name is used; the rest are `sysx:` terms, marked below.
 | `if g then b;`, `else b;` after a decision in an action body | `sysml:TransitionUsage` (SysML.xtext `GuardedTargetSuccession`, `DefaultTargetSuccession`) | its guard owned through a `sysml:TransitionFeatureMembership` of `sysml:kind "guard"` (none for `else`, which `sysx:isElse` marks), the `then` succession it owns as any transition does, `sysml:source` the decision ahead of it and `sysml:target`, and `sysx:transitionSyntax "target"`. A branch whose target is bound by position rather than named stays a `sysml:SuccessionAsUsage` with `sysx:guard`; graphs written with that form for every branch still read. Reading back, a branch the notation cannot state — one stating a source (`sysml:source` or `sysml:sourceFeature`) that is not the member before it, one stating a trigger, an effect or a body, or one with neither a guard nor `sysx:isElse`, which `then` alone would write as a succession — is refused rather than written as a different branch |
 | `public succession S first a if g then b;` (a guarded succession, which is a transition) | `sysml:TransitionUsage` | as a transition, with `sysx:declaredKeyword "succession"` for the keyword written; `sysx:transitionSyntax` is derived from where the AST places the source, not from the words ahead of it, so a visibility or a name does not change it. Written back, a named form always writes `first` (`succession S first a …`, `transition T first a …`), since only a nameless `transition` may state a bare source |
 | `while c { … }`, `loop { … } until c;` | `sysml:WhileLoopActionUsage` | `sysx:whileCondition`, `sysx:untilCondition` |
-| `for x in c { … }` | `sysml:ForLoopActionUsage` | `sysx:loopVariable`, `sysx:collection` |
+| `for x : T in c { … }` | `sysml:ForLoopActionUsage` | `sysml:loopVariable`, the `sysml:ReferenceUsage` the loop owns first through a `sysml:FeatureMembership`, carrying the variable's name and typing (a graph stating the name alone as `sysx:loopVariable` still reads); `sysx:collection` |
 | `if c { … } else { … }` | `sysml:IfActionUsage`, owning through `sysml:ParameterMembership`s its condition and then a `sysml:ActionUsage` per branch | `sysx:condition`, and `sysx:branchKind` and `sysx:hasBody` on each branch; a `sysx:IfBranch` from an older graph reads as the same branch |
 | `state s { … }`, `state s parallel { … }`, `entry; then s; state s;` | `sysml:StateUsage` | `sysml:declaredName`, `sysx:declaredKeyword`, `sysml:isParallel`, its members |
 | `entry`/`do`/`exit`, `entry do { … }` (whatever separates the `do` from the body) | `sysml:StateSubactionMembership` | `sysml:kind` (`entry`, `do`, `exit`) beside `sysx:subactionKind`, `sysx:declaredKeyword`, the one action it performs, which a `perform a;` states as a `sysml:PerformActionUsage` and an empty `entry;` as an anonymous `sysml:ActionUsage` with no name and no body; a braced block `entry { … }` is an anonymous `sysml:ActionUsage` with `sysx:isKindImplicit` (no `action` keyword was written) whose `sysx:hasBody` is the braces. A graph from an older mapping that wrote a braced block as its statements under the membership, `sysx:hasBody` on the membership itself, is refused as unsupported: it holds no anonymous action to read the block back as |
@@ -1916,9 +1919,9 @@ expr:P__Car___402_pend0_prs
 ```
 
 The same chain feature carries a chain target a head relationship states
-(`redefines a.b`, `:>> a.b`, `references a.b`, `crosses a.b`, `unions a.b`): the chain's `sysml:chainingFeature`
+(`redefines a.b`, `:>> a.b`, `references a.b`, `crosses a.b`, `unions a.b`, `disjoint from a.b`): the chain's `sysml:chainingFeature`
 property of the head names the chain element, and the materialized
-`Redefinition`, `Subsetting`, `ReferenceSubsetting`, `CrossSubsetting`, `Unioning`, `Intersecting` or `Differencing` owns it the same way
+`Redefinition`, `Subsetting`, `ReferenceSubsetting`, `CrossSubsetting`, `Unioning`, `Intersecting`, `Differencing`, `Disjoining`, `FeatureInverting` or `TypeFeaturing` owns it the same way
 (KerML `OwnedRedefinition`/`OwnedSubsetting`/`OwnedReferenceSubsetting`/`OwnedCrossSubsetting`/`Unioning`). A chain
 link that resolves to a graph element is written as its IRI, and one that does
 not as `{"@ref": "<name>"}` in the JSON element form — a `sysx:Expression` typed

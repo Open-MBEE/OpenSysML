@@ -273,6 +273,11 @@ func (p *Parser) parseRepresentationIdentification() ast.Identification {
 	return id
 }
 
+// atVisibility reports whether a public/private/protected prefix comes next.
+func (p *Parser) atVisibility() bool {
+	return p.atKeyword("public") || p.atKeyword("private") || p.atKeyword("protected")
+}
+
 // parseVisibility reads an optional public/private/protected prefix.
 func (p *Parser) parseVisibility() ast.Visibility {
 	switch {

@@ -56,6 +56,9 @@ env:
   MSI_SBOM_ARTIFACT: windows-msi-sbom
   SIGNED_MSI_SBOM_ARTIFACT: windows-msi-signed-sbom
   WIX_VERSION: 5.0.2
+  # CircleCI publishes the release only after its whole suite passed on the tag,
+  # which has come within minutes of the script's 90-minute default.
+  RELEASE_GATE_TIMEOUT: 10800
 
 jobs:
   build:
@@ -280,7 +283,7 @@ jobs:
     needs: [build, msi]
     if: (github.ref_type == 'tag' || inputs.tag != '') && needs.build.outputs.sign != 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 200
     permissions:
       contents: write
     steps:
@@ -318,7 +321,9 @@ jobs:
     needs: build
     if: needs.build.outputs.sign == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 330
+    # GitHub's ceiling for a hosted job: the gate wait and the approval wait
+    # below share it.
+    timeout-minutes: 360
     outputs:
       artifact-id: ${{ steps.upload.outputs.artifact-id }}
     steps:
@@ -344,7 +349,7 @@ jobs:
 
       - name: Submit the signing request to SignPath
         id: signpath
-        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3.0
+        uses: signpath/github-action-submit-signing-request@a2c5b60d9c75f073142b653c354b632eedce097b # v3.2
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
           organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
@@ -471,7 +476,7 @@ jobs:
       - name: Submit the MSI signing request to SignPath
         # The MSI artifact configuration must sign only the MSI itself: the
         # .exe files inside are already signed and z3.exe must stay unsigned.
-        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3.0
+        uses: signpath/github-action-submit-signing-request@a2c5b60d9c75f073142b653c354b632eedce097b # v3.2
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
           organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
