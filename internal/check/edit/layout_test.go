@@ -1,6 +1,7 @@
 package edit
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -81,6 +82,129 @@ func TestSetLayoutInViewBody(t *testing.T) {
 		"        render asInterconnectionDiagram;\n    }\n",
 		"        render asInterconnectionDiagram;\n        metadata DiagramLayout::Layout about Plant::Loop::pump { x = 40; y = 60; }\n    }\n",
 		got)
+}
+
+const swimlaneModel = `package Line {
+    action run {
+        action load;
+        action ship;
+        first load then ship;
+    }
+    part line {
+        part robot {
+            perform run.load;
+        }
+    }
+}
+package LineViews {
+    private import StandardViewDefinitions::*;
+    view runView : ActionFlowView {
+        expose Line::run;
+    }
+}
+`
+
+// A swimlane is the node an action flow draws for a performer the view does not expose.
+func TestSetLayoutOfSwimlanePerformerInViewBody(t *testing.T) {
+	got := applyLayout(t, swimlaneModel, SetLayout("Line::line::robot", "LineViews::runView", at(320, 120)))
+	requireReplaced(t, swimlaneModel,
+		"        expose Line::run;\n    }\n",
+		"        expose Line::run;\n        metadata DiagramLayout::Layout about Line::line::robot { x = 320; y = 120; }\n    }\n",
+		got)
+}
+
+// One performer with a swimlane in each of two flows: its Layout places the first.
+const twoLaneModel = `package Line {
+    action runA { action load; }
+    action runB { action pack; }
+    part line {
+        part robot {
+            perform runA.load;
+            perform runB.pack;
+        }
+    }
+}
+package LineViews {
+    private import StandardViewDefinitions::*;
+    view bothView : ActionFlowView {
+        expose Line::runA;
+        expose Line::runB;
+    }
+    view foldedView : ActionFlowView {
+        expose Line::runA;
+        expose Line::runB;
+        metadata DiagramLayout::Layout about Line::runA { collapsed = true; }
+    }
+}
+`
+
+// Of several lanes of one performer, only the operation naming the first one's action places it.
+func TestSetLayoutOfASwimlanePerformerNamesItsLane(t *testing.T) {
+	for _, viewName := range []string{"LineViews::bothView", "LineViews::foldedView"} {
+		m := loadContent(t, "plant.sysml", twoLaneModel)
+		for _, within := range []string{"", "Line::runB"} {
+			_, err := Apply(m, []Operation{SetLayout("Line::line::robot", viewName, at(1, 2)).InLane(strings.Fields(within)...)})
+			var refused *Error
+			if !errors.As(err, &refused) || refused.Failure != FailureNotDrawn {
+				t.Errorf("%s within %q: %v, want a %s refusal", viewName, within, err, FailureNotDrawn)
+			}
+		}
+		got := applyLayout(t, twoLaneModel, SetLayout("Line::line::robot", viewName, at(1, 2)).InLane("Line::runA"))
+		if !strings.Contains(got, "metadata DiagramLayout::Layout about Line::line::robot { x = 1; y = 2; }") {
+			t.Errorf("%s: the first lane was not placed:\n%s", viewName, got)
+		}
+	}
+}
+
+// An inline Layout about such a performer names the rendering its lane was moved in, a view
+// or a pseudo-view of the edited document, and is held to that rendering's lanes.
+func TestSetInlineLayoutOfASwimlanePerformerNamesItsRendering(t *testing.T) {
+	inline := SetLayout("Line::line::robot", "", at(1, 2))
+	m := loadContent(t, "plant.sysml", twoLaneModel)
+	for name, op := range map[string]Operation{
+		"no rendering":             inline.InLane("Line::runA"),
+		"no lane":                  inline.MovedIn("LineViews::bothView"),
+		"another lane":             inline.InLane("Line::runB").MovedIn("LineViews::foldedView"),
+		"another lane of a pseudo": inline.InLane("Line::runB").MovedIn("#action"),
+	} {
+		_, err := Apply(m, []Operation{op})
+		var refused *Error
+		if !errors.As(err, &refused) || refused.Failure != FailureNotDrawn {
+			t.Errorf("%s: %v, want a %s refusal", name, err, FailureNotDrawn)
+		}
+	}
+	for name, op := range map[string]Operation{
+		"the first lane of a view":   inline.InLane("Line::runA").MovedIn("LineViews::foldedView"),
+		"the first lane of a pseudo": inline.InLane("Line::runA").MovedIn("#action"),
+		"the only lane of a pseudo":  inline.InLane("Line::runB").MovedIn("#action:Line::runB"),
+	} {
+		if got := applyLayout(t, twoLaneModel, op); !strings.Contains(got, "@DiagramLayout::Layout { x = 1; y = 2; }") {
+			t.Errorf("%s: the lane was not placed inline:\n%s", name, got)
+		}
+	}
+}
+
+// An action declared by its short name alone is named by it.
+func TestSetInlineLayoutOfASwimlaneInAShortNamedAction(t *testing.T) {
+	const model = `package Line {
+    action <s> { action load; }
+    action second { action pack; }
+    part robot { perform s.load; perform second.pack; }
+}
+`
+	got := applyLayout(t, model, SetLayout("Line::robot", "", at(1, 2)).InLane("Line::s").MovedIn("#action"))
+	if !strings.Contains(got, "@DiagramLayout::Layout { x = 1; y = 2; }") {
+		t.Errorf("the lane was not placed inline:\n%s", got)
+	}
+}
+
+func TestSetLayoutRefusesAPartNoSwimlaneIsDrawnFor(t *testing.T) {
+	m := loadContent(t, "plant.sysml", swimlaneModel)
+	_, err := Apply(m, []Operation{SetLayout("Line::line", "LineViews::runView", at(1, 2))})
+	var refused *Error
+	if !errors.As(err, &refused) || refused.Failure != FailureNotExposed {
+		t.Fatalf("Apply: %v, want a %s refusal", err, FailureNotExposed)
+	}
 }
 
 func TestSetLayoutWithSizeAndCollapsed(t *testing.T) {
@@ -1024,5 +1148,16 @@ func TestSetRouteAtOfAttachedThenIsRefused(t *testing.T) {
 	_, err = Apply(loadContent(t, "plant.sysml", model), []Operation{SetRouteAt(decl, "", route)})
 	if e := editError(t, err); e.Failure != FailureNotNamed || !strings.Contains(e.Message, "no body is written") {
 		t.Fatalf("inline route of then done: got %v", err)
+	}
+}
+
+// A rendering that draws a performer of several actions as an ordinary node, with no
+// swimlane, places it inline as it does any node.
+func TestSetInlineLayoutOfAPerformerDrawnAsANode(t *testing.T) {
+	for _, pseudo := range []string{"#tree", "#interconnection"} {
+		got := applyLayout(t, twoLaneModel, SetLayout("Line::line::robot", "", at(1, 2)).MovedIn(pseudo))
+		if !strings.Contains(got, "@DiagramLayout::Layout { x = 1; y = 2; }") {
+			t.Errorf("%s: the part was not placed inline:\n%s", pseudo, got)
+		}
 	}
 }

@@ -23,8 +23,11 @@
 ;; - `sysml-eglot-run-element', which runs an executable element as the
 ;;   server's Run and Evaluate code lenses do.  Eglot shows no code lenses.
 ;;
-;; The server is `sysml-lsp' on `exec-path'.  Its settings are set in
-;; `eglot-workspace-configuration' under `:sysml', for instance
+;; The server is found as under lsp-mode: the `sysml-lsp-server-path'
+;; setting, else `bin/sysml-lsp' in the project root once the user has
+;; allowed that project's build (asked once; `sysml-project-builds'), else `sysml-lsp'
+;; on `exec-path', and it is passed `sysml-lsp-server-args'.  Its settings are
+;; set in `eglot-workspace-configuration' under `:sysml', for instance
 ;; (:sysml (:strictConformance t)).
 
 ;;; Code:
@@ -121,11 +124,26 @@ no two lenses share the qualified name, the one given to `sysml'."
   (mapcar (lambda (folder) (eglot-uri-to-path (plist-get folder :uri)))
           (eglot-workspace-folders server)))
 
-(defun sysml-eglot--find-tool (folders)
+(defun sysml-eglot--running-server (server root)
+  "Return the executable of SERVER on this machine, or nil.
+A relative name is one in ROOT, the project root Eglot started SERVER in.
+It is nil for a server on another host or reached over a socket."
+  (when-let* (((not (file-remote-p default-directory)))
+              (command (process-command (jsonrpc--process server)))
+              ((consp command)))
+    (let ((default-directory (or root default-directory)))
+      (executable-find (car command)))))
+
+(defun sysml-eglot--find-tool (server folders)
   "Return the `sysml' executable to run elements with, or nil.
-The language server is `sysml-lsp' on the variable `exec-path', and the
-project root the first of the workspace FOLDERS; see `sysml-find-tool'."
-  (sysml-find-tool (executable-find "sysml-lsp") (car folders)))
+The project root is the first of the workspace FOLDERS.  The language
+server is the one SERVER runs, which may be one entered at the prompt
+of \\[eglot], and otherwise the one found from the project root; see
+`sysml-find-tool'."
+  (let ((root (car folders)))
+    (sysml-find-tool (or (sysml-eglot--running-server server root)
+                         (sysml--find-server root))
+                     root)))
 
 (defun sysml-eglot-run-element (&optional choose)
   "Run or evaluate an executable element of the current buffer with `sysml'.
@@ -142,11 +160,13 @@ the minibuffer.  See `sysml-run-element' for how it is run."
                      (t (sysml-eglot--read-lens lenses))))
          (args (car (append (plist-get (plist-get lens :command) :arguments) nil)))
          (uri (plist-get args :uri))
-         (folders (sysml-eglot--folders (eglot-current-server))))
+         (server (eglot-current-server))
+         (folders (sysml-eglot--folders server)))
     (sysml-run-element (plist-get args :kind)
                        (plist-get args :element)
                        (and uri (sysml-run-paths (eglot-uri-to-path uri) folders))
-                       (sysml-eglot--find-tool folders))))
+                       (sysml-eglot--find-tool server folders)
+                       (car folders))))
 
 ;;;; Formatting
 
@@ -178,7 +198,52 @@ Modifiers are left off for the same reason: the server marks an
 
 (add-hook 'eglot-managed-mode-hook #'sysml-eglot--keep-mode-faces)
 
-(add-to-list 'eglot-server-programs '((sysml-mode kerml-mode) "sysml-lsp"))
+;;;; Registration
+
+(defclass sysml-eglot-project-server (eglot-lsp-server)
+  ((project-root :initarg :project-root
+                 :documentation "The project root whose build this runs."))
+  :documentation "A language server that is the build of a project.")
+
+(cl-defmethod initialize-instance :before ((_server sysml-eglot-project-server)
+                                           &optional slots)
+  "Refuse to start a project build that SLOTS names and may no longer be run.
+Eglot starts a server again with the command it first started it with."
+  (let ((root (plist-get slots :project-root)))
+    (unless (sysml--project-build sysml--server-executable root)
+      (user-error "%s" (sysml--missing-server root)))))
+
+(defun sysml-eglot--server-command (&optional interactive project)
+  "Return the command to start the language server with under Eglot.
+A build is looked for in the root of PROJECT, the project Eglot starts
+the server for, or of the current buffer's when Eglot passes none.  The
+executable is named as its own host names it, since Eglot starts it there.
+A project build found there, not one `sysml-lsp-server-path' names, is
+started as a `sysml-eglot-project-server', which asks again whether it
+may be run each time Eglot starts it.
+When none is found and INTERACTIVE is non-nil, a command is returned for
+\\[eglot] to prompt with rather than an error signaled: the bare
+executable name when `sysml-lsp-server-path' is unset, and the configured
+path under a prefix argument, which always prompts.  A configured path
+that is not executable is otherwise an error, never passed over for
+another server."
+  (let* ((root (if project (project-root project) (sysml--project-root)))
+         (server (sysml--find-server root t))
+         (command (and server (cons (file-local-name server) sysml-lsp-server-args))))
+    (cond
+     ;; A server the user names, in the setting or at the prompt, is theirs.
+     ((and server (not sysml-lsp-server-path) (not current-prefix-arg)
+           (equal server (sysml--project-build-file sysml--server-executable root)))
+      `(sysml-eglot-project-server ,@command :project-root ,root))
+     (server command)
+     ((and interactive (not sysml-lsp-server-path))
+      (cons sysml--server-executable sysml-lsp-server-args))
+     ((and interactive current-prefix-arg)
+      (cons sysml-lsp-server-path sysml-lsp-server-args))
+     (t (sysml--server-command root t)))))
+
+(add-to-list 'eglot-server-programs
+             '((sysml-mode kerml-mode) . sysml-eglot--server-command))
 
 (provide 'sysml-eglot)
 

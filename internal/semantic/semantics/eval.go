@@ -475,6 +475,86 @@ func evalOperator(e *ast.OperatorExpr, maxBits int64) (Value, bool) {
 	}
 }
 
+// evalConstUnnested is evalConst in the same order with a stack of its own, for nesting
+// deeper than a call stack should follow. settled hears what each operator came to.
+func evalConstUnnested(n ast.Node, maxBits int64, settled func(e *ast.OperatorExpr, v Value, ok bool)) (Value, bool) {
+	// An operator waits on its first operand, then (last) on the last it evaluates.
+	type open struct {
+		e    *ast.OperatorExpr
+		last bool
+	}
+	var waiting []open
+	// Only the operands still waiting on their operator are held, as in evalConst.
+	var values []Value
+	fail := func() (Value, bool) {
+		for _, w := range waiting {
+			settled(w.e, Value{}, false)
+		}
+		return Value{}, false
+	}
+	for {
+		for e, ok := n.(*ast.OperatorExpr); ok; e, ok = n.(*ast.OperatorExpr) {
+			waiting = append(waiting, open{e: e})
+			if len(e.Operands) != constOperatorArity(e.Operator) {
+				return fail()
+			}
+			n = e.Operands[0]
+		}
+		v, ok := evalConst(n, maxBits)
+		if !ok {
+			return fail()
+		}
+		values = append(values, v)
+		for n = nil; n == nil; {
+			if len(waiting) == 0 {
+				return values[0], true
+			}
+			top := &waiting[len(waiting)-1]
+			operands, at := top.e.Operands, len(values)-1
+			switch {
+			case len(operands) == 1:
+				values[at], ok = EvalUnary(top.e.Operator, values[at])
+			case top.last && len(operands) == 3:
+				// The branch taken is the conditional's value.
+			case top.last:
+				values[at-1], ok = evalBinaryWithin(top.e.Operator, values[at-1], values[at], maxBits)
+				values = values[:at]
+			case len(operands) == 3:
+				cond := values[at]
+				values = values[:at]
+				if ok = cond.Kind == ValBool; ok {
+					n = operands[2]
+					if cond.Bool {
+						n = operands[1]
+					}
+				}
+			default:
+				n = operands[1]
+			}
+			if !ok {
+				return fail()
+			}
+			if n != nil {
+				top.last = true
+				continue
+			}
+			settled(top.e, values[len(values)-1], true)
+			waiting = waiting[:len(waiting)-1]
+		}
+	}
+}
+
+// constOperatorArity is the number of operands evalOperator evaluates op over.
+func constOperatorArity(op ast.OperatorKind) int {
+	switch op {
+	case ast.OpNeg, ast.OpPos, ast.OpNot:
+		return 1
+	case ast.OpConditional:
+		return 3
+	}
+	return 2
+}
+
 // EvalUnary evaluates a unary operator on a constant value.
 // Returns (result, true) if successful, (zero, false) otherwise.
 func EvalUnary(op ast.OperatorKind, v Value) (Value, bool) {

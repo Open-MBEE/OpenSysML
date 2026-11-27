@@ -12,6 +12,7 @@ import (
 type Drawn struct {
 	nodes, edges map[ast.Node]bool
 	steered      map[Origin]bool                // origins of the edges a plain Route steers
+	lanes        map[Origin][]DrawnLane         // origins of the performers drawn as swimlanes
 	generalEdged map[Origin]bool                // origins of the elements whose edge to a general a Route naming it steers
 	inherited    map[Origin]map[string]bool     // owner origin -> local names of the members drawn as its own
 	members      map[ast.Node]map[ast.Node]bool // member decl -> owner decls it is drawn as a member of
@@ -40,7 +41,7 @@ func (d *Drawn) MemberNode(owner, sym *symbols.Symbol) bool {
 }
 
 func newDrawn() *Drawn {
-	return &Drawn{nodes: map[ast.Node]bool{}, edges: map[ast.Node]bool{}, steered: map[Origin]bool{}, generalEdged: map[Origin]bool{},
+	return &Drawn{nodes: map[ast.Node]bool{}, edges: map[ast.Node]bool{}, steered: map[Origin]bool{}, lanes: map[Origin][]DrawnLane{}, generalEdged: map[Origin]bool{},
 		inherited: map[Origin]map[string]bool{}, members: map[ast.Node]map[ast.Node]bool{}, generals: map[ast.Node]map[ast.Node]bool{}}
 }
 
@@ -59,6 +60,33 @@ func (d *Drawn) Steers(origin Origin, kind EdgeKind) bool {
 // element at owner's own, placed by a Layout about owner's name and its.
 func (d *Drawn) Inherits(owner Origin, name string) bool {
 	return d != nil && d.inherited[owner][name]
+}
+
+// DrawnLane is one swimlane a rendering draws for a performer: the nodes it is drawn in,
+// outermost first.
+type DrawnLane struct {
+	Holders []Origin
+}
+
+// Lanes are the swimlanes a rendering draws for performer. A Layout about the performer
+// places the first of them, drawn or folded away; the others are drawn around their nodes.
+func (d *Drawn) Lanes(performer *symbols.Symbol) []DrawnLane {
+	if d == nil || performer == nil {
+		return nil
+	}
+	return d.lanes[nodeOrigin(performer.DocName, performer.Decl)]
+}
+
+// noteLane records a swimlane of performer drawn in holders, outermost first.
+func (d *Drawn) noteLane(performer Origin, holders []*Node) {
+	if d == nil {
+		return
+	}
+	lane := DrawnLane{Holders: make([]Origin, len(holders))}
+	for i, holder := range holders {
+		lane.Holders[i] = holder.Origin
+	}
+	d.lanes[performer] = append(d.lanes[performer], lane)
 }
 
 // noteSteered records that a plain Route about elem steers an edge drawn for it.
@@ -146,6 +174,16 @@ func (d *Drawn) noteMember(owner, member *symbols.Symbol) {
 func (r *Renderer) DrawnIn(view *symbols.Symbol) (*Drawn, error) {
 	drawn := newDrawn()
 	if _, err := r.render(view, drawn, true); err != nil {
+		return nil, err
+	}
+	return drawn, nil
+}
+
+// DrawnExposed renders elements in the kind asked for, as RenderExposed does for a
+// pseudo-view, and reports what the rendering draws: what an inline Layout applies to there.
+func (r *Renderer) DrawnExposed(exposed []*symbols.Symbol, kind Kind) (*Drawn, error) {
+	drawn := newDrawn()
+	if _, err := r.renderExposed(exposed, kind, "", drawn); err != nil {
 		return nil, err
 	}
 	return drawn, nil

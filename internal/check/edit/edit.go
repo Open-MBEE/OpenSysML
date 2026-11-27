@@ -176,6 +176,12 @@ type Operation struct {
 	// the annotation itself, not the element, when one of those is rewritten.
 	Annotation string
 	View       string
+	// Within names the nodes a swimlane placed by a Layout about its performer is drawn
+	// in, by FQN and outermost first, a node with none by an empty one: which lane the operation moved.
+	Within []string
+	// Rendering names the view, or the pseudo-view (`#<kind>` or `#<kind>:<fqn>`) of the
+	// edited document, that swimlane was moved in, for a Layout written inline, without View.
+	Rendering string
 	// The geometry to write, the one Annotation names; all nil clears the
 	// annotation. NoteBox is the Note annotation, Note the text an OpAddNote adds.
 	Layout  *semantics.Layout
@@ -184,6 +190,18 @@ type Operation struct {
 	Style   *semantics.Style
 	NoteBox *semantics.Note
 	Picture *semantics.Picture
+}
+
+// InLane names the nodes the swimlane a Layout operation about a performer moved is drawn in.
+func (op Operation) InLane(within ...string) Operation {
+	op.Within = within
+	return op
+}
+
+// MovedIn names the view or pseudo-view the swimlane an inline Layout operation moved is drawn in.
+func (op Operation) MovedIn(rendering string) Operation {
+	op.Rendering = rendering
+	return op
 }
 
 // SetValue is an operation setting target's value to the expression value.

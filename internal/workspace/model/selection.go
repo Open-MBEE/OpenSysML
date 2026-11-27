@@ -16,19 +16,3 @@ func DeclaredViews(scope *symbols.Scope) []*symbols.Symbol {
 	})
 	return out
 }
-
-// TopLevelDeclarations returns root declarations, expanding packages one level.
-func TopLevelDeclarations(root *symbols.Scope) []*symbols.Symbol {
-	if root == nil {
-		return nil
-	}
-	var out []*symbols.Symbol
-	for _, sym := range root.Declarations() {
-		if sym.Kind == symbols.SymbolPackage {
-			out = append(out, sym.Scope.Declarations()...)
-			continue
-		}
-		out = append(out, sym)
-	}
-	return out
-}

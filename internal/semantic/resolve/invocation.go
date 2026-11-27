@@ -200,8 +200,8 @@ func (r *Resolver) unqualifiedCandidates(scope *symbols.Scope, name string) []*s
 		if out := r.namingSomething(r.inheritedImportCandidates(s, name)); len(out) > 0 {
 			return out
 		}
-		// A loop body's imported members come before the enclosing scopes, as in walkUnqualifiedHiding.
-		if _, isLoop := s.Node().(*ast.WhileLoopActionNode); isLoop {
+		// A loop body's or if branch's imported members come before the enclosing scopes, as in walkUnqualifiedHiding.
+		if importingBody(s) {
 			if out := r.importMatches(s, name); len(out) > 0 {
 				return out
 			}
