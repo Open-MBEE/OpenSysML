@@ -13,6 +13,9 @@
 ;;; Code:
 
 (require 'ert)
+;; An Emacs without image support does not preload image.el, which would
+;; otherwise load mid-test and redefine the `create-image' a test stubs.
+(require 'image)
 (require 'sysml-diagram)
 (require 'sysml-test)
 (require (pcase sysml-test-client
@@ -139,6 +142,94 @@
             (let ((err (should-error (sysml-diagram-image) :type 'user-error)))
               (should (string-match-p "matrix" (cadr err))))))
       (kill-buffer source))))
+
+(defun sysml-diagram-test--image-spec (limit)
+  "Return the image spec `sysml-diagram-image' inserts with `max-image-size' LIMIT.
+The image buffer is shown on a 400x300 frame other than the selected
+one, drawn at a scale factor of 2 as at a HiDPI output scale, and must
+be in `special-mode' by then for a mode-based `display-buffer-alist'
+rule to place it.  The spec is built without librsvg, which a batch
+Emacs may lack."
+  (let ((source (generate-new-buffer " *model*"))
+        (window-frame (symbol-function 'window-frame))
+        (frame-pixel-width (symbol-function 'frame-pixel-width))
+        (frame-pixel-height (symbol-function 'frame-pixel-height)))
+    (unwind-protect
+        (with-temp-buffer
+          (sysml-diagram-mode)
+          (setq sysml-diagram--source source
+                sysml-diagram--view "#tree")
+          (cl-letf (((symbol-function 'display-images-p) (lambda (&rest _) t))
+                    ((symbol-function 'image-type-available-p) (lambda (&rest _) t))
+                    ((symbol-function 'executable-find) (lambda (&rest _) "/bin/mmdc"))
+                    ((symbol-function 'sysml-diagram--text-document) #'ignore)
+                    ((symbol-function 'lsp-request)
+                     (lambda (&rest _) (sysml-diagram-test--json sysml-diagram-test--tree)))
+                    ((symbol-function 'sysml-diagram--mermaid-to-svg)
+                     (lambda (&rest _) "<svg width=\"1\" height=\"1\"/>"))
+                    ((symbol-function 'create-image)
+                     (lambda (data type _data-p &rest props)
+                       `(image :type ,type :data ,data ,@props)))
+                    ((symbol-function 'pop-to-buffer)
+                     (lambda (buffer &rest _)
+                       (should (buffer-match-p '(major-mode . special-mode) buffer))))
+                    ((symbol-function 'get-buffer-window) (lambda (&rest _) 'image-window))
+                    ((symbol-function 'window-frame)
+                     (lambda (&optional window)
+                       (if (eq window 'image-window) 'image-frame (funcall window-frame window))))
+                    ((symbol-function 'frame-pixel-width)
+                     (lambda (&optional frame)
+                       (if (eq frame 'image-frame) 400 (funcall frame-pixel-width frame))))
+                    ((symbol-function 'frame-pixel-height)
+                     (lambda (&optional frame)
+                       (if (eq frame 'image-frame) 300 (funcall frame-pixel-height frame))))
+                    ((symbol-function 'frame-scale-factor)
+                     (lambda (&optional frame) (if (eq frame 'image-frame) 2.0 1.0))))
+            ;; An Emacs without image support does not declare it special.
+            (dlet ((max-image-size limit))
+              (sysml-diagram-image))
+            (with-current-buffer (format "*SysML Image: %s*" (buffer-name source))
+              (prog1 (get-text-property (point-min) 'display)
+                (kill-buffer)))))
+      (kill-buffer source))))
+
+(ert-deftest sysml-diagram-image-fits-within-the-image-size-limit ()
+  (let ((spec (sysml-diagram-test--image-spec 1000)))
+    (should (equal (image-property spec :max-width) 500))
+    (should (equal (image-property spec :max-height) 500)))
+  (let ((spec (sysml-diagram-test--image-spec 10.0)))
+    (should (equal (image-property spec :max-width) 2000))
+    (should (equal (image-property spec :max-height) 1500)))
+  (should-not (image-property (sysml-diagram-test--image-spec t) :max-width)))
+
+(ert-deftest sysml-diagram-asks-mermaid-for-an-svg-librsvg-draws ()
+  (let* ((args (make-temp-file "sysml-mmdc-args"))
+         (config (make-temp-file "sysml-mmdc-config"))
+         (mmdc (make-temp-file "sysml-mmdc" nil nil
+                               (concat "#!/bin/sh\n"
+                                       "echo \"$@\" > " (shell-quote-argument args) "\n"
+                                       "while [ \"$1\" != -c ]; do shift; done\n"
+                                       "cp \"$2\" " (shell-quote-argument config) "\n"
+                                       "while [ \"$1\" != -o ]; do shift; done\n"
+                                       "echo '<svg id=\"v\"><text>a &amp;#58; &amp;quot;b&amp;quot;</text></svg>' > \"$2\"\n"))))
+    (unwind-protect
+        (progn
+          (set-file-modes mmdc #o755)
+          (should (equal (sysml-diagram--mermaid-to-svg mmdc "flowchart TD")
+                         "<svg xml:space=\"preserve\" id=\"v\"><text>a &#58; &quot;b&quot;</text></svg>\n"))
+          (should (string-match-p "-c [^ ]+\\.json" (with-temp-buffer
+                                                     (insert-file-contents args)
+                                                     (buffer-string))))
+          ;; Mermaid's default neo look takes librsvg minutes to draw on a large view.
+          (should (equal (plist-get (json-parse-string (with-temp-buffer
+                                                         (insert-file-contents config)
+                                                         (buffer-string))
+                                                       :object-type 'plist)
+                                    :look)
+                         "classic")))
+      (delete-file args)
+      (delete-file config)
+      (delete-file mmdc))))
 
 (defconst sysml-diagram-test--library-uri
   "sysml-stdlib:/Kernel%20Libraries/Kernel%20Data%20Type%20Library/ScalarValues.kerml"

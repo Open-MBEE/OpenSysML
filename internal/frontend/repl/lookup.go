@@ -43,9 +43,9 @@ func (s *Session) lookupSymbol(name string) (*symbols.Symbol, string, error) {
 func (s *Session) lookupSymbolOfKinds(name string, want ...symbols.SymbolKind) (*symbols.Symbol, string, error) {
 	// A name the notation reads is resolved by the text it names; anything else is
 	// looked up as typed, so the failure reported is about what was typed.
-	qualified := strings.Contains(name, "::")
+	qualified, segments := strings.Contains(name, "::"), strings.Split(name, "::")
 	if p := s.parseName(name); p.ok {
-		name, qualified = p.name, p.qualified
+		name, qualified, segments = p.name, p.qualified, p.segments
 	}
 	docScopes := s.docScopes()
 	// The library is searched even from an empty session, so a qualified
@@ -61,7 +61,7 @@ func (s *Session) lookupSymbolOfKinds(name string, want ...symbols.SymbolKind) (
 		case 0:
 			// A name may reach through a declared feature into its type
 			// (Outer::inner::b), which no declaration is registered under.
-			if sym, fqn := s.featureChainSymbol(name); sym != nil {
+			if sym, fqn := s.featureChainSymbol(segments); sym != nil {
 				if local := scopeSymbolForAny(docScopes, sym.Decl); local != nil {
 					sym = local
 				}
@@ -150,20 +150,20 @@ func (s *Session) heldRoot(fqn string) (*runtime.Instance, string, []string) {
 	return nil, "", nil
 }
 
-// featureChainSymbol resolves a qualified name whose later segments are members
-// of the type of the segment before them — one a subtype inherits
+// featureChainSymbol resolves a qualified name, cut into its segments, whose
+// later segments are members of the type of the segment before them — one a subtype inherits
 // (Sub::inherited) or one reached through a feature's type (Outer::inner::b) —
 // which the index registers no declaration under, through the model's member
 // lookup, so typing, specialization and redefinition are followed as the
 // notation resolves them. The second result is the fully-qualified name the
 // symbol is declared under.
-func (s *Session) featureChainSymbol(name string) (*symbols.Symbol, string) {
+func (s *Session) featureChainSymbol(segments []string) (*symbols.Symbol, string) {
 	idx := s.browseIndex()
 	ctx, err := s.getOrCreateRuntime()
 	if idx == nil || err != nil {
 		return nil, ""
 	}
-	return symbolfacts.MemberChain(idx, ctx.Semantics(), name)
+	return symbolfacts.MemberChainSegments(idx, ctx.Semantics(), segments)
 }
 
 // carrierLimit bounds the object graph a subject is searched through, so a
