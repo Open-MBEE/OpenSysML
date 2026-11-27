@@ -142,6 +142,8 @@ type DrawioImporter struct {
 	base  *DrawioFile
 	nodes map[string]*Node
 	ports map[string]Port
+	// positioned is whether the rendering states a place for anything it draws.
+	positioned bool
 }
 
 // DrawioImporter prepares the baseline that Import diffs edited files of this
@@ -159,7 +161,7 @@ func (r *Rendering) DrawioImporter(options Options) (*DrawioImporter, error) {
 	if err != nil {
 		return nil, err
 	}
-	importer := &DrawioImporter{norm: norm, drawn: r.drawn, w: w, base: base, nodes: map[string]*Node{}, ports: map[string]Port{}}
+	importer := &DrawioImporter{norm: norm, drawn: r.drawn, w: w, base: base, positioned: placeRendering(r).positioned(), nodes: map[string]*Node{}, ports: map[string]Port{}}
 	for _, node := range drawioNodes(norm.Roots) {
 		importer.nodes[node.ID] = node
 		for _, port := range node.Ports {
@@ -176,7 +178,7 @@ func (i *DrawioImporter) Import(file *DrawioFile) (*DrawioImport, error) {
 		return nil, &DrawioViewError{View: i.norm.View, Pages: []string{file.View}}
 	}
 	out := &DrawioImport{View: i.norm.View}
-	m := &drawioMatcher{norm: i.norm, drawn: i.drawn, w: i.w, base: i.base, file: file, out: out, nodes: i.nodes, ports: i.ports, framed: map[string]bool{}, paired: map[string]*DrawioCell{}}
+	m := &drawioMatcher{norm: i.norm, drawn: i.drawn, w: i.w, base: i.base, file: file, out: out, nodes: i.nodes, ports: i.ports, positioned: i.positioned, framed: map[string]bool{}, paired: map[string]*DrawioCell{}}
 	m.match()
 	m.canvas()
 	m.resolveRenames()
@@ -211,6 +213,8 @@ type drawioMatcher struct {
 	// paired is the file's cell for each baseline cell matched so far.
 	framed map[string]bool
 	paired map[string]*DrawioCell
+	// positioned is whether the rendering states a place for anything it draws.
+	positioned bool
 }
 
 // match pairs the file's semantic cells with the baseline's — by the exported
@@ -273,6 +277,7 @@ func (m *drawioMatcher) match() {
 			m.diff(cell, base, baseKeys)
 		}
 	}
+	m.placeRoots()
 	m.deleted()
 }
 
@@ -778,6 +783,47 @@ func (m *drawioMatcher) pin(id string) {
 			!near(fullBox(edited).Width, fullBox(child).Width) || !near(fullBox(edited).Height, fullBox(child).Height)
 		m.framePlace(edited, child, node, sized)
 	}
+}
+
+// placeRoots places every root of a view placing nothing, once the file moves a swimlane and
+// so places a node: a view placing some nodes leaves the rest undrawn, and the file shows all.
+func (m *drawioMatcher) placeRoots() {
+	if m.positioned || !m.laneMoved() {
+		return
+	}
+	placed := map[string]bool{}
+	for _, e := range m.out.Edits {
+		if e.Kind == DrawioEditLayout && !e.Layout.Unplaced {
+			placed[e.Cell] = true
+		}
+	}
+	if len(placed) == 0 {
+		return
+	}
+	for i := range m.base.Cells {
+		root := &m.base.Cells[i]
+		node, edited := m.nodes[root.ID], m.editedOf(root)
+		if node == nil || !root.Vertex || root.Relative || m.nodes[m.frameOf(root)] != nil || m.framed[root.ID] || placed[edited.ID] {
+			continue
+		}
+		if m.framesChildren(root.ID) {
+			m.pin(root.ID)
+			continue
+		}
+		m.framed[root.ID] = true
+		m.framePlace(edited, root, node, !node.Geometry.placed() || node.Geometry.HasSize)
+	}
+}
+
+// laneMoved reports whether the file has a swimlane at another box than the baseline's.
+func (m *drawioMatcher) laneMoved() bool {
+	for i := range m.base.Cells {
+		base := &m.base.Cells[i]
+		if node := m.nodes[base.ID]; node != nil && node.Kind == swimlaneKind && !sameBox(fullBox(m.editedOf(base)), fullBox(base)) {
+			return true
+		}
+	}
+	return false
 }
 
 // editedOf is the file's cell paired with a baseline cell, the baseline's own

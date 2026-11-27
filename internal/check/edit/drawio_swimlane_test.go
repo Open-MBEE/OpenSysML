@@ -229,6 +229,9 @@ func TestDrawioMovedPlacedSwimlaneBesideANestedLane(t *testing.T) {
 	if about < 0 || !slices.Equal(imp.Edits[about].Within, []string{"PlacedLane::assemble"}) {
 		t.Fatalf("edits = %+v, want a Layout about PlacedLane::arm within PlacedLane::assemble", imp.Edits)
 	}
+	if layout := imp.Edits[about].Layout; layout.X != 360 || layout.Y != 150 {
+		t.Errorf("layout = %+v, want 360,150", layout)
+	}
 	if was, again := lane(edited), lane(re); again == nil || !drawioSameBox(was.Geometry, again.Geometry) {
 		t.Errorf("swimlane was at %+v, re-exported at %+v", was.Geometry, again)
 	}
@@ -263,5 +266,68 @@ func TestDrawioMovedPlacedSwimlaneInsideAnUnnamedPerformersLane(t *testing.T) {
 	}
 	if was, again := lane(edited), lane(re); again == nil || !drawioSameBox(was.Geometry, again.Geometry) {
 		t.Errorf("swimlane was at %+v, re-exported at %+v", was.Geometry, again)
+	}
+}
+
+const twoFlowLaneModel = `package T {
+	private import DiagramLayout::*;
+	action runA { action load; then action ship; }
+	action runB { action pack; then action post; }
+	part line {
+		part robot { perform runA.load; }
+		part packer { perform runB.pack; }
+	}
+	view both : StandardViewDefinitions::ActionFlowView {
+		expose runA;
+		expose runB;
+		metadata Layout about line::robot { x = 320; y = 120; width = 220; height = 180; }
+		metadata Layout about line::packer { x = 700; y = 120; width = 220; height = 180; }
+	}
+	view one : StandardViewDefinitions::ActionFlowView {
+		expose runA;
+		expose runB;
+		metadata Layout about line::robot { x = 320; y = 120; width = 220; height = 180; }
+	}
+	view free : StandardViewDefinitions::ActionFlowView {
+		expose runA;
+		expose T::idle;
+		metadata Layout about line::robot { x = 320; y = 120; width = 220; height = 180; }
+	}
+	view bare : StandardViewDefinitions::ActionFlowView {
+		expose runA;
+		expose runB;
+	}
+	action idle { action rest; then action wake; }
+}
+`
+
+// A lane moved in the file of a view placing no node places every flow the file shows: the
+// re-export leaves no other flow undrawn, with or without a Layout about a performer.
+func TestDrawioMovedSwimlaneKeepsTheOtherFlowsOfAViewPlacingNoNode(t *testing.T) {
+	count := func(f *view.DrawioFile) (vertices, edges int) {
+		for i := range f.Cells {
+			switch c := &f.Cells[i]; {
+			case c.Vertex && !c.Relative:
+				vertices++
+			case c.Edge:
+				edges++
+			}
+		}
+		return vertices, edges
+	}
+	for _, name := range []string{"T::both", "T::one", "T::free", "T::bare"} {
+		t.Run(name, func(t *testing.T) {
+			edited, _, re := swimlaneRoundTripOf(t, twoFlowLaneModel, name, laneOf("T::runA::load"), shifted(t, 40, 30))
+			wantV, wantE := count(edited)
+			if v, e := count(re); v != wantV || e != wantE {
+				t.Errorf("re-exported %d vertices and %d edges, the file had %d and %d", v, e, wantV, wantE)
+			}
+			for _, fqn := range []string{"T::runA::ship", "T::runB::post", "T::idle::wake"} {
+				was, again := cellNamed(fqn)(edited), cellNamed(fqn)(re)
+				if was != nil && (again == nil || !drawioSameBox(was.Geometry, again.Geometry)) {
+					t.Errorf("%s was at %+v, re-exported at %+v", fqn, was.Geometry, again)
+				}
+			}
+		})
 	}
 }

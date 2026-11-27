@@ -458,17 +458,40 @@ func TestSwimlanePlacedAloneLeavesNoNodeUndrawn(t *testing.T) {
 	}
 }
 
-// The draw.io form keeps the stated size of a swimlane placed alone, around the node it holds.
-func TestSwimlanePlacedAloneKeepsItsStatedSizeInDrawio(t *testing.T) {
-	rendering := render(t, "action-swimlane-layout-alone.sysml", "LaneAlone::sizedView")
-	out, err := rendering.Write(FormDrawio)
-	if err != nil {
-		t.Fatalf("write drawio: %v", err)
-	}
-	if !strings.Contains(out, `width="220" height="180"`) {
-		t.Errorf("no cell with the lane's stated 220x180:\n%s", out)
-	}
-	if edges := strings.Count(out, `edge="1"`); edges < 2 {
-		t.Errorf("%d edges drawn, want the two successions of the flow", edges)
+// The draw.io form draws a swimlane placed alone where its Layout says, at the stated size
+// when it states one, with the flow no Layout places drawn around it.
+func TestSwimlanePlacedAloneKeepsItsStatedPlaceInDrawio(t *testing.T) {
+	for view, sized := range map[string]bool{"LaneAlone::cornerView": false, "LaneAlone::sizedView": true} {
+		rendering := render(t, "action-swimlane-layout-alone.sysml", view)
+		out, err := rendering.Write(FormDrawio)
+		if err != nil {
+			t.Fatalf("%s: write drawio: %v", view, err)
+		}
+		file, err := ReadDrawio([]byte(out), view)
+		if err != nil {
+			t.Fatalf("%s: read drawio: %v", view, err)
+		}
+		var lane *DrawioCell
+		edges := 0
+		for i := range file.Cells {
+			switch cell := &file.Cells[i]; {
+			case cell.Vertex && strings.Contains(cell.Label, "line.robot"):
+				lane = cell
+			case cell.Edge:
+				edges++
+			}
+		}
+		if lane == nil {
+			t.Fatalf("%s: no swimlane of line.robot:\n%s", view, out)
+		}
+		if box := lane.Geometry; box.X != 320 || box.Y != 120 {
+			t.Errorf("%s: lane drawn at %v,%v, its Layout says 320,120", view, box.X, box.Y)
+		}
+		if box := lane.Geometry; sized && (box.Width != 220 || box.Height != 180) {
+			t.Errorf("%s: lane drawn %vx%v, its Layout says 220x180", view, box.Width, box.Height)
+		}
+		if edges < 2 {
+			t.Errorf("%s: %d edges drawn, want the two successions of the flow", view, edges)
+		}
 	}
 }

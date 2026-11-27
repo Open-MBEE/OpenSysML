@@ -42,15 +42,25 @@ func newArranger(labels labeller, ports portView) arranger {
 // label and the children, on a deterministic grid when nothing places it.
 func (a *arranger) layout(r *Rendering) {
 	var placed, unplaced []*Node
+	// Swimlanes placed alone pin no node, yet each is drawn where its Layout says: the flow
+	// no Layout places is drawn around them.
+	lanesAlone := !placeRendering(r).pinned
+	around := map[string]drawioBox{}
 	for _, root := range r.Roots {
-		if root.Geometry.placed() {
+		at, framesLanes := a.aroundLanes(root)
+		switch {
+		case root.Geometry.placed():
+			around[root.ID] = drawioBox{X: root.Geometry.X, Y: root.Geometry.Y}
 			placed = append(placed, root)
-		} else {
+		case lanesAlone && framesLanes:
+			around[root.ID] = at
+			placed = append(placed, root)
+		default:
 			unplaced = append(unplaced, root)
 		}
 	}
 	for _, root := range placed {
-		a.settle(root, drawioBox{X: root.Geometry.X, Y: root.Geometry.Y})
+		a.settle(root, around[root.ID])
 		a.extend(a.boxes[root.ID])
 	}
 	for _, picture := range r.Pictures {
@@ -262,6 +272,24 @@ func (a *arranger) settleLanes(lanes []*Node, origin drawioBox, gap float64) flo
 		a.boxes[lane.ID] = box
 	}
 	return origin.Y + height + gap
+}
+
+// aroundLanes is the corner putting an unplaced container's placed swimlanes where their
+// Layouts say, when swimlanes are all it holds placed.
+func (a *arranger) aroundLanes(node *Node) (drawioBox, bool) {
+	minX, minY, found := math.Inf(1), math.Inf(1), false
+	for _, child := range node.Children {
+		switch {
+		case child.Geometry.placed() && child.Kind == swimlaneKind:
+			minX, minY, found = math.Min(minX, child.Geometry.X), math.Min(minY, child.Geometry.Y), true
+		case child.Geometry.placed() || holdsPlaced(child):
+			return drawioBox{}, false
+		}
+	}
+	if !found || node.Geometry.placed() {
+		return drawioBox{}, false
+	}
+	return drawioBox{X: minX - drawioNestedPad, Y: minY - a.headroom(node) - drawioNestedGap}, true
 }
 
 // childShift is what a container's placed children move by: nothing when the
