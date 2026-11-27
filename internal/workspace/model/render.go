@@ -369,17 +369,13 @@ func (w *Workspace) renderPseudoLocked(doc, spec string, renderer *view.Renderer
 		return nil, fmt.Errorf("%s is no pseudo-view: write %s", spec, strings.Join(view.PseudoViewSpecs(), ", "))
 	}
 
-	exposed := []*symbols.Symbol{}
+	exposed := view.PseudoViewExposed(w.index, doc, target)
 	stated := fmt.Sprintf("no view declared; rendering %s directly", doc)
 	if target != "" {
-		sym := w.declaredInLocked(doc, target)
-		if sym == nil {
+		if exposed == nil {
 			return nil, fmt.Errorf("%s: %s names nothing in this document", spec, target)
 		}
-		exposed = append(exposed, sym)
-		stated = fmt.Sprintf("no view declared; rendering %s directly", notationFQN(w.index, sym))
-	} else {
-		exposed = append(exposed, TopLevelDeclarations(w.index.DocumentRoot(doc))...)
+		stated = fmt.Sprintf("no view declared; rendering %s directly", notationFQN(w.index, exposed[0]))
 	}
 	return renderer.RenderExposed(exposed, kind, stated)
 }
@@ -437,21 +433,7 @@ func (w *Workspace) declaredInLocked(doc, fqn string) *symbols.Symbol {
 
 // declaredIn is declaredInLocked over any index.
 func declaredIn(idx *symbols.Index, doc, fqn string) *symbols.Symbol {
-	for _, sym := range idx.LookupQualified(fqn) {
-		if sym.DocName == doc {
-			return sym
-		}
-	}
-	var found *symbols.Symbol
-	idx.DocumentRoot(doc).WalkDeclarations(func(sym *symbols.Symbol) {
-		if found != nil {
-			return
-		}
-		if idx.GetFQN(sym) == fqn || sym.Name == fqn {
-			found = sym
-		}
-	})
-	return found
+	return view.DeclaredIn(idx, doc, fqn)
 }
 
 // namedFrom is the element fqn names from doc: declaredIn, else the one held

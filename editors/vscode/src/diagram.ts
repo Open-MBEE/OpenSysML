@@ -951,6 +951,7 @@ class DiagramPanel {
         nodes: result.nodes,
         edges: result.edges,
         view: result.view,
+        pseudoView: result.view ? undefined : params.view,
         version: result.version,
         palette: result.palette,
         rows: result.rows,
