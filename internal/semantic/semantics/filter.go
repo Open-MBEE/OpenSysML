@@ -150,15 +150,13 @@ func (m *Model) CompileElementFilter(f symbols.ElementFilter) *symbols.FilterPre
 }
 
 // MaxFilterDepth bounds how deep a filter condition nests the expressions compiling it
-// descends into: compiling, checking and evaluating recurse per level, on a depth the
-// document chooses.
+// descends into: compiling and evaluating recurse per level, on a depth the document chooses.
 const MaxFilterDepth = 256
 
 const filterDepthLimitation = "the condition nests its operators too deeply"
 
 // FilterNestsTooDeep reports whether a condition nests operators, sequences, constructor
-// arguments and feature chains past MaxFilterDepth.
-// It walks with a stack of its own, so the answer costs no call depth.
+// arguments and feature chains past MaxFilterDepth, at no call depth of its own.
 func FilterNestsTooDeep(expr ast.Node) bool {
 	type level struct {
 		node  ast.Node

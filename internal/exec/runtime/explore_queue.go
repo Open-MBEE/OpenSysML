@@ -17,8 +17,7 @@ import (
 // than the first run's choice points varies each of them at least once, then by the position
 // of the choice varied, earliest first. A run is committed once every prefix before it has completed;
 // one started earlier is speculative, and at most jobs of those are discarded in all. The queue
-// never holds more than runs prefixes, so no more than runs jobs are ever put to work, nor
-// more than MaxExploreJobs whatever the caller and the budget name.
+// never holds more than runs prefixes, so no more than runs jobs are ever put to work.
 func ExploreWith(stop context.Context, policy SchedulePolicy, jobs int, fresh func(job int) (*Context, error), run func(*Context) (Outcome, error)) (*Exploration, error) {
 	budget, ok := policy.Exploration()
 	if !ok {
