@@ -1,0 +1,2 @@
+- Query and document-query evaluations that exhaust a step or element budget now report `RESOURCE_EXHAUSTED` on both the Query and RunDocumentQuery RPCs, and from the engine's document surface, instead of `INVALID_ARGUMENT` or `FAILED_PRECONDITION`; genuine model faults and malformed arguments keep their statuses.
+- An invalid comparison operator on a literal dotted feature is now reported even when an excluded row exhausted an unrelated evidence preview budget, since that feature cannot defer to a shadow reached through the path.

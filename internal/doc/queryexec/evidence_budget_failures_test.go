@@ -396,3 +396,61 @@ func TestQueryDottedEvidenceWithinItsStepCap(t *testing.T) {
 		t.Fatalf("rows = %v, want none", got)
 	}
 }
+
+// literalDottedExhaustedBudgetQuery keeps a literal dotted feature after the
+// name filter while an excluded row's shadow read exhausts the preview budget.
+func literalDottedExhaustedBudgetQuery(terms int) string {
+	return fmt.Sprintf(`
+private import ScalarValues::*;
+part def ExcludedSensor {
+	attribute base : Integer = 1;
+	attribute annotations : Integer = base%s;
+}
+part def Excluded { part sensor : ExcludedSensor[1]; }
+part def TextSensor { attribute annotations : String = "text"; }
+part def Literal {
+	part sensor : TextSensor[1];
+	attribute 'sensor.annotations' : String = "literal";
+}
+part excluded : Excluded;
+part literal : Literal;
+calc def LiteralFilter :> Query {
+	in lazy : Element;
+	in kept : Element;
+	WhereFeature(
+		source = WhereName(
+			source = Union(source = lazy, other = kept),
+			operator = "=", value = "literal"
+		),
+		'feature' = "sensor.annotations", operator = ">", value = "3"
+	)
+}
+`, strings.Repeat("+1", terms))
+}
+
+// A literal dotted feature's invalid operator is reported even when an
+// unrelated preview on an excluded row ran out of budget.
+func TestQueryLiteralDottedInvalidOperatorOutranksAnExhaustedPreview(t *testing.T) {
+	fixture := loadExecutionFixture(t, literalDottedExhaustedBudgetQuery(40))
+	ctx := runtime.NewContext(runtime.NewModel(fixture.model, fixture.resolver), 80)
+	excluded, err := ctx.Instantiate(fixture.symbol(t, "excluded"))
+	if err != nil {
+		t.Fatalf("Instantiate excluded: %v", err)
+	}
+	literal, err := ctx.Instantiate(fixture.symbol(t, "literal"))
+	if err != nil {
+		t.Fatalf("Instantiate literal: %v", err)
+	}
+	context := Context{
+		Index: fixture.index, Resolver: fixture.resolver, Model: fixture.model, Runtime: ctx,
+		Roots: []Root{{Label: "excluded", Object: excluded}, {Label: "literal", Object: literal}},
+	}
+	_, err = Execute(fixture.program(t, "LiteralFilter"), context, Bindings{
+		"lazy": {ObjectValue(excluded, "excluded")},
+		"kept": {ObjectValue(literal, "literal")},
+	}, Options{})
+	failure := executionError(t, err, ErrorInvalidOperator)
+	if failure.Actual != ">" {
+		t.Fatalf("operator error = %+v, want >", failure)
+	}
+}

@@ -560,9 +560,9 @@ func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequen
 					// follows the shadow's operand, whatever the term order.
 					continue
 				}
-				if compareErr == errComparison && evidence.unavailable != nil {
+				if compareErr == errComparison && evidenceCanExcuse(origin) && evidence.unavailable != nil {
 					// Evidence could not finish reading, so the operand's
-					// verdict is not the reason the comparison failed.
+					// verdict is not the reason a deferring value failed.
 					return sequence{}, evidence.unavailable
 				}
 				if compareErr != errComparison {
@@ -624,6 +624,17 @@ func evidenceUnavailable(err error) error {
 		return err
 	}
 	return nil
+}
+
+// evidenceCanExcuse reports whether a value's layer may defer to a shadow, so
+// an unfinished preview could decide its operand; a literal model feature may not.
+func evidenceCanExcuse(origin valueSource) bool {
+	switch origin {
+	case sourceBuiltin, sourceProjectedBuiltin, sourceShadow, sourceProjectedShadow:
+		return true
+	default:
+		return false
+	}
 }
 
 func (e *executor) builtinShadowEvidence(source sequence, property string, comparison comparison, columnIndex int) builtinShadowEvidence {
