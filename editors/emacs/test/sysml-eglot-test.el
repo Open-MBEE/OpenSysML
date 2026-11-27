@@ -231,7 +231,7 @@ Its range is on LINE, from column 15 to column END."
                 (lambda (_server method _params)
                   (should (eq method :textDocument/codeLens))
                   ,lenses))
-               ((symbol-function 'sysml-eglot--find-tool) (lambda (_) "/bin/sysml"))
+               ((symbol-function 'sysml-eglot--find-tool) (lambda (&rest _) "/bin/sysml"))
                ((symbol-function 'sysml-run-element)
                 (lambda (&rest args) (setq started args))))
        (with-temp-buffer
@@ -293,28 +293,47 @@ Its range is on LINE, from column 15 to column END."
   (with-temp-buffer
     (should-error (sysml-eglot-run-element) :type 'user-error)))
 
+(defmacro sysml-eglot-test--with-server-in (dir &rest body)
+  "Run BODY with DIR bound to a new directory holding `sysml-lsp' and `sysml'."
+  (declare (indent 1))
+  `(let ((,dir (file-name-as-directory (make-temp-file "bin" t))))
+     (unwind-protect
+         (progn
+           (dolist (f '("sysml-lsp" "sysml"))
+             (write-region "#!/bin/sh\nexec sleep 60\n" nil (expand-file-name f ,dir))
+             (set-file-modes (expand-file-name f ,dir) #o755))
+           ,@body)
+       (delete-directory ,dir t))))
+
 (ert-deftest sysml-eglot-finds-the-tool-beside-the-server ()
-  (let* ((dir (file-name-as-directory (make-temp-file "bin" t)))
-         (exec-path (list dir)))
-    (unwind-protect
-        (progn
-          (dolist (f '("sysml-lsp" "sysml"))
-            (write-region "" nil (expand-file-name f dir))
-            (set-file-modes (expand-file-name f dir) #o755))
-          (should (equal (sysml-eglot--find-tool nil) (expand-file-name "sysml" dir))))
-      (delete-directory dir t))))
+  (sysml-eglot-test--with-server-in dir
+    (let ((exec-path (list dir))
+          (sysml-lsp-server-path nil))
+      (cl-letf (((symbol-function 'sysml-eglot--running-server) #'ignore))
+        (should (equal (sysml-eglot--find-tool 'server nil)
+                       (expand-file-name "sysml" dir)))))))
 
 (ert-deftest sysml-eglot-finds-the-tool-beside-the-configured-server ()
-  (let* ((dir (file-name-as-directory (make-temp-file "bin" t)))
-         (sysml-lsp-server-path (expand-file-name "sysml-lsp" dir))
-         (exec-path nil))
-    (unwind-protect
-        (progn
-          (dolist (f '("sysml-lsp" "sysml"))
-            (write-region "" nil (expand-file-name f dir))
-            (set-file-modes (expand-file-name f dir) #o755))
-          (should (equal (sysml-eglot--find-tool nil) (expand-file-name "sysml" dir))))
-      (delete-directory dir t))))
+  (sysml-eglot-test--with-server-in dir
+    (let ((sysml-lsp-server-path (expand-file-name "sysml-lsp" dir))
+          (exec-path nil))
+      (cl-letf (((symbol-function 'sysml-eglot--running-server) #'ignore))
+        (should (equal (sysml-eglot--find-tool 'server nil)
+                       (expand-file-name "sysml" dir)))))))
+
+(ert-deftest sysml-eglot-finds-the-tool-beside-the-server-that-is-running ()
+  (skip-unless (not (eq system-type 'windows-nt)))
+  ;; The server entered at the prompt of C-u M-x eglot is one no setting names.
+  (sysml-eglot-test--with-server-in dir
+    (let* ((sysml-lsp-server-path "/nonexistent/sysml-lsp")
+           (exec-path nil)
+           (process (make-process :name "sysml-lsp" :noquery t
+                                  :command (list (expand-file-name "sysml-lsp" dir)))))
+      (unwind-protect
+          (cl-letf (((symbol-function 'jsonrpc--process) (lambda (_) process)))
+            (should (equal (sysml-eglot--find-tool 'server nil)
+                           (expand-file-name "sysml" dir))))
+        (delete-process process)))))
 
 ;;;; Live server
 

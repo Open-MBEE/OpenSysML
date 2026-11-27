@@ -123,12 +123,24 @@ no two lenses share the qualified name, the one given to `sysml'."
   (mapcar (lambda (folder) (eglot-uri-to-path (plist-get folder :uri)))
           (eglot-workspace-folders server)))
 
-(defun sysml-eglot--find-tool (folders)
+(defun sysml-eglot--running-server (server)
+  "Return the executable of SERVER on this machine, or nil.
+It is nil for a server on another host or reached over a socket."
+  (when-let* (((not (file-remote-p default-directory)))
+              (command (process-command (jsonrpc--process server)))
+              ((consp command)))
+    (executable-find (car command))))
+
+(defun sysml-eglot--find-tool (server folders)
   "Return the `sysml' executable to run elements with, or nil.
-The project root is the first of the workspace FOLDERS, and the language
-server the one found from it; see `sysml-find-tool'."
+The project root is the first of the workspace FOLDERS.  The language
+server is the one SERVER runs, which may be one entered at the prompt
+of \\[eglot], and otherwise the one found from the project root; see
+`sysml-find-tool'."
   (let ((root (car folders)))
-    (sysml-find-tool (sysml--find-server root) root)))
+    (sysml-find-tool (or (sysml-eglot--running-server server)
+                         (sysml--find-server root))
+                     root)))
 
 (defun sysml-eglot-run-element (&optional choose)
   "Run or evaluate an executable element of the current buffer with `sysml'.
@@ -145,11 +157,12 @@ the minibuffer.  See `sysml-run-element' for how it is run."
                      (t (sysml-eglot--read-lens lenses))))
          (args (car (append (plist-get (plist-get lens :command) :arguments) nil)))
          (uri (plist-get args :uri))
-         (folders (sysml-eglot--folders (eglot-current-server))))
+         (server (eglot-current-server))
+         (folders (sysml-eglot--folders server)))
     (sysml-run-element (plist-get args :kind)
                        (plist-get args :element)
                        (and uri (sysml-run-paths (eglot-uri-to-path uri) folders))
-                       (sysml-eglot--find-tool folders))))
+                       (sysml-eglot--find-tool server folders))))
 
 ;;;; Formatting
 
