@@ -138,6 +138,28 @@
                                     (buffer-substring (line-beginning-position) (line-end-position)))))
         (kill-buffer buffer)))))
 
+(ert-deftest sysml-eglot-live-goes-to-a-library-definition ()
+  (sysml-eglot-test--with-session
+      (sysml-test--fixture "package P {\n    private import ScalarValues::*;\n    attribute x : Integer;\n}\n")
+    (goto-char (point-min))
+    (search-forward ": Integer")
+    (backward-char 2)
+    (let* ((item (car (xref-backend-definitions 'eglot (xref-backend-identifier-at-point 'eglot))))
+           (marker (xref-location-marker (xref-item-location item)))
+           (buffer (marker-buffer marker)))
+      (unwind-protect
+          (with-current-buffer buffer
+            (should (sysml-library-uri-p sysml-library-uri))
+            (should-not buffer-file-name)
+            (should buffer-read-only)
+            ;; Only an item with a match length is offered for replacement.
+            (should-not (xref-match-length item))
+            (should (string-match-p "datatype Integer" (xref-item-summary item)))
+            (goto-char marker)
+            (should (string-match-p "datatype Integer"
+                                    (buffer-substring (line-beginning-position) (line-end-position)))))
+        (kill-buffer buffer)))))
+
 (ert-deftest sysml-eglot-live-formats-with-the-mode-offset ()
   (sysml-eglot-test--with-session (sysml-test--fixture "package P {\npart def A;\n}\n")
     (setq-local sysml-indent-offset 3)
