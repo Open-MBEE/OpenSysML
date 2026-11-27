@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"reflect"
 	"sort"
 	"strings"
 
@@ -172,7 +171,7 @@ func fragmentDifferences[S, R any](path string, committed Fragment[json.RawMessa
 			out = append(out, fmt.Sprintf("%s: row %s removed: was %s", path, key, compact(was)))
 		default:
 			wasGeneric, nowGeneric := generic(was), generic(mustMarshal(now))
-			if !reflect.DeepEqual(wasGeneric, nowGeneric) {
+			if len(oracle.Differences(wasGeneric, nowGeneric)) > 0 {
 				out = append(out, fmt.Sprintf("%s: row %s moved: %s -> %s", path, key, compact(was), mustMarshal(now)))
 			}
 		}
@@ -190,13 +189,13 @@ func summaryDifferences(was, now any) []string {
 	return differences
 }
 
-// generic decodes JSON into the plain maps, slices and numbers reflect compares.
+// generic decodes JSON into plain maps and slices, with every number as written.
 func generic(encoded []byte) any {
 	if len(encoded) == 0 {
 		return nil
 	}
-	var out any
-	if err := json.Unmarshal(encoded, &out); err != nil {
+	out, err := oracle.Decode(encoded)
+	if err != nil {
 		panic(err)
 	}
 	return out

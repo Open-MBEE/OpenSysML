@@ -84,6 +84,30 @@
     (flymake-start)
     (sysml-test--wait #'flymake-diagnostics)))
 
+(defun sysml-eglot-test--severities ()
+  "Return the LSP severity of each diagnostic the server last published here."
+  (flymake-start)
+  (mapcar (lambda (diagnostic)
+            (plist-get (alist-get 'eglot-lsp-diag (flymake-diagnostic-data diagnostic))
+                       :severity))
+          (flymake-diagnostics)))
+
+(ert-deftest sysml-eglot-live-takes-strict-conformance-from-the-workspace-configuration ()
+  (let ((configuration (default-value 'eglot-workspace-configuration)))
+    (unwind-protect
+        (progn
+          (setq-default eglot-workspace-configuration '(:sysml (:strictConformance t)))
+          (sysml-eglot-test--with-session
+              (sysml-test--fixture "package P {\n    part def A;\n    part def A;\n}\n")
+            ;; Two duplicate names: errors (1) when strict, warnings (2) otherwise.
+            (sysml-test--wait (lambda () (equal (sysml-eglot-test--severities) '(1 1))))
+            ;; A changed value reaches a running server without a restart.
+            (setq-default eglot-workspace-configuration
+                          '(:sysml (:strictConformance :json-false)))
+            (eglot-signal-didChangeConfiguration (eglot-current-server))
+            (sysml-test--wait (lambda () (equal (sysml-eglot-test--severities) '(2 2))))))
+      (setq-default eglot-workspace-configuration configuration))))
+
 (ert-deftest sysml-eglot-live-goes-to-definition ()
   (sysml-eglot-test--with-session
       (sysml-test--fixture "package P {\n    part def Engine;\n    part e : Engine;\n}\n")
@@ -110,6 +134,28 @@
             (should buffer-read-only)
             (should (derived-mode-p 'kerml-mode))
             (goto-char (car (eglot-range-region (plist-get location :range))))
+            (should (string-match-p "datatype Integer"
+                                    (buffer-substring (line-beginning-position) (line-end-position)))))
+        (kill-buffer buffer)))))
+
+(ert-deftest sysml-eglot-live-goes-to-a-library-definition ()
+  (sysml-eglot-test--with-session
+      (sysml-test--fixture "package P {\n    private import ScalarValues::*;\n    attribute x : Integer;\n}\n")
+    (goto-char (point-min))
+    (search-forward ": Integer")
+    (backward-char 2)
+    (let* ((item (car (xref-backend-definitions 'eglot (xref-backend-identifier-at-point 'eglot))))
+           (marker (xref-location-marker (xref-item-location item)))
+           (buffer (marker-buffer marker)))
+      (unwind-protect
+          (with-current-buffer buffer
+            (should (sysml-library-uri-p sysml-library-uri))
+            (should-not buffer-file-name)
+            (should buffer-read-only)
+            ;; Only an item with a match length is offered for replacement.
+            (should-not (xref-match-length item))
+            (should (string-match-p "datatype Integer" (xref-item-summary item)))
+            (goto-char marker)
             (should (string-match-p "datatype Integer"
                                     (buffer-substring (line-beginning-position) (line-end-position)))))
         (kill-buffer buffer)))))
