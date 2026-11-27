@@ -340,17 +340,33 @@ func (h *heldObjects) walked(inst *runtime.Instance, label string, err error) (*
 func (h *heldObjects) namedRoot(ref objref.Ref) (*runtime.Instance, string, []objref.Segment, error) {
 	head := objref.Head(ref.Segments)
 	noInstance, enclosed := "", false
+	// through is the object held under a member reached through a type, as car::Kit
+	// is: an object held under a shorter prefix as written is walked from instead.
+	var (
+		through     *runtime.Instance
+		throughFQN  string
+		throughRest []objref.Segment
+	)
 	for i := head; i > 0; i-- {
 		sym, err := h.lookup(ref.Segments[:i])
 		if err != nil {
 			return nil, "", nil, err
 		}
-		if sym == nil {
-			continue
+		declared := sym != nil
+		if !declared {
+			if sym = h.inherited(ref.Segments[:i]); sym == nil {
+				continue
+			}
 		}
 		fqn := h.idx.GetFQN(sym)
 		if inst, ok := h.named[fqn]; ok && inst != nil {
-			return inst, fqn, ref.Segments[i:], nil
+			if declared {
+				return inst, fqn, ref.Segments[i:], nil
+			}
+			if through == nil {
+				through, throughFQN, throughRest = inst, fqn, ref.Segments[i:]
+			}
+			continue
 		}
 		if i == head && head < len(ref.Segments) && objref.IsNamespace(sym) {
 			shown := source.QualifiedNameText(fqn)
@@ -365,6 +381,9 @@ func (h *heldObjects) namedRoot(ref objref.Ref) (*runtime.Instance, string, []ob
 			noInstance = fqn
 		}
 	}
+	if through != nil {
+		return through, throughFQN, throughRest, nil
+	}
 	if noInstance != "" {
 		if h.empty() {
 			return nil, "", nil, statusErrorf(connect.CodeNotFound,
@@ -374,6 +393,15 @@ func (h *heldObjects) namedRoot(ref objref.Ref) (*runtime.Instance, string, []ob
 			"no instance of %q (use Instantiate first)", source.QualifiedNameText(noInstance))
 	}
 	return nil, "", nil, statusErrorf(connect.CodeNotFound, "symbol not found: %s", objref.JoinTyped(ref.Segments[:head]))
+}
+
+// inherited is the member segments name through a declaration's type or what it
+// specializes, where no declaration is registered under them, or nil.
+func (h *heldObjects) inherited(segments []objref.Segment) *symbols.Symbol {
+	if syms := h.model.LookupNamedMember(objref.JoinTyped(segments)); len(syms) > 0 {
+		return syms[0]
+	}
+	return nil
 }
 
 // lookup is the declaration segments name: by qualified name as every RPC

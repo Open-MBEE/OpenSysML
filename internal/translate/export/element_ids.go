@@ -265,8 +265,13 @@ func (ids *ElementIDs) recordStatementOperands(e *encoder, node ast.Node, subjec
 	case *ast.ActionExecutionNode:
 		record(xExpression, n.Expression)
 	case *ast.AssignmentActionNode:
+		if n.Target != nil {
+			target := ids.recordNodeParameter(e, n, subject, xTargetParameter, xTargetParameter)
+			feature := ids.recordNodeParameter(e, n, target, xTargetParameter+"."+xTargetFeature, xTargetFeature)
+			ids.recordNodeParameter(e, n, feature, xTargetParameter+"."+xTargetFeature+"."+xAccessedFeature, xAccessedFeature)
+		}
 		record(xTarget, n.Target)
-		record(pValue, n.Value)
+		ids.recordNodeParameterValue(e, n, n.Value, subject, xValueParameter)
 	case *ast.TerminateStatement:
 		record(xExpression, n.Target)
 	case *ast.IfActionNode:
@@ -275,24 +280,49 @@ func (ids *ElementIDs) recordStatementOperands(e *encoder, node ast.Node, subjec
 		switch n.Kind {
 		case ast.LoopFor:
 			ids.recordLoopVariable(e, n, subject)
-			record(xCollection, n.Collection)
+			ids.recordNodeParameterValue(e, n, n.Collection, subject, xCollectionParameter)
 		case ast.LoopWhile:
 			record(xWhileCondition, n.Condition)
 			record(xUntilCondition, n.Until)
 		default:
+			ids.recordNodeParameter(e, n, subject, xEmptyParameter, xEmptyParameter)
 			record(xUntilCondition, n.Condition)
 		}
+		body := e.ids.minted(rdf.IRI(subject.Value+loopBodySuffix), subject, loopBodySuffix)
+		ids.recordOwnedPart(e, n, loopBodySlot, body)
 	}
+}
+
+// loopBodySlot files a loop's body (loopBody) among the loop's parts.
+const loopBodySlot = "loopBody"
+
+// recordNodeParameter records the ReferenceUsage owner writes at slot for a part of statement
+// (nodeParameter), filed under statement at path, and returns it.
+func (ids *ElementIDs) recordNodeParameter(e *encoder, statement ast.Node, owner rdf.Term, path, slot string) rdf.Term {
+	param := e.ids.mintedNode(rdf.ExpressionIRI(owner, slot), owner, slot)
+	ids.recordOwnedPart(e, statement, path, param)
+	return param
+}
+
+// recordNodeParameterValue records the parameter statement writes at slot and the expression
+// it is bound to (nodeParameterValue), with its parts.
+func (ids *ElementIDs) recordNodeParameterValue(e *encoder, statement, value ast.Node, subject rdf.Term, slot string) {
+	if value != nil {
+		ids.recordOwnedExpression(e, value, ids.recordNodeParameter(e, statement, subject, slot, slot), pValue)
+	}
+}
+
+// recordOwnedPart files element and the membership owning it under node at slot.
+func (ids *ElementIDs) recordOwnedPart(e *encoder, node ast.Node, slot string, element rdf.Term) {
+	membership := e.ids.minted(rdf.OwningMembershipIRIOf(element), element, rdf.OwningMembershipSuffix)
+	ids.recordPart(e, node, slot, partIDs{element: rdf.LocalName(element.Value), membership: rdf.LocalName(membership.Value)})
 }
 
 // recordLoopVariable records the ReferenceUsage a `for` loop writes for its variable
 // (loopVariable), the membership owning it and the relationships its head states.
 func (ids *ElementIDs) recordLoopVariable(e *encoder, loop *ast.WhileLoopActionNode, subject rdf.Term) {
 	variable := e.ids.mintedNode(rdf.ExpressionIRI(subject, xLoopVariable), subject, xLoopVariable)
-	membership := e.ids.minted(rdf.OwningMembershipIRIOf(variable), variable, rdf.OwningMembershipSuffix)
-	recorded := partIDs{element: rdf.LocalName(variable.Value), membership: rdf.LocalName(membership.Value)}
-	ids.partByNode[partKey{loop, xLoopVariable}] = recorded
-	ids.partBySpan[spanPartKey{spanKey{e.file.Name(), loop.Span()}, xLoopVariable}] = recorded
+	ids.recordOwnedPart(e, loop, xLoopVariable, variable)
 	head := map[ast.Node]string{}
 	e.clauseRelationshipIDs(variable, false, loop.VariableRelationships, head)
 	for key, id := range head {

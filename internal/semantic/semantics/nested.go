@@ -88,7 +88,7 @@ func (m *Model) nestedSubsettingFQN(sym *symbols.Symbol) string {
 	case *ast.SendStatement:
 		u.Send = true
 	case *ast.AssignmentActionNode, *ast.IfActionNode, *ast.WhileLoopActionNode:
-		if IsLoopVariable(sym) {
+		if IsLoopVariable(sym) || isLoopBody(sym) {
 			return ""
 		}
 		u.Control = controlFormOf(d)
