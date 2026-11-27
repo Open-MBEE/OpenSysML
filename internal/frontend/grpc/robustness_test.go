@@ -396,11 +396,34 @@ func TestGRPCObjectBindingRobustness(t *testing.T) {
 				for _, rest := range []string{"::Kit::nowhere", "::Kit::Deep::nowhere"} {
 					expect(t, lookup(root+rest), connect.CodeNotFound, "binding root", "symbol not found: "+root+rest)
 				}
-				// A name that is no package there still blames the declaration.
-				for _, rest := range []string{"::nowhere::bolt", "::engine::nowhere"} {
-					expect(t, lookup(root+rest), connect.CodeNotFound, "binding root", `no instance of "`+root+`"`)
-				}
+				// A member the package does declare is the declaration lacking an object.
+				expect(t, lookup(root+"::Kit::jack"), connect.CodeNotFound, "binding root", `no instance of "Garage::Car::Kit::jack"`)
+				expect(t, lookup(root+"::Kit::Deep::bolt::nowhere"), connect.CodeNotFound, "binding root", `no instance of "Garage::Car::Kit::Deep::bolt"`)
+				expect(t, lookup(root+"::engine::nowhere"), connect.CodeNotFound, "binding root", `no instance of "Garage::Car::engine"`)
+				// A name that is no member there still blames the root.
+				expect(t, lookup(root+"::nowhere::bolt"), connect.CodeNotFound, "binding root", `no instance of "`+root+`"`)
 			}
+		}
+
+		// An object held under the declared name is reached through the inheriting one.
+		srv := mustNewService(t, 10)
+		parsed, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{Source: &pb.ParseFileRequest_Content{Content: model}})
+		if err != nil {
+			t.Fatalf("ParseFile: %v", err)
+		}
+		holdObject(t, srv, parsed.ModelHash, "Garage::Car::Kit::jack")
+		for _, root := range roots {
+			if _, err := srv.RunDocumentQuery(context.Background(), &pb.RunDocumentQueryRequest{
+				ModelHash: parsed.ModelHash, QueryId: "Garage::Parts",
+				Bindings: []*pb.DocumentQueryBinding{binding("root", objectByPath(root+"::Kit::jack"))},
+			}); err != nil {
+				t.Errorf("%s::Kit::jack with Garage::Car::Kit::jack held: %v", root, err)
+			}
+			_, err := srv.RunDocumentQuery(context.Background(), &pb.RunDocumentQueryRequest{
+				ModelHash: parsed.ModelHash, QueryId: "Garage::Parts",
+				Bindings: []*pb.DocumentQueryBinding{binding("root", objectByPath(root+"::Kit::jack::nowhere"))},
+			})
+			expect(t, err, connect.CodeInvalidArgument, "binding root", `Garage::Car::Kit::jack has no feature "nowhere"`)
 		}
 	})
 

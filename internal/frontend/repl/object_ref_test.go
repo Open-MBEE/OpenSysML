@@ -289,6 +289,9 @@ func TestPackageMemberUnderUnheldDeclarationIsUnresolved(t *testing.T) {
 			for _, rest := range []string{"::Kit::Nope", "::Kit::Deep::Nope"} {
 				wants(t, run(t, s, "%validate "+root+rest), "error: unresolved reference: "+root+rest)
 			}
+			// A member the package does declare is the declaration lacking an object.
+			wants(t, run(t, s, "%validate "+root+"::Kit::jack"), `no instance of the usage "Garage::Car::Kit::jack"`)
+			wants(t, run(t, s, "%validate "+root+"::engine::Nope"), `no instance of the usage "Garage::Car::engine"`)
 		}
 	}
 }

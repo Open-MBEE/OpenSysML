@@ -346,9 +346,10 @@ func (h *heldObjects) namedRoot(ref objref.Ref) (*runtime.Instance, string, []ob
 			return nil, "", nil, err
 		}
 		if sym == nil {
-			// A namespace reached through a type, as car::Kit is, encloses the rest too.
-			enclosed = enclosed || i < head && h.inheritedNamespace(ref.Segments[:i])
-			continue
+			// A name reached through a type, as car::Kit is, is the member it resolves to.
+			if sym = h.inherited(ref.Segments[:i]); sym == nil {
+				continue
+			}
 		}
 		fqn := h.idx.GetFQN(sym)
 		if inst, ok := h.named[fqn]; ok && inst != nil {
@@ -378,11 +379,13 @@ func (h *heldObjects) namedRoot(ref objref.Ref) (*runtime.Instance, string, []ob
 	return nil, "", nil, statusErrorf(connect.CodeNotFound, "symbol not found: %s", objref.JoinTyped(ref.Segments[:head]))
 }
 
-// inheritedNamespace reports whether segments, which no declaration is registered
-// under, name a namespace a declaration inherits or reaches through its type.
-func (h *heldObjects) inheritedNamespace(segments []objref.Segment) bool {
-	syms := h.model.LookupNamedMember(objref.JoinTyped(segments))
-	return len(syms) > 0 && objref.IsNamespace(syms[0])
+// inherited is the member segments name through a declaration's type or what it
+// specializes, where no declaration is registered under them, or nil.
+func (h *heldObjects) inherited(segments []objref.Segment) *symbols.Symbol {
+	if syms := h.model.LookupNamedMember(objref.JoinTyped(segments)); len(syms) > 0 {
+		return syms[0]
+	}
+	return nil
 }
 
 // lookup is the declaration segments name: by qualified name as every RPC
