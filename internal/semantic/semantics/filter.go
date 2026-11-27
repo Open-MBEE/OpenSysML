@@ -566,21 +566,19 @@ func (m *Model) filterMemberType(typ *symbols.Symbol, feature string) *symbols.S
 // chainHops is the member names a chain reads, root outward, so `a.b.c` and
 // `(a.b).c` are the same hop list.
 func chainHops(e *ast.FeatureChainExpr) []string {
+	// A chain is written as deep as it is long, so its links are walked in a loop.
+	var links []*ast.FeatureChainExpr
+	for chain := e; chain != nil; chain, _ = chain.Operand.(*ast.FeatureChainExpr) {
+		links = append(links, chain)
+	}
 	var hops []string
-	var walk func(n ast.Node)
-	walk = func(n ast.Node) {
-		chain, isChain := n.(*ast.FeatureChainExpr)
-		if !isChain {
-			return
-		}
-		walk(chain.Operand)
+	for _, chain := range slices.Backward(links) {
 		if chain.Member != nil {
 			for _, p := range chain.Member.Parts {
 				hops = append(hops, p.Text)
 			}
 		}
 	}
-	walk(e)
 	return hops
 }
 
@@ -1244,7 +1242,7 @@ func (m *Model) appendDeepFilterProblems(out []FilterProblem, f symbols.ElementF
 		node     ast.Node
 		wantBool bool
 	}
-	folds := evalConstUnnested(f.Expr, DefaultMaxIntegerBits)
+	folds := constFolds{}
 	m.resolver.InCondition(func() {
 		pending := []operand{{f.Expr, true}}
 		for len(pending) > 0 {
@@ -1266,14 +1264,14 @@ func (m *Model) appendDeepFilterProblems(out []FilterProblem, f symbols.ElementF
 
 // compileUnnested is the predicate compileCondition gives n, or nil for an operator past
 // MaxFilterDepth that composes its operands, with whether each must yield a truth value.
-func (m *Model) compileUnnested(scope *symbols.Scope, n ast.Node, folds map[*ast.OperatorExpr]constFold) (pred *symbols.FilterPredicate, operandsWantBool bool) {
+func (m *Model) compileUnnested(scope *symbols.Scope, n ast.Node, folds constFolds) (pred *symbols.FilterPredicate, operandsWantBool bool) {
 	if !FilterNestsTooDeep(n) {
 		return m.compileCondition(scope, n), false
 	}
 	switch e := n.(type) {
 	case *ast.OperatorExpr:
-		if f := folds[e]; f.ok {
-			return &symbols.FilterPredicate{Op: symbols.FilterConst, Value: constValue(f.value), Span: spanOf(n)}, false
+		if kind, ok := folds.of(e); ok {
+			return &symbols.FilterPredicate{Op: symbols.FilterConst, Value: kind, Span: spanOf(n)}, false
 		}
 		switch {
 		case e.Operator == ast.OpNot && len(e.Operands) == 1:
@@ -1290,9 +1288,33 @@ func (m *Model) compileUnnested(scope *symbols.Scope, n ast.Node, folds map[*ast
 	return m.compileCondition(scope, n), false
 }
 
+// constFolds remembers which operator expressions of one condition fold to a constant,
+// and of what kind: all a fault is found from, so that no folded value is kept.
+type constFolds map[*ast.OperatorExpr]*symbols.FilterValue
+
+// of is the kind of constant e folds to, as a value of that kind, and whether it folds.
+// Each expression is evaluated once however many of those around it are asked for.
+func (c constFolds) of(e *ast.OperatorExpr) (symbols.FilterValue, bool) {
+	kind, known := c[e]
+	if !known {
+		evalConstUnnested(e, DefaultMaxIntegerBits, func(e *ast.OperatorExpr, v Value, ok bool) {
+			c[e] = nil
+			if ok {
+				folded := constValue(v)
+				c[e] = &symbols.FilterValue{Kind: folded.Kind, Bool: folded.Bool}
+			}
+		})
+		kind = c[e]
+	}
+	if kind == nil {
+		return symbols.FilterValue{}, false
+	}
+	return *kind, true
+}
+
 // compileUnnestedConstructor is compileConstructor for a constructor nested past
 // MaxFilterDepth: the first argument in written order that is no predicate decides.
-func (m *Model) compileUnnestedConstructor(scope *symbols.Scope, e *ast.ConstructorExpr, folds map[*ast.OperatorExpr]constFold) *symbols.FilterPredicate {
+func (m *Model) compileUnnestedConstructor(scope *symbols.Scope, e *ast.ConstructorExpr, folds constFolds) *symbols.FilterPredicate {
 	instance, fault := m.constructedInstance(scope, e)
 	if fault != nil {
 		return fault

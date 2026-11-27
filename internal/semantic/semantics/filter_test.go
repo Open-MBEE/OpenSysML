@@ -2,10 +2,12 @@ package semantics
 
 import (
 	"errors"
+	"runtime/debug"
 	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
@@ -285,4 +287,22 @@ func TestFilterChainThroughNestedFeatures(t *testing.T) {
 	want(t, "(root.inner).k == 3", selects(t, src, "(root.inner).k == 3", "seatBelt"), true)
 	want(t, "root.inner::k == 3", selects(t, src, "root.inner::k == 3", "seatBelt"), true)
 	want(t, "root.m == 2", selects(t, src, "root.m == 2", "seatBelt"), true)
+}
+
+// TestChainHopsWalksAChainOfAnyLength: a chain nests one level per hop, so collecting its
+// hops takes no call depth: a million of them fit a stack far smaller than recursion needs.
+func TestChainHopsWalksAChainOfAnyLength(t *testing.T) {
+	const hops = 1_000_000
+	var chain *ast.FeatureChainExpr
+	var operand ast.Node = &ast.FeatureReference{}
+	for range hops {
+		member := &ast.QualifiedName{}
+		member.SetSingleton(ast.NameSegment{Text: "next"})
+		chain = &ast.FeatureChainExpr{Operand: operand, Member: member}
+		operand = chain
+	}
+	defer debug.SetMaxStack(debug.SetMaxStack(8 << 20))
+	if got := chainHops(chain); len(got) != hops || got[0] != "next" {
+		t.Fatalf("got %d hops, want %d", len(got), hops)
+	}
 }

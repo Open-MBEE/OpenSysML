@@ -475,68 +475,74 @@ func evalOperator(e *ast.OperatorExpr, maxBits int64) (Value, bool) {
 	}
 }
 
-// constFold is what evalConst gives one operator expression.
-type constFold struct {
-	value Value
-	ok    bool
-}
-
-// evalConstUnnested is evalConst for every operator expression at or under n at once,
-// for one nested deeper than a call stack should follow: it keeps a stack of its own.
-func evalConstUnnested(n ast.Node, maxBits int64) map[*ast.OperatorExpr]constFold {
-	folds := map[*ast.OperatorExpr]constFold{}
-	fold := func(operand ast.Node) (Value, bool) {
-		if e, ok := operand.(*ast.OperatorExpr); ok {
-			return folds[e].value, folds[e].ok
-		}
-		return evalConst(operand, maxBits)
+// evalConstUnnested is evalConst for an expression nested deeper than a call stack should
+// follow: the same value, by the same evaluation order, with a stack of its own.
+// It tells settled what each operator expression it finishes evaluating came to.
+func evalConstUnnested(n ast.Node, maxBits int64, settled func(e *ast.OperatorExpr, v Value, ok bool)) (Value, bool) {
+	// An operator waits on its first operand, then (last) on the last it evaluates.
+	type open struct {
+		e    *ast.OperatorExpr
+		last bool
 	}
-	// An operator is folded on its second visit, once the operators under it have been.
-	type visit struct {
-		node   ast.Node
-		folded bool
-	}
-	pending := []visit{{node: n}}
-	for len(pending) > 0 {
-		at := pending[len(pending)-1]
-		pending = pending[:len(pending)-1]
-		e, isOperator := at.node.(*ast.OperatorExpr)
-		if !at.folded {
-			if isOperator {
-				pending = append(pending, visit{e, true})
-			}
-			nested, _ := nestedOperands(at.node)
-			for _, o := range nested {
-				pending = append(pending, visit{node: o})
-			}
-			continue
+	var waiting []open
+	// Only the operands still waiting on their operator are held, as in evalConst.
+	var values []Value
+	fail := func() (Value, bool) {
+		for _, w := range waiting {
+			settled(w.e, Value{}, false)
 		}
-		operands := e.Operands
-		var f constFold
-		switch {
-		case len(operands) != constOperatorArity(e.Operator):
-		case len(operands) == 1:
-			if v, ok := fold(operands[0]); ok {
-				f.value, f.ok = EvalUnary(e.Operator, v)
+		return Value{}, false
+	}
+	for {
+		for e, ok := n.(*ast.OperatorExpr); ok; e, ok = n.(*ast.OperatorExpr) {
+			waiting = append(waiting, open{e: e})
+			if len(e.Operands) != constOperatorArity(e.Operator) {
+				return fail()
 			}
-		case len(operands) == 3:
-			if cond, ok := fold(operands[0]); ok && cond.Kind == ValBool {
-				branch := operands[2]
-				if cond.Bool {
-					branch = operands[1]
+			n = e.Operands[0]
+		}
+		v, ok := evalConst(n, maxBits)
+		if !ok {
+			return fail()
+		}
+		values = append(values, v)
+		for n = nil; n == nil; {
+			if len(waiting) == 0 {
+				return values[0], true
+			}
+			top := &waiting[len(waiting)-1]
+			operands, at := top.e.Operands, len(values)-1
+			switch {
+			case len(operands) == 1:
+				values[at], ok = EvalUnary(top.e.Operator, values[at])
+			case top.last && len(operands) == 3:
+				// The branch taken is the conditional's value.
+			case top.last:
+				values[at-1], ok = evalBinaryWithin(top.e.Operator, values[at-1], values[at], maxBits)
+				values = values[:at]
+			case len(operands) == 3:
+				cond := values[at]
+				values = values[:at]
+				if ok = cond.Kind == ValBool; ok {
+					n = operands[2]
+					if cond.Bool {
+						n = operands[1]
+					}
 				}
-				f.value, f.ok = fold(branch)
+			default:
+				n = operands[1]
 			}
-		default:
-			l, lok := fold(operands[0])
-			r, rok := fold(operands[1])
-			if lok && rok {
-				f.value, f.ok = evalBinaryWithin(e.Operator, l, r, maxBits)
+			if !ok {
+				return fail()
 			}
+			if n != nil {
+				top.last = true
+				continue
+			}
+			settled(top.e, values[len(values)-1], true)
+			waiting = waiting[:len(waiting)-1]
 		}
-		folds[e] = f
 	}
-	return folds
 }
 
 // constOperatorArity is the number of operands evalOperator evaluates op over.

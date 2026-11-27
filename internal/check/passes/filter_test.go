@@ -1,6 +1,8 @@
 package passes
 
 import (
+	"runtime"
+	"slices"
 	"strings"
 	"testing"
 
@@ -425,5 +427,76 @@ func TestAFilterNestedPastTheBoundThatFoldsToATruthValueIsOnlyNotEvaluated(t *te
 				t.Fatalf("got %v, want one filter-not-evaluated warning", diags)
 			}
 		})
+	}
+}
+
+// TestAFilterNestedPastTheBoundIsInTheErrorsItIsInWithinIt: the bound moves no error, so
+// a shape reports the same filter errors written a few levels deep and past the bound.
+func TestAFilterNestedPastTheBoundIsInTheErrorsItIsInWithinIt(t *testing.T) {
+	const reflective = `package R1 {
+			private import ScalarValues::*;
+			metaclass M { var feature a : Boolean[1]; }
+			feature p : M[1];
+		}
+	`
+	const linked = `package Q {
+			part def Link { part onward : Link; attribute ready : ScalarValues::Boolean; }
+			part head : Link;
+		}
+	`
+	errorsOf := func(src string) []string {
+		var codes []string
+		for _, d := range filterDiags(t, src) {
+			if d.Severity == diag.SeverityError {
+				codes = append(codes, d.Code)
+			}
+		}
+		slices.Sort(codes)
+		return codes
+	}
+	for _, tc := range []struct {
+		name      string
+		prelude   string
+		condition func(n int) string
+		want      []string
+	}{
+		{"a chain from a package feature", linked,
+			func(n int) string { return "Q::head" + strings.Repeat(".onward", n) + ".ready" }, nil},
+		{"a chain from a package feature to no feature", linked,
+			func(n int) string { return "Q::head" + strings.Repeat(".onward", n) + ".absent" },
+			[]string{"filter-not-boolean"}},
+		{"a constructor over a conjunction on the candidate", filterMetadata,
+			func(n int) string {
+				return "new Safety((if @Safety ? true else false)" + strings.Repeat(" and @Safety", n) + ")"
+			},
+			[]string{"filter-not-boolean"}},
+		{"a reflective chain beside a null-coalescing chain", reflective,
+			func(n int) string { return "R1::p.a and (1" + strings.Repeat(" ?? 1", n) + ")" },
+			[]string{"filter-not-evaluable"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, n := range []int{8, semantics.MaxFilterDepth + 1} {
+				got := errorsOf(tc.prelude + "package P { filter " + tc.condition(n) + "; }\n")
+				if !slices.Equal(got, tc.want) {
+					t.Errorf("nested %d deep: got filter errors %v, want %v", n, got, tc.want)
+				}
+			}
+		})
+	}
+}
+
+// TestAFilterNestedPastTheBoundCostsNothingForABranchNotTaken: finding the faults of a
+// conditional folds the branch it takes, not the sum of a million-bit power beside it.
+func TestAFilterNestedPastTheBoundCostsNothingForABranchNotTaken(t *testing.T) {
+	src := "package P { filter if true ? true else (2 ** 1000000" + strings.Repeat(" + 1", 10_000) + " > 0); }\n"
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	diags := filterDiags(t, src)
+	runtime.ReadMemStats(&after)
+	if len(diags) != 1 || diags[0].Code != "filter-not-evaluated" {
+		t.Fatalf("got %v, want one filter-not-evaluated warning", diags)
+	}
+	if spent := after.TotalAlloc - before.TotalAlloc; spent > 256<<20 {
+		t.Errorf("checking it allocated %d MiB, want under 256: the sum is in the branch not taken", spent>>20)
 	}
 }
