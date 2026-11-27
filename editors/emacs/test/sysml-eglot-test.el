@@ -274,7 +274,7 @@ Its range is on LINE, from column 15 to column END."
     (goto-char (point-min))
     (search-forward "Land")
     (sysml-eglot-run-element)
-    (should (equal started '("action" "Demo::Land" ("/ws") "/bin/sysml")))))
+    (should (equal started '("action" "Demo::Land" ("/ws") "/bin/sysml" "/ws")))))
 
 (ert-deftest sysml-eglot-reads-the-element-away-from-a-name ()
   (sysml-eglot-test--with-lenses sysml-eglot-test--lenses
@@ -284,7 +284,7 @@ Its range is on LINE, from column 15 to column END."
                  (should (equal elements '("Demo::Fly" "Demo::Land")))
                  "Demo::Fly")))
       (sysml-eglot-run-element))
-    (should (equal started '("action" "Demo::Fly" ("/ws") "/bin/sysml")))))
+    (should (equal started '("action" "Demo::Fly" ("/ws") "/bin/sysml" "/ws")))))
 
 (ert-deftest sysml-eglot-reads-the-element-with-a-prefix-argument ()
   (sysml-eglot-test--with-lenses sysml-eglot-test--lenses

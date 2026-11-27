@@ -11,6 +11,7 @@
 
 (require 'cl-lib)
 (require 'ert)
+(require 'ert-x)
 (require 'imenu)
 (require 'sysml-mode)
 
@@ -351,6 +352,103 @@ values of `sysml-project-builds' saved for later sessions."
          (sysml-project-builds (list (cons remote nil) (cons root t))))
     (should (sysml--project-build-allowed-p root))
     (should-not (sysml--project-build-allowed-p remote))))
+
+(ert-deftest sysml-mode-finds-an-answer-recorded-without-the-trailing-slash ()
+  (sysml-test--with-project-build root
+    (dolist (answer '(t nil))
+      (let ((sysml-project-builds (list (cons (directory-file-name root) answer))))
+        (sysml-test--answering (not answer) asked saved
+          (should (equal (sysml--find-server root)
+                         (and answer (expand-file-name "bin/sysml-lsp" root))))
+          (should (equal (sysml-find-tool nil root)
+                         (and answer (expand-file-name "bin/sysml" root))))
+          (should-not asked)
+          (should-not saved))))))
+
+(ert-deftest sysml-mode-finds-a-remote-answer-recorded-without-the-trailing-slash ()
+  (dolist (answer '(t nil))
+    (let ((sysml-project-builds (list (cons "/ssh:host:/work/model" answer)
+                                      (cons "/work/model" (not answer)))))
+      (sysml-test--answering (not answer) asked saved
+        (should (eq (sysml--project-build-allowed-p "/ssh:host:/work/model/") answer))
+        (should (eq (sysml--project-build-allowed-p "/work/model/") (not answer)))
+        (should-not asked)
+        (should-not saved)))))
+
+(ert-deftest sysml-mode-names-the-build-it-may-not-run-when-no-server-is-found ()
+  (sysml-test--with-project-build root
+    ;; Never asked about in a batch session, and refused earlier.
+    (dolist (sysml-project-builds (list nil (list (cons root nil))))
+      (let* ((noninteractive t)
+             (message (cadr (should-error (sysml--server-command root) :type 'user-error))))
+        (should (string-search (expand-file-name "bin/" root) message))
+        (should (string-search "not allowed" message))
+        (should (string-search "sysml-project-builds" message))))))
+
+(ert-deftest sysml-mode-names-no-build-when-the-project-holds-none ()
+  (let ((root (file-name-as-directory (make-temp-file "proj" t)))
+        (sysml-project-builds nil)
+        (sysml-lsp-server-path nil)
+        (exec-path nil)
+        (noninteractive t))
+    (unwind-protect
+        (let ((message (cadr (should-error (sysml--server-command root) :type 'user-error))))
+          (should-not (string-search "sysml-project-builds" message))
+          (should (string-search "make build" message)))
+      (delete-directory root t))))
+
+(ert-deftest sysml-mode-says-when-it-passes-over-a-build-for-exec-path ()
+  (sysml-test--with-project-build root
+    (let* ((elsewhere (file-name-as-directory (make-temp-file "path" t)))
+           (exec-path (list elsewhere))
+           (noninteractive t))
+      (unwind-protect
+          (progn
+            (dolist (f '("sysml-lsp" "sysml"))
+              (write-region "" nil (expand-file-name f elsewhere))
+              (set-file-modes (expand-file-name f elsewhere) #o755))
+            (dolist (case `((,(lambda () (sysml--find-server root)) "sysml-lsp")
+                            (,(lambda () (sysml-find-tool nil root)) "sysml")))
+              (ert-with-message-capture said
+                (should (equal (funcall (car case)) (expand-file-name (cadr case) elsewhere)))
+                (should (string-search (expand-file-name (concat "bin/" (cadr case)) root) said))
+                (should (string-search (expand-file-name (cadr case) elsewhere) said))
+                (should (string-search "sysml-project-builds" said))
+                (should (= (length (split-string said "\n" t)) 1)))
+              ;; Nothing was passed over when the build may be run.
+              (let ((sysml-project-builds (list (cons root t))))
+                (ert-with-message-capture said
+                  (should (equal (funcall (car case))
+                                 (expand-file-name (concat "bin/" (cadr case)) root)))
+                  (should (string-empty-p said))))))
+        (delete-directory elsewhere t)))))
+
+(ert-deftest sysml-mode-says-nothing-of-builds-when-the-project-holds-none ()
+  (let* ((root (file-name-as-directory (make-temp-file "proj" t)))
+         (sysml-project-builds nil)
+         (sysml-lsp-server-path nil)
+         (exec-path (list root))
+         (noninteractive t))
+    (unwind-protect
+        (progn
+          (write-region "" nil (expand-file-name "sysml-lsp" root))
+          (set-file-modes (expand-file-name "sysml-lsp" root) #o755)
+          (ert-with-message-capture said
+            (should (sysml--find-server root))
+            (should (string-empty-p said))))
+      (delete-directory root t))))
+
+(ert-deftest sysml-mode-names-the-build-it-may-not-run-when-no-tool-is-found ()
+  (sysml-test--with-project-build root
+    (let* ((noninteractive t)
+           (file (expand-file-name "m.sysml" root))
+           (message (cadr (should-error
+                           (sysml-run-element "action" "P::a" (list file)
+                                              (sysml-find-tool nil root) root)
+                           :type 'user-error))))
+      (should (string-search (expand-file-name "bin/" root) message))
+      (should (string-search "not allowed" message))
+      (should (string-search "sysml-project-builds" message)))))
 
 (ert-deftest sysml-mode-finds-the-tool-beside-the-server-then-in-the-project ()
   (let* ((root (file-name-as-directory (make-temp-file "root" t)))

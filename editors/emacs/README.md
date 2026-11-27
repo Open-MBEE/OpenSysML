@@ -86,9 +86,11 @@ Both clients look in that order and pass `sysml-lsp-server-args`.
 A checkout's own build is run only with your say. The first time a project holds a
 `bin/sysml-lsp` or `bin/sysml` that would be used, Emacs asks whether to run what is
 built there, and saves the answer in `sysml-project-builds`, so each checkout is asked
-about once, whichever client you use. Answer no and the lookup goes on to `exec-path`;
-change an answer with `M-x customize-option RET sysml-project-builds`. A batch Emacs,
-which cannot ask, runs neither. A checkout reached over TRAMP is asked about separately,
+about once, whichever client you use. Answer no and the lookup goes on to `exec-path`,
+with a message naming the build it passed over; when nothing is found there either, the
+error names that build and `sysml-project-builds` rather than telling you to build one.
+Change an answer with `M-x customize-option RET sysml-project-builds`; a root matches with
+or without its trailing slash. A batch Emacs, which cannot ask, runs neither. A checkout reached over TRAMP is asked about separately,
 under its remote name.
 
 After rebuilding

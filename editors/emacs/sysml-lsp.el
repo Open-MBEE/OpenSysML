@@ -103,7 +103,8 @@ See `sysml-run-element'."
     (sysml-run-element (and args (lsp-get args :kind))
                        (and args (lsp-get args :element))
                        (and uri (sysml-lsp--run-paths (lsp--uri-to-path uri)))
-                       (sysml-lsp--find-tool))))
+                       (sysml-lsp--find-tool)
+                       (sysml-lsp--project-root))))
 
 ;;;; Bundled library documents
 
@@ -158,6 +159,16 @@ They follow the locations in files."
   "Return the command to start the language server with."
   (sysml--server-command (sysml-lsp--project-root)))
 
+(defun sysml-lsp--server-found-p ()
+  "Return non-nil when a language server is found for this buffer.
+Say so when the only one is a build the project may not run, which
+lsp-mode would otherwise report as no server at all."
+  (let ((root (sysml-lsp--project-root)))
+    (cond ((sysml--find-server root) t)
+          ((sysml--refused-project-build sysml--server-executable root)
+           (message "%s" (sysml--missing-server root))
+           nil))))
+
 (defun sysml-lsp--enable-semantic-tokens ()
   "Turn on semantic tokens in this buffer when `sysml-lsp-semantic-tokens' is set."
   (when sysml-lsp-semantic-tokens
@@ -179,7 +190,7 @@ They follow the locations in files."
 (lsp-register-client
  (make-lsp-client
   :new-connection (lsp-stdio-connection #'sysml-lsp--server-command
-                                        (lambda () (and (sysml-lsp--find-server) t)))
+                                        #'sysml-lsp--server-found-p)
   :activation-fn (lsp-activate-on "sysml" "kerml")
   :server-id 'sysml-lsp
   :synchronize-sections '("sysml")

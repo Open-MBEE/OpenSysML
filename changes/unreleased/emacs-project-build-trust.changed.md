@@ -3,4 +3,6 @@
   whether to run what is built there and saves the answer in the new
   `sysml-project-builds` option, so each checkout is asked about once and a refusal is
   remembered. A batch Emacs runs neither, and a checkout reached over TRAMP is recorded
-  under its remote name. Until now lsp-mode started a project's `bin/sysml-lsp` unasked.
+  under its remote name. A build passed over for `exec-path` is named in a message, and
+  in the error when no other is found. Until now lsp-mode started a project's
+  `bin/sysml-lsp` unasked.

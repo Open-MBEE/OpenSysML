@@ -165,7 +165,8 @@ the minibuffer.  See `sysml-run-element' for how it is run."
     (sysml-run-element (plist-get args :kind)
                        (plist-get args :element)
                        (and uri (sysml-run-paths (eglot-uri-to-path uri) folders))
-                       (sysml-eglot--find-tool server folders))))
+                       (sysml-eglot--find-tool server folders)
+                       (car folders))))
 
 ;;;; Formatting
 

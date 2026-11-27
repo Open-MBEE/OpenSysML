@@ -11,6 +11,7 @@
 ;;; Code:
 
 (require 'ert)
+(require 'ert-x)
 (require 'sysml-lsp)
 (require 'sysml-test)
 
@@ -48,6 +49,32 @@
                   (sysml-project-builds (list (cons root nil))))
               (should-not (sysml-lsp--find-server))
               (should-not (sysml-lsp--find-tool)))))
+      (delete-directory root t))))
+
+(ert-deftest sysml-lsp-says-which-build-it-may-not-start ()
+  ;; lsp-mode reports a client whose server is missing as no server at all.
+  (let* ((root (file-name-as-directory (make-temp-file "proj" t)))
+         (exe (expand-file-name "bin/sysml-lsp" root))
+         (sysml-lsp-server-path nil)
+         (exec-path nil))
+    (unwind-protect
+        (cl-letf (((symbol-function 'sysml-lsp--project-root) (lambda () root)))
+          (ert-with-message-capture said
+            (should-not (sysml-lsp--server-found-p))
+            (should (string-empty-p said)))
+          (make-directory (file-name-directory exe))
+          (write-region "" nil exe)
+          (set-file-modes exe #o755)
+          (let ((sysml-project-builds (list (cons root nil))))
+            (ert-with-message-capture said
+              (should-not (sysml-lsp--server-found-p))
+              (should (string-search (file-name-directory exe) said))
+              (should (string-search "not allowed" said))
+              (should (string-search "sysml-project-builds" said))))
+          (let ((sysml-project-builds (list (cons root t))))
+            (ert-with-message-capture said
+              (should (sysml-lsp--server-found-p))
+              (should (string-empty-p said)))))
       (delete-directory root t))))
 
 (ert-deftest sysml-lsp-falls-back-to-exec-path ()
