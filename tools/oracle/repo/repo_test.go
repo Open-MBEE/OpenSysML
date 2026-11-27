@@ -1,9 +1,13 @@
 package repo
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/subprocess"
 )
 
 // TestRootSkipsTheToolsModule: from inside the tools module the root is the
@@ -90,5 +94,24 @@ func TestResolveAnchorsRelativePathsAtTheRoot(t *testing.T) {
 		if got := Resolve(root, given); got != want {
 			t.Errorf("Resolve(%q, %q) = %q, want %q", root, given, got, want)
 		}
+	}
+}
+
+// TestDevelopCommitStopsAGitThatFloodsItsAnswer: the answer is one commit, so a git that
+// never stops writing is stopped at the bound rather than read to the end.
+func TestDevelopCommitStopsAGitThatFloodsItsAnswer(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the stand-in git is a POSIX shell script")
+	}
+	bin := t.TempDir()
+	if err := os.WriteFile(filepath.Join(bin, "git"), []byte("#!/bin/sh\nwhile :; do echo 0123456789abcdef; done\n"), 0o700); err != nil { // #nosec G306 -- an executable test stub
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	if commit, err := DevelopCommit(t.TempDir(), ""); !errors.Is(err, subprocess.ErrOutput) {
+		t.Fatalf("got %q, %v; want the output bound", commit, err)
+	}
+	if commit, err := DevelopCommit(t.TempDir(), "abc"); err != nil || commit != "abc" {
+		t.Fatalf("a given commit: got %q, %v", commit, err)
 	}
 }

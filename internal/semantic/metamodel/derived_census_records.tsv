@@ -1099,12 +1099,12 @@ InstantiationExpression::argument	examples	1389	1360	29	0	1391	1385	6	0	0
 InstantiationExpression::argument	probes	1	1	0	0	1	1	0	0	0
 InstantiationExpression::argument	manual-examples	346	332	14	0	377	363	14	0	0
 InstantiationExpression::instantiatedType	training	285	150	0	135	270	270	0	0	0
-InstantiationExpression::instantiatedType	pilot-examples	1193	460	0	733	1176	1176	0	0	0
+InstantiationExpression::instantiatedType	pilot-examples	1193	474	0	719	1176	1176	0	0	0
 InstantiationExpression::instantiatedType	pilot-validation	363	149	0	214	342	342	0	0	0
-InstantiationExpression::instantiatedType	kerml-examples	115	32	0	83	114	114	0	0	0
-InstantiationExpression::instantiatedType	spec-examples	208	40	0	168	205	205	0	0	0
-InstantiationExpression::instantiatedType	testdata	62	11	0	51	67	67	0	0	0
-InstantiationExpression::instantiatedType	examples	1389	615	0	774	1391	1391	0	0	0
+InstantiationExpression::instantiatedType	kerml-examples	115	33	0	82	114	114	0	0	0
+InstantiationExpression::instantiatedType	spec-examples	208	68	0	140	205	205	0	0	0
+InstantiationExpression::instantiatedType	testdata	62	13	0	49	67	67	0	0	0
+InstantiationExpression::instantiatedType	examples	1389	618	0	771	1391	1391	0	0	0
 InstantiationExpression::instantiatedType	probes	1	0	0	1	1	1	0	0	0
 InstantiationExpression::instantiatedType	manual-examples	346	277	0	69	377	377	0	0	0
 InterfaceUsage::interfaceDefinition	training	3	3	0	0	3	3	0	0	0

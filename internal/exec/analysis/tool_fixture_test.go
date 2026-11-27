@@ -6,10 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -22,7 +20,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
-	"github.com/Open-MBEE/OpenSysML/tests/testutil/gobuild"
 )
 
 // pilotFixture is the pilot corpus file declaring ComputeDynamics, the action ToolExecution
@@ -171,32 +168,14 @@ const (
 	standinCounter = "TOOL_STANDIN_COUNTER"
 )
 
-var (
-	standinOnce sync.Once
-	standinPath string
-	standinErr  error
-)
-
 // standin builds the stand-in tool once per test binary and returns its path.
 func standin(t *testing.T) string {
 	t.Helper()
-	standinOnce.Do(func() {
-		dir, err := os.MkdirTemp("", "toolstandin")
-		if err != nil {
-			standinErr = err
-			return
-		}
-		standinPath = filepath.Join(dir, "toolstandin")
-		build := exec.Command("go", gobuild.Args(standinPath)...)
-		build.Dir = filepath.Join("testdata", "toolstandin")
-		if out, err := build.CombinedOutput(); err != nil {
-			standinErr = fmt.Errorf("go build: %v\n%s", err, out)
-		}
-	})
-	if standinErr != nil {
-		t.Fatalf("building the stand-in tool: %v", standinErr)
+	path, err := testBuilds.Build("toolstandin", filepath.Join("testdata", "toolstandin"))
+	if err != nil {
+		t.Fatalf("building the stand-in tool: %v", err)
 	}
-	return standinPath
+	return path
 }
 
 // pilotEntry is the manifest entry the fixture's ToolExecution resolves to, answered by

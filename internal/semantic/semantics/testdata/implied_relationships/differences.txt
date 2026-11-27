@@ -1,5 +1,6 @@
 model	rows.kerml	Specialization	K::AX::xa	Occurrences::occurrences	crossing
 model	rows.kerml	Specialization	K::AX::xb	Occurrences::occurrences	crossing
+model	rows.kerml	Specialization	K::E::echain/FeatureChainExpression[0]/Feature[1]	K::P::px	chain-target-feature
 model	rows.kerml	Specialization	K::E::ecol	Base::things	valuation-result
 model	rows.kerml	Specialization	K::E::econd	Base::things	valuation-result
 model	rows.kerml	Specialization	K::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]	K::E::d1	lazy-operand
@@ -25,6 +26,7 @@ model	rows.sysml	Specialization	R::Conn::p1/Multiplicity[0]	Base::naturals	defau
 model	rows.sysml	Specialization	R::Conn::p2/Multiplicity[0]	Base::naturals	default-multiplicity
 model	rows.sysml	Specialization	R::E::d1/Multiplicity[0]	Base::naturals	default-multiplicity
 model	rows.sysml	Specialization	R::E::d2/Multiplicity[0]	Base::naturals	default-multiplicity
+model	rows.sysml	Specialization	R::E::echain/FeatureChainExpression[0]/Feature[1]	R::P2::px	chain-target-feature
 model	rows.sysml	Specialization	R::E::echain/Multiplicity[0]	Base::naturals	default-multiplicity
 model	rows.sysml	Specialization	R::E::ecol/Multiplicity[0]	Base::naturals	default-multiplicity
 model	rows.sysml	Specialization	R::E::econd/Multiplicity[0]	Base::naturals	default-multiplicity
