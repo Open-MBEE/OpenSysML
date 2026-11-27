@@ -1169,6 +1169,14 @@ func (e *Evaluator) instantiationExpressionProperty(element Element, name string
 		}
 		return elementValue(ElementOf(target)), true
 	}
+	if expressionNode == nil && e.options.Structure != nil && e.model != nil {
+		// A chain expression read from the graph instantiates the '.' function, as one read from its node does.
+		if metaclass, _ := e.options.Structure.Metaclass(element); metaclass == "FeatureChainExpression" {
+			if function := e.statedExpressionFunction(element); function != nil && semantics.IsType(function) {
+				return elementValue(ElementOf(function)), true
+			}
+		}
+	}
 	if e.options.Structure != nil {
 		if invocation, ok := expressionNode.(*ast.InvocationExpr); ok {
 			if callee := semantics.ChainCallee(invocation); callee != nil {
