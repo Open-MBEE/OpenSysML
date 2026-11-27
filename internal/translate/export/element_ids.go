@@ -219,18 +219,7 @@ func (ids *ElementIDs) recordSendArguments(e *encoder, node ast.Node) {
 		return
 	}
 	fqn := e.names.FQN[node]
-	arguments := [3]ast.Node{send.Message}
-	written := [3]bool{true}
-	switch {
-	case send.IsVia:
-		arguments[1], written[1] = send.Target, true
-		if send.Receiver != nil {
-			arguments[2], written[2] = send.Receiver, true
-		}
-	case send.Target != nil:
-		written[1] = true
-		arguments[2], written[2] = send.Target, true
-	}
+	arguments, written := naming.SendArguments(send)
 	index := 0
 	for i, argument := range arguments {
 		if !written[i] {

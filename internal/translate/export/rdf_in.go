@@ -2460,6 +2460,15 @@ func (d *decoder) enumeratedValue(el *element) bool {
 }
 
 func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
+	canonicalKeyword := usageKeyword(kind)
+	if written, ok := kermlTypeKeyword[el.metaclass]; ok {
+		canonicalKeyword = written
+	}
+	return d.usageHeadAs(el, kind, d.keywordOr(el, canonicalKeyword))
+}
+
+// usageHeadAs writes the head of a usage declared with the given kind keyword.
+func (d *decoder) usageHeadAs(el *element, kind ast.UsageKind, keyword string) (string, error) {
 	// A head that binds ends is written from the form it states; one relating
 	// ends without a form is refused rather than written back without them.
 	endForm, hasEnds := d.stringOf(el, rdf.OpenSysML+xEndForm)
@@ -2497,11 +2506,6 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		// without the word, which only an explicit direction earns.
 		words = append(words, direction)
 	}
-	canonicalKeyword := usageKeyword(kind)
-	if written, ok := kermlTypeKeyword[el.metaclass]; ok {
-		canonicalKeyword = written
-	}
-	keyword := d.keywordOr(el, canonicalKeyword)
 	// A `message` is the flow whose ends are event occurrences it owns as
 	// parameters; their metaclass says `message` where the graph states none.
 	if kind == ast.UsageFlow && keyword == usageKeyword(kind) {

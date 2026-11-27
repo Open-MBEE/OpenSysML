@@ -67,24 +67,131 @@ func TestNamedActionNodeIsTheStatement(t *testing.T) {
 	}
 }
 
-// A node whose declaration says more than its visibility and name keeps the
-// action it is declared as, whose head writes those clauses back: the typing
-// of `action a : Act assign …` and the prefix of `#Tag action s send …`
-// survive a hop through the graph alone.
-func TestRicherActionNodeKeepsItsDeclaration(t *testing.T) {
-	src := "package P {\n    part x;\n    part y;\n    action def Act;\n    metadata def Tag;\n    action def A {\n        attribute v = 0;\n        action a : Act assign v := 1;\n        #Tag action s send x to y;\n    }\n}\n"
+// A node whose declaration says more than its name is still one element of its node's metaclass
+// (SysML.xtext ActionNodePrefix), on Turtle and the API's JSON, and its head comes back from the graph alone.
+func TestRicherActionNodeIsOneElementOfItsMetaclass(t *testing.T) {
+	src := `package P {
+    part def PD { attribute w; }
+    part p : PD;
+    part x;
+    part y;
+    attribute def Sig;
+    action def Act;
+    action base : Act;
+    metadata def Tag;
+    action def A {
+        action typedAssign : Act assign p.w := 1;
+        action multAssign[1] assign p.w := 1;
+        action subsetAssign :> base assign p.w := 1;
+        action redefAssign :>> base assign p.w := 1;
+        #Tag action taggedAssign[1] : Act assign p.w := 1;
+        abstract action abstractAssign assign p.w := 1;
+        action typedIf : Act if true { assign p.w := 1; } else { assign p.w := 2; }
+        action typedWhile : Act while true { assign p.w := 1; }
+        action typedFor : Act for i in (1, 2) { assign p.w := i; }
+        action typedSend : Act send Sig() via p to x;
+        #Tag action taggedSend send x to y;
+    }
+}
+`
+	nodes := map[string]string{
+		"typedAssign":    "AssignmentActionUsage",
+		"multAssign":     "AssignmentActionUsage",
+		"subsetAssign":   "AssignmentActionUsage",
+		"redefAssign":    "AssignmentActionUsage",
+		"taggedAssign":   "AssignmentActionUsage",
+		"abstractAssign": "AssignmentActionUsage",
+		"typedIf":        "IfActionUsage",
+		"typedWhile":     "WhileLoopActionUsage",
+		"typedFor":       "ForLoopActionUsage",
+		"typedSend":      "SendActionUsage",
+		"taggedSend":     "SendActionUsage",
+	}
+	out, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatAPIJSON)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var elements []map[string]any
+	if err := json.Unmarshal(out, &elements); err != nil {
+		t.Fatal(err)
+	}
+	found := map[string]bool{}
+	for _, el := range elements {
+		id, _ := el["@id"].(string)
+		name, isNode := strings.CutPrefix(id, "P__A__")
+		if metaclass, ok := nodes[name]; isNode && ok {
+			found[name] = true
+			if el["@type"] != metaclass {
+				t.Errorf("%s is a %v, want %s", name, el["@type"], metaclass)
+			}
+		}
+		owner, _ := el["owner"].(map[string]any)
+		if owner == nil {
+			continue
+		}
+		ownerID, _ := owner["@id"].(string)
+		if name, ok := strings.CutPrefix(ownerID, "P__A__"); ok && nodes[name] != "" && el["@type"] == nodes[name] {
+			t.Errorf("%s owns a second %s, %s", name, nodes[name], id)
+		}
+	}
+	for name := range nodes {
+		if !found[name] {
+			t.Errorf("%s is not written", name)
+		}
+	}
+	for _, typed := range []string{"typedAssign", "typedIf", "typedWhile", "typedFor", "typedSend"} {
+		for _, el := range elements {
+			if el["@id"] != "P__A__"+typed {
+				continue
+			}
+			types, _ := el["type"].([]any)
+			if len(types) != 1 || types[0].(map[string]any)["@id"] != "P__Act" {
+				t.Errorf("%s is typed by %v, want P::Act", typed, el["type"])
+			}
+		}
+	}
+
 	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	back, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
+	for name, metaclass := range nodes {
+		if !strings.Contains(string(turtle), "elmt:P__A__"+name+"\n    a sysml:"+metaclass+" ;") {
+			t.Errorf("the Turtle does not state %s as a %s", name, metaclass)
+		}
+	}
+	stripped := withoutTriples(t, turtle, "sysx:sourceText")
+	back, err := convert.Convert("m.ttl", stripped, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v", err)
 	}
-	for _, head := range []string{"action a : Act", "#Tag action s"} {
+	for _, head := range []string{
+		"action typedAssign : Act assign p.w := 1;",
+		"action multAssign[1] assign p.w := 1;",
+		"action subsetAssign subsets base assign p.w := 1;",
+		"action redefAssign redefines base assign p.w := 1;",
+		"#Tag action taggedAssign[1] : Act assign p.w := 1;",
+		"abstract action abstractAssign assign p.w := 1;",
+		"action typedIf : Act if true {",
+		"action typedWhile : Act while true {",
+		"action typedFor : Act for i in (1, 2) {",
+		"action typedSend : Act send Sig() via p to x;",
+		"#Tag action taggedSend send x to y;",
+	} {
 		if !strings.Contains(string(back), head) {
 			t.Errorf("the head %q did not come back:\n%s", head, back)
 		}
+	}
+	again, err := convert.Convert("back.sysml", back, convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle again: %v", err)
+	}
+	settled, err := convert.Convert("again.ttl", withoutTriples(t, again, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation again: %v", err)
+	}
+	if string(settled) != string(back) {
+		t.Errorf("the notation written back is not a fixed point:\n%s\nthen\n%s", back, settled)
 	}
 }
 

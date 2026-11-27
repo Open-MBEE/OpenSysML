@@ -1095,19 +1095,7 @@ var sendArgumentLinks = [...]string{pPayloadArgument, pSenderArgument, pReceiver
 // standing in for a sender a `to` alone leaves out, or a payload left out. The
 // send names each value as its payloadArgument, senderArgument or receiverArgument.
 func (e *encoder) encodeSendArguments(n *ast.SendStatement, subject rdf.Term, fqn string) error {
-	var arguments [3]ast.Node
-	written := [3]bool{true}
-	arguments[0] = n.Message
-	switch {
-	case n.IsVia:
-		arguments[1], written[1] = n.Target, true
-		if n.Receiver != nil {
-			arguments[2], written[2] = n.Receiver, true
-		}
-	case n.Target != nil:
-		written[1] = true
-		arguments[2], written[2] = n.Target, true
-	}
+	arguments, written := naming.SendArguments(n)
 	var params []ast.Node
 	for i, argument := range arguments {
 		if !written[i] {
@@ -1456,7 +1444,10 @@ func (d *decoder) behaviorHead(el *element) (string, bool, error) {
 		if !hasTarget || !hasValue {
 			return "", true, d.missing(el, "sysx:"+xTarget+" and sysx:"+xAssignedValue, "an assignment states what it assigns to what")
 		}
-		words := nodeDeclaration(d, el)
+		words, err := nodeDeclaration(d, el)
+		if err != nil {
+			return "", true, err
+		}
 		if keyword, ok := d.stringOf(el, rdf.OpenSysML+xDeclaredKeyword); ok {
 			words = append(words, keyword)
 		} else if len(words) > 0 {
@@ -1519,7 +1510,11 @@ func (d *decoder) sendHead(el *element) (string, error) {
 	if texts == [3]string{} && len(d.sendArgumentParams(el)) == 0 {
 		return "", d.missing(el, "sysml:"+pPayloadArgument+", sysml:"+pSenderArgument+" or sysml:"+pReceiverArgument, "a send states what it sends or where")
 	}
-	words := append(nodeDeclaration(d, el), "send")
+	words, err := nodeDeclaration(d, el)
+	if err != nil {
+		return "", err
+	}
+	words = append(words, "send")
 	if texts[0] != "" {
 		words = append(words, texts[0])
 	}
@@ -2263,7 +2258,11 @@ func (d *decoder) loopText(el *element, depth int) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	text := strings.Join(append(nodeDeclaration(d, el), head), " ") + " " + body
+	declaration, err := nodeDeclaration(d, el)
+	if err != nil {
+		return "", err
+	}
+	text := strings.Join(append(declaration, head), " ") + " " + body
 	// An `until` clause states the condition tested after each iteration, and
 	// terminates the loop; so does a body written without braces.
 	if until, ok := d.stringOf(el, rdf.OpenSysML+xUntilCondition); ok {
@@ -2283,7 +2282,7 @@ func (d *decoder) conditionalText(el *element, depth int) (string, error) {
 		return "", d.missing(el, "sysx:"+xCondition, "an if action states the condition it branches on")
 	}
 	var then, otherwise *element
-	for _, child := range el.children {
+	for _, child := range d.bodyChildren(el) {
 		if !d.ifBranch(child) {
 			return "", &UnsupportedError{
 				What: fmt.Sprintf("the member <%s> of the if action <%s>", child.iri, el.iri),
@@ -2304,7 +2303,11 @@ func (d *decoder) conditionalText(el *element, depth int) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	text := strings.Join(append(nodeDeclaration(d, el), "if", condition), " ") + " " + thenText
+	declaration, err := nodeDeclaration(d, el)
+	if err != nil {
+		return "", err
+	}
+	text := strings.Join(append(declaration, "if", condition), " ") + " " + thenText
 	if otherwise == nil {
 		return text, nil
 	}
@@ -2965,19 +2968,17 @@ func (d *decoder) transitionFeatureKind(el *element) string {
 	return kind
 }
 
-// nodeDeclaration is the `action <name>`, after its visibility, a named send or
-// assignment node is declared with (SysML.xtext ActionNodeUsageDeclaration), or nothing for one
-// written as the bare statement.
-func nodeDeclaration(d *decoder, el *element) []string {
-	ident := d.identWords(el)
-	if len(ident) == 0 {
-		return nil
+// nodeDeclaration is the prefix, `action`, name, typing, multiplicity and specializations a statement node
+// opens with (SysML.xtext ActionNodePrefix, ActionNodeUsageDeclaration), or nothing for the bare statement.
+func nodeDeclaration(d *decoder, el *element) ([]string, error) {
+	head, err := d.usageHeadAs(el, ast.UsageAction, "action")
+	if err != nil {
+		return nil, err
 	}
-	var words []string
-	if keyword := d.visibility(el); keyword != "" {
-		words = append(words, keyword)
+	if head == "action" {
+		return nil, nil
 	}
-	return append(append(words, "action"), ident...)
+	return []string{head}, nil
 }
 
 // triggerPayload is the payload parameter of a trigger action: the one

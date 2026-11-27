@@ -183,7 +183,7 @@ func (t *Table) collect(members []ast.Node, owner, position string) error {
 		if err := t.collect(children, fqn, positional); err != nil {
 			return err
 		}
-		if err := t.collectPrefixes(node, fqn, len(t.Kept(children))); err != nil {
+		if err := t.collectPrefixes(node, fqn, t.PrefixIndex(node)); err != nil {
 			return err
 		}
 		t.collectCrossFeature(node, fqn)
@@ -309,6 +309,41 @@ func (t *Table) CrossFeatureIndex(u *ast.Usage) int {
 		}
 	}
 	return index
+}
+
+// PrefixIndex is the position a declaration's first `#M` prefix annotation takes among the members it
+// owns: after its kept members, and after the arguments a send node owns as parameters before them.
+func (t *Table) PrefixIndex(node ast.Node) int {
+	_, children := DeclaredNameAndMembers(node)
+	index := len(t.Kept(children))
+	if usage, ok := node.(*ast.Usage); ok {
+		if send, ok := NodeStatement(usage).(*ast.SendStatement); ok {
+			_, written := SendArguments(send)
+			for _, stated := range written {
+				if stated {
+					index++
+				}
+			}
+		}
+	}
+	return index
+}
+
+// SendArguments are a send's payload, sender and receiver in parameter order, and which of the three slots
+// its head states: a `to` alone states an empty sender slot (SysML.xtext SendNode, SenderReceiverPart).
+func SendArguments(send *ast.SendStatement) (arguments [3]ast.Node, written [3]bool) {
+	arguments[0], written[0] = send.Message, true
+	switch {
+	case send.IsVia:
+		arguments[1], written[1] = send.Target, true
+		if send.Receiver != nil {
+			arguments[2], written[2] = send.Receiver, true
+		}
+	case send.Target != nil:
+		written[1] = true
+		arguments[2], written[2] = send.Target, true
+	}
+	return arguments, written
 }
 
 // collectPrefixes names a declaration's `#M` prefix annotations, which take the
