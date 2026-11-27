@@ -905,6 +905,7 @@ func installedMermaidCases(t *testing.T) []installedMermaidCase {
 	cases = append(cases, installedMermaidCase{
 		name: "item box with leading backtick", source: backtickItem.MermaidWith(Options{Style: StyleCameo}),
 	})
+	cases = append(cases, installedMermaidCase{name: "leading backticks", source: backtickLabels().Mermaid()})
 	dir := t.TempDir()
 	var imageData bytes.Buffer
 	if err := png.Encode(&imageData, image.NewRGBA(image.Rect(0, 0, 2, 2))); err != nil {
@@ -1048,4 +1049,23 @@ func isolateInstalledMermaidFailure(binary, puppeteer, config string, cases []in
 		return isolateInstalledMermaidFailure(binary, puppeteer, config, cases[mid:])
 	}
 	return installedMermaidCase{}, false
+}
+
+// backtickLabels names a subgraph, a node and an edge with a backtick leading their labels and
+// a node with one inside its name.
+func backtickLabels() *Rendering {
+	return &Rendering{Kind: KindInterconnection, Shown: Shown{ElementEdgeLabels: true}, Roots: []*Node{
+		{ID: "outer", Kind: "part", Name: "`outer", Children: []*Node{{ID: "a", Kind: "part", Name: "`lead"}}},
+		{ID: "b", Kind: "part", Name: "ta`nk"},
+	}, Edges: []Edge{{From: "a", To: "b", Kind: EdgeConnection, Label: "`link"}}}
+}
+
+// A backtick opens a markdown string only straight after a label's opening quote.
+func TestMermaidEscapesOnlyALeadingBacktick(t *testing.T) {
+	source := backtickLabels().Mermaid()
+	for _, want := range []string{`["#96;outer"]`, `("#96;lead")`, "(\"ta`nk\")", `|"#96;link"|`} {
+		if !strings.Contains(source, want) {
+			t.Errorf("source lacks %s:\n%s", want, source)
+		}
+	}
 }
