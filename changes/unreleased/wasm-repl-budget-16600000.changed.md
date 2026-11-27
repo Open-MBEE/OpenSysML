@@ -1,1 +1,0 @@
-- The WebAssembly gate's gzipped size budget for the browser REPL build of `sysml` (`-tags sysml_re`) moves from 16,500,000 to 16,600,000 bytes. The NPR7150 library adds 131,356 bytes to the embedded library snapshot, taking the build from 16,374,318 to 16,505,674 bytes under go1.27.4, 5,674 bytes over the old budget; the engine, core, syntax and combined budgets do not change.
