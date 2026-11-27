@@ -1300,8 +1300,7 @@ func (c constFolds) of(e *ast.OperatorExpr) (symbols.FilterValue, bool) {
 		evalConstUnnested(e, DefaultMaxIntegerBits, func(e *ast.OperatorExpr, v Value, ok bool) {
 			c[e] = nil
 			if ok {
-				folded := constValue(v)
-				c[e] = &symbols.FilterValue{Kind: folded.Kind, Bool: folded.Bool}
+				c[e] = &symbols.FilterValue{Kind: constValueKind(v), Bool: v.Kind == ValBool && v.Bool}
 			}
 		})
 		kind = c[e]
@@ -1535,21 +1534,37 @@ func filterOrderOp(op symbols.FilterOp) ast.OperatorKind {
 
 // constValue converts a folded constant to the form a filter predicate holds.
 func constValue(v Value) symbols.FilterValue {
+	out := symbols.FilterValue{Kind: constValueKind(v)}
 	switch v.Kind {
 	case ValInt:
 		if v.IsBigInt() {
-			return symbols.FilterValue{Kind: symbols.FilterValueInt, BigInt: v.BigInt()}
+			out.BigInt = v.BigInt()
+		} else {
+			out.Int = v.Int
 		}
-		return symbols.FilterValue{Kind: symbols.FilterValueInt, Int: v.Int}
 	case ValReal:
-		return symbols.FilterValue{Kind: symbols.FilterValueReal, Real: v.Real}
+		out.Real = v.Real
 	case ValRational:
-		return symbols.FilterValue{Kind: symbols.FilterValueRational, Rat: v.Rat()}
+		out.Rat = v.Rat()
 	case ValBool:
-		return symbols.FilterValue{Kind: symbols.FilterValueBool, Bool: v.Bool}
-	default:
-		return symbols.FilterValue{}
+		out.Bool = v.Bool
 	}
+	return out
+}
+
+// constValueKind is the kind constValue gives a folded constant, at no copy of its value.
+func constValueKind(v Value) symbols.FilterValueKind {
+	switch v.Kind {
+	case ValInt:
+		return symbols.FilterValueInt
+	case ValReal:
+		return symbols.FilterValueReal
+	case ValRational:
+		return symbols.FilterValueRational
+	case ValBool:
+		return symbols.FilterValueBool
+	}
+	return symbols.FilterValueUnknown
 }
 
 // quantityValue converts a folded quantity to the form a filter predicate
