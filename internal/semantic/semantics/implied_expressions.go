@@ -151,15 +151,7 @@ func (m *Model) expressionElementGenerals(sym *symbols.Symbol) []*symbols.Symbol
 		return m.constructorResultTypes(sym)
 	case "InvocationExpression":
 		// checkInvocationExpressionBehaviorResultSpecialization: an instantiated type that is no function.
-		var out []*symbols.Symbol
-		for _, instantiated := range m.expressionReferencedElements(expr, "function") {
-			if instantiated == nil || m.reflectiveMetaclassConforms(instantiated, "Function") ||
-				len(m.FunctionTypes(instantiated)) > 0 {
-				continue
-			}
-			out = append(out, instantiated)
-		}
-		return out
+		return m.invocationBehaviors(expr)
 	case "SelectExpression", "IndexExpression":
 		// checkSelectExpressionResultSpecialization, checkIndexExpressionResultSpecialization.
 		arguments := m.ExpressionArguments(expr)
@@ -217,4 +209,21 @@ func expressionParameterPosition(param *symbols.Symbol) int {
 		}
 	}
 	return param.Expr.Index
+}
+
+// invocationBehaviors returns the types an InvocationExpression instantiates that are neither a
+// Function nor a Feature typed by one, which its result then specializes and is bound to; nil otherwise.
+func (m *Model) invocationBehaviors(expr *symbols.Symbol) []*symbols.Symbol {
+	if !isExpressionSymbol(expr) || expressionElementMetaclassName(expr) != "InvocationExpression" {
+		return nil
+	}
+	var out []*symbols.Symbol
+	for _, instantiated := range m.expressionReferencedElements(expr, "function") {
+		if instantiated == nil || m.reflectiveMetaclassConforms(instantiated, "Function") ||
+			len(m.FunctionTypes(instantiated)) > 0 {
+			continue
+		}
+		out = append(out, instantiated)
+	}
+	return out
 }

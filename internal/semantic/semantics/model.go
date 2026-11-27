@@ -223,9 +223,14 @@ type Model struct {
 	transitionParts         map[*symbols.Symbol]*transitionParts
 	sendParts               map[*symbols.Symbol]*sendParts
 	controlParts            map[*symbols.Symbol]*controlParts
-	ownedAnnotations        map[*symbols.Symbol][]*symbols.Symbol
-	annotatingRels          map[*symbols.Symbol][]*symbols.Symbol
-	ownedImports            map[*symbols.Symbol][]*symbols.Symbol
+	// impliedBindings, bindingOfConnector and impliedChains hold the elements implied binding connectors need.
+	impliedBindings    map[*symbols.Symbol][]*impliedBinding
+	bindingOfConnector map[*symbols.Symbol]*impliedBinding
+	impliedChains      map[*symbols.Symbol]*impliedChain
+	impliedFeatures    map[*symbols.Symbol]*impliedFeatures
+	ownedAnnotations   map[*symbols.Symbol][]*symbols.Symbol
+	annotatingRels     map[*symbols.Symbol][]*symbols.Symbol
+	ownedImports       map[*symbols.Symbol][]*symbols.Symbol
 	// rootNamespaces memoizes each document's reflected RootNamespace (see reflective_root.go).
 	rootNamespaces map[string]*symbols.Symbol
 }
@@ -460,6 +465,9 @@ func bodyParamRelationships(body *ast.BodyExpr, name string) []*ast.Relationship
 func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym == nil {
 		return nil
+	}
+	if sym.Inclusion != nil {
+		return m.inclusionSupertypes(sym)
 	}
 	defer m.own(sym).LeaveDoc()
 	// An assumption answers every query under it, which it cuts short so nothing is memoized.

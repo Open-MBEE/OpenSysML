@@ -35,4 +35,16 @@ package K {
 		feature econd = if true ? d1 else d2;
 		feature enest : D = G(d1 + d2, G(d1, d2));
 	}
+	function FR { in a : D; return r : D; a }
+	struct PDf { feature fd : D; feature dx : D default fd; feature dy : D; }
+	function GD { in a : D; in b : D default a; return r : D; }
+	class E2 {
+		feature d1 : D;
+		feature ector : PDf = new PDf();
+		feature ebeh = B(d1);
+		feature einvd : D = GD(d1);
+		feature edef : D default d1;
+		expr ex : F { d1 }
+		binding bnd; succession sc;
+	}
 }

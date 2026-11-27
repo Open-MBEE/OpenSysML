@@ -1752,6 +1752,9 @@ func ownerSymbol(sym *symbols.Symbol) *symbols.Symbol {
 // symbol restored from a cache record, which carries no scope — the namespace its
 // indexed name names.
 func (m *Model) ownerOf(sym *symbols.Symbol) *symbols.Symbol {
+	if sym != nil && sym.Inclusion != nil {
+		return sym.Inclusion.Owner
+	}
 	if parts := m.namedTriggerPayloadParts(sym); parts != nil {
 		// A named trigger payload is declared in the transition's scope and owned by the trigger's accept.
 		return parts.accepter
