@@ -411,6 +411,7 @@ func TestWildcardImportBesideOneLeftToNameLookup(t *testing.T) {
 				package K { `+inK+` package N { private import Q::*; public import X::*; } }
 				package S { }
 			}`)
+		r.idx.ExpandWildcardImports()
 		outside := scopeNamed(t, r, "d.sysml", "S")
 		for member, want := range map[string]string{"A": "", "B": "Q::X::B", "E": ""} {
 			got := ""
