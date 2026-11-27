@@ -1,1 +1,0 @@
-- The language server indexes a document's lines once per change notification and brings the index up to date with each incremental edit, instead of re-scanning the whole text for every edit in the batch.

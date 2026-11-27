@@ -1,1 +1,0 @@
-- Reading a memoized metamodel derivation or a recorded cause takes a shared lock instead of the exclusive one, a hit on a frozen index's derived values allocates nothing, and walking a type with its supertypes no longer builds a combined slice per call. The resolver's retained-entry count now covers every table it keeps, not the nineteen it once listed.

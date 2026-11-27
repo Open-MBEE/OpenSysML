@@ -102,7 +102,7 @@ func (m *Model) ownRedefinitions(sym, exclude *symbols.Symbol) *ownRedefinitions
 	}
 	m.resolver.Enter()
 	own := &ownRedefinitions{owner: sym}
-	sym.Scope.ForEachMember(func(feature *symbols.Symbol) bool {
+	add := func(feature *symbols.Symbol) bool {
 		if feature == exclude {
 			return true
 		}
@@ -121,7 +121,12 @@ func (m *Model) ownRedefinitions(sym, exclude *symbols.Symbol) *ownRedefinitions
 			own.closure[target] = true
 		}
 		return true
-	})
+	}
+	sym.Scope.ForEachMember(add)
+	// The parameters an action node's notation implies redefine the ones of its kind (SysML 8.4.12).
+	for _, parameter := range m.nodeParameters(sym) {
+		add(parameter)
+	}
 	keepOwnMembers(sym, own.direct, own.closure)
 	// A redefinition mid-resolution contributes nothing yet, so the answer is not final.
 	settled := m.resolver.Leave() && m.computingRedefinedFeatures == 0

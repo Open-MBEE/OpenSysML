@@ -84,49 +84,13 @@
             <mxPoint x="-6" y="-6" as="offset"/>
           </mxGeometry>
         </mxCell>
-        <object id="n3" label="«send action»&#xA;sendAlarm&#xA;Alarm to sensor&#xA;parameters&#xA;in ^payload&#xA;in ^sender&#xA;in ^receiver" fqn="ActionForms::Monitor::sendAlarm" kind="send action" view="ActionFormViews::monitorView" link="action-forms.sysml:16">
+        <object id="n3" label="«send action»&#xA;sendAlarm&#xA;Alarm to sensor" fqn="ActionForms::Monitor::sendAlarm" kind="send action" view="ActionFormViews::monitorView" link="action-forms.sysml:16">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
             <mxGeometry x="86" y="371" width="142" height="54" as="geometry"/>
           </mxCell>
         </object>
         <mxCell id="n3:mark" value="" style="shape=mxgraph.basic.polygon;polyCoords=[[0,0],[0.7,0],[1,0.5],[0.7,1],[0,1]];polyline=0;fillColor=#000000;strokeColor=none;movable=0;resizable=0;rotatable=0;deletable=0;editable=0;connectable=0;" vertex="1" parent="n3">
           <mxGeometry x="4" y="4" width="12" height="9" as="geometry"/>
-        </mxCell>
-        <object id="n3:n3.0" label="^payload" fqn="ActionForms::Monitor::sendAlarm::payload" kind="parameter" view="ActionFormViews::monitorView">
-          <mxCell style="rounded=1;arcSize=30;whiteSpace=wrap;html=0;fontSize=10;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;" vertex="1" parent="n3">
-            <mxGeometry x="0" y="0.25" width="12" height="12" relative="1" as="geometry">
-              <mxPoint x="-6" y="-6" as="offset"/>
-            </mxGeometry>
-          </mxCell>
-        </object>
-        <mxCell id="n3:n3.0:arrow" value="→" style="text;html=0;fontSize=8;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;movable=0;resizable=0;rotatable=0;deletable=0;editable=0;connectable=0;" vertex="1" parent="n3">
-          <mxGeometry x="0" y="0.25" width="12" height="12" relative="1" as="geometry">
-            <mxPoint x="-6" y="-6" as="offset"/>
-          </mxGeometry>
-        </mxCell>
-        <object id="n3:n3.1" label="^sender" fqn="ActionForms::Monitor::sendAlarm::sender" kind="parameter" view="ActionFormViews::monitorView">
-          <mxCell style="rounded=1;arcSize=30;whiteSpace=wrap;html=0;fontSize=10;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;" vertex="1" parent="n3">
-            <mxGeometry x="0" y="0.5" width="12" height="12" relative="1" as="geometry">
-              <mxPoint x="-6" y="-6" as="offset"/>
-            </mxGeometry>
-          </mxCell>
-        </object>
-        <mxCell id="n3:n3.1:arrow" value="→" style="text;html=0;fontSize=8;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;movable=0;resizable=0;rotatable=0;deletable=0;editable=0;connectable=0;" vertex="1" parent="n3">
-          <mxGeometry x="0" y="0.5" width="12" height="12" relative="1" as="geometry">
-            <mxPoint x="-6" y="-6" as="offset"/>
-          </mxGeometry>
-        </mxCell>
-        <object id="n3:n3.2" label="^receiver" fqn="ActionForms::Monitor::sendAlarm::receiver" kind="parameter" view="ActionFormViews::monitorView">
-          <mxCell style="rounded=1;arcSize=30;whiteSpace=wrap;html=0;fontSize=10;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;" vertex="1" parent="n3">
-            <mxGeometry x="0" y="0.75" width="12" height="12" relative="1" as="geometry">
-              <mxPoint x="-6" y="-6" as="offset"/>
-            </mxGeometry>
-          </mxCell>
-        </object>
-        <mxCell id="n3:n3.2:arrow" value="→" style="text;html=0;fontSize=8;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;movable=0;resizable=0;rotatable=0;deletable=0;editable=0;connectable=0;" vertex="1" parent="n3">
-          <mxGeometry x="0" y="0.75" width="12" height="12" relative="1" as="geometry">
-            <mxPoint x="-6" y="-6" as="offset"/>
-          </mxGeometry>
         </mxCell>
         <object id="n22" label="«performer»&#xA;controller&#xA;perform actions" kind="swimlane" view="ActionFormViews::monitorView" link="action-forms.sysml:45">
           <mxCell style="swimlane;html=0;whiteSpace=wrap;dashed=1;align=left;verticalAlign=top;startSize=59;collapsible=0;" vertex="1" parent="n0">

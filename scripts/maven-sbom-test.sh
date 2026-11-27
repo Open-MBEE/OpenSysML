@@ -79,23 +79,29 @@ mentions() {
 
 goal="-B -q -f editors/mdk/pom.xml org.cyclonedx:cyclonedx-maven-plugin:2.9.1:makeAggregateBom -DoutputFormat=json -DoutputName=bom -DincludeTestScope=false"
 
-# Maven Central answers: one run, with no settings file and no forced update.
+# The mirror answers: one run, which asks the mirror and forces no update.
 if run_case clean 0; then
   expect_calls clean 1
-  expect_call clean 1 "$goal"
+  expect_call clean 1 "-gs $mirror $goal"
 fi
 
-# Maven Central refuses for the whole job: the second attempt asks the mirror and passes.
+# Maven Central refuses for the whole job: the first attempt asks the mirror and passes, so Central is never asked.
 if run_case central-down 0 FAKE_MVN_CENTRAL=down; then
-  expect_calls central-down 2
-  expect_call central-down 2 "-U -gs $mirror $goal"
-  mentions central-down "(attempt 1 of 4, exit 1)"
+  expect_calls central-down 1
+  expect_call central-down 1 "-gs $mirror $goal"
 fi
 
-# The mirror is down and Central recovers: the third attempt asks Central again.
-if run_case mirror-down 0 FAKE_MVN_REFUSALS=1 FAKE_MVN_MIRROR=down; then
-  expect_calls mirror-down 3
-  expect_call mirror-down 3 "-U $goal"
+# The mirror refuses for the whole job: the second attempt asks Maven Central and passes.
+if run_case mirror-down 0 FAKE_MVN_MIRROR=down; then
+  expect_calls mirror-down 2
+  expect_call mirror-down 2 "-U $goal"
+  mentions mirror-down "(attempt 1 of 4, exit 1)"
+fi
+
+# Maven Central is down and the mirror recovers: the third attempt asks the mirror again.
+if run_case mirror-recovers 0 FAKE_MVN_REFUSALS=1 FAKE_MVN_CENTRAL=down; then
+  expect_calls mirror-recovers 3
+  expect_call mirror-recovers 3 "-U -gs $mirror $goal"
 fi
 
 # Neither answers: the attempts are bounded and the audit fails rather than scanning no SBOM.
@@ -110,11 +116,11 @@ if run_case broken 1 FAKE_MVN_BROKEN=1; then
   mentions broken "Non-parseable POM"
 fi
 
-# Maven Central stalls: the attempt is cut at its bound and the second asks the mirror.
+# The mirror stalls: the attempt is cut at its bound and the second asks Maven Central.
 if command -v timeout >/dev/null 2>&1 || command -v gtimeout >/dev/null 2>&1; then
   if run_case stall 0 FAKE_MVN_STALLS=1 MAVEN_SBOM_TIMEOUT_SECONDS=1; then
     expect_calls stall 2
-    expect_call stall 2 "-U -gs $mirror $goal"
+    expect_call stall 2 "-U $goal"
     mentions stall "in 1 seconds (attempt 1 of 4, exit 124)"
   fi
   # Both stall for the whole job: the attempts are bounded and the audit fails.
@@ -158,7 +164,7 @@ for case in "gtimeout 90" "gtimeout-asked 45 MAVEN_SBOM_TIMEOUT_SECONDS=45"; do
     bash "$script" editors/mdk 2.9.1 >"$work/$name/out" 2>&1 || actual=$?
   if [[ $actual == 0 && $(cat "$work/$name/bound" 2>/dev/null) == "-k 10 $seconds" ]]; then
     echo "ok   $name: exit 0"
-    expect_call "$name" 1 "$goal"
+    expect_call "$name" 1 "-gs $mirror $goal"
   else
     fail "$name: exit $actual, bounded by [$(cat "$work/$name/bound" 2>/dev/null)], expected exit 0 under [-k 10 $seconds]"
   fi
@@ -184,7 +190,7 @@ env -i PATH="$bare" FAKE_MVN_LOG="$work/no-kill/log" FAKE_TIMEOUT_LOG="$work/no-
 if [[ $actual == 0 && $(tr '\n' ' ' <"$work/no-kill/bound" 2>/dev/null) == "90 90 " ]]; then
   echo "ok   no-kill: exit 0"
   expect_calls no-kill 1
-  expect_call no-kill 1 "-U -gs $mirror $goal"
+  expect_call no-kill 1 "-U $goal"
   mentions no-kill "in 90 seconds (attempt 1 of 4, exit 143)"
 else
   fail "no-kill: exit $actual, bounded by [$(tr '\n' ' ' <"$work/no-kill/bound" 2>/dev/null)], expected exit 0 under [90 90 ]"

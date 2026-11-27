@@ -37,10 +37,11 @@ func OpenSession(c Client, model *Model) (*Session, error) {
 	if !ok {
 		return nil, &StatusError{Code: CodeInvalidArgument, Message: "OpenSession takes a client New or Dial returned"}
 	}
-	hash, err := cl.call(model)
+	hash, done, err := cl.call(model)
 	if err != nil {
 		return nil, err
 	}
+	defer done()
 	local, ok := cl.caller.(*inprocess)
 	if !ok {
 		return nil, &StatusError{

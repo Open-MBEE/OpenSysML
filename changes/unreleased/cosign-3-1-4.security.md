@@ -1,1 +1,0 @@
-- The release pipeline, the nightly workflow and the PyPI workflow sign and verify the checksum manifest with cosign 3.1.4 instead of 3.0.3, which four upstream advisories on signature verification name (CVE-2026-22703, CVE-2026-24122, CVE-2026-39395 and GHSA-fx35-mq7g-6g98). A hygiene test holds the three pins at one version.

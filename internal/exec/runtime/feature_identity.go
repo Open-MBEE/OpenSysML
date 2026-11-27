@@ -92,6 +92,10 @@ func (ec *EvalContext) lookupHeld(qn *ast.QualifiedName, at *program.Expr) (val 
 	if !ok || sym == nil {
 		return Value{}, false, nil, nil
 	}
+	// A connection is read from the performance declaring it, whatever a frame inside binds its name to.
+	if val, ok, err := ec.performedConnector(sym); ok {
+		return val, err == nil, nil, err
+	}
 	for i := len(ec.frames) - 1; i >= 0; i-- {
 		f := &ec.frames[i]
 		bound, holds := f.heldName(sym)
@@ -132,6 +136,24 @@ func (ec *EvalContext) lookupNamed(name string, unset *symbols.Symbol) (Value, b
 		}
 	}
 	return Value{}, false, nil
+}
+
+// writeHeld writes value to the innermost frame holding the feature sym, under the
+// name it binds it by and on the run's own write path, reporting whether one holds it.
+func (ec *EvalContext) writeHeld(sym *symbols.Symbol, value Value) (bool, error) {
+	for i := len(ec.frames) - 1; i >= 0; i-- {
+		f := ec.frames[i]
+		name, holds := f.heldName(sym)
+		if !holds {
+			continue
+		}
+		if f.write != nil {
+			return true, f.write(f, name, value)
+		}
+		f.setBody(ec.ctx, name, value)
+		return true, nil
+	}
+	return false, nil
 }
 
 // holdsAnother reports whether f binds name as a feature other than sym.

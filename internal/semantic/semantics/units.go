@@ -718,7 +718,39 @@ func (m *Model) UnitTermOfExpr(scope *symbols.Scope, node ast.Node) (UnitTerm, e
 			return UnitTerm{Scale: UnitScale(1)}, nil
 		}
 	}
-	return UnitTerm{}, fmt.Errorf("%w: %T", ErrUnitExpr, node)
+	return UnitTerm{}, fmt.Errorf("%w: %s", ErrUnitExpr, describeNonUnitExpr(node))
+}
+
+// describeNonUnitExpr names, as the model wrote it, an expression in unit
+// position that is neither a unit name nor an operation on units.
+func describeNonUnitExpr(node ast.Node) string {
+	switch n := node.(type) {
+	case *ast.LiteralInteger:
+		return "the number " + n.Value
+	case *ast.LiteralReal:
+		return "the number " + n.Value
+	case *ast.LiteralString:
+		return "the string " + n.Value
+	case *ast.LiteralBool:
+		return fmt.Sprintf("the Boolean %t", n.Value)
+	case *ast.LiteralInfinity:
+		return "the unbounded value *"
+	case *ast.NullExpr:
+		return "null"
+	case *ast.InvocationExpr:
+		if name := ast.QualifiedText(n.Type); name != "" {
+			return "an invocation of " + name
+		}
+		return "an invocation"
+	case *ast.ConstructorExpr:
+		if name := ast.QualifiedText(n.Type); name != "" {
+			return "a constructor of " + name
+		}
+		return "a constructor"
+	case *ast.SequenceExpr:
+		return "a sequence"
+	}
+	return "an expression that names no unit"
 }
 
 // unitTermOfName reduces the unit a qualified name refers to. The name is an

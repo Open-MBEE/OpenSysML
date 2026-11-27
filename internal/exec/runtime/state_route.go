@@ -476,7 +476,7 @@ func (e *StateExecutor) branchPoint(ps *ast.PseudostateNode, outgoing []*lower.T
 		Where:        pseudostateWhere(ps),
 		Alternatives: alts,
 	}
-	classifyExclusive(&choice, e.branchFootprints(outgoing, enabled, origin))
+	classifyExclusive(e.ctx.choiceSerials, &choice, e.branchFootprints(outgoing, enabled, origin))
 	return choice, true
 }
 

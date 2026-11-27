@@ -101,8 +101,15 @@ func TestGraphsRefusals(t *testing.T) {
 		status int
 		want   string
 	}{
-		{"not a behavior", []string{"-graphs", "Pipeline::Product"}, exitUnevaluable, "no lowered graph"},
-		{"unknown subject", []string{"-graphs", "Pipeline::Missing"}, exitUnevaluable, "Pipeline::Missing"},
+		{"not a behavior", []string{"-graphs", "Pipeline::Product"}, exitUnevaluable,
+			"sysml: -graphs: no lowered graph for the part definition Pipeline::Product: the subject must be an action or a state machine\n"},
+		{"not a behavior, by its bare name", []string{"-graphs", "Product"}, exitUnevaluable,
+			"sysml: -graphs: Product: no lowered graph for the part definition Pipeline::Product: the subject must be an action or a state machine\n"},
+		{"a state without a body", []string{"-graphs", "Pipeline::Machine::idle"}, exitUnevaluable,
+			"sysml: -graphs: no lowered graph for the state usage Pipeline::Machine::idle: a state declared without a body is a vertex of its owner's graph\n"},
+		{"a package", []string{"-graphs", "Pipeline"}, exitUnevaluable,
+			"sysml: -graphs: no lowered graph for the package Pipeline: the subject must be an action or a state machine\n"},
+		{"unknown subject", []string{"-graphs", "Pipeline::Missing"}, exitUnevaluable, "sysml: -graphs: unresolved reference: Pipeline::Missing\n"},
 		{"with render", []string{"-graphs", "Pipeline::terrain", "-render", "Pipeline::terrain"}, 2, "cannot be combined"},
 		{"with render-all", []string{"-graphs", "Pipeline::terrain", "-render-all", t.TempDir()}, 2, "one per run"},
 		{"with render-documents", []string{"-graphs", "Pipeline::terrain", "-render-documents", t.TempDir()}, 2, "one per run"},

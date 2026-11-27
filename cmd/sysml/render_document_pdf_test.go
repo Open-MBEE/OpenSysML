@@ -484,3 +484,87 @@ printf '<svg xmlns="http://www.w3.org/2000/svg"><text>drawn by d2</text></svg>' 
 		t.Errorf("d2 invocations:\n%s", args)
 	}
 }
+
+// TestRenderDocumentPDFPicturesFollowTheModel checks a PDF's pictures are located and
+// confined by the directory of the model stating them, not the working directory: one
+// beside a model named from elsewhere is drawn, and one outside is left out with a note
+// on stderr, since the PDF holds no diagram source to state it in.
+func TestRenderDocumentPDFPicturesFollowTheModel(t *testing.T) {
+	needs(t, docpdfFeature)
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	weasyprint := fakePDFTool(t, dir, "weasyprint", `printf '%%PDF-1.7 fake' > "$2"
+`)
+	dot := fakePDFTool(t, dir, "dot", `out=""; in=""
+while [ $# -gt 0 ]; do [ "$1" = "-o" ] && out="$2"; in="$1"; shift; done
+cp "$in" `+filepath.Join(dir, "seen.dot")+`
+printf '<svg xmlns="http://www.w3.org/2000/svg"/>' > "$out"
+`)
+	for _, sub := range []string{"proj", "outside", "elsewhere"} {
+		if err := os.Mkdir(filepath.Join(dir, sub), 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	mark, err := os.ReadFile(filepath.Join("..", "..", "internal", "doc", "docpdf", "testdata", "mark.png"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, file := range []string{filepath.Join("proj", "mark.png"), filepath.Join("outside", "secret.png")} {
+		if err := os.WriteFile(filepath.Join(dir, file), mark, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	model := `package Placed {
+	private import DocumentQueries::*;
+	private import Views::*;
+	private import StandardViewDefinitions::*;
+	private import DiagramLayout::*;
+	part def Bench;
+	view benchView {
+		expose Placed::Bench;
+		render asInterconnectionDiagram;
+		@Picture { location = "mark.png"; x = 0; y = 0; width = 12; height = 12; }
+		@Picture { location = "../outside/secret.png"; x = 20; y = 0; width = 12; height = 12; }
+	}
+	part def PlacedReport :> Document {
+		attribute redefines title = "Placed";
+		part bench : Diagram {
+			ref redefines source = benchView;
+		}
+	}
+}
+`
+	if err := os.WriteFile(filepath.Join(dir, "proj", "rel.sysml"), []byte(model), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for name, path := range map[string]string{
+		"parent path":   filepath.Join("..", "proj", "rel.sysml"),
+		"absolute path": filepath.Join(dir, "proj", "rel.sysml"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			var stderr strings.Builder
+			cmd := exec.Command(binary, path, "-render-document", "Placed::PlacedReport",
+				"-doc-form", "pdf", "-diagram-form", "dot", "-o", filepath.Join(dir, "out.pdf"))
+			cmd.Dir = filepath.Join(dir, "elsewhere")
+			cmd.Env = append(os.Environ(), docpdf.WeasyPrintEnv+"="+weasyprint, docpdf.DotEnv+"="+dot)
+			cmd.Stderr = &stderr
+			if err := cmd.Run(); err != nil {
+				t.Fatalf("render: %v\n%s", err, stderr.String())
+			}
+			source, err := os.ReadFile(filepath.Join(dir, "seen.dot"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(string(source), "mark.png") {
+				t.Errorf("the picture beside the model is not handed to Graphviz:\n%s", source)
+			}
+			if strings.Contains(string(source), "image=") && strings.Contains(string(source), "secret.png\"") {
+				t.Errorf("the picture outside the model's directory is handed to Graphviz:\n%s", source)
+			}
+			want := "note: bench: 1 picture(s) not drawn: ../outside/secret.png at (20, 0) size 12×12; the file is outside the directory of the model that states it"
+			if !strings.Contains(stderr.String(), want) {
+				t.Errorf("stderr lacks %q:\n%s", want, stderr.String())
+			}
+		})
+	}
+}
