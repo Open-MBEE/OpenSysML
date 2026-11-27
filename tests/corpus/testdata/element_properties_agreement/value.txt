@@ -96,7 +96,7 @@ ConcernUsage::declaredName	4	symbol-01
 Conjugation::ownedRelatedElement	1	export-06
 Conjugation::ownedRelationship	1	symbol-03
 ConnectionDefinition::relatedElement	20	export-64
-ConnectionUsage::connectorEnd	33	export-57
+ConnectionUsage::connectorEnd	34	export-57
 Connector::connectorEnd	6	export-57
 Connector::ownedRelationship	7	symbol-03
 ConstraintUsage::declaredName	4	symbol-01
