@@ -71,8 +71,13 @@ func (m *Model) expressionParameterRedefinitions(sym *symbols.Symbol) []*symbols
 	isResult := sym.Expr.Role == symbols.ExpressionResult
 	var out []*symbols.Symbol
 	// An expression writes no specialization: its generals are the implied ones left after pruning.
-	for _, general := range m.ImpliedSpecializations(owner) {
+	roles := m.controlParameterRedefinitions(owner)
+	for _, general := range append(slices.Clone(m.ImpliedSpecializations(owner)), roles...) {
 		target := m.argumentParameter(general, expressionParameterPosition(sym), isResult)
+		if target == nil && isResult && slices.Contains(roles, general) {
+			// A control action's test redefines the parameter of its role, whose result the library inherits.
+			target, _ = m.LookupMember(general, "result")
+		}
 		if target != nil && target != sym && !slices.Contains(out, target) {
 			out = append(out, target)
 		}
@@ -138,6 +143,9 @@ func (m *Model) expressionElementGenerals(sym *symbols.Symbol) []*symbols.Symbol
 	case "FeatureReferenceExpression":
 		// checkFeatureReferenceExpressionResultSpecialization: the referent.
 		return m.expressionReferencedElements(expr, "referent")
+	case "FeatureChainExpression":
+		// checkFeatureChainExpressionResultSpecialization: the chain's last feature redefines the target feature.
+		return m.expressionReferencedElements(expr, "targetFeature")
 	case "ConstructorExpression":
 		// checkConstructorExpressionResultSpecialization: the instantiated type.
 		return m.constructorResultTypes(sym)

@@ -27,6 +27,8 @@ export function environmentWithoutToken(
 }
 
 const START_TIMEOUT_MS = 10_000;
+/** How much of a first line with no newline is kept before the start is given up. */
+export const MAX_FIRST_LINE_LENGTH = 64 * 1024;
 const STOP_TIMEOUT_MS = 5_000;
 const STDERR_LINES_KEPT = 20;
 
@@ -266,6 +268,11 @@ function firstLine(child: ChildProcessWithoutNullStreams): Promise<string> {
       buffered += chunk.toString();
       const newline = buffered.indexOf("\n");
       if (newline === -1) {
+        if (buffered.length > MAX_FIRST_LINE_LENGTH) {
+          finish(() => {
+            reject(new Error(`its first line of output passed ${MAX_FIRST_LINE_LENGTH} characters`));
+          });
+        }
         return;
       }
       const line = buffered.slice(0, newline).trim();

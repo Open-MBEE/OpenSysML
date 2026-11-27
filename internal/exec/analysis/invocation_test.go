@@ -7,11 +7,9 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
@@ -23,7 +21,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
-	"github.com/Open-MBEE/OpenSysML/tests/testutil/gobuild"
 )
 
 // entryText is a tool entry with the invocation block given, as a manifest file spells it.
@@ -527,32 +524,14 @@ const echoRequest = `{"toolName":"Echo","uri":"echo://host/a?x=1 2","inputs":{"c
 // echoCSV is the CSV form of the same inputs, in the entry's variable order.
 const echoCSV = "mass,mass.unit,power,power.unit,label,count\n1500,kg,2,kW,a b; rm -rf / {x},3\n"
 
-var (
-	echoOnce sync.Once
-	echoPath string
-	echoErr  error
-)
-
 // echo builds the echo stand-in once per test binary and returns its path.
 func echo(t *testing.T) string {
 	t.Helper()
-	echoOnce.Do(func() {
-		dir, err := os.MkdirTemp("", "toolecho")
-		if err != nil {
-			echoErr = err
-			return
-		}
-		echoPath = filepath.Join(dir, "toolecho")
-		build := exec.Command("go", gobuild.Args(echoPath)...)
-		build.Dir = filepath.Join("testdata", "toolecho")
-		if out, err := build.CombinedOutput(); err != nil {
-			echoErr = fmt.Errorf("go build: %v\n%s", err, out)
-		}
-	})
-	if echoErr != nil {
-		t.Fatalf("building the echo stand-in: %v", echoErr)
+	path, err := testBuilds.Build("toolecho", filepath.Join("testdata", "toolecho"))
+	if err != nil {
+		t.Fatalf("building the echo stand-in: %v", err)
 	}
-	return echoPath
+	return path
 }
 
 // probe is the echo driver indexed over the standard libraries.

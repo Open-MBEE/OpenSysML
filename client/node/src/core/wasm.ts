@@ -24,6 +24,8 @@ export interface WasmHost {
   readonly version: string;
   call(method: string, params: string, signal?: AbortSignal): Promise<string>;
   close(): Promise<void>;
+  /** The refusal a call made now would get, so that nothing is prepared for it. */
+  refusal?(): ConnectError | undefined;
 }
 
 /** The Go runtime interface exposed by wasm_exec.js. */
@@ -88,6 +90,12 @@ interface GlobalWasmSurface {
 
 let inlineStartup = Promise.resolve();
 
+/** How long one inline Go runtime may take to start before the start is given up. */
+export const INLINE_START_TIMEOUT_MS = 60_000;
+
+/** How many calls one worker holds unanswered before it refuses another. */
+export const MAX_PENDING_WASM_CALLS = 1024;
+
 /**
  * Adapts the Go host global to the asynchronous host interface.
  */
@@ -127,8 +135,13 @@ export function wasmHostFromGlobal(surface?: GlobalWasmSurface): WasmHost {
 export async function instantiateInline(
   module: BufferSource | WebAssembly.Module,
   Go: GoConstructor,
+  timeoutMs: number = INLINE_START_TIMEOUT_MS,
 ): Promise<WasmHost> {
-  const starting = inlineStartup.then(() => instantiateInlineNow(module, Go));
+  // Starts take turns at the one host global; a start past its deadline gives up its turn.
+  const deadline = { passed: false };
+  const starting = inlineStartup.then(() =>
+    withDeadline(instantiateInlineNow(module, Go, deadline), timeoutMs, deadline),
+  );
   inlineStartup = starting.then(
     () => undefined,
     () => undefined,
@@ -136,9 +149,33 @@ export async function instantiateInline(
   return await starting;
 }
 
+function withDeadline<T>(
+  work: Promise<T>,
+  timeoutMs: number,
+  deadline: { passed: boolean },
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      deadline.passed = true;
+      reject(new OpenSysMLError(`the Go runtime did not start within ${timeoutMs} ms`));
+    }, timeoutMs);
+    work.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      },
+    );
+  });
+}
+
 async function instantiateInlineNow(
   module: BufferSource | WebAssembly.Module,
   Go: GoConstructor,
+  deadline: { readonly passed: boolean },
 ): Promise<WasmHost> {
   const runtime = globalThis as typeof globalThis & { sysmlWasm?: GlobalWasmSurface };
   delete runtime.sysmlWasm;
@@ -148,6 +185,10 @@ async function instantiateInlineNow(
     module instanceof WebAssembly.Module
       ? await WebAssembly.instantiate(module, go.importObject)
       : (await WebAssembly.instantiate(module, go.importObject)).instance;
+  if (deadline.passed) {
+    // A later start may own the host global by now, so this one must not run.
+    throw new OpenSysMLError("the Go runtime start was given up at its deadline");
+  }
   let startError: unknown;
   void go.run(instance).catch((error: unknown) => {
     startError = error;
@@ -176,8 +217,14 @@ export function createWasmTransport(host: WasmHost, options: TransportOptions): 
     header: HeadersInit | undefined,
     input: Parameters<Transport["unary"]>[4],
     contextValues: Parameters<Transport["unary"]>[5],
-  ): Promise<UnaryResponse<I, O>> =>
-    runUnaryCall({
+  ): Promise<UnaryResponse<I, O>> => {
+    // Refused here, a call past the bound never joins the listeners of the caller's
+    // signal. One already cancelled needs no place, and is left to report that.
+    const refusal = signal?.aborted === true ? undefined : host.refusal?.();
+    if (refusal !== undefined) {
+      return Promise.reject(refusal);
+    }
+    return runUnaryCall({
       req: {
         stream: false,
         service: method.parent,
@@ -211,6 +258,7 @@ export function createWasmTransport(host: WasmHost, options: TransportOptions): 
         };
       },
     });
+  };
 
   return {
     unary: callUnary,
@@ -277,6 +325,8 @@ export class WorkerWasmHost implements WasmHost {
   private resolveReady!: () => void;
   private rejectReady!: (error: unknown) => void;
   private nextId = 1;
+  // Calls not yet settled, those still waiting for the worker to start included.
+  private held = 0;
   private failure: ConnectError | undefined;
   private closed = false;
 
@@ -310,6 +360,28 @@ export class WorkerWasmHost implements WasmHost {
     if (this.closed) {
       throw new ConnectError("the sysml-wasm worker is closed", Code.Unavailable);
     }
+    const refusal = this.refusal();
+    if (refusal !== undefined) {
+      throw refusal;
+    }
+    this.held++;
+    try {
+      return await this.post(method, params, signal);
+    } finally {
+      this.held--;
+    }
+  }
+
+  refusal(): ConnectError | undefined {
+    return this.held < MAX_PENDING_WASM_CALLS
+      ? undefined
+      : new ConnectError(
+          `the sysml-wasm worker already holds ${MAX_PENDING_WASM_CALLS} unanswered calls`,
+          Code.ResourceExhausted,
+        );
+  }
+
+  private async post(method: string, params: string, signal?: AbortSignal): Promise<string> {
     if (signal === undefined) {
       await this.ready;
     } else {
@@ -436,8 +508,8 @@ export function serveWasmPort(port: WasmPortLike, loaders: WasmPortLoaders = {})
   let host: WasmHost | undefined;
   let initializing = false;
   let closed = false;
-  let calls = Promise.resolve();
-  const queued = new Set<number>();
+  let draining = false;
+  const queued = new Map<number, Extract<WasmWorkerRequest, { type: "call" }>>();
 
   const onMessage = (event: MessageEvent<WasmWorkerRequest>): void => {
     const request = event.data;
@@ -459,20 +531,43 @@ export function serveWasmPort(port: WasmPortLike, loaders: WasmPortLoaders = {})
       queued.delete(request.id);
       return;
     }
-    queued.add(request.id);
-    calls = calls.then(async () => {
+    if (queued.size >= MAX_PENDING_WASM_CALLS) {
+      port.postMessage({
+        type: "answer",
+        id: request.id,
+        envelope: errorEnvelope(
+          new ConnectError(
+            `the WASM worker already holds ${MAX_PENDING_WASM_CALLS} waiting calls`,
+            Code.ResourceExhausted,
+          ),
+        ),
+      });
+      return;
+    }
+    queued.set(request.id, request);
+    if (!draining) {
+      draining = true;
+      void drain();
+    }
+  };
+
+  // One loop serves the waiting calls in turn, so a cancelled call leaves nothing behind.
+  const drain = async (): Promise<void> => {
+    while (queued.size > 0) {
       // The Go call blocks this thread, so cancellations sent meanwhile are read first.
       await nextTask();
-      if (!queued.delete(request.id)) {
-        return;
+      const request = queued.values().next().value;
+      if (request === undefined) {
+        break;
       }
+      queued.delete(request.id);
       if (closed || host === undefined) {
         port.postMessage({
           type: "answer",
           id: request.id,
           envelope: errorEnvelope(new ConnectError("the WASM worker is unavailable", Code.Unavailable)),
         });
-        return;
+        continue;
       }
       try {
         port.postMessage({
@@ -483,7 +578,8 @@ export function serveWasmPort(port: WasmPortLike, loaders: WasmPortLoaders = {})
       } catch (cause) {
         port.postMessage({ type: "answer", id: request.id, envelope: errorEnvelope(cause) });
       }
-    });
+    }
+    draining = false;
   };
 
   const initialize = async (

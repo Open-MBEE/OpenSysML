@@ -67,7 +67,7 @@ func testStateIsActiveNonStateOperand(t *testing.T) {
 	wantUnresolvedIsActive(t, stateIsActiveNonStateFixture)
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, stateIsActiveNonStateFixture))
 	m := findSymbolByName(idx.DocumentRoot("<test>"), "M", ast.DefState)
-	if _, _, err := ctx.ExecuteStateWithEvents(m, nil); err == nil || !strings.Contains(err.Error(), "cannot chain through non-instance member") {
+	if _, _, err := ctx.ExecuteStateWithEvents(m, nil); err == nil || !strings.Contains(err.Error(), "cannot read member isActive of n: an Integer has no members") {
 		t.Fatalf("n.isActive on an Integer: %v, want the chain read refused", err)
 	}
 }

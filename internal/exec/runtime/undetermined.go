@@ -182,7 +182,7 @@ func unsetFeatureValue(spelled string, count semantics.Range, sym *symbols.Symbo
 func (ec *EvalContext) chainThroughUndetermined(value Value, parts []ast.NameSegment, from string) (Value, error) {
 	u := value.Undetermined()
 	if u == nil || u.feature == nil {
-		return Value{}, fmt.Errorf("cannot chain through non-instance member %s (%v)", from, value.Kind)
+		return Value{}, &memberOfValueError{member: parts[0].Text, from: from, value: value}
 	}
 	cur, count := u.feature, u.unknownCount()
 	for _, part := range parts {

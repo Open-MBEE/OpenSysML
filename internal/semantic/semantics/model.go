@@ -222,6 +222,7 @@ type Model struct {
 	expressionParts         map[*symbols.Symbol]*expressionParts
 	transitionParts         map[*symbols.Symbol]*transitionParts
 	sendParts               map[*symbols.Symbol]*sendParts
+	controlParts            map[*symbols.Symbol]*controlParts
 	ownedAnnotations        map[*symbols.Symbol][]*symbols.Symbol
 	annotatingRels          map[*symbols.Symbol][]*symbols.Symbol
 	ownedImports            map[*symbols.Symbol][]*symbols.Symbol
@@ -397,6 +398,12 @@ func RelationshipsOf(sym *symbols.Symbol) []*ast.Relationship {
 		return bodyParamRelationships(d, sym.Name)
 	case *ast.SubjectMember:
 		return subjectRelationships(d)
+	case *ast.WhileLoopActionNode:
+		// A `for` variable shares its loop's node, which states the variable's head.
+		if IsLoopVariable(sym) {
+			return d.VariableRelationships
+		}
+		return nil
 	case *ast.AssumeMember:
 		return d.Relationships
 	case *ast.RequireMember:
@@ -611,6 +618,15 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 		}
 		seen[redefined] = true
 		out = append(out, redefined)
+	}
+
+	// A parameter a control action's notation implies redefines the parameter of its role in
+	// each general of the action (see reflective_control_parameters.go).
+	for _, redefined := range m.controlParameterRedefinitions(sym) {
+		if redefined != sym && !seen[redefined] {
+			seen[redefined] = true
+			out = append(out, redefined)
+		}
 	}
 
 	// A declaration in a metadata body redefines the metadata type's feature of
@@ -1071,7 +1087,7 @@ func (m *Model) FeatureTypeSet(sym *symbols.Symbol) []*symbols.Symbol {
 		return nil
 	}
 	if types := m.TypedFeatureTypes(sym); len(types) > 0 {
-		return types
+		return m.withUntypedResultGenerals(sym, types)
 	}
 	var types []*symbols.Symbol
 	// The definition its kind implies types the usage before the base feature's
@@ -1098,6 +1114,29 @@ func (m *Model) FeatureTypeSet(sym *symbols.Symbol) []*symbols.Symbol {
 		return []*symbols.Symbol{base}
 	}
 	return nil
+}
+
+// withUntypedResultGenerals narrows an expression result's types by those of each untyped feature
+// it specializes: that feature's kind types it, which no typing the result reaches says.
+func (m *Model) withUntypedResultGenerals(sym *symbols.Symbol, types []*symbols.Symbol) []*symbols.Symbol {
+	if sym.Expr == nil || sym.Expr.Role != symbols.ExpressionResult {
+		return types
+	}
+	all := types
+	for _, general := range m.expressionElementGenerals(sym) {
+		if general == nil || general == sym || !general.IsFeature() || len(m.TypedFeatureTypes(general)) > 0 {
+			continue
+		}
+		for _, typ := range m.FeatureTypeSet(general) {
+			if !containsElement(all, typ) {
+				all = append(slices.Clip(all), typ)
+			}
+		}
+	}
+	if len(all) == len(types) {
+		return types
+	}
+	return m.mostSpecificTypes(all)
 }
 
 // TypedFeatureTypes is FeatureTypeSet without the kind's base: the most specific types a

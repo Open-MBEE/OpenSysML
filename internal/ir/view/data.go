@@ -78,6 +78,8 @@ type NodeData struct {
 	// Verdict is the worst verification verdict overlaid on a requirement, ""
 	// when none is.
 	Verdict string `json:",omitempty"`
+	// Fitted marks a swimlane the Layout about its performer does not place: the Layout is another lane's.
+	Fitted bool
 }
 
 // EdgeData is one edge of a rendering, joining two node IDs.
@@ -177,7 +179,7 @@ func appendNodeData(out []NodeData, node *Node, parent string, ports *portView) 
 	out = append(out, NodeData{
 		ID: node.ID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized, Type: node.Type, Detail: node.Detail,
 		Text: node.Text, StandIn: node.StandIn, Inherited: node.Inherited, Parallel: node.Parallel, Ports: nodePorts, Parent: parent, Origin: node.Origin,
-		Geometry: node.Geometry, Style: node.Style, Verdict: node.Verdict, Arrow: node.Arrow,
+		Geometry: node.Geometry, Style: node.Style, Verdict: node.Verdict, Arrow: node.Arrow, Fitted: node.Fitted,
 	})
 	for _, compartment := range node.Compartments {
 		for _, row := range compartment.Rows {

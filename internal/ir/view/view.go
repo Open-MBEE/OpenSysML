@@ -21,6 +21,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
@@ -105,13 +106,7 @@ func (k Kind) GraphShaped() bool { return k.Supported() && !k.Tabular() }
 // article is the indefinite article the kind reads with, so a message says "an
 // action rendering" rather than "a action rendering".
 func (k Kind) article() string {
-	switch {
-	case k == "":
-		return "a"
-	case strings.ContainsRune("aeiou", rune(k[0])):
-		return "an"
-	}
-	return "a"
+	return diag.IndefiniteArticle(string(k))
 }
 
 // ErrUnsupportedKind is the rendering kind a view states that this package does
@@ -175,6 +170,8 @@ type Renderer struct {
 	included []*symbols.Symbol
 	// performers caches, by performed action, the elements performing it.
 	performers map[symbols.ElementKey][]*symbols.Symbol
+	// laneHolders caches, by performer, the actions whose nodes it performs.
+	laneHolders map[symbols.ElementKey]map[symbols.ElementKey]bool
 }
 
 // SetIncluded names elements every rendering draws besides what its view
@@ -371,6 +368,9 @@ type Node struct {
 	// StandIn marks a node a migration made up that stands for no element of its
 	// source, so no diagram symbol is at it: a join it wrote several edges through.
 	StandIn bool
+	// Fitted marks a swimlane the Layout about its performer does not place, another lane
+	// of the performer in the rendering being that Layout's: it is drawn around its nodes.
+	Fitted bool
 	// Elided marks a node whose Layout hid compartment rows; the notation marks
 	// the box with an ellipsis at its lower left (§8.2.3.2 ellipsis-at-lower-left-corner).
 	Elided bool
@@ -735,6 +735,7 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn, query bool) (*Rend
 		// Unreachable: KindOf refuses an unsupported kind.
 		return nil, &UnsupportedKindError{Kind: kind, View: r.notationName(view), Stated: stated}
 	}
+	placeLanesOnce(out)
 	foldCollapsed(out)
 	out.finishExpansionFold()
 	r.noteDepthCuts(view, out)
@@ -760,7 +761,12 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn, query bool) (*Rend
 // name; stated says how the kind was decided. An unsupported kind is an
 // *UnsupportedKindError.
 func (r *Renderer) RenderExposed(exposed []*symbols.Symbol, kind Kind, stated string) (*Rendering, error) {
-	out := &Rendering{Kind: kind, Stated: stated}
+	return r.renderExposed(exposed, kind, stated, nil)
+}
+
+// renderExposed is RenderExposed recording in drawn, when set, what the rendering draws.
+func (r *Renderer) renderExposed(exposed []*symbols.Symbol, kind Kind, stated string, drawn *Drawn) (*Rendering, error) {
+	out := &Rendering{Kind: kind, Stated: stated, drawn: drawn}
 	exposed = r.withIncluded(exposed, out)
 	switch kind {
 	case KindTree:
@@ -786,6 +792,7 @@ func (r *Renderer) RenderExposed(exposed []*symbols.Symbol, kind Kind, stated st
 	default:
 		return nil, &UnsupportedKindError{Kind: kind, Stated: stated, Remedy: remedyFor(kind)}
 	}
+	placeLanesOnce(out)
 	foldCollapsed(out)
 	out.finishExpansionFold()
 	r.noteDepthCuts(nil, out)

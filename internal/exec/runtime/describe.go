@@ -5,26 +5,14 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
 // notOfKind reports that sym declares something other than the kind asked of
 // it: a usage error naming what it is, never a Go type name.
 func notOfKind(sentinel error, sym *symbols.Symbol, kind string) error {
 	return fmt.Errorf("%w: %s is %s, not %s %s definition or usage",
-		sentinel, sym.Name, describeDecl(sym.Decl), articleFor(kind), kind)
-}
-
-// articleFor is the indefinite article a word reads with, so a kind beginning
-// with a vowel is "an analysis" rather than "a analysis".
-func articleFor(word string) string {
-	if word == "" {
-		return "a"
-	}
-	switch word[0] {
-	case 'a', 'e', 'i', 'o', 'u', 'A', 'E', 'I', 'O', 'U':
-		return "an"
-	}
-	return "a"
+		sentinel, sym.Name, describeDecl(sym.Decl), diag.IndefiniteArticle(kind), kind)
 }
 
 // describeOperand names an operand's type for an operator diagnostic, with its
@@ -85,9 +73,9 @@ func describeDecl(decl ast.Node) string {
 	written := ast.Notation(decl)
 	switch decl.(type) {
 	case *ast.Definition:
-		return articleFor(written) + " " + written
+		return diag.IndefiniteArticle(written) + " " + written
 	case *ast.Usage, *ast.AssumeMember, *ast.RequireMember:
-		return articleFor(written) + " " + written + " usage"
+		return diag.IndefiniteArticle(written) + " " + written + " usage"
 	case nil:
 		return "nothing"
 	}

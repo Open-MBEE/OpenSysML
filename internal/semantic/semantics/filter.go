@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"slices"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -139,10 +140,61 @@ func (m *Model) CompileElementFilter(f symbols.ElementFilter) *symbols.FilterPre
 	// The names a condition uses are not subject to the condition itself, so
 	// they resolve through the namespace's imports unfiltered.
 	var pred *symbols.FilterPredicate
-	m.resolver.InCondition(func() { pred = m.compileCondition(f.Scope, f.Expr) })
+	if FilterNestsTooDeep(f.Expr) {
+		pred = evaluatorUnsupported(spanOf(f.Expr), filterDepthLimitation, nil)
+	} else {
+		m.resolver.InCondition(func() { pred = m.compileCondition(f.Scope, f.Expr) })
+	}
 	journal(m, m.filterPreds, f.Expr, f.Expr)
 	m.filterPreds[f.Expr] = pred
 	return pred
+}
+
+// MaxFilterDepth bounds how deep a filter condition nests the expressions compiling it
+// descends into: compiling and evaluating recurse per level, on a depth the document chooses.
+const MaxFilterDepth = 256
+
+const filterDepthLimitation = "the condition nests its operators too deeply"
+
+// FilterNestsTooDeep reports whether a condition nests operators, sequences, constructor
+// arguments and feature chains past MaxFilterDepth, at no call depth of its own.
+func FilterNestsTooDeep(expr ast.Node) bool {
+	type level struct {
+		node  ast.Node
+		depth int
+	}
+	pending := []level{{expr, 1}}
+	for len(pending) > 0 {
+		at := pending[len(pending)-1]
+		pending = pending[:len(pending)-1]
+		operands, nests := nestedOperands(at.node)
+		if !nests {
+			continue
+		}
+		if at.depth > MaxFilterDepth {
+			return true
+		}
+		for _, o := range operands {
+			pending = append(pending, level{o, at.depth + 1})
+		}
+	}
+	return false
+}
+
+// nestedOperands is the expressions one level below an expression that nests others,
+// and false for one that nests none.
+func nestedOperands(n ast.Node) ([]ast.Node, bool) {
+	switch e := n.(type) {
+	case *ast.OperatorExpr:
+		return e.Operands, true
+	case *ast.SequenceExpr:
+		return e.Elements, true
+	case *ast.ConstructorExpr:
+		return constructorArgs(e), true
+	case *ast.FeatureChainExpr:
+		return []ast.Node{e.Operand}, true
+	}
+	return nil, false
 }
 
 // compileCondition compiles one filter expression, resolving every element it
@@ -182,13 +234,9 @@ func (m *Model) compileCondition(scope *symbols.Scope, n ast.Node) *symbols.Filt
 // compileConstructor compiles `new T(…)`: model-level evaluable when its
 // arguments are (KerML 7.4.9), and yielding an instance, never a truth value.
 func (m *Model) compileConstructor(scope *symbols.Scope, e *ast.ConstructorExpr) *symbols.FilterPredicate {
-	span := spanOf(e)
-	if e.Type == nil {
-		return unsupported(span, "the constructor names no type")
-	}
-	_, typeFQN, ok := m.resolveType(scope, e.Type)
-	if !ok {
-		return unsupported(span, fmt.Sprintf("the constructed type %s does not resolve", e.Type.Text()))
+	instance, fault := m.constructedInstance(scope, e)
+	if fault != nil {
+		return fault
 	}
 	for _, arg := range constructorArgs(e) {
 		if p := m.compileCondition(scope, arg); p.Op == symbols.FilterUnsupported {
@@ -200,11 +248,25 @@ func (m *Model) compileConstructor(scope *symbols.Scope, e *ast.ConstructorExpr)
 			return p
 		}
 	}
+	return instance
+}
+
+// constructedInstance is the instance `new T(…)` yields before its arguments are looked
+// at, or the reason its type cannot be constructed.
+func (m *Model) constructedInstance(scope *symbols.Scope, e *ast.ConstructorExpr) (instance, fault *symbols.FilterPredicate) {
+	span := spanOf(e)
+	if e.Type == nil {
+		return nil, unsupported(span, "the constructor names no type")
+	}
+	_, typeFQN, ok := m.resolveType(scope, e.Type)
+	if !ok {
+		return nil, unsupported(span, fmt.Sprintf("the constructed type %s does not resolve", e.Type.Text()))
+	}
 	return &symbols.FilterPredicate{
 		Op:    symbols.FilterConst,
 		Value: symbols.FilterValue{Kind: symbols.FilterValueInstance, RefFQN: typeFQN},
 		Span:  span,
-	}
+	}, nil
 }
 
 // compileOperator compiles the operators a filter condition is written with:
@@ -224,10 +286,8 @@ func (m *Model) compileOperator(scope *symbols.Scope, e *ast.OperatorExpr) *symb
 			Operands: []*symbols.FilterPredicate{m.compileCondition(scope, e.Operands[0])},
 			Span:     span,
 		}
-
-	case ast.OpAnd, ast.OpConditionalAnd, ast.OpOr, ast.OpConditionalOr,
-		ast.OpXor, ast.OpImplies, ast.OpEq, ast.OpNeq, ast.OpLt, ast.OpLe,
-		ast.OpGt, ast.OpGe:
+	}
+	if composesFilterOperands(e.Operator) {
 		if len(e.Operands) != 2 {
 			return unsupported(span, fmt.Sprintf("`%s` needs two operands", e.Operator))
 		}
@@ -241,6 +301,18 @@ func (m *Model) compileOperator(scope *symbols.Scope, e *ast.OperatorExpr) *symb
 		}
 	}
 	return unsupported(span, fmt.Sprintf("the `%s` operator is not supported in a filter condition", e.Operator))
+}
+
+// composesFilterOperands reports whether compileOperator compiles op from its two
+// operands: Boolean composition and comparison.
+func composesFilterOperands(op ast.OperatorKind) bool {
+	switch op {
+	case ast.OpAnd, ast.OpConditionalAnd, ast.OpOr, ast.OpConditionalOr,
+		ast.OpXor, ast.OpImplies, ast.OpEq, ast.OpNeq, ast.OpLt, ast.OpLe,
+		ast.OpGt, ast.OpGe:
+		return true
+	}
+	return false
 }
 
 // compileClassification compiles `@T` and `@@T`. The operand is the element the
@@ -494,21 +566,19 @@ func (m *Model) filterMemberType(typ *symbols.Symbol, feature string) *symbols.S
 // chainHops is the member names a chain reads, root outward, so `a.b.c` and
 // `(a.b).c` are the same hop list.
 func chainHops(e *ast.FeatureChainExpr) []string {
+	// A chain is written as deep as it is long, so its links are walked in a loop.
+	var links []*ast.FeatureChainExpr
+	for chain := e; chain != nil; chain, _ = chain.Operand.(*ast.FeatureChainExpr) {
+		links = append(links, chain)
+	}
 	var hops []string
-	var walk func(n ast.Node)
-	walk = func(n ast.Node) {
-		chain, isChain := n.(*ast.FeatureChainExpr)
-		if !isChain {
-			return
-		}
-		walk(chain.Operand)
+	for _, chain := range slices.Backward(links) {
 		if chain.Member != nil {
 			for _, p := range chain.Member.Parts {
 				hops = append(hops, p.Text)
 			}
 		}
 	}
-	walk(e)
 	return hops
 }
 
@@ -1138,9 +1208,17 @@ func (m *Model) CheckElementFilter(f symbols.ElementFilter) []FilterProblem {
 	}
 	// The constraints are on the membership stating the condition (KerML 8.2.4),
 	// so each fault is reported there, once.
+	found := m.appendFilterProblems(nil, pred, true)
+	if FilterNestsTooDeep(f.Expr) {
+		// A condition that is in error is not also reported as merely not evaluated.
+		faults := m.appendDeepFilterProblems(nil, f)
+		if slices.ContainsFunc(faults, func(p FilterProblem) bool { return p.Kind != FilterProblemUnsupported }) {
+			found = faults
+		}
+	}
 	var out []FilterProblem
 	seen := map[FilterProblemKind]bool{}
-	for _, p := range m.appendFilterProblems(nil, pred, true) {
+	for _, p := range found {
 		if seen[p.Kind] {
 			continue
 		}
@@ -1155,6 +1233,110 @@ func (m *Model) CheckElementFilter(f symbols.ElementFilter) []FilterProblem {
 		return dropUnsupportedProblems(out)
 	}
 	return out
+}
+
+// appendDeepFilterProblems collects the faults of a condition nested past MaxFilterDepth:
+// those compiling it would find, reached with a stack of its own instead of by recursion.
+func (m *Model) appendDeepFilterProblems(out []FilterProblem, f symbols.ElementFilter) []FilterProblem {
+	type operand struct {
+		node     ast.Node
+		wantBool bool
+	}
+	folds := constFolds{}
+	m.resolver.InCondition(func() {
+		pending := []operand{{f.Expr, true}}
+		for len(pending) > 0 {
+			at := pending[len(pending)-1]
+			pending = pending[:len(pending)-1]
+			pred, operandsWantBool := m.compileUnnested(f.Scope, at.node, folds)
+			if pred != nil {
+				out = m.appendFilterProblems(out, pred, at.wantBool)
+				continue
+			}
+			operands := at.node.(*ast.OperatorExpr).Operands
+			for i := len(operands) - 1; i >= 0; i-- {
+				pending = append(pending, operand{operands[i], operandsWantBool})
+			}
+		}
+	})
+	return out
+}
+
+// compileUnnested is the predicate compileCondition gives n, or nil for an operator past
+// MaxFilterDepth that composes its operands, with whether each must yield a truth value.
+func (m *Model) compileUnnested(scope *symbols.Scope, n ast.Node, folds constFolds) (pred *symbols.FilterPredicate, operandsWantBool bool) {
+	if !FilterNestsTooDeep(n) {
+		return m.compileCondition(scope, n), false
+	}
+	switch e := n.(type) {
+	case *ast.OperatorExpr:
+		if kind, ok := folds.of(e); ok {
+			return &symbols.FilterPredicate{Op: symbols.FilterConst, Value: kind, Span: spanOf(n)}, false
+		}
+		switch {
+		case e.Operator == ast.OpNot && len(e.Operands) == 1:
+			return nil, true
+		case composesFilterOperands(e.Operator) && len(e.Operands) == 2:
+			return nil, isFilterBoolOp(binaryFilterOp(e.Operator))
+		}
+		// Every other operator compiles without a look at its operands.
+		return m.compileOperator(scope, e), false
+	case *ast.ConstructorExpr:
+		return m.compileUnnestedConstructor(scope, e, folds), false
+	}
+	// Nothing else compiles by way of what it nests.
+	return m.compileCondition(scope, n), false
+}
+
+// constFolds remembers which operator expressions of one condition fold to a constant,
+// and of what kind: all a fault is found from, so that no folded value is kept.
+type constFolds map[*ast.OperatorExpr]*symbols.FilterValue
+
+// of is the kind of constant e folds to, as a value of that kind, and whether it folds.
+// Each expression is evaluated once however many of those around it are asked for.
+func (c constFolds) of(e *ast.OperatorExpr) (symbols.FilterValue, bool) {
+	kind, known := c[e]
+	if !known {
+		evalConstUnnested(e, DefaultMaxIntegerBits, func(e *ast.OperatorExpr, v Value, ok bool) {
+			c[e] = nil
+			if ok {
+				c[e] = &symbols.FilterValue{Kind: constValueKind(v), Bool: v.Kind == ValBool && v.Bool}
+			}
+		})
+		kind = c[e]
+	}
+	if kind == nil {
+		return symbols.FilterValue{}, false
+	}
+	return *kind, true
+}
+
+// compileUnnestedConstructor is compileConstructor for a constructor nested past
+// MaxFilterDepth: the first argument in written order that is no predicate decides.
+func (m *Model) compileUnnestedConstructor(scope *symbols.Scope, e *ast.ConstructorExpr, folds constFolds) *symbols.FilterPredicate {
+	instance, fault := m.constructedInstance(scope, e)
+	if fault != nil {
+		return fault
+	}
+	pending := constructorArgs(e)
+	slices.Reverse(pending)
+	for len(pending) > 0 {
+		arg := pending[len(pending)-1]
+		pending = pending[:len(pending)-1]
+		if c, ok := arg.(*ast.ConstructorExpr); ok && FilterNestsTooDeep(arg) {
+			if _, fault := m.constructedInstance(scope, c); fault != nil {
+				return fault
+			}
+			args := constructorArgs(c)
+			slices.Reverse(args)
+			pending = append(pending, args...)
+			continue
+		}
+		if p, _ := m.compileUnnested(scope, arg, folds); p != nil && p.Op == symbols.FilterUnsupported {
+			return p
+		}
+	}
+	return instance
 }
 
 // appendFilterProblems collects the faults of a compiled condition. wantBool
@@ -1352,21 +1534,37 @@ func filterOrderOp(op symbols.FilterOp) ast.OperatorKind {
 
 // constValue converts a folded constant to the form a filter predicate holds.
 func constValue(v Value) symbols.FilterValue {
+	out := symbols.FilterValue{Kind: constValueKind(v)}
 	switch v.Kind {
 	case ValInt:
 		if v.IsBigInt() {
-			return symbols.FilterValue{Kind: symbols.FilterValueInt, BigInt: v.BigInt()}
+			out.BigInt = v.BigInt()
+		} else {
+			out.Int = v.Int
 		}
-		return symbols.FilterValue{Kind: symbols.FilterValueInt, Int: v.Int}
 	case ValReal:
-		return symbols.FilterValue{Kind: symbols.FilterValueReal, Real: v.Real}
+		out.Real = v.Real
 	case ValRational:
-		return symbols.FilterValue{Kind: symbols.FilterValueRational, Rat: v.Rat()}
+		out.Rat = v.Rat()
 	case ValBool:
-		return symbols.FilterValue{Kind: symbols.FilterValueBool, Bool: v.Bool}
-	default:
-		return symbols.FilterValue{}
+		out.Bool = v.Bool
 	}
+	return out
+}
+
+// constValueKind is the kind constValue gives a folded constant, at no copy of its value.
+func constValueKind(v Value) symbols.FilterValueKind {
+	switch v.Kind {
+	case ValInt:
+		return symbols.FilterValueInt
+	case ValReal:
+		return symbols.FilterValueReal
+	case ValRational:
+		return symbols.FilterValueRational
+	case ValBool:
+		return symbols.FilterValueBool
+	}
+	return symbols.FilterValueUnknown
 }
 
 // quantityValue converts a folded quantity to the form a filter predicate

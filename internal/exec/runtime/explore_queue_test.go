@@ -327,6 +327,43 @@ func TestExploreWithPutsNoMoreJobsToWorkThanRuns(t *testing.T) {
 	}
 }
 
+// A vast count under a vast runs budget still starts a bounded fleet, and explores the same.
+func TestExploreWithPutsNoMoreJobsToWorkThanTheBound(t *testing.T) {
+	budget := ExploreBudget{Runs: 1 << 30, Depth: 64}
+	if q := newExploreQueue(mustPolicy(t, "explore"), budget, 1<<30); q.jobs != MaxExploreJobs {
+		t.Fatalf("%d jobs, want the bound of %d", q.jobs, MaxExploreJobs)
+	}
+	idx, path := parseIndex(t, threeWritersModel)
+	policy, err := ExplorePolicy(budget)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var mu sync.Mutex
+	most := 0
+	workers := newExploreWorkers(idx)
+	fresh := func(job int) (*Context, error) {
+		mu.Lock()
+		most = max(most, job)
+		mu.Unlock()
+		return workers.fresh(job)
+	}
+	run := actionRun(t, idx, path, "race")
+	bounded, err := ExploreWith(context.Background(), policy, 1<<30, fresh, run)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if most >= MaxExploreJobs {
+		t.Errorf("fresh built a context for job %d, want one under %d", most, MaxExploreJobs)
+	}
+	single, err := ExploreWith(context.Background(), policy, 1, newExploreWorkers(idx).fresh, run)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bounded.Runs != single.Runs || len(bounded.Outcomes) != len(single.Outcomes) {
+		t.Errorf("%d runs and %d outcomes at the bound, want the %d and %d of one job", bounded.Runs, len(bounded.Outcomes), single.Runs, len(single.Outcomes))
+	}
+}
+
 // The queue keeps no run's context past its folding: the witnesses' live on in the result,
 // every other run's is let go, so a plan holds a worker's memory per job, not per run.
 func TestExploreWithKeepsNoContextButTheWitnesses(t *testing.T) {

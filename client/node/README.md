@@ -269,6 +269,12 @@ later worker calls queue behind work that outlived its deadline. Inline calls
 run synchronously and cannot be interrupted while they block the JavaScript
 thread.
 
+A worker holds at most 1024 unanswered calls: one more is refused with
+`ResourceExhausted` until an answer or a cancellation frees a place, and the
+refusal costs the same however many calls were made at once. An inline
+start that has not finished within 60 seconds fails with an `OpenSysMLError`
+and lets the next start take its turn.
+
 In a browser, omit `worker` to run inline, or provide a module worker serving the
 package's `browser/wasm-worker` entry point:
 
@@ -370,7 +376,9 @@ Every failure is an `OpenSysMLError`. A call the service refused is a
 `"INVALID_ARGUMENT"`, …), and the statuses worth catching by themselves have a
 subclass: `ModelNotFoundError` (the service no longer holds that hash),
 `ModelFileNotFoundError`, `InvalidRequestError`, `AuthenticationError` (the
-service refused the call's bearer token), `ServiceTimeoutError`,
+service refused the call's bearer token), `ServiceTimeoutError` (and its
+subclass `ServiceCancelledError`, for a call that was cancelled rather than out
+of time),
 `ServiceUnavailableError` (the service was unreachable or died before
 answering), `UnsupportedOperationError`. A name the model has not got is a
 `SymbolNotFoundError`, which carries the `symbolName` it looked for and the

@@ -41,7 +41,7 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		m.memberships[sym] = out
 		return out
 	}
-	statements := append(m.statementOperands(sym), m.statementNodes(sym)...)
+	statements := append(m.statementParts(sym), m.statementNodes(sym)...)
 	parts := m.transitionMembers(sym)
 	ends := m.synthesizedSuccessionEnds(sym)
 	synthesized := m.synthesizedMembersOf(sym)
@@ -110,19 +110,18 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 // withBodyMemberships appends the membership of each member sym's body declares that is not yet in
 // seen, numbered from ordinal.
 func (m *Model) withBodyMemberships(sym *symbols.Symbol, out []*symbols.Symbol, ordinal int, seen map[*symbols.Symbol]bool) []*symbols.Symbol {
-	scope, written := sym.Scope, sym.Decl
+	scope := sym.Scope
 	if statement := nodeStatementOf(sym.Decl); statement != nil {
 		// A node written as its statement (`action a while c { … }`) owns the
 		// members its statement's body declares.
-		written = statement
 		if child := scope.ChildFor(statement); child != nil {
 			scope = child
 		}
 	}
+	loop, body := loopStatementOf(sym) != nil, isLoopBody(sym)
 	scope.ForEachMember(func(member *symbols.Symbol) bool {
-		if member.Decl == written && IsStatementNode(written) {
-			// A `for` variable is a body-local name, not an element the
-			// conversion writes (sysx:loopVariable is a string).
+		if (loop || body) && IsLoopVariable(member) == body && !isWrittenLoopBody(member) {
+			// A loop owns its variable; its body owns what the body declares.
 			return true
 		}
 		if member == nil || seen[member] || member.Chain != nil || ownedThroughAnnotation(sym, member) || m.isTriggerPayload(sym, member) {
@@ -628,6 +627,10 @@ func (m *Model) OwnedImports(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym.Scope == nil {
 		return nil
 	}
+	if loop := loopStatementOf(sym); loop != nil && loopBodyParameter(loop) == nil {
+		// A `{ … }` body's imports are its own: the loop shares the scope the body declares into.
+		return nil
+	}
 	defer m.own(sym).LeaveDoc()
 	if cached, ok := m.ownedImports[sym]; ok {
 		return cached
@@ -750,8 +753,8 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 		// OwningMembership (SysML.xtext PrefixMetadataMember, AnnotatingMember).
 		return "OwningMembership"
 	}
-	if _, ok := member.Decl.(*ast.IfBranchNode); ok {
-		// A branch of `if` is an ActionUsage parameter the conditional owns
+	if _, ok := member.Decl.(*ast.IfBranchNode); ok || isWrittenLoopBody(member) {
+		// A branch of `if` or a loop's written body is an ActionUsage parameter its node owns
 		// (SysML.xtext ActionBodyParameterMember).
 		return "ParameterMembership"
 	}
@@ -826,14 +829,18 @@ func expressionMembershipMetaclassName(member *symbols.Symbol) string {
 		return "EndFeatureMembership"
 	case symbols.ExpressionOperand:
 		switch member.Expr.Slot {
-		case "condition":
+		case "condition", "whileCondition", "untilCondition":
+			// An `if` or loop owns its test as a parameter (SysML.xtext ExpressionParameterMember).
 			return "ParameterMembership"
 		case "value":
 			return "FeatureValue"
 		}
 		return "OwningMembership"
-	case symbols.ExpressionTransitionLinkParameter:
+	case symbols.ExpressionTransitionLinkParameter, symbols.ExpressionLoopBody:
 		return "ParameterMembership"
+	case symbols.ExpressionAccess:
+		// An assignment's target parameter nests its features (SysML.xtext TargetFeatureMember).
+		return "FeatureMembership"
 	case symbols.ExpressionTransitionLink:
 		return "FeatureMembership"
 	}

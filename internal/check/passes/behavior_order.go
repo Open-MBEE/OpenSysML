@@ -80,7 +80,7 @@ func behaviorOrderCycles(model *semantics.Model, orders []lower.BehaviorOrder) [
 				continue
 			}
 			if featuring == nil && order.Featuring != nil ||
-				featuring != nil && (order.Featuring == nil || !model.Conforms(featuring, order.Featuring)) {
+				featuring != nil && (order.Featuring == nil || !model.SpecializesThroughReferences(featuring, order.Featuring)) {
 				continue
 			}
 			group = append(group, order)

@@ -14,7 +14,7 @@ n0: "«action def»\nMonitor\nparameters\nin sensor\nout alarm" {
     class: region
     n2: "«accept action»\nacceptReading\nreading : Reading\nparameters\nout reading\nin ^receiver" { class: usage }
   }
-  n3: "«send action»\nsendAlarm\nAlarm to sensor\nparameters\nin ^payload\nin ^sender\nin ^receiver" { class: usage }
+  n3: "«send action»\nsendAlarm\nAlarm to sensor" { class: usage }
   n22: "«performer»\ncontroller\nperform actions" {
     class: region
     n4: "«assign»\ntally\ncount := count + 1" { class: usage }

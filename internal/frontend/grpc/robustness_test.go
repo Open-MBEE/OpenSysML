@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"testing"
 
@@ -301,7 +302,170 @@ func TestGRPCObjectBindingRobustness(t *testing.T) {
 		expect(t, run(objectByPath("spare")), connect.CodeNotFound, "binding root", `no instance of "Garage::spare"`, "Instantiate first")
 		expect(t, run(objectByPath("Garage::spare.pressure")), connect.CodeNotFound, "binding root", `no instance of "Garage::spare"`)
 		expect(t, run(objectByPath("nowhere")), connect.CodeNotFound, "binding root", "symbol not found: nowhere")
+		expect(t, run(objectByPath("Garage::nowhere")), connect.CodeNotFound, "binding root", "symbol not found: Garage::nowhere")
+		expect(t, run(objectByPath("Garage::nowhere.pressure")), connect.CodeNotFound, "binding root", "symbol not found: Garage::nowhere")
 		expect(t, run(objectByPath("Garage::Car")), connect.CodeNotFound, "binding root", `no instance of "Garage::Car"`)
+	})
+
+	t.Run("unknown_member_of_package_in_definition", func(t *testing.T) {
+		nested := mustNewService(t, 10)
+		parsed, err := nested.ParseFile(context.Background(), &pb.ParseFileRequest{Source: &pb.ParseFileRequest_Content{Content: `package Garage {
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+	part def Car {
+		package Kit {
+			part jack;
+		}
+	}
+	part car : Car;
+	part spare;
+	calc def Parts :> Query {
+		in root : Element;
+		Descendants(source = root, maxDepth = 1)
+	}
+}`}})
+		if err != nil {
+			t.Fatalf("ParseFile: %v", err)
+		}
+		// An unrelated held object must not turn the answer into a missing instance.
+		holdObject(t, nested, parsed.ModelHash, "Garage::spare")
+		_, err = nested.RunDocumentQuery(context.Background(), &pb.RunDocumentQueryRequest{
+			ModelHash: parsed.ModelHash, QueryId: "Garage::Parts",
+			Bindings: []*pb.DocumentQueryBinding{binding("root", objectByPath("Garage::Car::Kit::nowhere"))},
+		})
+		expect(t, err, connect.CodeNotFound, "binding root", "symbol not found: Garage::Car::Kit::nowhere")
+		// A held object is walked from: a package it owns or inherits is not a feature.
+		for _, held := range []string{"Garage::car", "Garage::Car"} {
+			holdObject(t, nested, parsed.ModelHash, held)
+			_, err = nested.RunDocumentQuery(context.Background(), &pb.RunDocumentQueryRequest{
+				ModelHash: parsed.ModelHash, QueryId: "Garage::Parts",
+				Bindings: []*pb.DocumentQueryBinding{binding("root", objectByPath(held+"::Kit::nowhere"))},
+			})
+			expect(t, err, connect.CodeInvalidArgument, "binding root", held+` has no feature "Kit"`)
+		}
+	})
+
+	t.Run("package_member_under_unheld_declaration", func(t *testing.T) {
+		const model = `package Garage {
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+	part def Car {
+		package Kit {
+			part jack;
+			package Deep {
+				part bolt;
+			}
+		}
+		part engine;
+	}
+	part def Truck :> Car;
+	part car : Car;
+	part truck : Truck;
+	part spare;
+	calc def Parts :> Query {
+		in root : Element;
+		Descendants(source = root, maxDepth = 1)
+	}
+}`
+		// Each root is looked up while it holds no object and another declaration does.
+		roots := []string{"Garage::car", "Garage::truck", "Garage::Truck"}
+		for _, held := range [][]string{
+			{"Garage::car"}, {"Garage::Car"}, {"Garage::car", "Garage::Car"},
+			{"Garage::truck"}, {"Garage::Truck"}, {"Garage::spare"},
+		} {
+			srv := mustNewService(t, 10)
+			parsed, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{Source: &pb.ParseFileRequest_Content{Content: model}})
+			if err != nil {
+				t.Fatalf("ParseFile: %v", err)
+			}
+			for _, sym := range held {
+				holdObject(t, srv, parsed.ModelHash, sym)
+			}
+			lookup := func(path string) error {
+				_, err := srv.RunDocumentQuery(context.Background(), &pb.RunDocumentQueryRequest{
+					ModelHash: parsed.ModelHash, QueryId: "Garage::Parts",
+					Bindings: []*pb.DocumentQueryBinding{binding("root", objectByPath(path))},
+				})
+				return err
+			}
+			for _, root := range roots {
+				if slices.Contains(held, root) {
+					continue
+				}
+				// A package the declaration owns or inherits only encloses the unknown name.
+				for _, rest := range []string{"::Kit::nowhere", "::Kit::Deep::nowhere"} {
+					expect(t, lookup(root+rest), connect.CodeNotFound, "binding root", "symbol not found: "+root+rest)
+				}
+				// A member the package does declare is the declaration lacking an object.
+				expect(t, lookup(root+"::Kit::jack"), connect.CodeNotFound, "binding root", `no instance of "Garage::Car::Kit::jack"`)
+				expect(t, lookup(root+"::Kit::Deep::bolt::nowhere"), connect.CodeNotFound, "binding root", `no instance of "Garage::Car::Kit::Deep::bolt"`)
+				expect(t, lookup(root+"::engine::nowhere"), connect.CodeNotFound, "binding root", `no instance of "Garage::Car::engine"`)
+				// A name that is no member there still blames the root.
+				expect(t, lookup(root+"::nowhere::bolt"), connect.CodeNotFound, "binding root", `no instance of "`+root+`"`)
+			}
+		}
+
+		// An object held under the declared name is reached through the inheriting one.
+		srv := mustNewService(t, 10)
+		parsed, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{Source: &pb.ParseFileRequest_Content{Content: model}})
+		if err != nil {
+			t.Fatalf("ParseFile: %v", err)
+		}
+		holdObject(t, srv, parsed.ModelHash, "Garage::Car::Kit::jack")
+		for _, root := range roots {
+			if _, err := srv.RunDocumentQuery(context.Background(), &pb.RunDocumentQueryRequest{
+				ModelHash: parsed.ModelHash, QueryId: "Garage::Parts",
+				Bindings: []*pb.DocumentQueryBinding{binding("root", objectByPath(root+"::Kit::jack"))},
+			}); err != nil {
+				t.Errorf("%s::Kit::jack with Garage::Car::Kit::jack held: %v", root, err)
+			}
+			_, err := srv.RunDocumentQuery(context.Background(), &pb.RunDocumentQueryRequest{
+				ModelHash: parsed.ModelHash, QueryId: "Garage::Parts",
+				Bindings: []*pb.DocumentQueryBinding{binding("root", objectByPath(root+"::Kit::jack::nowhere"))},
+			})
+			expect(t, err, connect.CodeInvalidArgument, "binding root", `Garage::Car::Kit::jack has no feature "nowhere"`)
+		}
+	})
+
+	t.Run("inherited_member_beside_held_root_and_quoted_name", func(t *testing.T) {
+		const model = `package Fleet {
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+	part def Drive {
+		part motor;
+	}
+	part def Car {
+		part drive : Drive;
+		part 'drive::motor';
+	}
+	part car : Car;
+	calc def Parts :> Query {
+		in root : Element;
+		Descendants(source = root, maxDepth = 1)
+	}
+}`
+		lookup := func(path string, held ...string) error {
+			srv := mustNewService(t, 10)
+			parsed, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{Source: &pb.ParseFileRequest_Content{Content: model}})
+			if err != nil {
+				t.Fatalf("ParseFile: %v", err)
+			}
+			for _, sym := range held {
+				holdObject(t, srv, parsed.ModelHash, sym)
+			}
+			_, err = srv.RunDocumentQuery(context.Background(), &pb.RunDocumentQueryRequest{
+				ModelHash: parsed.ModelHash, QueryId: "Fleet::Parts",
+				Bindings: []*pb.DocumentQueryBinding{binding("root", objectByPath(path))},
+			})
+			return err
+		}
+		// A quoted segment holding `::` is one member of Car, not a chain through drive.
+		expect(t, lookup("Fleet::car::'drive::motor'", "Fleet::Drive::motor"), connect.CodeNotFound, "binding root", `no instance of "Fleet::Car::drive::motor"`)
+		expect(t, lookup("Fleet::car::'drive::motor'::nowhere", "Fleet::Drive::motor"), connect.CodeNotFound, "binding root", `no instance of "Fleet::Car::drive::motor"`)
+		expect(t, lookup("Fleet::car::drive::motor::nowhere", "Fleet::Drive::motor"), connect.CodeInvalidArgument, "binding root", `Fleet::Drive::motor has no feature "nowhere"`)
+		// A held root as written is walked from, whatever is held under the inherited name.
+		expect(t, lookup("Fleet::car::drive::motor::nowhere", "Fleet::car", "Fleet::Drive::motor"), connect.CodeInvalidArgument, "binding root", `Fleet::car.drive.motor has no feature "nowhere"`)
+		expect(t, lookup("Fleet::car::'drive::motor'::nowhere", "Fleet::car", "Fleet::Drive::motor"), connect.CodeInvalidArgument, "binding root", `Fleet::car.'drive::motor' has no feature "nowhere"`)
 	})
 
 	t.Run("path_reaches_no_object", func(t *testing.T) {

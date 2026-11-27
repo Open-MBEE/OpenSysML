@@ -1,1 +1,0 @@
-- `sysml -query` and the REPL's `%query` report a member declared under a name that reads as a position (`part '@2'`) with that name quoted (`C::'@2'`), as the gRPC `Query` does, so it no longer shares the identity `C::@2` with the unnamed member at that position. Such a member keeps its `sysml:qualifiedName` on every query surface, where the gRPC `Query` used to leave it out.

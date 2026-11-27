@@ -23,14 +23,14 @@ import (
 // what is known of the executors alternatives i and j belong to, nil for one
 // executor's. Footprints not matching the alternatives leave the choice
 // conflicting, touching nothing named.
-func classifyChoice(c *ChoicePoint, fps []lower.Footprint, rel func(i, j int) lower.Relation) {
+func classifyChoice(serials *choiceSerials, c *ChoicePoint, fps []lower.Footprint, rel func(i, j int) lower.Relation) {
 	relation := func(i, j int) lower.Relation {
 		if rel == nil {
 			return lower.Relation{}
 		}
 		return rel(i, j)
 	}
-	classifyBy(c, fps, func(i, j int) bool {
+	classifyBy(serials, c, fps, func(i, j int) bool {
 		return onValues(fps[i]).DependentBy(onValues(fps[j]), relation(i, j))
 	}, relation)
 }
@@ -38,11 +38,11 @@ func classifyChoice(c *ChoicePoint, fps []lower.Footprint, rel func(i, j int) lo
 // classifyBy classifies a choice among moves by a dependence of its own — a
 // statement order's, which also keeps the successions written among them —
 // touching by the footprints as classifyChoice does.
-func classifyBy(c *ChoicePoint, fps []lower.Footprint, dependent func(i, j int) bool, rel func(i, j int) lower.Relation) {
+func classifyBy(serials *choiceSerials, c *ChoicePoint, fps []lower.Footprint, dependent func(i, j int) bool, rel func(i, j int) lower.Relation) {
 	if len(fps) != len(c.Alternatives) || len(fps) < 2 {
 		return
 	}
-	c.serial = nextChoiceSerial()
+	c.serial = serials.next()
 	found := false
 	standings := make([]*lower.Standing, len(fps))
 	standing := func(i int) *lower.Standing {
@@ -131,9 +131,9 @@ func shared(p lower.Place) bool {
 // others do not (a decision's branches, a state's transitions): never
 // independent, since the alternatives are different continuations, and touching
 // whatever any of them writes.
-func classifyExclusive(c *ChoicePoint, fps []lower.Footprint) {
+func classifyExclusive(serials *choiceSerials, c *ChoicePoint, fps []lower.Footprint) {
 	c.Independent = false
-	c.serial = nextChoiceSerial()
+	c.serial = serials.next()
 	for _, fp := range fps {
 		c.touchWrites(fp.Writes)
 	}

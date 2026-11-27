@@ -1,6 +1,7 @@
 package view
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -45,8 +46,31 @@ func (r *Renderer) performersOf(action *symbols.Symbol) []*symbols.Symbol {
 	if action == nil {
 		return nil
 	}
+	return r.performersByAction()[symbols.KeyOf(action)]
+}
+
+// Performer reports whether sym performs an action, so that a flow may draw a swimlane for it.
+func (r *Renderer) Performer(sym *symbols.Symbol) bool {
+	for _, performers := range r.performersByAction() {
+		if containsElement(performers, sym) {
+			return true
+		}
+	}
+	return false
+}
+
+// PerformsInSeveral reports whether sym performs nodes of more than one action, so that
+// some rendering may draw it several swimlanes.
+func (r *Renderer) PerformsInSeveral(sym *symbols.Symbol) bool {
+	r.performersByAction()
+	return sym != nil && len(r.laneHolders[symbols.KeyOf(sym)]) > 1
+}
+
+// performersByAction are the performers of every action of the model, by the action's key.
+func (r *Renderer) performersByAction() map[symbols.ElementKey][]*symbols.Symbol {
 	if r.performers == nil {
 		r.performers = map[symbols.ElementKey][]*symbols.Symbol{}
+		r.laneHolders = map[symbols.ElementKey]map[symbols.ElementKey]bool{}
 		for _, sym := range r.modelElements() {
 			usage, ok := sym.Decl.(*ast.Usage)
 			if !ok || !usage.IsPerformedAction() {
@@ -60,9 +84,17 @@ func (r *Renderer) performersOf(action *symbols.Symbol) []*symbols.Symbol {
 			if !containsElement(r.performers[key], performer) {
 				r.performers[key] = append(r.performers[key], performer)
 			}
+			if holder := target.Owner(); holder != nil {
+				held := r.laneHolders[symbols.KeyOf(performer)]
+				if held == nil {
+					held = map[symbols.ElementKey]bool{}
+					r.laneHolders[symbols.KeyOf(performer)] = held
+				}
+				held[symbols.KeyOf(holder)] = true
+			}
 		}
 	}
-	return r.performers[symbols.KeyOf(action)]
+	return r.performers
 }
 
 // flowMember reports whether performer is declared in the flow action is a node
@@ -135,11 +167,11 @@ func performerName(sym *symbols.Symbol) string {
 
 // laneNodes moves each node one performer performs into that performer's lane
 // and lists the performers of a node several perform in its `performed by`.
-func (r *Renderer) laneNodes(frame *Node, from int, elements map[*Node]*symbols.Symbol, context *symbols.Symbol, ids *nodeIDs) {
+func (r *Renderer) laneNodes(subject actionSubject, frame *Node, from int, elements map[*Node]*symbols.Symbol, ids *nodeIDs, out *Rendering) {
 	lanes := map[symbols.ElementKey]*Node{}
 	kept := frame.Children[:from:from]
 	for _, child := range frame.Children[from:] {
-		performers := r.performersIn(elements[child], context)
+		performers := r.performersIn(elements[child], subject.context)
 		switch len(performers) {
 		case 0:
 			kept = append(kept, child)
@@ -147,7 +179,7 @@ func (r *Renderer) laneNodes(frame *Node, from int, elements map[*Node]*symbols.
 			key := symbols.KeyOf(performers[0])
 			lane := lanes[key]
 			if lane == nil {
-				lane = r.laneNode(performers[0], ids)
+				lane = r.laneNode(subject.view, performers[0], ids, out)
 				lanes[key] = lane
 				kept = append(kept, lane)
 			}
@@ -158,6 +190,44 @@ func (r *Renderer) laneNodes(frame *Node, from int, elements map[*Node]*symbols.
 		}
 	}
 	frame.Children = kept
+}
+
+// placeLanesOnce leaves a performer's Layout to the first of its lanes, the outermost and then
+// the first in the view's order, and marks the others Fitted. Which lane that is does not
+// depend on what is folded: a lane folded away keeps the Layout, as any folded node keeps its own.
+func placeLanesOnce(out *Rendering) {
+	type held struct {
+		node    *Node
+		holders []*Node // the nodes it is drawn in, outermost first
+	}
+	first := map[Origin]bool{}
+	seen := map[*Node]bool{} // a rendering may list a node under several others
+	level := make([]held, 0, len(out.Roots))
+	for _, root := range out.Roots {
+		level = append(level, held{node: root})
+	}
+	for len(level) > 0 {
+		var next []held
+		for _, at := range level {
+			node := at.node
+			if seen[node] {
+				continue
+			}
+			seen[node] = true
+			if node.Kind == swimlaneKind {
+				if first[node.Origin] {
+					node.Geometry, node.Fitted = nil, true
+				}
+				first[node.Origin] = true
+				out.drawn.noteLane(node.Origin, at.holders)
+			}
+			holders := append(slices.Clip(at.holders), node)
+			for _, child := range node.Children {
+				next = append(next, held{node: child, holders: holders})
+			}
+		}
+		level = next
+	}
 }
 
 // performerLabel names a performer in a swimlane or a `performed by` row: its
@@ -172,10 +242,13 @@ func (r *Renderer) performerLabel(performer *symbols.Symbol) string {
 	return ""
 }
 
-// laneNode is the swimlane of one performer, headed by its name.
-func (r *Renderer) laneNode(performer *symbols.Symbol, ids *nodeIDs) *Node {
-	return &Node{ID: ids.take(), Kind: swimlaneKind, Name: r.performerLabel(performer),
+// laneNode is the swimlane of one performer, headed by its name and placed and
+// dressed in view as the performer is: the lane is the node the view draws for it.
+func (r *Renderer) laneNode(view, performer *symbols.Symbol, ids *nodeIDs, out *Rendering) *Node {
+	lane := &Node{ID: ids.take(), Kind: swimlaneKind, Name: r.performerLabel(performer),
 		Detail: performActionsLabel, Origin: nodeOrigin(performer.DocName, performer.Decl)}
+	lane.Geometry = r.geometryOf(view, performer, out)
+	return r.dress(view, performer, lane, out)
 }
 
 // performedBy is the `performed by` compartment naming performers.

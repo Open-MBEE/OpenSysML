@@ -4,9 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -16,7 +14,6 @@ import (
 	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis/enginewire"
-	"github.com/Open-MBEE/OpenSysML/tests/testutil/gobuild"
 )
 
 // The stand-in engine's variables and modes, from testdata/enginestandin.
@@ -30,32 +27,14 @@ const (
 	engineStandinProgress = "ENGINE_STANDIN_PROGRESS"
 )
 
-var (
-	engineStandinOnce sync.Once
-	engineStandinPath string
-	engineStandinErr  error
-)
-
 // engineStandin builds the stand-in engine once per test binary and returns its path.
 func engineStandin(t *testing.T) string {
 	t.Helper()
-	engineStandinOnce.Do(func() {
-		dir, err := os.MkdirTemp("", "enginestandin")
-		if err != nil {
-			engineStandinErr = err
-			return
-		}
-		engineStandinPath = filepath.Join(dir, "enginestandin")
-		build := exec.Command("go", gobuild.Args(engineStandinPath)...)
-		build.Dir = filepath.Join("testdata", "enginestandin")
-		if out, err := build.CombinedOutput(); err != nil {
-			engineStandinErr = fmt.Errorf("go build: %v\n%s", err, out)
-		}
-	})
-	if engineStandinErr != nil {
-		t.Fatalf("building the stand-in engine: %v", engineStandinErr)
+	path, err := testBuilds.Build("enginestandin", filepath.Join("testdata", "enginestandin"))
+	if err != nil {
+		t.Fatalf("building the stand-in engine: %v", err)
 	}
-	return engineStandinPath
+	return path
 }
 
 // standinEntry is the manifest entry the stand-in answers describe for by default.

@@ -381,9 +381,9 @@ func (w *Workspace) Open(name string, content []byte, version int) {
 // buffer is parsed as kind for as long as it is open.
 func (w *Workspace) OpenWithKind(name string, content []byte, version int, kind source.Kind) {
 	w.mu.Lock()
+	defer w.mu.Unlock()
 	w.kinds[name] = kind
-	w.mu.Unlock()
-	w.setOpenBuffer(name, content, version)
+	w.setOpenBufferLocked(name, content, version)
 }
 
 // setOpenBuffer records a copy of an open buffer and reindexes it, unless the
@@ -392,6 +392,11 @@ func (w *Workspace) OpenWithKind(name string, content []byte, version int, kind 
 func (w *Workspace) setOpenBuffer(name string, content []byte, version int) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	w.setOpenBufferLocked(name, content, version)
+}
+
+// setOpenBufferLocked is setOpenBuffer for a caller that holds the write lock.
+func (w *Workspace) setOpenBufferLocked(name string, content []byte, version int) {
 	w.open[name] = true
 	held := w.docs[name]
 	sameKind := held != nil && (w.kinds[name] == source.KindUnknown || w.kinds[name] == held.Kind())

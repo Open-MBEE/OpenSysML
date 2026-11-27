@@ -252,6 +252,30 @@ func TestReproducesSaysWhichActionADifferenceCallsFor(t *testing.T) {
 	}
 }
 
+// TestReproducesComparesNumbersExactlyAndPastAChangedLength: integers beyond 2^53 are not
+// rounded into each other, and a list of another length still has its common entries compared.
+func TestReproducesComparesNumbersExactlyAndPastAChangedLength(t *testing.T) {
+	committedPath := filepath.Join(t.TempDir(), "baseline.json")
+	committed := `{"totals":{"big":9007199254740992,"ratio":1.0},"rows":[{"n":1},{"n":2}]}`
+	if err := os.WriteFile(committedPath, []byte(committed), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	respelled := `{"totals":{"big":9007199254740992,"ratio":1},"rows":[{"n":1},{"n":2.0}]}`
+	if err := Reproduces(committedPath, []byte(respelled)); err != nil {
+		t.Errorf("the same numbers spelled differently do not reproduce: %v", err)
+	}
+	err := Reproduces(committedPath, []byte(`{"totals":{"big":9007199254740993,"ratio":1.0},"rows":[{"n":1},{"n":2}]}`))
+	if err == nil || !strings.Contains(err.Error(), "totals.big: 9007199254740992 -> 9007199254740993") {
+		t.Errorf("two integers beyond 2^53 compare equal: %v", err)
+	}
+	err = Reproduces(committedPath, []byte(`{"totals":{"big":9007199254740992,"ratio":1.0},"rows":[{"n":7},{"n":2},{"n":3}]}`))
+	for _, want := range []string{"rows: 2 entr(y|ies) in the baseline, now 3", "rows[0].n: 1 -> 7"} {
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("%v\nlacks %q", err, want)
+		}
+	}
+}
+
 // TestWriteRefusesAReportWithoutProvenance stops -update from committing a
 // baseline the Java-free guard could not check.
 func TestWriteRefusesAReportWithoutProvenance(t *testing.T) {

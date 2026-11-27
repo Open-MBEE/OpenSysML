@@ -39,6 +39,11 @@ package test {
 	calc def Implied { in k : Integer; return : Boolean = k != 0 implies 7 % k == 0; }
 	calc def Choose { in k : Integer; return : Integer = if k > 0 ? 100 % k else 100 % (k - 1); }
 	calc def Not { in b : Boolean; return : Boolean = not b; }
+	calc def Scaled { in b : Boolean; return r = b * 5; }
+	calc def Compared { in k : Integer; return r = (k > 0) - 1; }
+	calc def Halved { in b : Boolean; return r = b / 2; }
+	calc def Remainder { in b : Boolean; return r = 7 % b; }
+	calc def Raised { in b : Boolean; return r = b ** 2; }
 	calc def Least { return : Integer = -9223372036854775808; }
 	calc def Dflt { in a : Integer; in b : Integer = 10; in c : Real = 2.5; return : Real = a + b * c; }
 	calc def SameReal { in r : Real; return : Real = r; }
@@ -305,6 +310,39 @@ func TestCompiledCalcErrorParity(t *testing.T) {
 	tooFew := wantSameOutcome(t, "Mul", intArg(1))
 	if tooFew.err == nil {
 		t.Fatal("Mul(1) succeeded")
+	}
+}
+
+// A Boolean operand of a compiled arithmetic node is the evaluator's type
+// mismatch, never a number.
+func TestCompiledCalcRejectsBooleanOperands(t *testing.T) {
+	scope, ctx := compileRuntime(t, true)
+	cases := []struct {
+		name string
+		arg  Value
+		want string
+	}{
+		{"Untyped", boolArg(true), "operator '+' is not defined for a Boolean and an Integer"},
+		{"Compared", intArg(1), "operator '-' is not defined for a Boolean and an Integer"},
+		{"Scaled", boolArg(true), "operator '*' is not defined for a Boolean and an Integer"},
+		{"Halved", boolArg(true), "operator '/' is not defined for a Boolean and an Integer"},
+		{"Remainder", boolArg(true), "operator '%' is not defined for an Integer and a Boolean"},
+		{"Raised", boolArg(true), "operator '**' is not defined for a Boolean and an Integer"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if !eligibility(t, ctx, scope, tc.name) {
+				t.Fatalf("%s is ineligible, so the compiled tier is not what runs", tc.name)
+			}
+			got := wantSameOutcome(t, tc.name, tc.arg)
+			if got.err == nil {
+				t.Fatalf("%s = %v, want a type mismatch", tc.name, got.value)
+			}
+			wantErrorIs(t, tc.name, got, ErrTypeMismatch)
+			if !strings.HasSuffix(got.err.Error(), tc.want) {
+				t.Errorf("%s: error %q, want it to end with %q", tc.name, got.err, tc.want)
+			}
+		})
 	}
 }
 

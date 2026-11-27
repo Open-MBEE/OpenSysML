@@ -352,7 +352,7 @@ func (s *Session) renderExposed(kind view.Kind, targets []string, overlay view.O
 		}
 		stated = fmt.Sprintf("no view declared; rendering %s directly", strings.Join(names, ", "))
 	} else {
-		exposed = s.symbolsInLoadOrder(model.TopLevelDeclarations)
+		exposed = s.symbolsInLoadOrder(view.TopLevelDeclarations)
 	}
 	if kind == "" {
 		kind = renderer.DefaultKind(exposed)

@@ -14,6 +14,7 @@ import {
   type RenderNode,
   type RenderOwner,
   type RenderRow,
+  SWIMLANE_KIND,
   type WorkspaceEdit,
 } from "./protocol";
 
@@ -26,6 +27,8 @@ export interface Rendering {
   nodes: RenderNode[];
   edges?: RenderEdge[];
   view?: string;
+  /** The pseudo-view rendered (`#<kind>` or `#<kind>:<fqn>`), when the rendering is of no declared view. */
+  pseudoView?: string;
   version: number;
   palette?: EditPalette;
   /** The element rows of a table-kind rendering; absent for a drawn kind. */
@@ -52,9 +55,9 @@ export function placementOperations(
   for (const placement of nodes) {
     const node = rendering.nodes.find((candidate) => candidate.id === placement.id);
     if (node?.fqn) {
-      operations.push({ kind: "setLayout", target: node.fqn, ...declaredIn(node), view, layout: placement.layout });
+      operations.push({ kind: "setLayout", target: node.fqn, ...declaredIn(node), view, ...laneHolder(rendering, node), layout: placement.layout });
     } else if (node?.declaration) {
-      operations.push({ kind: "setLayout", declaration: node.declaration, ...declaredIn(node), layout: placement.layout });
+      operations.push({ kind: "setLayout", declaration: node.declaration, ...declaredIn(node), ...laneHolder(rendering, node), layout: placement.layout });
     } else {
       return undefined;
     }
@@ -70,6 +73,16 @@ export function placementOperations(
     }
   }
   return operations;
+}
+
+/** laneHolder names, for a pseudo-view, that rendering, and for a swimlane the nodes it is drawn in, outermost first and a node with no name by an empty one: a performer may have several lanes in a rendering, and the server places the one its Layout is about only when the edit names that lane's nodes. */
+function laneHolder(rendering: Rendering, node: RenderNode): { within?: string[]; rendering?: string } {
+  const drawnIn = !rendering.view && rendering.pseudoView ? { rendering: rendering.pseudoView } : {};
+  if (node.kind !== SWIMLANE_KIND) {
+    return drawnIn;
+  }
+  const within = ancestors(node, rendering.nodes).map((holder) => holder.fqn ?? "").reverse();
+  return within.length > 0 ? { ...drawnIn, within } : drawnIn;
 }
 
 /** declaredIn names the document declaring a node or edge, and the digest of its text as rendered, when the rendering located it: the server places the target in that text or answers stale. */

@@ -507,9 +507,10 @@ func (c *refCollector) behaviorDecl(scope *symbols.Scope, decl ast.Node) bool {
 		if child := c.childScope(scope, d); child != nil {
 			body = child
 		}
+		c.relationships(scope, d, d.VariableRelationships)
 		c.expr(scope, d.Collection)
-		c.expr(body, d.Condition)
-		c.expr(body, d.Until)
+		c.expr(body.LoopGuard(), d.Condition)
+		c.expr(body.LoopGuard(), d.Until)
 		c.walkMembers(body, d.Body)
 		return true
 	case *ast.IfActionNode:
