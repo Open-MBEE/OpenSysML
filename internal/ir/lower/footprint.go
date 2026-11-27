@@ -1126,14 +1126,11 @@ func (b *footprintBuilder) statement(stmt Statement) {
 	case Block:
 		b.block(s)
 	case Loop:
-		b.reads(s.Body.Scope, s.Condition)
-		b.reads(s.Body.Scope, s.Until)
+		b.reads(s.Body.Scope.LoopGuard(), s.Condition)
+		b.reads(s.Body.Scope.LoopGuard(), s.Until)
 		b.reads(s.Scope, s.Collection)
 		if s.Bound {
 			b.write(Place{Name: s.Variable})
-			if s.Alias != "" {
-				b.write(Place{Name: s.Alias})
-			}
 		}
 		b.block(s.Body)
 	case If:

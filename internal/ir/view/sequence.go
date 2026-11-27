@@ -10,6 +10,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
 func runParticipantLabel(node *Node) string {
@@ -381,27 +382,76 @@ func (r *Renderer) statesFlow(sym *symbols.Symbol, depth int) bool {
 	return false
 }
 
-// addSuccessionUsage records the order a `succession first a then b;` states,
-// read from the model's own connector ends. An end naming nothing states no
-// order, which is ordinary structure rather than a failure.
+// addSuccessionUsage records the order a `succession first a then b;` states.
 func (r *Renderer) addSuccessionUsage(succession *symbols.Symbol, into *interactions) {
+	if stated, ok := r.successionOrder(succession); ok && into.first(succession) {
+		into.orders = append(into.orders, stated)
+	}
+}
+
+// successionOrder is the order a succession usage states, read from the model's
+// own connector ends. An end naming nothing states no order, which is ordinary
+// structure rather than a failure.
+func (r *Renderer) successionOrder(succession *symbols.Symbol) (order, bool) {
 	usage, _ := succession.Decl.(*ast.Usage)
-	if usage == nil || len(usage.ConnectorEnds) != 2 || !into.first(succession) {
-		return
+	if usage == nil || len(usage.ConnectorEnds) != 2 {
+		return order{}, false
 	}
 	from, fromOK := r.resolver.ResolveTarget(succession.OwnerScope, usage.ConnectorEnds[0].AttachedTarget())
 	to, toOK := r.resolver.ResolveTarget(succession.OwnerScope, usage.ConnectorEnds[1].AttachedTarget())
 	if !fromOK || !toOK {
-		return
-	}
-	name := ""
-	if succession.Named() && !succession.EffectiveName() {
-		name = localName(succession)
+		return order{}, false
 	}
 	fromThrough, _ := r.resolver.ResolveTarget(succession.OwnerScope, chainOperand(usage.ConnectorEnds[0].AttachedTarget()))
 	toThrough, _ := r.resolver.ResolveTarget(succession.OwnerScope, chainOperand(usage.ConnectorEnds[1].AttachedTarget()))
-	into.orders = append(into.orders, order{from: from, to: to, fromThrough: fromThrough, toThrough: toThrough, within: succession.Owner(),
-		name: name, succession: succession, origin: symbolOrigin(succession)})
+	return order{from: from, to: to, fromThrough: fromThrough, toThrough: toThrough, within: succession.Owner(),
+		name: successionName(succession), succession: succession, origin: symbolOrigin(succession)}, true
+}
+
+// successionName is the name a succession usage was declared with, empty for an
+// anonymous one.
+func successionName(succession *symbols.Symbol) string {
+	if succession.Named() && !succession.EffectiveName() {
+		return localName(succession)
+	}
+	return ""
+}
+
+// redefinition is a succession read on a lifeline in place of one it redefines.
+type redefinition struct {
+	lifeline   *Node
+	succession *symbols.Symbol
+}
+
+// redefiningSuccession is the succession owner redefines an inherited one with,
+// nil when it holds the inherited one as stated.
+func (r *Renderer) redefiningSuccession(owner, succession *symbols.Symbol) *symbols.Symbol {
+	if member := r.memberFor(owner, succession); member != succession {
+		return member
+	}
+	return nil
+}
+
+// redefiningOrder is the order a redefining succession states, else the nearest
+// it inherits: one no other order-stating succession redefines. Named for it.
+func (r *Renderer) redefiningOrder(redefining *symbols.Symbol) (order, bool) {
+	var stated []order
+	masked := map[*symbols.Symbol]bool{}
+	for _, succession := range append([]*symbols.Symbol{redefining}, r.model.AllRedefinedFeatures(redefining)...) {
+		if o, ok := r.successionOrder(succession); ok {
+			stated = append(stated, o)
+			for _, older := range r.model.AllRedefinedFeatures(succession) {
+				masked[older] = true
+			}
+		}
+	}
+	for _, o := range stated {
+		if !masked[o.succession] {
+			o.name, o.succession, o.origin = successionName(redefining), redefining, symbolOrigin(redefining)
+			return o, true
+		}
+	}
+	return order{}, false
 }
 
 // addSuccessionEdges records the orders a member-attached `then` states, which
@@ -543,15 +593,19 @@ func (r *Renderer) successions(view *symbols.Symbol, orders []order, ends *lifel
 		placed := []timing{{from: ends.orderEnd(o, o.from, o.fromThrough), to: ends.orderEnd(o, o.to, o.toThrough), name: o.name}}
 		for _, t := range append(placed, inherited[i]...) {
 			timings = append(timings, t)
-			if t.from.lifeline == nil || t.to.lifeline == nil {
+			if t.from.lifeline == nil || t.to.lifeline == nil || t.undrawn {
 				continue
 			}
 			fromNode, fromPort := ends.end(t.from.occurrence, t.from.lifeline)
 			toNode, toPort := ends.end(t.to.occurrence, t.to.lifeline)
-			edge := Edge{From: fromNode, To: toNode, FromPort: fromPort, ToPort: toPort, Label: o.name, Name: o.name, Kind: EdgeSuccession, Origin: o.origin}
-			if o.succession != nil {
-				edge.Route = r.routeOf(view, o.succession, out)
-				edge.Style = r.edgeDress(view, o.succession, fromNode, toNode, out)
+			drawn := o
+			if t.redefining != nil {
+				drawn = *t.redefining
+			}
+			edge := Edge{From: fromNode, To: toNode, FromPort: fromPort, ToPort: toPort, Label: drawn.name, Name: drawn.name, Kind: EdgeSuccession, Origin: drawn.origin}
+			if drawn.succession != nil {
+				edge.Route = r.routeOf(view, drawn.succession, out)
+				edge.Style = r.edgeDress(view, drawn.succession, fromNode, toNode, out)
 			}
 			successions = append(successions, succession{order: len(timings) - 1, edge: edge})
 		}
@@ -579,13 +633,25 @@ func (r *Renderer) memberFor(owner, feature *symbols.Symbol) *symbols.Symbol {
 	}
 	members := r.model.MembersOf(owner)
 	same := func(sym *symbols.Symbol) bool { return symbols.SameElement(sym, feature) }
-	if slices.ContainsFunc(members, same) {
+	// A private feature of a supertype is not inherited (KerML 8.3.3.1), unless
+	// through a public alias, a membership of its own visibility.
+	inherits := feature.Owner() == owner || semantics.Inheritable(feature) || slices.ContainsFunc(members, func(member *symbols.Symbol) bool {
+		if member.Kind != symbols.SymbolAlias || !semantics.Inheritable(member) {
+			return false
+		}
+		target, ok := r.resolver.AliasTarget(member)
+		return ok && same(target)
+	})
+	if inherits && slices.ContainsFunc(members, same) {
 		return feature
 	}
 	for _, member := range members {
 		if slices.ContainsFunc(r.model.AllRedefinedFeatures(member), same) {
 			return member
 		}
+	}
+	if !inherits {
+		return nil
 	}
 	return feature
 }
@@ -594,6 +660,18 @@ func (r *Renderer) memberFor(owner, feature *symbols.Symbol) *symbols.Symbol {
 func (r *Renderer) specializes(sym, general *symbols.Symbol) bool {
 	return general != nil && slices.ContainsFunc(r.model.AllSupertypes(sym), func(super *symbols.Symbol) bool {
 		return symbols.SameElement(super, general)
+	})
+}
+
+// holds reports whether owner declares feature or gets it from what it specializes,
+// is typed by or reference-subsets, which contributes members without a supertype.
+func (r *Renderer) holds(owner, feature *symbols.Symbol) bool {
+	if owner == nil || feature == nil {
+		return false
+	}
+	declaring := feature.Owner()
+	return declaring == owner || declaring != nil && slices.ContainsFunc(r.model.MemberSources(owner), func(source *symbols.Symbol) bool {
+		return symbols.SameElement(source, declaring)
 	})
 }
 
@@ -609,10 +687,19 @@ func (e *lifelineEnds) orderEnd(o order, occurrence, through *symbols.Symbol) li
 	return lifelineEnd{e.lifelineOf(occurrence), occurrence}
 }
 
+// inheritable reports whether an order holds on what specializes the element
+// stating it: one between two events that element holds, neither named through
+// another feature.
+func (r *Renderer) inheritable(o order) bool {
+	return o.fromThrough == nil && o.toThrough == nil && r.holds(o.within, o.from) && r.holds(o.within, o.to)
+}
+
 // inheritedOrders are, per order, its readings on the lifelines that inherit it,
 // in the order drawn: an order a type states between two events of its own or
 // inherited holds on every lifeline specializing it that holds one of them, the
-// events it redefines standing in for the ones redefined. A chain of orders carries
+// events it redefines standing in for the ones redefined; a lifeline that redefines
+// the succession stating it reads the redefining one instead, with the ends that
+// one states or inherits. A chain of orders carries
 // a lifeline's events along it, so the readings are taken until none adds an event.
 func (r *Renderer) inheritedOrders(orders []order, ends *lifelineEnds, lifelines []*Node) [][]timing {
 	shown := make(map[*Node]*symbols.Symbol, len(ends.lifelines))
@@ -627,26 +714,53 @@ func (r *Renderer) inheritedOrders(orders []order, ends *lifelineEnds, lifelines
 	for _, o := range orders {
 		held[ends.orderEnd(o, o.from, o.fromThrough)], held[ends.orderEnd(o, o.to, o.toThrough)] = true, true
 	}
+	stated := make(map[*symbols.Symbol]bool, len(orders))
+	for _, o := range orders {
+		if o.succession != nil {
+			stated[o.succession] = true
+		}
+	}
 	inherited := make([][]timing, len(orders))
 	read := map[[2]int]bool{}
+	redefined := map[redefinition]bool{}
 	for grew := true; grew; {
 		grew = false
 		for i, o := range orders {
-			if o.fromThrough != nil || o.toThrough != nil || r.memberFor(o.within, o.from) == nil || r.memberFor(o.within, o.to) == nil {
+			if !r.inheritable(o) {
 				continue
 			}
 			for at, lifeline := range lifelines {
 				if read[[2]int{i, at}] || !r.specializes(shown[lifeline], o.within) {
 					continue
 				}
-				from := lifelineEnd{lifeline, r.memberFor(shown[lifeline], o.from)}
-				to := lifelineEnd{lifeline, r.memberFor(shown[lifeline], o.to)}
+				// A succession the lifeline redefines is read there as the one redefining it,
+				// once: through that one's own order when it is among the orders.
+				reading, redefining := o, r.redefiningSuccession(shown[lifeline], o.succession)
+				if redefining != nil {
+					var ok bool
+					if stated[redefining] || redefined[redefinition{lifeline, redefining}] {
+						continue
+					}
+					if reading, ok = r.redefiningOrder(redefining); !ok || !r.inheritable(reading) {
+						continue
+					}
+				}
+				from, fromDrawn := r.orderedOn(lifeline, shown[lifeline], reading.from)
+				to, toDrawn := r.orderedOn(lifeline, shown[lifeline], reading.to)
+				undrawn := !fromDrawn || !toDrawn
 				if from.occurrence == nil || to.occurrence == nil || !held[from] && !held[to] {
 					continue
 				}
 				held[from], held[to] = true, true
 				read[[2]int{i, at}] = true
-				inherited[i] = append(inherited[i], timing{from: from, to: to, name: o.name})
+				if redefining != nil {
+					redefined[redefinition{lifeline, redefining}] = true
+				}
+				t := timing{from: from, to: to, name: reading.name, undrawn: undrawn}
+				if redefining != nil {
+					t.redefining = &reading
+				}
+				inherited[i] = append(inherited[i], t)
 				grew = true
 			}
 		}
@@ -659,11 +773,27 @@ func (r *Renderer) inheritedOrders(orders []order, ends *lifelineEnds, lifelines
 	return inherited
 }
 
+// orderedOn is the event an inherited order is read over on a lifeline and whether
+// it is drawn there: a private event of a supertype orders the lifeline unseen.
+func (r *Renderer) orderedOn(lifeline *Node, sym, event *symbols.Symbol) (lifelineEnd, bool) {
+	member := r.memberFor(sym, event)
+	if member == nil && !semantics.Inheritable(event) {
+		return lifelineEnd{lifeline, event}, false
+	}
+	return lifelineEnd{lifeline, member}, member != nil
+}
+
 // timing is an order between two events, each on the lifeline it is read on (none
 // for an end no lifeline shows), and how a notice names it.
 type timing struct {
 	from, to lifelineEnd
 	name     string
+	// undrawn is an order that sorts the rows and has no arrow: one read on a
+	// lifeline over an event it does not inherit.
+	undrawn bool
+	// redefining is the order drawn in place of the inherited one on a lifeline
+	// that redefines its succession, nil where the order is read as stated.
+	redefining *order
 }
 
 // succession is a timing drawn as an arrow: the timing it draws and its edge.
@@ -684,17 +814,9 @@ func (r *Renderer) subject(sym *symbols.Symbol, kind string) string {
 		return kind + " " + localName(sym)
 	}
 	if owner := sym.Owner(); owner != nil {
-		return fmt.Sprintf("%s %s in %s", article(kind), kind, r.notationName(owner))
+		return fmt.Sprintf("%s %s in %s", diag.IndefiniteArticle(kind), kind, r.notationName(owner))
 	}
-	return article(kind) + " " + kind
-}
-
-// article is the indefinite article a kind reads with.
-func article(kind string) string {
-	if kind != "" && strings.ContainsRune("aeiou", rune(kind[0])) {
-		return "an"
-	}
-	return "a"
+	return diag.IndefiniteArticle(kind) + " " + kind
 }
 
 // messageKind is the keyword a message was written with — `message` or `flow`.
@@ -852,6 +974,9 @@ func sequenceRows(messages []message, successions []succession, orders []timing,
 	follows := rowsFollowed(messages, successions, orders, before)
 	placed := make([]bool, len(follows))
 	edges := make([]Edge, 0, len(follows))
+	ready := func(row int) bool {
+		return !slices.ContainsFunc(follows[row], func(r int) bool { return !placed[r] })
+	}
 	// take places the earliest declared succession admitted whose rows above are placed,
 	// or when forced the earliest one left, which opens a cycle where it is declared.
 	take := func(admits func(row int) bool, force bool) bool {
@@ -860,7 +985,7 @@ func sequenceRows(messages []message, successions []succession, orders []timing,
 			if placed[row] || !admits(row) {
 				continue
 			}
-			if !slices.ContainsFunc(follows[row], func(r int) bool { return !placed[r] }) {
+			if ready(row) {
 				next = row
 				break
 			}
@@ -878,11 +1003,30 @@ func sequenceRows(messages []message, successions []succession, orders []timing,
 	followsMessage := func(row int) bool {
 		return slices.ContainsFunc(follows[row], func(r int) bool { return r < len(messages) })
 	}
+	// A fork leaves an event ordered before a message's without following or leading to one.
+	forks := func(row int) bool {
+		from := orders[successions[row-len(messages)].order].from
+		return slices.ContainsFunc(messages, func(msg message) bool {
+			return slices.ContainsFunc(msg.events(), func(held lifelineEnd) bool { return before(from, held) })
+		})
+	}
 	for m, msg := range messages {
 		leadsHere := func(row int) bool { return slices.Contains(follows[m], row) }
-		// A succession declared before one leading to this message keeps its place above it.
+		// A succession declared before one leading to this message keeps its place above it,
+		// as a fork does above a later one ready to follow a message already placed.
 		due := func(row int) bool {
-			return followsMessage(row) || slices.ContainsFunc(follows[m], func(r int) bool { return r >= row && !placed[r] })
+			if followsMessage(row) || slices.ContainsFunc(follows[m], func(r int) bool { return r >= row && !placed[r] }) {
+				return true
+			}
+			if !forks(row) {
+				return false
+			}
+			for later := row + 1; later < len(follows); later++ {
+				if !placed[later] && followsMessage(later) && ready(later) {
+					return true
+				}
+			}
+			return false
 		}
 		for take(due, false) || take(leadsHere, true) {
 		}

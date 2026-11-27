@@ -578,14 +578,14 @@ func (cc *constraintChecker) featuredWithin(b, t *symbols.Symbol) bool {
 	return true
 }
 
-// featuringContextConforms reports whether featuring context t conforms to f:
-// by specialization, or because both redefine a common feature and t's own
-// contexts conform to f's (the variable-feature snapshot encoding).
+// featuringContextConforms reports whether featuring context t conforms to f: by
+// specialization, reference subsetting included, or because both redefine a common
+// feature and t's own contexts conform to f's (the variable-feature snapshot encoding).
 func (cc *constraintChecker) featuringContextConforms(t, f *symbols.Symbol) bool {
 	if t == nil || f == nil {
 		return false
 	}
-	if t == f || cc.model.Conforms(t, f) {
+	if cc.model.SpecializesThroughReferences(t, f) {
 		return true
 	}
 	if !cc.shareRedefinedTarget(t, f) {

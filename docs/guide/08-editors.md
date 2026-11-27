@@ -240,6 +240,10 @@ navigation continues from one library file to the next (from `Occurrences.kerml`
 say). The editor is read-only and the server refuses an edit to it — the library is what the
 server validates the model against, and changing it would change what every diagnostic means.
 
+In Emacs, `M-.` on a library name (and a reference found in the library) opens a read-only
+buffer of the bundled text on the declaring line, under lsp-mode and Eglot alike. That buffer
+is not a document of the server's, so navigation does not continue from inside it.
+
 A workspace that holds the library twice — a `sysml.library` copy under the folder beside the
 bundled one, or an `OPENSYSML_LIBRARY_PATH` tree with two copies — gets the
 [`library-declared-twice`](../reference/diagnostics.md#library-declared-twice) warning once, on
@@ -299,10 +303,11 @@ planned edits and a diff first.
 
 The Emacs package in [editors/emacs](../../editors/emacs) has three parts, each
 usable without the next: `sysml-mode` and `kerml-mode` (highlighting, indentation,
-comments, imenu; Emacs 29.1+), `sysml-lsp` (an
-[lsp-mode](https://emacs-lsp.github.io/lsp-mode/) client for `sysml-lsp`), and
-`sysml-diagram` (a buffer showing a view of the model). It is loaded from the
-checkout rather than installed from MELPA:
+comments, imenu; Emacs 29.1+), a client for `sysml-lsp` — `sysml-lsp` through
+[lsp-mode](https://emacs-lsp.github.io/lsp-mode/) or `sysml-eglot` through
+[Eglot](https://github.com/joaotavora/eglot) 1.20+ — and `sysml-diagram` (a buffer
+showing a view of the model, through either client). It is loaded from the
+checkout rather than installed from MELPA; with lsp-mode:
 
 ```elisp
 (use-package sysml-mode
@@ -318,12 +323,15 @@ checkout rather than installed from MELPA:
 
 (use-package sysml-diagram
   :load-path "~/src/OpenSysML/editors/emacs"
-  :after sysml-lsp
   :bind (:map sysml-base-mode-map ("C-c C-v" . sysml-diagram-show)))
 ```
 
-The server is found as the VS Code extension finds it: `sysml-lsp-server-path`,
-then `bin/sysml-lsp` in the project root, then `sysml-lsp` on `exec-path`.
+With Eglot, `sysml-eglot` takes the place of the `sysml-lsp` block, hooking
+`eglot-ensure` instead of `lsp-deferred`; `editors/emacs/README.md` shows it.
+
+Under lsp-mode the server is found as the VS Code extension finds it:
+`sysml-lsp-server-path`, then `bin/sysml-lsp` in the project root, then
+`sysml-lsp` on `exec-path`. Under Eglot it is `sysml-lsp` on `exec-path`.
 
 - **Highlighting** colours each keyword group — declarations, behaviour,
   modifiers, relationships, word operators — with its own customizable face, plus
@@ -335,7 +343,9 @@ then `bin/sysml-lsp` in the project root, then `sysml-lsp` on `exec-path`.
   the statement above.
 - **Strict conformance** is `sysml-lsp-strict-conformance`, sent as
   `sysml.strictConformance`; setting it republishes every open document's
-  diagnostics without a restart.
+  diagnostics without a restart. Under Eglot it is `(:sysml (:strictConformance t))`
+  in `eglot-workspace-configuration`, sent again by
+  `M-x eglot-signal-didChangeConfiguration`. The code lenses are lsp-mode's only.
 - **`M-x sysml-diagram-show`** is the counterpart of [the diagram
   panel](#the-diagram-panel): the same renderings, drawn as a tree of elements
   with their edges and what could not be represented. `RET` on an element visits

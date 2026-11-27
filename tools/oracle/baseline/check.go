@@ -1,9 +1,11 @@
 package baseline
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/big"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -106,8 +108,8 @@ func classify(differences []string) string {
 }
 
 func decodeForComparison(content []byte) (any, error) {
-	var report any
-	if err := json.Unmarshal(content, &report); err != nil {
+	report, err := Decode(content)
+	if err != nil {
 		return nil, fmt.Errorf("parse: %w", err)
 	}
 	if top, ok := report.(map[string]any); ok {
@@ -116,6 +118,21 @@ func decodeForComparison(content []byte) (any, error) {
 		}
 	}
 	return report, nil
+}
+
+// Decode reads JSON for Differences, keeping every number as written so that
+// integers beyond 2^53 are not rounded into each other.
+func Decode(content []byte) (any, error) {
+	decoder := json.NewDecoder(bytes.NewReader(content))
+	decoder.UseNumber()
+	var out any
+	if err := decoder.Decode(&out); err != nil {
+		return nil, err
+	}
+	if _, err := decoder.Token(); err != io.EOF {
+		return nil, fmt.Errorf("content after the JSON value")
+	}
+	return out, nil
 }
 
 // Differences reports where two decoded reports differ, as field paths with
@@ -159,16 +176,31 @@ func walk(path string, was, now any, out *[]string) {
 		}
 		if len(left) != len(right) {
 			*out = append(*out, fmt.Sprintf("  %s: %d entr(y|ies) in the baseline, now %d", path, len(left), len(right)))
-			return
 		}
-		for i := range left {
+		// The entries both lists have are still compared, so a changed length hides nothing.
+		for i := range min(len(left), len(right)) {
 			walk(fmt.Sprintf("%s[%d]", path, i), left[i], right[i], out)
 		}
 		return
+	case json.Number:
+		if right, ok := now.(json.Number); ok && sameNumber(left, right) {
+			return
+		}
 	}
 	if !reflect.DeepEqual(was, now) {
 		*out = append(*out, fmt.Sprintf("  %s: %s -> %s", path, render(was), render(now)))
 	}
+}
+
+// sameNumber compares two JSON numbers by exact value, so 1 and 1.0 agree and
+// 9007199254740992 and 9007199254740993 do not.
+func sameNumber(left, right json.Number) bool {
+	if left == right {
+		return true
+	}
+	l, lok := new(big.Rat).SetString(left.String())
+	r, rok := new(big.Rat).SetString(right.String())
+	return lok && rok && l.Cmp(r) == 0
 }
 
 func sortedKeys(left, right map[string]any) []string {
@@ -199,6 +231,8 @@ func render(value any) string {
 		return "null"
 	case string:
 		return fmt.Sprintf("%q", typed)
+	case json.Number:
+		return typed.String()
 	case float64:
 		if typed == float64(int64(typed)) {
 			return fmt.Sprint(int64(typed))

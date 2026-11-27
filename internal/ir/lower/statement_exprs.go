@@ -35,8 +35,8 @@ func withExprs(stmt Statement, exprs *ExprTable) Statement {
 		return s
 	case Loop:
 		// A loop's conditions read what its body declares; its collection is read before it.
-		id(&s.ConditionID, s.Condition, s.Body.Scope)
-		id(&s.UntilID, s.Until, s.Body.Scope)
+		id(&s.ConditionID, s.Condition, s.Body.Scope.LoopGuard())
+		id(&s.UntilID, s.Until, s.Body.Scope.LoopGuard())
 		id(&s.CollectionID, s.Collection, s.Scope)
 		return s
 	case Send:
