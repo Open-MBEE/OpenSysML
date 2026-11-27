@@ -303,8 +303,8 @@ Feature::ownedRedefinition	340	symbol-72
 Feature::ownedSpecialization	340	symbol-72
 Feature::ownedSubsetting	340	symbol-72
 Feature::qualifiedName	14	symbol-86
-Feature::type	6515	symbol-19
-FeatureChainExpression::instantiatedType	311	symbol-29
+Feature::type	6496	symbol-19
+FeatureChainExpression::instantiatedType	503	symbol-29
 FeatureChainExpression::operand	503	symbol-30
 FeatureChaining::relatedElement	297	symbol-10
 FeatureInverting::documentation	1	symbol-50

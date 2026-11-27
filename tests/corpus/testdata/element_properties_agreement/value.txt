@@ -289,7 +289,7 @@ Package::documentation	2	export-57
 Package::ownedElement	3	symbol-02
 Package::ownedMember	2	symbol-63
 ParameterMembership::memberName	2966	symbol-85
-ParameterMembership::visibility	12	export-05
+ParameterMembership::visibility	11	export-05
 PartDefinition::feature	1	symbol-51
 PartDefinition::featureMembership	1	symbol-51
 PartDefinition::member	1	symbol-51

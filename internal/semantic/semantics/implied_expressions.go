@@ -143,6 +143,9 @@ func (m *Model) expressionElementGenerals(sym *symbols.Symbol) []*symbols.Symbol
 	case "FeatureReferenceExpression":
 		// checkFeatureReferenceExpressionResultSpecialization: the referent.
 		return m.expressionReferencedElements(expr, "referent")
+	case "FeatureChainExpression":
+		// checkFeatureChainExpressionResultSpecialization: the chain's last feature redefines the target feature.
+		return m.expressionReferencedElements(expr, "targetFeature")
 	case "ConstructorExpression":
 		// checkConstructorExpressionResultSpecialization: the instantiated type.
 		return m.constructorResultTypes(sym)
