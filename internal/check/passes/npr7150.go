@@ -72,11 +72,10 @@ type npr7150Requirement struct {
 
 // npr7150Mapping is one @RequirementMapping entry of the document.
 type npr7150Mapping struct {
-	usage  *symbols.Symbol
-	comply string
-	// stated is set when comply names an element: a MappingKind literal, or a feature holding
-	// one, which the audit does not evaluate. `null` and other expressions name none.
-	stated    bool
+	usage *symbols.Symbol
+	// comply is the MappingKind literal the entry states, written out or bound through
+	// attributes; empty when it states none, which leaves the row's Comply? cell empty.
+	comply    string
 	justified bool
 }
 
@@ -213,8 +212,7 @@ func (a *npr7150Audit) mappingEntries(sym *symbols.Symbol) []npr7150Mapping {
 		for _, v := range facts.Values {
 			switch v.Feature {
 			case "comply":
-				entry.stated = v.Value.Kind == symbols.FilterValueRef
-				entry.comply = npr7123Literal(v.Value, npr7150MappingKind)
+				entry.comply = a.disposition(v.Value)
 			case "justification":
 				entry.justified = v.Value.Kind == symbols.FilterValueString && v.Value.Str != ""
 			}
@@ -222,6 +220,46 @@ func (a *npr7150Audit) mappingEntries(sym *symbols.Symbol) []npr7150Mapping {
 		entries = append(entries, entry)
 	}
 	return entries
+}
+
+// disposition is the MappingKind literal a comply value states: the literal itself, or the
+// one the attribute it names is bound to, through any chain of attributes. A chain that ends
+// in `null`, in an attribute bound to nothing or in a cycle states none.
+func (a *npr7150Audit) disposition(value symbols.FilterValue) string {
+	if value.Kind != symbols.FilterValueRef {
+		return ""
+	}
+	if literal := npr7123Literal(value, npr7150MappingKind); literal != "" {
+		return literal
+	}
+	seen := map[*symbols.Symbol]bool{}
+	for _, feature := range a.ctx.Index.LookupQualified(value.RefFQN) {
+		if literal := a.boundDisposition(feature, seen); literal != "" {
+			return literal
+		}
+	}
+	return ""
+}
+
+// boundDisposition is the MappingKind literal feature is, or the one its value names.
+func (a *npr7150Audit) boundDisposition(feature *symbols.Symbol, seen map[*symbols.Symbol]bool) string {
+	if feature == nil || seen[feature] {
+		return ""
+	}
+	seen[feature] = true
+	if semantics.EnumerationOwning(feature) == a.defs[npr7150MappingKind] {
+		return feature.Name
+	}
+	usage, _ := feature.Decl.(*ast.Usage)
+	if usage == nil || !feature.IsFeature() {
+		return ""
+	}
+	ref, _ := usage.Value.(*ast.FeatureReference)
+	if ref == nil {
+		return ""
+	}
+	target, _ := a.ctx.Resolver().ResolveQualified(feature.OwnerScope, ref.Name)
+	return a.boundDisposition(target, seen)
 }
 
 func (a *npr7150Audit) check(root *symbols.Scope) {
@@ -307,8 +345,7 @@ func (a *npr7150Audit) checkMatrix(matrix *symbols.Symbol, mappings []npr7150Map
 		}
 		covered := false
 		for _, m := range mappings {
-			// An entry that states no disposition leaves the row's Comply? cell empty.
-			if m.stated && a.covers(m, req.def) {
+			if m.comply != "" && a.covers(m, req.def) {
 				covered = true
 				break
 			}

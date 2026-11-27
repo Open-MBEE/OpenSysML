@@ -189,3 +189,36 @@ func TestNPR7150SilentWithoutLibraryUse(t *testing.T) {
 		}
 	}
 }
+
+// A disposition bound through attributes that ends in no value leaves the row's Comply? cell empty.
+func TestNPR7150MatrixBoundBlankDisposition(t *testing.T) {
+	matrix := "\n\t\tpart def Matrix :> RequirementsMappingMatrix { :>> softwareClass = SoftwareClass::E; }\n\t\tpart matrix : Matrix;"
+	for name, attributes := range map[string]string{
+		"null":    "\n\t\tattribute pending : MappingKind = null;",
+		"unbound": "\n\t\tattribute pending : MappingKind;",
+		"chained": "\n\t\tattribute undecided : MappingKind = null;\n\t\tattribute pending : MappingKind = undecided;",
+	} {
+		t.Run(name, func(t *testing.T) {
+			src := npr7150Model(matrix + npr7150Entries(npr7150ClassE[1:]...) + attributes +
+				"\n\t\trequirement swe033 : SWE033 { @RequirementMapping { comply = pending; } }")
+			diags := only(w8dDiags(t, src), CodeNPR7150MatrixMissingRequirement)
+			if len(diags) != 1 || !strings.Contains(diags[0].Message, "1 NPR 7150.2D requirement(s)") || !strings.Contains(diags[0].Message, "SWE033") {
+				t.Fatalf("got %v, want one finding naming SWE033", diags)
+			}
+		})
+	}
+}
+
+// A disposition bound through attributes is held to the same rules as one written as a literal.
+func TestNPR7150BoundDispositionIsAudited(t *testing.T) {
+	src := npr7150Model(`
+		#softwareSystem part fsw { :>> softwareClass = SoftwareClass::B; :>> safetyCritical = true; }
+		attribute waived : MappingKind = MappingKind::notApplicable;
+		attribute relaxed : MappingKind = MappingKind::tailored;
+		attribute projectDefault : MappingKind = relaxed;
+		requirement a : SWE134 { @RequirementMapping { comply = waived; justification = "j"; } }
+		requirement b : SWE032 { @RequirementMapping { comply = projectDefault; } }
+		requirement c : SWE141 { @RequirementMapping { comply = waived; } }`)
+	w8dWantLines(t, src, CodeNPR7150SafetyCriticalNotApplied, 8)
+	w8dWantLines(t, src, CodeNPR7150MappingNoJustification, 9, 10)
+}
