@@ -26,6 +26,13 @@ func (s *Session) graphs(name string) ([]byte, error) {
 		return nil, fmt.Errorf("%w: %w", errRuntimeInit, err)
 	}
 	graphs, err := modelform.GraphsOf(ctx.Model(), sym)
+	if errors.Is(err, modelform.ErrGraphsSubject) {
+		// The refusal names the subject; a name typed otherwise leads it.
+		if typed := strings.TrimSpace(name); typed != modelform.GraphsSubjectName(sym) {
+			return nil, fmt.Errorf("%s: %w", typed, err)
+		}
+		return nil, err
+	}
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", notationName(fqn), err)
 	}

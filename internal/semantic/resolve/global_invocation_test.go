@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // `$::pick(v)` names the root: every top-level declaration of the name, in the
@@ -102,4 +103,31 @@ func fqnsOf(idx *symbols.Index, syms []*symbols.Symbol) []string {
 		out[i] = idx.GetFQN(s)
 	}
 	return out
+}
+
+// A call in a loop body has the calculation the body imports as its candidate, the one
+// the name resolves to (KerML 8.2.3.5.4), not the enclosing package's of the same name.
+func TestInvocationCandidatesFollowALoopBodyImport(t *testing.T) {
+	idx := indexOf(t, map[string]string{"a.sysml": `package Q { calc def f { in x : ScalarValues::Integer; } }
+package P {
+    calc def f { in x : ScalarValues::Integer; }
+    action def A { loop { private import Q::*; attribute a = f(1); } }
+}`})
+	r := New(idx)
+	var body *symbols.Scope
+	for _, child := range scopeOf(t, scopeOf(t, idx.DocumentRoot("a.sysml"), "P"), "A").Children() {
+		if _, ok := child.Node().(*ast.WhileLoopActionNode); ok {
+			body = child
+		}
+	}
+	if body == nil {
+		t.Fatal("the loop has no body scope")
+	}
+	cands := r.InvocationCandidates(body, qn(false, "f"))
+	if got := fqnsOf(idx, cands); !slices.Equal(got, []string{"Q::f"}) {
+		t.Fatalf("f in the loop body has candidates %v, want Q::f", got)
+	}
+	if sym, ok := r.ResolveQualified(body, qn(false, "f")); !ok || sym != cands[0] {
+		t.Errorf("the name alone resolves to %v, want the candidate", sym)
+	}
 }

@@ -1,16 +1,16 @@
 package formal
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/Open-MBEE/OpenSysML/tools/census/manifest"
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/subprocess"
 )
 
 // Extract reads the constraints of the pinned document at path: the file must
@@ -58,12 +58,16 @@ func digestOf(path string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
+// textTimeout and maxTextBytes bound one pdftotext run over a specification document.
+const (
+	textTimeout  = 10 * time.Minute
+	maxTextBytes = 256 << 20
+)
+
 func textOf(pdftotext, path string) (string, error) {
-	var stdout, stderr bytes.Buffer
-	cmd := exec.Command(pdftotext, "-layout", "-enc", "UTF-8", path, "-") // #nosec G204 -- the operator names the program
-	cmd.Stdout, cmd.Stderr = &stdout, &stderr
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("%s -layout %s: %w\n%s", pdftotext, path, err, strings.TrimSpace(stderr.String()))
+	stdout, stderr, err := subprocess.Output(textTimeout, maxTextBytes, pdftotext, "-layout", "-enc", "UTF-8", path, "-")
+	if err != nil {
+		return "", fmt.Errorf("%s -layout %s: %w\n%s", pdftotext, path, err, strings.TrimSpace(string(stderr)))
 	}
-	return stdout.String(), nil
+	return string(stdout), nil
 }

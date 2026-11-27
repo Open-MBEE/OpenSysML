@@ -268,8 +268,8 @@ func (c *featureReferenceChecker) walkMember(site refSite, scope *symbols.Scope,
 	case *ast.WhileLoopActionNode:
 		body := childScopeOr(scope, n)
 		c.walkExpr(site, scope, n.Collection)
-		c.walkExpr(site, body, n.Condition)
-		c.walkExpr(site, body, n.Until)
+		c.walkExpr(site, body.LoopGuard(), n.Condition)
+		c.walkExpr(site, body.LoopGuard(), n.Until)
 		c.walkMembers(siteForActionBody(site, scope, body), body, n.Body)
 	case *ast.TransitionMember:
 		c.walkTransition(site, scope, n)

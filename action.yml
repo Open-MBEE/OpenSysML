@@ -84,6 +84,8 @@ runs:
       shell: bash
       env:
         VERSION: ${{ steps.release.outputs.version }}
+        # Lists the releases when `latest` has no assets yet (install.sh --help).
+        GITHUB_TOKEN: ${{ github.token }}
       run: |
         set -euo pipefail
         sh "$GITHUB_ACTION_PATH/install.sh" --version "$VERSION" --tools sysml --prefix "$RUNNER_TEMP/opensysml"
@@ -94,6 +96,7 @@ runs:
       shell: pwsh
       env:
         VERSION: ${{ steps.release.outputs.version }}
+        GITHUB_TOKEN: ${{ github.token }}
       run: |
         $ErrorActionPreference = 'Stop'
         $dir = Join-Path $env:RUNNER_TEMP 'opensysml'

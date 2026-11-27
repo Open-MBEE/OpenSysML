@@ -199,7 +199,7 @@ func (s *Server) protocolHandler(over HTTPConfig) http.Handler {
 	},
 		&sdk.StreamableHTTPOptions{Logger: s.logger, MaxRequestBodyBytes: over.MaxBodyBytes,
 			SessionTimeout: over.sessionTimeout()})
-	return over.Token.Handler(stampRemoteAddr(streamable))
+	return over.Token.Handler(stampRemoteAddr(s.requests.track(streamable)))
 }
 
 // ErrNoToken is why a listener other machines reach is refused with no token.

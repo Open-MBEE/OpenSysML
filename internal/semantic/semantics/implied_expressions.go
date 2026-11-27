@@ -71,8 +71,13 @@ func (m *Model) expressionParameterRedefinitions(sym *symbols.Symbol) []*symbols
 	isResult := sym.Expr.Role == symbols.ExpressionResult
 	var out []*symbols.Symbol
 	// An expression writes no specialization: its generals are the implied ones left after pruning.
-	for _, general := range m.ImpliedSpecializations(owner) {
+	roles := m.controlParameterRedefinitions(owner)
+	for _, general := range append(slices.Clone(m.ImpliedSpecializations(owner)), roles...) {
 		target := m.argumentParameter(general, expressionParameterPosition(sym), isResult)
+		if target == nil && isResult && slices.Contains(roles, general) {
+			// A control action's test redefines the parameter of its role, whose result the library inherits.
+			target, _ = m.LookupMember(general, "result")
+		}
 		if target != nil && target != sym && !slices.Contains(out, target) {
 			out = append(out, target)
 		}

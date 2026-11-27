@@ -1558,14 +1558,14 @@ func (e *stmtEngine) iteration(stmt lower.Loop, f *loopFrame, resumed bool) (flo
 
 	if !resumed {
 		if stmt.Kind == ast.LoopWhile {
-			holds, err := e.condition(stmt.ConditionID, stmt.Body.Scope, "condition of 'while'")
+			holds, err := e.condition(stmt.ConditionID, stmt.Body.Scope.LoopGuard(), "condition of 'while'")
 			if err != nil {
 				return flowNext, true, err
 			}
 			if !holds {
 				return flowNext, true, nil
 			}
-			f.control = e.ctx.standingOf(e.ctx.model.expressionFootprint(stmt.Body.Scope, stmt.Condition), true)
+			f.control = e.ctx.standingOf(e.ctx.model.expressionFootprint(stmt.Body.Scope.LoopGuard(), stmt.Condition), true)
 		}
 		if err := e.beginIterationBody(stmt, f); err != nil {
 			return flowNext, true, err
@@ -1589,11 +1589,11 @@ func (e *stmtEngine) iteration(stmt lower.Loop, f *loopFrame, resumed bool) (flo
 		until, untilID = stmt.Condition, stmt.ConditionID
 	}
 	if untilID != 0 {
-		holds, err := e.condition(untilID, stmt.Body.Scope, "condition of 'until'")
+		holds, err := e.condition(untilID, stmt.Body.Scope.LoopGuard(), "condition of 'until'")
 		if err != nil {
 			return flowNext, true, err
 		}
-		f.control = unionSerials(f.control, e.ctx.standingOf(e.ctx.model.expressionFootprint(stmt.Body.Scope, until), true))
+		f.control = unionSerials(f.control, e.ctx.standingOf(e.ctx.model.expressionFootprint(stmt.Body.Scope.LoopGuard(), until), true))
 		return flowNext, holds, nil
 	}
 	return flowNext, false, nil
@@ -1756,7 +1756,7 @@ func (e *stmtEngine) condition(id program.ExprID, scope *symbols.Scope, what str
 	value = soleElement(value)
 	if value.Kind != ValConst || value.Const.Kind != semantics.ValBool {
 		return false, fmt.Errorf("%s: %s must evaluate to a Boolean, got %s",
-			e.host.describe(), what, value.Kind)
+			e.host.describe(), what, describeOperand(value))
 	}
 	return value.Const.Bool, nil
 }

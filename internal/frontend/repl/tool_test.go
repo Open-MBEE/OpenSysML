@@ -4,15 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	goruntime "runtime"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
-	"github.com/Open-MBEE/OpenSysML/tests/testutil/gobuild"
 )
 
 // toolCaseSource is a tool-computed action and the case performing it.
@@ -32,32 +29,14 @@ package Tools {
 }
 `
 
-var (
-	toolStandinOnce sync.Once
-	toolStandinPath string
-	toolStandinErr  error
-)
-
 // toolStandin builds the tool protocol stand-in once per test binary.
 func toolStandin(t *testing.T) string {
 	t.Helper()
-	toolStandinOnce.Do(func() {
-		dir, err := os.MkdirTemp("", "toolstandin")
-		if err != nil {
-			toolStandinErr = err
-			return
-		}
-		toolStandinPath = filepath.Join(dir, "toolstandin")
-		build := exec.Command("go", gobuild.Args(toolStandinPath)...)
-		build.Dir = filepath.Join("..", "..", "exec", "analysis", "testdata", "toolstandin")
-		if out, err := build.CombinedOutput(); err != nil {
-			toolStandinErr = fmt.Errorf("go build: %v\n%s", err, out)
-		}
-	})
-	if toolStandinErr != nil {
-		t.Fatalf("building the stand-in tool: %v", toolStandinErr)
+	path, err := testBuilds.Build("toolstandin", filepath.Join("..", "..", "exec", "analysis", "testdata", "toolstandin"))
+	if err != nil {
+		t.Fatalf("building the stand-in tool: %v", err)
 	}
-	return toolStandinPath
+	return path
 }
 
 // toolManifest writes one manifest entry per JSON string into a directory of the

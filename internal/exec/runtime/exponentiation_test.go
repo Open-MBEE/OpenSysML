@@ -80,7 +80,7 @@ func TestExponentiationErrorsAtEvaluation(t *testing.T) {
 		{"negative base, fractional exponent", []Value{constReal(-2), constReal(0.5)}, semantics.ErrArithmeticDomain},
 		{"integer beyond the size budget", []Value{constInt(2), constInt(semantics.DefaultMaxIntegerBits)}, semantics.ErrIntegerSizeLimit},
 		{"real overflow", []Value{constReal(1e300), constReal(2)}, semantics.ErrArithmeticOverflow},
-		{"boolean operand", []Value{boolValue(true), constInt(2)}, semantics.ErrArithmeticDomain},
+		{"boolean operand", []Value{boolValue(true), constInt(2)}, ErrTypeMismatch},
 		{"string operand", []Value{NewStringValue("2"), constInt(2)}, ErrTypeMismatch},
 	}
 

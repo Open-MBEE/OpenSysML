@@ -132,7 +132,8 @@ func (t *Table) EffectiveName(node ast.Node) Name {
 	default:
 		return Name{}
 	}
-	if sym := t.declSym[node]; sym != nil && sym.IsFeature() && t.model != nil {
+	// An action node's parameter is identified by position: the redefinition naming it is an implied one.
+	if sym := t.declSym[node]; sym != nil && sym.IsFeature() && t.model != nil && !t.model.NamedByNodeParameterRole(sym) {
 		name, named := t.model.EffectiveNamed(sym)
 		return Name{Text: name, Named: named}
 	}

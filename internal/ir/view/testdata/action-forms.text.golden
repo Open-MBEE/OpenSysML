@@ -9,9 +9,6 @@ action def Monitor
       out reading
       in ^receiver
   send action sendAlarm (Alarm to sensor)
-    in ^payload
-    in ^sender
-    in ^receiver
   swimlane controller (perform actions)
     assign tally (count := count + 1)
   loop wait

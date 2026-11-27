@@ -58,9 +58,13 @@ func (q *qualifier) language(sym *symbols.Symbol) (Language, bool) {
 // its namespace; an unnamed or shadowed element, and anything below one, has no id.
 // A parameter named by the one its position redefines is named (KerML 8.2.4).
 func (q *qualifier) qualified(sym *symbols.Symbol) bool {
+	if sym == nil {
+		return false
+	}
 	if known, seen := q.memo[sym]; seen {
 		return known
 	}
+	q.memo[sym] = false // an owner chain that comes back to sym, a cycle, has no id
 	ok := sym.Kind != symbols.SymbolAlias && (sym.Named() && firstSoNamed(sym) || q.model.PositionallyNamed(sym))
 	if ok && sym.OwnerScope != nil {
 		if owner := sym.OwnerScope.Owner(); owner != nil {

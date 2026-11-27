@@ -199,6 +199,67 @@
     (indent-region (point-min) (point-max))
     (should (equal (buffer-string) "package P {\n  part p;\n}\n"))))
 
+;;;; Running elements
+
+(ert-deftest sysml-mode-run-names-the-check ()
+  (dolist (case '(("action" . "-action") ("state" . "-state") ("calc" . "-calc")
+                  ("constraint" . "-constraint") ("requirement" . "-requirement")))
+    (let (started)
+      (cl-letf (((symbol-function 'save-some-buffers) #'ignore)
+                ((symbol-function 'compilation-start)
+                 (lambda (command &rest _) (setq started (list command default-directory)))))
+        (sysml-run-element (car case) "Demo::X" (list temporary-file-directory) "/bin/sysml"))
+      (should (equal (car started)
+                     (mapconcat #'shell-quote-argument
+                                (list "/bin/sysml" (cdr case) "Demo::X" temporary-file-directory) " ")))
+      (should (equal (cadr started) (file-name-as-directory temporary-file-directory))))))
+
+(ert-deftest sysml-mode-run-refuses-what-sysml-cannot-run ()
+  (let (started)
+    (cl-letf (((symbol-function 'save-some-buffers) #'ignore)
+              ((symbol-function 'compilation-start) (lambda (&rest _) (setq started t))))
+      (dolist (case '(("part" "Demo::X" ("/ws") "/bin/sysml")
+                      ("action" "" ("/ws") "/bin/sysml")
+                      ("action" nil ("/ws") "/bin/sysml")
+                      ("action" "Demo::X" nil "/bin/sysml")
+                      ;; The tool was not found.
+                      ("action" "Demo::X" ("/ws") nil)))
+        (should-error (apply #'sysml-run-element case) :type 'user-error)))
+    (should-not started)))
+
+(ert-deftest sysml-mode-run-paths-are-every-folder-when-one-holds-the-file ()
+  (let ((folders '("/ws/" "/other")))
+    ;; The server indexes every root together, so a run loads them all.
+    (should (equal (sysml-run-paths "/ws/sub/m.sysml" folders) folders))
+    (should (equal (sysml-run-paths "/other/m.sysml" folders) folders))
+    (should (equal (sysml-run-paths "/elsewhere/m.sysml" folders) '("/elsewhere/m.sysml")))
+    ;; A folder holds what lies under it, not a sibling sharing its prefix.
+    (should (equal (sysml-run-paths "/otherwise/m.sysml" folders) '("/otherwise/m.sysml")))
+    (should (equal (sysml-run-paths "/ws/m.sysml" nil) '("/ws/m.sysml")))))
+
+(ert-deftest sysml-mode-finds-the-tool-beside-the-server-then-in-the-project ()
+  (let* ((root (file-name-as-directory (make-temp-file "root" t)))
+         (beside (file-name-as-directory (make-temp-file "bin" t)))
+         (exec-path nil))
+    (unwind-protect
+        (progn
+          (make-directory (expand-file-name "bin" root))
+          (should-not (sysml-find-tool (expand-file-name "sysml-lsp" beside) root))
+          (dolist (f (list (expand-file-name "bin/sysml" root)))
+            (write-region "" nil f)
+            (set-file-modes f #o755))
+          (should (equal (sysml-find-tool (expand-file-name "sysml-lsp" beside) root)
+                         (expand-file-name "bin/sysml" root)))
+          (should (equal (sysml-find-tool nil root) (expand-file-name "bin/sysml" root)))
+          (write-region "" nil (expand-file-name "sysml" beside))
+          (set-file-modes (expand-file-name "sysml" beside) #o755)
+          (should (equal (sysml-find-tool (expand-file-name "sysml-lsp" beside) root)
+                         (expand-file-name "sysml" beside)))
+          (let ((exec-path (list beside)))
+            (should (equal (sysml-find-tool nil nil) (expand-file-name "sysml" beside)))))
+      (delete-directory root t)
+      (delete-directory beside t))))
+
 ;;;; Files and imenu
 
 (ert-deftest sysml-mode-file-associations ()

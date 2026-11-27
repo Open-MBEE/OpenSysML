@@ -17,7 +17,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/tests/testutil/gobuild"
@@ -28,33 +27,21 @@ const (
 	requireEnv = "OPENSYSML_REQUIRE_REFERENCE_FMUS"
 )
 
-var (
-	buildOnce sync.Once
-	buildPath string
-	buildErr  error
-)
+// testBuilds holds the commands this package's tests build and drive as processes.
+var testBuilds = gobuild.Scratch{Pattern: "fmi-gate-builds"}
+
+// TestMain removes the directory the commands under test were built into.
+func TestMain(m *testing.M) { testBuilds.Main(m) }
 
 // buildCLI builds the sysml binary once per test binary, so the gate exercises
 // the real command line.
 func buildCLI(t *testing.T) string {
 	t.Helper()
-	buildOnce.Do(func() {
-		dir, err := os.MkdirTemp("", "sysml-build")
-		if err != nil {
-			buildErr = err
-			return
-		}
-		buildPath = filepath.Join(dir, "sysml")
-		build := exec.Command("go", gobuild.Args(buildPath)...)
-		build.Dir = filepath.Join("..", "..", "cmd", "sysml")
-		if out, err := build.CombinedOutput(); err != nil {
-			buildErr = fmt.Errorf("go build: %v\n%s", err, out)
-		}
-	})
-	if buildErr != nil {
-		t.Fatalf("building sysml: %v", buildErr)
+	path, err := testBuilds.Build("sysml", filepath.Join("..", "..", "cmd", "sysml"))
+	if err != nil {
+		t.Fatalf("building sysml: %v", err)
 	}
-	return buildPath
+	return path
 }
 
 // fmuPresent reports whether the Reference-FMUs are downloaded; the gate fails

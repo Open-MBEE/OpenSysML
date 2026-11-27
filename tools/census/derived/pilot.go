@@ -1,7 +1,6 @@
 package derived
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -16,6 +15,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/exporter"
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/subprocess"
 	"github.com/Open-MBEE/OpenSysML/tools/referee/apijson"
 )
 
@@ -56,6 +56,9 @@ func (m metaclasses) conforms(class, defining string) bool {
 	return m.structure.Specializes(class, defining)
 }
 
+// maxPilotStderr bounds what one launcher run may write to standard error.
+const maxPilotStderr = 64 << 20
+
 // runExporter exports one root's files in one pilot process, so the pilot
 // resolves cross-file imports as it does for ours, and reads what it wrote.
 func runExporter(launcher, dir, libraries string, files []string, timeout time.Duration, classes metaclasses) (*PilotCensus, error) {
@@ -68,17 +71,25 @@ func runExporter(launcher, dir, libraries string, files []string, timeout time.D
 	for _, rel := range files {
 		args = append(args, filepath.Join(dir, filepath.FromSlash(rel)))
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := subprocess.Timeout(context.Background(), timeout)
 	defer cancel()
 	// #nosec G204 -- launcher is an explicit CLI override or repo-local artifact.
 	command := exec.CommandContext(ctx, launcher, args...)
-	var stderr bytes.Buffer
-	command.Stdout, command.Stderr = os.Stdout, &stderr
+	subprocess.Group(command)
+	command.WaitDelay = subprocess.WaitDelay
+	stderr := subprocess.Stream(maxPilotStderr, cancel)
+	command.Stdout, command.Stderr = os.Stdout, stderr
 	runErr := command.Run()
+	if stderr.Over() {
+		return nil, fmt.Errorf("pilot export of %s wrote more than %d bytes to standard error", dir, maxPilotStderr)
+	}
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 		return nil, fmt.Errorf("pilot export of %s exceeded %s", dir, timeout)
 	}
-	status, err := exporter.Status(dir, runErr, stderr.String())
+	if ctx.Err() != nil {
+		return nil, fmt.Errorf("pilot export of %s: %w", dir, subprocess.ErrInterrupted)
+	}
+	status, err := exporter.Status(dir, runErr, string(stderr.Bytes()))
 	if err != nil {
 		return nil, err
 	}

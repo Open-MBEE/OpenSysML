@@ -2,13 +2,15 @@
 
 Major modes for `.sysml` and `.kerml` files, with highlighting generated from
 OpenSysML's lexer, indentation that agrees with the language server's formatter,
-an lsp-mode client for `sysml-lsp`, and a buffer showing views of the model.
+clients for `sysml-lsp` through lsp-mode or Eglot, and a buffer showing views of
+the model.
 
 | File | What it gives you | Needs |
 | --- | --- | --- |
 | `sysml-mode.el` | `sysml-mode` and `kerml-mode`: highlighting, indentation, comments, imenu | Emacs 29.1+ |
 | `sysml-lsp.el` | Diagnostics, hover, go-to-definition, references, symbols, completion, formatting, rename, quick fixes, semantic tokens | [lsp-mode](https://emacs-lsp.github.io/lsp-mode/) 9.0+ and `sysml-lsp` |
-| `sysml-diagram.el` | `M-x sysml-diagram-show`: a view of the model, redrawn as you type | `sysml-lsp.el`; [Mermaid CLI](https://github.com/mermaid-js/mermaid-cli) for pictures |
+| `sysml-eglot.el` | The same through Eglot, which serves them itself; this file adds the OpenSysML methods the model views use | [Eglot](https://github.com/joaotavora/eglot) 1.20+ (GNU ELPA on Emacs 29 and 30) and `sysml-lsp` |
+| `sysml-diagram.el` | `M-x sysml-diagram-show`: a view of the model, redrawn as you type | `sysml-lsp.el` or `sysml-eglot.el`; [Mermaid CLI](https://github.com/mermaid-js/mermaid-cli) for pictures |
 
 The package is installed from this repository. Like the VS Code extension, it is
 deliberately not published to MELPA.
@@ -37,8 +39,17 @@ Then, with `use-package` (adjust the path to your checkout):
 
 (use-package sysml-diagram
   :load-path "~/src/OpenSysML/editors/emacs"
-  :after sysml-lsp
   :bind (:map sysml-base-mode-map ("C-c C-v" . sysml-diagram-show)))
+```
+
+With Eglot instead of lsp-mode, replace the `sysml-lsp` block with:
+
+```elisp
+(use-package sysml-eglot
+  :load-path "~/src/OpenSysML/editors/emacs"
+  :after eglot
+  :demand t
+  :hook ((sysml-mode kerml-mode) . eglot-ensure))
 ```
 
 If your `use-package` installs packages by default (`use-package-always-ensure`,
@@ -50,10 +61,18 @@ Without `use-package`:
 ```elisp
 (add-to-list 'load-path "~/src/OpenSysML/editors/emacs")
 (require 'sysml-mode)
+(require 'sysml-diagram)
 (with-eval-after-load 'lsp-mode
-  (require 'sysml-lsp)
-  (require 'sysml-diagram))
+  (require 'sysml-lsp))
 (add-hook 'sysml-base-mode-hook #'lsp-deferred)
+```
+
+or, with Eglot, the last two forms are:
+
+```elisp
+(with-eval-after-load 'eglot
+  (require 'sysml-eglot))
+(add-hook 'sysml-base-mode-hook #'eglot-ensure)
 ```
 
 The server is found in this order, as the VS Code extension finds it:
@@ -63,6 +82,17 @@ The server is found in this order, as the VS Code extension finds it:
 3. `sysml-lsp` on `exec-path`.
 
 After rebuilding the server, `M-x lsp-workspace-restart` picks the new binary up.
+
+Under Eglot the server is `sysml-lsp` on `exec-path`, and `M-x eglot-reconnect`
+picks a rebuilt one up. Code lenses are lsp-mode's only: Eglot does not show
+them, and [`M-x sysml-eglot-run-element`](#code-lenses) runs what a Run or
+Evaluate lens would. The server's settings go through Eglot's own
+`eglot-workspace-configuration`; see [Settings](#settings).
+
+`M-.` on a standard library name, such as `Integer` after `import ScalarValues::*`,
+shows its declaration in a read-only buffer whose text the server serves
+(`opensysml/stdlibContent`), under either client. A reference found in the
+library is listed and visited the same way.
 
 ## Code lenses
 
@@ -78,6 +108,19 @@ commands, carried out here rather than sent back to the server:
   workspace folder of the session (the file alone when none holds it), in a
   compilation buffer. Nothing runs while a model buffer is left unsaved. `sysml` is looked for beside the server, then
   in the project's `bin/`, then on `exec-path`.
+
+Eglot shows no code lenses. `M-x xref-find-references` lists a definition's
+references, and `M-x sysml-eglot-run-element` runs or evaluates the element whose
+name point is on, the same way: it asks the server for the buffer's Run and
+Evaluate lenses, so it offers exactly the elements lsp-mode shows one on. Away
+from such a name, or with a prefix argument, it reads the element from the
+minibuffer by its qualified name. `sysml` is looked for beside the `sysml-lsp` on `exec-path`, then in
+the project's `bin/`, then on `exec-path`. Bind it if you like:
+
+```elisp
+(with-eval-after-load 'sysml-eglot
+  (define-key sysml-base-mode-map (kbd "C-c C-r") #'sysml-eglot-run-element))
+```
 
 ## Highlighting
 
@@ -107,7 +150,8 @@ With the server attached, `sysml-lsp` adds its semantic tokens, which colour
 names by what they resolve to: a feature's name differently from a definition's.
 The server's keyword, comment, string and number tokens are left out, so the
 keyword groups above keep their faces. Turn the tokens off with
-`(setq sysml-lsp-semantic-tokens nil)`.
+`(setq sysml-lsp-semantic-tokens nil)`, or under Eglot by adding
+`:semanticTokensProvider` to `eglot-ignored-server-capabilities`.
 
 ## Indentation
 
@@ -115,8 +159,8 @@ keyword groups above keep their faces. Turn the tokens off with
 `sysml-indent-offset` (default 4) per open brace, and one more for a line that
 continues the statement above it — a line starting with an infix operator, or
 following one or an open bracket. The text of a multi-line comment is left as
-written. `M-x lsp-format-buffer` asks the server to reformat the whole file with
-the same rule.
+written. `M-x lsp-format-buffer` (`M-x eglot-format-buffer`) asks the server to
+reformat the whole file with the same rule.
 
 ## Model views
 
@@ -167,6 +211,29 @@ is refused when the server does not advertise the render methods
 | `sysml-diagram-mmdc-program` | `"mmdc"` | The Mermaid CLI pictures are drawn with. |
 | `sysml-diagram-display-action` | right side window | How the view buffer is displayed. |
 
+The `sysml-lsp-` settings are lsp-mode's. Under Eglot, the server's settings are
+set where Eglot keeps every server's, in `eglot-workspace-configuration`, under
+`:sysml`. Strict conformance, for every project:
+
+```elisp
+(setq-default eglot-workspace-configuration
+              '(:sysml (:strictConformance t)))
+```
+
+or for one project, in its `.dir-locals.el`:
+
+```elisp
+((nil . ((eglot-workspace-configuration . (:sysml (:strictConformance t))))))
+```
+
+Eglot sends the value when the server starts. After changing it,
+`M-x eglot-signal-didChangeConfiguration` sends it again, and the server
+republishes every open document's diagnostics without a restart. Turning the
+setting off again takes `:json-false`: Eglot sends `nil` as JSON `null`, which
+the server does not read as a boolean. The
+server's other settings ([LSP extensions](../../docs/reference/lsp.md)), such as
+`:keepLineBreaks` and `:disabledLints`, go beside it under `:sysml`.
+
 ## Keyword generation
 
 `sysml-mode-keywords.el` is generated — do not edit it by hand. Its lists come
@@ -184,10 +251,13 @@ go test ./editors/...  # fails if the committed file is stale
 ```bash
 make emacs-compile   # byte-compile and checkdoc, warnings as errors
 make emacs-test      # the ERT suites; the live ones need `make build` first
+make emacs-test EMACS_CLIENT=eglot   # the same under Eglot
 ```
 
-Both run under `emacs -Q`, installing lsp-mode from MELPA into `build/emacs-deps`
-the first time, so your own configuration plays no part. The live suites start
+Both run under `emacs -Q` with one client, `EMACS_CLIENT` (`lsp-mode` by
+default, or `eglot`), installing it into `build/emacs-deps` the first time: lsp-mode
+from MELPA, Eglot from GNU ELPA when the one Emacs ships is older than 1.20. Your
+own configuration plays no part, and the other client is not on `load-path`. The live suites start
 `bin/sysml-lsp`; without it they skip, unless `OPENSYSML_REQUIRE_EMACS_LSP` is
 set, as CI sets it. The indentation suite indents the formatter's own fixture,
 `internal/syntax/format/testdata/continuation.sysml`, and compares it with the
