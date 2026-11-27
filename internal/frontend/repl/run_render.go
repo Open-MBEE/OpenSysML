@@ -24,11 +24,11 @@ func runViewKind(kind runtrace.Kind) view.Kind {
 
 func (s *Session) metaRenderRun(args []string) ([]string, bool, error) {
 	if len(args) < 1 || len(args) > 4 {
-		return []string{renderRunUsage}, false, nil
+		return s.usage(renderRunUsage), false, nil
 	}
 	kind, ok := runtrace.ParseKind(args[0])
 	if !ok {
-		return []string{fmt.Sprintf("unknown run rendering %q; want timeline or sequence; %s", args[0], renderRunUsage)}, false, nil
+		return s.usage(fmt.Sprintf("unknown run rendering %q; want timeline or sequence; %s", args[0], renderRunUsage)), false, nil
 	}
 	form := view.FormText
 	formSet := false
@@ -38,32 +38,32 @@ func (s *Session) metaRenderRun(args []string) ([]string, bool, error) {
 	for _, arg := range args[1:] {
 		if value, ok := strings.CutPrefix(arg, "limit="); ok {
 			if limit != 0 {
-				return []string{renderRunUsage}, false, nil
+				return s.usage(renderRunUsage), false, nil
 			}
 			n, err := strconv.Atoi(value)
 			if err != nil || n < 1 {
-				return []string{fmt.Sprintf("limit must be a positive count, not %q; %s", value, renderRunUsage)}, false, nil
+				return s.usage(fmt.Sprintf("limit must be a positive count, not %q; %s", value, renderRunUsage)), false, nil
 			}
 			limit = n
 			continue
 		}
 		if strings.HasPrefix(arg, "link=") {
 			if linkSet {
-				return []string{renderRunUsage}, false, nil
+				return s.usage(renderRunUsage), false, nil
 			}
 			links.Template = strings.TrimPrefix(arg, "link=")
 			if err := view.ParseLinkTemplate(links.Template); err != nil {
-				return []string{err.Error() + "; " + renderRunUsage}, false, nil
+				return s.usage(err.Error() + "; " + renderRunUsage), false, nil
 			}
 			linkSet = true
 			continue
 		}
 		if formSet {
-			return []string{renderRunUsage}, false, nil
+			return s.usage(renderRunUsage), false, nil
 		}
 		form = view.Form(arg)
 		if !slices.Contains(view.Forms(), form) {
-			return []string{fmt.Sprintf("unknown form %q; %s", arg, renderRunUsage)}, false, nil
+			return s.usage(fmt.Sprintf("unknown form %q; %s", arg, renderRunUsage)), false, nil
 		}
 		formSet = true
 	}

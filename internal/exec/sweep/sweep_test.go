@@ -526,6 +526,28 @@ func TestResolveSweepPlanRefusesUnknownAndBoundParameters(t *testing.T) {
 	}
 }
 
+// The refusal of an unknown parameter lists the inputs the target declares as
+// prose: comma-separated, and "none" for a target with no input.
+func TestResolveSweepPlanListsDeclaredInputs(t *testing.T) {
+	ctx, scope := analysisFixture(t, `
+	package test {
+		calc def Two { in a : ScalarValues::Real; in b : ScalarValues::Real; return : ScalarValues::Real = a + b; }
+		calc def One { in a : ScalarValues::Real; return : ScalarValues::Real = a; }
+		calc def Zero { return : ScalarValues::Real = 1.0; }
+	}`)
+	plan := SweepPlan{Ranges: []SweepRange{rangeOf("zz", intOf(1), intOf(3))}}
+	for calc, want := range map[string]string{
+		"Two":  `test::Two declares no input parameter "zz" (it declares a, b)`,
+		"One":  `test::One declares no input parameter "zz" (it declares a)`,
+		"Zero": `test::Zero declares no input parameter "zz" (it declares none)`,
+	} {
+		_, err := ResolvePlan(ctx, calcNamed(t, scope, calc), plan, 0, nil)
+		if !errors.Is(err, ErrSweepParameter) || !strings.HasSuffix(err.Error(), want) {
+			t.Errorf("%s: err = %v; want an ErrSweepParameter ending %q", calc, err, want)
+		}
+	}
+}
+
 // Resolving a plan types each range by the parameter it sweeps, and the table
 // reports those types beside its parameters; a plan never resolved is untyped.
 func TestResolveSweepPlanTypesEachRangeByItsParameter(t *testing.T) {

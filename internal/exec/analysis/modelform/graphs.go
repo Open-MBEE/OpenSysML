@@ -40,7 +40,7 @@ type Graphs struct {
 
 // ErrGraphsSubject reports a subject no lowered graph is exported for: not an
 // action or a state machine, or one the lowering refuses.
-var ErrGraphsSubject = errors.New("graphs: subject has no lowered graph")
+var ErrGraphsSubject = errors.New("no lowered graph")
 
 // ErrGraphsOrder reports two graph elements the export cannot tell apart, which
 // would make the output depend on memory layout; the lowering never produces them.
@@ -49,8 +49,11 @@ var ErrGraphsOrder = errors.New("graphs: elements of one graph cannot be ordered
 // GraphsOf exports the lowered graph of subject, an action or a state machine
 // declared in model, and of every behavior it performs, at GraphsVersion.
 func GraphsOf(model *runtime.Model, subject *symbols.Symbol) (*Graphs, error) {
-	if model == nil || subject == nil || subject.Decl == nil {
+	if model == nil || subject == nil {
 		return nil, ErrGraphsSubject
+	}
+	if subject.Decl == nil {
+		return nil, noGraphFor(subject)
 	}
 	x := &graphsExporter{
 		model:    model,
@@ -109,7 +112,7 @@ func (x *graphsExporter) lowerSubject(out *Graphs, sym *symbols.Symbol) error {
 	case sym.Kind == symbols.SymbolActionDef || sym.Kind.IsActionUsage():
 		graph, err := lower.ToActionGraphWith(sym.Decl, runtime.DeclScope(sym), x.model.Resolver())
 		if err != nil {
-			return fmt.Errorf("%w: %s: %w", ErrGraphsSubject, symbols.FQNOf(sym), err)
+			return fmt.Errorf("%w: %w", noGraphFor(sym), err)
 		}
 		form, err := x.actionForm(sym, graph)
 		if err != nil {
@@ -120,7 +123,7 @@ func (x *graphsExporter) lowerSubject(out *Graphs, sym *symbols.Symbol) error {
 		graph, err := lower.ToStateGraphWithEndpoints(sym.Decl, runtime.DeclScope(sym),
 			lower.NewLibraryStateTypes(x.model.Resolver()))
 		if err != nil {
-			return fmt.Errorf("%w: %s: %w", ErrGraphsSubject, symbols.FQNOf(sym), err)
+			return fmt.Errorf("%w: %w", noGraphFor(sym), err)
 		}
 		form, err := x.stateForm(sym, graph)
 		if err != nil {
@@ -128,9 +131,59 @@ func (x *graphsExporter) lowerSubject(out *Graphs, sym *symbols.Symbol) error {
 		}
 		out.States = append(out.States, form)
 	default:
-		return fmt.Errorf("%w: %s is a %s", ErrGraphsSubject, symbols.FQNOf(sym), sym.Kind)
+		return fmt.Errorf("%w: the subject must be an action or a state machine", noGraphFor(sym))
 	}
 	return nil
+}
+
+// noGraphFor is ErrGraphsSubject naming the subject once, by its kind in words
+// and its name as the notation writes it, or by its owners when one is unnamed.
+func noGraphFor(sym *symbols.Symbol) error {
+	return fmt.Errorf("%w for the %s", ErrGraphsSubject, describeSubject(sym))
+}
+
+// describeSubject is sym's kind and qualified name, or, where an unnamed owner
+// leaves it none, its own name and each owner out to the first that has one.
+func describeSubject(sym *symbols.Symbol) string {
+	if name := GraphsSubjectName(sym); name != "" {
+		return sym.Kind.Phrase() + " " + name
+	}
+	own := "unnamed " + sym.Kind.Phrase()
+	if sym.Named() {
+		own = sym.Kind.Phrase() + " " + source.QualifiedNameOf([]string{sym.Name})
+	}
+	owner := ownerOf(sym)
+	switch {
+	case owner == nil:
+		return own
+	case GraphsSubjectName(owner) != "":
+		return own + " of " + GraphsSubjectName(owner)
+	case owner.Named():
+		return own + " of the " + describeSubject(owner)
+	}
+	return own + " of an " + describeSubject(owner)
+}
+
+// GraphsSubjectName is the qualified name a refusal writes for sym, "" when sym or an
+// owner is unnamed. A caller asked for sym by another spelling leads its report with it.
+func GraphsSubjectName(sym *symbols.Symbol) string {
+	for at := sym; at != nil; at = ownerOf(at) {
+		if !at.Named() {
+			return ""
+		}
+	}
+	if sym == nil {
+		return ""
+	}
+	return source.QualifiedNameOf(symbols.NameChain(sym))
+}
+
+// ownerOf is the symbol that declares sym, nil for a top-level one.
+func ownerOf(sym *symbols.Symbol) *symbols.Symbol {
+	if sym.OwnerScope == nil {
+		return nil
+	}
+	return sym.OwnerScope.Owner()
 }
 
 // lowerPerformed exports a behavior the subject performs. A lowering the runtime

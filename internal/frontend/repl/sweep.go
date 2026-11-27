@@ -40,7 +40,7 @@ func (s *Session) doSweep(tail string) ([]string, bool, error) {
 		return []string{errPrefix + err.Error(), sweepUsage}, false, nil
 	}
 	if inv.name == "" {
-		return []string{sweepUsage}, false, nil
+		return s.usage(sweepUsage), false, nil
 	}
 	return s.withTrace(s.sweepVerdict(inv, specs, sweepDraws{})).Lines, false, nil
 }
@@ -57,7 +57,7 @@ func (s *Session) doSamples(tail string) ([]string, bool, error) {
 		return []string{errPrefix + err.Error(), samplesUsage}, false, nil
 	}
 	if inv.name == "" {
-		return []string{samplesUsage}, false, nil
+		return s.usage(samplesUsage), false, nil
 	}
 	draws := sweepDraws{sampled: true, count: count, seed: seed}
 	return s.withTrace(s.sweepVerdict(inv, specs, draws)).Lines, false, nil
