@@ -1748,16 +1748,10 @@ jobs:
           at: .
       - halt-if-verified
 
-      # This image has no Go toolchain yet, so buf comes from the official release
-      # rather than `go run`, pinned by digest so a substituted asset is not run.
+      # The release binary: this image has no Go toolchain yet for `go run`.
       - run:
           name: Install buf
-          command: |
-            curl -fsSL -o /tmp/buf \
-              https://github.com/bufbuild/buf/releases/download/v1.57.2/buf-Linux-x86_64
-            echo "644e6fa4a62afc2b0d425d3ac9538d2f512947c0f2e82fc95c41a5eab6729414  /tmp/buf" | sha256sum --check --strict
-            install -m 0755 /tmp/buf /usr/local/bin/buf
-            buf --version
+          command: scripts/ci-install-buf.sh
 
       # Committed stubs must be what buf generates, or the checked-in client and
       # the schema can drift apart silently.
