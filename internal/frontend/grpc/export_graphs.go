@@ -36,6 +36,11 @@ func (s *Service) ExportGraphs(ctx context.Context, req *pb.ExportGraphsRequest)
 	graphs, err := modelform.GraphsOf(worker.Model, subject)
 	if err != nil {
 		if errors.Is(err, modelform.ErrGraphsSubject) {
+			if req.Subject == modelform.GraphsSubjectName(subject) {
+				return nil, statusError(connect.CodeInvalidArgument, err.Error())
+			}
+			// The refusal spells the subject otherwise than the request did (a
+			// positional id, an inherited member), so the request's spelling leads.
 			return nil, statusErrorf(connect.CodeInvalidArgument, "%s: %s", req.Subject, err)
 		}
 		return nil, statusErrorf(connect.CodeFailedPrecondition, "%s: %s", req.Subject, err)

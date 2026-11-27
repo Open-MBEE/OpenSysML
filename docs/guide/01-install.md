@@ -49,6 +49,12 @@ environment variable for unattended installs:
 | Show the choice, install nothing | `--dry-run` | `-DryRun` | |
 | Also verify the manifest's cosign signature | `--verify-signature` | | |
 
+A release is marked `latest` when it is published, a few minutes before its assets are uploaded. Until
+they are, `latest` installs the newest earlier release that has a `SHA256SUMS.txt`, and says so; a release
+named with `--version` is never substituted. The earlier releases are read from GitHub's releases API
+(`GITHUB_TOKEN` or `GH_TOKEN`, when set, authenticates that request); a mirror names its own copy of the
+list in `OPENSYSML_RELEASES_API`.
+
 Only the assets the named tools come from are downloaded and verified: `sysml` and `sysml-lsp` from the
 `opensysml-<platform>` bundle, `sysml-grpc` and `sysml-jupyter-kernel` from their own per-platform binaries.
 
@@ -385,7 +391,7 @@ error: no SMT solver found: install z3 (`apt install z3`, `brew install z3`) or 
 ## Container image
 
 Every release publishes `openmbee/opensysml` to Docker Hub for `linux/amd64`
-and `linux/arm64`, tagged with the release version (`openmbee/opensysml:0.12.1`)
+and `linux/arm64`, tagged with the release version (`openmbee/opensysml:0.13.0`)
 and, for the newest release that is not a pre-release, `latest`. The image runs
 `sysml-grpc` as its entrypoint, and carries `sysml` and `sysml-lsp` beside it in
 `/usr/local/bin`, so a service that talks to `sysml-grpc` as a sidecar and then
@@ -400,7 +406,7 @@ docker run --rm -p 50051:50051 -p 8081:8081 \
   -host 0.0.0.0 -port 50051 -health-port 8081 \
   -tls-cert /run/tls/server.crt -tls-key /run/tls/server.key
 curl -fsS http://localhost:8081/health
-# {"service":"sysml-grpc","status":"ok","version":"v0.12.1"}
+# {"service":"sysml-grpc","status":"ok","version":"v0.13.0"}
 ```
 
 Port 50051 serves gRPC, Connect and gRPC-Web (see
@@ -442,6 +448,12 @@ The knobs a deployment sets, as arguments or environment:
 
 - `-cors-allowed-origins <origin,…>` names the exact browser origins a Connect
   or gRPC-Web client may call from; native clients need no entry.
+- `-file-root <dir>` confines the files a request names by path (`file_path`,
+  `layout_path`) to that directory: a relative path is taken from it, and a path
+  elsewhere, or a symbolic link that leads out of it, even on the way
+  to a file inside it, is refused with
+  `PERMISSION_DENIED`. Without it the service reads any path its own privileges
+  reach, so set it on a service that other machines can call.
 - `-serve-external-engines <name,…>` (or `all`) names the engines of the
   [`OPENSYSML_ENGINES` manifest](../reference/external-engines.md) this service
   runs for its clients. Without it

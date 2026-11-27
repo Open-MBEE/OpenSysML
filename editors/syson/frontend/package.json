@@ -1,6 +1,6 @@
 {
   "name": "@openmbee/syson-mdk",
-  "version": "0.12.1",
+  "version": "0.13.0",
   "private": false,
   "type": "module",
   "main": "dist/syson-mdk.cjs.js",

@@ -37,8 +37,8 @@ const (
 	// ImplicitMetadataBodyRedefinition reflects the Redefinition a metadata body
 	// feature Owner implies to the Member its name restates (SysML.xtext MetadataBodyUsage).
 	ImplicitMetadataBodyRedefinition
-	// ImplicitTypeArgumentTyping reflects the FeatureTyping a classification or cast expression's
-	// type-argument parameter Owner has to the type Member it names (SysML.xtext TypeReferenceMember).
+	// ImplicitTypeArgumentTyping reflects the FeatureTyping to the type Member an expression names: of a
+	// test's type-argument parameter Owner (SysML.xtext TypeReferenceMember), or a cast or extent's result.
 	ImplicitTypeArgumentTyping
 	// ImplicitParameterRedefinition reflects the Redefinition a named argument's feature Owner has to
 	// the Member it names: a feature of the instantiated type or a parameter of what is invoked.

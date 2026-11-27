@@ -1,1 +1,0 @@
-- `sysml -render-view … -render-lines ortho` keeps a placed cluster's anchor off its nodes when notes or pins leave less than the usual clearance around them: the anchor is pinned in the widest gap left, where before it fell back to the cluster's centre, on a node, and Graphviz drew every edge straight.

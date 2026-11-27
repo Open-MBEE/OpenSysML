@@ -1,0 +1,1 @@
+- **A non-unit in unit position is reported as written.** `5 [2]` answered `not a measurement unit expression: *ast.LiteralInteger`, naming the implementation's syntax-tree type; it now answers `not a measurement unit expression: the number 2`, and a string, Boolean, `null`, invocation, constructor or sequence there is named the same way.

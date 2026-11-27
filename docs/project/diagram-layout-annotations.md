@@ -130,10 +130,12 @@ overlaps, and every picture over the element symbols lies over every one under t
 The graph-shaped renderings (interconnection, tree, state, action, case and mixed views) draw it; a table or
 sequence rendering has no drawing surface for it, so it keeps its rows and states in its notices
 each picture's file and box under `not drawn`.
-A `Picture` names a file the way a `DocumentQueries::Image` block's `location` names a local
-one, and it is trusted the same way: the model's author states which files of theirs a rendering reads, so a
-document rendered from a model lets that model reach whatever the location names, as an
-`Image` block always has. Every diagram form refuses an SVG picture with active content rather
+A `Picture` names a file under the directory of the model that states it: a `location` relative
+to that directory, or an absolute path into it. A file outside it — by an absolute path, a `..` or
+a symbolic link — is not read: every diagram form leaves the picture out and states it in a
+notice, which `-render-document -doc-form pdf` writes to stderr, a PDF holding no diagram
+source. A model read from no file (standard input) has no such directory, and its pictures are
+read as located. Every diagram form refuses an SVG picture with active content rather
 than cleaning it: a `script`, `foreignObject`, `iframe`, `embed`, `object`, `handler` or `listener`
 element; an event-handler attribute; an `href` or `xlink:href` other than a same-document `#`
 fragment or `data:image/` URL; `xml:base`; an `xml-stylesheet` instruction; an entity declaration;

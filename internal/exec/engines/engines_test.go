@@ -123,3 +123,18 @@ func TestDefaultFromEnvAddsTheManifestsTools(t *testing.T) {
 		t.Fatalf("DefaultFromEnv over a missing manifest: %v, want the manifest's fault", err)
 	}
 }
+
+// A registry that already holds a built-in's name refuses it with the typed error
+// rather than stopping the program, and keeps the engine it had.
+func TestRegisterReportsARefusedEngine(t *testing.T) {
+	r := Default()
+	held := names(r)
+	err := register(r)
+	var dup *analysis.DuplicateEngineError
+	if !errors.As(err, &dup) || dup.Name != analysis.SMTEngineName {
+		t.Fatalf("register over a full registry = %v, want a DuplicateEngineError for %s", err, analysis.SMTEngineName)
+	}
+	if got := names(r); got != held {
+		t.Errorf("engines after the refusal %s, want %s", got, held)
+	}
+}

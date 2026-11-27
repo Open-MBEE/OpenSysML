@@ -1,1 +1,0 @@
-- `derived-census -update` without the pilot exporter (`-recorded-pilot`, or the exporter absent) refuses a committed pilot column that no longer matches the baseline's `pilotRecords` digest, instead of restating the digest over it: a pilot cell moved by a merge or an edit is re-recorded only by a re-export.

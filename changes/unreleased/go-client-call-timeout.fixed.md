@@ -1,0 +1,1 @@
+- The Go client's `Dial` gives each call whose context carries no deadline a 10-minute bound (`DefaultCallTimeout`), so a service that stops answering fails the call with `CodeDeadlineExceeded` instead of blocking it forever; `WithCallTimeout` names another bound, zero for none, and a deadline on the caller's context always stands.

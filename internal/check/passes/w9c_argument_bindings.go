@@ -89,10 +89,6 @@ func (ec *exprChecker) judgeBinding(scope *symbols.Scope, value ast.Node, want [
 	if value == nil || len(want) == 0 || openParameter(want) || ec.warned[value] {
 		return
 	}
-	if ec.warned == nil {
-		ec.warned = map[ast.Node]bool{}
-	}
-	ec.warned[value] = true
 	// A sequence or collection value results in an Anything, which conforms.
 	if _, ok := value.(*ast.SequenceExpr); ok {
 		return
@@ -102,6 +98,10 @@ func (ec *exprChecker) judgeBinding(scope *symbols.Scope, value ast.Node, want [
 	}
 	got := resultTypes(scope, value)
 	if len(got) > 0 && !w9cTypesConform(ec.model, got, want) {
+		if ec.warned == nil {
+			ec.warned = map[ast.Node]bool{}
+		}
+		ec.warned[value] = true
 		ec.bindings = append(ec.bindings, argumentBinding{value.Span(), at})
 	}
 }

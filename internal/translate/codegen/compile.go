@@ -1089,7 +1089,8 @@ func (fc *funcCompiler) compileLoop(s lower.Loop) (Stmt, error) {
 }
 
 // compileBool compiles a Boolean operand; fail is the run-time message for a
-// collection or null there (%s the shape found), what names it at compile time.
+// collection, function or null there (%s the description of what was found),
+// what names it at compile time.
 func (fc *funcCompiler) compileBool(n ast.Node, what, fail string) (Expr, error) {
 	v, err := fc.compileExpr(n)
 	if err != nil {
@@ -1097,14 +1098,14 @@ func (fc *funcCompiler) compileBool(n ast.Node, what, fail string) (Expr, error)
 	}
 	v = fc.need(v)
 	if v.Type() == TypeSeqBool {
-		v = ToOne{X: v, Fail: fail, Bare: true}
+		v = ToOne{X: v, Fail: fail}
 	}
 	if v.Type().Elem().IsFn() {
-		if v, err = fc.scalarOperandWith(v, fail, true, what); err != nil {
+		if v, err = fc.scalarOperandWith(v, fail, false, what); err != nil {
 			return nil, err
 		}
 		fc.c.collections = true
-		return Refusal{Operands: []Expr{v}, Parts: []string{fmt.Sprintf(fail, "function")}, T: TypeBool}, nil
+		return Refusal{Operands: []Expr{v}, Parts: []string{strings.TrimSuffix(fail, "%s"), ""}, Describe: true, T: TypeBool}, nil
 	}
 	if v.Type() != TypeBool {
 		return nil, fc.unsupported(fmt.Sprintf("%s is %s, not Boolean", what, v.Type()))

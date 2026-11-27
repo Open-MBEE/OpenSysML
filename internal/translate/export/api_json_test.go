@@ -72,3 +72,19 @@ func TestWriteAPIJSONExtensionManyIsAnArray(t *testing.T) {
 		t.Errorf("owningRelationship was written as an array:\n%s", out)
 	}
 }
+
+// A compact reference object holds its handle alone: one with a sibling key is
+// refused, not read as the bare reference with the sibling dropped.
+func TestReadAPIJSONCompactRefusesAReferenceWithSiblings(t *testing.T) {
+	const document = `{"format":"api-json-compact/1","ids":["a"],"elementCount":1,"referenceKeys":[],` +
+		`"elements":[{"@type":"Namespace","x":{"@id":0,"name":"dropped"}}]}`
+	_, err := expandAPIJSONCompact([]byte(document), nil)
+	if err == nil || !strings.Contains(err.Error(), `"name"`) {
+		t.Fatalf("got %v, want a refusal naming the sibling key", err)
+	}
+	const bare = `{"format":"api-json-compact/1","ids":["a"],"elementCount":1,"referenceKeys":[],` +
+		`"elements":[{"@type":"Namespace","x":{"@id":0}}]}`
+	if _, err := expandAPIJSONCompact([]byte(bare), nil); err != nil {
+		t.Fatalf("a bare reference was refused: %v", err)
+	}
+}
