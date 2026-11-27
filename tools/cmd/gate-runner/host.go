@@ -51,7 +51,7 @@ func capacityFrom(src cgroupSource, meminfo string, numCPU int) (int, uint64) {
 func defaultShards(cpus int, mem uint64) int {
 	shards := 1
 	if mem > 0 {
-		shards = int(mem / shardMemoryBudget)
+		shards = int(mem / shardMemoryBudget) // #nosec G115 -- a shard count: host memory over two GiB
 		if shards < 1 {
 			shards = 1
 		}
