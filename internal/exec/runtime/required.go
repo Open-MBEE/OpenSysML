@@ -295,8 +295,9 @@ func (ctx *Context) HeldElements(val Value) ([]Value, error) {
 		ctx = seq.required.ctx
 	}
 	if seq != nil && int64(seq.Size()) > ctx.elementBudget() {
-		return nil, fmt.Errorf("listing all %d values of %s: %w (%d elements; raise %s to allow more)",
-			seq.Size(), ctx.requiredHolder(seq.required), ErrElementLimitExceeded, ctx.elementBudget(), MaxElementsEnvVar)
+		return nil, fmt.Errorf("listing all %d values of %s: %w (%s)",
+			seq.Size(), ctx.requiredHolder(seq.required), ErrElementLimitExceeded,
+			ctx.budgetHint("elements", ctx.elementBudget(), MaxElementsEnvVar))
 	}
 	return elementsOf(val), nil
 }

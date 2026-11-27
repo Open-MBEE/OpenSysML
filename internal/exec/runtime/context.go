@@ -807,7 +807,10 @@ type runState struct {
 	// zero uses the context's configured budgets.
 	stepLimit    int64
 	elementLimit int64
-	notes        []RunNote
+	// fixedLimit marks an evidence probe's fixed caps: its refusals name no
+	// variable that can lift them.
+	fixedLimit bool
+	notes      []RunNote
 	// marks is what the run's values stand on (order_marks.go).
 	marks orderMarks
 	// performers are the objects the run's executors have performed on, kept
@@ -851,12 +854,22 @@ func (ctx *Context) elementBudget() int64 {
 	return ctx.maxElements
 }
 
+// budgetHint is the advice a budget refusal gives: an ordinary run names the
+// variable that raises its limit, while a probe's cap is fixed by the runtime.
+func (ctx *Context) budgetHint(what string, limit int64, env string) string {
+	if ctx.run != nil && ctx.run.fixedLimit {
+		return fmt.Sprintf("%d %s; evidence preview budget is fixed", limit, what)
+	}
+	return fmt.Sprintf("%d %s; raise %s to allow more", limit, what, env)
+}
+
 // newEvidenceRunState starts an evidence probe on a fresh bounded budget, so a
 // caller that spent its own budget cannot suppress evidence or run without a limit.
 func (ctx *Context) newEvidenceRunState() *runState {
 	state := ctx.newRunState()
 	state.stepLimit = min(ctx.maxSteps, DefaultMaxSteps)
 	state.elementLimit = min(ctx.maxElements, DefaultMaxElements)
+	state.fixedLimit = true
 	// Continue the caller's seeded stream so a preview sees the next draw a
 	// regular read would; beginProbe restores the shared scheduler afterwards.
 	if outer := ctx.run; outer != nil {
@@ -1160,9 +1173,8 @@ func (ctx *Context) endActivation(activation int64) {
 	}
 }
 
-// incrementStep increments the step counter and returns ErrStepLimitExceeded if limit reached.
-// The error names the effective budget and the variable that raises it.
-// The counter saturates at the int64 maximum rather than overflow.
+// incrementStep increments the step counter and returns ErrStepLimitExceeded at the
+// effective budget, saturating rather than overflowing. The error names that budget.
 func (ctx *Context) incrementStep() error {
 	if ctx.interrupted() {
 		return ErrInterrupted
@@ -1194,7 +1206,7 @@ func (ctx *Context) interrupted() bool {
 //
 //go:noinline
 func (ctx *Context) stepLimitExceeded() error {
-	return fmt.Errorf("%w (%d steps; raise %s to allow more)", ErrStepLimitExceeded, ctx.stepBudget(), MaxStepsEnvVar)
+	return fmt.Errorf("%w (%s)", ErrStepLimitExceeded, ctx.budgetHint("steps", ctx.stepBudget(), MaxStepsEnvVar))
 }
 
 // elementScope brackets one evaluation and returns the function releasing what
@@ -1222,7 +1234,7 @@ func (ctx *Context) chargeElements(n int64) error {
 	// A count that overflowed is past any budget, so it reads as one.
 	limit := ctx.elementBudget()
 	if ctx.run.elements > limit || ctx.run.elements < 0 {
-		return fmt.Errorf("%w (%d elements; raise %s to allow more)", ErrElementLimitExceeded, limit, MaxElementsEnvVar)
+		return fmt.Errorf("%w (%s)", ErrElementLimitExceeded, ctx.budgetHint("elements", limit, MaxElementsEnvVar))
 	}
 	return nil
 }

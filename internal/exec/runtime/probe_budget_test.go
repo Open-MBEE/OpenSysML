@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand/v2"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -185,6 +186,38 @@ func TestEvidenceProbeContinuesTheSeededDrawStream(t *testing.T) {
 	}
 	if draws := ctx.DrawsTaken(); len(draws) != 1 || draws[0].What != "regular" {
 		t.Fatalf("a preview draw was recorded: %v", draws)
+	}
+}
+
+// A probe's budget error names its fixed cap, not a variable that cannot lift it;
+// an ordinary run still names the variable that raises its configured budget.
+func TestEvidenceBudgetHintNamesAKnobThatChangesIt(t *testing.T) {
+	_, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `package P { part def D; }`))
+	ctx.maxSteps, ctx.maxElements = 2*DefaultMaxSteps, 2*DefaultMaxElements
+	huge := NewSequenceValue(&Sequence{required: &requiredMembers{ctx: ctx, count: DefaultMaxElements + 1}})
+	probes := []error{
+		ctx.ProbeEvidence(func() error { return ctx.chargeSteps(DefaultMaxSteps + 1) }),
+		ctx.ProbeEvidence(func() error { return ctx.chargeElements(DefaultMaxElements + 1) }),
+		ctx.ProbeEvidence(func() error {
+			_, err := ctx.HeldElements(huge)
+			return err
+		}),
+	}
+	for _, err := range probes {
+		if !errors.Is(err, ErrStepLimitExceeded) && !errors.Is(err, ErrElementLimitExceeded) {
+			t.Fatalf("a probe past its fixed budget = %v, want a typed budget error", err)
+		}
+		if !strings.Contains(err.Error(), "evidence preview budget is fixed") ||
+			strings.Contains(err.Error(), MaxStepsEnvVar) || strings.Contains(err.Error(), MaxElementsEnvVar) {
+			t.Fatalf("a probe's budget error names a variable that cannot lift its cap: %v", err)
+		}
+	}
+	ctx.run.steps, ctx.run.elements = ctx.maxSteps, ctx.maxElements
+	if err := ctx.chargeSteps(1); !errors.Is(err, ErrStepLimitExceeded) || !strings.Contains(err.Error(), MaxStepsEnvVar) {
+		t.Fatalf("an ordinary step error = %v, want one naming %s", err, MaxStepsEnvVar)
+	}
+	if err := ctx.chargeElements(1); !errors.Is(err, ErrElementLimitExceeded) || !strings.Contains(err.Error(), MaxElementsEnvVar) {
+		t.Fatalf("an ordinary element error = %v, want one naming %s", err, MaxElementsEnvVar)
 	}
 }
 
