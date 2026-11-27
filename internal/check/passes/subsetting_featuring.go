@@ -35,13 +35,13 @@ func (cc *constraintChecker) checkSubsettingFeaturingTypes(sym *symbols.Symbol) 
 	if sym.Scope != nil {
 		scope = sym.Scope
 	}
-	// A satisfy or verify names its requirement by a ReferenceSubsetting, a Subsetting the rule
-	// covers; the other reference forms are not judged here.
-	kind, isUsage := sym.UsageKind()
-	referenceForm := isUsage && kind == ast.UsageSatisfy
+	// A ReferenceSubsetting is a Subsetting the rule covers (KerML 8.3.3.3.9). An end is judged by the connector
+	// rule; of the forms named by their reference (perform, exhibit, include) only satisfy and verify are judged.
+	u, _ := sym.Decl.(*ast.Usage)
+	referenceJudged := u != nil && (u.Kind == ast.UsageSatisfy || !u.NamedByReference()) && !w10bIsEndFeature(sym)
 	for _, rel := range semantics.RelationshipsOf(sym) {
 		if rel == nil || rel.Target == nil ||
-			(rel.Kind != ast.RelSubsets && (!referenceForm || rel.Kind != ast.RelReferences)) {
+			(rel.Kind != ast.RelSubsets && (!referenceJudged || rel.Kind != ast.RelReferences)) {
 			continue
 		}
 		cc.checkSubsettedFeatureAccessible(sym, scope, rel.Target)

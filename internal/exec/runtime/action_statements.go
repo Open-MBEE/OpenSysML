@@ -489,6 +489,12 @@ func (e *performances) performBlockFlow(parent *actionFrame, engine *stmtEngine,
 		features := make([]lower.Feature, 0, len(block.Graph.Attributes))
 		for _, attr := range block.Graph.Attributes {
 			f.perf.features[attr.Name] = attr.Direction
+			sym := attr.Symbol
+			if sym == nil {
+				sym = memberSymbol(scope, attr.Node)
+			}
+			e.ctx.aliasRedefinitions(&f.perf.aliases, sym, attr.Name)
+			e.ctx.holdFeature(&f.perf.declared, sym, attr.Name)
 			features = append(features, lower.Feature{
 				Name: attr.Name, Direction: attr.Direction, IsResult: attr.IsResult, Binding: attr.Binding,
 				Value: attr.Value, ValueID: attr.ValueID, Node: attr.Node, Scope: block.Scope,

@@ -129,9 +129,11 @@ func Probe() EngineOption {
 }
 
 func (c *client) ListEngines(ctx context.Context, opts ...EngineOption) ([]EngineInfo, error) {
-	if err := c.live(); err != nil {
+	done, err := c.begin()
+	if err != nil {
 		return nil, err
 	}
+	defer done()
 	req := &pb.ListEnginesRequest{}
 	for _, opt := range opts {
 		opt(req)

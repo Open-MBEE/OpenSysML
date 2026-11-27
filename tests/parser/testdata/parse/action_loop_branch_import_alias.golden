@@ -1,0 +1,48 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="Q" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="T"))))
+  (Membership visibility="default"
+    (Package name="P" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="A"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="n" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=ScalarValues::Integer
+                (*ast.QualifiedName))))
+          (WhileLoopActionNode kind="while" variable=""
+            (OperatorExpr operator="<"
+              (FeatureReference name="n")
+              (LiteralInteger value="3"))
+            (Import visibility="private" all=false kind=namespace recursive=false imported="Q" filtered=false)
+            (Alias visibility="private" name="W" for="Q::T")
+            (Alias visibility="default" name="X" for="Q::T")
+            (Usage kind="part" name="v" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=T
+                (*ast.QualifiedName)))
+            (Usage kind="part" name="w" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=T
+                (*ast.QualifiedName))))
+          (WhileLoopActionNode kind="loop" variable=""
+            (OperatorExpr operator=">"
+              (FeatureReference name="n")
+              (LiteralInteger value="3"))
+            (Import visibility="public" all=false kind=namespace recursive=false imported="Q" filtered=false)
+            (Alias visibility="default" name="L" for="Q::T"))
+          (WhileLoopActionNode kind="for" variable="q"
+            (SequenceExpr
+              (LiteralInteger value="1")
+              (LiteralInteger value="2"))
+            (Import visibility="private" all=false kind=namespace recursive=false imported="Q" filtered=false)
+            (Alias visibility="default" name="F" for="Q::T"))
+          (IfActionNode
+            (OperatorExpr operator="<"
+              (FeatureReference name="n")
+              (LiteralInteger value="3"))
+            (IfBranchNode kind="then"
+              (Import visibility="private" all=false kind=namespace recursive=false imported="Q" filtered=false)
+              (Alias visibility="default" name="I" for="Q::T"))
+            (IfBranchNode kind="else"
+              (Import visibility="private" all=false kind=namespace recursive=false imported="Q" filtered=false)
+              (Alias visibility="default" name="E" for="Q::T"))))))))

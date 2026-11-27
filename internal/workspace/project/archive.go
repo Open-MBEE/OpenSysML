@@ -146,6 +146,9 @@ func (e *ArchiveError) Error() string { return fmt.Sprintf("%s: %v", e.Path, e.E
 
 func (e *ArchiveError) Unwrap() error { return e.Err }
 
+// ErrNotZIP is the cause of the *ArchiveError for bytes that are not a ZIP archive.
+var ErrNotZIP = errors.New("the file is not a ZIP archive")
+
 // OpenArchive reads the archive at path into memory and validates it. A file
 // that is not a ZIP archive, or one without the interchange and metadata files
 // the specification requires at its top level, is an *ArchiveError.
@@ -176,8 +179,11 @@ func ParseArchive(path string, data []byte) (*Archive, error) {
 
 func parseArchive(archivePath string, data []byte) (*Archive, error) {
 	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if errors.Is(err, zip.ErrFormat) {
+		return nil, ErrNotZIP
+	}
 	if err != nil {
-		return nil, fmt.Errorf("not a ZIP archive: %w", err)
+		return nil, err
 	}
 	a := &Archive{Path: archivePath, members: map[string][]byte{}}
 	var total uint64

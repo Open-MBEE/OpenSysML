@@ -65,21 +65,37 @@ func TestGraphsExportsTheCanonicalForm(t *testing.T) {
 	}
 }
 
+// A state without a body and a transition are refused in words, like on the CLI.
+func TestGraphsRefusesAVertexOrAnEdgeOfAMachine(t *testing.T) {
+	s := NewSession()
+	s.Submit("package P { state def Machine { state off; state on; transition off_on first off then on; } }")
+	for name, want := range map[string]string{
+		"P::Machine::off":    "no lowered graph for the state usage P::Machine::off: a state declared without a body is a vertex of its owner's graph",
+		"P::Machine::off_on": "no lowered graph for the action usage P::Machine::off_on: a transition is an edge of its owner's graph",
+	} {
+		if _, err := s.Graphs(name); err == nil || err.Error() != want {
+			t.Errorf("Graphs(%s) = %v, want the error %q", name, err, want)
+		}
+	}
+}
+
 func TestGraphsReportsWhatIsNoBehavior(t *testing.T) {
 	s := graphsSession(t)
 	for _, test := range []struct{ name, want string }{
-		{"Demo::Vehicle", "no lowered graph"},
-		{"Demo::Missing", "Demo::Missing"},
+		{"Demo::Vehicle", "no lowered graph for the part definition Demo::Vehicle: the subject must be an action or a state machine"},
+		{"Vehicle", "Vehicle: no lowered graph for the part definition Demo::Vehicle: the subject must be an action or a state machine"},
+		{"Demo::'Vehicle'", "Demo::'Vehicle': no lowered graph for the part definition Demo::Vehicle: the subject must be an action or a state machine"},
+		{"Demo::Missing", "unresolved reference: Demo::Missing"},
 	} {
-		if _, err := s.Graphs(test.name); err == nil || !strings.Contains(err.Error(), test.want) {
-			t.Errorf("Graphs(%s) = %v, want an error mentioning %q", test.name, err, test.want)
+		if _, err := s.Graphs(test.name); err == nil || err.Error() != test.want {
+			t.Errorf("Graphs(%s) = %v, want the error %q", test.name, err, test.want)
 		}
 		out, _, err := s.RunMeta("%graphs " + test.name)
 		if err != nil {
 			t.Fatalf("%%graphs %s failed the command: %v", test.name, err)
 		}
-		if len(out) != 1 || !strings.HasPrefix(out[0], "error: ") || !strings.Contains(out[0], test.want) {
-			t.Errorf("%%graphs %s = %q, want one error line mentioning %q", test.name, out, test.want)
+		if len(out) != 1 || out[0] != "error: "+test.want {
+			t.Errorf("%%graphs %s = %q, want the one line %q", test.name, out, "error: "+test.want)
 		}
 	}
 	out, _, _ := s.RunMeta("%graphs")

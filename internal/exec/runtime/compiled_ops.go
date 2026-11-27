@@ -7,6 +7,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // scalar is an Integer, Rational, Real or Boolean constant packed into three
@@ -128,9 +129,9 @@ func subScalars(ctx *Context, l, r scalar) (scalar, error) {
 	return arithScalars(ctx, program.OpSub, l, r)
 }
 
-// arithScalars is constArithmetic over scalars.
+// arithScalars is constArithmetic over scalars; a compiled node keeps no span.
 func arithScalars(ctx *Context, op program.Operator, l, r scalar) (scalar, error) {
-	res, err := constArithmetic(op, l.semantic(), r.semantic(), ctx.maxIntegerBits)
+	res, err := constArithmetic(op, l.semantic(), r.semantic(), ctx.maxIntegerBits, source.Span{})
 	if err != nil {
 		return scalar{}, err
 	}

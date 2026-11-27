@@ -136,9 +136,12 @@ func (g *ActionGraph) BlockNodesOf(id program.NodeID) []FlowNode {
 }
 
 // MachineID is the id of the machine state, which the state table leaves out: one
-// past the last numbered state.
+// past the last numbered state; 0 for nil and for a graph whose states are not numbered.
 func (g *StateGraph) MachineID() program.StateID {
-	return program.StateID(tableIndex(len(g.Origins)))
+	if g == nil {
+		return 0
+	}
+	return g.machineID
 }
 
 // StateIDOf is the id of a state of the graph, the machine state included; 0 for nil.

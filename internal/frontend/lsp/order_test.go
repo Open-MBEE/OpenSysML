@@ -12,6 +12,8 @@ import (
 
 	"go.lsp.dev/jsonrpc2"
 	"go.lsp.dev/protocol"
+
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
 // orderedSession serves a fake handler through inOrder over a framed
@@ -27,6 +29,14 @@ type orderedSession struct {
 }
 
 func newOrderedSession(t *testing.T) *orderedSession {
+	t.Helper()
+	return newOrderedSessionWith(t, func(fake jsonrpc2.Handler) jsonrpc2.Handler {
+		return protocol.CancelHandler(inOrder(answerCancelled(fake)))
+	})
+}
+
+// newOrderedSessionWith is newOrderedSession with the chain the fake handler is served through.
+func newOrderedSessionWith(t *testing.T, chain func(jsonrpc2.Handler) jsonrpc2.Handler) *orderedSession {
 	t.Helper()
 	client, server := net.Pipe()
 	t.Cleanup(func() { _ = client.Close() })
@@ -44,7 +54,7 @@ func newOrderedSession(t *testing.T) *orderedSession {
 		return req.Method(), nil
 	}
 	conn := jsonrpc2.NewConn(jsonrpc2.NewStream(server), jsonrpc2.WithCodec(lspCodec{}))
-	conn.Go(context.Background(), protocol.CancelHandler(inOrder(answerCancelled(fake))))
+	conn.Go(context.Background(), chain(fake))
 	t.Cleanup(func() { _ = server.Close() })
 	return o
 }
@@ -116,6 +126,34 @@ func TestInOrderAnswersCancelledWhileQueued(t *testing.T) {
 		}
 		want := []string{"slow in", "slow out", "after in", "after out"}
 		if got := o.events(); !slices.Equal(got, want) {
+			t.Fatalf("handler events = %v, want %v", got, want)
+		}
+	}
+}
+
+// A message read before exit, and still queued behind a slow handler when exit
+// arrives, is not served once the session has ended.
+func TestQueuedMessagesAreNotServedAfterExit(t *testing.T) {
+	for range 20 {
+		s := NewServer(model.NewWorkspace())
+		o := newOrderedSessionWith(t, func(fake jsonrpc2.Handler) jsonrpc2.Handler {
+			return s.lifecycleHandler(protocol.CancelHandler(inOrder(s.endedByExit(answerCancelled(fake)))))
+		})
+		o.send(0, "slow", `{}`)
+		<-o.slowIn
+		o.send(1, "queued", `{}`)
+		o.send(0, "noted", `{}`)
+		o.send(0, protocol.MethodExit, `{}`)
+		<-s.exited
+		close(o.gate)
+		reply := readMessage(t, o.r)
+		failure, _ := reply["error"].(map[string]any)
+		if code, _ := failure["code"].(float64); int64(code) != int64(jsonrpc2.ErrInvalidRequest.Code) {
+			t.Fatalf("request queued before exit answered %v, want invalid request", reply)
+		}
+		o.send(2, "sync", `{}`)
+		_ = readMessage(t, o.r)
+		if got, want := o.events(), []string{"slow in", "slow out"}; !slices.Equal(got, want) {
 			t.Fatalf("handler events = %v, want %v", got, want)
 		}
 	}

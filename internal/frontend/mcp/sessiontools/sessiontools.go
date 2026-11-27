@@ -409,14 +409,14 @@ func commandScope(name string) catalog.Scope {
 
 // runCommand runs one known meta command line in sess and reports what it printed.
 func runCommand(sess *repl.Session, line string) (CommandResult, error) {
-	lines, quit, err := sess.RunMeta(line)
+	lines, quit, err := sess.RunCommand(line)
 	if fields := repl.MetaArgs(line); len(fields) > 0 && !repl.KnownMeta(fields[0]) {
 		return CommandResult{}, failed(fmt.Errorf("%q is no command this build serves", fields[0]), lines)
 	}
 	if err != nil {
 		var usage *repl.UsageError
 		if errors.As(err, &usage) {
-			return CommandResult{}, failed(err, usage.Lines)
+			return CommandResult{}, failed(err, usage.Lines[min(1, len(usage.Lines)):])
 		}
 		return CommandResult{}, failed(err, lines)
 	}
