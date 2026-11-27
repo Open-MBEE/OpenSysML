@@ -494,7 +494,6 @@ const (
 	ModImplicitlyRedefined
 	ModContributesName
 	ModUnresolvedRedefinition
-	ModParameterizedByName
 	ModBindsBaseType
 	ModAcceptPayload
 	// ModNamesNothing marks a derived name its target did not supply: the
@@ -521,6 +520,11 @@ const (
 	// ModTypeFeatureMember marks a feature declared `member`, owned through an
 	// OwningMembership rather than a FeatureMembership (KerML.xtext TypeFeatureMember).
 	ModTypeFeatureMember
+	// ModInclude marks a use case usage written `include use case u` or `include u` (an IncludeUseCaseUsage).
+	ModInclude
+	// ModExtendedUsage marks a usage declared by prefix metadata in place of a kind
+	// keyword (`#M x;`, SysML.xtext ExtendedUsage): a plain Usage, not a ReferenceUsage.
+	ModExtendedUsage
 )
 
 // Has reports whether every modifier of mask is set.

@@ -43,9 +43,9 @@ func (s *Session) lookupSymbol(name string) (*symbols.Symbol, string, error) {
 func (s *Session) lookupSymbolOfKinds(name string, want ...symbols.SymbolKind) (*symbols.Symbol, string, error) {
 	// A name the notation reads is resolved by the text it names; anything else is
 	// looked up as typed, so the failure reported is about what was typed.
-	qualified := strings.Contains(name, "::")
+	qualified, segments := strings.Contains(name, "::"), strings.Split(name, "::")
 	if p := s.parseName(name); p.ok {
-		name, qualified = p.name, p.qualified
+		name, qualified, segments = p.name, p.qualified, p.segments
 	}
 	docScopes := s.docScopes()
 	// The library is searched even from an empty session, so a qualified
@@ -61,7 +61,7 @@ func (s *Session) lookupSymbolOfKinds(name string, want ...symbols.SymbolKind) (
 		case 0:
 			// A name may reach through a declared feature into its type
 			// (Outer::inner::b), which no declaration is registered under.
-			if sym, fqn := s.featureChainSymbol(name); sym != nil {
+			if sym, fqn := s.featureChainSymbol(segments); sym != nil {
 				if local := scopeSymbolForAny(docScopes, sym.Decl); local != nil {
 					sym = local
 				}
@@ -81,7 +81,7 @@ func (s *Session) lookupSymbolOfKinds(name string, want ...symbols.SymbolKind) (
 			}
 			return sym, fqn, nil
 		default:
-			return nil, "", ambiguousError(name, matches, idx)
+			return nil, "", ambiguousError(name, matches)
 		}
 	}
 
@@ -107,7 +107,7 @@ func (s *Session) lookupSymbolOfKinds(name string, want ...symbols.SymbolKind) (
 		if roots := s.nameTable().roots[name]; len(roots) == 1 {
 			return roots[0], idx.GetFQN(roots[0]), nil
 		}
-		return nil, "", ambiguousError(name, matches, idx)
+		return nil, "", ambiguousError(name, matches)
 	}
 }
 
@@ -150,20 +150,20 @@ func (s *Session) heldRoot(fqn string) (*runtime.Instance, string, []string) {
 	return nil, "", nil
 }
 
-// featureChainSymbol resolves a qualified name whose later segments are members
-// of the type of the segment before them — one a subtype inherits
+// featureChainSymbol resolves a qualified name, cut into its segments, whose
+// later segments are members of the type of the segment before them — one a subtype inherits
 // (Sub::inherited) or one reached through a feature's type (Outer::inner::b) —
 // which the index registers no declaration under, through the model's member
 // lookup, so typing, specialization and redefinition are followed as the
 // notation resolves them. The second result is the fully-qualified name the
 // symbol is declared under.
-func (s *Session) featureChainSymbol(name string) (*symbols.Symbol, string) {
+func (s *Session) featureChainSymbol(segments []string) (*symbols.Symbol, string) {
 	idx := s.browseIndex()
 	ctx, err := s.getOrCreateRuntime()
 	if idx == nil || err != nil {
 		return nil, ""
 	}
-	return symbolfacts.MemberChain(idx, ctx.Semantics(), name)
+	return symbolfacts.MemberChainSegments(idx, ctx.Semantics(), segments)
 }
 
 // carrierLimit bounds the object graph a subject is searched through, so a
@@ -782,6 +782,7 @@ func (s *Session) namedRoot(ref objectRef) (*runtime.Instance, string, []objectS
 		noInstance    string
 		noInstanceSym *symbols.Symbol
 		unresolved    error
+		enclosed      bool
 	)
 	for i := head; i > 0; i-- {
 		name := objref.JoinTyped(ref.Segments[:i])
@@ -803,7 +804,10 @@ func (s *Session) namedRoot(ref objectRef) (*runtime.Instance, string, []objectS
 			shown := declarationNotation(sym)
 			return nil, "", nil, &ObjectRefError{Ref: ref.Text, Detail: fmt.Sprintf("%s is a %s, not an object: its member is written %s::%s", shown, objref.NamespaceKind(sym), shown, ref.Segments[head].Text)}
 		}
-		if noInstance == "" {
+		// A namespace short of the whole name only encloses what failed to resolve:
+		// past it a held object is still walked from, but nothing lacks an instance.
+		enclosed = enclosed || i < head && objref.IsNamespace(sym)
+		if noInstance == "" && !enclosed {
 			noInstance, noInstanceSym = fqn, sym
 		}
 	}
@@ -862,7 +866,7 @@ func (e *AmbiguousNameError) Error() string {
 
 // ambiguousError reports a name that matched more than one declaration, listing
 // the candidates' fully-qualified names rather than picking one of them.
-func ambiguousError(name string, matches []*symbols.Symbol, idx *symbols.Index) error {
+func ambiguousError(name string, matches []*symbols.Symbol) error {
 	fqns := make([]string, 0, len(matches))
 	seen := make(map[string]bool, len(matches))
 	for _, sym := range matches {

@@ -146,6 +146,9 @@ func (e *ArchiveError) Error() string { return fmt.Sprintf("%s: %v", e.Path, e.E
 
 func (e *ArchiveError) Unwrap() error { return e.Err }
 
+// ErrNotZIP is the cause of the *ArchiveError for bytes that are not a ZIP archive.
+var ErrNotZIP = errors.New("the file is not a ZIP archive")
+
 // OpenArchive reads the archive at path into memory and validates it. A file
 // that is not a ZIP archive, or one without the interchange and metadata files
 // the specification requires at its top level, is an *ArchiveError.
@@ -176,8 +179,11 @@ func ParseArchive(path string, data []byte) (*Archive, error) {
 
 func parseArchive(archivePath string, data []byte) (*Archive, error) {
 	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if errors.Is(err, zip.ErrFormat) {
+		return nil, ErrNotZIP
+	}
 	if err != nil {
-		return nil, fmt.Errorf("not a ZIP archive: %w", err)
+		return nil, err
 	}
 	a := &Archive{Path: archivePath, members: map[string][]byte{}}
 	var total uint64
@@ -566,20 +572,40 @@ func SplitMemberPath(p string) (archive, member string, ok bool) {
 	}
 }
 
+// maxCachedArchiveBytes bounds the member bytes the cache holds across archives; the
+// archive just read is kept whatever its size.
+const maxCachedArchiveBytes = 1 << 30
+
 // archives caches the archives read, so each is parsed once however many
 // members are loaded from it; a rewritten archive is read again.
 var archives struct {
 	mu   sync.Mutex
 	open map[string]cachedArchive
+	// tick orders the cache's uses, and bytes is what its archives hold together.
+	tick  uint64
+	bytes int64
 }
 
 type cachedArchive struct {
 	archive *Archive
 	size    int64
 	modTime time.Time
+	// bytes is the archive's member bytes; used is the tick of its latest read.
+	bytes int64
+	used  uint64
 }
 
-// openCached returns the archive at path, read once until it changes on disk.
+// memberBytes is what the archive's members hold together.
+func (a *Archive) memberBytes() int64 {
+	var total int64
+	for _, content := range a.members {
+		total += int64(len(content))
+	}
+	return total
+}
+
+// openCached returns the archive at path, read once until it changes on disk
+// or is evicted as the least recently read of a cache past its byte bound.
 func openCached(path string) (*Archive, error) {
 	info, err := os.Stat(path)
 	if err != nil {
@@ -587,8 +613,15 @@ func openCached(path string) (*Archive, error) {
 	}
 	archives.mu.Lock()
 	defer archives.mu.Unlock()
-	if c, ok := archives.open[path]; ok && c.size == info.Size() && c.modTime.Equal(info.ModTime()) {
-		return c.archive, nil
+	archives.tick++
+	if c, ok := archives.open[path]; ok {
+		if c.size == info.Size() && c.modTime.Equal(info.ModTime()) {
+			c.used = archives.tick
+			archives.open[path] = c
+			return c.archive, nil
+		}
+		archives.bytes -= c.bytes
+		delete(archives.open, path)
 	}
 	a, err := OpenArchive(path)
 	if err != nil {
@@ -597,8 +630,26 @@ func openCached(path string) (*Archive, error) {
 	if archives.open == nil {
 		archives.open = map[string]cachedArchive{}
 	}
-	archives.open[path] = cachedArchive{archive: a, size: info.Size(), modTime: info.ModTime()}
+	entry := cachedArchive{archive: a, size: info.Size(), modTime: info.ModTime(), bytes: a.memberBytes(), used: archives.tick}
+	archives.open[path] = entry
+	archives.bytes += entry.bytes
+	evictArchives(path, maxCachedArchiveBytes)
 	return a, nil
+}
+
+// evictArchives drops the least recently read archives other than keep until the
+// cache holds no more than budget bytes. The caller holds archives.mu.
+func evictArchives(keep string, budget int64) {
+	for archives.bytes > budget && len(archives.open) > 1 {
+		oldest := ""
+		for path, c := range archives.open {
+			if path != keep && (oldest == "" || c.used < archives.open[oldest].used) {
+				oldest = path
+			}
+		}
+		archives.bytes -= archives.open[oldest].bytes
+		delete(archives.open, oldest)
+	}
 }
 
 // readMemberPath reads a member named by its path, as SplitMemberPath splits it.

@@ -6,7 +6,9 @@ function answer = elementProperties(model, element, varargin)
 %   qualified name, the positional id of an unnamed member ('Owner::@2') or the id an
 %   earlier answer carried. The answer has 'element' (id, qualifiedName, metaclass),
 %   'properties' (a cell, in the order asked for) and 'byName' (a containers.Map from
-%   property name to its record: name, definingClass, many, derived, values, unsupported).
+%   property name to its record: name, definingClass, many, derived, values, unsupported)
+%   and 'excludedDocuments' (a cell of structs with document and error: the documents
+%   the model was read without, empty when the whole model was read).
 %   Requires the element_properties capability.
 
     if nargin < 2 || isempty(element)

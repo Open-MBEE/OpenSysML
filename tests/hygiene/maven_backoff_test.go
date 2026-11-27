@@ -19,6 +19,10 @@ var mavenBackoff = []string{
 	"-Daether.connector.http.retryHandler.count=8",
 }
 
+// Maven 3.10 asks every remote repository for its prefix file in each run, whatever the local
+// repository holds, and backs off from a 429 to that for minutes: a tree asks for none.
+const mavenNoPrefixFiles = "-Daether.remoteRepositoryFilter.prefixes.resolvePrefixFiles=false"
+
 var mavenFile = regexp.MustCompile(`\bmvn\b[^\n]*?-f (\S+)/pom\.xml`)
 
 // mavenTrees lists the directories whose pom.xml no parent directory's pom.xml aggregates.
@@ -49,7 +53,7 @@ func TestEveryMavenTreeRetriesARateLimit(t *testing.T) {
 			continue
 		}
 		lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
-		for _, want := range mavenBackoff {
+		for _, want := range append([]string{mavenNoPrefixFiles}, mavenBackoff...) {
 			found := false
 			for _, line := range lines {
 				found = found || line == want
@@ -111,17 +115,19 @@ func TestCIRunsMavenOnlyInATreeThatRetries(t *testing.T) {
 
 const (
 	mavenCacheAction = "./.github/actions/maven-cache"
-	mavenCacheKey    = "maven-deps-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}"
+	mavenCacheKey    = "maven-deps-${{ runner.os }}-${{ hashFiles('**/pom.xml', '.github/workflows/maven-cache.yml') }}"
 )
 
 // mavenWorkflow reads the steps of any workflow, whatever the shape of its other keys.
 type mavenWorkflow struct {
 	Jobs map[string]struct {
-		Steps []struct {
-			Name string         `yaml:"name"`
-			Uses string         `yaml:"uses"`
-			Run  string         `yaml:"run"`
-			With map[string]any `yaml:"with"`
+		TimeoutMinutes int `yaml:"timeout-minutes"`
+		Steps          []struct {
+			Name           string         `yaml:"name"`
+			Uses           string         `yaml:"uses"`
+			Run            string         `yaml:"run"`
+			With           map[string]any `yaml:"with"`
+			TimeoutMinutes int            `yaml:"timeout-minutes"`
 		} `yaml:"steps"`
 	} `yaml:"jobs"`
 }
@@ -133,6 +139,10 @@ func TestMavenCacheIsSavedOnDevelopAlone(t *testing.T) {
 		if !strings.Contains(raw, want) {
 			t.Errorf("maven-cache.yml does not trigger on %s", want)
 		}
+	}
+	// A cancelled resolve leaves a partial repository, which the entry must never hold.
+	if !regexp.MustCompile(`(?m)^concurrency:\n  group: maven-cache\n  cancel-in-progress: false$`).MatchString(raw) {
+		t.Error("maven-cache.yml must queue behind a running warm rather than cancel it part-way")
 	}
 	saves, checkedOut := false, false
 	resolved := map[string]bool{}
@@ -148,15 +158,36 @@ func TestMavenCacheIsSavedOnDevelopAlone(t *testing.T) {
 	if !saves {
 		t.Errorf("maven-cache.yml's warm job must use %s with save after checkout and before it runs mvn", mavenCacheAction)
 	}
+	// Surefire resolves its provider and the JUnit launcher only when tests run.
+	purged := false
+	offline := map[string]bool{}
+	for _, step := range workflow.Jobs["warm"].Steps {
+		if strings.Contains(step.Run, "skipTests") || strings.Contains(step.Run, "maven.test.skip") {
+			t.Errorf("maven-cache.yml step %q skips the tests, so the entry lacks what a test run resolves", step.Name)
+		}
+		purged = purged || strings.Contains(step.Run, "find ~/.m2/repository -name '*.lastUpdated' -delete")
+		for _, line := range strings.Split(step.Run, "\n") {
+			if match := mavenFile.FindStringSubmatch(line); match != nil && strings.Contains(line, "mvn -o ") {
+				// Checked after the purge, so the saved entry is what the offline build read.
+				offline[match[1]] = purged
+			}
+		}
+	}
+	if !purged {
+		t.Error("maven-cache.yml must delete *.lastUpdated: a restored marker of a failed download stops the retry")
+	}
 	for _, tree := range mavenTrees(t) {
 		if !resolved[tree] {
 			t.Errorf("maven-cache.yml resolves no dependencies of %s, so the entry it saves lacks them", tree)
+		}
+		if !offline[tree] {
+			t.Errorf("maven-cache.yml must build %s with mvn -o after the purge, so an incomplete entry is not saved", tree)
 		}
 	}
 
 	_, action := loadCompositeAction(t, "../../.github/actions/maven-cache/action.yml")
 	if strings.Count(action, "key: "+mavenCacheKey+"\n") != 2 {
-		t.Error("the maven-cache action's restore and save steps must share one key over every pom.xml")
+		t.Error("the maven-cache action's restore and save steps must share one key over every pom.xml and the warm workflow")
 	}
 
 	workflows, err := filepath.Glob("../../.github/workflows/*.yml")
@@ -219,5 +250,71 @@ func TestMavenCacheIsSavedOnDevelopAlone(t *testing.T) {
 	}
 	if readers == 0 {
 		t.Fatal("no workflow job runs mvn")
+	}
+}
+
+// TestJavaAuditFallsBackToAMirror holds the SBOM plugin, which the Maven cache lacks, behind the
+// script that asks a mirror, and Maven Central when the mirror refuses it.
+func TestJavaAuditFallsBackToAMirror(t *testing.T) {
+	raw, err := os.ReadFile("../../Makefile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), `scripts/maven-sbom.sh "$$dir" $(CYCLONEDX_MAVEN_VERSION)`) {
+		t.Error("the Makefile's audit-java does not write the SBOM through scripts/maven-sbom.sh")
+	}
+	for i, line := range strings.Split(string(raw), "\n") {
+		if strings.Contains(line, "mvn ") && strings.Contains(line, "cyclonedx-maven-plugin") {
+			t.Errorf("Makefile:%d runs the CycloneDX plugin itself, so one refusal from Maven Central fails the audit", i+1)
+		}
+	}
+	script, err := os.ReadFile("../../scripts/maven-sbom.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"maven-central-mirror-settings.xml", "MAVEN_SBOM_ATTEMPTS", "MAVEN_SBOM_TIMEOUT_SECONDS", `-f "$tree/pom.xml"`, "-DincludeTestScope=false"} {
+		if !strings.Contains(string(script), want) {
+			t.Errorf("scripts/maven-sbom.sh lacks %q", want)
+		}
+	}
+	settings, err := os.ReadFile("../../scripts/maven-central-mirror-settings.xml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(settings), "<mirrorOf>central</mirrorOf>") {
+		t.Error("scripts/maven-central-mirror-settings.xml mirrors something other than central alone")
+	}
+}
+
+// TestJavaAuditKeepsToItsOwnBudget holds a pull request's audit of one Maven tree under a step bound
+// shorter than its job's, and after the tests it would otherwise starve of the job's time.
+func TestJavaAuditKeepsToItsOwnBudget(t *testing.T) {
+	raw, err := os.ReadFile("../../.github/workflows/pr.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var file mavenWorkflow
+	if err := yaml.Unmarshal(raw, &file); err != nil {
+		t.Fatal(err)
+	}
+	audits := 0
+	for id, job := range file.Jobs {
+		audited := false
+		for _, step := range job.Steps {
+			if strings.Contains(step.Run, "make audit-java") {
+				audits++
+				audited = true
+				if step.TimeoutMinutes <= 0 || step.TimeoutMinutes >= job.TimeoutMinutes {
+					t.Errorf("pr.yml job %s step %q has timeout-minutes %d; want one under the job's %d", id, step.Name, step.TimeoutMinutes, job.TimeoutMinutes)
+				}
+				continue
+			}
+			if audited && (strings.Contains(step.Run, "mvn ") || strings.Contains(step.Run, "conformance")) {
+				t.Errorf("pr.yml job %s runs %q after the audit, whose wait for Maven Central spends that step's time", id, step.Name)
+			}
+		}
+	}
+	if audits == 0 {
+		t.Fatal("no pr.yml job runs make audit-java")
 	}
 }

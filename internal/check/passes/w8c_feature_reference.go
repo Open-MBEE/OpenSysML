@@ -25,6 +25,9 @@ type FeatureReferencePass struct{}
 func (FeatureReferencePass) Level() PassLevel { return LevelConstraint }
 
 func (FeatureReferencePass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
+	if ctx == nil || ctx.Index == nil || root == nil {
+		return nil
+	}
 	rootScope := ctx.Index.DocumentRoot(name)
 	if rootScope == nil {
 		return nil
@@ -265,8 +268,8 @@ func (c *featureReferenceChecker) walkMember(site refSite, scope *symbols.Scope,
 	case *ast.WhileLoopActionNode:
 		body := childScopeOr(scope, n)
 		c.walkExpr(site, scope, n.Collection)
-		c.walkExpr(site, body, n.Condition)
-		c.walkExpr(site, body, n.Until)
+		c.walkExpr(site, body.LoopGuard(), n.Condition)
+		c.walkExpr(site, body.LoopGuard(), n.Until)
 		c.walkMembers(siteForActionBody(site, scope, body), body, n.Body)
 	case *ast.TransitionMember:
 		c.walkTransition(site, scope, n)
@@ -898,26 +901,12 @@ func (c *featureReferenceChecker) chainMemberFeaturedWithin(scope *symbols.Scope
 	holders := c.cc.resolver.ChainHolders(scope, prev)
 	for _, ctx := range ctxs {
 		if !slices.ContainsFunc(holders, func(holder *symbols.Symbol) bool {
-			return c.chainingFeatureConforms(holder, ctx)
+			return c.cc.featuringContextConforms(holder, ctx)
 		}) {
 			return false
 		}
 	}
 	return true
-}
-
-// chainingFeatureConforms reports whether prev specializes the featuring type
-// ctx, through the features it references as well as its declared generals.
-func (c *featureReferenceChecker) chainingFeatureConforms(prev, ctx *symbols.Symbol) bool {
-	if c.cc.featuringContextConforms(prev, ctx) {
-		return true
-	}
-	for _, src := range c.cc.model.MemberSources(prev) {
-		if src == ctx || c.cc.model.Conforms(src, ctx) {
-			return true
-		}
-	}
-	return false
 }
 
 func (c *featureReferenceChecker) reportChainMember(span source.Span) {

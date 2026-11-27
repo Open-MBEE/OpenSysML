@@ -73,8 +73,9 @@ to stdout, append its record to the \-api\-keys file (created when absent) and
 exit
 .TP
 .B \-no\-record\-cache
-Parse every document and hold it loaded, reading no interface record from the
-record cache and writing none; default off, or OPENSYSML_RECORD_CACHE=0
+Parse every document and hold it loaded, and analyze every model the runtime
+tools parse, reading no interface or model record from the record cache and
+writing none; default off, or OPENSYSML_RECORD_CACHE=0
 .TP
 .BI \-oidc\-audience " string"
 Audience (aud) a token must name to be accepted; default the URL the service
@@ -536,7 +537,7 @@ diagnostics and a model hash (rpc ParseFile, rpc ParseSources, sysml
 .TP
 .B query
 runtime, sysml:read: Run an OSLC query against a parsed model (rpc Query,
-sysml \-query).
+sysml \-query, sysml \-as\-view).
 .TP
 .B render_model_document
 runtime, sysml:read: Render a document definition as Markdown or HTML (rpc

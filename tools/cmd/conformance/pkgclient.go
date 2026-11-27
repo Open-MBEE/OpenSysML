@@ -60,12 +60,20 @@ type pkgCall func(ctx context.Context, request protoreflect.Message) (proto.Mess
 // response from what the API returned, so the comparison sees exactly what a
 // Go caller was given.
 func (c *pkgClient) dispatch(ctx context.Context, method string, request protoreflect.Message) (proto.Message, error) {
-	for _, family := range []func(string) (pkgCall, bool){c.modelCall, c.runtimeCall, c.verificationCall, c.documentCall} {
-		if call, ok := family(method); ok {
-			return call(ctx, request)
-		}
+	if call, ok := c.lookup(method); ok {
+		return call(ctx, request)
 	}
 	return nil, &uncoveredError{reason: fmt.Sprintf("the public Go API does not cover %s", method)}
+}
+
+// lookup finds the call the public API makes for an RPC, if it covers it.
+func (c *pkgClient) lookup(method string) (pkgCall, bool) {
+	for _, family := range []func(string) (pkgCall, bool){c.modelCall, c.runtimeCall, c.verificationCall, c.documentCall} {
+		if call, ok := family(method); ok {
+			return call, true
+		}
+	}
+	return nil, false
 }
 
 // modelCall is the RPC reading or editing a model: the handshake, parsing,
@@ -114,6 +122,8 @@ func (c *pkgClient) runtimeCall(method string) (pkgCall, bool) {
 		return c.evaluateCalc, true
 	case "RunAnalysis":
 		return c.runAnalysis, true
+	case "RunSweep":
+		return c.runSweep, true
 	case "RunRuns":
 		return c.runRuns, true
 	case "RecordRun":
@@ -769,9 +779,21 @@ func sweepRowsToProto(rows []opensysml.RunRow) []*pb.SweepRow {
 	out := make([]*pb.SweepRow, 0, len(rows))
 	for i := range rows {
 		row := &pb.SweepRow{
-			Inputs:  calcOutputsToProto(rows[i].Inputs),
-			Outputs: calcOutputsToProto(rows[i].Outputs),
-			Error:   rows[i].Error,
+			Inputs:        calcOutputsToProto(rows[i].Inputs),
+			Outputs:       calcOutputsToProto(rows[i].Outputs),
+			ElapsedMicros: rows[i].Elapsed.Microseconds(),
+			Error:         rows[i].Error,
+			FailureReason: pb.FailureReason(rows[i].Reason),
+		}
+		for _, evaluation := range rows[i].Evaluations {
+			converted := &pb.CaseEvaluation{
+				FunctionId: evaluation.FunctionID, Result: valueToProto(evaluation.Result),
+				Error: evaluation.Error, Selected: evaluation.Selected, Tied: evaluation.Tied,
+			}
+			for _, argument := range evaluation.Arguments {
+				converted.Arguments = append(converted.Arguments, valueToProto(argument))
+			}
+			row.Evaluations = append(row.Evaluations, converted)
 		}
 		for j := range rows[i].Verdicts {
 			row.Verdicts = append(row.Verdicts, verdictToProto(&rows[i].Verdicts[j]))
@@ -779,6 +801,72 @@ func sweepRowsToProto(rows []opensysml.RunRow) []*pb.SweepRow {
 		out = append(out, row)
 	}
 	return out
+}
+
+func (c *pkgClient) runSweep(ctx context.Context, request protoreflect.Message) (proto.Message, error) {
+	req := &pb.RunSweepRequest{}
+	if err := retype(request, req); err != nil {
+		return nil, err
+	}
+	opts := []opensysml.SweepOption{
+		opensysml.SweepSubject(req.SubjectSymbolId), opensysml.SweepSamples(req.Samples),
+		opensysml.SweepSeed(req.Seed), opensysml.SweepEngine(req.Engine),
+	}
+	for _, value := range req.Arguments {
+		converted, ok := valueFromProto(value)
+		if !ok {
+			return nil, errNonNumericVector
+		}
+		opts = append(opts, opensysml.SweepArguments(converted))
+	}
+	for _, name := range slices.Sorted(maps.Keys(req.NamedArguments)) {
+		converted, ok := valueFromProto(req.NamedArguments[name])
+		if !ok {
+			return nil, errNonNumericVector
+		}
+		opts = append(opts, opensysml.SweepArgument(name, converted))
+	}
+	ranges := make([]opensysml.SweepRange, 0, len(req.Ranges))
+	for _, r := range req.Ranges {
+		converted := opensysml.SweepRange{Parameter: r.Parameter}
+		for _, bound := range []struct {
+			into *opensysml.Value
+			from *pb.Value
+		}{{&converted.Start, r.Start}, {&converted.End, r.End}, {&converted.Step, r.Step}} {
+			if bound.from == nil {
+				continue
+			}
+			value, ok := valueFromProto(bound.from)
+			if !ok {
+				return nil, errNonNumericVector
+			}
+			*bound.into = value
+		}
+		ranges = append(ranges, converted)
+	}
+	sweep, err := c.api.Sweep(ctx, c.model(req.ModelHash), req.SymbolId, ranges, opts...)
+	var verifyErr *opensysml.VerifyError
+	if errors.As(err, &verifyErr) {
+		return &pb.RunSweepResponse{
+			Error:         verifyErr.Message,
+			FailureReason: pb.FailureReason(verifyErr.Reason),
+			Diagnostics:   diagnosticsToProto(verifyErr.Diagnostics),
+		}, nil
+	}
+	if err != nil {
+		return nil, apiError(err)
+	}
+	return &pb.RunSweepResponse{
+		Rows:        sweepRowsToProto(sweep.Rows),
+		Parameters:  sweep.Parameters,
+		Sampled:     sweep.Sampled,
+		Seed:        sweep.Seed,
+		Diagnostics: diagnosticsToProto(sweep.Diagnostics),
+		Instances:   instancesToProto(sweep.Instances),
+		Engine:      sweep.Engine,
+		Strength:    sweep.Strength,
+		Bounds:      boundsToProto(sweep.Bounds),
+	}, nil
 }
 
 func (c *pkgClient) runRuns(ctx context.Context, request protoreflect.Message) (proto.Message, error) {
@@ -1745,6 +1833,10 @@ func valueToProto(value opensysml.Value) *pb.Value {
 		}}}
 	case opensysml.Quantity:
 		return &pb.Value{Kind: &pb.Value_Quantity{Quantity: quantityToProto(v)}}
+	case *opensysml.CoordinateFrame:
+		return &pb.Value{Kind: &pb.Value_CoordinateFrame{CoordinateFrame: frameToProto(v)}}
+	case *opensysml.CoordinateTransformation:
+		return &pb.Value{Kind: &pb.Value_CoordinateTransformation{CoordinateTransformation: transformationToProto(v)}}
 	case opensysml.EnumLiteral:
 		return &pb.Value{Kind: &pb.Value_EnumLiteral{EnumLiteral: &pb.EnumLiteral{
 			LiteralId:     v.LiteralID,

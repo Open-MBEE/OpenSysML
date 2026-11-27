@@ -17,7 +17,7 @@ func recordStub(t *testing.T, opts options, store, launcher string) (*pilotExpor
 		t.Fatal(err)
 	}
 	dir := filepath.Join(opts.repo, "tests", "testdata")
-	return recordedPilot(store, launcher, "21", record, "testdata", dir, []string{opts.libraries}, stubFiles, opts.timeout, io.Discard)
+	return recordedPilot(store, pilotLaunch{launcher, "21", opts.timeout, io.Discard}, record, pilotRoot{"testdata", dir, []string{opts.libraries}, stubFiles})
 }
 
 // The recorded export answers a later run without the pilot, and answers what the pilot did.
@@ -163,6 +163,37 @@ func TestCheckOverTheRecordedExportFailsOnAMovedCount(t *testing.T) {
 			defer rewrite(t, path, string(content))
 			if err := run(opts); err == nil {
 				t.Fatalf("a moved count in %s reproduces", rel)
+			}
+		})
+	}
+}
+
+// A recorded document that is gone or altered is not replayed: the pilot re-exports it, and
+// without the pilot the run fails instead of scoring the file as one the pilot failed on.
+func TestPilotRecordRefusesADamagedExport(t *testing.T) {
+	for name, damage := range map[string]func(string) error{
+		"missing": os.Remove,
+		"altered": func(path string) error { return os.WriteFile(path, []byte("[]"), 0o600) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			opts, store := stubRepo(t), t.TempDir()
+			bridge := stubBridge(t, "", 0, "a.sysml", "sub/b.sysml")
+			fresh, err := recordStub(t, opts, store, bridge)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := damage(filepath.Join(store, "testdata", "a.sysml.json")); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := recordStub(t, opts, store, ""); err == nil || !strings.Contains(err.Error(), "damaged") {
+				t.Fatalf("a damaged record without the pilot must fail naming the damage, got %v", err)
+			}
+			again, err := recordStub(t, opts, store, bridge)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(fresh, again) {
+				t.Fatalf("the re-export differs from the first:\n%+v\n%+v", fresh, again)
 			}
 		})
 	}

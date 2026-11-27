@@ -37,9 +37,18 @@ const (
 	// ImplicitMetadataBodyRedefinition reflects the Redefinition a metadata body
 	// feature Owner implies to the Member its name restates (SysML.xtext MetadataBodyUsage).
 	ImplicitMetadataBodyRedefinition
+	// ImplicitTypeArgumentTyping reflects the FeatureTyping to the type Member an expression names: of a
+	// test's type-argument parameter Owner (SysML.xtext TypeReferenceMember), or a cast or extent's result.
+	ImplicitTypeArgumentTyping
+	// ImplicitParameterRedefinition reflects the Redefinition a named argument's feature Owner has to
+	// the Member it names: a feature of the instantiated type or a parameter of what is invoked.
+	ImplicitParameterRedefinition
 	// ImplicitSuccessionEndReference reflects the ReferenceSubsetting the target end Owner of a
 	// `then x;` succession holds to the Member it reaches, as the conversion mints it (end1's `rs`).
 	ImplicitSuccessionEndReference
+	// ImplicitShorthandReference reflects the ReferenceSubsetting a feature Owner stated by name alone
+	// (`require r;`, `assume r;`, `variant x;`) holds to the Member it names (SysML.xtext OwnedReference).
+	ImplicitShorthandReference
 )
 
 // ImplicitRelationship is a relationship the abstract syntax holds as an
@@ -74,4 +83,10 @@ func (s *Symbol) ImplicitOrdinal() int {
 // or import.
 func (s *Symbol) ImplicitWrittenRelationship() bool {
 	return s != nil && s.Implicit != nil && s.Implicit.Form == ImplicitWritten
+}
+
+// ImplicitShorthandChain reports whether sym reflects the reference subsetting a feature stated as a
+// feature chain alone (`require h.r1;`), whose target is the chain.
+func (s *Symbol) ImplicitShorthandChain() bool {
+	return s != nil && s.Implicit != nil && s.Implicit.Form == ImplicitShorthandReference && s.Implicit.Node != nil
 }

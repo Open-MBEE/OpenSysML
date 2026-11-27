@@ -299,24 +299,32 @@ branch that moves the integration state onto `main`:
    that `npm install` then rewrites — so run that on the `hotfix/pin-vx.y.z`
    branch (and in `packaging/npm/sysml-mcp`, whose lockfile pins the runner's
    platform packages the same way) once the packages answer on npm, and
-   commit both lockfiles. The `develop` one is cut from a tree that still
-   declares the previous version, so there is nothing to lock there. Then merge
+   commit both lockfiles. The `develop` one needs the same commit whenever
+   `develop` already declares the released version — it does when the version
+   bump was merged there before the release branch was cut — because its
+   `VS Code extension` job then fails on the same rewritten lockfile; while
+   `develop` still declares the previous version there is nothing to lock
+   there. Then merge
    `main` back into `develop` — a plain merge, no rebase — so the folded
    changelog, the pin and the lockfiles, and any hotfix that landed on `main`
    in the meantime, flow down.
    When the release was a `hotfix/` branch, `develop`'s lockfile still locks
    the platform packages of the previous release: run the same
    `npm install --package-lock-only` on the back-merge branch so they lock the
-   release's:
+   release's. `develop` takes no direct push — its ruleset requires a pull
+   request and the merge queue — so the merge is made on a branch and opened
+   as a pull request against `develop`; the queue merges with a merge commit,
+   which keeps `main` an ancestor of `develop`:
 
    ```bash
-   git checkout develop && git pull
-   git merge main
+   git fetch origin
+   git checkout -b chore/back-merge-main-x.y.z origin/develop
+   git merge origin/main
    git rm -q docs/project/spec-compliance.md   # the release's combined page; develop builds it
    (cd client/node && npm install --package-lock-only --ignore-scripts)   # after a hotfix
    (cd packaging/npm/sysml-mcp && npm install --package-lock-only --ignore-scripts)
    git commit -am "chore(docs): drop the released compliance page from develop"
-   git push origin develop
+   git push -u origin chore/back-merge-main-x.y.z   # then open the pull request against develop
    ```
 
 A `hotfix/` branch follows the same path from `main`: cut from `main`, pull
@@ -1050,11 +1058,13 @@ exercise the SignPath round trip, which creates a real signing request an
 Approver has to approve or deny.
 
 **Every release needs an approval.** On a `v*` tag the workflow first waits
-(up to 90 minutes) for `publish-github-release` to put `SHA256SUMS.txt.bundle`
-on the release and checks that the tag still resolves to the commit it built —
-CircleCI publishes only after the suite and `build-release` passed on the tag,
-so a tag CircleCI rejected is never signed. It then submits the artifact and
-waits (up to about four hours) for the request to complete.
+(up to three hours, `RELEASE_GATE_TIMEOUT`) for `publish-github-release` to put
+`SHA256SUMS.txt.bundle` on the release and checks that the tag still resolves to
+the commit it built — CircleCI publishes only after the suite and `build-release`
+passed on the tag, so a tag CircleCI rejected is never signed. It then submits
+the artifact and waits (up to about four hours) for the request to complete; the
+two waits share the job's six-hour limit, so a release published later than two
+hours after the tag leaves the Approver correspondingly less time.
 An Approver — a member of the Approvers team listed in the README, with MFA on
 their SignPath account — opens the request in SignPath, checks that it points at
 the expected commit and workflow run, and approves it. The job then downloads
@@ -2330,7 +2340,7 @@ and refuses a version the registry already holds, like PyPI, npm and Central.
 what proves the manifest carries the metadata crates.io requires and that the
 packaged file list builds on its own, outside this workspace. The manifest
 declares `license`, `description`, `repository`, `homepage`, `documentation`,
-`keywords`, `categories` and `rust-version = "1.83"`, so a published crate
+`keywords`, `categories` and `rust-version = "1.85"`, so a published crate
 documents its own minimum supported Rust version. `opensysml-conformance` is a
 workspace member and a runner, not a library, and is **not** published: it
 reads `conformance/scenarios` from this repository.

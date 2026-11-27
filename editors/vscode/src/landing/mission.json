@@ -454,7 +454,7 @@
           "featureName": "acceptSubactions",
           "values": [
             {
-              "instanceId": "3"
+              "instanceId": "5"
             }
           ],
           "materialized": true
@@ -462,18 +462,41 @@
         "ascent": {
           "featureName": "ascent",
           "value": {
-            "instanceId": "4"
+            "instanceId": "6"
           },
           "materialized": true
         },
         "assignments": {
           "featureName": "assignments",
+          "values": [
+            {
+              "instanceId": "3"
+            },
+            {
+              "instanceId": "4"
+            },
+            {
+              "instanceId": "7"
+            },
+            {
+              "instanceId": "8"
+            },
+            {
+              "instanceId": "6"
+            },
+            {
+              "instanceId": "9"
+            },
+            {
+              "instanceId": "10"
+            }
+          ],
           "materialized": true
         },
         "awaitGo": {
           "featureName": "awaitGo",
           "value": {
-            "instanceId": "3"
+            "instanceId": "5"
           },
           "materialized": true
         },
@@ -519,7 +542,7 @@
         "descent": {
           "featureName": "descent",
           "value": {
-            "instanceId": "5"
+            "instanceId": "7"
           },
           "materialized": true
         },
@@ -558,7 +581,7 @@
         "lunarOrbitInsertion": {
           "featureName": "lunarOrbitInsertion",
           "value": {
-            "instanceId": "6"
+            "instanceId": "4"
           },
           "materialized": true
         },
@@ -607,14 +630,14 @@
         "splashdown": {
           "featureName": "splashdown",
           "value": {
-            "instanceId": "7"
+            "instanceId": "10"
           },
           "materialized": true
         },
         "start": {
           "featureName": "start",
           "value": {
-            "instanceId": "8"
+            "instanceId": "11"
           },
           "materialized": true
         },
@@ -622,28 +645,28 @@
           "featureName": "subactions",
           "values": [
             {
-              "instanceId": "9"
-            },
-            {
-              "instanceId": "6"
-            },
-            {
               "instanceId": "5"
             },
             {
-              "instanceId": "10"
+              "instanceId": "3"
             },
             {
               "instanceId": "4"
             },
             {
-              "instanceId": "11"
-            },
-            {
               "instanceId": "7"
             },
             {
-              "instanceId": "3"
+              "instanceId": "8"
+            },
+            {
+              "instanceId": "6"
+            },
+            {
+              "instanceId": "9"
+            },
+            {
+              "instanceId": "10"
             }
           ],
           "materialized": true
@@ -651,7 +674,7 @@
         "surfaceOperations": {
           "featureName": "surfaceOperations",
           "value": {
-            "instanceId": "10"
+            "instanceId": "8"
           },
           "materialized": true
         },
@@ -662,7 +685,7 @@
         "transEarthInjection": {
           "featureName": "transEarthInjection",
           "value": {
-            "instanceId": "11"
+            "instanceId": "9"
           },
           "materialized": true
         },
@@ -673,7 +696,7 @@
         "translunarInjection": {
           "featureName": "translunarInjection",
           "value": {
-            "instanceId": "9"
+            "instanceId": "3"
           },
           "materialized": true
         },
@@ -690,7 +713,7 @@
       }
     },
     {
-      "id": "4",
+      "id": "6",
       "typeSymbolId": "MissionSequence::LunarMission::ascent",
       "featureValues": {
         "acceptSubactions": {
@@ -766,7 +789,7 @@
       }
     },
     {
-      "id": "3",
+      "id": "5",
       "typeSymbolId": "MissionSequence::LunarMission::awaitGo",
       "featureValues": {
         "aState": {
@@ -974,7 +997,7 @@
         }
       },
       "reachedBy": {
-        "instanceId": "3",
+        "instanceId": "5",
         "featureName": "aState",
         "featureSymbolId": "Actions::AcceptAction::aState",
         "path": "mission.awaitGo.aState"
@@ -1209,7 +1232,7 @@
       }
     },
     {
-      "id": "5",
+      "id": "7",
       "typeSymbolId": "MissionSequence::LunarMission::descent",
       "featureValues": {
         "acceptSubactions": {
@@ -1285,7 +1308,7 @@
       }
     },
     {
-      "id": "6",
+      "id": "4",
       "typeSymbolId": "MissionSequence::LunarMission::lunarOrbitInsertion",
       "featureValues": {
         "acceptSubactions": {
@@ -1361,7 +1384,7 @@
       }
     },
     {
-      "id": "7",
+      "id": "10",
       "typeSymbolId": "MissionSequence::LunarMission::splashdown",
       "featureValues": {
         "acceptSubactions": {
@@ -1437,7 +1460,7 @@
       }
     },
     {
-      "id": "10",
+      "id": "8",
       "typeSymbolId": "MissionSequence::LunarMission::surfaceOperations",
       "featureValues": {
         "acceptSubactions": {
@@ -1513,7 +1536,7 @@
       }
     },
     {
-      "id": "11",
+      "id": "9",
       "typeSymbolId": "MissionSequence::LunarMission::transEarthInjection",
       "featureValues": {
         "acceptSubactions": {
@@ -1589,7 +1612,7 @@
       }
     },
     {
-      "id": "9",
+      "id": "3",
       "typeSymbolId": "MissionSequence::LunarMission::translunarInjection",
       "featureValues": {
         "acceptSubactions": {

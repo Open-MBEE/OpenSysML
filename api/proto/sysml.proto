@@ -1039,6 +1039,9 @@ message GetSymbolRequest {
   // What symbol_id is, stated rather than guessed; read with the "symbol_lookup_kind"
   // capability, and resolve_name is then ignored.
   LookupKind lookup = 5;
+  // Id of the type the symbol is read as a feature of: metadata["direction"] is then relative to
+  // it (KerML Type::directionOf), reversed by a conjugation; capability "symbol_member_direction".
+  string member_of = 6;
 }
 
 // LookupKind states what the one string naming an element is, as the SysML v2 API keeps
@@ -1082,8 +1085,20 @@ message GetElementPropertiesResponse {
   ElementRef element = 1;
   repeated ElementProperty properties = 2;
   // Why there is no answer: the model or the element was not found, or the
-  // model has no element form (a document the parser could not read whole).
+  // element belongs to an excluded document.
   string error = 3;
+  // The documents the model is read without, each with why; empty when the whole model is read.
+  // Any other element is answered and may name one of theirs; asking for theirs answers its document's error.
+  repeated ExcludedDocument excluded_documents = 4;
+}
+
+// ExcludedDocument is a document GetElementProperties leaves out of a model: one the parser could not
+// read whole, one the element form cannot write, or one declaring an element an earlier document declares.
+message ExcludedDocument {
+  // The document's name as the parse request gave it.
+  string document = 1;
+  // Why it is left out, as Convert would refuse the model for it.
+  string error = 2;
 }
 
 // ElementRef identifies an element the element form knows: an element of
@@ -2268,7 +2283,136 @@ message Value {
     // server answers one a double holds exactly as real_value; a client sends
     // any exact Rational here, and an inbound real_value is always a Real.
     Rational rational_value = 23;
+    // A coordinate frame or measurement scale held as a value: its axes and the
+    // placement relating it to another frame. Sent, never accepted.
+    CoordinateFrame coordinate_frame = 24;
+    // A placement of one frame in another, with the frames it relates. Sent,
+    // never accepted.
+    CoordinateTransformation coordinate_transformation = 25;
   }
+}
+
+// CoordinateFrame is a MeasurementReferences::VectorMeasurementReference held
+// as a value: a coordinate frame's axes, or the one axis a measurement scale
+// is. Two frames read from objects are the same exactly when instance_id is; a
+// frame composed by arithmetic (`spatialCF / s`) is its content.
+message CoordinateFrame {
+  // The frame as a reader writes it: "datum", or "spatialCF / s" for one composed.
+  string name = 1;
+  // The id a client keeps for the usage declaring the frame ("Frames::datum");
+  // empty for a frame composed by arithmetic or made of a definition.
+  string frame_id = 2;
+  // FQN of the type the frame is a value of
+  // ("MeasurementReferences::CartesianSpatial3dCoordinateFrame"); empty for none.
+  string type_id = 3;
+  // The object the frame was read from; 0 for a frame composed by arithmetic.
+  int64 instance_id = 4;
+  // `dimensions`: [3] for a three-dimensional frame, empty for a scale.
+  repeated int64 dimensions = 5;
+  // `mRefs` in row-major order under dimensions: one unit per axis.
+  repeated MeasurementRef axes = 6;
+  // `transformation`: the placement of this frame in another; unset when the
+  // model states none. Its target is this frame and is not repeated.
+  CoordinateTransformation transformation = 7;
+  // Set exactly when the frame is a MeasurementReferences::MeasurementScale.
+  MeasurementScale scale = 8;
+}
+
+// MeasurementScale is what a scale states beyond its one axis.
+message MeasurementScale {
+  // The unit a magnitude on the scale is expressed in.
+  MeasurementRef unit = 1;
+  // `quantityValueMapping`: one point given on the scale and on the reference
+  // the scale is defined against; unset when the model states none.
+  QuantityValueMapping mapping = 2;
+}
+
+// QuantityValueMapping is one point on a scale and the same point on the
+// measurement reference the scale is defined against.
+message QuantityValueMapping {
+  Quantity mapped = 1;     // the point on the scale, in the scale's unit
+  Quantity reference = 2;  // the same point on the reference
+}
+
+// CoordinateTransformation is a MeasurementReferences::CoordinateTransformation
+// held as a value: the placement of the target frame in the source frame, in
+// the library shape the model states it in. A transformation of no library
+// shape carries its frames alone.
+message CoordinateTransformation {
+  // The transformation as a reader names it: its declared name, else its type.
+  string name = 1;
+  // The id a client keeps for the usage declaring it; empty for one constructed.
+  string transformation_id = 2;
+  // FQN of the type it is a value of
+  // ("MeasurementReferences::TranslationRotationSequence"); empty for none.
+  string type_id = 3;
+  // The object the transformation was read from; 0 for none.
+  int64 instance_id = 4;
+  // `source`; unset when the model states none.
+  CoordinateFrame source = 5;
+  // `target`; unset inside the CoordinateFrame whose transformation this is.
+  // A target whose own transformation is this one does not repeat it.
+  CoordinateFrame target = 6;
+  oneof shape {
+    FramePlacement placement = 7;           // a CoordinateFramePlacement
+    TranslationRotationSequence sequence = 8;
+    AffineTransformation3d affine = 9;      // an AffineTransformationMatrix3d
+  }
+  // The pose the shape resolves to, as VectorCalculations::transform applies
+  // it. Unset when the model states no source, or the shape resolves to none.
+  FramePose pose = 10;
+}
+
+// FramePose is where a transformation's target frame sits in its source frame,
+// as bare numbers in the source's axis units: the point with target
+// coordinates v lies at `origin + basis · v` in the source.
+message FramePose {
+  repeated double origin = 1;  // one per source axis
+  // n×n over the source's n axes, row-major: column j is the direction of
+  // target axis j in the source.
+  repeated double basis = 2;
+}
+
+// FramePlacement is a MeasurementReferences::CoordinateFramePlacement.
+message FramePlacement {
+  // The target's origin in the source frame: a vector_quantity, or a quantity
+  // for a one-dimensional frame.
+  Value origin = 1;
+  // The target's basis directions in the source frame, one vector_quantity per
+  // target axis; empty for the source's own orientation.
+  repeated Value basis_directions = 2;
+}
+
+// TranslationRotationSequence is the `elements` of a
+// MeasurementReferences::TranslationRotationSequence, in the order applied.
+message TranslationRotationSequence {
+  repeated FrameStep steps = 1;
+}
+
+// FrameStep is one Translation or Rotation of a TranslationRotationSequence.
+message FrameStep {
+  oneof step {
+    Value translation = 1;       // `translationVector`, a vector_quantity
+    FrameRotation rotation = 2;
+  }
+  // The Translation or Rotation object the step was read from.
+  int64 instance_id = 3;
+}
+
+// FrameRotation is a MeasurementReferences::Rotation.
+message FrameRotation {
+  Value axis_direction = 1;  // `axisDirection`, a vector_quantity
+  Quantity angle = 2;        // `angle`, an angular measure in the unit written
+  // `isIntrinsic`: about the axes as already rotated (true, the library's
+  // default) or about the source frame's fixed axes (false).
+  bool is_intrinsic = 3;
+}
+
+// AffineTransformation3d is a MeasurementReferences::AffineTransformationMatrix3d
+// as bare numbers.
+message AffineTransformation3d {
+  repeated double rotation = 1;     // `rotationMatrix`: 9, row-major
+  repeated double translation = 2;  // `translationVector`: 3
 }
 
 // Rational is an exact rational number in lowest terms: numerator over a
@@ -2593,6 +2737,8 @@ message ServerInfoResponse {
   //                  and the response carries the document in `asciidoc`.
   //   "render_view" - the RenderView RPC renders a declared view or targeted
   //                  pseudo-view as machine-readable diagram data.
+  //   "query_result_view" - as_view writes a query's answer as a QVTS::QueryResult view: result_view on success, a
+  //                  QueryResultView detail on failure; RenderView answers such a view's header and, for form, a document.
   //   "export_graphs" - the ExportGraphs RPC exports the lowered graph of an
   //                  action or state machine as canonical graphs:1 JSON.
   //   "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
@@ -2639,6 +2785,9 @@ message QueryRequest {
   Query query = 2;
   // OSLC Query 3.0 parameter text, mutually exclusive with query.
   string oslc_query = 3;
+  // Also write the answer as a QVTS::QueryResult view, in result_view or a failure's
+  // QueryResultView detail. Under the "query_result_view" capability.
+  bool as_view = 4;
 }
 
 // QueryResponse contains the elements the query selected, in the order they are
@@ -2647,6 +2796,9 @@ message QueryRequest {
 // rather than answering empty.
 message QueryResponse {
   repeated QueryResultElement elements = 1;
+  // The answer as SysML text when the request set as_view, as RunDocumentQueryResponse.result_view;
+  // its query is the OSLC text, or the API query written as `scope=…; select=…; where=…; orderBy=…`.
+  string result_view = 2;
 }
 
 // Query is the standard's Query resource (SysML v2 API & Services). Its `@type`
@@ -3073,6 +3225,9 @@ message RunDocumentQueryRequest {
   // <line>:<column>`); a path or model error carries a QueryOutcome detail as a
   // named query's does. Reported as the "inline_document_query" capability.
   string inline_query = 4;
+  // Also write the answer as a QVTS::QueryResult view, in result_view or a failure's
+  // QueryResultView detail. Under the "query_result_view" capability.
+  bool as_view = 5;
 }
 
 // DocumentQueryBinding binds one entry parameter of a document query.
@@ -3257,6 +3412,15 @@ message DocumentQueryRow {
 message RunDocumentQueryResponse {
   repeated DocumentQueryColumn columns = 1;
   repeated DocumentQueryRow rows = 2;
+  // The answer as SysML text when the request set as_view: a package holding one `view : QVTS::QueryResult`
+  // that exposes each selected element and states the query, its bindings, the source, the outcome and the provenance.
+  string result_view = 3;
+}
+
+// QueryResultView is a failed query written as a QVTS::QueryResult view, an error
+// detail beside QueryOutcome when the request set as_view: it exposes the frontier and finding elements.
+message QueryResultView {
+  string text = 1;
 }
 
 // QueryOutcome is the record behind a document query that could not be run, an error
@@ -3368,8 +3532,8 @@ message RenderViewRequest {
   // owned usage no Layout, nested definition or package keeps a node) or
   // "ports" (the port usages with the ports nested under them).
   string compartments = 6;
-  // Form to also write into RenderViewResponse.text: "text", "mermaid", "markdown", "dot", "plantuml", "d2",
-  // "drawio", "csv" or "tsv"; an unknown or wrong-kind form is INVALID_ARGUMENT. Needs render_view_form.
+  // Form to also write into RenderViewResponse.text: "text", "mermaid", "markdown", "dot", "plantuml", "d2", "drawio", "csv" or "tsv", and for a
+  // QVTS::QueryResult view "markdown", "html" or "asciidoc", a document of its header and rows; a wrong-kind form is INVALID_ARGUMENT. Needs render_view_form.
   string form = 7;
   // Palette the dot, mermaid, plantuml, d2 or drawio form fills nodes from,
   // as -render-palette names them; empty draws in black and white.
@@ -3413,6 +3577,15 @@ message RenderViewResponse {
   // The rendering written in RenderViewRequest.form, byte for byte what the CLI's
   // -render writes at no particular width; empty when the request names no form.
   string text = 13;
+  // A QVTS::QueryResult view's query, source, outcome and provenance, in that
+  // order, above its rows; empty for any other view.
+  repeated RenderHeaderField header = 14;
+}
+
+// RenderHeaderField is one stated attribute of a QVTS::QueryResult view.
+message RenderHeaderField {
+  string name = 1;
+  string value = 2;
 }
 
 // RenderFrame is the view frame of SysML v2 §8.2.3.26: the name compartment's

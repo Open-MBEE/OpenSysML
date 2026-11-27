@@ -3,9 +3,13 @@ package opensysml
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
@@ -19,6 +23,32 @@ type dialOptions struct {
 	httpClient *http.Client
 	json       bool
 	token      string
+	clearToken bool
+	// maxResponse is the response bound WithMaxResponseBytes named; 0 is the default.
+	maxResponse int
+	// timeout is the call bound WithCallTimeout named; timeoutSet tells zero from unset.
+	timeout    time.Duration
+	timeoutSet bool
+}
+
+// DefaultCallTimeout bounds one call whose context carries no deadline, unless
+// WithCallTimeout names another bound.
+const DefaultCallTimeout = 10 * time.Minute
+
+// WithCallTimeout bounds each call whose context carries no deadline of its own; one that
+// runs longer fails with CodeDeadlineExceeded. Zero or less leaves such calls unbounded.
+func WithCallTimeout(d time.Duration) DialOption {
+	return func(o *dialOptions) { o.timeout, o.timeoutSet = d, true }
+}
+
+// DefaultMaxResponseBytes bounds one response message unless WithMaxResponseBytes
+// names another bound.
+const DefaultMaxResponseBytes = 128 << 20
+
+// WithMaxResponseBytes bounds one response message; a larger one fails the call with
+// CodeResourceExhausted instead of being buffered. A bound of zero or less is ignored.
+func WithMaxResponseBytes(n int) DialOption {
+	return func(o *dialOptions) { o.maxResponse = n }
 }
 
 // TokenEnv is the environment variable Dial reads a bearer token from when
@@ -32,8 +62,14 @@ func WithToken(token string) DialOption {
 	return func(o *dialOptions) { o.token = token }
 }
 
+// WithInsecureTokenTransport sends the bearer token over plain http to an address other
+// machines reach, which Dial otherwise refuses: for a proxy or tunnel that encrypts it.
+func WithInsecureTokenTransport() DialOption {
+	return func(o *dialOptions) { o.clearToken = true }
+}
+
 // WithHTTPClient names the HTTP client the connection uses, for callers with
-// their own transport, TLS or timeout policy. The default is
+// their own transport, TLS or connection timeouts. The default is
 // http.DefaultClient.
 func WithHTTPClient(httpClient *http.Client) DialOption {
 	return func(o *dialOptions) { o.httpClient = httpClient }
@@ -54,6 +90,10 @@ func WithJSONBody() DialOption {
 // scheme is dialed as http. Requests cross as Connect protobuf unless
 // WithJSONBody says otherwise. Closing leaves the service running: it was not
 // this package's to stop.
+// A call whose context carries no deadline is given DefaultCallTimeout, or the bound
+// WithCallTimeout names, so a service that stops answering fails the call.
+// With a token set, an http address other machines reach is refused with
+// CodeInvalidArgument unless WithInsecureTokenTransport accepts it.
 func Dial(address string, opts ...DialOption) (Client, error) {
 	if strings.TrimSpace(address) == "" {
 		return nil, errors.New("opensysml: Dial needs an address")
@@ -68,7 +108,19 @@ func Dial(address string, opts ...DialOption) (Client, error) {
 	if !strings.Contains(address, "://") {
 		address = "http://" + address
 	}
-	var connectOpts []connect.ClientOption
+	if config.maxResponse <= 0 {
+		config.maxResponse = DefaultMaxResponseBytes
+	}
+	if !config.timeoutSet {
+		config.timeout = DefaultCallTimeout
+	}
+	connectOpts := []connect.ClientOption{
+		connect.WithReadMaxBytes(config.maxResponse),
+		connect.WithInterceptors(knownValues{}),
+	}
+	if config.timeout > 0 {
+		connectOpts = append(connectOpts, connect.WithInterceptors(callTimeout(config.timeout)))
+	}
 	if config.json {
 		connectOpts = append(connectOpts, connect.WithProtoJSON())
 	}
@@ -76,11 +128,51 @@ func Dial(address string, opts ...DialOption) (Client, error) {
 		config.token = os.Getenv(TokenEnv)
 	}
 	if config.token != "" {
+		if err := tokenTransport(address, config.clearToken); err != nil {
+			return nil, err
+		}
 		connectOpts = append(connectOpts, connect.WithInterceptors(bearer(config.token)))
 	}
 	return &client{caller: &remote{
 		rpc: protoconnect.NewSysMLServiceClient(config.httpClient, address, connectOpts...),
 	}}, nil
+}
+
+// callTimeout gives a unary call whose context has no deadline one of this length.
+func callTimeout(d time.Duration) connect.UnaryInterceptorFunc {
+	return func(next connect.UnaryFunc) connect.UnaryFunc {
+		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
+			if _, bounded := ctx.Deadline(); bounded {
+				return next(ctx, req)
+			}
+			ctx, cancel := context.WithTimeout(ctx, d)
+			defer cancel()
+			return next(ctx, req)
+		}
+	}
+}
+
+// tokenTransport refuses an address a bearer token would cross in clear: one
+// that is not https and names a host other than this machine.
+func tokenTransport(address string, allowClear bool) error {
+	u, err := url.Parse(address)
+	if err != nil {
+		return &StatusError{Code: CodeInvalidArgument, Message: fmt.Sprintf("opensysml: the address %q is not a URL: %v", address, err)}
+	}
+	if strings.EqualFold(u.Scheme, "https") || allowClear || loopbackHost(u.Hostname()) {
+		return nil
+	}
+	return &StatusError{Code: CodeInvalidArgument, Message: fmt.Sprintf(
+		"opensysml: the bearer token would cross %s in clear: dial an https address, or pass WithInsecureTokenTransport when a proxy or tunnel encrypts the connection", address)}
+}
+
+// loopbackHost reports whether a host name or address is this machine's.
+func loopbackHost(host string) bool {
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 // bearer carries the token on every request a connection sends.
@@ -259,6 +351,14 @@ func (r *remote) runAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (*
 	return resp.Msg, nil
 }
 
+func (r *remote) runSweep(ctx context.Context, req *pb.RunSweepRequest) (*pb.RunSweepResponse, error) {
+	resp, err := r.rpc.RunSweep(ctx, connect.NewRequest(req))
+	if err != nil {
+		return nil, connectToError(err)
+	}
+	return resp.Msg, nil
+}
+
 func (r *remote) runRuns(ctx context.Context, req *pb.RunRunsRequest) (*pb.RunRunsResponse, error) {
 	resp, err := r.rpc.RunRuns(ctx, connect.NewRequest(req))
 	if err != nil {
@@ -376,7 +476,7 @@ func (r *remote) close() error {
 func connectToError(err error) error {
 	var connectErr *connect.Error
 	if errors.As(err, &connectErr) {
-		return &StatusError{Code: Code(connectErr.Code()), Message: connectErr.Message()}
+		return &StatusError{Code: Code(connectErr.Code()), Message: connectErr.Message(), ResultView: resultViewOf(connectErr)}
 	}
 	return &StatusError{Code: CodeUnavailable, Message: err.Error()}
 }

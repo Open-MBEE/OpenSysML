@@ -266,6 +266,7 @@ func Compare(recorded, current Record) []Mismatch {
 	add("errataRegistry", recorded.Errata, current.Errata, CauseOurs)
 	add("pilotJava", recorded.PilotJava, current.PilotJava, CauseJVM)
 
+	const notRecorded = "not recorded"
 	recordedTools := make(map[string]Tool, len(recorded.Tools))
 	for _, tool := range recorded.Tools {
 		recordedTools[tool.Name] = tool
@@ -273,12 +274,18 @@ func Compare(recorded, current Record) []Mismatch {
 	for _, tool := range current.Tools {
 		was, ok := recordedTools[tool.Name]
 		if !ok {
-			out = append(out, Mismatch{Field: toolField(tool.Name, ""), Recorded: "not recorded", Current: "present", Cause: CauseOurs})
+			out = append(out, Mismatch{Field: toolField(tool.Name, ""), Recorded: notRecorded, Current: "present", Cause: CauseOurs})
 			continue
 		}
 		add(toolField(tool.Name, ".source"), was.Source, tool.Source, CauseOurs)
 		add(toolField(tool.Name, ".sourceDigest"), was.SourceDigest, tool.SourceDigest, CauseOurs)
 		add(toolField(tool.Name, ".release"), was.Release, tool.Release, CausePin)
+		delete(recordedTools, tool.Name)
+	}
+	for _, tool := range recorded.Tools {
+		if _, removed := recordedTools[tool.Name]; removed {
+			out = append(out, Mismatch{Field: toolField(tool.Name, ""), Recorded: "present", Current: notRecorded, Cause: CauseOurs})
+		}
 	}
 
 	recordedInputs := make(map[string]Input, len(recorded.Inputs))
@@ -292,13 +299,20 @@ func Compare(recorded, current Record) []Mismatch {
 		}
 		was, ok := recordedInputs[input.Name]
 		if !ok {
-			out = append(out, Mismatch{Field: inputField(input.Name, ""), Recorded: "not recorded", Current: input.Dir, Cause: cause})
+			out = append(out, Mismatch{Field: inputField(input.Name, ""), Recorded: notRecorded, Current: input.Dir, Cause: cause})
 			continue
 		}
 		add(inputField(input.Name, ".dir"), was.Dir, input.Dir, cause)
 		add(inputField(input.Name, ".origin"), was.Origin, input.Origin, cause)
 		add(inputField(input.Name, ".files"), fmt.Sprint(was.Files), fmt.Sprint(input.Files), cause)
 		add(inputField(input.Name, ".digest"), was.Digest, input.Digest, cause)
+		delete(recordedInputs, input.Name)
+	}
+	// A pinned input may be absent because it is not downloaded; one of ours cannot be.
+	for _, input := range recorded.Inputs {
+		if _, removed := recordedInputs[input.Name]; removed && input.Origin != OriginPinned {
+			out = append(out, Mismatch{Field: inputField(input.Name, ""), Recorded: input.Dir, Current: notRecorded, Cause: CauseOurs})
+		}
 	}
 	return out
 }

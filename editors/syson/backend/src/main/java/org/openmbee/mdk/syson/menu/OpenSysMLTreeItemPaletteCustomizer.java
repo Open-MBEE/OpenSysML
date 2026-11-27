@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 @Order(Ordered.LOWEST_PRECEDENCE) // Runs after SysON's provider, which replaces the palette.
 public class OpenSysMLTreeItemPaletteCustomizer implements ITreeItemPaletteCustomizer {
     public static final String TOOL_ID = "runWithOpenSysML";
+    public static final String PUBLISH_TOOL_ID = "publishWithOpenSysML";
     private final IObjectSearchService objectSearchService;
 
     public OpenSysMLTreeItemPaletteCustomizer(IObjectSearchService objectSearchService) {
@@ -41,10 +42,15 @@ public class OpenSysMLTreeItemPaletteCustomizer implements ITreeItemPaletteCusto
     public Palette customize(IEditingContext context, TreeDescription description, Tree tree, TreeItem item,
             Palette palette) {
         List<IPaletteEntry> entries = new ArrayList<>(palette.paletteEntries());
-        if (entries.stream().noneMatch(entry -> TOOL_ID.equals(entry.id()))) {
-            entries.add(new SingleClickTreeItemTool(TOOL_ID, "Run with OpenSysML…", List.of(), false, List.of()));
-        }
+        add(entries, TOOL_ID, "Run with OpenSysML…");
+        add(entries, PUBLISH_TOOL_ID, "Publish to SysML v2 API…");
         return Palette.newPalette(palette.id()).quickAccessTools(palette.quickAccessTools()).paletteEntries(entries)
                 .build();
+    }
+
+    private static void add(List<IPaletteEntry> entries, String id, String label) {
+        if (entries.stream().noneMatch(entry -> id.equals(entry.id()))) {
+            entries.add(new SingleClickTreeItemTool(id, label, List.of(), false, List.of()));
+        }
     }
 }

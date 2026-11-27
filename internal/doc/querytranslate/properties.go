@@ -14,6 +14,8 @@ import (
 // declares, spelled in the OpenSysML namespace by OSLC query text.
 var derivedProperties = []string{
 	query.PropertyID, query.PropertyType, query.PropertyMultiplicityLower, query.PropertyMultiplicityUpper,
+	query.PropertySymbolKind,
+	query.PropertyVerifyingCase,
 }
 
 // objectProjection is what a query over held objects reports when it selects
@@ -23,7 +25,7 @@ var objectProjection = []string{
 	query.PropertyShortName, query.PropertyDeclaredShortName, query.PropertyDocumentation,
 	query.PropertyTextualRepresentation, query.PropertyQualifiedName, query.PropertyOwner,
 	query.PropertyElementType, query.PropertyGeneral, query.PropertyIsAbstract, query.PropertyIsIndividual,
-	query.PropertyMultiplicityLower, query.PropertyMultiplicityUpper,
+	query.PropertyMultiplicityLower, query.PropertyMultiplicityUpper, query.PropertySymbolKind,
 }
 
 // textProperties are the universal properties whose values are text, which
@@ -70,10 +72,11 @@ func NewTable(index *symbols.Index, model *semantics.Model) *Table {
 	}
 	t.derived[query.PropertyMultiplicityLower] = kindNumber
 	t.derived[query.PropertyMultiplicityUpper] = kindNumber
+	t.derived[query.PropertyVerifyingCase] = kindElement
 	t.metamodel[query.PropertyIsAbstract] = kindBoolean
 	t.metamodel[query.PropertyIsIndividual] = kindBoolean
 	for _, name := range []string{query.PropertyOwner, query.PropertyElementType, query.PropertyGeneral,
-		query.PropertySatisfiedRequirement, query.PropertySatisfyingFeature} {
+		query.PropertySatisfiedRequirement, query.PropertySatisfyingFeature, query.PropertyVerifiedRequirement} {
 		t.metamodel[name] = kindElement
 	}
 	if index == nil || model == nil {
@@ -93,10 +96,7 @@ func (t *Table) classify(name string) valueKind {
 	delete(t.features, name)
 	kind, seen := kindUnknown, false
 	for _, member := range members {
-		declared := kindUnknown
-		for _, typ := range t.model.FeatureTypes(member) {
-			declared = t.kindOf(typ)
-		}
+		declared := t.declaredKind(member)
 		switch {
 		case !seen:
 			kind, seen = declared, true
@@ -107,6 +107,20 @@ func (t *Table) classify(name string) valueKind {
 	}
 	t.metamodel[name] = kind
 	return kind
+}
+
+// declaredKind is the kind every type of one declaration agrees on; a feature
+// whose types disagree is compared as the row's value is.
+func (t *Table) declaredKind(member *symbols.Symbol) valueKind {
+	declared := kindUnknown
+	for i, typ := range t.model.FeatureTypes(member) {
+		kind := t.kindOf(typ)
+		if i > 0 && kind != declared {
+			return kindUnknown
+		}
+		declared = kind
+	}
+	return declared
 }
 
 // kindOf is what values of a declared type are: numbers, booleans, text for

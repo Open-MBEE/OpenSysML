@@ -18,7 +18,7 @@ digraph "Ctx::v" {
       color=black;
       penwidth=0.5;
       bb="8,-214,302,-8";
-      "n0" [shape=point, style=invis, width=0, height=0, label="", pos="155,-111!", pin=true];
+      "n0" [shape=point, style=invis, width=0, height=0, label="", pos="145.5,-115!", pin=true];
       "n1" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>s</b>>, margin=0, pos="155.35999999999999,-92.5!", pin=true, width=1.76, height=0.5138888888888888, fixedsize=true];
       "n1.0" [shape=box, label="", xlabel="^p1", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="123.5,-117!", pin=true];
       "n1.1" [shape=box, label="", xlabel="^p2", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="155.5,-117!", pin=true];

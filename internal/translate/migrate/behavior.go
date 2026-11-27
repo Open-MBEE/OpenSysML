@@ -837,7 +837,7 @@ func realLiteral(v float64) string {
 // singleValue is the min of a duration interval whose max is a duration without
 // an expression in a MagicDraw document, which is how that tool stores and shows
 // a constraint written with one value, `{60s}`; ok is false for anything else.
-func (m *migration) singleValue(spec *sysmlv1.Element, lo string, lok bool, hok bool) (bound, note string, ok bool) {
+func (m *migration) singleValue(spec *sysmlv1.Element, lo string, lok, hok bool) (bound, note string, ok bool) {
 	if !lok || hok || !m.fromMagicDraw() {
 		return "", "", false
 	}
@@ -1050,7 +1050,7 @@ func (m *migration) opaqueBehaviorBody(e, scope *sysmlv1.Element) {
 func (m *migration) textualReps(e *sysmlv1.Element) {
 	for _, pair := range opaqueBodyPairs(e) {
 		if strings.TrimSpace(pair.body) != "" && pair.language != "" {
-			m.w.lines(prefixFirst("rep language "+source.StringText(pair.language)+" ", opaqueRepresentationCommentLines(pair.body)))
+			m.w.lines(prefixFirst("rep language "+source.StandardStringText(pair.language)+" ", opaqueRepresentationCommentLines(pair.body)))
 		}
 	}
 }
@@ -1290,7 +1290,7 @@ func (m *migration) receptionLoop(r *sysmlv1.Element, route *receptionRoute, fro
 // comment, since nothing could accept it.
 func (m *migration) receptionComment(r, sig *sysmlv1.Element) {
 	text := "reception " + describe(r)
-	note := ""
+	var note string
 	if sig == nil {
 		note = m.dangling(r, "signal")
 		if note == "" || len(m.model.Unresolved(r, "signal")) == 0 {

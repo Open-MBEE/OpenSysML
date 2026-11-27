@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/simresults"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/mtip"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
@@ -981,11 +982,11 @@ func (m *migration) libraryNameNotes() {
 	}
 	for _, r := range list {
 		if m.strict {
-			m.w.line("// " + writeName(r.fresh) + " is written for " + source.StringText(r.src) + ", a name of the standard library")
+			m.w.line(lineComment(writeName(r.fresh) + " is written for " + source.StandardStringText(r.src) + ", a name of the standard library"))
 			continue
 		}
 		m.w.line("metadata " + prefix + "MigrationMetadata::LibraryNameAvoided about " + writeName(r.fresh) +
-			" { sourceName = " + source.StringText(r.src) + "; }")
+			" { sourceName = " + source.StandardStringText(r.src) + "; }")
 	}
 }
 
@@ -2079,7 +2080,7 @@ func (m *migration) instanceSlot(e, slot, f *sysmlv1.Element, kw, prefix string)
 	if conflict := m.slotConflict(f, refs); conflict != "" {
 		return nil, conflict + valuesNote(refs), false
 	}
-	value := ""
+	var value string
 	switch len(refs) {
 	case 0:
 		return nil, "the slot holds no value", false
@@ -2126,10 +2127,7 @@ func (m *migration) effectiveTypes(f *sysmlv1.Element) []*sysmlv1.Element {
 
 // article is the indefinite article before a word: "an item", "a part".
 func article(word string) string {
-	if strings.ContainsRune("aeiou", rune(word[0])) {
-		return "an "
-	}
-	return "a "
+	return diag.IndefiniteArticle(word) + " "
 }
 
 // instanceOf reports whether an instance written to specialize the
@@ -4852,13 +4850,13 @@ func (m *migration) appliedStereotype(stereotype, profile string, tags []string)
 		prefix = "$::"
 	}
 	m.w.block("@"+prefix+appliedStereotypeFQN, func() {
-		m.w.line("stereotype = " + source.StringText(stereotype) + ";")
+		m.w.line("stereotype = " + source.StandardStringText(stereotype) + ";")
 		if profile != "" {
-			m.w.line("profile = " + source.StringText(profile) + ";")
+			m.w.line("profile = " + source.StandardStringText(profile) + ";")
 		}
 		literals := make([]string, len(tags))
 		for i, t := range tags {
-			literals[i] = source.StringText(t)
+			literals[i] = source.StandardStringText(t)
 		}
 		switch len(literals) {
 		case 0:

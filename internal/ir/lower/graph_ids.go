@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
@@ -135,9 +136,12 @@ func (g *ActionGraph) BlockNodesOf(id program.NodeID) []FlowNode {
 }
 
 // MachineID is the id of the machine state, which the state table leaves out: one
-// past the last numbered state.
+// past the last numbered state; 0 for nil and for a graph whose states are not numbered.
 func (g *StateGraph) MachineID() program.StateID {
-	return program.StateID(tableIndex(len(g.Origins)))
+	if g == nil {
+		return 0
+	}
+	return g.machineID
 }
 
 // StateIDOf is the id of a state of the graph, the machine state included; 0 for nil.
@@ -373,4 +377,24 @@ func (g *StateGraph) TerminateOwnerOf(ref program.VertexRef) program.StateID {
 		return 0
 	}
 	return g.StateIDOf(g.TerminateOwner[stop])
+}
+
+// PseudoIDs are the ids of the graph's pseudostates, in declaration order.
+func (g *StateGraph) PseudoIDs() []program.PseudoID {
+	if len(g.Pseudostates) == 0 {
+		return nil
+	}
+	ids := make([]program.PseudoID, len(g.Pseudostates))
+	for i, ps := range g.Pseudostates {
+		ids[i] = g.PseudoID[ps]
+	}
+	return ids
+}
+
+// CompositeIDs are the ids of the states owning regions, in declaration order.
+func (g *StateGraph) CompositeIDs() []program.StateID { return g.stateIDs(g.CompositeStateOrder) }
+
+// StateScope is the namespace the state owns, nil for none.
+func (g *StateGraph) StateScope(id program.StateID) *symbols.Scope {
+	return g.StateScopes[g.stateOf(id)]
 }

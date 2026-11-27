@@ -23,8 +23,8 @@ import (
 )
 
 // engineGzipBudget bounds the gzipped js sysml-engine the gate links (-trimpath, stripped, the library snapshot embedded, as every Makefile build target does):
-// 11,107,033 bytes under go1.27.4 on 2026-11-16 at develop f67172df95 merged with the symbol-structure census carries, up from 11,031,341 on 2026-11-13.
-const engineGzipBudget = 11200000
+// 11,196,231 bytes under go1.27.4 on 2026-11-17 at develop 508d0fab4a, up from 11,107,033 on 2026-11-16 at f67172df95 and 11,031,341 on 2026-11-13.
+const engineGzipBudget = 11300000
 
 func TestEngineDependencies(t *testing.T) {
 	const module = "github.com/Open-MBEE/OpenSysML"
@@ -361,7 +361,7 @@ func TestEngineWireParity(t *testing.T) {
 
 	// The equal cases: everything else the engine serves is byte-compatible in
 	// meaning, so both answers decode to the same JSON value.
-	equal := func(method string, params string, grpcOut []byte) {
+	equal := func(method, params string, grpcOut []byte) {
 		t.Helper()
 		engineOut := mustCall(t, eng, method, params)
 		var grpcJSON, engineJSON any
@@ -382,6 +382,7 @@ func TestEngineWireParity(t *testing.T) {
 		"gatedemo::total", "enginedemo::speed",
 		"9223372036854775807 + 1", "-9223372036854775808 - 1", "2 ** 70",
 		"2 ** 70 - 2 ** 70 + 1", "2 ** 70 [SI::m]",
+		"enginedemo::datum", "enginedemo::posed", "enginedemo::posed.transformation",
 	} {
 		params := fmt.Sprintf(`{"modelHash":%q,"expression":%s}`,
 			hash, mustJSON(t, expression))
@@ -392,6 +393,10 @@ func TestEngineWireParity(t *testing.T) {
 		equal("Evaluate", params, mustMarshal(t, res))
 		if expression == "enginedemo::speed" {
 			wantSpeedAnswer(t, mustMarshal(t, res))
+		}
+		if expression == "enginedemo::posed" && res.GetResult().GetCoordinateFrame().GetTransformation().GetPose() == nil {
+			// Equal answers would also match on two unsupported nulls.
+			t.Errorf("Evaluate %q = %v, want a frame carrying its pose", expression, res.GetResult())
 		}
 		if expression == "(1, 2, 3)" {
 			// Equal answers would also match on a shared parse error: the case

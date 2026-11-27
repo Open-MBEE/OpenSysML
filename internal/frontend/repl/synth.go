@@ -113,7 +113,8 @@ func synthesisReport(name string, q *solve.Query, solved analysis.Evaluation, un
 		lines = append(lines, unfixedLines(q, unfixed)...)
 		lines = append(lines, unreadLines(q)...)
 		lines = append(lines, "  One witness: a solver may answer with any of the assignments that satisfy it.")
-		return SolveReport{Subject: name, Status: SolveSat, Solver: result.Solver, Lines: lines}
+		return SolveReport{Subject: name, Status: SolveSat, Solver: result.Solver,
+			Values: solveValues(result.Model), Lines: lines}
 	case solve.StatusUnsat:
 		if report, rounded := roundedNoValuesReport(name, subject, result, q); rounded {
 			return report
@@ -557,6 +558,7 @@ func selectionReport(name string, q *solve.Query, result *solve.Result) SolveRep
 		lines := []string{fmt.Sprintf("✓ the chosen variants are consistent with %s (%s)", subject, solveDetail(result))}
 		lines = append(lines, fixedLines(q)...)
 		return SolveReport{Subject: name, Status: SolveSat, Solver: result.Solver,
+			Values: solveValues(result.Model), Selections: oneSelection(result.Model, q),
 			Lines: append(lines, synthesisedLines(q, result)...)}
 	case solve.StatusUnsat:
 		if q.Rounded() {
@@ -588,7 +590,8 @@ func configurationReport(name string, q *solve.Query, result *solve.Result) Solv
 		lines = append(lines, fixedLines(q)...)
 		lines = append(lines, selectionLines(selectionOf(result.Model, q.Variations()))...)
 		lines = append(lines, fmt.Sprintf("  One witness: use %%configure %s all for every consistent selection.", name))
-		return SolveReport{Subject: name, Status: SolveSat, Solver: result.Solver, Lines: lines}
+		return SolveReport{Subject: name, Status: SolveSat, Solver: result.Solver,
+			Values: solveValues(result.Model), Selections: oneSelection(result.Model, q), Lines: lines}
 	case solve.StatusUnsat:
 		if q.Rounded() {
 			return SolveReport{Subject: name, Status: SolveUnknown, Solver: result.Solver, Lines: []string{
@@ -645,11 +648,14 @@ func configurationsReport(name string, q *solve.Query, result *solve.Result) Sol
 	lines := []string{fmt.Sprintf("✓ %s permits %d %s of variants%s (%s)",
 		subject, len(result.Solutions), plural(len(result.Solutions), "selection", "selections"),
 		truncation(result), solveDetail(result))}
+	selections := make([][]SolveValue, 0, len(result.Solutions))
 	for i, solution := range result.Solutions {
 		lines = append(lines, fmt.Sprintf("  %d.", i+1))
 		lines = append(lines, indent(selectionLines(solution))...)
+		selections = append(selections, solveValues(solution))
 	}
-	return SolveReport{Subject: name, Status: SolveSat, Solver: result.Solver, Lines: lines}
+	return SolveReport{Subject: name, Status: SolveSat, Solver: result.Solver,
+		Selections: selections, Truncated: result.Truncated, Lines: lines}
 }
 
 // truncation says whether the selections reported are all there are, or as many
@@ -704,10 +710,10 @@ func (s *Session) doSolve(name string) ([]string, bool, error) {
 }
 
 // doConfigure carries out %configure.
-func (s *Session) doConfigure(name string, args []string) ([]string, bool, error) {
-	var out []string
-	for _, r := range s.configureVariants(name, args) {
-		out = append(out, r.Lines...)
+func (s *Session) doConfigure(args []string) ([]string, bool, error) {
+	args, asJSON := solveJSONFlag(args)
+	if len(args) == 0 {
+		return s.usage(configureUsage), false, nil
 	}
-	return out, false, nil
+	return solveOutput("configure", s.configureVariants(args[0], args[1:]), asJSON)
 }

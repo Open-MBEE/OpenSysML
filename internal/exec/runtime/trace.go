@@ -367,7 +367,7 @@ func (tr *TraceRecorder) recordAcceptAt(mark int, origin TraceOrigin, serial uin
 }
 
 // RecordStateTransition records a transition fired, with the trigger it fired on.
-func (tr *TraceRecorder) RecordStateTransition(origin TraceOrigin, fromState, toState string, event string) {
+func (tr *TraceRecorder) RecordStateTransition(origin TraceOrigin, fromState, toState, event string) {
 	tr.add(TraceRecord{Kind: TraceTransition, Origin: origin, From: fromState, To: toState, Event: event})
 }
 
@@ -630,9 +630,10 @@ func (tr *TraceRecorder) recordEntryStep(origin TraceOrigin, state, path, region
 	tr.add(TraceRecord{Kind: TraceDo, Origin: origin, State: state, Path: path, Region: region, Action: true})
 }
 
-// recordEvent records an event being processed.
-func (tr *TraceRecorder) recordEvent(event string, time float64) {
-	tr.line(fmt.Sprintf("event: %s (t=%.1f)", event, time))
+// recordCrossing records a zero crossing of a dynamics at the instant it was
+// located, in full: an instant inside a step is no round number.
+func (tr *TraceRecorder) recordCrossing(crossing, action string, time float64) {
+	tr.line(fmt.Sprintf("event: zero crossing %s of %s (t=%s)", crossing, action, semantics.FormatReal(time)))
 }
 
 // recordStateSpaceStep records the state a dynamics holds at an instant, with the
@@ -816,7 +817,7 @@ func formatConst(c semantics.Value) string {
 	case semantics.ValBool:
 		return strconv.FormatBool(c.Bool)
 	case semantics.ValInfinity:
-		return "*"
+		return semantics.FormatConst(c)
 	default:
 		return "invalid"
 	}

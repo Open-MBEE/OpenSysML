@@ -24,6 +24,14 @@ type apiJSONCompletedProperty struct {
 	clause string
 	// defaultValue completes a non-derived attribute at its metamodel default when set.
 	defaultValue any
+	// declaring is the class declaring the property, where class narrows the metaclasses the entry applies to.
+	declaring string
+	// overStated marks a property the graph states with the mapping's own, narrower
+	// meaning: the element form writes the derived value and keeps the stated one as a mapping value.
+	overStated bool
+	// redefinedBy names the property listed above that redefines this one under another name:
+	// the element form writes this one with that one's value, null where the form omits it.
+	redefinedBy string
 }
 
 // apiJSONCompletedProperties lists the completed properties in the order the
@@ -34,6 +42,9 @@ var apiJSONCompletedProperties = []apiJSONCompletedProperty{
 	{class: "OwningMembership", name: "ownedMemberElementId", clause: "8.3.2.4.8 ownedMemberElementId redefines memberElementId"},
 	{class: "OwningMembership", name: "ownedMemberName", clause: "8.3.2.4.8 deriveOwningMembershipOwnedMemberName"},
 	{class: "OwningMembership", name: "ownedMemberShortName", clause: "8.3.2.4.8 deriveOwningMembershipOwnedMemberShortName"},
+	// KerML 10.4.5 serializes a redefined property under its own name beside the redefining one.
+	{class: "OwningMembership", name: "memberName", clause: "8.3.2.4.8 ownedMemberName redefines memberName", redefinedBy: "ownedMemberName"},
+	{class: "OwningMembership", name: "memberShortName", clause: "8.3.2.4.8 ownedMemberShortName redefines memberShortName", redefinedBy: "ownedMemberShortName"},
 	{class: "Membership", name: "visibility", clause: "8.3.2.4.3 visibility : VisibilityKind = public", defaultValue: "public"},
 	{class: "Import", name: "visibility", clause: "8.3.2.4.2 visibility : VisibilityKind = private", defaultValue: "private"},
 	{class: "Element", name: "name", clause: "8.3.2.1.2 deriveElementName"},
@@ -65,8 +76,11 @@ var apiJSONCompletedProperties = []apiJSONCompletedProperty{
 	{class: "Type", name: "feature", clause: "8.3.3.1.10 deriveTypeFeature"},
 	{class: "Type", name: "inheritedFeature", clause: "8.3.3.1.10 deriveTypeInheritedFeature"},
 	{class: "Type", name: "directedFeature", clause: "8.3.3.1.10 deriveTypeDirectedFeature"},
+	// The graph's sysml:input of a send action is its owned parameters alone.
+	{class: "SendActionUsage", declaring: "Type", name: "input", clause: "8.3.3.1.10 deriveTypeInput", overStated: true},
 	{class: "Type", name: "input", clause: "8.3.3.1.10 deriveTypeInput"},
 	{class: "Type", name: "output", clause: "8.3.3.1.10 deriveTypeOutput"},
+	{class: "Type", name: "endFeature", clause: "8.3.3.1.10 deriveTypeEndFeature"},
 	{class: "Usage", name: "usage", clause: "SysML 8.3.6.4 deriveUsageUsage"},
 	{class: "Usage", name: "directedUsage", clause: "SysML 8.3.6.4 deriveUsageDirectedUsage"},
 	{class: "Usage", name: "isReference", clause: "SysML 8.3.6.4 deriveUsageIsReference"},
@@ -78,7 +92,8 @@ var apiJSONCompletedProperties = []apiJSONCompletedProperty{
 	{class: "Feature", name: "endOwningType", clause: "8.3.3.3.4 deriveFeatureEndOwningType"},
 	{class: "Feature", name: "featureTarget", clause: "8.3.3.3.4 deriveFeatureFeatureTarget"},
 	{class: "Feature", name: "featuringType", clause: "8.3.3.3.4 deriveFeatureFeaturingType"},
-	{class: "Feature", name: "type", clause: "8.3.3.3.4 deriveFeatureType"},
+	// The graph's sysml:type of a feature is its written typings alone.
+	{class: "Feature", name: "type", clause: "8.3.3.3.4 deriveFeatureType", overStated: true},
 	{class: "Feature", name: "ownedTyping", clause: "8.3.3.3.4 deriveFeatureOwnedTyping"},
 	{class: "Feature", name: "ownedSubsetting", clause: "8.3.3.3.4 deriveFeatureOwnedSubsetting"},
 	{class: "Feature", name: "ownedRedefinition", clause: "8.3.3.3.4 deriveFeatureOwnedRedefinition"},
@@ -91,7 +106,12 @@ var apiJSONCompletedProperties = []apiJSONCompletedProperty{
 	{class: "Conjugation", name: "owningType", clause: "8.3.3.1.2 owningType"},
 	{class: "Disjoining", name: "owningType", clause: "8.3.3.1.4 owningType"},
 	{class: "Step", name: "behavior", clause: "8.3.4.6.3 deriveStepBehavior"},
+	// The graph's sysml:function of a constructor is the type it instantiates, which the mapping reads back.
+	{class: "ConstructorExpression", declaring: "Expression", name: "function", clause: "8.3.4.7.3 deriveExpressionFunction", overStated: true},
 	{class: "Expression", name: "function", clause: "8.3.4.7.3 deriveExpressionFunction"},
+	{class: "ConstructorExpression", declaring: "InstantiationExpression", name: "instantiatedType", clause: "8.3.4.8.7 deriveInstantiationExpressionInstantiatedType"},
+	// The graph's sysml:argument of a constructor follows the written order.
+	{class: "ConstructorExpression", declaring: "InstantiationExpression", name: "argument", clause: "8.3.4.8.3 deriveConstructorExpressionArgument", overStated: true},
 	{class: "Expression", name: "result", clause: "8.3.4.7.3 deriveExpressionResult"},
 	{class: "MultiplicityRange", name: "bound", clause: "8.3.4.11.2 deriveMultiplicityRangeBound"},
 	{class: "Usage", name: "owningDefinition", clause: "SysML 8.3.6.4 deriveUsageOwningDefinition"},
@@ -171,12 +191,14 @@ var apiJSONCompletedProperties = []apiJSONCompletedProperty{
 	{class: "Flow", name: "flowEnd", clause: "8.3.4.9.2 deriveFlowFlowEnd"},
 	{class: "Flow", name: "payloadFeature", clause: "8.3.4.9.2 deriveFlowPayloadFeature"},
 	{class: "Flow", name: "payloadType", clause: "8.3.4.9.2 deriveFlowPayloadType"},
+	{class: "Flow", name: "sourceOutputFeature", clause: "8.3.4.9.2 deriveFlowSourceOutputFeature"},
+	{class: "Flow", name: "targetInputFeature", clause: "8.3.4.9.2 deriveFlowTargetInputFeature"},
 }
 
 // apiJSONInheritedFamilies are the completed properties that repeat a Namespace's or Type's
 // inherited and imported members beside its owned ones; APIJSONOptions.InheritedMembers writes them.
 var apiJSONInheritedFamilies = map[string]bool{
-	"membership": true, "member": true, "inheritedMembership": true,
+	"membership": true, "member": true, "inheritedMembership": true, "importedMembership": true,
 	"featureMembership": true, "feature": true, "inheritedFeature": true,
 }
 
@@ -226,14 +248,36 @@ func apiJSONCompletedPropertiesOf(metaclass string) []apiJSONMetaclassCompletion
 	return cached.([]apiJSONMetaclassCompletion)
 }
 
+// completionElement is the semantic element the writer completes subject's derived
+// properties from; a library reference and an external-form graph are not completed.
+func (w *apiJSONElementWriter) completionElement(subject rdf.Term, metaclass string) (metamodel.Element, bool) {
+	if metaclass == "" || w.evaluation == nil || w.evaluation.evaluator == nil || w.evaluation.structure == nil ||
+		LibraryReference(w.graph, subject) || apiJSONExternalForm(w.graph, w.scratch) {
+		return metamodel.Element{}, false
+	}
+	return w.evaluation.structure.element(subject)
+}
+
+// derivedOverStated evaluates the overStated property key of subject, which the
+// element form writes in place of the graph's statement.
+func (w *apiJSONElementWriter) derivedOverStated(subject rdf.Term, metaclass, key string) (any, bool) {
+	for _, property := range apiJSONCompletedPropertiesOf(metaclass) {
+		if !property.overStated || property.name != key {
+			continue
+		}
+		semanticElement, ok := w.completionElement(subject, metaclass)
+		if !ok {
+			return nil, false
+		}
+		return w.completedValue(subject, metaclass, semanticElement, property)
+	}
+	return nil, false
+}
+
 // completeDerived appends the completed derived properties of subject the graph
 // does not state, and the marker naming them.
 func (w *apiJSONElementWriter) completeDerived(subject rdf.Term, metaclass string, element apiJSONObject) apiJSONObject {
-	if metaclass == "" || w.evaluation == nil || w.evaluation.evaluator == nil || w.evaluation.structure == nil ||
-		LibraryReference(w.graph, subject) || apiJSONExternalForm(w.graph, w.scratch) {
-		return element
-	}
-	semanticElement, ok := w.evaluation.structure.element(subject)
+	semanticElement, ok := w.completionElement(subject, metaclass)
 	if !ok {
 		return element
 	}
@@ -244,7 +288,14 @@ func (w *apiJSONElementWriter) completeDerived(subject rdf.Term, metaclass strin
 			continue
 		}
 		spelled := property.defaultValue
-		if spelled == nil {
+		if property.redefinedBy != "" {
+			for _, member := range element {
+				if member.key == property.redefinedBy {
+					spelled = member.value
+					break
+				}
+			}
+		} else if spelled == nil {
 			var ok bool
 			if spelled, ok = w.completedValue(subject, metaclass, semanticElement, property); !ok {
 				continue
@@ -262,11 +313,15 @@ func (w *apiJSONElementWriter) completeDerived(subject rdf.Term, metaclass strin
 // completedValue evaluates one completed property of subject and spells it in
 // the element form; a value the form does not spell is reported as omitted.
 func (w *apiJSONElementWriter) completedValue(subject rdf.Term, metaclass string, semanticElement metamodel.Element, property apiJSONMetaclassCompletion) (any, bool) {
-	value, supported := w.evaluation.evaluator.PropertyReadOnlyUncached(semanticElement, property.class, property.name)
+	class := property.class
+	if property.declaring != "" {
+		class = property.declaring
+	}
+	value, supported := w.evaluation.evaluator.PropertyReadOnlyUncached(semanticElement, class, property.name)
 	if !supported {
-		reason, explained := w.evaluation.evaluator.Explain(semanticElement, property.class, property.name)
+		reason, explained := w.evaluation.evaluator.Explain(semanticElement, class, property.name)
 		if !explained {
-			reason = metamodel.Reason{Category: metamodel.ReasonNoRule, Detail: property.class + "::" + property.name}
+			reason = metamodel.Reason{Category: metamodel.ReasonNoRule, Detail: class + "::" + property.name}
 		}
 		w.completionOmitted(subject, metaclass, property.name, reason)
 		return nil, false
@@ -358,8 +413,8 @@ func (w *apiJSONElementWriter) derivedJSONValue(value metamodel.Value) (any, boo
 	return nil, false
 }
 
-// derivedElementID is the "@id" of an element the evaluator names: a graph
-// subject's id, or a library element's normative id.
+// derivedElementID is the "@id" of an element the evaluator names: a graph subject's id,
+// a library element's normative id, or the one minted for a library alias's membership.
 func (w *apiJSONElementWriter) derivedElementID(element metamodel.Element) (string, bool) {
 	if subject, ok := w.evaluation.structure.subject(element); ok {
 		return rdf.SubjectID(subject)
@@ -371,14 +426,58 @@ func (w *apiJSONElementWriter) derivedElementID(element metamodel.Element) (stri
 	if symbol == nil {
 		return "", false
 	}
+	if element.IsMembership && symbol.Kind == symbols.SymbolAlias {
+		alias, ok := identity.AliasMembershipOf(w.evaluation.model, w.evaluation.libraryCatalog(), symbol)
+		return alias.ID, ok
+	}
 	library, ok := w.evaluation.libraryCatalog().ElementForSymbol(symbol)
 	if !ok || library == nil {
 		return w.anonymousLibraryID(symbol, element.IsMembership)
 	}
+	if id, ok := w.heldLibraryElementID(library.ID, element.IsMembership); ok {
+		return id, true
+	}
 	if element.IsMembership {
+		if declared, ok := w.declaredOwningMembershipID(library.ID); ok {
+			return declared, true
+		}
 		return library.OwningMembershipID, library.OwningMembershipID != ""
 	}
 	return library.ID, library.ID != ""
+}
+
+// heldLibraryElementID spells a library element the graph itself holds (a library document converted as
+// the model) by the graph's own ids: the subject's id, or its owningMembership's for the membership.
+func (w *apiJSONElementWriter) heldLibraryElementID(id string, membership bool) (string, bool) {
+	if id == "" {
+		return "", false
+	}
+	subject := rdf.ElementIRIForID(id)
+	if _, held := w.evaluation.structure.element(subject); !held {
+		return "", false
+	}
+	if !membership {
+		return id, true
+	}
+	owning, ok := w.graph.Object(subject, rdf.SysML+pOwningMembership)
+	if !ok {
+		return "", false
+	}
+	return rdf.SubjectID(owning)
+}
+
+// declaredOwningMembershipID is the id of the membership the graph itself declares a library
+// element under: a library file's own graph, whose memberships are not library references.
+func (w *apiJSONElementWriter) declaredOwningMembershipID(id string) (string, bool) {
+	subject := rdf.IRI(rdf.Element + id)
+	if LibraryReference(w.graph, subject) {
+		return "", false
+	}
+	membership, ok := w.graph.Object(subject, rdf.SysML+pOwningMembership)
+	if !ok || !membership.IsIRI() {
+		return "", false
+	}
+	return rdf.SubjectID(membership)
 }
 
 // anonymousLibraryID mints the id of a library member no qualified name
@@ -393,6 +492,9 @@ func (w *apiJSONElementWriter) anonymousLibraryID(symbol *symbols.Symbol, member
 	}
 	if !ok {
 		return "", false
+	}
+	if id, ok := w.heldLibraryElementID(member.ID, membership); ok {
+		return id, true
 	}
 	if membership {
 		return member.OwningMembershipID, member.OwningMembershipID != ""

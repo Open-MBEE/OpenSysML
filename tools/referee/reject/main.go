@@ -25,6 +25,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/baseline"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/errata"
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/pilot"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/repo"
 )
 
@@ -54,7 +55,7 @@ func Main(args []string, stderr io.Writer) int {
 	kermlValidator := flags.String("kerml-validator", "", "KerML pilot validator executable (default: <repo>/build/pilot-kerml-validator/validate-kerml)")
 	corpus := flags.String("corpus", "", "negative corpus directory (default: <repo>/"+defaultCorpus+")")
 	out := flags.String("out", "", "output directory for the reports (default: <repo>/build/pilot-reject)")
-	timeout := flags.Duration("timeout", 0, "per-batch timeout for the pilot validator (0: no limit)")
+	timeout := flags.Duration("timeout", defaultPilotTimeout, "per-batch timeout for the pilot validator (0: no limit; default 30m)")
 	policy := flags.String("conformance", policyAuto,
 		"conformance mode our verdicts are taken under: auto (extensions/ strictly, the rest by default), default, or strict")
 	update := flags.Bool("update", false, "record this run as "+committedBaseline)
@@ -181,7 +182,7 @@ func run(opts options) error {
 		Conformance: policy,
 		Errata:      newErrataReport(overlay),
 	}
-	if report.Pilot, err = pilotVersion(validator); err != nil {
+	if report.Pilot, err = pilot.Version(validator); err != nil {
 		return err
 	}
 	if report.Provenance, err = provenance(root, report.Pilot, corpusDir, overlay, files); err != nil {

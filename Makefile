@@ -1,4 +1,4 @@
-.PHONY: all build docker stdlib-snapshot vulncheck sca-tools audit audit-npm audit-python audit-rust audit-java extension-libraries-check extension-libraries-sync extension-libraries-pin-check textmate-grammars-check textmate-grammars-publish build-sysml build-re build-wasm-re build-lsp build-grpc build-mcp build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-mcp conformance-rust conformance-julia conformance-matlab conformance-dotnet conformance-dotnet-check test test-shard test-quick test-queue coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check metaclass-graph metaclass-graph-check python-metamodel python-metamodel-check dotnet-metamodel dotnet-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage vscode-coverage jupyterlab-coverage mcp-npm-coverage dotnet-build dotnet-test dotnet-generate dotnet-generate-goldens dotnet-generate-check python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-csharp proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package emacs-keywords emacs-compile emacs-test docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts diagnostics-catalogue diagnostics-check docs-check changelog-check changelog-render spec-compliance-check spec-compliance-render self-model mcp-registry-check
+.PHONY: all build docker stdlib-snapshot vulncheck sca-tools audit audit-npm audit-python audit-rust audit-java extension-libraries-check extension-libraries-sync extension-libraries-pin-check textmate-grammars-check textmate-grammars-publish build-sysml build-re build-wasm-re build-lsp build-grpc build-mcp build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check man-lint install-tree pgo-profile conformance conformance-pkg conformance-mcp conformance-rust conformance-julia conformance-matlab conformance-dotnet conformance-dotnet-check test test-shard test-quick test-queue coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check metaclass-graph metaclass-graph-check python-metamodel python-metamodel-check dotnet-metamodel dotnet-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage vscode-coverage jupyterlab-coverage mcp-npm-coverage dotnet-build dotnet-test dotnet-generate dotnet-generate-goldens dotnet-generate-check python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-csharp proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package emacs-keywords emacs-compile emacs-test docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts diagnostics-catalogue diagnostics-check docs-check changelog-check changelog-render spec-compliance-check spec-compliance-render self-model mcp-registry-check
 
 # Version information
 # Only release tags describe a build; the moving `nightly` tag is not a version.
@@ -31,7 +31,8 @@ GOSEC_EXCLUDE := -exclude=G602,G703
 GOVULNCHECK_VERSION := v1.9.0
 CYCLONEDX_MAVEN_VERSION := 2.9.1
 SCA_BIN := build/sca/bin
-PIP_AUDIT := build/sca/venv/bin/pip-audit
+# pip-audit asks PyPI for every package; the wrapper retries an answer that was slow or failed.
+PIP_AUDIT := scripts/pip-audit-retry.sh build/sca/venv/bin/pip-audit
 # `npm audit` fails on production advisories at this severity and above, in every lockfile directory.
 NPM_AUDIT_LEVEL := moderate
 BUF_VERSION := v1.57.2
@@ -73,8 +74,13 @@ PYTHON_REQUIREMENTS := docs-requirements.txt
 JAVA_PROJECT_DIRS := client/java editors/syson editors/mdk
 EMACS_DIR := editors/emacs
 EMACS ?= emacs
-# Where `make emacs-test` installs lsp-mode for the suites, outside any user config.
+# Where `make emacs-test` installs the client for the suites, outside any user config.
 EMACS_DEPS ?= $(CURDIR)/build/emacs-deps
+# The client `make emacs-compile` and `make emacs-test` check the package with: lsp-mode or eglot.
+EMACS_CLIENT ?= lsp-mode
+EMACS_CLIENT_FILE := $(if $(filter eglot,$(EMACS_CLIENT)),sysml-eglot,sysml-lsp)
+EMACS_BATCH = OPENSYSML_EMACS_DEPS=$(EMACS_DEPS) OPENSYSML_EMACS_CLIENT=$(EMACS_CLIENT) \
+	$(EMACS) -Q --batch -l $(EMACS_DIR)/test/deps.el -L $(EMACS_DIR)
 PYTHON ?= python3
 # api/proto/buf.gen.python.yaml starts the interpreter this names.
 export PYTHON
@@ -117,14 +123,19 @@ COVERAGE_PROFILE ?= coverage.txt
 COVERAGE_SHARD ?=
 # The coverage job's nodes: the race shards but the runtime's corpus ones, since without -race internal/exec/runtime
 # runs whole in about 19 minutes under -coverpkg; tests/export and tests/corpus whole overran 30 (see .circleci/config.yml).
-COVERAGE_SHARDS := runtime model smt corpus corpus-sweep export export-library export-examples export-corpus graph codegen translate grpc tools rest migrate cli
-# coverage-shard's splits of tests/corpus and tests/export by test name, test-shard's; empty for every other shard.
+COVERAGE_SHARDS := runtime model smt corpus corpus-sweep-committed corpus-sweep-corpora export export-library export-examples export-corpus graph graph-corpora codegen translate translate-structure grpc tools internal rest migrate cli
+# coverage-shard's splits of four packages by test name, test-shard's; empty for every other shard.
 COVERAGE_SELECT_corpus = -skip '$(RACE_CORPUS_SWEEP)'
-COVERAGE_SELECT_corpus-sweep = -run '$(RACE_CORPUS_SWEEP)'
+COVERAGE_SELECT_corpus-sweep-committed = -run '$(RACE_CORPUS_SWEEP_COMMITTED)'
+COVERAGE_SELECT_corpus-sweep-corpora = -run '$(RACE_CORPUS_SWEEP_CORPORA)'
 COVERAGE_SELECT_export = -skip '$(RACE_EXPORT_CORPUS)|$(RACE_EXPORT_LIBRARY)|$(RACE_EXPORT_EXAMPLES)'
 COVERAGE_SELECT_export-library = -run '$(RACE_EXPORT_LIBRARY)'
 COVERAGE_SELECT_export-examples = -run '$(RACE_EXPORT_EXAMPLES)'
 COVERAGE_SELECT_export-corpus = -run '$(RACE_EXPORT_CORPUS)'
+COVERAGE_SELECT_graph = -skip '$(RACE_GRAPH_CORPORA)'
+COVERAGE_SELECT_graph-corpora = -run '$(RACE_GRAPH_CORPORA)'
+COVERAGE_SELECT_translate = -skip '$(RACE_TRANSLATE_STRUCTURE)'
+COVERAGE_SELECT_translate-structure = -run '$(RACE_TRANSLATE_STRUCTURE)'
 
 # The commands whose manual pages are generated and shipped, in section 1.
 COMMANDS := sysml sysml-lsp sysml-grpc sysml-jupyter-kernel sysml-mcp
@@ -299,15 +310,22 @@ man: ## Regenerate the shipped manual pages from each command's description
 man-check: ## Verify the shipped pages are current and formatter-clean
 	@echo "Checking the manual pages..."
 	go test -count=1 -run 'TestTheShippedManualPage|TestTheManualPage' ./cmd/sysml ./cmd/sysml-lsp ./cmd/sysml-grpc ./cmd/sysml-jupyter-kernel ./cmd/sysml-mcp
+	@$(MAKE) --no-print-directory man-lint
+	@echo "✓ Manual pages are current"
+
+man-lint: ## Run the shipped pages through a formatter, without rebuilding the commands
 	@# mandoc is the strictest reader; groff is the one always at hand.
 	@if command -v mandoc >/dev/null 2>&1; then \
 		mandoc -T lint -W warning $(MAN_PAGES) || exit 1; \
 	elif command -v groff >/dev/null 2>&1; then \
 		groff -man -Tutf8 -ww -z $(MAN_PAGES) || exit 1; \
+	elif [ -n "$(MAN_LINT_OPTIONAL)" ]; then \
+		echo "note: neither mandoc nor groff is installed; the pages were not formatted"; exit 0; \
 	else \
-		echo "note: neither mandoc nor groff is installed; the pages were not formatted"; \
-	fi
-	@echo "✓ Manual pages are current"
+		echo "error: neither mandoc nor groff is installed, so the pages cannot be checked;" >&2; \
+		echo "       install one, or set MAN_LINT_OPTIONAL=1 to skip the formatter" >&2; exit 1; \
+	fi; \
+	echo "✓ Manual pages are formatter-clean"
 
 pgo-profile: stdlib-snapshot ## Regenerate cmd/*/default.pgo, the CPU profile go build optimizes the binaries against
 	@echo "Collecting the PGO profile..."
@@ -393,8 +411,9 @@ test: stdlib-snapshot ## Run Go tests with race detection and coverage
 	go test -v -race -pgo=off -timeout 45m -coverprofile=coverage.txt -covermode=atomic ./...
 	go test -C $(TOOLS_DIR) -v -race -pgo=off -timeout 45m ./...
 
-# Run race-free by their own gate steps in the PR workflow's static-and-integrity job.
-RACE_SHARD_SKIP := ^(TestTrainingExamplesSemanticErrors|TestCorpusGatesCacheStateIndependent|TestPilotCorporaDiagnostics|TestPilotLibraryXMI|TestPSSMSuiteMigration|TestDifferentialRandomizedAssignments|TestDifferentialConformanceCorpus|TestDifferentialStandardLibrary|TestDifferentialTrainingCorpus|TestPortability|TestPortabilityGateIsRequired)$$
+# Run race-free by their own gate steps in the PR workflow's static-and-integrity job; the two element-form
+# differentials are there as each takes 24-26 minutes under -race, more than the rest shard's hour holds.
+RACE_SHARD_SKIP := ^(TestTrainingExamplesSemanticErrors|TestSymbolStructureMatchesGraphStructure|TestCorpusGatesCacheStateIndependent|TestPilotCorporaDiagnostics|TestPilotLibraryXMI|TestPSSMSuiteMigration|TestDifferentialRandomizedAssignments|TestDifferentialConformanceCorpus|TestDifferentialStandardLibrary|TestDifferentialTrainingCorpus|TestPortability|TestPortabilityGateIsRequired)$$
 # The runtime-corpus shard runs the four suites that walk the conformance corpus; the exploration
 # suite is as long as those four together, so runtime-exploration runs it as a shard of its own.
 RACE_RUNTIME_EXPLORATION := ^TestExploreWithIsExploreOverTheConformanceCorpus$$
@@ -405,9 +424,17 @@ RACE_EXPORT_CORPUS := ^TestAPIJSONWritersNeverEmitNameReferences$$
 # tests/export's two parallel per-file sweeps: 60 and 27 of the remainder's 103 CPU-minutes under -race (37 minutes wall), so a shard each.
 RACE_EXPORT_LIBRARY := ^TestLibraryFilesComeBackFromTheGraphAlone$$
 RACE_EXPORT_EXAMPLES := ^TestExamplesCorpusInvariants$$
-# The corpus-sweep shard: tests/corpus's one load of every example model, on which it checks the
-# two round trips, settled collections and the gRPC agreement; corpus is the rest of the package.
-RACE_CORPUS_SWEEP := ^TestExamplesSweep$$
+# The corpus-sweep shards: tests/corpus's load of every example model (round trips, settled collections, gRPC agreement).
+# Whole it passed 55 minutes under -race, so the committed models and the downloaded corpora are a shard each; corpus is the rest.
+RACE_CORPUS_SWEEP_COMMITTED := ^TestExamplesSweepCommitted$$
+RACE_CORPUS_SWEEP_CORPORA := ^TestExamplesSweepCorpora$$
+RACE_CORPUS_SWEEP := ^Test(ExamplesSweepCommitted|ExamplesSweepCorpora)$$
+# The graph-corpora shard: tests/model's record differential over the OMG corpora, 13 of the
+# package's 18 minutes under -race; graph is the rest of the package.
+RACE_GRAPH_CORPORA := ^TestInterfaceRecordDifferentialCorpora$$
+# The translate-structure shard: internal/translate/export's structure differential over every
+# model, which ran 36-46 of the package's 39-50 minutes under -race; translate is the rest of the package.
+RACE_TRANSLATE_STRUCTURE := ^TestSymbolStructureMatchesGraphStructure$$
 RACE_SHARD_TOOLS_SKIP := ^(TestSuiteRead|TestSuiteClassification|TestEmitSuite|TestSuiteClassificationReasons|TestSuiteLibraryCallsAreClassified|TestSuiteReadsControlAndObjectFlow|TestSuiteReadsClassifiers|TestSuiteReadsExceptionHandlers)$$
 
 # test-shard's -run/-skip per shard: the by-test-name shards and the package shards they are cut
@@ -415,20 +442,25 @@ RACE_SHARD_TOOLS_SKIP := ^(TestSuiteRead|TestSuiteClassification|TestEmitSuite|T
 SHARD_SELECT_runtime-exploration = -run '$(RACE_RUNTIME_EXPLORATION)' -skip '$(RACE_SHARD_SKIP)'
 SHARD_SELECT_runtime-corpus = -run '$(RACE_RUNTIME_CORPUS)' -skip '$(RACE_SHARD_SKIP)|$(RACE_RUNTIME_EXPLORATION)'
 SHARD_SELECT_runtime = -skip '$(RACE_SHARD_SKIP)|$(RACE_RUNTIME_CORPUS)'
-SHARD_SELECT_corpus-sweep = -run '$(RACE_CORPUS_SWEEP)' -skip '$(RACE_SHARD_SKIP)'
+SHARD_SELECT_corpus-sweep-committed = -run '$(RACE_CORPUS_SWEEP_COMMITTED)' -skip '$(RACE_SHARD_SKIP)'
+SHARD_SELECT_corpus-sweep-corpora = -run '$(RACE_CORPUS_SWEEP_CORPORA)' -skip '$(RACE_SHARD_SKIP)'
 SHARD_SELECT_corpus = -skip '$(RACE_SHARD_SKIP)|$(RACE_CORPUS_SWEEP)'
 SHARD_SELECT_export-corpus = -run '$(RACE_EXPORT_CORPUS)' -skip '$(RACE_SHARD_SKIP)'
 SHARD_SELECT_export-library = -run '$(RACE_EXPORT_LIBRARY)' -skip '$(RACE_SHARD_SKIP)'
 SHARD_SELECT_export-examples = -run '$(RACE_EXPORT_EXAMPLES)' -skip '$(RACE_SHARD_SKIP)'
 SHARD_SELECT_export = -skip '$(RACE_SHARD_SKIP)|$(RACE_EXPORT_CORPUS)|$(RACE_EXPORT_LIBRARY)|$(RACE_EXPORT_EXAMPLES)'
+SHARD_SELECT_graph-corpora = -run '$(RACE_GRAPH_CORPORA)' -skip '$(RACE_SHARD_SKIP)'
+SHARD_SELECT_graph = -skip '$(RACE_SHARD_SKIP)|$(RACE_GRAPH_CORPORA)'
+SHARD_SELECT_translate-structure = -run '$(RACE_TRANSLATE_STRUCTURE)' -skip '$(RACE_SHARD_SKIP)'
+SHARD_SELECT_translate = -skip '$(RACE_SHARD_SKIP)|$(RACE_TRANSLATE_STRUCTURE)'
 SHARD_SELECT = $(or $(SHARD_SELECT_$(SHARD)),-skip '$(RACE_SHARD_SKIP)')
 # -race for the race suite (test-shard); test-quick runs the same shards with it empty.
 TEST_SHARD_RACE ?= -race
 
-test-shard: stdlib-snapshot ## Run one CI shard of the race suite (SHARD=runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep|export|export-library|export-examples|export-corpus|graph|codegen|translate|grpc|tools|rest|migrate|cli)
+test-shard: stdlib-snapshot ## Run one CI shard of the race suite (SHARD=runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep-committed|corpus-sweep-corpora|export|export-library|export-examples|export-corpus|graph|graph-corpora|codegen|translate|translate-structure|grpc|tools|internal|rest|migrate|cli)
 	@echo "Running Go $(if $(TEST_SHARD_RACE),race ,)tests, shard $(SHARD)$(if $(OPENSYSML_CORPUS_SUBSET), over the $(OPENSYSML_CORPUS_SUBSET) corpus subset,)..."
 	@# 55m per package; its job's ceiling is 60. internal/exec/runtime (31-57 minutes whole under -race), tests/export
-	@# (past 55; four shards) and tests/corpus (about 40; two) run split by test name above.
+	@# (past 55; four shards) and tests/corpus (past 55; three) run split by test name above.
 	pkgs=$$(scripts/race-shard.sh $(SHARD)) && go test $(SHARD_SELECT) -v $(TEST_SHARD_RACE) -pgo=off -timeout 55m $$pkgs
 	@# The tools module runs with tools (tests/wasm) on CircleCI and, as the PR workflow has no
 	@# tools shard (tests/wasm is its WebAssembly gate job there), with rest on GitHub Actions.
@@ -437,14 +469,14 @@ test-shard: stdlib-snapshot ## Run one CI shard of the race suite (SHARD=runtime
 test-quick: stdlib-snapshot ## Run the race-free quick tier over one or more race shards, in turn (SHARDS="graph" | "export-corpus export-library" | "rest grpc" | ...)
 	@echo "Running Go tests without race detection, shards $(SHARDS)..."
 	@# Every pull-request push runs this instead of test-shard: the same shards, selections and skips, no -race.
-	@test -n "$(SHARDS)" || { echo "Error: set SHARDS to one or more of runtime runtime-corpus runtime-exploration model smt corpus corpus-sweep export export-library export-examples export-corpus graph codegen translate grpc tools rest migrate cli"; exit 1; }
+	@test -n "$(SHARDS)" || { echo "Error: set SHARDS to one or more of runtime runtime-corpus runtime-exploration model smt corpus corpus-sweep-committed corpus-sweep-corpora export export-library export-examples export-corpus graph graph-corpora codegen translate translate-structure grpc tools internal rest migrate cli"; exit 1; }
 	for shard in $(SHARDS); do $(MAKE) --no-print-directory test-shard SHARD=$$shard TEST_SHARD_RACE= || exit 1; done
 
 test-queue: stdlib-snapshot ## Run the merge queue's tier over one or more race shards, in turn (SHARDS="export-corpus" | "rest grpc" | ...)
 	@echo "Running the queue tier, shards $(SHARDS)..."
 	@# The merge queue runs this: test-shard with -race on every shard but the examples/ sweeps
 	@# (scripts/race-shard.sh --sweeps), which run without -race over the construct-cover subset.
-	@test -n "$(SHARDS)" || { echo "Error: set SHARDS to one or more of runtime runtime-corpus runtime-exploration model smt corpus corpus-sweep export export-library export-examples export-corpus graph codegen translate grpc tools rest migrate cli"; exit 1; }
+	@test -n "$(SHARDS)" || { echo "Error: set SHARDS to one or more of runtime runtime-corpus runtime-exploration model smt corpus corpus-sweep-committed corpus-sweep-corpora export export-library export-examples export-corpus graph graph-corpora codegen translate translate-structure grpc tools internal rest migrate cli"; exit 1; }
 	sweeps=" $$(scripts/race-shard.sh --sweeps | tr '\n' ' ')" && for shard in $(SHARDS); do \
 		case "$$sweeps" in \
 			*" $$shard "*) OPENSYSML_CORPUS_SUBSET=construct-cover $(MAKE) --no-print-directory test-shard SHARD=$$shard TEST_SHARD_RACE= ;; \
@@ -522,7 +554,8 @@ audit-rust: ## Fail on RustSec advisories against client/rust/Cargo.lock (cargo 
 
 audit-java: ## Fail on OSV advisories against the Maven trees' compile and runtime dependencies (JAVA_PROJECT_DIRS=dir... narrows)
 	@# A CycloneDX SBOM carries the versions Maven resolved, reactor modules included, which osv-scanner's own pom resolver cannot follow.
-	@for dir in $(JAVA_PROJECT_DIRS); do echo "osv-scanner $$dir" && mvn -B -q -f "$$dir/pom.xml" org.cyclonedx:cyclonedx-maven-plugin:$(CYCLONEDX_MAVEN_VERSION):makeAggregateBom -DoutputFormat=json -DoutputName=bom -DincludeTestScope=false && $(SCA_BIN)/osv-scanner scan source -L "$$dir/target/bom.json" || exit 1; done
+	@# scripts/maven-sbom.sh asks a mirror of Maven Central for the plugin that writes it, and Central when the mirror refuses.
+	@for dir in $(JAVA_PROJECT_DIRS); do echo "osv-scanner $$dir" && scripts/maven-sbom.sh "$$dir" $(CYCLONEDX_MAVEN_VERSION) && $(SCA_BIN)/osv-scanner scan source -L "$$dir/target/bom.json" || exit 1; done
 
 audit: vulncheck audit-npm audit-python audit-rust audit-java ## Run every dependency audit, as CI and the release procedure do
 	@echo "✓ Dependency audits passed"
@@ -850,24 +883,21 @@ emacs-keywords: ## Regenerate the Emacs mode's keyword lists from the lexer keyw
 	go run ./$(EMACS_DIR)/tools/genkeywords -out $(EMACS_DIR)
 	@echo "✓ Keyword lists generated"
 
-emacs-compile: ## Byte-compile and checkdoc the Emacs package, warnings as errors
-	@echo "Byte-compiling the Emacs package..."
-	OPENSYSML_EMACS_DEPS=$(EMACS_DEPS) $(EMACS) -Q --batch -l $(EMACS_DIR)/test/deps.el \
-		-L $(EMACS_DIR) --eval '(setq byte-compile-error-on-warn t)' \
+emacs-compile: ## Byte-compile and checkdoc the Emacs package under EMACS_CLIENT, warnings as errors
+	@echo "Byte-compiling the Emacs package with $(EMACS_CLIENT)..."
+	$(EMACS_BATCH) --eval '(setq byte-compile-error-on-warn t)' \
 		-f batch-byte-compile $(EMACS_DIR)/sysml-mode-keywords.el $(EMACS_DIR)/sysml-mode.el \
-		$(EMACS_DIR)/sysml-lsp.el $(EMACS_DIR)/sysml-diagram.el
+		$(EMACS_DIR)/$(EMACS_CLIENT_FILE).el $(EMACS_DIR)/sysml-diagram.el
 	rm -f $(EMACS_DIR)/*.elc
-	OPENSYSML_EMACS_DEPS=$(EMACS_DEPS) $(EMACS) -Q --batch -l $(EMACS_DIR)/test/deps.el \
-		-L $(EMACS_DIR) -l $(EMACS_DIR)/test/checkdoc.el \
+	$(EMACS_BATCH) -l $(EMACS_DIR)/test/checkdoc.el \
 		$(EMACS_DIR)/sysml-mode-keywords.el $(EMACS_DIR)/sysml-mode.el \
-		$(EMACS_DIR)/sysml-lsp.el $(EMACS_DIR)/sysml-diagram.el
+		$(EMACS_DIR)/$(EMACS_CLIENT_FILE).el $(EMACS_DIR)/sysml-diagram.el
 	@echo "✓ Emacs package compiles cleanly"
 
-emacs-test: ## Run the Emacs package's ERT suites (the live ones need `make build`)
-	@echo "Running Emacs tests..."
-	OPENSYSML_EMACS_DEPS=$(EMACS_DEPS) $(EMACS) -Q --batch -l $(EMACS_DIR)/test/deps.el \
-		-L $(EMACS_DIR) -L $(EMACS_DIR)/test \
-		-l $(EMACS_DIR)/test/sysml-mode-test.el -l $(EMACS_DIR)/test/sysml-lsp-test.el \
+emacs-test: ## Run the Emacs package's ERT suites under EMACS_CLIENT (the live ones need `make build`)
+	@echo "Running Emacs tests with $(EMACS_CLIENT)..."
+	$(EMACS_BATCH) -L $(EMACS_DIR)/test \
+		-l $(EMACS_DIR)/test/sysml-mode-test.el -l $(EMACS_DIR)/test/$(EMACS_CLIENT_FILE)-test.el \
 		-l $(EMACS_DIR)/test/sysml-diagram-test.el \
 		-f ert-run-tests-batch-and-exit
 	@echo "✓ Emacs tests passed"

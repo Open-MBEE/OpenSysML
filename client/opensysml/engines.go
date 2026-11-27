@@ -26,6 +26,22 @@ type EngineInfo struct {
 	Ready bool
 	// Unavailable says why the engine cannot answer, empty when Ready.
 	Unavailable string
+	// Kind is where the engine comes from: "built-in" for the service's own, else
+	// the manifest entry's kind: "tool", "engine", "policy" or "sampler".
+	Kind string
+	// Protocol is how the engine is spoken to: "-" for a built-in one, "object" or
+	// "argv+<stdin>[/<reply format>]" for a tool, "<transport>/<protocol>" for an engine.
+	Protocol string
+	// Source is the manifest file the engine was registered from, empty for a
+	// built-in one.
+	Source string
+	// Command is the command the manifest entry resolved to, empty for a built-in one.
+	Command string
+	// Version is the version the manifest entry declares, empty for a built-in one.
+	Version string
+	// Served is whether the service runs the engine for a request naming it: a
+	// manifest engine is listed unserved until the service is started serving it.
+	Served bool
 }
 
 // Bound is one bound an engine's answer ran under, with whether reaching it
@@ -113,9 +129,11 @@ func Probe() EngineOption {
 }
 
 func (c *client) ListEngines(ctx context.Context, opts ...EngineOption) ([]EngineInfo, error) {
-	if err := c.live(); err != nil {
+	done, err := c.begin()
+	if err != nil {
 		return nil, err
 	}
+	defer done()
 	req := &pb.ListEnginesRequest{}
 	for _, opt := range opts {
 		opt(req)
@@ -138,6 +156,12 @@ func (c *client) ListEngines(ctx context.Context, opts ...EngineOption) ([]Engin
 			ProcessFound: engine.ProcessFound,
 			Ready:        engine.Ready,
 			Unavailable:  engine.Unavailable,
+			Kind:         engine.Kind,
+			Protocol:     engine.Protocol,
+			Source:       engine.Source,
+			Command:      engine.Command,
+			Version:      engine.Version,
+			Served:       engine.Served,
 		})
 	}
 	return out, nil

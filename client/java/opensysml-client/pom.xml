@@ -7,7 +7,7 @@
   <parent>
     <groupId>org.openmbee</groupId>
     <artifactId>opensysml-parent</artifactId>
-    <version>0.12.1</version>
+    <version>0.13.0</version>
   </parent>
 
   <artifactId>opensysml</artifactId>
@@ -124,6 +124,24 @@
                must see its real classpath rather than a manifest-only jar. -->
           <useManifestOnlyJar>false</useManifestOnlyJar>
         </configuration>
+      </plugin>
+      <!-- The in-process SysML v2 API server, for the editor plugins' publication tests. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>repository-test-support</id>
+            <goals>
+              <goal>test-jar</goal>
+            </goals>
+            <configuration>
+              <includes>
+                <include>org/openmbee/opensysml/repository/FakeSysmlApi*.class</include>
+              </includes>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

@@ -42,12 +42,8 @@ const (
 	renderRunUsage = "usage: %render-run <timeline|sequence> [text|mermaid|plantuml|svg|svg-animated|dot] [link=<template>] [limit=<count>]"
 )
 
-// parseArgs splits a command line into arguments, handling quoted strings.
-// A double-quoted string is one argument with its quotes removed, which is how a
-// file path holding spaces is written; a SysML single-quoted name is one
-// argument with its quotes kept, since the quotes are part of the notation the
-// name is then parsed as ('My Pkg'::Car).
-// Example: `%load "path with spaces/file.sysml"` -> ["%load", "path with spaces/file.sysml"]
+// parseArgs splits a command line into arguments: "…" is one argument without its quotes, a
+// quoted name ('My Pkg'::Car) one with them; a backslash escapes only a following space or quote.
 func parseArgs(line string) []string {
 	var args []string
 	var current strings.Builder
@@ -62,12 +58,12 @@ func parseArgs(line string) []string {
 			// Previous char was backslash - add this char literally
 			current.WriteRune(r)
 			escaped = false
-		case r == '\\':
+		case r == '\\' && inName:
 			// Inside a name the backslash is the notation's own escape, so it stays
 			// with the character it escapes.
-			if inName {
-				current.WriteRune(r)
-			}
+			current.WriteRune(r)
+			escaped = true
+		case r == '\\' && escapesNext(runes[i+1:]):
 			escaped = true
 		case r == '"' && !inName:
 			// Toggle quote mode
@@ -96,6 +92,19 @@ func parseArgs(line string) []string {
 	}
 
 	return args
+}
+
+// escapesNext reports whether a backslash before rest escapes its first character: a
+// space or a quote. Any other backslash is text, as in a Windows path (`C:\models`, `\\host\share`).
+func escapesNext(rest []rune) bool {
+	if len(rest) == 0 {
+		return false
+	}
+	switch rest[0] {
+	case ' ', '\t', '"', '\'':
+		return true
+	}
+	return false
 }
 
 // SplitBehavior splits a behavior spec as `%action` and `-action` take it: the name,
@@ -260,6 +269,7 @@ var metaCommandTable = []metaCommand{
 	{name: "%eval", effect: Executes, group: groupRuntime, args: "[in <name>|<path>|#<id> :] <expr>", desc: "evaluate an expression, in the named element or object when one is named"},
 	{name: "%features", effect: Reads, group: groupRuntime, args: "<object> [all|depth <n>] [json]", desc: "show an object's feature values and what its behaviors are doing, bounded unless all or a depth is asked for; json writes the object graph as the API does; an object is named, #<id>, or a path such as car.fl or #1.wheels[2]",
 		part: graphLinked, partArgs: "<object> [all|depth <n>]", partDesc: "show an object's feature values and what its behaviors are doing, bounded unless all or a depth is asked for; an object is named, #<id>, or a path such as car.fl or #1.wheels[2]"},
+	{name: "%metadata", effect: Executes, group: groupRuntime, args: "<element-or-object>", desc: "list the metadata annotating a definition or usage, `about` annotations included, with the values each binds or defaults; for an object (named, #<id>, or a path such as car.fl), the annotations of its usage and of the types that usage specializes, each under the element it annotates"},
 	{name: "%instances", effect: Reads, group: groupRuntime, desc: "list all instantiated objects"},
 	{name: cmdInvoke, effect: Executes, group: groupRuntime, args: "<object> <op> [<expr>... | <p>=<expr>...]", desc: "invoke an operation of an object's type, performed by that object, with arguments by position or by name; an object is named, #<id>, or a path such as car.fl"},
 
@@ -280,8 +290,8 @@ var metaCommandTable = []metaCommand{
 	{name: "%check", effect: Executes, group: groupBehavioral, args: argName, desc: "ask an SMT solver whether a constraint, requirement or satisfaction can be satisfied (experimental)"},
 	{name: "%explain", effect: Executes, group: groupBehavioral, args: argName, desc: "ask an SMT solver which conditions of an unsatisfiable element conflict (experimental)"},
 	{name: "%solve", effect: Executes, group: groupBehavioral, args: argName, desc: "ask an SMT solver for values satisfying an element, keeping what is already fixed (experimental)"},
-	{name: "%configure", effect: Executes, group: groupBehavioral, args: "<name> [<variation>=<variant>...] [all [<count>]]", desc: "ask an SMT solver which variants an element's conditions permit (experimental)"},
-	{name: "%optimize", effect: Executes, group: groupBehavioral, args: argName, desc: "ask an SMT solver for the best values an analysis case's objectives admit (experimental)"},
+	{name: "%configure", effect: Executes, group: groupBehavioral, args: "<name> [<variation>=<variant>...] [all [<count>]] [-json]", desc: "ask an SMT solver which variants an element's conditions permit; -json writes the answer as one JSON document (experimental)"},
+	{name: "%optimize", effect: Executes, group: groupBehavioral, args: "<name> [-json]", desc: "ask an SMT solver for the best values an analysis case's objectives admit; -json writes the answer as one JSON document (experimental)"},
 
 	{name: "%action", effect: Executes, group: groupAction, args: "<name> [<object>]", desc: "start action executor debugging session, performed by an object"},
 	{name: "%step", effect: Executes, group: groupAction, desc: "advance one token step, or one step of the state machine being debugged"},
@@ -378,7 +388,27 @@ func (s *Session) RunMeta(line string) (out []string, quit bool, err error) {
 	return append(s.drainTrace(), out...), quit, err
 }
 
+// RunCommand is RunMeta for a caller that reports whether the command ran: one
+// answered with its usage fails with a *UsageError holding the answer's lines.
+func (s *Session) RunCommand(line string) (out []string, quit bool, err error) {
+	defer s.enter()()
+	out, quit, err = s.runMeta(line)
+	out = append(s.drainTrace(), out...)
+	if err == nil && s.usageAnswered {
+		return nil, quit, &UsageError{Lines: out}
+	}
+	return out, quit, err
+}
+
+// usage answers the running command with its usage instead of running it. An
+// answer that reports an error beside its usage is not one: it fails as an error.
+func (s *Session) usage(lines ...string) []string {
+	s.usageAnswered = true
+	return lines
+}
+
 func (s *Session) runMeta(line string) (out []string, quit bool, err error) {
+	s.usageAnswered = false
 	fields := parseArgs(strings.TrimSpace(line))
 	if len(fields) == 0 {
 		return nil, false, nil
@@ -440,7 +470,7 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 			return metaOut(nil, false, perr), true
 		}
 		if len(paths) == 0 {
-			return metaOut([]string{usageLoadPath}, false, nil), true
+			return metaOut(s.usage(usageLoadPath), false, nil), true
 		}
 		lines, lerr := s.loadPaths(paths, opts)
 		if lerr != nil {
@@ -448,16 +478,22 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		}
 		return metaOut(lines, false, nil), true
 	case "%print":
+		if len(fields) > 2 {
+			return metaOut(s.usage("usage: %print [name]"), false, nil), true
+		}
 		if len(fields) < 2 {
 			return metaOut(s.doPrint("")), true
 		}
 		return metaOut(s.doPrint(fields[1])), true
 	case "%save":
-		if len(fields) < 2 {
-			return metaOut([]string{"usage: %save <file.sysml|file.ttl|file.json>"}, false, nil), true
+		if len(fields) != 2 {
+			return metaOut(s.usage("usage: %save <file.sysml|file.ttl|file.json>"), false, nil), true
 		}
 		return metaOut(s.doSave(nameText(fields[1]))), true
 	case "%verbosity":
+		if len(fields) > 2 {
+			return metaOut(s.usage("usage: %verbosity [quiet|normal|debug]"), false, nil), true
+		}
 		if len(fields) < 2 {
 			return metaOut([]string{fmt.Sprintf("verbosity: %s", s.verbosity)}, false, nil), true
 		}
@@ -496,8 +532,8 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 	case "%replay":
 		return metaOut(s.doReplay(fields[1:]), false, nil), true
 	case "%search":
-		if len(fields) < 2 {
-			return metaOut([]string{"usage: %search <substring>"}, false, nil), true
+		if len(fields) != 2 {
+			return metaOut(s.usage("usage: %search <substring>"), false, nil), true
 		}
 		return metaOut(s.doSearch(nameText(fields[1]))), true
 	case "%builtins":
@@ -513,13 +549,13 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 func (s *Session) metaViewCommand(fields []string) (metaResult, bool) {
 	switch fields[0] {
 	case "%view":
-		if len(fields) < 2 {
-			return metaOut([]string{"usage: %view <name>"}, false, nil), true
+		if len(fields) != 2 {
+			return metaOut(s.usage("usage: %view <name>"), false, nil), true
 		}
 		return metaOut(s.doView(fields[1])), true
 	case "%graphs":
-		if len(fields) < 2 {
-			return metaOut([]string{"usage: %graphs <name>"}, false, nil), true
+		if len(fields) != 2 {
+			return metaOut(s.usage("usage: %graphs <name>"), false, nil), true
 		}
 		return metaOut(s.doGraphs(fields[1])), true
 	case "%render":
@@ -573,7 +609,7 @@ func (s *Session) doTrace(args []string) []string {
 func (s *Session) metaRender(args []string) ([]string, bool, error) {
 	name, form, opts, overlay, depth, usage := parseRenderArgs(args)
 	if usage != nil {
-		return usage, false, nil
+		return s.usage(usage...), false, nil
 	}
 	return s.doRender(name, form, opts, overlay, depth)
 }
@@ -744,112 +780,111 @@ func (r *renderArgs) readPalette(word string) string {
 func (s *Session) metaModelCommand(fields []string, line string) (metaResult, bool) {
 	switch fields[0] {
 	case "%instantiate":
-		if len(fields) < 2 {
-			return metaOut([]string{"usage: %instantiate <name>"}, false, nil), true
+		if len(fields) != 2 {
+			return metaOut(s.usage("usage: %instantiate <name>"), false, nil), true
 		}
 		return metaOut(s.doInstantiate(fields[1])), true
 	case "%eval":
 		if len(fields) < 2 {
-			return metaOut([]string{evalUsage}, false, nil), true
+			return metaOut(s.usage(evalUsage), false, nil), true
 		}
 		tail := strings.TrimPrefix(strings.TrimSpace(line), "%eval")
 		return metaOut(s.doEvalLine(strings.TrimSpace(tail))), true
 	case "%features":
 		if len(fields) < 2 {
-			return metaOut([]string{featuresUsageLine()}, false, nil), true
+			return metaOut(s.usage(featuresUsageLine()), false, nil), true
 		}
 		listing, perr := parseFeatureListing(fields[2:])
 		if perr != nil {
 			return metaOut([]string{errPrefix + perr.Error(), featuresUsageLine()}, false, nil), true
 		}
 		return metaOut(s.doFeatures(fields[1], listing)), true
+	case "%metadata":
+		if len(fields) != 2 {
+			return metaOut(s.usage(metadataUsage), false, nil), true
+		}
+		return metaOut(s.doMetadata(fields[1])), true
 	case "%instances":
 		return metaOut(s.doInstances()), true
 	case "%calc":
 		if len(fields) < 2 {
-			return metaOut([]string{"usage: %calc <name> [args...]"}, false, nil), true
+			return metaOut(s.usage("usage: %calc <name> [args...]"), false, nil), true
 		}
 		name, argText := splitCalcArgs(strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "%calc")))
 		return metaOut(s.doCalc(name, argText)), true
 	case cmdAnalysis:
 		if len(fields) < 2 {
-			return metaOut([]string{analysisUsage}, false, nil), true
+			return metaOut(s.usage(analysisUsage), false, nil), true
 		}
 		return metaOut(s.doAnalysis(strings.TrimPrefix(strings.TrimSpace(line), cmdAnalysis))), true
 	case cmdRecord:
 		if len(fields) < 2 {
-			return metaOut([]string{recordUsage}, false, nil), true
+			return metaOut(s.usage(recordUsage), false, nil), true
 		}
 		return metaOut(s.doRecord(strings.TrimPrefix(strings.TrimSpace(line), cmdRecord))), true
 	case cmdImport:
 		return metaOut(s.doImport(strings.TrimPrefix(strings.TrimSpace(line), cmdImport))), true
 	case cmdSweep:
 		if len(fields) < 2 {
-			return metaOut([]string{sweepUsage}, false, nil), true
+			return metaOut(s.usage(sweepUsage), false, nil), true
 		}
 		return metaOut(s.doSweep(strings.TrimPrefix(strings.TrimSpace(line), cmdSweep))), true
 	case cmdSamples:
 		if len(fields) < 2 {
-			return metaOut([]string{samplesUsage}, false, nil), true
+			return metaOut(s.usage(samplesUsage), false, nil), true
 		}
 		return metaOut(s.doSamples(strings.TrimPrefix(strings.TrimSpace(line), cmdSamples))), true
 	case cmdRuns:
 		if len(fields) < 2 {
-			return metaOut([]string{runsUsage}, false, nil), true
+			return metaOut(s.usage(runsUsage), false, nil), true
 		}
 		return metaOut(s.doRuns(strings.TrimPrefix(strings.TrimSpace(line), cmdRuns))), true
 	case cmdRunQuery:
 		if len(fields) < 2 {
-			return metaOut([]string{runQueryUsage}, false, nil), true
+			return metaOut(s.usage(runQueryUsage), false, nil), true
 		}
 		return metaOut(s.doRunQuery(strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), cmdRunQuery)))), true
 	case cmdRenderDocument:
 		if len(fields) < 2 {
-			return metaOut([]string{renderDocumentUsage}, false, nil), true
+			return metaOut(s.usage(renderDocumentUsage), false, nil), true
 		}
 		return metaOut(s.doRenderDocument(strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), cmdRenderDocument)))), true
 	case constraintCommand:
 		if len(fields) < 2 {
-			return metaOut([]string{constraintUsage}, false, nil), true
+			return metaOut(s.usage(constraintUsage), false, nil), true
 		}
 		return metaOut(s.doConstraint(strings.TrimPrefix(strings.TrimSpace(line), constraintCommand))), true
 	case requirementCommand:
 		if len(fields) < 2 {
-			return metaOut([]string{requirementUsage}, false, nil), true
+			return metaOut(s.usage(requirementUsage), false, nil), true
 		}
 		return metaOut(s.doRequirement(strings.TrimPrefix(strings.TrimSpace(line), requirementCommand))), true
 	case "%satisfy":
 		return metaOut(s.doSatisfy(fields[1:])), true
 	case "%validate":
 		if len(fields) != 2 {
-			return metaOut([]string{"usage: %validate <object>"}, false, nil), true
+			return metaOut(s.usage("usage: %validate <object>"), false, nil), true
 		}
 		return metaOut(s.doValidate(fields[1])), true
 	case "%check":
-		if len(fields) < 2 {
-			return metaOut([]string{"usage: %check <name>"}, false, nil), true
+		if len(fields) != 2 {
+			return metaOut(s.usage("usage: %check <name>"), false, nil), true
 		}
 		return metaOut(s.doCheck(fields[1])), true
 	case "%explain":
-		if len(fields) < 2 {
-			return metaOut([]string{"usage: %explain <name>"}, false, nil), true
+		if len(fields) != 2 {
+			return metaOut(s.usage("usage: %explain <name>"), false, nil), true
 		}
 		return metaOut(s.doExplain(fields[1])), true
 	case "%solve":
-		if len(fields) < 2 {
-			return metaOut([]string{"usage: %solve <name>"}, false, nil), true
+		if len(fields) != 2 {
+			return metaOut(s.usage("usage: %solve <name>"), false, nil), true
 		}
 		return metaOut(s.doSolve(fields[1])), true
 	case "%configure":
-		if len(fields) < 2 {
-			return metaOut([]string{"usage: %configure <name> [<variation>=<variant>...] [all [<count>]]"}, false, nil), true
-		}
-		return metaOut(s.doConfigure(fields[1], fields[2:])), true
+		return metaOut(s.doConfigure(fields[1:])), true
 	case "%optimize":
-		if len(fields) < 2 {
-			return metaOut([]string{"usage: %optimize <name>"}, false, nil), true
-		}
-		return metaOut(s.doOptimize(fields[1])), true
+		return metaOut(s.doOptimize(fields[1:])), true
 		// Action debugging
 	}
 	return metaResult{}, false
@@ -861,7 +896,7 @@ func (s *Session) metaDebugCommand(fields []string, line string) (metaResult, bo
 	switch fields[0] {
 	case "%action":
 		if len(fields) < 2 {
-			return metaOut([]string{"usage: %action <name> [<object>]"}, false, nil), true
+			return metaOut(s.usage("usage: %action <name> [<object>]"), false, nil), true
 		}
 		return metaOut(s.doAction(fields[1], fields[2:])), true
 	case "%step":
@@ -871,34 +906,44 @@ func (s *Session) metaDebugCommand(fields []string, line string) (metaResult, bo
 	case "%tokens":
 		return metaOut(s.doTokens()), true
 	case "%break":
-		if len(fields) < 2 {
-			return metaOut([]string{"usage: %break <node>"}, false, nil), true
+		if len(fields) != 2 {
+			return metaOut(s.usage("usage: %break <node>"), false, nil), true
 		}
 		return metaOut(s.doBreak(nameText(fields[1]))), true
 	case "%stop":
 		return metaOut(s.doStop()), true
 	case "%occurrence":
-		if len(fields) < 2 {
-			return metaOut([]string{"usage: %occurrence <name>"}, false, nil), true
+		if len(fields) != 2 {
+			return metaOut(s.usage("usage: %occurrence <name>"), false, nil), true
 		}
 		return metaOut(s.withTrace(s.runOccurrence(nameText(fields[1]))).Lines, false, nil), true
 	// State machine debugging
 	case "%state":
 		if len(fields) < 2 {
-			return metaOut([]string{"usage: %state <name> [<object>]"}, false, nil), true
+			return metaOut(s.usage("usage: %state <name> [<object>]"), false, nil), true
 		}
 		return metaOut(s.doStateMachine(fields[1], fields[2:])), true
 	case cmdInvoke:
 		if len(fields) < 3 {
-			return metaOut([]string{"usage: %invoke <object> <operation> [<expression> ... | <parameter>=<expression> ...]"}, false, nil), true
+			return metaOut(s.usage("usage: %invoke <object> <operation> [<expression> ... | <parameter>=<expression> ...]"), false, nil), true
 		}
 		object, operation, args := splitInvokeLine(strings.TrimPrefix(strings.TrimSpace(line), cmdInvoke))
 		return metaOut(s.doInvoke(object, operation, args)), true
 	case cmdQuery:
 		if len(fields) < 2 {
-			return metaOut([]string{"usage: %query <oslc-query>"}, false, nil), true
+			return metaOut(s.usage(queryUsage), false, nil), true
 		}
-		lines, err := s.query(strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), cmdQuery)))
+		text, asView := cutAsView(strings.TrimPrefix(strings.TrimSpace(line), cmdQuery))
+		if text == "" {
+			return metaOut(s.usage(queryUsage), false, nil), true
+		}
+		if asView {
+			defer s.writingResultViews()()
+		}
+		lines, written, err := s.query(text)
+		if asView && written != "" {
+			return metaOut(viewLines(written), false, nil), true
+		}
 		if err != nil {
 			return metaOut([]string{errPrefix + err.Error()}, false, nil), true
 		}
@@ -914,9 +959,9 @@ func (s *Session) metaDebugCommand(fields []string, line string) (metaResult, bo
 		return metaOut(s.doCurrent()), true
 	case "%advance":
 		if len(fields) < 2 {
-			return metaOut([]string{"usage: %advance <time>"}, false, nil), true
+			return metaOut(s.usage("usage: %advance <time>"), false, nil), true
 		}
-		return metaOut(s.doAdvance(fields[1])), true
+		return metaOut(s.doAdvance(strings.Join(fields[1:], " "))), true
 	}
 	return metaResult{}, false
 }
@@ -946,7 +991,7 @@ func (s *Session) doEvalLine(tail string) ([]string, bool, error) {
 	if !pinned {
 		// `in` alone is the pinned form with everything it needs left out.
 		if strings.TrimSpace(tail) == "in" {
-			return []string{evalUsage}, false, nil
+			return s.usage(evalUsage), false, nil
 		}
 		return s.doEval(tail)
 	}
@@ -954,7 +999,7 @@ func (s *Session) doEvalLine(tail string) ([]string, bool, error) {
 	// it is the pinned form, malformed or not.
 	name, expr, ok := splitPinnedContext(rest)
 	if !ok {
-		return []string{evalUsage}, false, nil
+		return s.usage(evalUsage), false, nil
 	}
 	lines, err := s.evalIn(name, expr)
 	if err != nil {
@@ -1726,17 +1771,25 @@ func (w *featureValueWalk) impliedCollectionLine(inst *runtime.Instance, of runt
 // object's reserved remaining features keep a line each; a nested expansion
 // spends only what is left beyond them.
 func (w *featureValueWalk) expandNested(lines []string, fv *runtime.FeatureValue, indent string, depth, reserved int) []string {
-	for _, nested := range nestedInstances(w.ctx, fv) {
+	for _, held := range heldInstances(w.ctx, fv) {
+		nested, memberIndent := held.inst, indent+"  "
 		if w.listing[nested.ID] {
 			continue
 		}
-		if w.budget <= reserved {
-			return w.truncate(lines, indent+"  ")
+		// A collection's members are listed one after another, so each is headed
+		// by the object it is; a single value's row already names its object.
+		heading := held.heading()
+		if w.budget <= reserved+held.headingLines() {
+			return w.truncate(lines, memberIndent)
 		}
 		w.budget -= reserved
+		if heading != "" {
+			lines = w.emit(lines, memberIndent+heading)
+			memberIndent += "  "
+		}
 		w.onPath[nested.Type] = true
 		w.listing[nested.ID] = true
-		lines = append(lines, w.lines(nested, indent+"  ", depth+1)...)
+		lines = append(lines, w.lines(nested, memberIndent, depth+1)...)
 		delete(w.listing, nested.ID)
 		delete(w.onPath, nested.Type)
 		w.budget += reserved
@@ -1785,12 +1838,17 @@ func (w *featureValueWalk) behaviorLines(inst *runtime.Instance, behaviors []run
 			lines = w.emit(lines, fmt.Sprintf("%s  <error: %v>", rowIndent, err))
 			continue
 		}
-		for _, occurrence := range nestedInstances(w.ctx, fv) {
-			if w.budget <= 0 {
-				return w.truncate(lines, rowIndent+"  ")
+		for _, held := range heldInstances(w.ctx, fv) {
+			occurrence, occurrenceIndent := held.inst, rowIndent+"  "
+			if w.budget <= held.headingLines() {
+				return w.truncate(lines, occurrenceIndent)
+			}
+			if heading := held.heading(); heading != "" {
+				lines = w.emit(lines, occurrenceIndent+heading)
+				occurrenceIndent += "  "
 			}
 			w.onPath[occurrence.Type] = true
-			lines = append(lines, w.rows(occurrence, rowIndent+"  ", depth+1, false)...)
+			lines = append(lines, w.rows(occurrence, occurrenceIndent, depth+1, false)...)
 			delete(w.onPath, occurrence.Type)
 		}
 	}
@@ -1965,27 +2023,56 @@ func (w *featureValueWalk) elisionReason(depth int) string {
 	return "contains its own kind"
 }
 
-// nestedInstances returns the instances a feature value holds, whether it carries one
-// value or a collection of them. An object that holds no value has nothing to
-// expand: it reads as unset, not as an object with no features.
-func nestedInstances(ctx *runtime.Context, fv *runtime.FeatureValue) []*runtime.Instance {
-	values := []runtime.Value{fv.Value}
+// heldInstance is an object a feature value holds. position is its 1-based place
+// in a collection, the index an object path reaches it by, and 0 for a single value.
+type heldInstance struct {
+	inst     *runtime.Instance
+	position int
+}
+
+// heading names a collection's member above its features: its place in the
+// collection and the object it is. A single value has none.
+func (h heldInstance) heading() string {
+	if h.position == 0 {
+		return ""
+	}
+	return fmt.Sprintf("[%d] %s", h.position, formatValue(nil, runtime.Value{Kind: runtime.ValInstance, Instance: h.inst.ID}))
+}
+
+// headingLines is the lines the heading takes: a member is not headed unless a
+// line of its own is left to list beneath the heading.
+func (h heldInstance) headingLines() int {
+	if h.position == 0 {
+		return 0
+	}
+	return 1
+}
+
+// heldInstances returns the instances a feature value holds, one or a collection.
+// An object that holds no value reads as unset and has nothing to expand.
+func heldInstances(ctx *runtime.Context, fv *runtime.FeatureValue) []heldInstance {
+	values, collection := []runtime.Value{fv.Value}, false
 	switch fv.Values.Kind {
 	case runtime.ValSequence, runtime.ValSet:
 		var err error
 		if values, err = objref.CollectionElements(ctx, fv.Values); err != nil {
 			return nil
 		}
+		collection = true
 	}
 
-	var out []*runtime.Instance
-	for _, val := range values {
+	var out []heldInstance
+	for i, val := range values {
 		id, ok := val.Object()
 		if !ok || ctx.HoldsNoValue(val) {
 			continue
 		}
 		if nested, ok := ctx.Instance(id); ok {
-			out = append(out, nested)
+			held := heldInstance{inst: nested}
+			if collection {
+				held.position = i + 1
+			}
+			out = append(out, held)
 		}
 	}
 	return out
@@ -4014,9 +4101,16 @@ func currentStateName(exec *runtime.StateExecutor) string {
 }
 
 // parseDuration reads the argument of %advance: a number of time units, with
-// an optional trailing "s".
+// an optional trailing "s", "[s]" or "[SI::s]", the clock's unit as a model
+// writes it.
 func parseDuration(arg string) (float64, error) {
-	text := strings.TrimSuffix(strings.TrimSpace(arg), "s")
+	text := strings.TrimSpace(arg)
+	for _, unit := range []string{"[SI::s]", "[s]", "s"} {
+		if number, ok := strings.CutSuffix(text, unit); ok {
+			text = strings.TrimSpace(number)
+			break
+		}
+	}
 	d, err := strconv.ParseFloat(text, 64)
 	if err != nil {
 		return 0, fmt.Errorf("invalid time %q (expected a number of time units, e.g. 30 or 30s)", arg)

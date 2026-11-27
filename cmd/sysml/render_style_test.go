@@ -58,9 +58,11 @@ func TestRenderStyle(t *testing.T) {
 		}
 		check(t, "-render-document", doc.stdout, cameo)
 
-		page := runFiles(t, binary, []string{fixture}, append([]string{"-render-document", "Placed::PlacedReport", "-doc-form", "html", "-diagram-form", "dot"}, style...)...)
-		if page.status != exitHolds || strings.Contains(page.stdout, `data-style="cameo"`) != cameo {
-			t.Errorf("-doc-form html exit status = %d, states the style = %v\n%s", page.status, !cameo, page.output())
+		if docpdfFeature.linked {
+			page := runFiles(t, binary, []string{fixture}, append([]string{"-render-document", "Placed::PlacedReport", "-doc-form", "html", "-diagram-form", "dot"}, style...)...)
+			if page.status != exitHolds || strings.Contains(page.stdout, `data-style="cameo"`) != cameo {
+				t.Errorf("-doc-form html exit status = %d, states the style = %v\n%s", page.status, !cameo, page.output())
+			}
 		}
 
 		site := filepath.Join(t.TempDir(), "docs")

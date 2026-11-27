@@ -29,8 +29,8 @@ GNU-format diagnostics **relative to `--root`**. Consequences for testing:
   our `binding-connector-type-conformance` error where the pilot warns, four severity-only pairs, and
   its `Integer[2] = *` count error is one only-ours row), then the expose-only collisions round
   (the `general-views-demo/vehicle.sysml:102` duplicate-imported-name warning retired), then the namespace declaration round
-  (`parse/namespaces.sysml:5` is an agreed error, no longer a severity-only pair): `924 file(s), 528 fully agreeing; 1107 agreed,
-  121 only ours, 2450 only the pilot's`, JSON totals `openSysMLDiagnostics 1236 / pilotDiagnostics 3565 /
+  (`parse/namespaces.sysml:5` is an agreed error, no longer a severity-only pair): `939 file(s), 542 fully agreeing; 1119 agreed,
+  127 only ours, 2454 only the pilot's`, JSON totals `openSysMLDiagnostics 1254 / pilotDiagnostics 3581 /
   severityMismatch 8`; the two only-ours rows the multiplicity rule added are the expected `action-step-multiplicity-not-fixed`
   warnings on `training/18. Action Performance/Action Performance Example.sysml:10` and
   `pilot-examples/Camera Example/Camera.sysml:4`. ~2 min wall, byte-identical across runs *and* after a from-scratch rebuild of
@@ -155,8 +155,8 @@ warning (the `[1]` `RocketEquation` inputs still produce the warning at
 `takePicture[*]` in `Camera Example/Camera.sysml`, and the view concern framing round retired the
 six view-body `frame` `syntax` rows on `examples`, and the unbounded-literal typing round added
 `passes/literal_infinity.sysml` (four severity-only pairs, one only-ours count error), and the expose-only collisions round retired
-the `general-views-demo/vehicle.sysml:102` warning; a live run gives `924 file(s), 528 fully
-agreeing; 1107 agreed, 121 only ours, 2450 only the pilot's`, byte-identical to the committed baseline, and
+the `general-views-demo/vehicle.sysml:102` warning; a live run gives `939 file(s), 542 fully
+agreeing; 1119 agreed, 127 only ours, 2454 only the pilot's`, byte-identical to the committed baseline, and
 `docs/project/pilot-differential.md`'s "Results" table matches. The prior rebaseline, when the
 Legend of the Red Dragon example left for its own repository, gave
 <!-- doc-count:historical -->`920 file(s), 517 fully agreeing; 1098 agreed, 366 only ours, 2448 only the pilot's`.
@@ -619,7 +619,10 @@ Provisioning script (`scripts/download-pilot-validator.sh`):
   present. Overwrite the stamp (`printf x > build/pilot-validator/.pilot-pin`) and the script
   prints `Stale build at ...: built from x, pin is now ...; rebuilding.`; delete it and it prints
   `Unstamped build at ...; rebuilding ...`; `rm -rf` only `sysml.library` and it prints
-  `Incomplete build at ...; rebuilding ...`. All three rebuild for real (~20 s with a warm `~/.m2`,
+  `Incomplete build at ...; rebuilding ...`; append a byte to the shaded jar or edit a library
+  file and it prints the pinned-versus-found SHA-256 and `Build at ... does not hold the pinned
+  pilot release; rebuilding ...` (`PILOT_KERNEL_JAR_SHA256=00` makes a real download fail before
+  `mvn package`, the installed copy untouched). All of them rebuild for real (~20 s with a warm `~/.m2`,
   minutes cold), so `timeout 5` the run if the message is all you need — the build happens in a
   sibling `build/pilot-validator.build.XXXXXX` directory that is swapped in only once complete, so
   an interrupted or failed rebuild leaves the installed validator untouched (`timeout -s TERM 12`

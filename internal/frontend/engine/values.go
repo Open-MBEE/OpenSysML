@@ -79,6 +79,10 @@ func valueToProto(rt *runtime.Context, val runtime.Value, idx *symbols.Index, id
 		case semantics.ValBool:
 			return &JValue{BoolValue: boolean(val.Const.Bool)}
 		case semantics.ValInfinity:
+			// The infinity arm is `*` alone; `-*` goes as the double it is.
+			if val.Const.IsNegativeInfinity() {
+				return &JValue{RealValue: f64(math.Inf(-1))}
+			}
 			return &JValue{Infinity: boolean(true)}
 		default:
 			return &JValue{Null: text("unsupported const kind")}
@@ -151,8 +155,7 @@ func valueToProto(rt *runtime.Context, val runtime.Value, idx *symbols.Index, id
 	case runtime.ValUndetermined:
 		return &JValue{Undetermined: undeterminedToProto(val.Undetermined())}
 	case runtime.ValCoordinateFrame, runtime.ValCoordinateTransformation:
-		// No wire arm carries a frame's axes or a transformation's placement.
-		return &JValue{Null: text(unsupportedShown(val))}
+		return coordinateValueToProto(rt, val, idx, ids)
 	default:
 		return &JValue{Null: text("unsupported")}
 	}
@@ -493,6 +496,10 @@ func protoToRuntimeValue(rt *runtime.Context, pv *JValue, idx *symbols.Index, se
 		return runtime.Value{}, errUnsetNotAccepted
 	case pv.Undetermined != nil:
 		return runtime.Value{}, errUndeterminedNotAccepted
+	case pv.CoordinateFrame != nil:
+		return runtime.Value{}, errCoordinateFrameNotAccepted
+	case pv.CoordinateTransformation != nil:
+		return runtime.Value{}, errCoordinateTransformationNotAccepted
 	case pv.Quantity != nil:
 		return protoToQuantity(pv.Quantity, idx, sem)
 	case pv.EnumLiteral != nil:
@@ -1353,7 +1360,7 @@ func protoToScalar(pv *JValue) runtime.Value {
 		}
 		return runtime.Value{Kind: runtime.ValConst, Const: num}
 	case pv.RealValue != nil:
-		return runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: float64(*pv.RealValue)}}
+		return runtime.Value{Kind: runtime.ValConst, Const: semantics.ExtendedReal(float64(*pv.RealValue))}
 	case pv.BoolValue != nil:
 		return runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValBool, Bool: *pv.BoolValue}}
 	case pv.StringValue != nil:

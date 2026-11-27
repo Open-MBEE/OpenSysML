@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -315,44 +316,74 @@ type session struct {
 	// waited is the process's exit once Wait returned.
 	waited chan struct{}
 	exit   error
+	// drained is closed once the reader has left the engine's standard output.
+	drained chan struct{}
 
 	described enginewire.Description
 }
 
-// startSession spawns the entry's command, never through PATH, and takes the engine's
-// description, checked against the entry field by field. A process that does not start,
-// does not describe itself within the timeout or describes itself otherwise is ended.
-func startSession(entry EngineEntry, limit int, timeout time.Duration) (*session, error) {
+// startSession spawns the entry's command, never through PATH, and checks the description it
+// gives against the entry; one not given within the timeout or before ctx is done ends it.
+func startSession(ctx context.Context, entry EngineEntry, limit int, timeout time.Duration) (*session, error) {
 	if err := entry.Present(); err != nil {
 		return nil, err
 	}
-	s := &session{entry: entry, limit: limit, timeout: timeout,
-		pending: make(map[int64]chan enginewire.Message), progress: make(map[int64]*progressSink),
-		ended: make(chan struct{}), waited: make(chan struct{})}
+	if ctx.Err() != nil {
+		return nil, abandoned(ctx, entry.Name)
+	}
+	s := newSession(entry, limit, timeout)
 	s.cmd = exec.Command(entry.Executable, entry.Command[1:]...) // #nosec G204 -- the manifest names the command
 	s.cmd.Dir = entry.Dir
 	ownProcessGroup(s.cmd)
 	s.stderr = NewBoundedBuffer(limit, s.stderrOver)
 	s.cmd.Stderr = s.stderr
-	stdin, err := s.cmd.StdinPipe()
+	stdout, err := s.launch()
 	if err != nil {
 		return nil, s.notStarted(err)
 	}
-	stdout, err := s.cmd.StdoutPipe()
-	if err != nil {
-		return nil, s.notStarted(err)
-	}
-	s.stdin = stdin
-	if err := s.cmd.Start(); err != nil {
-		return nil, s.notStarted(err)
-	}
-	go s.wait()
 	go s.read(stdout)
-	if err := s.describe(); err != nil {
+	if err := s.describe(ctx); err != nil {
 		s.end(err)
 		return nil, err
 	}
 	return s, nil
+}
+
+// newSession is a session of the entry with no process yet.
+func newSession(entry EngineEntry, limit int, timeout time.Duration) *session {
+	return &session{entry: entry, limit: limit, timeout: timeout,
+		pending: make(map[int64]chan enginewire.Message), progress: make(map[int64]*progressSink),
+		ended: make(chan struct{}), waited: make(chan struct{}), drained: make(chan struct{})}
+}
+
+// abandoned is the error of a start given up because its caller's context ended.
+func abandoned(ctx context.Context, engine string) error {
+	return fmt.Errorf("engine %q: its start was abandoned: %w", engine, context.Cause(ctx))
+}
+
+// launch starts the process and returns its standard output, a pipe the host owns so that
+// collecting the exit never closes it under the reader.
+func (s *session) launch() (io.Reader, error) {
+	stdin, err := s.cmd.StdinPipe()
+	if err != nil {
+		return nil, err
+	}
+	stdout, engineEnd, err := os.Pipe()
+	if err != nil {
+		_ = stdin.Close()
+		return nil, err
+	}
+	s.cmd.Stdout = engineEnd
+	s.stdin = stdin
+	err = s.cmd.Start()
+	_ = engineEnd.Close()
+	if err != nil {
+		_ = stdin.Close()
+		_ = stdout.Close()
+		return nil, err
+	}
+	go s.wait(stdout)
+	return stdout, nil
 }
 
 // stderrOver ends the session of an engine that wrote more than the bound to standard error:
@@ -368,18 +399,30 @@ func (s *session) notStarted(err error) error {
 	return &EngineExitedError{Engine: s.entry.Name, Process: s.entry.Executable, Err: err}
 }
 
-// wait collects the process's exit.
-func (s *session) wait() {
+// wait collects the process's exit, then closes its standard output once the reader has
+// drained it, or after the timeout when a descendant still holds the pipe open.
+func (s *session) wait(stdout io.Closer) {
 	s.exit = s.cmd.Wait()
 	close(s.waited)
+	held := time.NewTimer(s.timeout)
+	defer held.Stop()
+	select {
+	case <-s.drained:
+	case <-held.C:
+	}
+	_ = stdout.Close()
 }
 
-// describe takes the engine's description within the timeout and checks it.
-func (s *session) describe() error {
-	ctx, cancel := context.WithTimeout(context.Background(), s.timeout)
+// describe takes the engine's description within the timeout, or until ctx is done, and
+// checks it.
+func (s *session) describe(ctx context.Context) error {
+	within, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
-	raw, err := s.call(ctx, enginewire.MethodDescribe, enginewire.DescribeParams{Protocols: ProtocolVersions}, nil)
+	raw, err := s.call(within, enginewire.MethodDescribe, enginewire.DescribeParams{Protocols: ProtocolVersions}, nil)
 	if err != nil {
+		if ctx.Err() != nil {
+			return abandoned(ctx, s.entry.Name)
+		}
 		var exited *EngineExitedError
 		if errors.As(err, &exited) {
 			exited.Started = false
@@ -494,10 +537,15 @@ func (s *session) call(ctx context.Context, method string, params any, sink *pro
 	case msg := <-reply:
 		return s.answer(method, msg)
 	case <-s.ended:
-		return nil, s.unanswered(sink)
+		return s.answerAtEnd(method, reply, sink)
 	case <-ctx.Done():
 	}
 	if method != enginewire.MethodRun {
+		select {
+		case msg := <-reply:
+			return s.answer(method, msg)
+		default:
+		}
 		s.end(&EngineTimeoutError{Engine: s.entry.Name, Method: method, Timeout: s.timeout})
 		return nil, s.failed()
 	}
@@ -510,9 +558,20 @@ func (s *session) call(ctx context.Context, method string, params any, sink *pro
 	case msg := <-reply:
 		return s.answer(method, msg)
 	case <-s.ended:
-		return nil, s.unanswered(sink)
+		return s.answerAtEnd(method, reply, sink)
 	case <-grace.C:
 		s.end(&EngineTimeoutError{Engine: s.entry.Name, Method: method, Timeout: s.timeout})
+		return nil, s.unanswered(sink)
+	}
+}
+
+// answerAtEnd is the answer of a request whose session has ended: the response the reader
+// delivered before the end, which a select over both may not have picked, else the end.
+func (s *session) answerAtEnd(method string, reply <-chan enginewire.Message, sink *progressSink) (json.RawMessage, error) {
+	select {
+	case msg := <-reply:
+		return s.answer(method, msg)
+	default:
 		return nil, s.unanswered(sink)
 	}
 }
@@ -565,27 +624,49 @@ func (s *session) send(method string, params any, sink *progressSink) (int64, ch
 	return id, reply, nil
 }
 
+// unwritableGrace is how long the reader is given to report the end of a process whose
+// pipe refused a write, before the process is ended for the write's own error.
+const unwritableGrace = time.Second
+
 // unwritable is the error of a message the pipe did not take: the process's end, as the
-// reader reports it once it sees the pipe close, else the write's own error.
+// reader reports it once it sees the pipe close, else its collected exit, else the write's
+// own error.
 func (s *session) unwritable(err error) error {
 	select {
 	case <-s.ended:
-	case <-time.After(s.timeout):
+	case <-time.After(min(s.timeout, unwritableGrace)):
+		select {
+		case <-s.waited:
+			// A descendant still holds the output open: the exit is known all the same.
+			if s.exit != nil {
+				err = s.exit
+			}
+		default:
+		}
 		s.end(&EngineExitedError{Engine: s.entry.Name, Process: s.entry.Executable, Started: true,
 			Err: err, Stderr: strings.TrimSpace(string(s.stderr.Bytes()))})
 	}
 	return s.failed()
 }
 
-// forget drops a request's registration once it is answered or abandoned.
+// forget drops a request's registration once it is abandoned; an answered one is dropped
+// already.
 func (s *session) forget(id int64) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if _, ok := s.pending[id]; ok {
+	s.claim(id)
+}
+
+// claim takes a request's registration, so each request is answered at most once; called
+// under mu.
+func (s *session) claim(id int64) (chan enginewire.Message, bool) {
+	reply, ok := s.pending[id]
+	if ok {
 		delete(s.pending, id)
 		delete(s.progress, id)
 		s.open--
 	}
+	return reply, ok
 }
 
 // notify writes one notification.
@@ -614,6 +695,7 @@ func (s *session) write(msg enginewire.Message, params any) error {
 
 // read takes every line the engine writes until the pipe ends or a line breaks the protocol.
 func (s *session) read(stdout io.Reader) {
+	defer close(s.drained)
 	r := bufio.NewReaderSize(stdout, 64<<10)
 	for {
 		line, err := readLine(r, s.limit)
@@ -710,7 +792,7 @@ func (s *session) take(line []byte) error {
 		}
 	}
 	s.mu.Lock()
-	reply, ok := s.pending[id]
+	reply, ok := s.claim(id)
 	s.mu.Unlock()
 	if !ok {
 		return s.broke(fmt.Sprintf("a response answers %d, which is no open request", id))
@@ -845,7 +927,7 @@ type enginePool struct {
 	entry   EngineEntry
 	limit   int
 	timeout time.Duration
-	start   func(EngineEntry, int, time.Duration) (*session, error)
+	start   func(context.Context, EngineEntry, int, time.Duration) (*session, error)
 
 	mu      sync.Mutex
 	shared  *session
@@ -853,8 +935,8 @@ type enginePool struct {
 	all     []*session
 	failure error
 	closed  bool
-	// starting is closed once the shared process's start has been attempted; requests
-	// arriving during it wait rather than start another.
+	// starting is open while the shared process is being started; requests arriving during
+	// it wait rather than start another.
 	starting chan struct{}
 }
 
@@ -863,20 +945,16 @@ func newEnginePool(entry EngineEntry, limit int, timeout time.Duration) *engineP
 	return &enginePool{entry: entry, limit: limit, timeout: timeout, start: startSession}
 }
 
-// acquire is a session with no other request open on it when the entry is not concurrent,
-// the shared one otherwise; a new process is started when none serves. Give it back with put.
-func (p *enginePool) acquire() (*session, error) {
+// acquire is a session no other request is open on, or the shared one of a concurrent entry,
+// started when none serves unless ctx ends first. Give it back with put.
+func (p *enginePool) acquire(ctx context.Context) (*session, error) {
 	p.mu.Lock()
-	if p.closed {
+	if err := p.refused(); err != nil {
 		p.mu.Unlock()
-		return nil, &SessionEndedError{Engine: p.entry.Name, Err: errPlanEnded}
-	}
-	if p.failure != nil {
-		p.mu.Unlock()
-		return nil, &SessionEndedError{Engine: p.entry.Name, Err: p.failure}
+		return nil, err
 	}
 	if p.entry.Concurrent {
-		return p.acquireShared()
+		return p.acquireShared(ctx)
 	}
 	for len(p.idle) > 0 {
 		s := p.idle[len(p.idle)-1]
@@ -887,11 +965,31 @@ func (p *enginePool) acquire() (*session, error) {
 		}
 	}
 	p.mu.Unlock()
-	s, err := p.start(p.entry, p.limit, p.timeout)
+	s, err := p.start(ctx, p.entry, p.limit, p.timeout)
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	return p.started(ctx, s, err)
+}
+
+// refused is why the pool takes no request: its plan ended, or a process ended by fault.
+// Called under mu.
+func (p *enginePool) refused() error {
+	switch {
+	case p.closed:
+		return &SessionEndedError{Engine: p.entry.Name, Err: errPlanEnded}
+	case p.failure != nil:
+		return &SessionEndedError{Engine: p.entry.Name, Err: p.failure}
+	}
+	return nil
+}
+
+// started takes a start's outcome into the pool: a failure ends the engine for the plan,
+// unless the start was only given up with its caller's context. Called under mu.
+func (p *enginePool) started(ctx context.Context, s *session, err error) (*session, error) {
 	if err != nil {
-		p.failure = err
+		if ctx.Err() == nil {
+			p.failure = err
+		}
 		return nil, err
 	}
 	if p.closed {
@@ -902,45 +1000,41 @@ func (p *enginePool) acquire() (*session, error) {
 	return s, nil
 }
 
-// acquireShared is the plan's one process of a concurrent entry, started by the first request
-// while the others wait for it. Called with mu held, which it releases.
-func (p *enginePool) acquireShared() (*session, error) {
+// acquireShared is a concurrent entry's one process, started by the first request while the
+// others wait for it or their own context. Called with mu held, which it releases.
+func (p *enginePool) acquireShared(ctx context.Context) (*session, error) {
+	for p.shared == nil && p.starting != nil {
+		starting := p.starting
+		p.mu.Unlock()
+		select {
+		case <-starting:
+		case <-ctx.Done():
+			return nil, abandoned(ctx, p.entry.Name)
+		}
+		p.mu.Lock()
+		if err := p.refused(); err != nil {
+			p.mu.Unlock()
+			return nil, err
+		}
+	}
 	if p.shared != nil {
 		s := p.shared
 		p.mu.Unlock()
 		return s, nil
 	}
-	if p.starting != nil {
-		starting := p.starting
-		p.mu.Unlock()
-		<-starting
-		p.mu.Lock()
-		defer p.mu.Unlock()
-		switch {
-		case p.closed:
-			return nil, &SessionEndedError{Engine: p.entry.Name, Err: errPlanEnded}
-		case p.failure != nil:
-			return nil, &SessionEndedError{Engine: p.entry.Name, Err: p.failure}
-		}
-		return p.shared, nil
-	}
-	p.starting = make(chan struct{})
+	starting := make(chan struct{})
+	p.starting = starting
 	p.mu.Unlock()
-	s, err := p.start(p.entry, p.limit, p.timeout)
+	s, err := p.start(ctx, p.entry, p.limit, p.timeout)
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	defer close(p.starting)
-	if err != nil {
-		p.failure = err
-		return nil, err
+	p.starting = nil
+	close(starting)
+	s, err = p.started(ctx, s, err)
+	if err == nil {
+		p.shared = s
 	}
-	if p.closed {
-		go s.close()
-		return nil, &SessionEndedError{Engine: p.entry.Name, Err: errPlanEnded}
-	}
-	p.all = append(p.all, s)
-	p.shared = s
-	return s, nil
+	return s, err
 }
 
 // put gives a session back once its request is answered: an ended one records the fault for

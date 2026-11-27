@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard/flags"
@@ -18,6 +19,7 @@ type options struct {
 	allowUnauthenticated bool
 	allowInsecureToken   bool
 	cacheSize            int
+	noRecordCache        bool
 	logLevel             string
 	showVersion          bool
 	showMan              bool
@@ -28,6 +30,7 @@ type options struct {
 	tlsCert              string
 	tlsKey               string
 	serveExternal        string
+	fileRoot             string
 }
 
 // registerFlags declares the command's flags on fs, so a run, the help and the
@@ -52,6 +55,8 @@ func registerFlags(fs *flag.FlagSet) *options {
 			"-tls-key: the token crosses the network in clear, so anyone observing it can "+
 			"replay it. Only behind a TLS-terminating proxy on a trusted network; never implied")
 	fs.IntVar(&o.cacheSize, "cache-size", 100, "Maximum number of cached parsed files")
+	fs.BoolVar(&o.noRecordCache, "no-record-cache", false,
+		"Analyze every model parsed, reading no model record from the record cache and writing none; default off, or OPENSYSML_RECORD_CACHE=0")
 	fs.StringVar(&o.logLevel, "log-level", "info", "Log level (debug, info, warn, error)")
 	fs.BoolVar(&o.showVersion, "version", false, "Show version and exit")
 	fs.BoolVar(&o.showMan, "man", false, "Write this command's manual page, in roff, to stdout and exit")
@@ -71,6 +76,17 @@ func registerFlags(fs *flag.FlagSet) *options {
 		"Comma-separated names of the OPENSYSML_ENGINES manifest engines this service runs "+
 			"for its clients, or all; without it they are listed by ListEngines but a request "+
 			"naming one is refused, since it would run a program on the server")
+	fs.Func("file-root",
+		"Directory the files a request names by path (file_path, layout_path) must lie "+
+			"under, relative paths taken from it; without it the service reads any path "+
+			"its own privileges reach",
+		func(dir string) error {
+			if dir == "" {
+				return errors.New("needs a directory")
+			}
+			o.fileRoot = dir
+			return nil
+		})
 	return &o
 }
 

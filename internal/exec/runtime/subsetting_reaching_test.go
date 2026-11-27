@@ -237,3 +237,60 @@ func TestSubsetterUnderAnOpenUsageLeavesTheCountOpen(t *testing.T) {
 		t.Errorf("size(open.held) = %s, want undetermined: at least two bays are required and none is declared", FormatValue(got))
 	}
 }
+
+// TestNoSubsetterDeclaredElsewhereAllocatesNothing pins that asking whether a feature of an object held
+// under owners takes part in a subsetting declared elsewhere allocates nothing once the indexes are built.
+func TestNoSubsetterDeclaredElsewhereAllocatesNothing(t *testing.T) {
+	ctx, inst, err := instantiateWithLibraries(t, "package test {"+subsettingElsewherePrelude+`
+		part def Lid { attribute turns : Integer default 1; }
+		part def Case { part lid : Lid; }
+		part def Crate { part inner : Case; }
+		part def W :> V { part own : Sub :> subsystem; part crate : Crate; }
+		part w : W;
+	}`, "test::w")
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+	nested := inst
+	for _, name := range []string{"crate", "inner", "lid"} {
+		fv, err := nested.GetFeatureValue(ctx, name)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		held := elementsOf(fv.HeldValue())
+		if len(held) != 1 || held[0].Kind != ValInstance {
+			t.Fatalf("%s = %v, want one object", name, held)
+		}
+		nested = ctx.instances[held[0].Instance]
+	}
+	if ctx.reachedByASubsetter(nested, "turns") || ctx.subsetsElsewhere(nested, "turns") {
+		t.Fatal("lid.turns takes part in a subsetting declared elsewhere, want none")
+	}
+	allocs := testing.AllocsPerRun(100, func() {
+		ctx.reachedByASubsetter(nested, "turns")
+		ctx.subsetsElsewhere(nested, "turns")
+	})
+	if allocs != 0 {
+		t.Errorf("%v allocations per query, want 0", allocs)
+	}
+}
+
+// TestSubsettingElsewhereLeavesNamespaceSubsettersUnresolved pins that reading a feature no
+// namespace usage subsets resolves no subsetting target of the model's namespace usages.
+func TestSubsettingElsewhereLeavesNamespaceSubsettersUnresolved(t *testing.T) {
+	ctx, inst, err := instantiateWithLibraries(t, "package test {"+subsettingElsewherePrelude+`
+		part x1 : Sub;
+		part rig : V { part redefines subsystem = (x1); }
+		part bench { part beam : Sub :> rig.subsystem; }
+	}`, "test::bench")
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+	if !ctx.subsetsElsewhere(inst, "beam") {
+		t.Fatal("bench.beam subsets nothing declared elsewhere, want rig.subsystem")
+	}
+	if ctx.model.namespaceUsageIndex == nil || ctx.model.namespaceSubsetters != nil {
+		t.Errorf("index built: %t, subsetters built: %t; want the index alone",
+			ctx.model.namespaceUsageIndex != nil, ctx.model.namespaceSubsetters != nil)
+	}
+}

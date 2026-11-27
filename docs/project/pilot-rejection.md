@@ -65,7 +65,7 @@ systematically from four sources, one subdirectory each:
 2. **`extensions/` — the notation we invented** (13 cases). Every state-machine construct our
    `examples/` tree uses that no pinned production admits: `initial`, `choice`, `junction`,
    `history`, `region`, the since-removed `defer` member, and the `transition <src> to <tgt>` shorthand, plus `require`
-   outside a requirement body (`x08`, since made a parse error), `expose` in a view def body (`x09`), which our grammar admits as an extension, KerML's `connector` declared in a `.sysml` file (`x10`), a `kerml-notation` error in either mode, a typing spelled `typed by` in one (`x13`), a `typing-keyword` error in either mode, and a one-name `then <target>;` in a view body (`x12`), a succession member no non-action body admits. The pinned grammar
+   outside a requirement body (`x08`, since made a parse error), `expose` in a view def body (`x09`, since made a parse error too), KerML's `connector` declared in a `.sysml` file (`x10`), a `kerml-notation` error in either mode, a typing spelled `typed by` in one (`x13`), a `typing-keyword` error in either mode, and a one-name `then <target>;` in a view body (`x12`), a succession member no non-action body admits. The pinned grammar
    spells entry as `entry; then <state>`, concurrency as `state ... parallel`, and transitions as
    `first <src> then <tgt>`, and has no pseudostates or deferral at all. Adjudication: these are
    **intended OpenSysML extensions**, not accidents — each has dedicated parser tests
@@ -116,7 +116,11 @@ systematically from four sources, one subdirectory each:
    implemented: a payload that invokes a non-behavior (`send-payload-non-behavior`), a state
    subaction or transition effect send with no payload (`send-subaction-no-payload`, which the
    pilot's grammar rejects before its validator would), and a constructed payload whose `new`
-   names a package rather than a type (`send-constructor-non-type`).
+   names a package rather than a type (`send-constructor-non-type`). The five `accepter-source-*` cases are
+   `validateTransitionUsageTriggerActions` (SysML v2.1 8.3.18.9) over sources other than the entry
+   action of `p34`: a do action, a performed action, a calculation, an inherited action reached
+   through a feature chain, and the action a transition written without a source follows; both
+   tools report the constraint's message at the accepter.
 
 What this corpus cannot see: it tests the invalid models we thought to write. **We authored all 350
 cases ourselves**, so the denominator measures our coverage of the rejection surface, not our
@@ -166,15 +170,15 @@ measured at their own round and are not the current baseline.
 Under the default `-conformance auto`:
 
 ```
-351 case(s): 341 both reject, 0 only the pilot rejects, 10 only we reject, 0 both accept
-  of which 5 agree only because we were asked strictly (the default mode accepts them, by design)
+356 case(s): 346 both reject, 0 only the pilot rejects, 10 only we reject, 0 both accept
+  of which 2 agree only because we were asked strictly (the default mode accepts them, by design)
 ```
 
 | Source | Cases | Both reject | Pilot only | Ours only | Both accept |
 | --- | --- | --- | --- | --- | --- |
 | extensions | 13 | 13 | 0 | 0 | 0 |
 | grammar | 114 | 114 | 0 | 0 | 0 |
-| semantic | 189 | 179 | 0 | 10 | 0 |
+| semantic | 194 | 184 | 0 | 10 | 0 |
 | xpect | 35 | 35 | 0 | 0 | 0 |
 
 Eight of the ten ours-only cases are the control-node succession rules (`cn01`–`cn04`, `cn06`–`cn09`)
@@ -228,8 +232,8 @@ cross-references fail to link, `Couldn't resolve reference to Type|Classifier|Fe
 type tier now judges both ends of the member by the kinds the declaration clauses already require), and to 301 with the prefix and body-context cases (`g71`–`g79`, `k22`–`k27`, `x09`:
 the exclusive prefix alternatives written together or repeated, a repeated direction (on an ordinary and a cross feature), `ref`, `constant` or `const` on a definition, `variation` in KerML, an invalid string
 escape, a signed multiplicity bound, `transition` in a part def body, the SysML `constant` spelling
-in KerML — each a syntax error in both tools — `expose` in a view def body, a notation extension
-the default mode reports as a `nonstandard-notation` warning and strict mode as an error; a
+in KerML — each a syntax error in both tools — `expose` in a view def body, then a notation extension
+the default mode reported as a `nonstandard-notation` warning and since a syntax error in either mode; a
 `variant` outside a variation, which the grammar admits, stays `p08`, rejected by both as
 `validateVariationMembershipOwningNamespace`), and to 306 with the redefinition name-resolution
 cases (`s94`–`s98`: a `:>>` target that is a sibling member, a same-scope import, a same-scope
@@ -278,24 +282,24 @@ rules closed eleven `xpect/` gaps (`p08`, `p17`, `p20`,
 `p21`, `p22`, `p25`, `p26`, `p27`, `p28`, `p32`, `p33`). No case in the corpus is
 accepted by both implementations.
 
-The three strict-only agreements are `x06`, `x09` and `x11`: OpenSysML notation
+The two strict-only agreements are `x06` and `x11`: OpenSysML notation
 extensions that the default mode reports as `nonstandard-notation` or `kerml-notation` warnings on purpose and strict
 mode reports as errors. `x01` (the
 initial state marker), `x04` (`region r { … }`), `x05` (the `defer <event>;` state member),
-`x07` (`transition <src> to <tgt>`) and `x08` (`require` outside a requirement body) left that
+`x07` (`transition <src> to <tgt>`), `x08` (`require` outside a requirement body) and `x09` (`expose` in a view def body, which `ViewDefinitionBodyItem` does not offer) left that
 list when that notation was removed: each is now a parse error in either mode, so both
 implementations reject it by default. `x10` (KerML's `connector` declared in a `.sysml` file) left it
 when a declaration keyword only KerML spells became a `kerml-notation` error in either mode. `x13` (a typing spelled `typed by`) left it when that spelling
 became an error in either mode: SysML names the spelling of a typing itself (§8.2.2.1.2
 `DEFINED_BY`), so no second one is owed a warning. Judged in
-the default mode the same corpus gives 336 agreements and 3 gaps, which is what `-conformance
-default` prints. `-conformance strict` gives 339 and 0. Reserved keywords recovered as declared
+the default mode the same corpus gives 339 agreements and 2 gaps, which is what `-conformance
+default` prints. `-conformance strict` gives 341 and 0. Reserved keywords recovered as declared
 names and SysML declaration keywords recovered in KerML are now errors in either mode; the parser
 still preserves their trees for editors and later analysis. Of the 14 gaps this document carried
 when it was first written, six were closed by the validation work itself — `p01`, `p02`, `p03`,
-`p04`, `p05` and `p06` — and only the four `extensions/` cases belong to strict mode.
+`p04`, `p05` and `p06` — and only the two `extensions/` cases belong to strict mode.
 
-Read those four as agreement *when asked strictly*, not as gaps that disappeared. An opt-in
+Read those two as agreement *when asked strictly*, not as gaps that disappeared. An opt-in
 check is weaker evidence than a default one: it says the strict question has an answer we agree on,
 not that the pipeline a user gets by default rejects the notation — by design it does not. And
 because we authored all 350 cases ourselves, a small gap count means we ran out of questions we
@@ -548,13 +552,13 @@ the rule.
 Per the specification, **yes**. `region` and `history` appear in no production of the
 pinned grammars — `StateBodyItem` has no history member and concurrency is spelled
 `state ... parallel`. The same held for `initial`, `transition <src> to <tgt>`, the `defer
-<event>;` member and `require` outside a requirement body, which is why they were removed; all
-four are now errors in either mode (the `defer` member with its own `defer-notation-removed`
+<event>;` member, `require` outside a requirement body and `expose` in a view def body, which is why they were removed; all
+five are now errors in either mode (the `defer` member with its own `defer-notation-removed`
 diagnostic, since it was a documented extension with a standard encoding to point at). The SysML v2 textual notation is defined by that grammar, so a model using them
 is not a conforming SysML v2 model, and a tool asked whether it conforms must say no. Accepting
 them by default is therefore not "conformance we argued" but a **superset we chose**: OpenSysML's
 default mode implements a dialect, and the honest statement of `-conformance auto` agreement on
-`x06` and `x09` is that the strict question has an answer we agree on while the
+`x06` is that the strict question has an answer we agree on while the
 default pipeline a user gets accepts notation the reference rejects as a syntax error. What makes
 the choice defensible is not the extensions' usefulness but that the conforming question remains
 askable: [strict mode](../guide/03-command-line.md#strict-conformance) reports every one of them as
@@ -708,7 +712,7 @@ for the gaps, and names where in OpenSysML the rule would have to fire.
 | `validateTransitionFeatureMembershipTriggerAction` | none: `TriggerActionMember` only parses an `AcceptActionUsage` | no violating model | — | — | — |
 | `validateTransitionUsageParameters` | none: `TransitionUsage` always synthesises its `EmptyParameterMember`s | no violating model | — | — | — |
 | `validateTransitionUsageSuccession` | `semantic/s44-transition-target-not-action.sysml` | both-reject | A transition must own a succession to its target. | transition endpoint p is not a state or pseudostate | — |
-| `validateTransitionUsageTriggerActions` | existing: `xpect/p34-accepter-source-not-state.sysml` | both-reject | A transition with an accepter must have a state as its source. | A transition with an accepter must have a state as its source. | — |
+| `validateTransitionUsageTriggerActions` | existing: `xpect/p34-accepter-source-not-state.sysml`, `semantic/accepter-source-*.sysml` | both-reject | A transition with an accepter must have a state as its source. | A transition with an accepter must have a state as its source. | — |
 | `validateUsageIsReferential` | none: adapter post-processing forces `isComposite = false` | no violating model | — | — | — |
 | `validateUsageType` | `semantic/s36-usage-typed-by-feature.sysml` | both-reject | A usage must be typed by definitions. | A usage must be typed by definitions. | — |
 | `validateUsageVariationIsAbstract` | none: adapter post-processing forces `isAbstract = true` | no violating model | — | — | — |

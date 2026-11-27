@@ -3,6 +3,7 @@
 import argparse
 import base64
 import datetime
+import functools
 import glob
 import json
 import os
@@ -30,6 +31,9 @@ PINNED = set()
 NOCANCEL = set()
 READY_OK = set()
 ACTIVE = ["queued", "in_progress", "pending", "waiting", "requested"]
+F_STATE, F_HOLD = "state.json", "hold.json"
+F_CI_PRIO, F_EXT_OK = "ci_prio.json", "ext_ok.json"
+F_REVIEW_GATE, F_AUTH_RERUN = "review_gate.json", "auth_rerun.json"
 
 
 def configure(cfg):
@@ -37,7 +41,7 @@ def configure(cfg):
     global CFG, GH_RUN, REPO, DIR, STATE, LOG, OUTBOX, BASE_BRANCH, MAIN_WF, REQUIRED
     global CAP, BASE_CAP, INTERVAL, FAST, WORKFLOWS, PREFLIGHT_JOBS, CI_PRS, CI_FLAGGED, CI_AFTER
     CFG, REPO, DIR = cfg, cfg.repo, cfg.state_dir
-    STATE, LOG, OUTBOX = cfg.file("state.json"), cfg.file("watch.log"), cfg.file("outbox.jsonl")
+    STATE, LOG, OUTBOX = cfg.file(F_STATE), cfg.file("watch.log"), cfg.file("outbox.jsonl")
     GH_RUN = GH(cfg, log)
     BASE_BRANCH, REQUIRED = cfg["base_branch"], cfg["required_check"]
     WORKFLOWS = set(cfg["workflows"])
@@ -47,13 +51,18 @@ def configure(cfg):
     INTERVAL, FAST = int(cfg["interval_seconds"]), int(cfg["fast_poll_seconds"])
     EXEMPT_PRS.clear()
     EXEMPT_PRS.update(cfg.read("exempt.json", []))
-    CI_PRS = set(cfg.read("ci_prio.json", []))
+    CI_PRS = set(cfg.read(F_CI_PRIO, []))
     CI_FLAGGED = set(cfg.read("ci_flagged.json", []))
     CI_AFTER = (cfg["ci_priority"] or {}).get("after_pr")
 
 
 def now():
     return time.time()
+
+
+def parse_utc(stamp):
+    """A GitHub timestamp (2026-01-02T03:04:05Z) as an aware datetime."""
+    return datetime.datetime.fromisoformat(stamp.replace("Z", "+00:00"))
 
 
 def ts():
@@ -95,7 +104,7 @@ def dump_json(path, value):
 
 
 def load():
-    st = CFG.read("state.json", {})
+    st = CFG.read(F_STATE, {})
     for k, v in (("holders", {}), ("queue", []), ("parked", {}), ("cancelled", []), ("order", [])):
         st.setdefault(k, v)
     return st
@@ -127,7 +136,7 @@ def ghost(r):
     rid = r["databaseId"]
     if rid in GHOSTS:
         return True
-    age = datetime.datetime.now(datetime.timezone.utc) - datetime.datetime.fromisoformat(r["createdAt"].replace("Z", "+00:00"))
+    age = datetime.datetime.now(datetime.timezone.utc) - parse_utc(r["createdAt"])
     if r.get("status") != "queued" or age.total_seconds() < 600:
         return False
     if gh_json(["api", f"repos/{REPO}/actions/runs/{rid}/jobs?per_page=1", "--jq", ".total_count"], ok_fail=True) == 0:
@@ -161,7 +170,7 @@ CANCEL_ATT = {}
 
 def mine(r, cancelled):
     rid = r["databaseId"]
-    if rid in CFG.read("ext_ok.json", []):
+    if rid in CFG.read(F_EXT_OK, []):
         return False
     return rid in cancelled and CANCEL_ATT.get(str(rid), r.get("attempt")) == r.get("attempt")
 
@@ -225,7 +234,7 @@ def hold_cancel(st, k, g):
     if hold is None or not k.isdigit():
         return False
     n = int(k)
-    ext = set(CFG.read("ext_ok.json", []))
+    ext = set(CFG.read(F_EXT_OK, []))
     if n in set(hold.get("exempt", [])) | EXEMPT_PRS | IGNORED_PRS | set(PINNED) or any(r["databaseId"] in ext | set(HELD_RUNS) for r in g):
         return False
     if not cancel_authorized([r["databaseId"] for r in g]):
@@ -246,14 +255,14 @@ def hold_cancel(st, k, g):
 
 
 def gated(k):
-    return CFG.exists("review_gate.json") and str(k).isdigit() and not review_gate(int(k))
+    return CFG.exists(F_REVIEW_GATE) and str(k).isdigit() and not review_gate(int(k))
 
 
 def cancel_all(ids, st=None, allow_preflight=False):
     """Cancel ids only if none has started at the last moment; False (nothing cancelled) otherwise."""
     if not cancel_authorized(ids):
         return False
-    ext = set(CFG.read("ext_ok.json", []))
+    ext = set(CFG.read(F_EXT_OK, []))
     if ext & set(ids):
         report(f"run(s) {sorted(ext & set(ids))} were started on the maintainer's order; not cancelled")
         return False
@@ -288,10 +297,11 @@ def restart_ok():
 
 
 def pull(pr):
+    p = None
     for _ in range(4):
         p = gh_json(["api", f"repos/{REPO}/pulls/{pr}"], ok_fail=True)
         if p and p.get("mergeable_state") not in (None, "unknown"):
-            return p
+            break
         time.sleep(5)
     return p
 
@@ -371,17 +381,17 @@ def tier_members(*levels):
     return {n for i in levels if i < len(ts_) for n in ts_[i]}
 
 
-def qkey(st, e):
+def qkey(e):
     return tier_rank(e["pr"])
 
 
 def resort(st):
-    st["queue"].sort(key=lambda e: qkey(st, e))
+    st["queue"].sort(key=qkey)
 
 
 def outranks(st, entry):
     eligible = [e for e in st["queue"] if str(e["pr"]) not in HOLDS and e["pr"] != entry["pr"] and runnable(e)]
-    return not eligible or qkey(st, entry) < min(qkey(st, e) for e in eligible)
+    return not eligible or qkey(entry) < min(qkey(e) for e in eligible)
 
 
 def enqueue(st, entry):
@@ -428,10 +438,160 @@ def base_note(rid, started, ref):
     return base, dev
 
 
+FAILED = ("failure", "timed_out", "startup_failure")
+UNRELEASED_NOTE = "[UNRELEASED run: re-run without a release; its result does not qualify the head; PR stays held]"
+
+
+def failed_jobs(d):
+    return [j["name"] for j in d.get("jobs", []) if j.get("conclusion") in FAILED]
+
+
+def cancelled_by(rid, d):
+    """Who cancelled the attempt d of run rid: this watcher, when it recorded cancelling that attempt."""
+    return "by the watcher" if CANCEL_ATT.get(str(rid)) == d.get("attempt") else "not by me"
+
+
+def queue_place(st, pr, where):
+    """How an entry got into the queue and its place there, as the reports word it."""
+    return f"{where}, position {[e['pr'] for e in st['queue']].index(pr) + 1}/{len(st['queue'])}"
+
+
+def run_head(rid, d):
+    return d.get("headSha") or (gh_json(["api", f"repos/{REPO}/actions/runs/{rid}"], ok_fail=True) or {}).get("head_sha")
+
+
+def base_wording(pr, rid, d):
+    """(green, base) of a finished run: how its report words a green result and names the base it ran on."""
+    ref = (((pull(pr) or {}).get("base") or {}).get("ref") or BASE_BRANCH) if isinstance(pr, int) else BASE_BRANCH
+    bn = base_note(rid, d.get("startedAt") or "", ref) if d.get("conclusion") != "cancelled" else None
+    green = "GREEN"
+    if not bn:
+        base = f"base unread ({ref})"
+    elif ref == BASE_BRANCH:
+        base = f"base {bn[0][:10]}"
+    else:
+        base = f"base={ref}@{bn[0][:10]}"
+    if bn and bn[0] != bn[1] and pr not in EXEMPT_PRS:
+        green = f"GREEN (base {bn[0][:10]}; {ref} now {bn[1][:10]}, freshness supplied by the merge queue)"
+    need = CFG.read("need_base.json") or None
+    hs = run_head(rid, d)
+    if need and hs and (gh_json(["api", f"repos/{REPO}/compare/{need}...{hs}", "--jq", "{s: .status}"], ok_fail=True) or {}).get("s") not in (None, "ahead", "identical"):
+        green = f"GREEN on {bn[0][:10] if bn else 'unread base'}, head lacks {need[:10]}; maintainer decides"
+        base = f"{base}, head lacks {need[:10]}"
+    return green, base
+
+
+def requeue_current_head(st, pr, rid, d, rep):
+    """A run that finished on a stale head: queue the current head's run when this watcher had cancelled it."""
+    p0 = pull(pr)
+    rh = run_head(rid, d)
+    if not (p0 and p0["state"] == "open" and rh and p0["head"]["sha"] != rh):
+        return
+    rr = gh_json(["api", f"repos/{REPO}/actions/runs?head_sha={p0['head']['sha']}&event=pull_request&per_page=50"], ok_fail=True)
+    cur = sorted([r for r in (rr or {}).get("workflow_runs", []) if r["name"] == MAIN_WF], key=lambda r: r["created_at"], reverse=True)
+    if cur and cur[0]["status"] == "completed" and cur[0]["conclusion"] == "cancelled" and cur[0]["id"] in st["cancelled"]:
+        where = enqueue(st, {"pr": pr, "run": cur[0]["id"], "sha": p0["head"]["sha"], "kind": "rerun"})
+        rep(f"#{pr}: finished run {rid} was on stale head {rh[:8]}; current head {p0['head']['sha'][:8]}'s pre-cancelled run {cur[0]['id']} "
+            f"queued ({queue_place(st, pr, where)})")
+
+
+def excused(rid, d, bad):
+    """The verdict of a red run whose every failure fail_ok.json authorizes for it, or "" when it is not excused."""
+    fo = (CFG.read("fail_ok.json") or {}).get(str(rid))
+    if not fo or d.get("conclusion") != "failure" or not bad:
+        return ""
+    jobs = d.get("jobs", [])
+    aggbad = [j["name"] for j in jobs if j["name"] in fo.get("agg_only", []) and j.get("conclusion") == "failure"
+              and [x["name"] for x in j.get("steps", []) if x.get("conclusion") == "failure"] != ["Verify required checks"]]
+    unlisted = [j for j in jobs if j["name"] not in fo["jobs"] and j.get("conclusion") not in ("success", "skipped")]
+    if aggbad or not set(bad) <= set(fo["jobs"]) or unlisted:
+        return ""
+    if fo.get("label"):
+        return f"{fo['label']} ({', '.join(bad)}; {fo['why']}); every other job success/skipped"
+    return f"RED only on {', '.join(bad)}; validated under the authorized exception ({fo['why']})"
+
+
+class Finished:
+    """A completed run that held a slot, with the wording its reports share."""
+
+    def __init__(self, st, pr, h, d, rep):
+        self.st, self.pr, self.h, self.d, self.rep = st, pr, h, d, rep
+        self.rid, self.concl, self.bad = h["run"], d["conclusion"], failed_jobs(d)
+        self.green, self.base = base_wording(pr, self.rid, d)
+        if isinstance(pr, int):
+            requeue_current_head(st, pr, self.rid, d, rep)
+        self.excused = excused(self.rid, d, self.bad)
+
+    def parked_dirty(self):
+        """A run that was not cancelled on a PR that is now dirty: parked with its verdict. True when that was done."""
+        if self.concl == "cancelled" or not isinstance(self.pr, int):
+            return False
+        p = pull(self.pr)
+        if not (p and p["state"] == "open" and p.get("mergeable_state") == "dirty"):
+            return False
+        park(self.st, {"pr": self.pr, "run": self.rid, "kind": "rerun"}, p["head"]["sha"])
+        if self.concl == "success":
+            verdict = self.green
+        elif self.excused:
+            verdict = self.excused
+        else:
+            flake = dev_flake(self.d, self.bad)
+            verdict = f"RED ({self.concl}); failed jobs: {', '.join(self.bad) or 'n/a'}" + (f" ({flake})" if flake else "")
+        self.rep(f"#{self.pr}: run {self.rid} ({self.base}) finished {verdict}; PR is dirty at head {p['head']['sha'][:8]}, parked until a new head lands")
+        return True
+
+    def green_run(self):
+        st, pr, rid = self.st, self.pr, self.rid
+        p = pull(pr) if isinstance(pr, int) else None
+        if p and p["state"] == "open" and p.get("draft"):
+            where = enqueue(st, {"pr": pr, "run": None, "sha": p["head"]["sha"], "kind": "ready"})
+            self.rep(f"#{pr}: run {rid} ({self.base}) finished {self.green} (quick tier only: PR is a draft, not validated); "
+                     f"re-queued for un-draft ({queue_place(st, pr, where)})")
+            return
+        self.rep(f"#{pr}: run {rid} ({self.base}) finished {self.green}")
+        if isinstance(pr, int) and p and (released(pr, p["head"]["sha"]) or int(rid) in CFG.read(F_EXT_OK, [])):
+            st.setdefault("stale_bt", {})[str(pr)] = {"head": p["head"]["sha"], "green": int(rid)}
+
+    def cancelled_run(self):
+        st, pr, rid, d, h = self.st, self.pr, self.rid, self.d, self.h
+        tmo = timed_out_jobs(d)
+        what = f"TIMEOUT ({'; '.join(tmo)})" if tmo else "CANCELLED"
+        p = pull(pr) if isinstance(pr, int) else None
+        by = cancelled_by(rid, d)
+        if p and p["head"]["sha"] != d.get("headSha"):
+            self.rep(f"#{pr}: run {rid} {what if tmo else what.lower()} on stale head {str(d.get('headSha'))[:8]} (PR head {p['head']['sha'][:8]}); not re-queued")
+        elif p and p.get("mergeable_state") == "dirty":
+            park(st, {"pr": pr, "run": rid, "kind": "rerun", "retries": h.get("retries", 0)}, p["head"]["sha"])
+            cj = [j["name"] for j in d.get("jobs", []) if j.get("conclusion") == "cancelled"]
+            self.rep(f"#{pr}: run {rid} attempt {d.get('attempt')} was {what} ({by}; cancelled jobs: {', '.join(cj[:5]) or 'n/a'}); PR is dirty, parked until its head changes")
+        elif pr in PINNED and p and p["state"] == "open" and not tmo:
+            gh(["run", "rerun", str(rid), "--repo", REPO], ok_fail=True)
+            h.update(since=now(), seen_active=False)
+            st["holders"][str(pr)] = h
+            self.rep(f"#{pr}: pinned run {rid} attempt {d.get('attempt')} was CANCELLED ({by}); re-ran it immediately on current head {p['head']['sha'][:8]}")
+        else:
+            self.rep(f"#{pr}: run {rid} attempt {d.get('attempt')} was {what} ({'job timeout-minutes' if tmo else by}) after holding a slot; not re-run (maintainer decides), dropped")
+
+    def red_run(self):
+        pr, rid, bad = self.pr, self.rid, self.bad
+        if self.excused:
+            self.rep(f"#{pr}: run {rid} ({self.base}) finished {self.excused}")
+            return
+        flake = dev_flake(self.d, bad)
+        if flake:
+            self.rep(f"#{pr}: run {rid} ({self.base}) finished RED ({self.concl}); failed jobs: {', '.join(bad)}; {flake}")
+            return
+        infra = " (release-download outage in effect: red: infra outage, awaiting maintainer re-run; not a PR failure, not re-run)" if CFG.exists("outage.json") else ""
+        self.rep(f"#{pr}: run {rid} ({self.base}) finished RED ({self.concl}); failed jobs: {', '.join(bad) or 'n/a'}; dropped{infra}")
+
+
+def unreleased_report(msg):
+    report(f"{msg} {UNRELEASED_NOTE}")
+
+
 def finish_holder(st, pr, h):
     rid = h.get("run")
-    unrel = set(CFG.read("unreleased.json", []))
-    rep = (lambda m: report(f"{m} [UNRELEASED run: re-run without a release; its result does not qualify the head; PR stays held]")) if rid in unrel else report
+    rep = unreleased_report if rid in set(CFG.read("unreleased.json", [])) else report
     if not rid:
         rep(f"#{pr}: marked ready but no PR run appeared within 15 min; slot released")
         return
@@ -439,86 +599,19 @@ def finish_holder(st, pr, h):
     if not d:
         rep(f"#{pr}: run {rid} finished (could not read result)")
         return
-    concl = d.get("conclusion")
-    if d.get("status") != "completed" or not concl:
+    if d.get("status") != "completed" or not d.get("conclusion"):
         st["holders"][str(pr)] = h
         log(f"#{pr}: run {rid} still {d.get('status')}; keeps its slot")
         return
-    bad = [j["name"] for j in d.get("jobs", []) if j.get("conclusion") in ("failure", "timed_out", "startup_failure")]
-    ref = (((pull(pr) or {}).get("base") or {}).get("ref") or BASE_BRANCH) if isinstance(pr, int) else BASE_BRANCH
-    bn = base_note(rid, d.get("startedAt") or "", ref) if concl != "cancelled" else None
-    G = "GREEN"
-    lbl = (f"base {bn[0][:10]}" if ref == BASE_BRANCH else f"base={ref}@{bn[0][:10]}") if bn else f"base unread ({ref})"
-    B = lbl
-    if bn and bn[0] != bn[1] and pr not in EXEMPT_PRS:
-        G = f"GREEN (base {bn[0][:10]}; {ref} now {bn[1][:10]}, freshness supplied by the merge queue)"
-    need = CFG.read("need_base.json") or None
-    hs = d.get("headSha") or (gh_json(["api", f"repos/{REPO}/actions/runs/{rid}"], ok_fail=True) or {}).get("head_sha")
-    if need and hs and (gh_json(["api", f"repos/{REPO}/compare/{need}...{hs}", "--jq", "{s: .status}"], ok_fail=True) or {}).get("s") not in (None, "ahead", "identical"):
-        G = f"GREEN on {bn[0][:10] if bn else 'unread base'}, head lacks {need[:10]}; maintainer decides"
-        B = f"{B}, head lacks {need[:10]}"
-    if isinstance(pr, int):
-        p0 = pull(pr)
-        rh = d.get("headSha") or (gh_json(["api", f"repos/{REPO}/actions/runs/{rid}"], ok_fail=True) or {}).get("head_sha")
-        if p0 and p0["state"] == "open" and rh and p0["head"]["sha"] != rh:
-            rr = gh_json(["api", f"repos/{REPO}/actions/runs?head_sha={p0['head']['sha']}&event=pull_request&per_page=50"], ok_fail=True)
-            cur = sorted([r for r in (rr or {}).get("workflow_runs", []) if r["name"] == MAIN_WF], key=lambda r: r["created_at"], reverse=True)
-            if cur and cur[0]["status"] == "completed" and cur[0]["conclusion"] == "cancelled" and cur[0]["id"] in st["cancelled"]:
-                where = enqueue(st, {"pr": pr, "run": cur[0]["id"], "sha": p0["head"]["sha"], "kind": "rerun"})
-                rep(f"#{pr}: finished run {rid} was on stale head {rh[:8]}; current head {p0['head']['sha'][:8]}'s pre-cancelled run {cur[0]['id']} "
-                       f"queued ({where}, position {[e['pr'] for e in st['queue']].index(pr) + 1}/{len(st['queue'])})")
-    fo = (CFG.read("fail_ok.json") or {}).get(str(rid))
-    aggbad = [j["name"] for j in d.get("jobs", []) if fo and j["name"] in fo.get("agg_only", []) and j.get("conclusion") == "failure"
-              and [x["name"] for x in j.get("steps", []) if x.get("conclusion") == "failure"] != ["Verify required checks"]]
-    XOK = bool(fo and concl == "failure" and bad and not aggbad and set(bad) <= set(fo["jobs"]) and not [
-        j for j in d.get("jobs", []) if j["name"] not in fo["jobs"] and j.get("conclusion") not in ("success", "skipped")])
-    XV = ((f"{fo['label']} ({', '.join(bad)}; {fo['why']}); every other job success/skipped" if fo.get("label")
-           else f"RED only on {', '.join(bad)}; validated under the authorized exception ({fo['why']})") if XOK else "")
-    if concl != "cancelled" and isinstance(pr, int):
-        p = pull(pr)
-        if p and p["state"] == "open" and p.get("mergeable_state") == "dirty":
-            park(st, {"pr": pr, "run": rid, "kind": "rerun"}, p["head"]["sha"])
-            verdict = G if concl == "success" else XV if XOK else f"RED ({concl}); failed jobs: {', '.join(bad) or 'n/a'}" + (f" ({dev_flake(d, bad)})" if dev_flake(d, bad) else "")
-            rep(f"#{pr}: run {rid} ({B}) finished {verdict}; PR is dirty at head {p['head']['sha'][:8]}, parked until a new head lands")
-            return
-    if concl == "success":
-        p = pull(pr) if isinstance(pr, int) else None
-        if p and p["state"] == "open" and p.get("draft"):
-            where = enqueue(st, {"pr": pr, "run": None, "sha": p["head"]["sha"], "kind": "ready"})
-            rep(f"#{pr}: run {rid} ({B}) finished {G} (quick tier only: PR is a draft, not validated); re-queued for un-draft ({where}, position {[e['pr'] for e in st['queue']].index(pr) + 1}/{len(st['queue'])})")
-        else:
-            rep(f"#{pr}: run {rid} ({B}) finished {G}")
-            if isinstance(pr, int) and p and (released(pr, p["head"]["sha"]) or int(rid) in CFG.read("ext_ok.json", [])):
-                st.setdefault("stale_bt", {})[str(pr)] = {"head": p["head"]["sha"], "green": int(rid)}
-    elif concl == "cancelled":
-        retries = h.get("retries", 0)
-        tmo = timed_out_jobs(d)
-        what = f"TIMEOUT ({'; '.join(tmo)})" if tmo else "CANCELLED"
-        p = pull(pr) if isinstance(pr, int) else None
-        if p and p["head"]["sha"] != d.get("headSha"):
-            rep(f"#{pr}: run {rid} {what.lower() if not tmo else what} on stale head {str(d.get('headSha'))[:8]} (PR head {p['head']['sha'][:8]}); not re-queued")
-        elif p and p.get("mergeable_state") == "dirty":
-            park(st, {"pr": pr, "run": rid, "kind": "rerun", "retries": retries}, p["head"]["sha"])
-            by = "by the watcher" if CANCEL_ATT.get(str(rid)) == d.get("attempt") else "not by me"
-            cj = [j["name"] for j in d.get("jobs", []) if j.get("conclusion") == "cancelled"]
-            rep(f"#{pr}: run {rid} attempt {d.get('attempt')} was {what} ({by}; cancelled jobs: {', '.join(cj[:5]) or 'n/a'}); PR is dirty, parked until its head changes")
-        elif pr in PINNED and p and p["state"] == "open" and not tmo:
-            by = "by the watcher" if CANCEL_ATT.get(str(rid)) == d.get("attempt") else "not by me"
-            gh(["run", "rerun", str(rid), "--repo", REPO], ok_fail=True)
-            h.update(since=now(), seen_active=False)
-            st["holders"][str(pr)] = h
-            rep(f"#{pr}: pinned run {rid} attempt {d.get('attempt')} was CANCELLED ({by}); re-ran it immediately on current head {p['head']['sha'][:8]}")
-        else:
-            by = "by the watcher" if CANCEL_ATT.get(str(rid)) == d.get("attempt") else "not by me"
-            rep(f"#{pr}: run {rid} attempt {d.get('attempt')} was {what} ({by if not tmo else 'job timeout-minutes'}) after holding a slot; not re-run (maintainer decides), dropped")
+    f = Finished(st, pr, h, d, rep)
+    if f.parked_dirty():
+        return
+    if f.concl == "success":
+        f.green_run()
+    elif f.concl == "cancelled":
+        f.cancelled_run()
     else:
-        infra = " (release-download outage in effect: red: infra outage, awaiting maintainer re-run; not a PR failure, not re-run)" if CFG.exists("outage.json") else ""
-        if XOK:
-            rep(f"#{pr}: run {rid} ({B}) finished {XV}")
-        elif dev_flake(d, bad):
-            rep(f"#{pr}: run {rid} ({B}) finished RED ({concl}); failed jobs: {', '.join(bad)}; {dev_flake(d, bad)}")
-        else:
-            rep(f"#{pr}: run {rid} ({B}) finished RED ({concl}); failed jobs: {', '.join(bad) or 'n/a'}; dropped{infra}")
+        f.red_run()
 
 
 def timed_out_jobs(d):
@@ -526,10 +619,14 @@ def timed_out_jobs(d):
     out = []
     for j in d.get("jobs", []):
         if j.get("conclusion") == "cancelled" and j.get("startedAt") and (j.get("completedAt") or "").startswith("2"):
-            dt = datetime.datetime.fromisoformat(j["completedAt"].replace("Z", "+00:00")) - datetime.datetime.fromisoformat(j["startedAt"].replace("Z", "+00:00"))
+            dt = parse_utc(j["completedAt"]) - parse_utc(j["startedAt"])
             if dt.total_seconds() >= CFG["job_timeout_minutes"] * 60:
                 out.append(f"{j['name']}, {int(dt.total_seconds() // 60)} min")
     return out
+
+
+# What _start_next does with a queue entry it tried: keep it queued or drop it, and go on to the next or stop.
+KEEP, DROP, STOP, KEEP_AND_STOP = "keep", "drop", "stop", "keep and stop"
 
 
 def _start_next(st):
@@ -545,103 +642,117 @@ def _start_next(st):
             i += 1
             continue
         q.pop(i)
-        if not p:
-            report(f"#{pr}: could not fetch PR; dropped from queue")
-            continue
-        if p["state"] != "open":
-            report(f"#{pr}: {'merged' if p.get('merged') else 'closed'}; skipped")
-            continue
-        if p.get("mergeable_state") == "dirty":
-            park(st, e, p["head"]["sha"])
-            report(f"#{pr}: merge conflicts (dirty) at head {p['head']['sha'][:8]}; parked until its head changes")
-            continue
-        hb = has_base(p["head"]["sha"])
-        if hb is None:
+        verdict = unstartable(st, e, p)
+        if verdict is None:
+            verdict = start_draft(st, e) if p["draft"] else start_rerun(st, e, p)
+        if verdict in (KEEP, KEEP_AND_STOP):
             q.insert(i, e)
             i += 1
-            log(f"#{pr}: could not compare head with {(strict_base() or '')[:10]}; retrying next pass")
-            continue
-        if not hb:
-            park(st, dict(e, reason=f"needs {BASE_BRANCH} merge"), p["head"]["sha"])
-            report(f"#{pr}: head {p['head']['sha'][:10]} lacks {BASE_BRANCH} {(strict_base() or '')[:10]}; parked (needs {BASE_BRANCH} merge)")
-            continue
-        if p["draft"] and p.get("mergeable_state") in (None, "unknown"):
-            q.insert(i, e)
-            i += 1
-            log(f"#{pr}: mergeable_state still unknown; not marking ready this pass")
-            continue
-        if p["draft"]:
-            ok_ready = pr in READY_OK
-            if e.get("kind") == "ready" or ok_ready:
-                if not ok_ready:
-                    report(f"#{pr}: draft (owner's WIP); taken out of the queue, its runs are never cancelled or re-run")
-                    continue
-                ok = admit(st, pr, {"run": None, "seen_active": False, "kind": "ready"},
-                           lambda: gh(["pr", "ready", str(pr), "--repo", REPO], ok_fail=True) is not None)
-                if ok is None:
-                    q.insert(i, e)
-                    return
-                if not ok:
-                    report(f"#{pr}: gh pr ready failed; dropped")
-                    continue
-                report(f"#{pr}: slot granted, marked ready for review (gh pr ready); full tier starts from the ready event")
-                return
-            report(f"#{pr}: draft (not approved to un-draft); rerun skipped, left for the maintainer")
-            continue
-        head = p["head"]["sha"]
-        branch = p["head"]["ref"]
-        d = gh_json(["api", f"repos/{REPO}/actions/runs?branch={branch}&head_sha={head}&event=pull_request&per_page=100"], ok_fail=True)
-        runs = sorted((d or {}).get("workflow_runs", []), key=lambda r: r["created_at"], reverse=True)
-        prs_runs = [r for r in runs if r["name"] == MAIN_WF]
-        if not prs_runs:
-            report(f"#{pr}: no PR run on current head {head[:8]} (mergeable_state={p.get('mergeable_state')}); dropped")
-            continue
-        latest = prs_runs[0]
-        if latest["status"] != "completed" and mine({"databaseId": latest["id"], "attempt": latest["run_attempt"]}, set(st["cancelled"])):
-            log(f"#{pr}: my cancel of run {latest['id']} still settling; retry next pass")
-            return
-        if latest["status"] != "completed":
-            if admit(st, pr, {"run": latest["id"], "seen_active": True, "kind": "adopted"}) is None:
-                q.insert(i, e)
-                return
-            report(f"#{pr}: run {latest['id']} already active on current head; holding slot")
-            return
-        if pr in NOCANCEL and latest["status"] == "completed":
-            report(f"#{pr}: latest PR run {latest['id']} on head {head[:8]} is {latest['conclusion']} (not cancelled by me); not re-run, dropped")
-            continue
-        if latest["conclusion"] != "cancelled" and latest["id"] not in restart_ok():
-            report(f"#{pr}: latest PR run {latest['id']} on head {head[:8]} is {latest['conclusion']}, not cancelled; dropped")
-            continue
-        rid = latest["id"]
-        bref = (p.get("base") or {}).get("ref") or BASE_BRANCH
-        ro = CFG.read("reopen_ok.json") or []
-        if pr not in ro:
-            q.insert(i, e)
-            i += 1
-            log(f"#{pr}: ordinary re-runs are disabled (a re-run replays run {rid}'s old merge commit); waiting for an authorized close/reopen")
-            continue
-        if not (merge_fresh(pr, bref) or stale_ok(pr, head)) or not pin_ok(pr):
-            q.insert(i, e)
-            log(f"#{pr}: refs/pull/{pr}/merge not yet on current {bref} or without the runner pin; close/reopen deferred")
+        if verdict in (STOP, KEEP_AND_STOP):
             return
 
-        def reopen():
-            if CFG.frozen() or CFG.dry_run or gh(["pr", "close", str(pr), "--repo", REPO], ok_fail=True) is None:
-                log(f"#{pr}: close for the authorized close/reopen not sent; kept queued with its authorization")
-                return False
-            CFG.write("reopen_ok.json", [x for x in ro if x != pr])
-            ok = False
-            for _ in range(3):
-                if gh(["pr", "reopen", str(pr), "--repo", REPO], ok_fail=True) is not None:
-                    ok = True
-                    break
-                time.sleep(5)
-            report(f"#{pr}: slot free; merge ref fresh on {bref} with the runner pin, so closed and reopened (authorized) for a fresh pull_request event on head {head[:8]}"
-                   + ("; new run id follows, check its first job's Image" if ok else "; ATTENTION: reopen FAILED three times, the PR is left CLOSED; reopen it by hand"))
-            return True
-        if not admit(st, pr, start=reopen):
-            q.insert(i, e)
-        return
+
+def unstartable(st, e, p):
+    """KEEP or DROP for a queue entry whose PR p cannot take a slot this pass, the reason logged or reported; else None."""
+    pr = e["pr"]
+    if not p:
+        report(f"#{pr}: could not fetch PR; dropped from queue")
+        return DROP
+    if p["state"] != "open":
+        report(f"#{pr}: {'merged' if p.get('merged') else 'closed'}; skipped")
+        return DROP
+    if p.get("mergeable_state") == "dirty":
+        park(st, e, p["head"]["sha"])
+        report(f"#{pr}: merge conflicts (dirty) at head {p['head']['sha'][:8]}; parked until its head changes")
+        return DROP
+    hb = has_base(p["head"]["sha"])
+    if hb is None:
+        log(f"#{pr}: could not compare head with {(strict_base() or '')[:10]}; retrying next pass")
+        return KEEP
+    if not hb:
+        park(st, dict(e, reason=f"needs {BASE_BRANCH} merge"), p["head"]["sha"])
+        report(f"#{pr}: head {p['head']['sha'][:10]} lacks {BASE_BRANCH} {(strict_base() or '')[:10]}; parked (needs {BASE_BRANCH} merge)")
+        return DROP
+    if p["draft"] and p.get("mergeable_state") in (None, "unknown"):
+        log(f"#{pr}: mergeable_state still unknown; not marking ready this pass")
+        return KEEP
+    return None
+
+
+def mark_ready(pr):
+    return gh(["pr", "ready", str(pr), "--repo", REPO], ok_fail=True) is not None
+
+
+def start_draft(st, e):
+    """Give a queued draft the slot by marking it ready for review, when ready_ok.json approves that."""
+    pr = e["pr"]
+    if pr not in READY_OK:
+        if e.get("kind") == "ready":
+            report(f"#{pr}: draft (owner's WIP); taken out of the queue, its runs are never cancelled or re-run")
+        else:
+            report(f"#{pr}: draft (not approved to un-draft); rerun skipped, left for the maintainer")
+        return DROP
+    ok = admit(st, pr, {"run": None, "seen_active": False, "kind": "ready"}, functools.partial(mark_ready, pr))
+    if ok is None:
+        return KEEP_AND_STOP
+    if not ok:
+        report(f"#{pr}: gh pr ready failed; dropped")
+        return DROP
+    report(f"#{pr}: slot granted, marked ready for review (gh pr ready); full tier starts from the ready event")
+    return STOP
+
+
+def start_rerun(st, e, p):
+    """Give a queued PR the slot: adopt the run already active on its head, or close and reopen it for a fresh one."""
+    pr, head = e["pr"], p["head"]["sha"]
+    d = gh_json(["api", f"repos/{REPO}/actions/runs?branch={p['head']['ref']}&head_sha={head}&event=pull_request&per_page=100"], ok_fail=True)
+    runs = sorted((d or {}).get("workflow_runs", []), key=lambda r: r["created_at"], reverse=True)
+    prs_runs = [r for r in runs if r["name"] == MAIN_WF]
+    if not prs_runs:
+        report(f"#{pr}: no PR run on current head {head[:8]} (mergeable_state={p.get('mergeable_state')}); dropped")
+        return DROP
+    latest = prs_runs[0]
+    rid = latest["id"]
+    if latest["status"] != "completed":
+        if mine({"databaseId": rid, "attempt": latest["run_attempt"]}, set(st["cancelled"])):
+            log(f"#{pr}: my cancel of run {rid} still settling; retry next pass")
+            return STOP
+        if admit(st, pr, {"run": rid, "seen_active": True, "kind": "adopted"}) is None:
+            return KEEP_AND_STOP
+        report(f"#{pr}: run {rid} already active on current head; holding slot")
+        return STOP
+    if pr in NOCANCEL:
+        report(f"#{pr}: latest PR run {rid} on head {head[:8]} is {latest['conclusion']} (not cancelled by me); not re-run, dropped")
+        return DROP
+    if latest["conclusion"] != "cancelled" and rid not in restart_ok():
+        report(f"#{pr}: latest PR run {rid} on head {head[:8]} is {latest['conclusion']}, not cancelled; dropped")
+        return DROP
+    bref = (p.get("base") or {}).get("ref") or BASE_BRANCH
+    ro = CFG.read("reopen_ok.json") or []
+    if pr not in ro:
+        log(f"#{pr}: ordinary re-runs are disabled (a re-run replays run {rid}'s old merge commit); waiting for an authorized close/reopen")
+        return KEEP
+    if not (merge_fresh(pr, bref) or stale_ok(pr, head)) or not pin_ok(pr):
+        log(f"#{pr}: refs/pull/{pr}/merge not yet on current {bref} or without the runner pin; close/reopen deferred")
+        return KEEP_AND_STOP
+    return STOP if admit(st, pr, start=functools.partial(reopen, pr, ro, bref, head)) else KEEP_AND_STOP
+
+
+def reopen(pr, ro, bref, head):
+    """The authorized close and reopen that gives a PR a fresh pull_request event; False when the close was not sent."""
+    if CFG.frozen() or CFG.dry_run or gh(["pr", "close", str(pr), "--repo", REPO], ok_fail=True) is None:
+        log(f"#{pr}: close for the authorized close/reopen not sent; kept queued with its authorization")
+        return False
+    CFG.write("reopen_ok.json", [x for x in ro if x != pr])
+    ok = False
+    for _ in range(3):
+        if gh(["pr", "reopen", str(pr), "--repo", REPO], ok_fail=True) is not None:
+            ok = True
+            break
+        time.sleep(5)
+    report(f"#{pr}: slot free; merge ref fresh on {bref} with the runner pin, so closed and reopened (authorized) for a fresh pull_request event on head {head[:8]}"
+           + ("; new run id follows, check its first job's Image" if ok else "; ATTENTION: reopen FAILED three times, the PR is left CLOSED; reopen it by hand"))
+    return True
 
 
 GATE = {}
@@ -684,7 +795,7 @@ def released(pr, sha):
                                      for x in load_json(f))
 
 
-def review_clear(pr, sha):
+def review_clear(pr):
     q = "query($o:String!,$n:String!,$p:Int!){repository(owner:$o,name:$n){pullRequest(number:$p){reviewThreads(first:100){totalCount nodes{isResolved}}}}}"
     d = gh_json(["api", "graphql", "-f", f"query={q}", "-f", "o=" + REPO.split("/")[0], "-f", "n=" + REPO.split("/")[1], "-F", f"p={pr}"], ok_fail=True)
     if not d:
@@ -698,7 +809,7 @@ def review_clear(pr, sha):
 
 def review_gate(pr):
     """Admission gate: start only coordinator-released (PR, head) pairs, head unchanged, zero unresolved review threads."""
-    if not CFG.exists("review_gate.json") or int(pr) in EXEMPT_PRS:
+    if not CFG.exists(F_REVIEW_GATE) or int(pr) in EXEMPT_PRS:
         return True
     p = cur_head(int(pr))
     if not p:
@@ -713,7 +824,7 @@ def review_gate(pr):
             REVIEW_NOTED[str(pr)] = sha + ":rel"
             log(f"#{pr}: head {sha[:10]} not on the release list; held under the review gate")
         return False
-    if not review_clear(pr, sha):
+    if not review_clear(pr):
         if REVIEW_NOTED.get(str(pr)) != sha + ":rev":
             REVIEW_NOTED[str(pr)] = sha + ":rev"
             report(f"#{pr}: Review not clear on {sha[:10]}; not started")
@@ -734,14 +845,24 @@ def runnable(e):
     return review_gate(e["pr"])
 
 
+def probe_code(url):
+    """The status of a ranged GET of an https URL; anything else in outage.json is never handed to curl."""
+    try:
+        if not isinstance(url, str) or urllib.parse.urlsplit(url).scheme != "https":
+            return "err"
+    except ValueError:
+        return "err"
+    return subprocess.run(["curl", "-fsSL", "--proto", "=https", "--proto-redir", "=https", "--range", "0-1023",
+                           "-o", "/dev/null", "-m", "60", "-w", "%{http_code}", "--url", url],
+                          capture_output=True, text=True).stdout.strip() or "err"
+
+
 def outage_hold():
     f = f"{DIR}/outage.json"
     if not os.path.exists(f):
         return False
     o = load_json(f)
-    codes = [subprocess.run(["curl", "-fsSL", "--range", "0-1023", "-o", "/dev/null", "-m", "60",
-                             "-w", "%{http_code}", u], capture_output=True, text=True).stdout.strip() or "err"
-             for u in o["probes"]]
+    codes = [probe_code(u) for u in o["probes"]]
     code = "200" if all(c in ("200", "206") for c in codes) else "/".join(codes)
     t = time.time()
     if code == "200":
@@ -764,8 +885,18 @@ def auth_pending():
 
 
 def drop_authorized(e):
-    with CFG.locked("auth_rerun.json"):
-        CFG.write("auth_rerun.json", [x for x in CFG.read("auth_rerun.json", []) if x != e])
+    with CFG.locked(F_AUTH_RERUN):
+        CFG.write(F_AUTH_RERUN, [x for x in CFG.read(F_AUTH_RERUN, []) if x != e])
+
+
+def rerun_authorized(e):
+    """Send an authorized re-run, which is spent whether or not GitHub accepts it."""
+    mode = [] if e.get("full") else ["--failed"]
+    drop_authorized(e)
+    if gh(["run", "rerun", str(e["run"]), *mode, "--repo", REPO], ok_fail=True) is None:
+        report(f"#{e['pr']}: authorized `gh run rerun {' '.join([str(e['run']), *mode])}` FAILED (see watch.log)")
+        return False
+    return True
 
 
 def start_authorized(st):
@@ -784,15 +915,7 @@ def start_authorized(st):
             report(f"#{e['pr']}: authorized re-run of {e['run']} skipped: PR head is now "
                    f"{p['head']['sha'][:10]} (state {p['state']}), not {e['head']}")
             continue
-        mode = [] if e.get("full") else ["--failed"]
-
-        def rerun():
-            drop_authorized(e)
-            if gh(["run", "rerun", str(e["run"]), *mode, "--repo", REPO], ok_fail=True) is None:
-                report(f"#{e['pr']}: authorized `gh run rerun {' '.join([str(e['run']), *mode])}` FAILED (see watch.log)")
-                return False
-            return True
-        ok = admit(st, e["pr"], {"run": e["run"], "seen_active": False, "kind": "rerun", "retries": 0}, rerun)
+        ok = admit(st, e["pr"], {"run": e["run"], "seen_active": False, "kind": "rerun", "retries": 0}, functools.partial(rerun_authorized, e))
         if ok is None:
             return None
         if not ok:
@@ -1032,38 +1155,109 @@ def solo_cap(st):
     return BASE_CAP
 
 
+def attempt(name, step, st):
+    """step(st); an exception is logged under name and answered as None, so one failing step does not end the pass."""
+    try:
+        return step(st)
+    except Exception:
+        log(f"ERROR {name} " + traceback.format_exc().replace("\n", " | "))
+        return None
+
+
+def main_run(g):
+    """The run of a PR's run group that holds its slot: the main workflow's, else the first."""
+    return next((r for r in g if r["workflowName"] == MAIN_WF), g[0])
+
+
+def run_ids(g):
+    return [r["databaseId"] for r in g]
+
+
+def is_dirty(p):
+    return bool(p) and p.get("mergeable_state") == "dirty"
+
+
+def unqueue(st, k):
+    st["queue"][:] = [e for e in st["queue"] if str(e["pr"]) != k]
+
+
+def lacks_base():
+    return f"{BASE_BRANCH} {(strict_base() or '')[:10]}"
+
+
 def iterate(st):
+    global CAP, CANCEL_ATT
     MQ_HELD.clear()
     STACK_HELD.clear()
-    try:
-        gate_sweep(st)
-    except Exception:
-        log("ERROR gate_sweep " + traceback.format_exc().replace("\n", " | "))
-    global CAP
+    attempt("gate_sweep", gate_sweep, st)
     CAP = solo_cap(st)
-    try:
-        mq = mq_track(st)
-    except Exception:
-        log("ERROR mq_track " + traceback.format_exc().replace("\n", " | "))
-        mq = None
+    mq = attempt("mq_track", mq_track, st)
     # Cap 1 only while a merge-queue job waits for runners (or the merge queue is unreadable); an active build
     # with nothing waiting leaves the full cap, the one the sweeper enforces.
     if mq is None or (mq > 0 and mq_waiting()):
         CAP = min(CAP, 1)
-    try:
-        stale_bt(st)
-    except Exception:
-        log("ERROR stale_bt " + traceback.format_exc().replace("\n", " | "))
-    global CANCEL_ATT
+    attempt("stale_bt", stale_bt, st)
     CANCEL_ATT = st.setdefault("cancelled_att", {})
     open_prs = gh_json(["pr", "list", "--repo", REPO, "--state", "open", "-L", "200", "--json", "number,title,headRefName,headRefOid,author,body,createdAt,isDraft,baseRefName,mergeable"])
     heads = {str(p["number"]): p["headRefOid"] for p in open_prs}
+    note_base_head(st)
+    note_mergeable(st, open_prs)
+    note_base_changes(st, open_prs)
+    unpark_moved(st, heads)
+    bmap = {p["headRefName"]: p["number"] for p in open_prs}
+    backmerge = {bmap[b] for b in CFG.read("backmerge.json", []) if b in bmap}
+    queue_ready_drafts(st, open_prs)
+    park_baseless_queue(st, heads)
+    reload_lists(heads, bmap)
+    runs = active_runs()
+    drop_ghost_holders(st)
+    LAST_SEEN.clear()
+    LAST_SEEN.update(r["databaseId"] for r in runs)
+    groups = group_runs(runs, bmap)
+    holders = st["holders"]
+    blk = CFG.read("blocked.json") or {"prs": []}
+    why = blk.get("why") or f"blocked until #{blk.get('until')}'s run is executing"
+    cancel_blocked_runs(groups, blk, why)
+    release_blocked_holders(st, groups, blk, why)
+    apply_gate(st, groups)
+    if blk.get("until") and str(blk["until"]) in groups and str(blk["until"]) in holders \
+            and any(jobs_started(r) for r in groups[str(blk["until"])]):
+        os.remove(f"{DIR}/blocked.json")
+        report(f"#{blk['until']}: run {holders[str(blk['until'])]['run']} is executing; block on {blk['prs']} lifted")
+    free_gated_preflights(st, groups)
+    for key, h in list(holders.items()):
+        track_holder(st, groups, key, h)
+    for k, h in list(holders.items()):
+        if k.isdigit() and int(k) not in backmerge:
+            park_dirty_holder(st, groups, k, h)
+    for k, g in list(groups.items()):
+        if k.isdigit() and k not in holders and int(k) not in PINNED and int(k) not in backmerge and g:
+            park_baseless_run(st, groups, k, g)
+    res = CFG.read("reserve.json").get("pr") if CFG.exists("reserve.json") else None
+    res_open = bool(res) and str(res) not in holders
+    place_new_runs(st, groups, res, res_open)
+    trim_over_cap(st, groups)
+    fill_slots(st, res, res_open)
+    outage_hold()
+    announce_free_slot(st)
+    if not st["queue"] and len(holders) <= CAP and not st.get("done_reported"):
+        st["done_reported"] = True
+        report(f"DONE: hold queue empty, <={CAP} PR runs active; still watching and enforcing the cap")
+    if st["queue"]:
+        st["done_reported"] = False
+    log(f"holders={ {k: v.get('run') for k, v in holders.items()} } queue={[e['pr'] for e in st['queue']]}")
+
+
+def note_base_head(st):
     dh = gh_json(["api", f"repos/{REPO}/commits/{BASE_BRANCH}", "--jq",
                  '{s: .sha, m: (.commit.message | split("\\n")[0])}'], ok_fail=True)
     if dh and st.get("develop_head") != dh["s"]:
         if st.get("develop_head"):
             report(f"{BASE_BRANCH} moved {st['develop_head'][:10]} -> {dh['s'][:10]}: {dh['m']}")
         st["develop_head"] = dh["s"]
+
+
+def note_mergeable(st, open_prs):
     mg = st.setdefault("mergeable", {})
     for p in open_prs:
         if p.get("baseRefName") == "main":
@@ -1073,6 +1267,9 @@ def iterate(st):
             report(f"#{n} turned DIRTY (CONFLICTING) at head {p['headRefOid'][:10]} against {p['baseRefName']}" + (f" {(st.get('develop_head') or '?')[:10]}" if p['baseRefName'] == BASE_BRANCH else ""))
         if m in ("MERGEABLE", "CONFLICTING"):
             mg[n] = m
+
+
+def note_base_changes(st, open_prs):
     br = st.setdefault("baseref", {})
     by_head = {p["headRefName"]: p["number"] for p in open_prs}
     for p in open_prs:
@@ -1080,6 +1277,10 @@ def iterate(st):
         if br.get(n) and br[n] != b:
             report(f"#{n}: base branch changed {br[n]} -> {b}" + (f" (#{by_head[b]}'s branch; stacked behind it)" if b in by_head else ""))
         br[n] = b
+
+
+def unpark_moved(st, heads):
+    """Drop a parked PR that is no longer open; requeue one whose new head is clean and contains the strict base."""
     for k, e in list(st.setdefault("parked", {}).items()):
         if k not in heads:
             del st["parked"][k]
@@ -1088,14 +1289,15 @@ def iterate(st):
             p = pull(int(k))
             nb = has_base(heads[k]) is False
             if p and p.get("mergeable_state") != "dirty" and not nb:
-                e = st["parked"][k]
                 where = enqueue(st, {"pr": int(k), "run": e.get("run"), "kind": e.get("kind", "rerun"), "retries": e.get("retries", 0)})
-                report(f"#{k}: head moved to {heads[k][:8]}, no longer dirty; back in queue ({where}, position {[x['pr'] for x in st['queue']].index(int(k)) + 1}/{len(st['queue'])})")
+                report(f"#{k}: head moved to {heads[k][:8]}, no longer dirty; back in queue ({queue_place(st, int(k), where)})")
             else:
                 e["parked_sha"] = heads[k]
-                report(f"#{k}: head moved to {heads[k][:8]} but {'still lacks {BASE_BRANCH} {(strict_base() or '')[:10]}' if nb else 'still dirty'}; stays parked")
-    bmap = {p["headRefName"]: p["number"] for p in open_prs}
-    backmerge = {bmap[b] for b in CFG.read("backmerge.json", []) if b in bmap}
+                report(f"#{k}: head moved to {heads[k][:8]} but {f'still lacks {lacks_base()}' if nb else 'still dirty'}; stays parked")
+
+
+def queue_ready_drafts(st, open_prs):
+    """Queue each draft that ready_ok.json approves for un-drafting, or park it while it conflicts."""
     excl = set(CFG.read("draft_excl.json", []))
     for p in open_prs:
         n = p["number"]
@@ -1104,15 +1306,17 @@ def iterate(st):
         for e in st["queue"]:
             if e["pr"] == n and e.get("kind") != "ready":
                 e["kind"] = "ready"
-        if p.get("mergeable") == "CONFLICTING" and str(n) not in st["holders"] and str(n) not in st.get("parked", {}):
+        placed = str(n) in st["holders"] or str(n) in st.get("parked", {})
+        if p.get("mergeable") == "CONFLICTING" and not placed:
             e = next((e for e in st["queue"] if e["pr"] == n), {"pr": n, "run": None, "kind": "ready"})
             park(st, e, p["headRefOid"])
             report(f"#{n}: draft is CONFLICTING at {p['headRefOid'][:8]}; parked until a new non-dirty head lands")
-            continue
-        if any(e["pr"] == n for e in st["queue"]) or str(n) in st["holders"] or str(n) in st.get("parked", {}):
-            continue
-        where = enqueue(st, {"pr": n, "run": None, "sha": p["headRefOid"], "kind": "ready"})
-        report(f"#{n}: draft on {BASE_BRANCH} queued for un-draft ({where}, position {[e['pr'] for e in st['queue']].index(n) + 1}/{len(st['queue'])})")
+        elif not placed and not any(e["pr"] == n for e in st["queue"]):
+            where = enqueue(st, {"pr": n, "run": None, "sha": p["headRefOid"], "kind": "ready"})
+            report(f"#{n}: draft on {BASE_BRANCH} queued for un-draft ({queue_place(st, n, where)})")
+
+
+def park_baseless_queue(st, heads):
     nb = []
     for e in list(st["queue"]):
         sha = heads.get(str(e["pr"]))
@@ -1121,6 +1325,10 @@ def iterate(st):
             nb.append(f"#{e['pr']} ({sha[:10]})")
     if nb:
         report(f"needs {BASE_BRANCH} merge (head lacks {(strict_base() or '')[:10]}); parked until a new head contains it: " + ", ".join(nb))
+
+
+def reload_lists(heads, bmap):
+    """Re-read the per-PR lists the release authority edits between passes."""
     IGNORED_PRS.clear()
     IGNORED_PRS.update(CFG.read("ignore.json", []))
     EXEMPT_PRS.clear()
@@ -1130,21 +1338,25 @@ def iterate(st):
     READY_OK.clear()
     READY_OK.update(CFG.read("ready_ok.json", []))
     HOLDS.clear()
-    HOLDS.update({k: v for k, v in CFG.read("hold.json", {}).items()
+    HOLDS.update({k: v for k, v in CFG.read(F_HOLD, {}).items()
                   if k in heads and any(heads[k].startswith(x) for x in v)})
-    if CFG.exists("hold.json"):
-        CFG.write("hold.json", HOLDS)
+    if CFG.exists(F_HOLD):
+        CFG.write(F_HOLD, HOLDS)
     PINNED.clear()
     PINNED.update(bmap.get(k, -1) if isinstance(k, str) else k for k in CFG.read("pinned.json", []))
     NOCANCEL.clear()
     NOCANCEL.update(CFG.read("nocancel.json") or [])
-    runs = active_runs()
+
+
+def drop_ghost_holders(st):
     for k, h in list(st["holders"].items()):
         if h.get("run") in GHOSTS:
             st["holders"].pop(k)
             report(f"#{k}: run {h['run']} is a jobless ghost (0 jobs); slot no longer counted")
-    LAST_SEEN.clear()
-    LAST_SEEN.update(r["databaseId"] for r in runs)
+
+
+def group_runs(runs, bmap):
+    """The active runs by PR number, or by "branch:<name>" for a branch with no open PR."""
     groups = {}
     for r in runs:
         n = run_pr(r, bmap)
@@ -1152,263 +1364,335 @@ def iterate(st):
             continue
         key = str(n) if n else "branch:" + r["headBranch"]
         groups.setdefault(key, []).append(r)
-    holders = st["holders"]
-    blk = CFG.read("blocked.json") or {"prs": []}
-    why = blk.get("why") or f"blocked until #{blk.get('until')}'s run is executing"
+    return groups
+
+
+def cancel_blocked_runs(groups, blk, why):
     for k in list(groups):
-        if k.isdigit() and int(k) in blk["prs"]:
-            if any(jobs_started(r) for r in groups[k]):
-                continue
-            ids = [r["databaseId"] for r in groups.pop(k)]
-            if not cancel_all(ids):
-                continue
+        if not k.isdigit() or int(k) not in blk["prs"] or any(jobs_started(r) for r in groups[k]):
+            continue
+        ids = run_ids(groups.pop(k))
+        if cancel_all(ids):
             report(f"#{k}: {why}; cancelled not-started run(s) {ids}, not queued")
+
+
+def release_blocked_holders(st, groups, blk, why):
+    holders = st["holders"]
     for k in list(holders):
         if k.isdigit() and int(k) in blk["prs"] and k not in groups:
             rid = holders.pop(k).get("run")
-            d = gh_json(["run", "view", str(rid), "--repo", REPO, "--json", "conclusion,jobs"], ok_fail=True) if rid else None
-            bad = [j["name"] for j in (d or {}).get("jobs", []) if j.get("conclusion") in ("failure", "timed_out", "startup_failure")]
-            res = {"success": "GREEN"}.get((d or {}).get("conclusion"), f"{(d or {}).get('conclusion')}" + (f"; failed jobs: {', '.join(bad)}" if bad else ""))
+            d = (gh_json(["run", "view", str(rid), "--repo", REPO, "--json", "conclusion,jobs"], ok_fail=True) if rid else None) or {}
+            bad = failed_jobs(d)
+            res = {"success": "GREEN"}.get(d.get("conclusion"), f"{d.get('conclusion')}" + (f"; failed jobs: {', '.join(bad)}" if bad else ""))
             report(f"#{k}: run {rid} finished {res}; slot released ({why}; not re-queued)")
     st["queue"] = [e for e in st["queue"] if e["pr"] not in blk["prs"]]
     for k in list(st.get("parked", {})):
         if k.isdigit() and int(k) in blk["prs"]:
             del st["parked"][k]
-    GATE.clear()
-    if CFG.exists("gate.json"):
-        gate = CFG.read("gate.json")
-        if (gh_json(["api", f"repos/{REPO}/pulls/{gate['pr']}"], ok_fail=True) or {}).get("merged"):
-            os.remove(f"{DIR}/gate.json")
-            report(f"#{gate['pr']} merged; hold released, filling free slots in normal order")
-        else:
-            GATE.update(gate)
-            mineset = set(st["cancelled"])
-            for k in list(groups):
-                g = groups[k]
-                if not k.isdigit() or int(k) in gate["allow"] or k in holders \
-                        or all(r["databaseId"] in mineset and mine(r, mineset) for r in g):
-                    continue
-                if not cancel_all([r["databaseId"] for r in g], st):
-                    continue
-                groups.pop(k)
-                pr_run = next((r for r in g if r["workflowName"] == MAIN_WF), g[0])
-                p = pull(int(k))
-                if k in st["parked"] or (p and p.get("mergeable_state") == "dirty"):
-                    if k not in st["parked"]:
-                        park(st, {"pr": int(k), "run": pr_run["databaseId"], "kind": "rerun"}, pr_run["headSha"])
-                    report(f"#{k}: held until #{gate['pr']} merges; cancelled run(s) {[r['databaseId'] for r in g]}; PR is dirty, parked")
-                    continue
-                where = enqueue(st, {"pr": int(k), "run": pr_run["databaseId"], "sha": pr_run["headSha"], "kind": "rerun"})
-                report(f"#{k}: held until #{gate['pr']} merges; cancelled run(s) {[r['databaseId'] for r in g]}; queued ({where})")
-    if blk.get("until") and str(blk["until"]) in groups and str(blk["until"]) in holders \
-            and any(jobs_started(r) for r in groups[str(blk["until"])]):
-        os.remove(f"{DIR}/blocked.json")
-        report(f"#{blk['until']}: run {holders[str(blk['until'])]['run']} is executing; block on {blk['prs']} lifted")
 
-    for key in [k for k in list(holders) if k.isdigit() and int(k) not in PINNED and groups.get(k)]:
+
+def apply_gate(st, groups):
+    """gate.json holds every PR outside its allow list until its PR merges: their unstarted runs are cancelled and queued."""
+    GATE.clear()
+    if not CFG.exists("gate.json"):
+        return
+    gate = CFG.read("gate.json")
+    if (gh_json(["api", f"repos/{REPO}/pulls/{gate['pr']}"], ok_fail=True) or {}).get("merged"):
+        os.remove(f"{DIR}/gate.json")
+        report(f"#{gate['pr']} merged; hold released, filling free slots in normal order")
+        return
+    GATE.update(gate)
+    mineset = set(st["cancelled"])
+    for k in list(groups):
+        g = groups[k]
+        if not k.isdigit() or int(k) in gate["allow"] or k in st["holders"] \
+                or all(r["databaseId"] in mineset and mine(r, mineset) for r in g):
+            continue
+        if not cancel_all(run_ids(g), st):
+            continue
+        groups.pop(k)
+        pr_run = main_run(g)
+        p = pull(int(k))
+        if k in st["parked"] or is_dirty(p):
+            if k not in st["parked"]:
+                park(st, {"pr": int(k), "run": pr_run["databaseId"], "kind": "rerun"}, pr_run["headSha"])
+            report(f"#{k}: held until #{gate['pr']} merges; cancelled run(s) {run_ids(g)}; PR is dirty, parked")
+            continue
+        where = enqueue(st, {"pr": int(k), "run": pr_run["databaseId"], "sha": pr_run["headSha"], "kind": "rerun"})
+        report(f"#{k}: held until #{gate['pr']} merges; cancelled run(s) {run_ids(g)}; queued ({where})")
+
+
+def free_gated_preflights(st, groups):
+    """A slot holder whose head is not released and whose runs have only the preflight done gives its slot back."""
+    holders = st["holders"]
+    for key in [k for k in holders if k.isdigit() and int(k) not in PINNED and groups.get(k)]:
         g = groups[key]
         if not gated(key) or not all(preflight_only(r) for r in g):
             continue
-        if cancel_all([r["databaseId"] for r in g], st, allow_preflight=True):
+        if cancel_all(run_ids(g), st, allow_preflight=True):
             holders.pop(key)
             groups.pop(key, None)
-            pr_run = next((r for r in g if r["workflowName"] == MAIN_WF), g[0])
+            pr_run = main_run(g)
             where = enqueue(st, {"pr": int(key), "run": pr_run["databaseId"], "sha": pr_run["headSha"], "kind": "rerun"})
-            report(f"#{key}: head {pr_run['headSha'][:10]} not released; run(s) {[r['databaseId'] for r in g]} had only the preflight done, "
+            report(f"#{key}: head {pr_run['headSha'][:10]} not released; run(s) {run_ids(g)} had only the preflight done, "
                    f"no job executing; cancelled, slot freed, held under the review gate ({where})")
 
-    for key, h in list(holders.items()):
-        g = groups.get(key)
-        if g:
-            h["seen_active"] = True
-            pr_runs = sorted([r for r in g if r["workflowName"] == MAIN_WF], key=lambda r: r["createdAt"], reverse=True)
-            if pr_runs and pr_runs[0]["databaseId"] != h.get("run"):
-                nr = pr_runs[0]
-                if key.isdigit() and not jobs_started(nr) and not review_gate(int(key)):
-                    if cancel_all([nr["databaseId"]], st):
-                        holders.pop(key)
-                        groups.pop(key, None)
-                        where = enqueue(st, {"pr": int(key), "run": nr["databaseId"], "sha": nr["headSha"], "kind": "rerun"})
-                        report(f"#{key}: new head {nr['headSha'][:10]} not released; cancelled queued run {nr['databaseId']}, slot freed; held under the review gate ({where})")
-                    continue
-                if h.get("run"):
-                    report(f"#{key}: new head {pr_runs[0]['headSha'][:8]}; run {pr_runs[0]['databaseId']} takes over the slot from {h.get('run')}")
-                h["run"] = pr_runs[0]["databaseId"]
-                if h.get("kind") == "ready" and not h.get("announced"):
-                    h["announced"] = True
-                    report(f"#{key}: ready event started run {h['run']}")
-        else:
-            if h.get("run"):
-                cur = gh_json(["run", "view", str(h["run"]), "--repo", REPO, "--json", "status,conclusion"], ok_fail=True)
-                if not cur or cur.get("status") != "completed" or not cur.get("conclusion"):
-                    continue
-            limit = 900 if h.get("run") is None else 600
-            if h.get("seen_active") or now() - h["since"] > limit:
-                del holders[key]
-                finish_holder(st, int(key) if key.isdigit() else key, h)
 
-    for k, h in list(holders.items()):
-        if not k.isdigit() or int(k) in backmerge:
-            continue
-        p = pull(int(k))
-        if p and p["state"] == "open" and p.get("mergeable_state") == "dirty":
-            ids = [r["databaseId"] for r in groups.get(k, [])]
-            if any(jobs_started(r) for r in groups.get(k, [])):
-                if h.get("dirty_seen") != p["head"]["sha"]:
-                    h["dirty_seen"] = p["head"]["sha"]
-                    report(f"#{k}: head {p['head']['sha'][:8]} is DIRTY but run(s) {ids} already started; not cancelled, still holding a slot")
-                continue
-            if int(k) in NOCANCEL:
-                if h.get("dirty_seen") != p["head"]["sha"]:
-                    h["dirty_seen"] = p["head"]["sha"]
-                    report(f"#{k}: head {p['head']['sha'][:8]} is DIRTY; run(s) {ids} not cancelled (never cancelled before start), still holding a slot")
-                continue
-            if not cancel_all(ids, st):
-                continue
-            del holders[k]
-            park(st, {"pr": int(k), "run": h.get("run"), "kind": "rerun"}, p["head"]["sha"])
-            report(f"#{k}: head {p['head']['sha'][:8]} is DIRTY; cancelled its run(s) {ids} and parked until a new non-dirty head lands")
+def track_holder(st, groups, key, h):
+    """Follow one slot holder: a newer run on its PR takes the slot over, and a finished one is closed out."""
+    g = groups.get(key)
+    if g:
+        h["seen_active"] = True
+        pr_runs = sorted([r for r in g if r["workflowName"] == MAIN_WF], key=lambda r: r["createdAt"], reverse=True)
+        if pr_runs and pr_runs[0]["databaseId"] != h.get("run"):
+            take_over(st, groups, key, h, pr_runs[0])
+        return
+    if h.get("run"):
+        cur = gh_json(["run", "view", str(h["run"]), "--repo", REPO, "--json", "status,conclusion"], ok_fail=True)
+        if not cur or cur.get("status") != "completed" or not cur.get("conclusion"):
+            return
+    limit = 900 if h.get("run") is None else 600
+    if h.get("seen_active") or now() - h["since"] > limit:
+        del st["holders"][key]
+        finish_holder(st, int(key) if key.isdigit() else key, h)
 
-    for k, g in list(groups.items()):
-        if not k.isdigit() or k in holders or int(k) in PINNED or int(k) in backmerge or not g:
-            continue
-        pr_run = next((r for r in g if r["workflowName"] == MAIN_WF), g[0])
-        sha = pr_run["headSha"]
-        if has_base(sha) is not False:
-            continue
-        ids = [r["databaseId"] for r in g]
-        if any(jobs_started(r) for r in g):
-            h = holders.get(k)
-            if h is not None and h.get("nobase_seen") != sha:
-                h["nobase_seen"] = sha
-                report(f"#{k}: run(s) {ids} on {sha[:10]} lack {BASE_BRANCH} {(strict_base() or '')[:10]} but already started; not cancelled, still holding a slot")
-            continue
-        if int(k) in NOCANCEL:
-            if st.setdefault("nc_seen", {}).get(k + ":nobase") != sha:
-                st["nc_seen"][k + ":nobase"] = sha
-                report(f"#{k}: run(s) {ids} on {sha[:10]} lack {BASE_BRANCH} {(strict_base() or '')[:10]}; not cancelled (never cancelled before start)")
-            continue
-        if not cancel_all(ids, st):
-            continue
-        h = holders.pop(k, None)
-        park(st, {"pr": int(k), "run": pr_run["databaseId"], "kind": "rerun", "reason": f"needs {BASE_BRANCH} merge"}, sha)
-        del groups[k]
-        report(f"#{k}: head {sha[:10]} lacks {BASE_BRANCH} {(strict_base() or '')[:10]}; cancelled not-yet-started run(s) {ids}{' and freed its slot' if h else ''}; parked (needs {BASE_BRANCH} merge)")
 
+def take_over(st, groups, key, h, nr):
+    """The newest run nr of a slot holder's PR takes its slot, unless its head is unreleased and it can still be cancelled."""
+    if key.isdigit() and not jobs_started(nr) and not review_gate(int(key)):
+        if cancel_all([nr["databaseId"]], st):
+            st["holders"].pop(key)
+            groups.pop(key, None)
+            where = enqueue(st, {"pr": int(key), "run": nr["databaseId"], "sha": nr["headSha"], "kind": "rerun"})
+            report(f"#{key}: new head {nr['headSha'][:10]} not released; cancelled queued run {nr['databaseId']}, slot freed; held under the review gate ({where})")
+        return
+    if h.get("run"):
+        report(f"#{key}: new head {nr['headSha'][:8]}; run {nr['databaseId']} takes over the slot from {h.get('run')}")
+    h["run"] = nr["databaseId"]
+    if h.get("kind") == "ready" and not h.get("announced"):
+        h["announced"] = True
+        report(f"#{key}: ready event started run {h['run']}")
+
+
+def park_dirty_holder(st, groups, k, h):
+    """A slot holder whose PR turned dirty: its unstarted runs are cancelled and the PR parked."""
+    p = pull(int(k))
+    if not (p and p["state"] == "open" and p.get("mergeable_state") == "dirty"):
+        return
+    sha = p["head"]["sha"]
+    ids = run_ids(groups.get(k, []))
+    kept = None
+    if any(jobs_started(r) for r in groups.get(k, [])):
+        kept = f"#{k}: head {sha[:8]} is DIRTY but run(s) {ids} already started; not cancelled, still holding a slot"
+    elif int(k) in NOCANCEL:
+        kept = f"#{k}: head {sha[:8]} is DIRTY; run(s) {ids} not cancelled (never cancelled before start), still holding a slot"
+    if kept:
+        if h.get("dirty_seen") != sha:
+            h["dirty_seen"] = sha
+            report(kept)
+        return
+    if not cancel_all(ids, st):
+        return
+    del st["holders"][k]
+    park(st, {"pr": int(k), "run": h.get("run"), "kind": "rerun"}, sha)
+    report(f"#{k}: head {sha[:8]} is DIRTY; cancelled its run(s) {ids} and parked until a new non-dirty head lands")
+
+
+def park_baseless_run(st, groups, k, g):
+    """A PR without a slot whose head lacks the strict base: its unstarted runs are cancelled and the PR parked."""
+    pr_run = main_run(g)
+    sha = pr_run["headSha"]
+    if has_base(sha) is not False:
+        return
+    ids = run_ids(g)
+    if any(jobs_started(r) for r in g):
+        return
+    if int(k) in NOCANCEL:
+        if st.setdefault("nc_seen", {}).get(k + ":nobase") != sha:
+            st["nc_seen"][k + ":nobase"] = sha
+            report(f"#{k}: run(s) {ids} on {sha[:10]} lack {lacks_base()}; not cancelled (never cancelled before start)")
+        return
+    if not cancel_all(ids, st):
+        return
+    park(st, {"pr": int(k), "run": pr_run["databaseId"], "kind": "rerun", "reason": f"needs {BASE_BRANCH} merge"}, sha)
+    del groups[k]
+    report(f"#{k}: head {sha[:10]} lacks {lacks_base()}; cancelled not-yet-started run(s) {ids}; parked (needs {BASE_BRANCH} merge)")
+
+
+def place_new_runs(st, groups, res, res_open):
+    """Every run group without a slot: a started one is adopted, the others take a free slot or are cancelled and queued."""
     cancelled = set(st.setdefault("cancelled", []))
-    others = {k: g for k, g in groups.items() if k not in holders}
-    res = CFG.read("reserve.json").get("pr") if CFG.exists("reserve.json") else None
-    res_open = bool(res) and str(res) not in holders
+    others = {k: g for k, g in groups.items() if k not in st["holders"]}
+    admit_pinned(st, others)
+    info = [(k, g, run_started(k, g, cancelled), min((r.get("startedAt") or r["createdAt"]) for r in g)) for k, g in others.items()]
+    for k, g, started, _ in info:
+        if started and not hold_cancel(st, k, g):
+            adopt_started(st, k, g)
+    rest = sorted([x for x in info if not x[2]],
+                  key=lambda x: (qkey({"pr": int(x[0]), "run": x[1][0]["databaseId"]}) if x[0].isdigit() else (float("inf"),), x[3]))
+    for k, g, _, _ in rest:
+        place_waiting(st, k, g, cancelled, res, res_open)
+
+
+def admit_pinned(st, others):
+    holders = st["holders"]
     for k in [k for k in others if k.isdigit() and int(k) in PINNED]:
         g = others.pop(k)
         if any(jobs_started(r) for r in g):
             holders[k] = dict(slot(g, "pinned"), since=now())
         elif not admit(st, k, slot(g, "pinned")):
             continue
-        st["queue"][:] = [e for e in st["queue"] if str(e["pr"]) != k]
+        unqueue(st, k)
         st.setdefault("parked", {}).pop(k, None)
         report(f"#{k}: pinned PR; run {holders[k]['run']} holds a slot (never cancelled for the cap)")
-    info = []
-    for k, g in others.items():
-        started = not all(mine(r, cancelled) for r in g) and any(jobs_started(r) for r in g)
-        if started and gated(k) and all(preflight_only(r) for r in g):
-            started = False
-        if started and k.isdigit():
-            pp = pull(int(k))
-            started = not (pp and pp["state"] == "open" and pp.get("mergeable_state") == "dirty")
-        first = min((r.get("startedAt") or r["createdAt"]) for r in g)
-        info.append((k, g, started, first))
-    for k, g, started, first in info:
-        if started and hold_cancel(st, k, g):
-            continue
-        if started:
-            holders[k] = dict(slot(g, "adopted"), since=now())
-            st["queue"][:] = [e for e in st["queue"] if str(e["pr"]) != k]
-            jd = gh_json(["run", "view", str(holders[k]["run"]), "--repo", REPO, "--json", "jobs"], ok_fail=True) or {}
-            js = [j.get("status") for j in jd.get("jobs", [])]
-            cnt = f"{js.count('completed')} done / {js.count('in_progress')} in progress / {js.count('queued')} queued"
-            what = "already executing jobs" if js.count("in_progress") else ("finishing (no job executing)" if js else "status unread, treated as started")
-            report(f"#{k}: run {holders[k]['run']} {what} ({cnt}); never cancelled once started; holding a slot")
-    rest = sorted([x for x in info if not x[2]],
-                  key=lambda x: (qkey(st, {"pr": int(x[0]), "run": x[1][0]["databaseId"]}) if x[0].isdigit() else (float("inf"),), x[3]))
-    for k, g, started, first in rest:
-        if all(mine(r, cancelled) for r in g):
-            for r in g:
-                gh(["api", "-X", "POST", f"repos/{REPO}/actions/runs/{r['databaseId']}/force-cancel"], ok_fail=True)
-            log(f"#{k}: runs {[r['databaseId'] for r in g]} still active after my cancel; force-cancel sent")
-            continue
-        hr = [r["databaseId"] for r in g if r["databaseId"] in HELD_RUNS]
-        if hr:
-            if admit(st, k, {"run": hr[0], "seen_active": True, "kind": "priority"}):
-                st["queue"][:] = [e for e in st["queue"] if str(e["pr"]) != k]
-                report(f"#{k}: runner-priority run {hr[0]} holds a slot (exempt from its own hold)")
-            continue
-        p = pull(int(k)) if k.isdigit() else None
-        if res_open and k == str(res) and len(holders) >= CAP and not (p and p.get("mergeable_state") == "dirty"):
-            if admit(st, k, slot(g, "reserved")):
-                report(f"ATTENTION #{k}: reserved PR pushed while {len(holders) - 1} runs were active; run {holders[k]['run']} NOT cancelled, now {len(holders)} active")
-            continue
-        if k == solo_pr() and not (p and p.get("mergeable_state") == "dirty"):
-            if admit(st, k, slot(g, "solo")):
-                st["queue"][:] = [e for e in st["queue"] if str(e["pr"]) != k]
-                report(f"#{k}: sole-priority run {holders[k]['run']} took the slot")
-            continue
-        if k.isdigit():
-            HEADC.pop(int(k), None)
-        cap_k = CAP - 1 if res_open and k != str(res) else CAP
-        mq_held = False
-        if len(holders) < cap_k and k.isdigit() and not (p and p.get("mergeable_state") == "dirty") and not deferred(k) \
-                and (outranks(st, {"pr": int(k), "run": next((r["databaseId"] for r in g if r["workflowName"] == MAIN_WF), g[0]["databaseId"])})
-                     or released(int(k), next((r for r in g if r["workflowName"] == MAIN_WF), g[0])["headSha"])) \
-                and review_gate(int(k)):
-            if admit(st, k, slot(g, "adopted")):
-                st["queue"][:] = [e for e in st["queue"] if str(e["pr"]) != k]
-                report(f"#{k}: new run {holders[k]['run']} took a free slot")
-                continue
-            mq_held = bool(MQ_HELD.get("why"))
-        if k.isdigit() and int(k) in NOCANCEL:
-            pr_run = next((r for r in g if r["workflowName"] == MAIN_WF), g[0])
-            enqueue(st, {"pr": int(k), "run": pr_run["databaseId"], "sha": pr_run["headSha"], "kind": "rerun"})
-            resort(st)
-            if st.setdefault("nc_seen", {}).get(k) != pr_run["databaseId"]:
-                st["nc_seen"][k] = pr_run["databaseId"]
-                pos = [e["pr"] for e in st["queue"]].index(int(k)) + 1
-                report(f"#{k}: run {pr_run['databaseId']} on {pr_run['headSha'][:10]} queued at position {pos}/{len(st['queue'])}, NOT cancelled; "
-                       f"takes the first free slot (slots: {', '.join(f'#{x} {v.get(chr(114) + chr(117) + chr(110))}' for x, v in holders.items())})")
-            continue
-        if not cancel_all([r["databaseId"] for r in g], st, allow_preflight=gated(k)):
-            continue
-        if not k.isdigit():
-            report(f"cancelled run(s) {[r['databaseId'] for r in g]} on {k} (no open PR); not queued")
-            continue
-        pr_run = next((r for r in g if r["workflowName"] == MAIN_WF), g[0])
-        if k in st["parked"] or (p and p.get("mergeable_state") == "dirty"):
-            if k not in st["parked"]:
-                park(st, {"pr": int(k), "run": pr_run["databaseId"], "kind": "rerun"}, pr_run["headSha"])
-            report(f"#{k}: cancelled run(s) {[r['databaseId'] for r in g]}; PR is dirty, stays parked")
-            continue
-        where = enqueue(st, {"pr": int(k), "run": pr_run["databaseId"], "sha": pr_run["headSha"], "kind": "rerun"})
-        report(f"#{k}: cancelled queued run(s) {[r['databaseId'] for r in g]} {'while the merge queue waits for runners' if mq_held else 'until its stack predecessor has a run' if k.isdigit() and STACK_HELD.get(int(k)) else 'over the cap' if len(holders) >= CAP else 'under the review gate'}; queued ({where}, position {[e['pr'] for e in st['queue']].index(int(k)) + 1}/{len(st['queue'])})")
 
+
+def run_started(k, g, cancelled):
+    """Whether a run group counts as started: a heavy job began, it is not the preflight of a gated head, and its PR is not dirty."""
+    started = not all(mine(r, cancelled) for r in g) and any(jobs_started(r) for r in g)
+    if started and gated(k) and all(preflight_only(r) for r in g):
+        started = False
+    if started and k.isdigit():
+        pp = pull(int(k))
+        started = not (pp and pp["state"] == "open" and pp.get("mergeable_state") == "dirty")
+    return started
+
+
+def adopt_started(st, k, g):
+    holders = st["holders"]
+    holders[k] = dict(slot(g, "adopted"), since=now())
+    unqueue(st, k)
+    jd = gh_json(["run", "view", str(holders[k]["run"]), "--repo", REPO, "--json", "jobs"], ok_fail=True) or {}
+    js = [j.get("status") for j in jd.get("jobs", [])]
+    cnt = f"{js.count('completed')} done / {js.count('in_progress')} in progress / {js.count('queued')} queued"
+    if js.count("in_progress"):
+        what = "already executing jobs"
+    elif js:
+        what = "finishing (no job executing)"
+    else:
+        what = "status unread, treated as started"
+    report(f"#{k}: run {holders[k]['run']} {what} ({cnt}); never cancelled once started; holding a slot")
+
+
+def place_waiting(st, k, g, cancelled, res, res_open):
+    """One run group with no job started: it takes a slot, stays queued uncancelled, or is cancelled and queued."""
+    holders = st["holders"]
+    if all(mine(r, cancelled) for r in g):
+        for r in g:
+            gh(["api", "-X", "POST", f"repos/{REPO}/actions/runs/{r['databaseId']}/force-cancel"], ok_fail=True)
+        log(f"#{k}: runs {run_ids(g)} still active after my cancel; force-cancel sent")
+        return
+    hr = [r["databaseId"] for r in g if r["databaseId"] in HELD_RUNS]
+    if hr:
+        if admit(st, k, {"run": hr[0], "seen_active": True, "kind": "priority"}):
+            unqueue(st, k)
+            report(f"#{k}: runner-priority run {hr[0]} holds a slot (exempt from its own hold)")
+        return
+    dirty = is_dirty(pull(int(k)) if k.isdigit() else None)
+    if take_named_slot(st, k, g, dirty, res, res_open):
+        return
+    if k.isdigit():
+        HEADC.pop(int(k), None)
+    cap_k = CAP - 1 if res_open and k != str(res) else CAP
+    mq_held = False
+    if len(holders) < cap_k and k.isdigit() and not dirty and may_take_slot(st, k, g):
+        if admit(st, k, slot(g, "adopted")):
+            unqueue(st, k)
+            report(f"#{k}: new run {holders[k]['run']} took a free slot")
+            return
+        mq_held = bool(MQ_HELD.get("why"))
+    if k.isdigit() and int(k) in NOCANCEL:
+        queue_uncancelled(st, k, g)
+    else:
+        cancel_and_queue(st, k, g, dirty, mq_held)
+
+
+def take_named_slot(st, k, g, dirty, res, res_open):
+    """The reserved PR's run over a full cap, or the sole-priority PR's run, is admitted by name. True when k is one of them."""
+    holders = st["holders"]
+    if res_open and k == str(res) and len(holders) >= CAP and not dirty:
+        if admit(st, k, slot(g, "reserved")):
+            report(f"ATTENTION #{k}: reserved PR pushed while {len(holders) - 1} runs were active; run {holders[k]['run']} NOT cancelled, now {len(holders)} active")
+        return True
+    if k == solo_pr() and not dirty:
+        if admit(st, k, slot(g, "solo")):
+            unqueue(st, k)
+            report(f"#{k}: sole-priority run {holders[k]['run']} took the slot")
+        return True
+    return False
+
+
+def may_take_slot(st, k, g):
+    """A new run takes a free slot only when nothing runnable outranks it or its head is released, and the review gate lets it."""
+    pr_run = main_run(g)
+    return not deferred(k) and (outranks(st, {"pr": int(k), "run": pr_run["databaseId"]}) or released(int(k), pr_run["headSha"])) \
+        and review_gate(int(k))
+
+
+def queue_uncancelled(st, k, g):
+    """A nocancel.json PR's run waits in the queue for the first free slot instead of being cancelled."""
+    pr_run = main_run(g)
+    enqueue(st, {"pr": int(k), "run": pr_run["databaseId"], "sha": pr_run["headSha"], "kind": "rerun"})
+    resort(st)
+    if st.setdefault("nc_seen", {}).get(k) != pr_run["databaseId"]:
+        st["nc_seen"][k] = pr_run["databaseId"]
+        pos = [e["pr"] for e in st["queue"]].index(int(k)) + 1
+        slots = ", ".join(f"#{x} {v.get('run')}" for x, v in st["holders"].items())
+        report(f"#{k}: run {pr_run['databaseId']} on {pr_run['headSha'][:10]} queued at position {pos}/{len(st['queue'])}, NOT cancelled; "
+               f"takes the first free slot (slots: {slots})")
+
+
+def cancel_and_queue(st, k, g, dirty, mq_held):
+    if not cancel_all(run_ids(g), st, allow_preflight=gated(k)):
+        return
+    if not k.isdigit():
+        report(f"cancelled run(s) {run_ids(g)} on {k} (no open PR); not queued")
+        return
+    pr_run = main_run(g)
+    if k in st["parked"] or dirty:
+        if k not in st["parked"]:
+            park(st, {"pr": int(k), "run": pr_run["databaseId"], "kind": "rerun"}, pr_run["headSha"])
+        report(f"#{k}: cancelled run(s) {run_ids(g)}; PR is dirty, stays parked")
+        return
+    where = enqueue(st, {"pr": int(k), "run": pr_run["databaseId"], "sha": pr_run["headSha"], "kind": "rerun"})
+    if mq_held:
+        why = "while the merge queue waits for runners"
+    elif STACK_HELD.get(int(k)):
+        why = "until its stack predecessor has a run"
+    elif len(st["holders"]) >= CAP:
+        why = "over the cap"
+    else:
+        why = "under the review gate"
+    report(f"#{k}: cancelled queued run(s) {run_ids(g)} {why}; queued ({queue_place(st, int(k), where)})")
+
+
+def trim_over_cap(st, groups):
+    """Over the cap, the lowest-ranked holders whose runs have not started are cancelled and queued."""
+    holders = st["holders"]
     over = len(holders) - CAP
-    if over > 0:
-        cands = [k for k in holders if k.isdigit() and int(k) not in PINNED and holders[k].get("kind") != "reserved" and k != solo_pr() and int(k) not in NOCANCEL]
-        if not any(k.isdigit() and int(k) in PINNED for k in holders):
-            cands = [k for k in cands if groups.get(k)
-                     and not any(jobs_started(r) for r in groups[k])]
-        cands.sort(key=lambda k: qkey(st, {"pr": int(k), "run": holders[k]["run"]}), reverse=True)
-        cands.sort(key=lambda k: any(jobs_started(r) for r in groups.get(k, [])))
-        for k in cands[:over]:
-            h = holders.pop(k)
-            g = groups.get(k, [])
-            ids = [r["databaseId"] for r in g] or [h["run"]]
-            if not cancel_all(ids, st):
-                holders[k] = h
-                continue
-            pr_run = next((r for r in g if r["workflowName"] == MAIN_WF), None)
-            where = enqueue(st, {"pr": int(k), "run": h["run"], "sha": pr_run["headSha"] if pr_run else None, "kind": "rerun"})
-            report(f"#{k}: cancelled not-yet-started run(s) {ids} over the cap; queued ({where})")
+    if over <= 0:
+        return
+    cands = [k for k in holders if k.isdigit() and int(k) not in PINNED and holders[k].get("kind") != "reserved" and k != solo_pr() and int(k) not in NOCANCEL]
+    if not any(k.isdigit() and int(k) in PINNED for k in holders):
+        cands = [k for k in cands if groups.get(k)
+                 and not any(jobs_started(r) for r in groups[k])]
+    cands.sort(key=lambda k: qkey({"pr": int(k), "run": holders[k]["run"]}), reverse=True)
+    cands.sort(key=lambda k: any(jobs_started(r) for r in groups.get(k, [])))
+    for k in cands[:over]:
+        h = holders.pop(k)
+        g = groups.get(k, [])
+        ids = run_ids(g) or [h["run"]]
+        if not cancel_all(ids, st):
+            holders[k] = h
+            continue
+        pr_run = next((r for r in g if r["workflowName"] == MAIN_WF), None)
+        where = enqueue(st, {"pr": int(k), "run": h["run"], "sha": pr_run["headSha"] if pr_run else None, "kind": "rerun"})
+        report(f"#{k}: cancelled not-yet-started run(s) {ids} over the cap; queued ({where})")
 
+
+def fill_slots(st, res, res_open):
+    """Start queued entries into the free slots, the reserved PR first while its reservation is open."""
+    holders = st["holders"]
     if res and str(res) in holders:
         os.remove(f"{DIR}/reserve.json")
         report(f"#{res}: reserved slot filled by run {holders[str(res)]['run']}; reservation cleared")
@@ -1422,33 +1706,30 @@ def iterate(st):
             log(f"slot reserved for #{res}; not starting {[e['pr'] for e in st['queue']]}")
     elif len(holders) < CAP and (st["queue"] or auth_pending()):
         for _ in range(CAP):
-            n0 = len(st["holders"])
+            n0 = len(holders)
             start_next(st)
-            if len(st["holders"]) <= n0 or len(st["holders"]) >= CAP or not (st["queue"] or auth_pending()):
+            if len(holders) <= n0 or len(holders) >= CAP or not (st["queue"] or auth_pending()):
                 break
 
-    outage_hold()
+
+def announce_free_slot(st):
+    """With a slot free and nothing able to take it, say once which held PR is first in line."""
     nh = len(st["holders"])
     if nh >= CAP or solo_pr():
         st.pop("slot_free_for", None)
-    elif nh == len(holders) and not CFG.exists("outage.json"):
-        cands = list(st["queue"]) + [e for e in st.get("parked", {}).values()]
-        if cands:
-            top = min(cands, key=lambda e: qkey(st, e))
-            if st.get("slot_free_for") != top["pr"]:
-                st["slot_free_for"] = top["pr"]
-                why = top.get("reason") or ("parked, dirty" if str(top["pr"]) in st.get("parked", {}) else "queued, no runnable head")
-                if CFG.exists("review_gate.json"):
-                    log(f"{CAP - nh} slot(s) free; no released head waiting (top held: #{top['pr']}, {why}); no invitation sent")
-                else:
-                    report(f"slot free for #{top['pr']} ({CAP - nh} free; #{top['pr']} is {why}): it may push its prepared head now")
-
-    if not st["queue"] and len(holders) <= CAP and not st.get("done_reported"):
-        st["done_reported"] = True
-        report(f"DONE: hold queue empty, <={CAP} PR runs active; still watching and enforcing the cap")
-    if st["queue"]:
-        st["done_reported"] = False
-    log(f"holders={ {k: v.get('run') for k, v in holders.items()} } queue={[e['pr'] for e in st['queue']]}")
+        return
+    cands = list(st["queue"]) + list(st.get("parked", {}).values())
+    if CFG.exists("outage.json") or not cands:
+        return
+    top = min(cands, key=qkey)
+    if st.get("slot_free_for") == top["pr"]:
+        return
+    st["slot_free_for"] = top["pr"]
+    why = top.get("reason") or ("parked, dirty" if str(top["pr"]) in st.get("parked", {}) else "queued, no runnable head")
+    if CFG.exists(F_REVIEW_GATE):
+        log(f"{CAP - nh} slot(s) free; no released head waiting (top held: #{top['pr']}, {why}); no invitation sent")
+    else:
+        report(f"slot free for #{top['pr']} ({CAP - nh} free; #{top['pr']} is {why}): it may push its prepared head now")
 
 
 FAST = 10
@@ -1486,8 +1767,8 @@ def ci_mark(p):
     """With ci_priority configured, a new CI-optimization PR into the base branch (with tiers.json, in tier 1 or 2) is exempt: runs admitted automatically, never cancelled."""
     n = p["number"]
     # ci_prio.json is re-read so the release authority can add a priority PR without a restart.
-    if CFG.exists("ci_prio.json"):
-        CI_PRS.update(CFG.read("ci_prio.json"))
+    if CFG.exists(F_CI_PRIO):
+        CI_PRS.update(CFG.read(F_CI_PRIO))
     if n in CI_FLAGGED:
         return False
     named = tier_members(0, 1)
@@ -1519,7 +1800,7 @@ def ci_mark(p):
         return False
     CI_PRS.add(n)
     EXEMPT_PRS.add(n)
-    CFG.write("ci_prio.json", sorted(CI_PRS))
+    CFG.write(F_CI_PRIO, sorted(CI_PRS))
     report(f"PRIORITY CI PR #{n} (\"{p.get('title')}\") head {(p.get('headRefOid') or '')[:10]}: {why}; runs admitted automatically, never cancelled; "
            f"ahead of everything not already in the merge queue")
     return True
@@ -1573,10 +1854,10 @@ def stale_bt(st):
             st["stale_bt"].pop(k)
             continue
         r = bad[0]
-        ex = CFG.read("ext_ok.json", [])
+        ex = CFG.read(F_EXT_OK, [])
         if r not in ex:
             ex.append(r)
-            CFG.write("ext_ok.json", ex)
+            CFG.write(F_EXT_OK, ex)
         CFG.write(f"priority_hold_{k}.json", {"pr": int(k), "after": "0000000000", "run": r, "head": e["head"],
                                              "label": f"#{k} {e['head'][:10]} stale required-check rerun"})
         out = gh(["run", "rerun", str(r), "--failed", "--repo", REPO], ok_fail=True)
@@ -1609,63 +1890,73 @@ def mq_track(st):
                 report(f"MERGE QUEUE: #{pr} queue build run {rid} started on {br} (merge commit {r['head_sha'][:10]}); never cancelled")
         elif old != "done":
             m["runs"][rid] = "done"
-            c = r.get("conclusion")
-            if c == "success":
-                report(f"MERGE QUEUE: #{pr} queue build run {rid} GREEN (merge commit {r['head_sha'][:10]})")
-            else:
-                j = gh_json(["run", "view", rid, "--repo", REPO, "--json", "jobs"], ok_fail=True) or {}
-                fj = [f"{x['name']} [{','.join(s_['name'] for s_ in x.get('steps') or [] if s_.get('conclusion') == 'failure')}]"
-                      for x in j.get("jobs", []) if x.get("conclusion") == "failure"]
-                report(f"MERGE QUEUE: #{pr} queue build run {rid} {'RED' if c == 'failure' else c}: {'; '.join(fj) or 'no failing job listed'}")
-    ns = merge_queue_entries("position state pullRequest{number headRefOid}")
-    if ns is not None:
-        cur = [f"{n['pullRequest']['number']}@{n['pullRequest']['headRefOid'][:10]}" for n in ns]
-        for n in ns:
-            k = f"{n['pullRequest']['number']}@{n['pullRequest']['headRefOid'][:10]}"
-            if k not in m["entries"]:
-                report(f"MERGE QUEUE: #{n['pullRequest']['number']} {k.split('@')[1]} entered the queue at position {n['position']} ({n['state']})")
-        for k in m["entries"]:
-            if k not in cur:
-                report(f"MERGE QUEUE: #{k.split('@')[0]} {k.split('@')[1]} left the queue")
-        m["entries"] = cur
+            report_queue_build(pr, rid, r)
+    track_queue_entries(m)
     return act
+
+
+def report_queue_build(pr, rid, r):
+    c = r.get("conclusion")
+    if c == "success":
+        report(f"MERGE QUEUE: #{pr} queue build run {rid} GREEN (merge commit {r['head_sha'][:10]})")
+        return
+    j = gh_json(["run", "view", rid, "--repo", REPO, "--json", "jobs"], ok_fail=True) or {}
+    fj = [f"{x['name']} [{','.join(s_['name'] for s_ in x.get('steps') or [] if s_.get('conclusion') == 'failure')}]"
+          for x in j.get("jobs", []) if x.get("conclusion") == "failure"]
+    report(f"MERGE QUEUE: #{pr} queue build run {rid} {'RED' if c == 'failure' else c}: {'; '.join(fj) or 'no failing job listed'}")
+
+
+def track_queue_entries(m):
+    """Report each PR head that entered or left the merge queue since the last pass."""
+    ns = merge_queue_entries("position state pullRequest{number headRefOid}")
+    if ns is None:
+        return
+    cur = [f"{n['pullRequest']['number']}@{n['pullRequest']['headRefOid'][:10]}" for n in ns]
+    for n, k in zip(ns, cur):
+        if k not in m["entries"]:
+            report(f"MERGE QUEUE: #{n['pullRequest']['number']} {k.split('@')[1]} entered the queue at position {n['position']} ({n['state']})")
+    for k in m["entries"]:
+        if k not in cur:
+            report(f"MERGE QUEUE: #{k.split('@')[0]} {k.split('@')[1]} left the queue")
+    m["entries"] = cur
 
 
 def gate_sweep(st):
     """Between passes: cancel a just-started run of an unreleased head while only its preflight has run."""
-    if not CFG.exists("review_gate.json"):
+    if not CFG.exists(F_REVIEW_GATE):
         return False
     hit = False
     for status in ("queued", "in_progress"):
         rr = gh_json(["api", f"repos/{REPO}/actions/runs?event=pull_request&status={status}&per_page=50"], ok_fail=True) or {}
         for r in rr.get("workflow_runs", []):
-            if r.get("name") not in WORKFLOWS or not r.get("pull_requests"):
-                continue
-            pr, rid, sha = r["pull_requests"][0]["number"], r["id"], r["head_sha"]
-            if pr in PINNED or pr in NOCANCEL or pr in EXEMPT_PRS or released(pr, sha) or rid in st.get("cancelled", []):
-                continue
-            p = gh_json(["api", f"repos/{REPO}/pulls/{pr}"], ok_fail=True)
-            if not p or ci_mark({"number": pr, "title": p.get("title"), "baseRefName": p["base"]["ref"], "headRefOid": p["head"]["sha"]}):
-                continue
-            if not p or p.get("state") != "open" or p["head"]["sha"] != sha \
-                    or p["base"]["ref"] != r["pull_requests"][0]["base"]["ref"]:
-                continue
-            if not preflight_only({"databaseId": rid}):
-                continue
-            if cancel_all([rid], st, allow_preflight=True):
-                if (st["holders"].get(str(pr)) or {}).get("run") == rid:
-                    st["holders"].pop(str(pr))
-                if p.get("draft"):
-                    report(f"#{pr}: draft head {sha[:10]} not released; run {rid} caught with only the preflight running; cancelled, held until released")
-                    hit = True
-                    continue
-                where = enqueue(st, {"pr": pr, "run": rid, "sha": sha, "kind": "rerun"})
-                report(f"#{pr}: head {sha[:10]} not released; run {rid} caught with only the preflight running, no heavy job started; "
-                       f"cancelled, held under the review gate ({where})")
+            if r.get("name") in WORKFLOWS and r.get("pull_requests") and sweep_run(st, r):
                 hit = True
     if hit:
         save(st)
     return hit
+
+
+def sweep_run(st, r):
+    """Cancel one active run when its head is unreleased and only its preflight has run; True when it was cancelled."""
+    pr, rid, sha = r["pull_requests"][0]["number"], r["id"], r["head_sha"]
+    if pr in PINNED or pr in NOCANCEL or pr in EXEMPT_PRS or released(pr, sha) or rid in st.get("cancelled", []):
+        return False
+    p = gh_json(["api", f"repos/{REPO}/pulls/{pr}"], ok_fail=True)
+    if not p or ci_mark({"number": pr, "title": p.get("title"), "baseRefName": p["base"]["ref"], "headRefOid": p["head"]["sha"]}):
+        return False
+    if p.get("state") != "open" or p["head"]["sha"] != sha or p["base"]["ref"] != r["pull_requests"][0]["base"]["ref"]:
+        return False
+    if not preflight_only({"databaseId": rid}) or not cancel_all([rid], st, allow_preflight=True):
+        return False
+    if (st["holders"].get(str(pr)) or {}).get("run") == rid:
+        st["holders"].pop(str(pr))
+    if p.get("draft"):
+        report(f"#{pr}: draft head {sha[:10]} not released; run {rid} caught with only the preflight running; cancelled, held until released")
+        return True
+    where = enqueue(st, {"pr": pr, "run": rid, "sha": sha, "kind": "rerun"})
+    report(f"#{pr}: head {sha[:10]} not released; run {rid} caught with only the preflight running, no heavy job started; "
+           f"cancelled, held under the review gate ({where})")
+    return True
 
 
 def queued_pr_runs():
@@ -1679,42 +1970,43 @@ def wait_for_new(st):
     end = time.time() + INTERVAL
     while time.time() < end:
         time.sleep(min(FAST, max(0, end - time.time())))
-        try:
-            if gate_sweep(st):
-                log("fast poll: cancelled unreleased run(s) during preflight; running a pass now")
-                return
-        except Exception:
-            log("ERROR gate_sweep " + traceback.format_exc().replace("\n", " | "))
-        if arm_pushed():
-            log("fast poll: armed sole-priority PR pushed; running a pass now")
+        why = pass_due(st, seen)
+        if why:
+            log(f"fast poll: {why}; running a pass now")
             return
-        if CFG.exists("solo.json"):
-            o = CFG.read("solo.json")
-            d = o.get("run") and gh_json(["run", "view", str(o["run"]), "--repo", REPO, "--json", "status"], ok_fail=True)
-            if d and d.get("status") == "completed":
-                log(f"fast poll: #{o['pr']}'s solo run {o['run']} completed; running a pass now")
-                return
-        try:
-            hs = CFG.read("state.json").get("holders", {})
-        except Exception:
-            hs = {}
-        for pr in NOCANCEL:
-            rid = (hs.get(str(pr)) or {}).get("run")
-            d = rid and gh_json(["run", "view", str(rid), "--repo", REPO, "--json", "status"], ok_fail=True)
-            if d and d.get("status") == "completed":
-                log(f"fast poll: #{pr}'s run {rid} completed; running a pass now")
-                return
-        new = queued_pr_runs() - seen - GHOSTS
-        if new:
-            for _ in range(3):
-                try:
-                    if gate_sweep(st):
-                        break
-                except Exception:
-                    log("ERROR gate_sweep " + traceback.format_exc().replace("\n", " | "))
-                time.sleep(5)
-            log(f"fast poll: new queued run(s) {sorted(new)}; running a pass now")
-            return
+
+
+def run_completed(rid):
+    d = rid and gh_json(["run", "view", str(rid), "--repo", REPO, "--json", "status"], ok_fail=True)
+    return bool(d) and d.get("status") == "completed"
+
+
+def pass_due(st, seen):
+    """Why the next pass should run before the interval ends, or None."""
+    if attempt("gate_sweep", gate_sweep, st):
+        return "cancelled unreleased run(s) during preflight"
+    if arm_pushed():
+        return "armed sole-priority PR pushed"
+    if CFG.exists("solo.json"):
+        o = CFG.read("solo.json")
+        if run_completed(o.get("run")):
+            return f"#{o['pr']}'s solo run {o['run']} completed"
+    try:
+        hs = CFG.read(F_STATE).get("holders", {})
+    except Exception:
+        hs = {}
+    for pr in NOCANCEL:
+        rid = (hs.get(str(pr)) or {}).get("run")
+        if run_completed(rid):
+            return f"#{pr}'s run {rid} completed"
+    new = queued_pr_runs() - seen - GHOSTS
+    if not new:
+        return None
+    for _ in range(3):
+        if attempt("gate_sweep", gate_sweep, st):
+            break
+        time.sleep(5)
+    return f"new queued run(s) {sorted(new)}"
 
 
 def main(argv=None):
@@ -1729,7 +2021,7 @@ def main(argv=None):
         st = load()
         if st.get("stop") or CFG.exists("stop.json"):
             log("stop flag set; exiting")
-            return 0
+            break
         try:
             refresh_ci_priority()
             iterate(st)
@@ -1737,8 +2029,9 @@ def main(argv=None):
             log("ERROR " + traceback.format_exc().replace("\n", " | "))
         save(st)
         if args.once:
-            return 0
+            break
         wait_for_new(st)
+    return 0
 
 
 if __name__ == "__main__":

@@ -5,8 +5,8 @@
 // checksum manifest the release pipeline signed.
 
 import { createHash } from "node:crypto";
-import { accessSync, constants, existsSync, readFileSync } from "node:fs";
-import { chmod, mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import { accessSync, constants, createReadStream, existsSync, readFileSync } from "node:fs";
+import { chmod, mkdir, open, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
@@ -48,6 +48,10 @@ export const API_BASE_URL = "https://api.github.com";
 
 /** Per-request timeout: this runs while a service is starting, so it must not hang. */
 export const NETWORK_TIMEOUT_MS = 15_000;
+/** The most a release binary may weigh; a larger download is refused, not buffered. */
+export const MAX_BINARY_BYTES = 512 * 1024 * 1024;
+/** The most a checksum, manifest, signature or API answer may weigh. */
+export const MAX_METADATA_BYTES = 16 * 1024 * 1024;
 
 const SHA256 = /^[0-9a-f]{64}$/;
 
@@ -94,6 +98,8 @@ export interface DownloadOptions {
   pinnedDigests?: PinnedDigests;
   /** Where warnings go; Node's process warnings when omitted. */
   warn?: (message: string) => void;
+  /** The most the binary may weigh; {@link MAX_BINARY_BYTES} when omitted. */
+  maxBinaryBytes?: number;
 }
 
 /** No usable binary was found, and none could be fetched. */
@@ -239,14 +245,38 @@ export function expectedDigest(request: {
   return pinned;
 }
 
+const REPO_PATTERN = /^[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9._-]+$/;
+const URL_SEGMENT_PATTERN = /^[A-Za-z0-9._+-]+$/;
+
+/** The repository as owner/name, refused when it would change the path or query of a URL built from it. */
+export function checkedGithubRepo(repo: string): string {
+  const name = repo.slice(repo.indexOf("/") + 1);
+  if (!REPO_PATTERN.test(repo) || name === "." || name === "..") {
+    throw new DownloadError(
+      `${JSON.stringify(repo)} is not a GitHub repository of the form owner/name; ` +
+        `check $${REPO_ENV}`,
+    );
+  }
+  return repo;
+}
+
+function checkedSegment(value: string, what: string): string {
+  if (!URL_SEGMENT_PATTERN.test(value) || value === "." || value.includes("..")) {
+    throw new DownloadError(`${JSON.stringify(value)} is not a ${what} a release URL can name`);
+  }
+  return value;
+}
+
 /** URL a release publishes an asset at. */
 export function releaseDownloadUrl(
   version: string,
   asset: string,
   options: DownloadOptions = {},
 ): string {
-  const repo = options.githubRepo ?? defaultGithubRepo();
+  const repo = checkedGithubRepo(options.githubRepo ?? defaultGithubRepo());
   const base = options.releasesBaseUrl ?? RELEASES_BASE_URL;
+  checkedSegment(version, "release tag");
+  checkedSegment(asset, "release asset");
   return `${base}/${repo}/releases/download/${version}/${asset}`;
 }
 
@@ -285,7 +315,7 @@ export async function signedManifestDigest(
 
 /** Resolve the tag of the repository's latest published release. */
 export async function resolveLatestVersion(options: DownloadOptions = {}): Promise<string> {
-  const repo = options.githubRepo ?? defaultGithubRepo();
+  const repo = checkedGithubRepo(options.githubRepo ?? defaultGithubRepo());
   const url = `${options.apiBaseUrl ?? API_BASE_URL}/repos/${repo}/releases/latest`;
   let release: unknown;
   try {
@@ -465,15 +495,14 @@ export async function downloadBinary(options: DownloadOptions = {}): Promise<str
     ...(settled.warn === undefined ? {} : { warn: settled.warn }),
   });
 
-  let downloaded: Buffer;
   try {
-    downloaded = await fetchBytes(binaryUrl);
+    await fetchToFile(binaryUrl, temporaryPath, settled.maxBinaryBytes ?? MAX_BINARY_BYTES);
   } catch (cause) {
+    await remove(temporaryPath);
     throw new DownloadError(`Failed to download binary from ${binaryUrl}: ${describe(cause)}`, {
       cause,
     });
   }
-  await writeFile(temporaryPath, downloaded);
 
   if (!(await verifyChecksum(temporaryPath, expected))) {
     await remove(temporaryPath);
@@ -505,13 +534,15 @@ export async function downloadBinary(options: DownloadOptions = {}): Promise<str
 
 /** Whether a file's SHA-256 digest is the one expected of it. */
 export async function verifyChecksum(path: string, expectedSha256: string): Promise<boolean> {
-  let content: Buffer;
+  const hash = createHash("sha256");
   try {
-    content = await readFile(path);
+    for await (const chunk of createReadStream(path)) {
+      hash.update(chunk as Buffer);
+    }
   } catch {
     return false;
   }
-  return createHash("sha256").update(content).digest("hex") === expectedSha256;
+  return hash.digest("hex") === expectedSha256;
 }
 
 /**
@@ -670,7 +701,8 @@ const GOARCH: Readonly<Record<string, string>> = {
   arm64: "arm64",
 };
 
-async function fetchBytes(url: string): Promise<Buffer> {
+/** Requests `url`, refusing a failure status and a declared length over `maxBytes`. */
+async function fetchBounded(url: string, maxBytes: number): Promise<Response> {
   const response = await fetch(url, {
     redirect: "follow",
     signal: AbortSignal.timeout(NETWORK_TIMEOUT_MS),
@@ -678,7 +710,60 @@ async function fetchBytes(url: string): Promise<Buffer> {
   if (!response.ok) {
     throw new Error(`HTTP ${response.status} ${response.statusText}`);
   }
-  return Buffer.from(await response.arrayBuffer());
+  if (Number(response.headers.get("content-length") ?? 0) > maxBytes) {
+    await response.body?.cancel();
+    throw tooLarge(maxBytes);
+  }
+  return response;
+}
+
+function tooLarge(maxBytes: number): Error {
+  return new Error(`the response exceeds the ${maxBytes} byte limit`);
+}
+
+/** Yields the body's chunks, stopping the download once they pass `maxBytes`. */
+async function* boundedChunks(response: Response, maxBytes: number): AsyncGenerator<Uint8Array> {
+  if (response.body === null) {
+    return;
+  }
+  const reader = response.body.getReader();
+  let received = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) {
+        return;
+      }
+      received += value.byteLength;
+      if (received > maxBytes) {
+        throw tooLarge(maxBytes);
+      }
+      yield value;
+    }
+  } finally {
+    await reader.cancel();
+  }
+}
+
+async function fetchBytes(url: string, maxBytes: number = MAX_METADATA_BYTES): Promise<Buffer> {
+  const chunks: Uint8Array[] = [];
+  for await (const chunk of boundedChunks(await fetchBounded(url, maxBytes), maxBytes)) {
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+}
+
+/** Streams `url` into the file at `path`, so the download is never held whole in memory. */
+async function fetchToFile(url: string, path: string, maxBytes: number): Promise<void> {
+  const response = await fetchBounded(url, maxBytes);
+  const file = await open(path, "w");
+  try {
+    for await (const chunk of boundedChunks(response, maxBytes)) {
+      await file.write(chunk);
+    }
+  } finally {
+    await file.close();
+  }
 }
 
 async function remove(path: string): Promise<void> {

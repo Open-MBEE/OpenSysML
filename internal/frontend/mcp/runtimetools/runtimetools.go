@@ -203,15 +203,30 @@ func argumentError(format string, args ...any) error {
 	return toolError(connect.NewError(connect.CodeInvalidArgument, fmt.Errorf(format, args...)))
 }
 
-// toolError turns a refused RPC into a tool error that keeps the status code's
-// name and the message, so an agent reads NOT_FOUND here as a client reads it
-// on the wire.
+// toolError turns a refused RPC into a tool error that keeps the status code's name and the message, as a client
+// reads them on the wire, and after them the QVTS::QueryResult view a query asked for with asView failed with.
 func toolError(err error) error {
 	var cerr *connect.Error
 	if errors.As(err, &cerr) {
-		return fmt.Errorf("%s: %s", strings.ToUpper(cerr.Code().String()), cerr.Message())
+		text := fmt.Sprintf("%s: %s", strings.ToUpper(cerr.Code().String()), cerr.Message())
+		if view := resultViewOf(cerr); view != "" {
+			text += "\nresultView:\n" + view
+		}
+		return errors.New(text)
 	}
 	return err
+}
+
+// resultViewOf reads the QueryResultView detail a refused query carries.
+func resultViewOf(cerr *connect.Error) string {
+	for _, detail := range cerr.Details() {
+		if message, err := detail.Value(); err == nil {
+			if view, ok := message.(*pb.QueryResultView); ok {
+				return view.GetText()
+			}
+		}
+	}
+	return ""
 }
 
 // unmarshal reads a proto message from the JSON name/value fields of a tool's
@@ -389,6 +404,18 @@ func valueText(v *pb.Value) string {
 		return "<undetermined>"
 	case *pb.Value_Infinity:
 		return "*"
+	case *pb.Value_CoordinateFrame:
+		return coordinateFrameText(k.CoordinateFrame)
+	case *pb.Value_CoordinateTransformation:
+		t := k.CoordinateTransformation
+		source, target := "?", "?"
+		if t.GetSource() != nil {
+			source = t.GetSource().GetName()
+		}
+		if t.GetTarget() != nil {
+			target = t.GetTarget().GetName()
+		}
+		return t.GetName() + " (" + source + " → " + target + ")"
 	case *pb.Value_Quantity:
 		return quantityText(k.Quantity)
 	case *pb.Value_EnumLiteral:
@@ -485,3 +512,15 @@ func errorText(err string) string {
 
 // sortStrings sorts names in place, for maps spelled in name order.
 func sortStrings(names []string) { sort.Strings(names) }
+
+// coordinateFrameText renders a frame as the REPL does: `datum [mm, mm, mm]`.
+func coordinateFrameText(frame *pb.CoordinateFrame) string {
+	units := make([]string, 0, len(frame.GetAxes())+1)
+	if scale := frame.GetScale(); scale != nil {
+		units = append(units, scale.GetUnit().GetUnit())
+	}
+	for _, axis := range frame.GetAxes() {
+		units = append(units, axis.GetUnit())
+	}
+	return frame.GetName() + " [" + strings.Join(units, ", ") + "]"
+}

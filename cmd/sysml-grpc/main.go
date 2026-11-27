@@ -25,6 +25,7 @@ import (
 	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 // Build metadata, set by the linker: the names match the -X flags the Makefile
@@ -116,9 +117,16 @@ func main() {
 
 	// Create gRPC service (cache is internal to the service)
 	unavailable := sysmlgrpc.WithheldCapabilitiesForTesting()
-	var serving []sysmlgrpc.Option
+	records, err := libs.OpenRecordCache(opts.noRecordCache)
+	if err != nil {
+		slog.Warn("Record cache unavailable, analyzing every model parsed", "error", err)
+	}
+	serving := []sysmlgrpc.Option{sysmlgrpc.WithRecordCache(records)}
 	if names := splitNames(opts.serveExternal); len(names) > 0 {
 		serving = append(serving, sysmlgrpc.ServeExternalEngines(names...))
+	}
+	if opts.fileRoot != "" {
+		serving = append(serving, sysmlgrpc.ConfineFilesTo(opts.fileRoot))
 	}
 	var svc *sysmlgrpc.Service
 	if len(unavailable) == 0 {

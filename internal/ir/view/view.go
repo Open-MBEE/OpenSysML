@@ -21,6 +21,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
@@ -105,13 +106,7 @@ func (k Kind) GraphShaped() bool { return k.Supported() && !k.Tabular() }
 // article is the indefinite article the kind reads with, so a message says "an
 // action rendering" rather than "a action rendering".
 func (k Kind) article() string {
-	switch {
-	case k == "":
-		return "a"
-	case strings.ContainsRune("aeiou", rune(k[0])):
-		return "an"
-	}
-	return "a"
+	return diag.IndefiniteArticle(string(k))
 }
 
 // ErrUnsupportedKind is the rendering kind a view states that this package does
@@ -579,6 +574,9 @@ type Rendering struct {
 	// Lanes are a timeline's object machines, in the order the run first
 	// recorded them.
 	Lanes []Lane
+	// Header is what a query-result rendering states about its run, in the
+	// order the QVTS library declares the attributes; nil for every other view.
+	Header []HeaderField
 	// RowOrigins is where each row's element was declared, one entry per row.
 	RowOrigins []Origin
 	// Shown is the optional notation elements the view's rendering shows, read
@@ -717,7 +715,11 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn, query bool) (*Rend
 	case KindMixed:
 		r.renderMixed(view, exposed, out)
 	case KindTable:
-		r.renderTable(view, exposed, out)
+		if r.IsQueryResult(view) {
+			r.renderQueryResult(view, exposed, out)
+		} else {
+			r.renderTable(view, exposed, out)
+		}
 	case KindMatrix:
 		r.renderMatrix(exposed, r.matrixShownKinds(view), false, out)
 	case KindSequence:
@@ -837,6 +839,9 @@ func (r *Renderer) KindOf(view *symbols.Symbol) (Kind, string, error) {
 			}
 		}
 		return definitionKind, definitionStated, nil
+	}
+	if r.IsQueryResult(view) {
+		return KindTable, "view def QueryResult", nil
 	}
 	return KindTree, "", nil
 }

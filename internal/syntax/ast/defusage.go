@@ -594,6 +594,12 @@ func (u *Usage) IsExhibitedState() bool {
 	return u.Kind == UsageState && (u.Keyword == "exhibit" || u.Keyword == "exhibit state")
 }
 
+// IsExtendedUsage reports a usage written by prefix metadata in place of a kind
+// keyword (`#M x;`, SysML.xtext ExtendedUsage: a plain Usage, no ReferenceUsage).
+func (u *Usage) IsExtendedUsage() bool {
+	return u.Keyword == "" && len(u.Prefixes) > 0
+}
+
 // IsIncludedUseCase reports whether the usage is an `include use case u : U;` or
 // an `include u;`: a use case the owner includes (SysML v2 IncludeUseCaseUsage).
 func (u *Usage) IsIncludedUseCase() bool {
@@ -729,6 +735,41 @@ type FlowEnds struct {
 	// declares no feature of its own (`of Publish[1]`, `of [1] Publish`). Where
 	// the payload is a declaration the multiplicity is that usage's own.
 	PayloadMultiplicity *Multiplicity
+}
+
+// FlowEndSegments splits a flow end's name into the prefix the end references and the last segment its
+// flow feature redefines (SysML.xtext FlowEnd): `a.p.fuel` is `a.p` and `fuel`; nil, nil when it names nothing.
+func FlowEndSegments(target Node) (prefix Node, last *QualifiedName) {
+	switch t := EndTarget(target).(type) {
+	case *FeatureChainExpr:
+		return t.Operand, t.Member
+	case *FeatureReference:
+		return nil, t.Name
+	case *QualifiedName:
+		return nil, t
+	}
+	return nil, nil
+}
+
+// ImpliedPayload is the payload feature an `of T` clause implies without declaring one: a usage carrying the
+// clause's typing and multiplicity (SysML-textual-bnf PayloadFeature); nil for a declared or absent payload.
+func (f *FlowEnds) ImpliedPayload() *Usage {
+	if f == nil || f.Payload == nil || f.PayloadDecl != nil {
+		return nil
+	}
+	span := f.Payload.Span()
+	if f.PayloadMultiplicity != nil {
+		other := f.PayloadMultiplicity.Span()
+		start := min(span.Offset, other.Offset)
+		end := max(span.Offset+span.Len, other.Offset+other.Len)
+		span = source.Span{Offset: start, Len: end - start}
+	}
+	return &Usage{
+		NodeBase:      NodeBase{NodeSpan: span},
+		Kind:          UsageAttribute,
+		Relationships: []*Relationship{{NodeBase: NodeBase{NodeSpan: f.Payload.Span()}, Kind: RelTyping, Target: f.Payload}},
+		Multiplicity:  f.PayloadMultiplicity,
+	}
 }
 
 // CrossFeatureMember is the cross feature declared inline by an end feature,

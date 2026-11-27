@@ -87,7 +87,7 @@ func (s *Session) doAnalysis(tail string) ([]string, bool, error) {
 		return []string{errPrefix + err.Error(), analysisUsage}, false, nil
 	}
 	if inv.name == "" {
-		return []string{analysisUsage}, false, nil
+		return s.usage(analysisUsage), false, nil
 	}
 	return s.withTrace(s.analysisVerdict(inv)).Lines, false, nil
 }

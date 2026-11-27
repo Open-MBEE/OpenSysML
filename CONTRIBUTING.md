@@ -27,16 +27,17 @@ make lint   # runs staticcheck and gosec, as CI does
 ./scripts/download-spec-examples.sh       # extract the specification examples (needs pdftotext)
 ./scripts/download-pilot-library-xmi.sh   # fetch the pilot's XMI of the standard library
 ./scripts/download-pssm-suite.sh          # fetch the OMG PSSM test suite
+./scripts/download-omg-json-schema.sh     # fetch the normative OMG SysML.json
 ```
 
 The gates over those downloads (`tests/corpus/training_examples_test.go`,
 `tests/corpus/pilot_corpora_test.go`, `tests/corpus/spec_examples_test.go`,
 `tests/identity/pilot_library_xmi_test.go`, `tests/corpus/pssm_migration_test.go`)
-skip while their corpus is absent, so run the five scripts once before trusting a local
+skip while their corpus is absent, so run the six scripts once before trusting a local
 `make test`; a corpus already at the pin is left alone. CI runs the scripts itself and sets
 `OPENSYSML_REQUIRE_TRAINING_CORPUS=1`, `OPENSYSML_REQUIRE_PILOT_CORPORA=1`,
-`OPENSYSML_REQUIRE_SPEC_EXAMPLES=1`, `OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI=1` and
-`OPENSYSML_REQUIRE_PSSM_SUITE=1`, which make a missing corpus a failure there instead of a skip;
+`OPENSYSML_REQUIRE_SPEC_EXAMPLES=1`, `OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI=1`,
+`OPENSYSML_REQUIRE_PSSM_SUITE=1` and `OPENSYSML_REQUIRE_OMG_JSON_SCHEMA=1`, which make a missing corpus a failure there instead of a skip;
 an environment that sets any of them must run the matching script first. See
 [docs/project/pilot-corpora.md](docs/project/pilot-corpora.md),
 [docs/project/spec-examples.md](docs/project/spec-examples.md)
@@ -294,6 +295,14 @@ queue tier skips it: the merge group's diff is the one the pull request's push a
 over, and the nightly catches a baseline that `develop` moved under it, which is then
 re-recorded through the `ci:rebaseline` workflow (`.github/workflows/rebaseline.yml`).
 
+The reference differential (`Reference differential reproduces its baseline`,
+`go run -C tools ./cmd/pilot-diff -check`: Java and the pinned pilot validators, about three
+minutes beside the Go shards) runs on a pull-request push whose diff can move its baseline — the
+layers its referee imports (`internal/syntax`, `semantic`, `check`, `ir`, `workspace`), the
+referee, the validators and pin, a compared root (`examples/`, `tests/testdata/`), the baseline —
+and under the full tier. The queue tier skips it, adding nothing to a merge group, and the
+nightly oracle-reproduction workflow reproduces it over `develop`.
+
 The derived census (`Derived census reproduces its baseline`,
 `go run -C tools ./cmd/derived-census -check -recorded-pilot`) runs on every Go change: it
 re-measures our columns against the pilot column the records hold, without Java. The nightly
@@ -313,24 +322,28 @@ syntactic construct the whole corpus does; unset, they walk the whole corpus.
 
 **The quick tier** is what every push to a pull request gets, draft or ready, in about half the
 runner time of the full tier and a third of its wall time: the binaries, the same Go suite without
-`-race` in nine groups of the race shards (`make test-quick`), the download-free static checks
-(gofmt, vet, the production build, grpc imports, proto lint and breaking), the WebAssembly, Xpect
-and conformance gates, and only the clients, editors and docs whose own paths changed. The lint,
-the corpus and solver gates, the PDF toolchain and the fan-out from a service change to every
+`-race` in nine groups of the race shards (`make test-quick`), the cheap static checks
+(gofmt, vet, `make lint`, the production build, grpc imports, proto lint and breaking), the WebAssembly, Xpect
+and conformance gates, and only the clients, editors and docs whose own paths changed. The
+corpus and solver gates, the PDF toolchain and the fan-out from a service change to every
 client wait for the full tier. Only a push touching a path no area claims escalates itself to
 the full tier (`scripts/ci-changed-areas.sh`, and its test pins it).
 
 **The queue tier** runs on the merge queue's commit (below). It runs every job and gate of the
-full tier — gofmt, `go vet`, `make lint`, every shard of the test suite (eighteen, `make
-test-queue`), the binaries, the client suites, the conformance suite over each transport, the
+full tier — gofmt, `go vet`, `make lint`, every shard of the test suite (twenty-one, in twenty jobs, `make
+test-queue`), the binaries, the conformance suite over each transport, the
 protobuf lint and wire-compatibility checks, the documentation hygiene checks (`make docs-check`,
 `make man-check` and the census check), the site build, the PDF toolchain, and in each client's
-job the release-digest copy it ships and the stubs it commits — with two economies, both on the
-`examples/` sweeps alone: those shards run without the race detector, and over the
+job the release-digest copy it ships and the stubs it commits — with three economies. Two are on
+the `examples/` sweeps alone: those shards run without the race detector, and over the
 construct-cover subset rather than the whole corpus (in the shards and in the static job's two
-round-trip gate steps). Every other shard runs under `-race`, over everything, so what the queue
-tier does not do is run the race detector over the sweeps, and walk the whole corpus. The
-nightly full scan does both on develop's head.
+round-trip gate steps). The third is the clients, editors and plugins: as in the quick tier, a
+group runs only those whose own paths changed, not the fan-out from a service change to every
+client, because every client job fetches its toolchain and dependencies from a registry (PyPI,
+Maven Central, npm, crates.io, the Julia registry, ftp.gnu.org) and one registry timeout fails
+the whole group. Every other shard runs under `-race`, over everything, so what the queue tier
+does not do is run the race detector over the sweeps, walk the whole corpus, and fan a service
+change out to the clients. The nightly full scan does all three on develop's head.
 
 **The full tier** runs on any pull request carrying the label `ci:full` (adding it re-runs the
 current head), on an unclaimed-path push, on develop's head every night
@@ -363,9 +376,10 @@ does).
 
 **The merge queue**, when the `develop` ruleset has one, runs the queue tier on the commit it
 builds for each queued pull request (`refs/heads/gh-readonly-queue/develop/...`, the
-`merge_group` event): the diff is the merge group's own, `base_sha..head_sha`, the run is never
-a draft, and `Build and test` reporting on that commit is what lets the entry merge. A queue
-commit therefore gets at least the checks a ready pull request with the same diff gets. The Go
+`merge_group` event): the diff runs from the group's merge base with `develop` to its `head_sha`
+(never from its `base_sha`, which is the entry queued ahead), the run is never a draft, and
+`Build and test` reporting on that commit is what lets the entry merge. A queue commit therefore
+gets at least the checks a ready pull request with the same diff gets. The Go
 test jobs are named by tier — `Go tests (…)`, `Go queue tests (…)`, `Go race tests (…)` — and
 `scripts/ci-verified-tree.py` reads the names back: CircleCI's `build-test` on `develop` skips
 the suite over a commit with a queue-tier or full-tier run, while `build-test` on `main` and a
@@ -376,8 +390,10 @@ The first job, `Changed areas`, runs `scripts/ci-changed-areas.sh`, which decide
 the event, the label `ci:full` and the paths (`CI_TIER=quick|queue|full` forces it), and the
 areas from the pull request's files; the rest of the jobs are gated on what it reports: a
 change confined to one client runs that client's job alone, while a change to the Go sources,
-the proto, `conformance/` or the workflows runs everything (under the queue and full tiers;
-`CI_TIER=quick` keeps the clients and docs to their own paths). A path no area claims turns
+the proto, `conformance/`, the workflows or a composite action under `.github/actions/` runs
+everything (under the queue and full tiers; `CI_TIER=quick` keeps the clients and docs to their
+own paths, and an action's push also runs the jobs that use that action). The repository
+metadata under `.github` (`CODEOWNERS`, `FUNDING.yml`, the issue templates) runs no area. A path no area claims turns
 every area on, so a new directory is over-tested rather than untested — teach the script about
 it, and add a case to `scripts/ci-changed-areas-test.sh`, which the same job runs.
 
@@ -390,15 +406,41 @@ Maven is held to the same policy. Each Maven tree (`client/java`, `editors/mdk`,
 carries a `.mvn/maven.config` that raises the resolver's retries on a 429 or 503 from three to
 eight, about three minutes of backoff, or as long as the server's `Retry-After` asks. It names the
 count twice because Maven 3.9 (Wagon) reads only `aether.connector.http.retryHandler.count` and
-Maven 3.10 (the Apache transport) only `aether.transport.http.retryHandler.count`. Run `mvn` with
+Maven 3.10 (the Apache transport) only `aether.transport.http.retryHandler.count`. A third line,
+`aether.remoteRepositoryFilter.prefixes.resolvePrefixFiles=false`, stops Maven 3.10 asking each
+remote repository for its prefix file (`.meta/prefixes.txt`) in every run: it asks for that file
+even when the cache holds every artifact, and a 429 to it costs each `mvn` call the whole backoff
+per repository. Run `mvn` with
 `-f <tree>/pom.xml` so the file applies. `.github/workflows/maven-cache.yml` resolves the three
 trees on every push to `develop` that changes a `pom.xml`, and daily, and saves `~/.m2/repository`
-keyed on the hash of every `pom.xml`. A job that runs Maven restores that entry with
+keyed on the hash of every `pom.xml` and of that workflow. It runs the tests and ignores their
+result, because Surefire resolves its provider and the JUnit launcher only when tests run; deletes
+every `*.lastUpdated` marker of a failed download; and then builds the three trees again with
+`mvn -o`, so an entry that lacks an artifact is not saved. It runs
+`editors/mdk/scripts/compile-against-cameo-test.sh` in both passes too, whose helper calls the
+dependency plugin, which no tree's build binds. A job that runs Maven restores that entry with
 `.github/actions/maven-cache` after `actions/setup-java` (`nightly.yml`, which builds a commit that
 may predate the action, by the same key), and does not set `cache: maven` there: a
 pull request's or merge group's own cache is private to its ref, and one saved by a single job
 holds a single tree's dependencies. A pull request that changes a `pom.xml` restores the newest
 earlier entry.
+
+The cache holds what the builds resolve, which leaves out the CycloneDX plugin `make audit-java`
+runs, so the audit is the one Maven step that fetches from a remote repository in every job. It runs the plugin
+through `scripts/maven-sbom.sh`, which makes up to four attempts (`MAVEN_SBOM_ATTEMPTS`) when Maven
+reports an artifact it could not fetch: the first and third read
+`scripts/maven-central-mirror-settings.xml` as Maven's global settings (`-gs`, so a user's own
+`settings.xml` and its proxy still apply), which sends `central` to Google's mirror of it, so the
+audit asks Maven Central only when the mirror refuses, and
+every attempt after the first passes `-U` so that Maven asks again for what it was just refused.
+Any other Maven failure fails the audit on the first attempt, and osv-scanner scans only an SBOM
+Maven wrote. Each attempt runs under GNU `timeout` for 90 seconds (`MAVEN_SBOM_TIMEOUT_SECONDS`),
+because the resolver's own backoff from a 429 can last minutes and a stalled transfer has no end;
+a `timeout` that knows no `-k`, as BusyBox 1.30's, bounds it without the kill;
+an attempt cut there is retried as a refusal is, so a tree's SBOM takes under eight minutes or
+fails. In `pr.yml` the audit step has `timeout-minutes: 10` and follows the job's Maven tests and
+conformance run, so its wait for Maven Central is never taken from them.
+`scripts/maven-sbom-test.sh` plays the outage and the stall on every pull request.
 
 The pinned pilot validator, which `scripts/download-pilot-validator.sh` builds with Maven from a
 clone outside those trees, has a cache of its own: `.github/actions/pilot-validator` restores
@@ -410,6 +452,39 @@ and `rebaseline.yml` can restore only an entry saved on `develop` (or their own 
 pin moved restores the newest earlier entry by the `pilot-validator-` prefix; the script rebuilds
 the stale copy, but from the Maven repository that entry holds rather than from Maven Central.
 `rebaseline.yml` never saves, since it runs a pull request's scripts in `develop`'s cache scope.
+
+Python packages are held to the same policy. No workflow or action runs `pip install` against PyPI:
+each names its pins to `.github/actions/pip-install` (`packages`, a pinned `requirements` file, or
+`projects`, whose build requirements and dependencies join the set without being installed), which
+restores a directory of exactly those wheels, keyed on the request and the interpreter, and installs
+from it with `--no-index`. On a miss `scripts/ci-pip-install.sh` downloads the set wheel-only in up
+to four bounded attempts, because pip's own `--retries` covers a connection it could not make but
+not an index page or a wheel that arrived truncated; it reads every wheel back, records their
+checksums, and installs only from a complete set, so a run fails with nothing installed rather than
+half-installed. A step that must run pip itself (`make python-install`, a virtualenv a release
+check builds, a script that installs a pinned tool into one: `scripts/download-sca-tools.sh`,
+`scripts/download-doc-pdf-toolchain.sh`) sets `PIP_NO_INDEX: '1'` and `PIP_FIND_LINKS` to the
+action's `wheels` output, which for a script holds the script's own pin.
+`.github/workflows/pip-cache.yml` alone saves the entries, on every push to `develop` that changes a
+workflow, an action or a pinned file, and daily; its matrix lists every request with the Python its
+job sets up, and it installs each a second time with the index unreachable. A new or changed pin
+therefore changes the call site and the matrix together; `tests/hygiene/pip_install_test.go` fails
+on a direct `pip install`, and on a request the matrix does not warm.
+
+cvc5, which has no apt package, is installed from its release zip by `.github/actions/cvc5`: the zip
+is restored under `cvc5-<os>-<arch>-<version>-<sha256>` from `scripts/cvc5-pin.sh`, and
+`scripts/ci-cvc5-install.sh` verifies it against that digest before installing, so a run with the
+entry never asks GitHub. Without it the script downloads through `scripts/fetch-https.sh`, verifies,
+and the action saves the zip; a zip that is not the pinned one fails the step, unretried and unkept.
+A pull request and a merge group restore only an entry saved on `develop`, which the nightly full
+scan and the extension-libraries run save. `tests/hygiene/cvc5_install_test.go` covers both paths.
+
+The dependency audit is the one step that cannot run from the wheels: `pip-audit` asks PyPI which
+versions an install would resolve today and which of them are vulnerable, and it gives up on the
+first read that takes 15 seconds. `make audit-python` therefore runs it through
+`scripts/pip-audit-retry.sh`, which gives each read 60 seconds, for the vulnerability feed and for
+the pip that resolves alike, and repeats an audit that did not complete, up to four bounded
+attempts. An audit that reports a vulnerability is not repeated: it fails at once.
 The script passes both retry property names on its command line, the clone having no
 `.mvn/maven.config`, and logs `mvn --version`: the `ubuntu-24.04` image ships Maven 3.10.
 
@@ -419,7 +494,7 @@ installs the release the `toolchain` line names and sets `GOTOOLCHAIN=local`. Do
 toolchain downloaded into the module cache makes the action's cache restore fail.
 
 Every third-party action a workflow or composite action `uses:` is pinned to a full commit SHA
-with the release that commit is as a trailing comment (`actions/checkout@<sha> # v4.4.0`); a new
+with the release that commit is as a trailing comment (`actions/checkout@<sha> # v7.0.1`); a new
 step takes the same form, and the comment is what lets the pin be moved by version.
 
 **Dependency audits** run in both tiers, each in the job whose ecosystem it covers and gated
@@ -445,8 +520,9 @@ advisories without a fix.
 
 [`.github/dependabot.yml`](.github/dependabot.yml) opens at most one grouped pull request a week
 per ecosystem (both Go modules, every npm lockfile, the Python packages, the Rust client, the
-three Maven trees, and the GitHub Actions the workflows pin), against `develop`, with minor and
-patch updates in one group and a Conventional Commits title (`chore(deps): …`). Major versions
+three Maven trees, and the GitHub Actions the workflows and composite actions pin), against
+`develop`, with minor and patch updates in one group and a Conventional Commits title
+(`chore(deps): …`). Major versions
 are not offered at all (`open-pull-requests-limit: 1` and a `version-update:semver-major` ignore
 in every entry): the workflows pin actions to commit SHAs and the TypeScript and Node majors
 break the builds, so a maintainer takes each major by hand. Dependabot alerts and security
@@ -602,11 +678,17 @@ When a change needs documenting:
   differential or derived census that its check reproduces against the recorded pilot side and
   re-records one that does not, re-runs every other recorder on the merged tree, refuses a movement the merge does not explain
   (`scripts/rebaseline-movement.py`: a verdict that moved for a record neither side moved), commits
-  the result with the movement in its message, pushes to the branch, removes the label and
-  comments the movement for adjudication. It never touches
+  the result with the movement in its message, pushes to the branch, removes the label,
+  comments the movement for adjudication and sets the `ci:rebaseline` status on the branch's head
+  (the run itself is listed under Actions and under the head it started from, not the one it
+  pushes). It never touches
   `tests/corpus/testdata/training_examples_expected.txt`, which is asserted clean rather than
-  ratcheted, and it needs the label applied to the branch's current head (a push after the label
-  stops it). Only a branch of this repository can be re-recorded, not a fork's.
+  ratcheted, and it needs the label applied to the branch's current head (a push between the label
+  and the checkout stops it). A branch pushed to while the recorders run is not pushed over, and a
+  `develop` that moved into a new conflict with the result is not left unmerged: the run starts again
+  from the branch's head, merging and re-recording once more, and stops if the branch moves again.
+  The push is the `REBASELINE_TOKEN` secret's when it is set; without it the push is the Actions
+  token's and CI on the pushed head waits for a maintainer's approval, which the comment says. Only a branch of this repository can be re-recorded, not a fork's.
 - **Changelog entries are fragments, not edits to `CHANGELOG.md`.** A change that a user
   should read about adds one file, `changes/unreleased/<slug>.<section>.md`, holding the list
   item(s) for that section (`added`, `changed`, `fixed`, …); see the README there. Two branches

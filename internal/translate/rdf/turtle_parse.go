@@ -269,11 +269,19 @@ func (p *parser) readIRIRef() (string, error) {
 		if c == '\n' {
 			return "", p.errf("unterminated IRI")
 		}
+		if c == '\\' && !p.eof() && (p.peek() == 'u' || p.peek() == 'U') {
+			r, err := p.readUnicodeEscape(p.next())
+			if err != nil {
+				return "", err
+			}
+			b.WriteRune(r)
+			continue
+		}
 		b.WriteByte(c)
 	}
 	iri := b.String()
 	if p.base != "" && !strings.Contains(iri, ":") {
-		iri = p.base + iri
+		iri = resolveIRI(p.base, iri)
 	}
 	return iri, nil
 }
@@ -352,20 +360,9 @@ func (p *parser) readLiteral() (Term, error) {
 			case '\\', '"', '\'':
 				b.WriteByte(esc)
 			case 'u', 'U':
-				width := 4
-				if esc == 'U' {
-					width = 8
-				}
-				if len(p.src)-p.pos < width {
-					return Term{}, p.errf("truncated unicode escape")
-				}
-				var value rune
-				for i := 0; i < width; i++ {
-					digit, ok := hexDigit(p.next())
-					if !ok {
-						return Term{}, p.errf("invalid unicode escape")
-					}
-					value = value<<4 | rune(digit)
+				value, err := p.readUnicodeEscape(esc)
+				if err != nil {
+					return Term{}, err
 				}
 				b.WriteRune(value)
 			default:
@@ -390,13 +387,12 @@ func (p *parser) readLiteral() (Term, error) {
 		}
 		b.WriteByte(p.next())
 	}
-	term := Term{Kind: TermLiteral, Value: b.String()}
 	if !p.eof() && p.peek() == '@' {
 		p.next()
-		term.Lang = p.readWhile(func(r rune) bool {
+		lang := p.readWhile(func(r rune) bool {
 			return unicode.IsLetter(r) || unicode.IsDigit(r) || r == '-'
 		})
-		return term, nil
+		return LangString(b.String(), lang), nil
 	}
 	if strings.HasPrefix(p.src[p.pos:], "^^") {
 		p.next()
@@ -408,9 +404,30 @@ func (p *parser) readLiteral() (Term, error) {
 		if !datatype.IsIRI() {
 			return Term{}, p.errf("datatype must be an IRI")
 		}
-		term.Datatype = datatype.Value
+		return TypedLiteral(b.String(), datatype.Value), nil
 	}
-	return term, nil
+	return String(b.String()), nil
+}
+
+// readUnicodeEscape reads the hex digits of a \u (four) or \U (eight) escape
+// whose letter esc was just consumed.
+func (p *parser) readUnicodeEscape(esc byte) (rune, error) {
+	width := 4
+	if esc == 'U' {
+		width = 8
+	}
+	if len(p.src)-p.pos < width {
+		return 0, p.errf("truncated unicode escape")
+	}
+	var value rune
+	for i := 0; i < width; i++ {
+		digit, ok := hexDigit(p.next())
+		if !ok {
+			return 0, p.errf("invalid unicode escape")
+		}
+		value = value<<4 | rune(digit)
+	}
+	return value, nil
 }
 
 func hexDigit(c byte) (byte, bool) {
@@ -435,4 +452,80 @@ func (p *parser) readWhile(keep func(rune) bool) string {
 		p.next()
 	}
 	return p.src[start:p.pos]
+}
+
+// resolveIRI resolves a relative reference against base as RFC 3986 section 5.2
+// does, on the text as written; a base with no hierarchy has it appended.
+func resolveIRI(base, ref string) string {
+	scheme := strings.IndexAny(base, ":/?#")
+	if scheme <= 0 || base[scheme] != ':' || !strings.HasPrefix(base[scheme+1:], "/") {
+		return base + ref
+	}
+	base, _, _ = strings.Cut(base, "#")
+	stem, baseQuery, _ := strings.Cut(base, "?")
+	root := scheme + 1
+	if strings.HasPrefix(stem[root:], "//") {
+		if slash := strings.Index(stem[root+2:], "/"); slash >= 0 {
+			root += 2 + slash
+		} else {
+			root = len(stem)
+		}
+	}
+	rest, fragment, hasFragment := strings.Cut(ref, "#")
+	path, query, hasQuery := strings.Cut(rest, "?")
+	out := stem[:root]
+	switch {
+	case path == "":
+		out = stem
+		if !hasQuery && baseQuery != "" {
+			query, hasQuery = baseQuery, true
+		}
+	case strings.HasPrefix(path, "//"):
+		authority, rooted, hasPath := strings.Cut(path[2:], "/")
+		out = stem[:scheme+1] + "//" + authority
+		if hasPath {
+			out += removeDotSegments("/" + rooted)
+		}
+	case strings.HasPrefix(path, "/"):
+		out += removeDotSegments(path)
+	case root == len(stem):
+		out += removeDotSegments("/" + path)
+	default:
+		out += removeDotSegments(stem[root:strings.LastIndex(stem, "/")+1] + path)
+	}
+	if hasQuery {
+		out += "?" + query
+	}
+	if hasFragment {
+		out += "#" + fragment
+	}
+	return out
+}
+
+// removeDotSegments drops the "." and ".." segments of a path (RFC 3986 section 5.2.4).
+func removeDotSegments(path string) string {
+	var kept []string
+	segments := strings.Split(path, "/")
+	for i, segment := range segments {
+		last := i == len(segments)-1
+		switch segment {
+		case ".":
+			if last {
+				kept = append(kept, "")
+			}
+		case "..":
+			if len(kept) > 1 {
+				kept = kept[:len(kept)-1]
+			}
+			if last {
+				kept = append(kept, "")
+			}
+		default:
+			kept = append(kept, segment)
+		}
+	}
+	if len(kept) == 1 && kept[0] == "" && strings.HasPrefix(path, "/") {
+		return "/"
+	}
+	return strings.Join(kept, "/")
 }

@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -103,6 +104,11 @@ func (r *PropertyReader) Values(sym *symbols.Symbol, property string) ([]string,
 		if r.elementID != nil {
 			return presentValues(r.elementID(sym))
 		}
+	case PropertySymbolKind:
+		return symbolKind(sym)
+	case PropertyText:
+		texts, ok := r.semantics.RequirementTextsOf(sym)
+		return texts, ok && len(texts) > 0
 	}
 	return nil, false
 }
@@ -123,7 +129,7 @@ func (r *PropertyReader) identityValues(sym *symbols.Symbol, property string) ([
 			return nil, false
 		}
 		if r.identity != nil {
-			if identity := r.identity(sym); identity != "" && identity != fqn {
+			if identity := r.identity(sym); identity != "" && identity != fqn && naming.Recorded(identity) != fqn {
 				return nil, false
 			}
 		}
@@ -153,8 +159,10 @@ func (r *PropertyReader) nameValues(sym *symbols.Symbol, property string) ([]str
 		}
 		return valueIfPresent(sym.Name, sym.Named())
 	case PropertyDeclaredName:
-		// A metadata body's `mission = …` declares no name: the Redefinition it implies names it.
-		if sym.EffectiveName() || (r.semantics != nil && r.semantics.RestatesMetadataBodyFeature(sym)) {
+		// A metadata body's `mission = …` declares no name: the Redefinition it implies names it. Nor does
+		// an implied conjugate: `~P` is the name its effectiveName() derives (SysML v2.1 8.3.12.2).
+		if sym.EffectiveName() || declaresMemberNames(sym) || sym.IsConjugatedPortDefinition() ||
+			(r.semantics != nil && r.semantics.RestatesMetadataBodyFeature(sym)) {
 			return nil, false
 		}
 		return valueIfPresent(sym.Name, sym.Named())
@@ -164,9 +172,18 @@ func (r *PropertyReader) nameValues(sym *symbols.Symbol, property string) ([]str
 		}
 		return valueIfPresent(sym.ShortName, sym.HasShortName())
 	case PropertyDeclaredShortName:
+		if declaresMemberNames(sym) {
+			return nil, false
+		}
 		return valueIfPresent(sym.ShortName, sym.HasShortName())
 	}
 	return nil, false
+}
+
+// declaresMemberNames reports whether sym is an alias: the names it writes are its
+// Membership's memberName and memberShortName, not names of the Membership (KerML 8.3.2.4.3).
+func declaresMemberNames(sym *symbols.Symbol) bool {
+	return sym.Kind == symbols.SymbolAlias
 }
 
 func (r *PropertyReader) multiplicityValues(sym *symbols.Symbol, property string) ([]string, bool) {
@@ -330,6 +347,14 @@ func (r *PropertyReader) reflectiveBoolean(sym *symbols.Symbol, property string)
 		return nil, false
 	}
 	return []string{strconv.FormatBool(value.Bool)}, true
+}
+
+// symbolKind is the kind name SymbolInfo.kind reports for sym, absent for a symbol of no named kind.
+func symbolKind(sym *symbols.Symbol) ([]string, bool) {
+	if !sym.Kind.Named() {
+		return nil, false
+	}
+	return []string{sym.Kind.String()}, true
 }
 
 // individual reports whether sym's declaration carries the `individual` modifier.

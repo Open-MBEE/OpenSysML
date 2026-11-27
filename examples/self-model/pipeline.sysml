@@ -183,7 +183,7 @@ package OpenSysMLPipeline {
     #SemanticEngine part def PassRegistry :> Stage {
         attribute :>> goPackage = "internal/check/passes";
         attribute tierCount : Integer = 4;
-        attribute passCount : Integer = 65;
+        attribute passCount : Integer = 66;
         attribute sortsByLevel : Boolean = true;
         attribute skipsDocumentScopedAboveFailure : Boolean = true;
 
@@ -202,9 +202,15 @@ package OpenSysMLPipeline {
             attribute :>> elementScoped = true;
         }
         // A lint: a signal trigger's name no declaration and no send accounts for.
-        part undeclaredSignals : NameResolutionCheck { attribute :>> goType = "UndeclaredSignalPass"; }
+        part undeclaredSignals : NameResolutionCheck {
+            attribute :>> goType = "UndeclaredSignalPass";
+            attribute :>> elementScoped = true;
+        }
         // A lint: a deferred signal's keeping loop written without its marker.
-        part deferredKeepers : NameResolutionCheck { attribute :>> goType = "DeferredKeeperPass"; }
+        part deferredKeepers : NameResolutionCheck {
+            attribute :>> goType = "DeferredKeeperPass";
+            attribute :>> elementScoped = true;
+        }
         part typeCheck : TypeCheck { attribute :>> goType = "TypeCheckPass"; }
         part transitionGuards : TypeCheck {
             attribute :>> goType = "TransitionGuardPass";
@@ -311,6 +317,7 @@ package OpenSysMLPipeline {
         part behaviorOrders : ConstraintCheck { attribute :>> goType = "BehaviorOrderPass"; }
         part oosemMethod : ConstraintCheck { attribute :>> goType = "OOSEMMethodPass"; }
         part mosa : ConstraintCheck { attribute :>> goType = "MOSAPass"; }
+        part npr7123 : ConstraintCheck { attribute :>> goType = "NPR7123Pass"; }
         part nestedRedefinitions : ConstraintCheck { attribute :>> goType = "NestedRedefinitionPass"; }
 
         in item typed : TypeTable;
@@ -372,7 +379,7 @@ package OpenSysMLPipeline {
     // otherwise — also when the build embedded none, as a module-proxy install does.
     #SemanticEngine part def StandardLibrary :> Stage {
         attribute :>> goPackage = "internal/workspace/libs";
-        attribute bundledFileCount : Integer = 110;
+        attribute bundledFileCount : Integer = 112;
         attribute cached : Boolean = true;
         attribute snapshotFile : String = "internal/workspace/libs/stdlib.snapshot";
         attribute snapshotTracked : Boolean = false;

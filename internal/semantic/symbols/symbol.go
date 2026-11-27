@@ -226,6 +226,12 @@ func (k SymbolKind) String() string {
 	return "unknown"
 }
 
+// Named reports whether the kind is a known one with a display name of its own.
+func (k SymbolKind) Named() bool {
+	_, ok := symbolKindNames[k]
+	return ok && k != SymbolUnknown
+}
+
 // Family names the kind by its keyword, without the def/usage distinction: SymbolActionDef, SymbolActionUsage
 // and every action-node kind are "action", SymbolUseCaseDef "use case", SymbolSuccessionFlowUsage "flow".
 func (k SymbolKind) Family() string {
@@ -238,6 +244,18 @@ func (k SymbolKind) Family() string {
 	name := k.String()
 	name = strings.TrimSuffix(strings.TrimSuffix(name, "Def"), "Usage")
 	return spacedWords(name)
+}
+
+// Phrase names the kind in words for a message: "part definition", "attribute usage", "package".
+func (k SymbolKind) Phrase() string {
+	family := k.Family()
+	switch {
+	case k.IsDefinition():
+		return family + " definition"
+	case k.IsFeature():
+		return family + " usage"
+	}
+	return family
 }
 
 // IsFeature reports whether k classifies a KerML Feature (KerML 1.0 §8.3.3): a
@@ -282,6 +300,50 @@ func (k SymbolKind) IsActionUsage() bool {
 		return true
 	}
 	return false
+}
+
+// IsObject reports whether k declares an object: a part, item, occurrence or
+// individual definition or usage, which performs the behaviors it owns.
+func (k SymbolKind) IsObject() bool {
+	switch k {
+	case SymbolPartDef, SymbolPartUsage,
+		SymbolItemDef, SymbolItemUsage,
+		SymbolOccurrenceDef, SymbolOccurrenceUsage,
+		SymbolIndividualDef, SymbolIndividualUsage:
+		return true
+	}
+	return false
+}
+
+// IsBehaviorDef reports whether k is a behavior definition: an action, state,
+// calc or case def, a run of which has an occurrence of its own.
+func (k SymbolKind) IsBehaviorDef() bool {
+	switch k {
+	case SymbolActionDef, SymbolStateDef, SymbolCalcDef,
+		SymbolCaseDef, SymbolAnalysisCaseDef,
+		SymbolVerificationCaseDef, SymbolUseCaseDef:
+		return true
+	}
+	return false
+}
+
+// IsBehaviorUsage reports whether k is a behavior usage: a performance that
+// takes its `this` from what owns it.
+func (k SymbolKind) IsBehaviorUsage() bool {
+	switch k {
+	case SymbolStateUsage, SymbolCalcUsage,
+		SymbolCaseUsage, SymbolAnalysisCaseUsage,
+		SymbolVerificationCaseUsage, SymbolUseCaseUsage,
+		SymbolConstraintUsage, SymbolRequirementUsage:
+		return true
+	}
+	return k.IsActionUsage()
+}
+
+// IsPerformance reports whether k declares a performance: a behavior
+// definition or a behavior usage, whose instances are performances.
+func (k SymbolKind) IsPerformance() bool {
+	return k.IsBehaviorDef() || k.IsBehaviorUsage()
 }
 
 // IsFlowUsage reports whether k classifies a flow usage, a succession flow included.

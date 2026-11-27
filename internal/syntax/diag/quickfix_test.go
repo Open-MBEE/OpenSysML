@@ -47,3 +47,49 @@ func TestRenderOwnLineFromLineStart(t *testing.T) {
 		t.Errorf("out-of-range insertion rendered %q", text)
 	}
 }
+
+// An own-line edit ends in the line ending the document uses, so a fix applied
+// to a CRLF document leaves no bare LF behind.
+func TestRenderOwnLineKeepsTheDocumentsLineEnding(t *testing.T) {
+	crlf := []byte("package P {\r\n    part a;\r\n}\r\n")
+	if _, text := InsertLine(17, "import A::*;").Render(crlf); text != "import A::*;\r\n    " {
+		t.Errorf("CRLF document: text = %q", text)
+	}
+	lf := []byte("package P {\n    part a;\n}\n")
+	if _, text := InsertLine(16, "import A::*;").Render(lf); text != "import A::*;\n    " {
+		t.Errorf("LF document: text = %q", text)
+	}
+	if _, text := InsertLine(0, "import A::*;").Render(nil); text != "import A::*;\n" {
+		t.Errorf("empty document: text = %q", text)
+	}
+}
+
+// An edit whose span reaches outside the document renders the part inside it, so
+// a caller slicing the document by the span stays in bounds.
+func TestRenderKeepsTheSpanInsideTheDocument(t *testing.T) {
+	content := []byte("package P;\n")
+	size := len(content)
+	cases := []struct {
+		name string
+		edit Edit
+		want source.Span
+	}{
+		{"negative offset", Replace(source.Span{Offset: -3, Len: 2}, "x"), source.Span{Offset: 0, Len: 2}},
+		{"negative length", Replace(source.Span{Offset: 4, Len: -1}, "x"), source.Span{Offset: 4, Len: 0}},
+		{"past the end", Replace(source.Span{Offset: 8, Len: 99}, "x"), source.Span{Offset: 8, Len: size - 8}},
+		{"offset past the end", Insert(size+5, "x"), source.Span{Offset: size, Len: 0}},
+		{"own line past the end", InsertLine(size+5, "x"), source.Span{Offset: size, Len: 0}},
+		{"empty document", Replace(source.Span{Offset: 2, Len: 2}, "x"), source.Span{}},
+	}
+	for _, c := range cases {
+		doc := content
+		if c.name == "empty document" {
+			doc = nil
+		}
+		sp, _ := c.edit.Render(doc)
+		if sp != c.want {
+			t.Errorf("%s: rendered span %+v, want %+v", c.name, sp, c.want)
+		}
+		_ = doc[sp.Offset : sp.Offset+sp.Len]
+	}
+}

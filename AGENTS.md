@@ -29,7 +29,7 @@ make build            # build bin/sysml and bin/sysml-lsp (with version ldflags)
 make build-sysml      # REPL binary only
 make build-lsp        # LSP binary only
 make test             # full suite: go test -race -coverprofile ... ./...
-make test-shard SHARD=runtime   # one CI shard of the race suite (runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep|export|export-library|export-examples|export-corpus|graph|codegen|translate|grpc|tools|rest|migrate|cli)
+make test-shard SHARD=runtime   # one CI shard of the race suite (runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep-committed|corpus-sweep-corpora|export|export-library|export-examples|export-corpus|graph|graph-corpora|codegen|translate|translate-structure|grpc|tools|internal|rest|migrate|cli)
 make test-quick SHARDS="rest grpc"  # the same shards without -race, in turn: what a pull-request push runs
 make test-queue SHARDS="rest export-corpus"  # the merge queue's tier: -race, but the examples/ sweeps (scripts/race-shard.sh --sweeps) race-free over the construct-cover subset
 make test-short       # faster, no race detector
@@ -77,6 +77,12 @@ migrator is gated over: fetch it with `./scripts/download-pssm-suite.sh` and run
 variable must run the matching download script first; the scripts are idempotent, and none
 reports success over an empty corpus.
 
+The normative OMG `SysML.json` gates the `api-json` element form the same way: fetch it with
+`./scripts/download-omg-json-schema.sh` and run
+`go test -count=1 ./tests/export -run TestAPIJSONNormativeSchema`. CI sets
+`OPENSYSML_REQUIRE_OMG_JSON_SCHEMA=1`. Its baseline may only shrink over the same elements; re-record a
+movement toward the schema with `-update-normative-schema`.
+
 The Modelica Reference-FMUs gate the FMI integration the same way: fetch them with
 `./scripts/download-reference-fmus.sh` (into `examples/reference-fmus/`, gitignored), install
 the runner's simulator with `pip install fmpy`, and run
@@ -102,7 +108,7 @@ answers under `internal/ir/docplan/markup/testdata/`, and the `Installed` test t
 against the pinned converter — re-record them (`asciidoctor-json.js < x.adoc > x.json`) when either moves.
 
 The RDF mapping has a per-file ratchet of its own over every model under `examples/`, the
-downloaded corpora included: `TestExamplesSweep` in `tests/corpus` loads each file once, converts it
+downloaded corpora included: the two `TestExamplesSweep*` tests in `tests/corpus` (the committed models, the downloaded corpora) load each file once, convert it
 notation → Turtle → notation → Turtle (and the same through `api-json`) and pins the verdicts. Run it with
 the require variables set after any change to `internal/translate/export`, adjudicate every movement,
 then regenerate with `-update-corpus-roundtrip` (`-update-api-json-roundtrip`). See `docs/project/rdf-corpus-roundtrip.md`.
@@ -406,4 +412,120 @@ tier and a second review. Catch them first:
 4. When a review finding does land, batch the fixes across all open findings, re-run the gate, and
    push once.
 
+The cross-cutting rules distilled from whole-project reviews are in §11; check them when a change
+touches serialization, external processes, shared state, caches, build tags, or CI.
+
 See `CONTRIBUTING.md` and `docs/internals/architecture.md` for the authoritative, detailed references.
+
+---
+
+## 11. Cross-cutting rules learned from whole-project reviews
+
+These are general rules, not a backlog. They apply to any change, in any layer, and are intended
+to prevent the defect shapes that repeatedly survive ordinary review. When a rule is violated by
+an existing path, fix all sibling paths that share the shape rather than the one in front of you.
+
+### 11.1 Determinism and correctness
+
+- **Map iteration is not an order.** Any identifier, path suffix, diagnostic list, choice order, or
+  serialized section derived from a map must come from an ordered table, or the comparator must have
+  a total-order tie-breaker. Sorting by a key that can tie preserves the original random order.
+- **Prove cross-run stability where IDs matter.** When a value is meant to be stable across two
+  lowerings, loads, or renders, write a test that performs the operation twice and compares the
+  identity-bearing result — a consistency-only test cannot catch assignment-order drift.
+- **Exported functions must tolerate nil and zero values.** Guard every pointer and index before
+  dereference, and return a typed error instead of panicking. Check the zero value of every new
+  exported type in a unit test.
+- **A select between a result and an end signal needs a drain rule.** When one goroutine delivers a
+  reply and another signals termination, decide explicitly which wins when both are ready, and
+  reject duplicate replies with a typed protocol error rather than blocking the reader forever.
+- **A build tag that removes a symbol must remove or stub every consumer.** Keep the stub's exported
+  surface complete, and verify the whole tree — not just the flagship binary — under every declared
+  tag. A narrow CI check can hide a hard compile failure for weeks.
+
+### 11.2 Safety, security, and resource bounds
+
+- **Validate at every serialization boundary.** IRIs, generated comments, SVG/Math blocks, XML-derived
+  text, and file names each need their own escaping or validation. Escaping in one writer does not
+  protect another backend that emits the same value.
+- **Bound everything that originates outside the process:** bytes read from stderr, HTTP responses,
+  header lines, archive entries (cumulatively, not just per entry), goroutines/jobs, recursion depth,
+  cache size, and session lifetime. If one surface has a bound, audit its siblings for the same rule.
+- **Multi-tenant state is keyed by principal.** A shared workspace, open-buffer map, subscription set,
+  or resource template will leak one caller's uncommitted data to another. Prove isolation with a
+  two-principal test, not by inspecting the authorization table.
+- **Cancellation and deadlines must cross every boundary.** Propagate the caller's context into
+  handshakes, subprocess launches, request handlers, WASM calls, and client transports. A client
+  disconnect must stop the work, not merely reject the JS promise; add a test that observes the
+  server actually stopping.
+- **Never trust a path from a message, model, or environment variable as a destination.** Resolve it
+  against an explicit root, reject absolute paths and `..`, and check symlinks before reading or writing.
+
+### 11.3 Performance and memory
+
+- **Profile before optimizing.** Several suspected hot paths turned out not to be the dominant
+  allocators. Run an existing benchmark or pprof first; if none exists for the path, add one that
+  varies the relevant dimension (depth, node count, diagnostic count, out-degree) and reports
+  allocations.
+- **Internal tree walkers must not clone.** Provide a non-cloning child accessor for internal passes
+  and keep defensive copying only at the public boundary; cloning each subtree once per ancestor
+  turns a linear walk into a depth-multiplied one.
+- **Linear scans inside per-item loops are a bug waiting on a large model.** Use a keyed set or index
+  for deduplication and lookup; avoid allocating on cache hits, and prefer a read lock for caches
+  that are read far more often than written.
+- **Global caches in long-lived processes need an eviction or reference-count policy.** An LSP server
+  or REPL that caches every archive, document, or session forever will grow without bound.
+
+### 11.4 Duplication and API design
+
+- **A duplicated algorithm needs a parity gate the day it is created.** Two converters, two
+  value-to-text functions, two capability lists, or two registries will drift; add a differential
+  test over a representative corpus that fails when the surfaces disagree, then consolidate behind
+  one implementation where practical.
+- **Generate mechanical surfaces from one source.** Forwarding methods, dispatch switches, and
+  generated-to-public conversions should be derived from the schema, or at minimum guarded by a
+  completeness test that enumerates every operation.
+- **Do not keep production code that exists only for tests.** If a test uses a legacy payload, migrate
+  it to the real representation and remove the fallback; a fallback that resolves by name can pick
+  the wrong element when names repeat in different scopes.
+- **Functional options must not expose generated wire request structs.** Apply options to a private
+  struct first and build the wire request afterwards, so callers cannot overwrite identity fields
+  and a regenerated field name cannot break the public API.
+- **Keep one canonical representation per value kind.** A renderer that reimplements the evaluator's
+  value-to-text will silently omit new kinds; share one function and pass display names in explicitly.
+
+### 11.5 Testing and measurement
+
+- **A require variable either fails or is not a gate.** Accept common truthy spellings, trim whitespace,
+  and fail on an absent corpus when the variable is set. Never silently skip in that case.
+- **A subset run must announce what it did not check.** When a switch limits a sweep to a subset,
+  print the scope, fail if a strict gate is combined with it, and fail when a recorded file has
+  disappeared rather than treating "not visited" as success.
+- **Tests must not leak temp directories, subprocesses, or environment variables.** Use `t.TempDir`
+  or `TestMain` cleanup, process groups for children, and pass environment explicitly to commands
+  instead of mutating the test process.
+- **Test the failure mode, not only the happy path.** For a new parser rule, serialization sink, or
+  external tool, add a negative case with hostile input and assert the exact typed error. A test that
+  only uses finite values, clean models, or one protocol version will not catch the panic or leak.
+- **A green suite can be misleading.** Check for "GATE NOT RUN" banners, silent skips, single-iteration
+  benchmarks, and benchmarks that skip when optional corpora are absent; treat all of these as missing
+  coverage to be explained, not as passes.
+
+### 11.6 Infrastructure and tooling
+
+- **Every changed path must map to at least one gate.** A catch-all "known path" pattern that no area
+  claims will make pull requests green without running any checks; add a hygiene test that asserts the
+  path-to-area mapping covers every tracked tree.
+- **Single-source tool versions and digests.** A version hardcoded in several CI files will drift from
+  the local build; derive it from one manifest and assert agreement. Pin security-relevant tools by
+  digest, and keep them current — a stale signing tool is worse than no signature check.
+- **A moving alias must not advance before publication succeeds.** Registry publishes and the alias
+  move (plus pruning of old artifacts) need an explicit dependency; otherwise the alias can name a
+  release whose packages no longer exist.
+- **Verify the toolchain you ship with.** Cross-compile every declared build target, and exercise the
+  external tools the project advertises (FMI runners, solvers, converters, WASM harnesses) with the
+  pinned versions. A target that builds but deadlocks or reports "not implemented" at runtime is not
+  supported.
+- **When a baseline is re-recorded, adjudicate the movement.** Regenerated figures, ratchets, and
+  differential fragments are evidence of a behavior change; state what moved and why before the new
+  numbers become the contract.

@@ -73,6 +73,10 @@ CAPABILITY_DOCUMENT_QUERY = "document_query"
 #: the field with ``UNIMPLEMENTED``.
 CAPABILITY_INLINE_DOCUMENT_QUERY = "inline_document_query"
 
+#: A query's answer as a ``QVTS::QueryResult`` view (``as_view``) and such a view
+#: rendered as a document (``form``); without it the service ignores both fields.
+CAPABILITY_QUERY_RESULT_VIEW = "query_result_view"
+
 #: The ``RenderDocument`` RPC, which renders a named document to Markdown.
 #: Without it the service refuses with ``UNIMPLEMENTED``.
 CAPABILITY_RENDER_DOCUMENT = "render_document"
@@ -131,6 +135,10 @@ CAPABILITY_SYMBOL_ANNOTATING_METADATA = "symbol_annotating_metadata"
 #: ``lookup`` on GetSymbol and GetElementProperties is honoured: a name read only as a name, an id
 #: only as an id. Without it one string is read name first, so a name can shadow a generated id.
 CAPABILITY_SYMBOL_LOOKUP_KIND = "symbol_lookup_kind"
+
+#: ``GetSymbolRequest.member_of`` honoured: ``metadata["direction"]`` is relative
+#: to the type the symbol is read through, reversed through a conjugated port.
+CAPABILITY_SYMBOL_MEMBER_DIRECTION = "symbol_member_direction"
 
 #: The ``GetElementProperties`` RPC: the metamodel properties of one element by
 #: their specification names, as the model's API element form spells them.
@@ -317,6 +325,11 @@ CAPABILITY_ENGINES = "engines"
 #: A model-level result the model leaves open as ``Value.undetermined``, read as an
 #: :class:`opensysml.Undetermined`; without it such a result crosses as an unsupported null.
 CAPABILITY_UNDETERMINED_VALUE = "undetermined_value"
+
+#: A coordinate frame as ``Value.coordinate_frame`` and a coordinate transformation as
+#: ``Value.coordinate_transformation``, read as :class:`opensysml.CoordinateFrame` and
+#: :class:`opensysml.CoordinateTransformation`; without it each crosses as an unsupported null.
+CAPABILITY_COORDINATE_FRAME_VALUES = "coordinate_frame_values"
 
 #: An Integer beyond int64 as ``Value.big_int_value``, ``Quantity.big_int_magnitude`` and
 #: ``DocumentValue.big_int_value``; a service without it reads one sent to it as null.

@@ -1,18 +1,21 @@
 package hygiene
 
 import (
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
+	"path/filepath"
+	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
 	"gopkg.in/yaml.v3"
 )
 
-// The ci:rebaseline label re-records a pull request's generated baselines after
-// merging develop (.github/workflows/rebaseline.yml). These tests hold the
-// workflow to its guards: the label and the same-repository head, a conflict
-// allowlist of generated paths that never names the asserted training
-// expectation, every recorder the baselines need, and the movement check.
+// These tests hold the ci:rebaseline workflow to its guards: the label, the same-repository head, the
+// generated-path allowlist, every recorder, the movement check, and a re-record over each merge it pushes.
 
 type rebaselineWorkflow struct {
 	On          yaml.Node             `yaml:"on"`
@@ -23,7 +26,11 @@ type rebaselineWorkflow struct {
 
 const (
 	rebaselineWorkflowPath = "../../.github/workflows/rebaseline.yml"
-	trainingExpectation    = "tests/corpus/testdata/training_examples_expected.txt"
+	rebaselineRecordAction = "./.github/actions/rebaseline-record"
+	rebaselineMergeScript  = "rebaseline-merge.sh"
+	// rebaselineMergeRun is how a step runs develop's copy of the merge script on a head.
+	rebaselineMergeRun  = `"$RUNNER_TEMP/` + rebaselineMergeScript + `" "$`
+	trainingExpectation = "tests/corpus/testdata/training_examples_expected.txt"
 )
 
 func loadRebaselineWorkflow(t *testing.T) (rebaselineWorkflow, actionsJob) {
@@ -43,9 +50,34 @@ func loadRebaselineWorkflow(t *testing.T) (rebaselineWorkflow, actionsJob) {
 	return workflow, job
 }
 
-func rebaselineRuns(job actionsJob) string {
-	var runs []string
-	for _, step := range job.Steps {
+// loadRebaselineRecord is the steps of the action that records one merge.
+func loadRebaselineRecord(t *testing.T) []actionsStep {
+	t.Helper()
+	path := filepath.Join("../..", rebaselineRecordAction, "action.yml")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	var action struct {
+		Runs struct {
+			Steps []actionsStep `yaml:"steps"`
+		} `yaml:"runs"`
+	}
+	if err := yaml.Unmarshal(raw, &action); err != nil {
+		t.Fatalf("parse %s: %v", path, err)
+	}
+	return action.Runs.Steps
+}
+
+// rebaselineRuns is every script the job runs: its own steps, the record action's and the merge script.
+func rebaselineRuns(t *testing.T, job actionsJob) string {
+	t.Helper()
+	merge, err := os.ReadFile(filepath.Join("../../scripts", rebaselineMergeScript))
+	if err != nil {
+		t.Fatal(err)
+	}
+	runs := []string{string(merge)}
+	for _, step := range slices.Concat(job.Steps, loadRebaselineRecord(t)) {
 		runs = append(runs, step.Run)
 	}
 	return strings.Join(runs, "\n")
@@ -69,8 +101,8 @@ func TestRebaselineRunsOnTheLabelOfARepositoryBranchOnly(t *testing.T) {
 	if !strings.Contains(job.If, "github.event.pull_request.head.repo.full_name == github.repository") {
 		t.Errorf("the job does not refuse a fork's branch: %q", job.If)
 	}
-	if workflow.Permissions["contents"] != "read" || job.Permissions["contents"] != "write" || job.Permissions["pull-requests"] != "write" {
-		t.Errorf("permissions: workflow %v, job %v; want read at the top and contents/pull-requests write on the job", workflow.Permissions, job.Permissions)
+	if workflow.Permissions["contents"] != "read" || job.Permissions["contents"] != "write" || job.Permissions["pull-requests"] != "write" || job.Permissions["statuses"] != "write" {
+		t.Errorf("permissions: workflow %v, job %v; want read at the top and contents/pull-requests/statuses write on the job", workflow.Permissions, job.Permissions)
 	}
 }
 
@@ -109,7 +141,7 @@ func TestRebaselineConflictAllowlistIsGeneratedPathsOnly(t *testing.T) {
 			t.Errorf("GENERATED_PATHS does not list %s", want)
 		}
 	}
-	runs := rebaselineRuns(job)
+	runs := rebaselineRuns(t, job)
 	if strings.Count(runs, "*/testdata/*.sysml|*/testdata/*.kerml|*/testdata/*.ttl) ok=0") != 2 {
 		t.Error("the merge and the change check do not refuse to treat a source fixture under a golden directory as generated")
 	}
@@ -123,30 +155,31 @@ func TestRebaselineConflictAllowlistIsGeneratedPathsOnly(t *testing.T) {
 
 func TestRebaselineRunsEveryRecorderThenChecksTheMovement(t *testing.T) {
 	_, job := loadRebaselineWorkflow(t)
-	runs := rebaselineRuns(job)
+	runs := rebaselineRuns(t, job)
 	for _, recorder := range []string{
 		"make stdlib-snapshot",
 		"make proto-buf proto-ts proto-rust python-proto proto-csharp",
-		"grpcio-tools==",
 		"go run -C tools ./cmd/pilot-apijson-diff -update -pilot-record build/pilot-apijson-record",
 		"go run -C tools ./cmd/derived-census -update -recorded-pilot ||",
 		"go run -C tools ./cmd/derived-census -update\n",
 		"-update-pilot-corpora", "-update-spec-examples", "-update-pssm-migration",
 		"-update-corpus-roundtrip", "-update-api-json-roundtrip",
 		"-update-structure-differential", "-update-library-prefix-sweep",
-		"go test -count=1 ./tests/export -update",
+		"go test -count=1 ./tests/export -run ",
 		"make docs-counts",
 		"scripts/rebaseline-movement.py",
 		"--remove-label",
 		"gh pr comment",
+		"/statuses/",
 	} {
 		if !strings.Contains(runs, recorder) {
 			t.Errorf("no step runs %q", recorder)
 		}
 	}
-	corpora := false
+	corpora, stubs := false, false
 	for _, step := range job.Steps {
 		corpora = corpora || step.Uses == "./.github/actions/corpora"
+		stubs = stubs || step.Uses == pipInstallAction && strings.Contains(step.With["packages"], "grpcio-tools==")
 		if (strings.Contains(step.Run, "--remove-label") || strings.Contains(step.Run, "gh pr comment")) && !strings.Contains(step.If, "always()") {
 			t.Errorf("step %q must run whatever the outcome, got if: %q", step.Name, step.If)
 		}
@@ -154,18 +187,116 @@ func TestRebaselineRunsEveryRecorderThenChecksTheMovement(t *testing.T) {
 	if !corpora {
 		t.Error("the corpora are not provisioned through .github/actions/corpora")
 	}
-	for i, step := range job.Steps {
+	if !stubs {
+		t.Errorf("no step installs a pinned grpcio-tools through %s", pipInstallAction)
+	}
+	record := loadRebaselineRecord(t)
+	for i, step := range record {
 		if strings.Contains(step.Run, "rebaseline-movement.py") {
-			for _, later := range job.Steps[i+1:] {
+			for _, later := range record[i+1:] {
 				if strings.Contains(later.Run, "-update") || strings.Contains(later.Run, "make docs-counts") {
 					t.Errorf("recorder step %q runs after the movement check", later.Name)
 				}
 			}
-			for _, earlier := range job.Steps[:i] {
-				if strings.Contains(earlier.Run, "git push") {
-					t.Errorf("step %q pushes before the movement check", earlier.Name)
+			for _, earlier := range record[:i] {
+				if strings.Contains(earlier.Run, "git commit") {
+					t.Errorf("step %q commits before the movement check", earlier.Name)
 				}
 			}
 		}
+	}
+}
+
+// Each push is of one merge the recorders ran over, and the second only when the branch or develop moved under the first.
+func TestRebaselinePushesWhatWasRecordedOverEachMerge(t *testing.T) {
+	_, job := loadRebaselineWorkflow(t)
+	var order []string
+	for _, step := range job.Steps {
+		kind := ""
+		switch {
+		case strings.Contains(step.Run, rebaselineMergeRun):
+			kind = "merge"
+		case step.Uses == rebaselineRecordAction:
+			kind = "record"
+		case strings.Contains(step.Run, "git push"):
+			kind = "push"
+		default:
+			continue
+		}
+		if len(order) >= 3 && step.If != "steps.push.outputs.restart" {
+			t.Errorf("step %q runs whether or not the first push was held back: if: %q", step.Name, step.If)
+		}
+		order = append(order, kind)
+	}
+	if want := []string{"merge", "record", "push", "merge", "record", "push"}; !slices.Equal(order, want) {
+		t.Errorf("the job runs %v, want %v", order, want)
+	}
+	for _, step := range job.Steps {
+		if step.ID == "push" && !strings.Contains(step.Run, `"$(git rev-parse FETCH_HEAD)" = "$HEAD_SHA"`) {
+			t.Error("the first push does not tell a moved branch from any other refusal")
+		}
+		if step.ID == "remerge" && !strings.Contains(step.Run, `git reset -q --hard "$RESTART"`) {
+			t.Error("the second merge does not start again from the branch's head")
+		}
+		if step.ID == "push" && !strings.Contains(step.Run, "git merge-tree --write-tree HEAD origin/develop") {
+			t.Error("the first push does not look for a conflict with the develop of the moment")
+		}
+	}
+}
+
+// tests/export is re-recorded by name, so the names are held to the tests that record: the callers of checkGolden.
+func TestRebaselineNamesEveryExportRecorder(t *testing.T) {
+	_, job := loadRebaselineWorkflow(t)
+	named := regexp.MustCompile(`go test -count=1 \./tests/export -run '\^\(([A-Za-z|]+)\)\$' -update\n`).FindStringSubmatch(rebaselineRuns(t, job))
+	if named == nil {
+		t.Fatal("no step re-records tests/export through an anchored -run alternation")
+	}
+	got := strings.Split(named[1], "|")
+	slices.Sort(got)
+
+	files, err := filepath.Glob("../export/*_test.go")
+	if err != nil || len(files) == 0 {
+		t.Fatalf("tests/export test files: %v, %v", files, err)
+	}
+	var want []string
+	for _, file := range files {
+		parsed, err := parser.ParseFile(token.NewFileSet(), file, nil, parser.SkipObjectResolution)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, decl := range parsed.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok || fn.Body == nil {
+				continue
+			}
+			records := false
+			ast.Inspect(fn.Body, func(node ast.Node) bool {
+				if call, ok := node.(*ast.CallExpr); ok {
+					if callee, ok := call.Fun.(*ast.Ident); ok && callee.Name == "checkGolden" {
+						records = true
+					}
+				}
+				return !records
+			})
+			if !records {
+				continue
+			}
+			if !strings.HasPrefix(fn.Name.Name, "Test") {
+				t.Errorf("%s: %s calls checkGolden but is no test, so the tests reaching it cannot be named", file, fn.Name.Name)
+				continue
+			}
+			want = append(want, fn.Name.Name)
+		}
+		source, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(source), "*update") && filepath.Base(file) != "golden_test.go" {
+			t.Errorf("%s reads -update outside checkGolden, so a recorder may go unnamed", file)
+		}
+	}
+	slices.Sort(want)
+	if !slices.Equal(got, want) {
+		t.Errorf("rebaseline re-records tests/export through %v, but the tests that record are %v", got, want)
 	}
 }

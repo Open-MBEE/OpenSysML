@@ -251,3 +251,20 @@ func TestImportLookupComputesCollisionsOfReferrerOnly(t *testing.T) {
 		t.Errorf("collisions computed for %d namespaces, want 1: the importing package, none of the chain it imports", got)
 	}
 }
+
+// No symbol, and one with neither a declaration nor recorded facts, is no case role.
+func TestIsCaseRoleToleratesNilAndZeroSymbols(t *testing.T) {
+	for name, sym := range map[string]*symbols.Symbol{
+		"nil symbol":            nil,
+		"zero symbol":           {},
+		"unrecorded facts":      {Facts: &symbols.LibraryFacts{}},
+		"recorded without kind": {Facts: &symbols.LibraryFacts{Recorded: true}},
+	} {
+		if IsCaseRole(sym) {
+			t.Errorf("IsCaseRole of a %s = true, want false", name)
+		}
+	}
+	if !IsCaseRole(&symbols.Symbol{Decl: &ast.SubjectMember{}}) {
+		t.Error("IsCaseRole of a subject member = false, want true")
+	}
+}

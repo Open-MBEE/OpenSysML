@@ -1,1 +1,0 @@
-- Repeated multi-document conversions reuse the model's semantic preparation instead of rebuilding its index and resolving wildcard imports for every selected batch. Each conversion retains independent encoders and identity tables, and edited or replaced models receive fresh preparation.

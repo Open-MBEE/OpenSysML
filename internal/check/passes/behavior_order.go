@@ -28,7 +28,7 @@ func (BehaviorOrderPass) Run(ctx *kit.Context, name string, root *ast.RootNamesp
 	orders := lower.BehaviorOrders(model, scope)
 	var diags []diag.Diagnostic
 	for _, order := range orders {
-		if order.Refusal == nil || ctx.DownstreamOfFailure(order.Decl) {
+		if order.Refusal == nil {
 			continue
 		}
 		if order.Refusal.Code == "succession-orders-nothing" &&
@@ -80,7 +80,7 @@ func behaviorOrderCycles(model *semantics.Model, orders []lower.BehaviorOrder) [
 				continue
 			}
 			if featuring == nil && order.Featuring != nil ||
-				featuring != nil && (order.Featuring == nil || !model.Conforms(featuring, order.Featuring)) {
+				featuring != nil && (order.Featuring == nil || !model.SpecializesThroughReferences(featuring, order.Featuring)) {
 				continue
 			}
 			group = append(group, order)

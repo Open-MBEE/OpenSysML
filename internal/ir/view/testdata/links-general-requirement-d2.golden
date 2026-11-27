@@ -5,6 +5,7 @@ classes: {
   usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
   edge: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
   specialization: { target-arrowhead: { shape: triangle; style: { filled: false } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+  reference: { source-arrowhead: { shape: diamond; style: { filled: false } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
   dependency: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1; stroke-dash: 3 } }
 }
 n0: "«requirement def»\nMassRequirement\nid R1, “The total mass of the vehicle shall not exceed the stated...”" { class: definition; link: "https://example.test/src/general.sysml#L33" }
@@ -22,6 +23,8 @@ n11: "«verification»\nlightMassTest" { class: usage; link: "https://example.te
 n12: "«verification»\nheavyMassTest" { class: usage; link: "https://example.test/src/general.sysml#L77" }
 n13: "«verification def»\nStopTest" { class: definition; link: "https://example.test/src/general.sysml#L80" }
 n14: "«verification»\nstopTest" { class: usage; link: "https://example.test/src/general.sysml#L86" }
+n15: "«part def»\nVehicle" { class: definition; link: "https://example.test/src/general.sysml#L4" }
+n0 <- n15: "«subject»" { class: reference; link: "https://example.test/src/general.sysml#L35"; target-arrowhead: { label: "vehicle" } }
 n2 -> n1: { class: specialization; link: "https://example.test/src/general.sysml#L42" }
 n3 -> n0: { class: specialization; link: "https://example.test/src/general.sysml#L44" }
 n4 -> n0: { class: specialization; link: "https://example.test/src/general.sysml#L47" }

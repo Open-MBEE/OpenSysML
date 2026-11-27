@@ -1,6 +1,7 @@
 package semantics
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -257,4 +258,61 @@ func TestLostRedefinitionTargetStaysUnresolvedBesideASiblingRedefinition(t *test
 			t.Errorf("%q: RedefinedFeatures(C::jj) = %v, want none", members, got)
 		}
 	}
+}
+
+// A redefinition target resolved in a type asks for that type's loss while the type's own
+// redefinitions are unsettled: its supertype's loss is settled all the same, and stays memoized.
+func TestSupertypeLossStaysMemoizedWhenTheSubtypeWalkIsCutShort(t *testing.T) {
+	m, root, r, _ := buildUnresolvedModel(t, "t.sysml", source.KindSysML,
+		"package P { part def Base { part a; } part def Derived :> Base { part b :>> a; } }")
+	pkg := sym(t, root, "P")
+	base, derived := sym(t, pkg.Scope, "Base"), sym(t, pkg.Scope, "Derived")
+	b := nested(t, pkg.Scope, "Derived", "b")
+	a := nested(t, pkg.Scope, "Base", "a")
+	target := RelationshipsOf(b)[0].Target
+	if got, ok := r.ResolveRedefinitionTarget(b.OwnerScope, b.Decl, target); !ok || got != a {
+		t.Fatalf("ResolveRedefinitionTarget(b :>> a) = %v, %v, want Base::a", got, ok)
+	}
+	if _, ok := m.redefLoss[base]; !ok {
+		t.Errorf("the settled loss of Base was not memoized")
+	}
+	if _, ok := m.redefLoss[derived]; ok {
+		t.Errorf("the loss of Derived, cut short by its own redefinition, was memoized")
+	}
+	if !m.InheritanceMasked(derived, a) {
+		t.Errorf("Derived must not inherit a")
+	}
+}
+
+// A type removing nothing more holds its supertype's loss as that same set, and one removing
+// more holds its own, the supertype's left as it was.
+func TestInheritanceLossSharesASupertypesSetUntilTheTypeRemovesMore(t *testing.T) {
+	m, root := buildModel(t, `package P {
+		part def A { part a; part x; }
+		part def B :> A { part b :>> a; }
+		part def C :> B;
+		part def D :> B { part d :>> x; }
+	}`)
+	p := sym(t, root, "P")
+	a := nested(t, p.Scope, "A", "a")
+	x := nested(t, p.Scope, "A", "x")
+	b, c, d := nested(t, p.Scope, "B"), nested(t, p.Scope, "C"), nested(t, p.Scope, "D")
+	lossOfB, lossOfC, lossOfD := m.inheritanceLoss(b), m.inheritanceLoss(c), m.inheritanceLoss(d)
+	if !lossOfB.full[a] || lossOfB.full[x] || len(lossOfB.full) != 1 {
+		t.Fatalf("B loses %v, want a alone", lossOfB.full)
+	}
+	if !sameSet(lossOfC.unoffered, lossOfB.full) || !sameSet(lossOfC.inherited, lossOfB.full) || !sameSet(lossOfC.full, lossOfB.full) {
+		t.Errorf("C removes nothing more, so its loss is B's set, not a copy of it")
+	}
+	if !lossOfD.full[a] || !lossOfD.full[x] || len(lossOfD.full) != 2 {
+		t.Errorf("D loses %v, want a and x", lossOfD.full)
+	}
+	if lossOfD.inherited[x] || len(lossOfB.full) != 1 {
+		t.Errorf("D's own redefinition reached a set it shares: inherited %v, B %v", lossOfD.inherited, lossOfB.full)
+	}
+}
+
+// sameSet reports whether a and b are one map: a write to one shows in the other.
+func sameSet(a, b map[*symbols.Symbol]bool) bool {
+	return reflect.ValueOf(a).Pointer() == reflect.ValueOf(b).Pointer()
 }

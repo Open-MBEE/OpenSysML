@@ -1,8 +1,6 @@
 package identity
 
 import (
-	"sync"
-
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -60,9 +58,13 @@ func (q *qualifier) language(sym *symbols.Symbol) (Language, bool) {
 // its namespace; an unnamed or shadowed element, and anything below one, has no id.
 // A parameter named by the one its position redefines is named (KerML 8.2.4).
 func (q *qualifier) qualified(sym *symbols.Symbol) bool {
+	if sym == nil {
+		return false
+	}
 	if known, seen := q.memo[sym]; seen {
 		return known
 	}
+	q.memo[sym] = false // an owner chain that comes back to sym, a cycle, has no id
 	ok := sym.Kind != symbols.SymbolAlias && (sym.Named() && firstSoNamed(sym) || q.model.PositionallyNamed(sym))
 	if ok && sym.OwnerScope != nil {
 		if owner := sym.OwnerScope.Owner(); owner != nil {
@@ -159,10 +161,13 @@ func (c *Catalog) OwningMembership(id string) (*LibraryElement, bool) {
 // Elements lists the catalogued elements in library walk order.
 func (c *Catalog) Elements() []*LibraryElement { return c.order }
 
-// catalogs memoizes the catalog of each frozen library index.
-var catalogs sync.Map // *symbols.Index → *Catalog
-var openSysMLCatalogs sync.Map
-var combinedCatalogs sync.Map
+// The catalogs of a frozen library index are memoized on the index itself
+// (symbols.Index.Derived), so they are released with it.
+type (
+	catalogKey          struct{}
+	openSysMLCatalogKey struct{}
+	combinedCatalogKey  struct{}
+)
 
 // LibraryCatalog is the catalog of the library idx holds, shared by every
 // overlay that shows its base's library documents as the base does.
@@ -171,14 +176,7 @@ func LibraryCatalog(idx *symbols.Index) *Catalog {
 		return newCatalog()
 	}
 	key := libraryCatalogIndex(idx)
-	if !key.Frozen() {
-		return buildCatalog(key)
-	}
-	if c, ok := catalogs.Load(key); ok {
-		return c.(*Catalog)
-	}
-	c, _ := catalogs.LoadOrStore(key, buildCatalog(key))
-	return c.(*Catalog)
+	return key.Derived(catalogKey{}, func() any { return buildCatalog(key) }).(*Catalog)
 }
 
 // OpenSysMLLibraryCatalog catalogs the bundled OpenSysML extension elements
@@ -188,14 +186,7 @@ func OpenSysMLLibraryCatalog(idx *symbols.Index) *Catalog {
 		return newCatalog()
 	}
 	key := libraryCatalogIndex(idx)
-	if !key.Frozen() {
-		return buildOpenSysMLCatalog(key)
-	}
-	if c, ok := openSysMLCatalogs.Load(key); ok {
-		return c.(*Catalog)
-	}
-	c, _ := openSysMLCatalogs.LoadOrStore(key, buildOpenSysMLCatalog(key))
-	return c.(*Catalog)
+	return key.Derived(openSysMLCatalogKey{}, func() any { return buildOpenSysMLCatalog(key) }).(*Catalog)
 }
 
 // LibraryCatalogWithOpenSysML combines normative and OpenSysML extension IDs
@@ -205,16 +196,9 @@ func LibraryCatalogWithOpenSysML(idx *symbols.Index) *Catalog {
 		return newCatalog()
 	}
 	key := libraryCatalogIndex(idx)
-	if !key.Frozen() {
+	return key.Derived(combinedCatalogKey{}, func() any {
 		return mergeCatalogs(LibraryCatalog(key), OpenSysMLLibraryCatalog(key))
-	}
-	if c, ok := combinedCatalogs.Load(key); ok {
-		return c.(*Catalog)
-	}
-	c, _ := combinedCatalogs.LoadOrStore(
-		key, mergeCatalogs(LibraryCatalog(key), OpenSysMLLibraryCatalog(key)),
-	)
-	return c.(*Catalog)
+	}).(*Catalog)
 }
 
 func libraryCatalogIndex(idx *symbols.Index) *symbols.Index {

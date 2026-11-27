@@ -25,8 +25,6 @@
 (require 'compile)
 (require 'lsp-mode)
 (require 'sysml-mode)
-(require 'url-parse)
-(require 'url-util)
 
 (defgroup sysml-lsp nil
   "The OpenSysML language server, through lsp-mode."
@@ -195,11 +193,8 @@ compilation buffer."
 (defconst sysml-lsp--stdlib-content-method "opensysml/stdlibContent"
   "The request serving the text of a bundled library document.")
 
-(defvar-local sysml-lsp-stdlib-uri nil
-  "The `sysml-stdlib:' URI of the bundled library document this buffer shows.")
-
-(defvar-local sysml-lsp--stdlib-workspace nil
-  "The `sysml-lsp' workspace whose server this library buffer's text is from.")
+(define-obsolete-variable-alias 'sysml-lsp-stdlib-uri 'sysml-library-uri "0.14.0")
+(define-obsolete-function-alias 'sysml-lsp-stdlib-uri-p #'sysml-library-uri-p "0.14.0")
 
 (defun sysml-lsp--workspace ()
   "Return the current buffer's `sysml-lsp' workspace, or nil."
@@ -207,33 +202,40 @@ compilation buffer."
               (eq (lsp--client-server-id (lsp--workspace-client ws)) 'sysml-lsp))
             (lsp-workspaces)))
 
-(defun sysml-lsp-stdlib-uri-p (uri)
-  "Return non-nil when URI names a document of the bundled library.
-The server reports such locations under the `sysml-stdlib' scheme; no
-file on disk holds them."
-  (string-prefix-p "sysml-stdlib:" uri))
-
 (defun sysml-lsp-stdlib-buffer (uri)
   "Return a read-only buffer showing the bundled library document URI.
-Its text is asked of the current buffer's server, once per document and
-server: another build may bundle a different library."
-  (let ((workspace (sysml-lsp--workspace)))
-    (or (seq-find (lambda (buffer)
-                    (and (equal (buffer-local-value 'sysml-lsp-stdlib-uri buffer) uri)
-                         (eq (buffer-local-value 'sysml-lsp--stdlib-workspace buffer) workspace)))
-                  (buffer-list))
-      (let* ((text (lsp-get (lsp-request sysml-lsp--stdlib-content-method (list :uri uri)) :text))
-             (path (url-unhex-string (url-filename (url-generic-parse-url uri))))
-             (buffer (generate-new-buffer (format "%s <library>" (file-name-nondirectory path)))))
-        (with-current-buffer buffer
-          (insert text)
-          (if (string-suffix-p ".kerml" path) (kerml-mode) (sysml-mode))
-          (setq sysml-lsp-stdlib-uri uri
-                sysml-lsp--stdlib-workspace workspace)
-          (set-buffer-modified-p nil)
-          (setq buffer-read-only t)
-          (goto-char (point-min)))
-        buffer))))
+Its text is asked of the current buffer's server; see
+`sysml-library-buffer'."
+  (sysml-library-buffer
+   uri (sysml-lsp--workspace)
+   (lambda () (lsp-get (lsp-request sysml-lsp--stdlib-content-method (list :uri uri)) :text))))
+
+(defun sysml-lsp--library-xref-item (location)
+  "Return an xref item for LOCATION, a place in a bundled library document."
+  (let ((buffer (sysml-lsp-stdlib-buffer (lsp--location-uri location)))
+        (range (lsp--location-range location)))
+    (with-current-buffer buffer
+      (sysml-library-xref-item buffer
+                                (lsp--position-to-point (lsp:range-start range))
+                                (lsp--position-to-point (lsp:range-end range))))))
+
+(defun sysml-lsp--xref-library-items (to-xref-items locations)
+  "Call TO-XREF-ITEMS with LOCATIONS, adding those in the bundled library.
+A `sysml-stdlib:' URI names no file, so lsp-mode would drop its
+locations; each is located in the document's library buffer instead.
+They follow the locations in files."
+  (if (not (sysml-lsp--workspace))
+      (funcall to-xref-items locations)
+    (let* ((locations (cond ((vectorp locations) (append locations nil))
+                            ((and locations (lsp--location-uri locations)) (list locations))
+                            (t locations)))
+           (library (seq-filter (lambda (location)
+                                  (sysml-library-uri-p (lsp--location-uri location)))
+                                locations)))
+      (nconc (funcall to-xref-items (vconcat (seq-difference locations library #'eq)))
+             (mapcar #'sysml-lsp--library-xref-item library)))))
+
+(advice-add 'lsp--locations-to-xref-items :around #'sysml-lsp--xref-library-items)
 
 (defun sysml-lsp--server-command ()
   "Return the command to start the language server with."

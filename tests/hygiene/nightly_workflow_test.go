@@ -35,6 +35,7 @@ type actionsJob struct {
 }
 
 type actionsStep struct {
+	ID   string            `yaml:"id"`
 	Name string            `yaml:"name"`
 	Uses string            `yaml:"uses"`
 	Run  string            `yaml:"run"`
@@ -141,7 +142,18 @@ func TestNightlyReleasesAreAlwaysPrereleasesNeverLatest(t *testing.T) {
 	if moved < 0 {
 		t.Fatal("the alias job does not create the alias as a prerelease that is not latest")
 	}
-	if !containsAll(publish.runSteps()[night].Command, "dist/*.whl") {
+	// The Releases API refuses the job's token a new tag at a commit that changes a workflow
+	// file, so each release is created at a tag a git push already put there.
+	nightCommand := publish.runSteps()[night].Command
+	pushed := strings.Index(nightCommand, `git push origin "refs/tags/$VERSION"`)
+	if pushed < 0 || pushed > strings.Index(nightCommand, `gh release create "$VERSION"`) || !containsAll(nightCommand, `git tag --force "$VERSION" "$sha"`, "--verify-tag") || strings.Contains(nightCommand, "--target") {
+		t.Error("the per-night release has the Releases API create its tag instead of pushing the tag first and creating the release with --verify-tag")
+	}
+	aliasCommand := alias.runSteps()[moved].Command
+	if pushed := strings.Index(aliasCommand, `git push --force origin "refs/tags/$TAG"`); pushed < 0 || pushed > strings.Index(aliasCommand, `gh release create "$TAG"`) {
+		t.Error("the alias release is created before its tag is pushed, so the Releases API would create the tag")
+	}
+	if !containsAll(nightCommand, "dist/*.whl") {
 		t.Error("the per-night release does not carry the Python wheel beside the binaries")
 	}
 	if !containsAll(alias.runSteps()[moved].Command, `gh release download "$VERSION"`, `"${#assets[@]}" -ne "$expected"`) {
@@ -149,6 +161,15 @@ func TestNightlyReleasesAreAlwaysPrereleasesNeverLatest(t *testing.T) {
 	}
 	if needs := alias.needs(); !slices.Contains(needs, "publish") {
 		t.Errorf("the alias job needs %v, not the publish job whose release it copies", needs)
+	}
+	// A registry upload that fails must leave the alias, and the nights pruning would delete, where they were.
+	for _, registry := range []string{"pypi", "npm"} {
+		if needs := alias.needs(); !slices.Contains(needs, registry) {
+			t.Errorf("the alias job needs %v, not the %s job, so the alias moves to a night whose client did not publish", needs, registry)
+		}
+	}
+	if alias.If != "" {
+		t.Errorf("the alias job runs if %q, which can let it run past a failed job it needs", alias.If)
 	}
 	uploaded, released := -1, -1
 	for i, step := range publish.Steps {
@@ -238,7 +259,7 @@ func TestNightlyJupyterKernelSnapshotIsStampedBeforeItIsBuiltAndCheckedAfter(t *
 		"--table client/jupyter-kernel/jupyter_opensysml_kernel/release-digests.json",
 	)
 	build := stepIndex(steps, `"$KERNEL_DIST_SCRIPT" dist/jupyter client/jupyter-kernel/dist`, "-py3-none-*.whl")
-	labextension := stepIndex(steps, `pip install --only-binary ":all:" jupyterlab==`,
+	labextension := stepIndex(steps,
 		`(cd editors/jupyterlab && npm version --no-git-tag-version "$NPM_VERSION")`,
 		`"$KERNEL_DIST_SCRIPT" dist/jupyter client/jupyter-kernel/dist`,
 		`labextensions/jupyterlab-opensysml/package.json`, `[ "$stamped" != "$NPM_VERSION" ]`,
@@ -281,6 +302,19 @@ func TestNightlyJupyterKernelSnapshotIsStampedBeforeItIsBuiltAndCheckedAfter(t *
 		if !strings.Contains(steps[verify].Command, asset) {
 			t.Errorf("the kernel distribution check does not require %s", asset)
 		}
+	}
+	// jupyterlab provides the `jupyter labextension build` the distribution build runs.
+	jupyterlab, distributions := -1, -1
+	for i, step := range nightlyJob(t, workflow, "publish").Steps {
+		switch {
+		case step.Uses == pipInstallAction && strings.Contains(step.With["packages"], "jupyterlab=="):
+			jupyterlab = i
+		case strings.Contains(step.Run, `"$KERNEL_DIST_SCRIPT" dist/jupyter client/jupyter-kernel/dist`):
+			distributions = i
+		}
+	}
+	if jupyterlab < 0 || jupyterlab > distributions {
+		t.Errorf("the publish job does not install a pinned jupyterlab through %s before the kernel distributions are built", pipInstallAction)
 	}
 }
 

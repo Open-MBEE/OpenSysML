@@ -98,6 +98,12 @@ type Session struct {
 	// while it runs (exploreVerdict). Lower-case helpers assume the caller holds both.
 	mu    sync.Mutex
 	state sync.Mutex
+	// usageAnswered is whether the running command answered with its usage.
+	usageAnswered bool
+	// resultViews makes each document query write its answer as a QVTS::QueryResult view.
+	resultViews bool
+	// resultViewNames holds the view names SetResultViews has written, nil when a command asks per query.
+	resultViewNames map[string]bool
 	// elementIDs is the reader the session's queries share (elementIDReader).
 	elementIDs sessionElementIDs
 
@@ -119,6 +125,9 @@ type Session struct {
 	// libraryRoots are the directories installed projects are looked for
 	// under, besides the well-known ones beneath a loaded file's project.
 	libraryRoots []string
+	// loadScan is what the library roots hold, for the load in progress: its
+	// discoveries share one walk of each root. Nil between loads.
+	loadScan *project.Scan
 	// workspaceRoot is the directory the root namespaces a typed submission
 	// leaves unresolved are looked for under, empty to look nowhere; workspace
 	// indexes its model files, built on first use.

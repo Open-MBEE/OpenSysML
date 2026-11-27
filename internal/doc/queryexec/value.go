@@ -2,6 +2,7 @@
 package queryexec
 
 import (
+	"math"
 	"strconv"
 	"strings"
 
@@ -131,6 +132,10 @@ func constantValue(constant semantics.Value) (Value, bool) {
 	case semantics.ValBool:
 		return BooleanValue(constant.Bool), true
 	case semantics.ValInfinity:
+		// ValueInfinity is the unbounded `*`; `-*` is the Real below every other.
+		if constant.IsNegativeInfinity() {
+			return RealValue(math.Inf(-1)), true
+		}
 		return Value{kind: ValueInfinity}, true
 	default:
 		return Value{}, false
@@ -218,6 +223,55 @@ func (v Value) Integer() (int64, bool) {
 // integer value.
 func (v Value) IntegerConst() (semantics.Value, bool) { return v.integer, v.kind == ValueInteger }
 
+// ValueText renders one typed value as plain, unescaped text: an element by the name
+// names gives it, by its qualified name when names is nil.
+func ValueText(value Value, names func(*symbols.Symbol) string) string {
+	if element, ok := value.Element(); ok {
+		if names == nil {
+			return symbols.FQNOf(element)
+		}
+		return names(element)
+	}
+	if _, label, ok := value.Object(); ok {
+		return label
+	}
+	if _, _, ok := value.ConnectorEnd(); ok {
+		return value.Label()
+	}
+	if verdict, ok := value.Verdict(); ok {
+		return verdict.Summary()
+	}
+	if state, ok := value.State(); ok {
+		return state.Label()
+	}
+	if event, ok := value.Event(); ok {
+		return event.Summary()
+	}
+	if text, ok := value.String(); ok {
+		return text
+	}
+	if integer, ok := value.IntegerConst(); ok {
+		return integer.FormatInt()
+	}
+	if rational, ok := value.Rational(); ok {
+		return RationalText(rational)
+	}
+	if realVal, ok := value.Real(); ok {
+		return strconv.FormatFloat(realVal, 'g', -1, 64)
+	}
+	if boolean, ok := value.Boolean(); ok {
+		return strconv.FormatBool(boolean)
+	}
+	if value.Kind() == ValueInfinity {
+		return "*"
+	}
+	if quantity, ok := value.Quantity(); ok {
+		magnitude, _ := value.Magnitude()
+		return quantity.TextWithMagnitude(ValueText(magnitude, names))
+	}
+	return ""
+}
+
 // RationalText spells an exact Rational as a document spells a number: a terminating
 // one in decimal, as strconv's shortest 'g' form spells a Real, else `numer/denom`.
 func RationalText(value semantics.Value) string {
@@ -246,6 +300,9 @@ func (v Value) Text(identity func(*symbols.Symbol) string) (string, bool) {
 	case ValueRational:
 		return RationalText(v.integer), true
 	case ValueReal:
+		if math.IsInf(v.real, 0) {
+			return semantics.FormatConst(semantics.ExtendedReal(v.real)), true
+		}
 		return strconv.FormatFloat(v.real, 'g', -1, 64), true
 	case ValueBoolean:
 		return strconv.FormatBool(v.boolean), true
@@ -455,12 +512,18 @@ func StaticRow(cells []string, origin symbols.Origin) Row {
 	return row
 }
 
-// WrittenExpression is the text an expression element the model synthesizes —
-// a send's argument, a feature's value — was written as. Such an element has
-// no name, scope or identity of its own, so a surface that names elements by
-// identity reports it this way; ok is false for any other element.
+// WrittenExpression is the text an element the model synthesizes — a send's
+// argument, a feature's value, the chain Feature a chained end references (`a.p`) —
+// was written as. Such an element has no name, scope or identity of its own, so a
+// surface that names elements by identity reports it this way; ok is false for any other.
 func (c Context) WrittenExpression(sym *symbols.Symbol) (string, bool) {
-	if sym == nil || sym.Expr == nil || sym.Decl == nil {
+	if sym == nil {
+		return "", false
+	}
+	if sym.Chain != nil {
+		return c.writtenChain(sym)
+	}
+	if sym.Expr == nil || sym.Decl == nil {
 		return "", false
 	}
 	if lookup := c.Model.SourceText(); lookup != nil {
@@ -478,17 +541,55 @@ func (c Context) WrittenExpression(sym *symbols.Symbol) (string, bool) {
 func (c Context) PropertyText(v Value) (string, bool) {
 	text, ok := v.Text(c.Identity)
 	if sym, isElement := v.Element(); isElement && text == "" {
+		if stated, _, isParameter := c.statedParameterText(sym); isParameter {
+			return stated, stated != ""
+		}
 		return c.WrittenExpression(sym)
 	}
 	return text, ok
 }
 
-// elementText is what an element compares and orders as: its qualified name,
-// or the written text of an expression element, which has none.
+// statedParameterText is how a surface reads a parameter the notation of its action states, an element no
+// scope declares: the expression written for it, else its name under its action. ok is false for any other.
+func (c Context) statedParameterText(sym *symbols.Symbol) (text string, written, ok bool) {
+	owner := c.Model.NodeParameterOwner(sym)
+	if owner == nil {
+		return "", false, false
+	}
+	if text, _ := c.WrittenExpression(sym); text != "" {
+		return text, true, true
+	}
+	name, named := c.Model.EffectiveNamed(sym)
+	action, _ := ElementValue(owner).Text(c.Identity)
+	if !named || action == "" {
+		return "", false, true
+	}
+	return action + "::" + name, false, true
+}
+
+// elementText is what an element compares and orders as: its qualified name, or the text a surface reads
+// one with none as, a parameter its action's notation states or the written text of an expression element.
 func (e *executor) elementText(sym *symbols.Symbol) string {
+	if text, _, stated := e.context.statedParameterText(sym); stated {
+		return text
+	}
 	if name := symbols.FQNOf(sym); name != "" {
 		return name
 	}
 	text, _ := e.context.WrittenExpression(sym)
 	return text
+}
+
+// writtenChain is the chain a chain Feature denotes as its source writes it; false for one
+// of a recorded owner, which keeps no source.
+func (c Context) writtenChain(sym *symbols.Symbol) (string, bool) {
+	if sym.Chain.Node == nil {
+		return "", false
+	}
+	lookup := c.Model.SourceText()
+	if lookup == nil {
+		return "", false
+	}
+	text := strings.TrimSpace(lookup(sym.DocName, sym.Chain.Node.Span()))
+	return text, text != ""
 }

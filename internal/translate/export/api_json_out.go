@@ -390,6 +390,13 @@ func (w *apiJSONElementWriter) element(subject rdf.Term) (apiJSONObject, error) 
 	if legacyIndividual {
 		metaclass, typeName = standard, standard
 	}
+	// A legacy KerML type name is none of the metamodel's: the element is its metaclass.
+	absenceType := types[0]
+	if _, legacy := legacyKerMLTypeMetaclasses[metaclass]; legacy {
+		keyword, _ := w.graph.Lexical(subject, rdf.OpenSysML+xDeclaredKeyword)
+		metaclass = legacyKerMLTypeMetaclass(metaclass, keyword)
+		typeName, absenceType = metaclass, rdf.SysMLTerm(metaclass)
+	}
 	predicates := w.graph.PredicatesView(subject)
 	element := make(apiJSONObject, 0, len(predicates)+5)
 	element = append(element,
@@ -401,7 +408,7 @@ func (w *apiJSONElementWriter) element(subject rdf.Term) (apiJSONObject, error) 
 	var specName any
 	if w.evaluation != nil && w.evaluation.evaluator != nil && w.evaluation.structure != nil {
 		if semanticElement, ok := w.evaluation.structure.element(subject); ok {
-			value, supported := w.evaluation.evaluator.PropertyReadOnly(semanticElement, "Element", "qualifiedName")
+			value, supported := w.evaluation.evaluator.PropertyReadOnlyUncached(semanticElement, "Element", "qualifiedName")
 			if supported {
 				switch value.Kind {
 				case metamodel.NullValue:
@@ -452,6 +459,9 @@ func (w *apiJSONElementWriter) element(subject rdf.Term) (apiJSONObject, error) 
 			value, keep := apiJSONResolveUnresolvedProperty(
 				w.graph, w.nameIndex, subject, metaclass, key, value, w.options,
 			)
+			if derived, ok := w.derivedOverStated(subject, metaclass, key); ok {
+				value, keep = derived, true
+			}
 			comparison, err := apiJSONPropertyValuesEqual(
 				w.graph, w.nameIndex, subject, predicate, key, metaclass, value, keep, w.comparisonCache,
 			)
@@ -516,7 +526,7 @@ func (w *apiJSONElementWriter) element(subject rdf.Term) (apiJSONObject, error) 
 			element[mappingValuesPosition] = member
 		}
 	}
-	element = appendAPIJSONOwnedAbsencesWithScratch(w.graph, subject, element, types[0], w.scratch)
+	element = appendAPIJSONOwnedAbsencesWithScratch(w.graph, subject, element, absenceType, w.scratch)
 	if apiJSONRootSubject(w.graph, subject) && !apiJSONExternalForm(w.graph, w.scratch) {
 		element = append(element, apiJSONMember{key: apiJSONStatedDefaultsKey, value: true})
 	}
@@ -916,8 +926,7 @@ func apiJSONPropertyValuesEqual(
 	graph *rdf.Graph,
 	nameIndex *apiJSONNameIndex,
 	subject rdf.Term,
-	predicate string,
-	key, metaclass string,
+	predicate, key, metaclass string,
 	value any,
 	keep bool,
 	cache *apiJSONTermCache,
@@ -962,8 +971,7 @@ func apiJSONPropertyValuesEqual(
 }
 
 func apiJSONCollectionMemberMatches(
-	subject rdf.Term,
-	object rdf.Term,
+	subject, object rdf.Term,
 	member rdf.CollectionMember,
 ) (bool, error) {
 	if member.ID != "" {
@@ -973,9 +981,9 @@ func apiJSONCollectionMemberMatches(
 		return false, nil
 	}
 	literal := member.Literal
-	switch object.Datatype {
+	switch object.Datatype() {
 	case rdf.XSD + "boolean":
-		if literal.Datatype != rdf.XSD+"boolean" {
+		if literal.Datatype() != rdf.XSD+"boolean" {
 			return false, nil
 		}
 		objectValue := object.Value == "true" || object.Value == "1"
@@ -984,12 +992,12 @@ func apiJSONCollectionMemberMatches(
 		}
 		return literal.Value == "false" || literal.Value == "0", nil
 	case rdf.XSD + "integer", rdf.XSD + "decimal", rdf.XSD + "double", rdf.XSD + "float":
-		if !apiJSONNumericDatatype(literal.Datatype) {
+		if !apiJSONNumericDatatype(literal.Datatype()) {
 			return false, nil
 		}
 		return object.Value == literal.Value, nil
 	default:
-		if apiJSONNumericDatatype(literal.Datatype) || literal.Datatype == rdf.XSD+"boolean" {
+		if apiJSONNumericDatatype(literal.Datatype()) || literal.Datatype() == rdf.XSD+"boolean" {
 			return false, nil
 		}
 		return object.Value == literal.Value, nil
@@ -1161,8 +1169,7 @@ func apiJSONSysMLValue(
 	subject rdf.Term,
 	predicate, key, metaclass string,
 	property ontology.Property,
-	propertyKnown bool,
-	objectProperty bool,
+	propertyKnown, objectProperty bool,
 	nameIndex *apiJSONNameIndex,
 	cache *apiJSONTermCache,
 ) (any, error) {
@@ -1258,8 +1265,7 @@ func apiJSONResolveUnresolvedProperty(
 	graph *rdf.Graph,
 	nameIndex *apiJSONNameIndex,
 	subject rdf.Term,
-	metaclass string,
-	key string,
+	metaclass, key string,
 	value any,
 	options APIJSONOptions,
 ) (any, bool) {
@@ -1324,7 +1330,7 @@ func apiJSONScalar(subject rdf.Term, key string, object rdf.Term, objectProperty
 	if object.IsIRI() {
 		return APIJSONReference{ID: rdf.ReferenceID(subject, object)}, nil
 	}
-	if object.Lang != "" {
+	if object.Lang() != "" {
 		return nil, &UnsupportedError{
 			What: fmt.Sprintf("the language-tagged literal %s of <%s>", object, subject.Value),
 			Note: "the API element form has no language tags",
@@ -1339,7 +1345,7 @@ func apiJSONScalar(subject rdf.Term, key string, object rdf.Term, objectProperty
 	retyped := "the API element form carries no datatype, and the reader would read " +
 		"this value back as " + apiJSONRestoredType(object)
 	unspellable := "its lexical form is not the JSON spelling the reader restores it from"
-	switch object.Datatype {
+	switch object.Datatype() {
 	case rdf.XSD + "boolean":
 		if object.Value != "true" && object.Value != "false" {
 			return nil, refuse(unspellable)
@@ -1355,7 +1361,7 @@ func apiJSONScalar(subject rdf.Term, key string, object rdf.Term, objectProperty
 		if _, err := json.Marshal(number); err != nil {
 			return nil, refuse(unspellable)
 		}
-		if realDatatype(object.Value) != object.Datatype {
+		if realDatatype(object.Value) != object.Datatype() {
 			return nil, refuse(retyped)
 		}
 		return number, nil
@@ -1377,11 +1383,11 @@ func apiJSONScalar(subject rdf.Term, key string, object rdf.Term, objectProperty
 // literal's JSON spelling, for the refusal note.
 func apiJSONRestoredType(object rdf.Term) string {
 	switch {
-	case object.Datatype == rdf.XSD+"boolean":
+	case object.Datatype() == rdf.XSD+"boolean":
 		return rdf.XSD + "boolean"
-	case object.Datatype == rdf.XSD+"integer", slices.Contains(integerLiterals, object.Datatype):
+	case object.Datatype() == rdf.XSD+"integer", slices.Contains(integerLiterals, object.Datatype()):
 		return rdf.XSD + "integer"
-	case slices.Contains(realLiterals, object.Datatype):
+	case slices.Contains(realLiterals, object.Datatype()):
 		return realDatatype(object.Value)
 	}
 	return "a plain literal"

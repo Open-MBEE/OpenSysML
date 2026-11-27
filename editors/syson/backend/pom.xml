@@ -7,7 +7,7 @@
     <parent>
         <groupId>org.openmbee</groupId>
         <artifactId>syson-mdk</artifactId>
-        <version>0.12.1</version>
+        <version>0.13.0</version>
     </parent>
 
     <artifactId>syson-mdk-backend</artifactId>
@@ -17,7 +17,13 @@
         <dependency>
             <groupId>org.openmbee</groupId>
             <artifactId>opensysml</artifactId>
-            <version>0.12.1</version>
+            <version>0.13.0</version>
+        </dependency>
+        <!-- The client's publication package needs gson, which the client declares optional. -->
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>2.15.0</version>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
@@ -49,6 +55,13 @@
         <dependency>
             <groupId>org.eclipse.emf</groupId>
             <artifactId>org.eclipse.emf.edit</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.openmbee</groupId>
+            <artifactId>opensysml</artifactId>
+            <version>0.13.0</version>
+            <type>test-jar</type>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>

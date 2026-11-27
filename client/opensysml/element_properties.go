@@ -13,6 +13,16 @@ import (
 type ElementProperties struct {
 	Element    ElementRef
 	Properties []ElementProperty
+	// ExcludedDocuments are the model's documents the answer leaves out, each
+	// with why; empty when the whole model was read.
+	ExcludedDocuments []ExcludedDocument
+}
+
+// ExcludedDocument is a document ElementProperties left out of the model: one the
+// parser could not read whole, or one declaring a top-level name again.
+type ExcludedDocument struct {
+	Document string
+	Error    string
 }
 
 // Property is the entry for the named property, nil when the read did not
@@ -127,10 +137,11 @@ func (c *client) ElementPropertiesByID(ctx context.Context, model *Model, id str
 // elementProperties reads element as the kind lookup states, which a service without the
 // capability is not sent: it reads the string as either kind.
 func (c *client) elementProperties(ctx context.Context, model *Model, lookup pb.LookupKind, element string, properties []string) (*ElementProperties, error) {
-	hash, err := c.call(model)
+	hash, done, err := c.call(model)
 	if err != nil {
 		return nil, err
 	}
+	defer done()
 	if lookup != pb.LookupKind_LOOKUP_KIND_UNSPECIFIED {
 		info, err := c.serverInfo(ctx)
 		if err != nil {
@@ -153,6 +164,9 @@ func (c *client) elementProperties(ctx context.Context, model *Model, lookup pb.
 		return nil, &FailureError{Op: "ElementProperties", Message: resp.Error}
 	}
 	out := &ElementProperties{Element: elementRefFromProto(resp.Element)}
+	for _, excluded := range resp.ExcludedDocuments {
+		out.ExcludedDocuments = append(out.ExcludedDocuments, ExcludedDocument{Document: excluded.Document, Error: excluded.Error})
+	}
 	for _, property := range resp.Properties {
 		converted := ElementProperty{
 			Name:          property.Name,

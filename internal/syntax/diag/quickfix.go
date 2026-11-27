@@ -35,13 +35,21 @@ func InsertLine(offset int, text string) Edit {
 	return Edit{Span: source.Span{Offset: offset}, NewText: text, OwnLine: true}
 }
 
-// Render resolves an edit against its document, returning the span to replace and
-// the replacement. An own-line edit keeps the line it precedes on its own line.
+// Render resolves an edit against its document, returning the span to replace, cut back
+// to the document, and the replacement, which an own-line edit ends in its line ending.
 func (e Edit) Render(content []byte) (source.Span, string) {
+	span := within(e.Span, len(content))
 	if !e.OwnLine {
-		return e.Span, e.NewText
+		return span, e.NewText
 	}
-	return e.Span, e.NewText + "\n" + indentAt(content, e.Span.Offset)
+	return span, e.NewText + source.DominantNewline(content) + indentAt(content, span.Offset)
+}
+
+// within is span cut back to a document of size bytes.
+func within(span source.Span, size int) source.Span {
+	span.Offset = min(max(span.Offset, 0), size)
+	span.Len = min(max(span.Len, 0), size-span.Offset)
+	return span
 }
 
 // indentAt returns the leading whitespace of the line offset sits on.

@@ -37,7 +37,8 @@ the [install guide](../guide/01-install.md)) carries it.
   few commits behind `develop`; the release notes name the commit and link the
   compare against the last stable tag. The walk ends at the commit the current snapshot was
   built from, so the snapshot never moves backwards, and a green commit that predates
-  `scripts/build-release-artifacts.sh` or `client/python/scripts/snapshot_version.py` is
+  `scripts/build-release-artifacts.sh`, `client/python/scripts/snapshot_version.py` or
+  `.github/actions/pip-install`, which installs the build's Python tooling, is
   skipped, since the workflow cannot build it.
   Snapshots built from commits predating the WASM build do not include WebAssembly assets.
 - **Kept for 14 days, under two names.** Each night publishes its own prerelease,
@@ -279,9 +280,13 @@ tarballs; builds, tests and packages the Cameo plugin around the night's five `s
 (checking the zip's `DIGESTS` against the manifest) and the SysON backend jar and frontend
 tarball, listing the three in the manifest; signs the manifest, which now lists the wheel and
 the plugins, with its own GitHub OIDC identity; keeps the tarballs as workflow artifacts; and publishes the per-night release
-with the repository's own `GITHUB_TOKEN`. A second job recreates the
+with the repository's own `GITHUB_TOKEN`, at a tag it pushes with git first: the Releases API refuses that token a new tag
+at a commit that itself changes a workflow file. Two further jobs publish the clients, and
+a last job, once both have succeeded, recreates the
 alias at the same commit from the night's own assets, title and notes, then deletes the
-per-night releases published more than 14 days ago. Two further jobs publish the clients. One
+per-night releases published more than 14 days ago: a night whose PyPI or npm upload fails
+keeps its per-night release, but the alias stays at the previous night and nothing is pruned
+until the failed jobs are re-run. Of the two client jobs, one
 runs [`release-pypi.yml`](../../.github/workflows/release-pypi.yml) on the night's tag and
 waits for it: that workflow takes the wheel, sdist and kernel package from the release,
 checks them against the manifest and publishes them to PyPI as it does a stable release's

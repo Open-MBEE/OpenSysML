@@ -55,7 +55,7 @@ func (e externalEngine) Probe() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	s, err := startSession(e.entry, e.limit(), e.timeout())
+	s, err := startSession(context.Background(), e.entry, e.limit(), e.timeout())
 	if err != nil {
 		return "", err
 	}
@@ -168,7 +168,7 @@ func (e externalEngine) Run(ctx context.Context, model *Model, q Question, budge
 	var strength Strength
 	shaped := func() error {
 		var err error
-		claim, strength, err = e.shape(q, answer)
+		claim, strength, err = e.shape(answer)
 		return err
 	}
 	sink := newProgressSink(e.Name(), ReporterFrom(ctx))
@@ -203,7 +203,7 @@ func (e externalEngine) request(ctx context.Context, model *Model, method string
 	if err != nil {
 		return err
 	}
-	s, err := pool.acquire()
+	s, err := pool.acquire(ctx)
 	if err != nil {
 		return err
 	}

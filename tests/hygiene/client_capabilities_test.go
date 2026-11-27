@@ -111,7 +111,8 @@ func TestClientCapabilityChecklist(t *testing.T) {
 		isAnnounced[name] = true
 	}
 	for _, name := range sortedKeys(rows) {
-		if !isAnnounced[name] {
+		// The table is the full build's: a build without the migration still holds its row to the clients.
+		if !isAnnounced[name] && (migrationLinked || name != sysmlgrpc.CapabilityMigrate) {
 			t.Errorf("%s: the table lists %q, which the service does not announce", capabilityChecklistDoc, name)
 			continue
 		}
@@ -144,6 +145,7 @@ func TestClientCapabilityChecklist(t *testing.T) {
 // capabilityDecodes names, for each capability that only populates a response and so has
 // nothing to gate, the read of the generated message that decodes it and thereby binds it.
 var capabilityDecodes = map[string]*regexp.Regexp{
+	"CoordinateFrameValues":    regexp.MustCompile(`\*pb\.Value_CoordinateFrame\b`),
 	"ConvertLibraryReferences": regexp.MustCompile(`\bresp\.LibraryReferences\b`),
 	"DiagnosticCodes":          regexp.MustCompile(`\bdiag\.Code\b`),
 	"EnumValues":               regexp.MustCompile(`\*pb\.Value_EnumLiteral\b`),

@@ -15,7 +15,7 @@
       "presentDifferent": 27,
       "oursMissing": 13,
       "pilotMissing": 6,
-      "absentBoth": 104,
+      "absentBoth": 108,
       "indeterminate": 0,
       "pilotNondeterministic": 0
     },
@@ -30,7 +30,7 @@
       "pilot": 0
     },
     "unkeyableElements": {
-      "ours": 28,
+      "ours": 36,
       "pilot": 4
     }
   },
@@ -62,6 +62,7 @@
     "OwningMembership.memberElement": [2,0,0,0,0,0,0],
     "OwningMembership.memberElementId": [2,0,0,0,0,0,0],
     "OwningMembership.memberName": [2,0,0,0,0,0,0],
+    "OwningMembership.memberShortName": [0,0,0,0,2,0,0],
     "OwningMembership.membershipOwningNamespace": [2,0,0,0,0,0,0],
     "OwningMembership.ownedAnnotation": [0,0,0,0,2,0,0],
     "OwningMembership.ownedElement": [0,0,0,0,2,0,0],
@@ -198,6 +199,7 @@
     "StateSubactionMembership.memberElement": [0,2,0,0,0,0,0],
     "StateSubactionMembership.memberElementId": [0,2,0,0,0,0,0],
     "StateSubactionMembership.memberName": [0,0,2,0,0,0,0],
+    "StateSubactionMembership.memberShortName": [0,0,0,0,2,0,0],
     "StateSubactionMembership.membershipOwningNamespace": [2,0,0,0,0,0,0],
     "StateSubactionMembership.ownedAnnotation": [0,0,0,0,2,0,0],
     "StateSubactionMembership.ownedElement": [0,0,0,0,2,0,0],

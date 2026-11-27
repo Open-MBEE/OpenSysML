@@ -164,16 +164,55 @@ export class PrivateService {
   }
 }
 
+/** How many children one acquire starts before giving up on a binary whose child keeps dying. */
+export const MAX_START_ATTEMPTS = 3;
+const RESTART_BACKOFF_MS = 200;
+
 /** Takes a hold on the private child for `version`, starting one when there is none. */
-export async function acquirePrivateService(version?: string): Promise<PrivateService> {
-  const key = version ?? "";
+export async function acquirePrivateService(
+  version?: string,
+  start: (version?: string) => Promise<PrivateService> = (v) => PrivateService.start(v),
+): Promise<PrivateService> {
+  return acquireAttempt(version, start, 0);
+}
+
+/** The hold on `key`'s child when it is alive. */
+function held(key: string): PrivateService | undefined {
   const existing = shared.get(key);
-  if (existing?.alive) {
-    existing.refs += 1;
+  if (!existing?.alive) {
+    return undefined;
+  }
+  existing.refs += 1;
+  return existing;
+}
+
+/** One attempt of an acquire: the child alive now, else one started and taken by the next attempt. */
+async function acquireAttempt(
+  version: string | undefined,
+  start: (version?: string) => Promise<PrivateService>,
+  attempt: number,
+): Promise<PrivateService> {
+  const key = version ?? "";
+  const existing = held(key);
+  if (existing) {
     return existing;
   }
+  if (attempt === MAX_START_ATTEMPTS) {
+    throw new ServiceStartError(
+      `sysml-grpc (${shared.get(key)?.binary.path ?? "no binary"}) reported an address and then ` +
+        `exited, ${MAX_START_ATTEMPTS} times in a row`,
+    );
+  }
+  if (attempt > 0) {
+    await new Promise((resolve) => setTimeout(resolve, RESTART_BACKOFF_MS * attempt));
+    // Another acquire may have started a child that lived while this one waited.
+    const started = held(key);
+    if (started) {
+      return started;
+    }
+  }
   let pending = starting.get(key);
-  pending ??= PrivateService.start(version)
+  pending ??= start(version)
     .then((service) => {
       service.key = key;
       shared.set(key, service);
@@ -183,9 +222,9 @@ export async function acquirePrivateService(version?: string): Promise<PrivateSe
       starting.delete(key);
     });
   starting.set(key, pending);
-  await pending;
   // The child just started is taken by the same path as one found alive.
-  return acquirePrivateService(version);
+  await pending;
+  return acquireAttempt(version, start, attempt + 1);
 }
 
 /** The private child this thread holds, for tests and diagnostics. */

@@ -1185,7 +1185,7 @@ func (r *Rendering) writeFlowchartNode(w *mermaidFlowWriter, node *Node, depth i
 		fmt.Fprintf(w.b, "%s%s%s\n", indent, node.ID, mermaidNodeShape(ctx.kind, node, ctx.labels, ctx.options))
 		return
 	}
-	fmt.Fprintf(w.b, "%ssubgraph %s [%s]\n", indent, node.ID, mermaidTitleLabel(node, ctx.labels, ctx.options))
+	fmt.Fprintf(w.b, "%ssubgraph %s [%s]\n", indent, node.ID, mermaidTitleLabel(node, ctx.labels))
 	fmt.Fprintf(w.b, "%s  direction %s\n", indent, ctx.flow)
 	if anchor := w.clusterAnchors[node.ID]; anchor != "" {
 		fmt.Fprintf(w.b, "%s  %s[\" \"]\n", indent, anchor)
@@ -1217,11 +1217,11 @@ func flowchartPinID(node *Node, port Port, ports portView) string {
 func mermaidNodeShape(kind Kind, node *Node, labels labeller, options Options) string {
 	if kind == KindCase || kind == KindMixed {
 		if caseNodeKind(node.Kind) {
-			return "([" + mermaidNodeLabel(node, labels, options) + "])"
+			return "([" + mermaidNodeLabel(node, labels) + "])"
 		}
 		switch node.Kind {
 		case "actor", "subject":
-			return "[" + mermaidNodeLabel(node, labels, options) + "]"
+			return "[" + mermaidNodeLabel(node, labels) + "]"
 		case "objective":
 			return "@{ shape: notch-rect, label: \"" + labels.mermaid(node) + "\" }"
 		}
@@ -1248,9 +1248,9 @@ func mermaidNodeShape(kind Kind, node *Node, labels labeller, options Options) s
 		}
 		return `@{ shape: fork, label: "` + name + `" }`
 	case "decision", "merge", "choice":
-		name := ""
+		var name string
 		if !node.NameSynthesized && node.Name != "" {
-			name = mermaidNodeLabel(node, labels, options)
+			name = mermaidNodeLabel(node, labels)
 		} else {
 			name = `" "`
 		}
@@ -1261,25 +1261,25 @@ func mermaidNodeShape(kind Kind, node *Node, labels labeller, options Options) s
 		return `(("H*"))`
 	}
 	if itemBox(node) {
-		return `@{ shape: text, label: ` + mermaidNodeLabel(node, labels, options) + ` }`
+		return `@{ shape: text, label: ` + mermaidNodeLabel(node, labels) + ` }`
 	}
-	rounded := true
+	var rounded bool
 	if options.Style == StyleCameo {
 		rounded = cameoRounded(node.Kind)
 	} else {
 		rounded = plantumlShapeStereotype(node) == plantumlUsageStereotype
 	}
 	if rounded {
-		return "(" + mermaidNodeLabel(node, labels, options) + ")"
+		return "(" + mermaidNodeLabel(node, labels) + ")"
 	}
-	return "[" + mermaidNodeLabel(node, labels, options) + "]"
+	return "[" + mermaidNodeLabel(node, labels) + "]"
 }
 
-func mermaidNodeLabel(node *Node, labels labeller, options Options) string {
+func mermaidNodeLabel(node *Node, labels labeller) string {
 	return mermaidLabel(node, labels, labels.lines(node), false)
 }
 
-func mermaidTitleLabel(node *Node, labels labeller, options Options) string {
+func mermaidTitleLabel(node *Node, labels labeller) string {
 	return mermaidLabel(node, labels, labels.titleLines(node), true)
 }
 
@@ -1542,6 +1542,9 @@ func mermaidPictureSource(picture Picture) (string, string, bool) {
 			return "", "the source cannot be represented", false
 		}
 		return src, "", true
+	}
+	if picture.outside() {
+		return "", ErrOutsidePicture.Error(), false
 	}
 	path := picture.Path()
 	info, err := os.Stat(path)

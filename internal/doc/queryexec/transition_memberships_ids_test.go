@@ -32,8 +32,14 @@ func TestTransitionHeadMembershipsReadTheConversionIDs(t *testing.T) {
 	if got := strings.Join(elementIDs(elementID, owned), " "); got != want {
 		t.Fatalf("ownedRelationship ids = %q, want %q", got, want)
 	}
-	parameters, _ := fixture.model.ReflectiveElements(transition, "ownedFeature")
-	if got := strings.Join(elementIDs(elementID, parameters), " "); got != "Observatory__S__go_linkparam Observatory__S__go_succession Observatory__S__go_transitionlink" {
+	// The succession is owned through an OwningMembership (SysML.xtext
+	// TransitionSuccessionMember), so it is an owned member and no owned feature.
+	features, _ := fixture.model.ReflectiveElements(transition, "ownedFeature")
+	if got := strings.Join(elementIDs(elementID, features), " "); got != "Observatory__S__go_linkparam Observatory__S__go_transitionlink" {
 		t.Fatalf("ownedFeature ids = %q", got)
+	}
+	members, _ := fixture.model.ReflectiveElements(transition, "ownedMember")
+	if got := strings.Join(elementIDs(elementID, members), " "); got != "Observatory__S__go_linkparam Observatory__S__go_succession Observatory__S__go_transitionlink" {
+		t.Fatalf("ownedMember ids = %q", got)
 	}
 }

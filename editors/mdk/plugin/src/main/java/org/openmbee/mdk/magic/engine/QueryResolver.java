@@ -169,10 +169,13 @@ public final class QueryResolver {
     return model.findSymbol(id, SymbolOptions.defaults().lookup(Lookup.ELEMENT_ID));
   }
 
+  /** A bound value is the {@code FeatureValue} the parameter owns, which is where the metamodel declares it. */
   private static boolean hasValue(Model model, String parameter) {
-    for (ElementProperties.Property property : model.elementProperties(Lookup.ELEMENT_ID, parameter, "value").properties()) {
-      if (property.name().equals("value") && !property.values().isEmpty()) return true;
-    }
-    return false;
+    return model.elementProperties(Lookup.ELEMENT_ID, parameter, "ownedRelationship")
+        .get("ownedRelationship")
+        .map(ElementProperties.Property::elements)
+        .orElse(List.of())
+        .stream()
+        .anyMatch(relationship -> "FeatureValue".equals(relationship.metaclass()));
   }
 }

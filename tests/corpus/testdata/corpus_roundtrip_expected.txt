@@ -21,6 +21,7 @@ stable	general-views-demo/use-cases.sysml
 stable	general-views-demo/vehicle.sysml
 stable	gridview-relationship-matrix.sysml
 stable	mosa-demo/mosa-demo.sysml
+stable	npr7123-demo/npr7123-demo.sysml
 stable	oosem-demo/oosem-demo.sysml
 stable	orthogonal-regions-demo.sysml
 stable	parser_features_demo_action_semantics.sysml
@@ -250,7 +251,18 @@ stable	pilot-corpora/sysml-validation/17-Sequence Modeling/17b-Sequence-Modeling
 stable	pilot-corpora/sysml-validation/18-Use Case/18-Use Case.sysml
 stable	pseudostates-demo.sysml
 stable	qvts/duplicates.sysml
+stable	qvts/expected/views/ambiguous-part.sysml
+stable	qvts/expected/views/cabin-mass.sysml
+stable	qvts/expected/views/double-mass-value.sysml
+stable	qvts/expected/views/empty-selection.sysml
+stable	qvts/expected/views/inline-mass.sysml
+stable	qvts/expected/views/missing-mass-project.sysml
+stable	qvts/expected/views/misspelled-name.sysml
+stable	qvts/expected/views/oslc-cabin.sysml
+stable	qvts/expected/views/oslc-unknown-property.sysml
 stable	qvts/lander.sysml
+stable	qvts/observatory/observatory.sysml
+stable	qvts/observatory/result.sysml
 stable	qvts/queries.sysml
 stable	rdf-interop-demo.sysml
 stable	relay-probe-demo/mission.sysml
@@ -270,6 +282,7 @@ stable	self-model/execution.sysml
 stable	self-model/identity.sysml
 stable	self-model/pipeline.sysml
 stable	self-model/quality.sysml
+stable	self-model/queries.sysml
 stable	self-model/surfaces.sysml
 stable	self-model/views.sysml
 stable	semantic-layer/demo.sysml

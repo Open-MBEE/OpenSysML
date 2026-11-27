@@ -205,13 +205,16 @@ var singleCharKind = map[byte]Kind{
 }
 
 func (lx *Lexer) scanWhitespace(start int) Token {
-	for lx.pos < len(lx.src) {
-		c := lx.src[lx.pos]
+	// The run is scanned over locals: a masked REPL transcript is megabytes of it.
+	src, pos := lx.src, lx.pos
+	for pos < len(src) {
+		c := src[pos]
 		if c != ' ' && c != '\t' && c != '\r' && c != '\n' {
 			break
 		}
-		lx.pos++
+		pos++
 	}
+	lx.pos = pos
 	return Token{Kind: Whitespace, Span: lx.span(start)}
 }
 
@@ -252,8 +255,9 @@ func (lx *Lexer) scanBlockComment(start int) Token {
 // it holds.
 func (lx *Lexer) scanQuoted(start int, quote byte, kind Kind) Token {
 	lx.pos++ // opening quote
-	badEscape := false
-	lineEnd, badEscapeOnLine := -1, false
+	// escapes holds the two escape flags; atLineEnd is their state where the opening line ends.
+	var escapes, atLineEnd struct{ bad, nonstandard bool }
+	lineEnd := -1
 	for lx.pos < len(lx.src) {
 		c := lx.src[lx.pos]
 		switch {
@@ -263,28 +267,31 @@ func (lx *Lexer) scanQuoted(start int, quote byte, kind Kind) Token {
 			if lx.pos < len(lx.src) {
 				next := lx.src[lx.pos]
 				if lineEnd < 0 && (next == '\n' || next == '\r') {
-					lineEnd, badEscapeOnLine = lx.pos, badEscape
+					lineEnd, atLineEnd = lx.pos, escapes
 				}
-				if !source.IsEscapeChar(next) {
-					badEscape = true
+				switch {
+				case !source.IsEscapeChar(next):
+					escapes.bad = true
+				case !source.IsStandardEscapeChar(next):
+					escapes.nonstandard = true
 				}
 				lx.pos++
 			}
 		case c == quote:
 			lx.pos++ // closing quote
-			return Token{Kind: kind, Span: lx.span(start), BadEscape: badEscape}
+			return Token{Kind: kind, Span: lx.span(start), BadEscape: escapes.bad, NonstandardEscape: escapes.nonstandard}
 		default:
 			if lineEnd < 0 && (c == '\n' || c == '\r') {
-				lineEnd, badEscapeOnLine = lx.pos, badEscape
+				lineEnd, atLineEnd = lx.pos, escapes
 			}
 			lx.pos++
 		}
 	}
 	// reached EOF without closing quote
 	if lineEnd >= 0 {
-		lx.pos, badEscape = lineEnd, badEscapeOnLine
+		lx.pos, escapes = lineEnd, atLineEnd
 	}
-	return Token{Kind: kind, Span: lx.span(start), Unterminated: true, BadEscape: badEscape}
+	return Token{Kind: kind, Span: lx.span(start), Unterminated: true, BadEscape: escapes.bad, NonstandardEscape: escapes.nonstandard}
 }
 
 // consumeUntilStarSlash advances until it consumes a closing "*/", reporting

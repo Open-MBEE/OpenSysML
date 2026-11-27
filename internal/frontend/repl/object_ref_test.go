@@ -199,6 +199,135 @@ func TestDotWalksFeaturesNotDeclarations(t *testing.T) {
 	wants(t, run(t, s, "%features Nope.fl"), "error: unresolved reference: Nope")
 }
 
+// A name that stops resolving inside a package is unresolved: the package holds
+// members and is never an object, so the error is not that it lacks an instance.
+func TestUnknownPackageMemberIsUnresolved(t *testing.T) {
+	s := garage(t)
+	for _, cmd := range []string{"%validate", "%features"} {
+		wants(t, run(t, s, cmd+" Garage::Nope"), "error: unresolved reference: Garage::Nope")
+		wants(t, run(t, s, cmd+" Garage::Nope.fl"), "error: unresolved reference: Garage::Nope")
+		wants(t, run(t, s, cmd+" Garage::Nope::fl"), "error: unresolved reference: Garage::Nope::fl")
+		// A declared member still asks for its object, and a definition's unknown
+		// member still names the definition, which an object can be created of.
+		wants(t, run(t, s, cmd+" Garage::car"), `error: no instance of "Garage::car"`)
+		wants(t, run(t, s, cmd+" Garage::Car::nope"), `error: no instance of "Garage::Car"`)
+	}
+}
+
+// The same holds for a package a definition owns: its unknown member is
+// unresolved whether or not the definition has an object.
+func TestUnknownMemberOfPackageInDefinitionIsUnresolved(t *testing.T) {
+	s := submitted(t, `package Garage {
+	part def Car {
+		package Kit {
+			part jack;
+		}
+		part engine;
+	}
+	part car : Car;
+}`)
+	unresolved := func() {
+		t.Helper()
+		wants(t, run(t, s, "%validate Garage::Car::Kit::Nope"), "error: unresolved reference: Garage::Car::Kit::Nope")
+		wants(t, run(t, s, "%validate Garage::Car::Kit::Nope.x"), "error: unresolved reference: Garage::Car::Kit::Nope")
+	}
+	unresolved()
+	wants(t, run(t, s, "%validate Garage::Car::Kit::jack"), `error: no instance of "Garage::Car::Kit::jack"`)
+	run(t, s, "%instantiate car")
+	unresolved()
+}
+
+// A held object is walked from, as before: what follows its name is a path of
+// its features, and a package it owns or inherits is not one.
+func TestPackageMemberUnderHeldObjectIsNoFeature(t *testing.T) {
+	s := submitted(t, `package Garage {
+	part def Car {
+		package Kit {
+			part jack;
+		}
+		part engine;
+	}
+	part car : Car;
+}`)
+	run(t, s, "%instantiate car")
+	wants(t, run(t, s, "%validate Garage::car::Kit"), `error: Garage::car has no feature "Kit"`)
+	wants(t, run(t, s, "%validate Garage::car::Kit::Nope"), `error: Garage::car has no feature "Kit"`)
+	run(t, s, "%instantiate Garage::Car")
+	wants(t, run(t, s, "%validate Garage::Car::Kit::Nope"), `error: Garage::Car has no feature "Kit"`)
+}
+
+// TestPackageMemberUnderUnheldDeclarationIsUnresolved: a package a declaration
+// owns or inherits only encloses an unknown name, whatever else holds an object.
+func TestPackageMemberUnderUnheldDeclarationIsUnresolved(t *testing.T) {
+	roots := []string{"Garage::car", "Garage::truck", "Garage::Truck"}
+	for _, held := range [][]string{
+		{"Garage::car"}, {"Garage::Car"}, {"Garage::car", "Garage::Car"},
+		{"Garage::truck"}, {"Garage::Truck"}, {"Garage::spare"},
+	} {
+		s := submitted(t, `package Garage {
+	part def Car {
+		package Kit {
+			part jack;
+			package Deep {
+				part bolt;
+			}
+		}
+		part engine;
+	}
+	part def Truck :> Car;
+	part car : Car;
+	part truck : Truck;
+	part spare;
+}`)
+		for _, name := range held {
+			run(t, s, "%instantiate "+name)
+		}
+		for _, root := range roots {
+			if slices.Contains(held, root) {
+				continue
+			}
+			for _, rest := range []string{"::Kit::Nope", "::Kit::Deep::Nope"} {
+				wants(t, run(t, s, "%validate "+root+rest), "error: unresolved reference: "+root+rest)
+			}
+			// A member the package does declare is the declaration lacking an object.
+			wants(t, run(t, s, "%validate "+root+"::Kit::jack"), `no instance of the usage "Garage::Car::Kit::jack"`)
+			wants(t, run(t, s, "%validate "+root+"::engine::Nope"), `no instance of the usage "Garage::Car::engine"`)
+		}
+	}
+}
+
+// A quoted segment holding `::` is one member of the type it is inherited from,
+// not a path through the member its first half names.
+func TestQuotedInheritedMemberIsOneName(t *testing.T) {
+	fleet := func(held ...string) *Session {
+		s := submitted(t, `package Fleet {
+	part def Drive {
+		part motor;
+	}
+	part def Car {
+		part drive : Drive;
+		part 'drive::motor';
+	}
+	part car : Car;
+}`)
+		for _, name := range held {
+			run(t, s, "%instantiate "+name)
+		}
+		return s
+	}
+
+	s := fleet("Fleet::Drive::motor")
+	wants(t, run(t, s, "%validate Fleet::car::'drive::motor'"), `no instance of the usage "Fleet::Car::'drive::motor'"`)
+	wants(t, run(t, s, "%validate Fleet::car::'drive::motor'::nowhere"), `no instance of the usage "Fleet::Car::'drive::motor'"`)
+	wants(t, run(t, s, "%validate Fleet::car::drive::motor::nowhere"), `error: Fleet::Drive::motor has no feature "nowhere"`)
+
+	s = fleet("Fleet::Car::'drive::motor'")
+	wants(t, run(t, s, "%validate Fleet::car::'drive::motor'::nowhere"), `error: Fleet::Car::'drive::motor' has no feature "nowhere"`)
+
+	s = fleet("Fleet::car", "Fleet::Drive::motor")
+	wants(t, run(t, s, "%validate Fleet::car::'drive::motor'::nowhere"), `error: Fleet::car.'drive::motor' has no feature "nowhere"`)
+}
+
 // A multi-valued feature is walked by a 1-based index; leaving the index out, or
 // giving one that names no element, says how many there are.
 func TestMultiValuedFeatureNeedsIndex(t *testing.T) {

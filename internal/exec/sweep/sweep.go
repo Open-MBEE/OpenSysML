@@ -6,6 +6,7 @@ import (
 	"math"
 	"math/bits"
 	"math/rand/v2"
+	"strings"
 	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
@@ -385,6 +386,10 @@ func bigSweepScalar(what string) error {
 func sweepScalarOf(v runtime.Value, what string) (sweepScalar, error) {
 	switch v.Kind {
 	case runtime.ValConst:
+		if v.Const.IsInfinite() {
+			// An infinity is a number no sequence of values runs to.
+			return sweepScalar{}, fmt.Errorf("%w: %s is not a finite number", ErrSweepRange, what)
+		}
 		if !v.Const.IsNumeric() {
 			return sweepScalar{}, fmt.Errorf("%w: %s is %s, not a number",
 				ErrSweepRange, what, semantics.FormatConst(v.Const))
@@ -920,7 +925,6 @@ func ResolvePlan(ctx *runtime.Context, sym *symbols.Symbol, plan SweepPlan, posi
 	if err != nil {
 		return SweepPlan{}, err
 	}
-	declared := parameterNames(params)
 	bound := make(map[string]bool, len(named)+positional)
 	for _, name := range named {
 		bound[name] = true
@@ -936,8 +940,8 @@ func ResolvePlan(ctx *runtime.Context, sym *symbols.Symbol, plan SweepPlan, posi
 	for i, r := range plan.Ranges {
 		param := parameterNamed(params, r.Param)
 		if param == nil {
-			return SweepPlan{}, fmt.Errorf("%w: %s declares no input parameter %q (it declares %v)",
-				ErrSweepParameter, ctx.QualifiedName(sym), r.Param, declared)
+			return SweepPlan{}, fmt.Errorf("%w: %s declares no input parameter %q (it declares %s)",
+				ErrSweepParameter, ctx.QualifiedName(sym), r.Param, declaredNames(params))
 		}
 		if param.IsSubject {
 			return SweepPlan{}, fmt.Errorf("%w: %s is the subject of %s, which an object binds, not a range",
@@ -1013,11 +1017,15 @@ func positionalOrder(params []runtime.Parameter, analysis bool, named map[string
 	return names
 }
 
-// parameterNames is the parameters the target declares, in declaration order.
-func parameterNames(params []runtime.Parameter) []string {
+// declaredNames lists the parameters the target declares, in declaration order,
+// as a refusal names them.
+func declaredNames(params []runtime.Parameter) string {
+	if len(params) == 0 {
+		return "none"
+	}
 	names := make([]string, 0, len(params))
 	for i := range params {
 		names = append(names, params[i].Name)
 	}
-	return names
+	return strings.Join(names, ", ")
 }

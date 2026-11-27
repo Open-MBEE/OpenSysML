@@ -555,6 +555,8 @@ are always projectable:
 | `qualifiedName`, `@id` | The fully-qualified name |
 | `owner` | The owner's qualified name |
 | `@type` | The metamodel type (`PartUsage`, ...) |
+| `symbolKind` | The symbol kind (`partUsage`, `stateDef`, ...), present on every row |
+| `text` | A requirement's text: the body of each `doc` it owns, in declaration order; absent when it states none |
 | `type` | The declared type's qualified name |
 | `general` | The types a definition specializes or a usage is typed by, in declaration order, each the element itself — printed by name and, in HTML, linked and carrying its qualified name in `data-element`; absent when it specializes none |
 | `isAbstract` | Boolean |
@@ -916,8 +918,9 @@ is quoted, as in the notation. In a `properties`/`property` string a feature
 whose own name contains a period is read by that name first, the path only
 the fallback. A row lacking a segment entirely makes the
 path absent on that row — an empty cell, or a `??` default — and the path is
-an unknown-property error only when no row reaches it; a member the path
-finds that declares no value is an empty cell, and a multi-valued member
+an unknown-property error only when no row reaches it; a segment the row has
+that holds no element — `ownedMember` of a definition with no members — is an
+empty cell, as is a member the path finds that declares no value, and a multi-valued member
 fills the cell with all of its values — more than its multiplicity admits
 fails the column as a direct feature column does. The same path works as a `properties`
 or `property` string (`"stat.runs"`), and `OrderBy` sorts by it. This is how

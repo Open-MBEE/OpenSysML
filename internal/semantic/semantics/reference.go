@@ -59,6 +59,19 @@ func (m *Model) ReferencedFeature(sym *symbols.Symbol) *symbols.Symbol {
 	return out
 }
 
+// shorthandReference is the feature sym reference-subsets by being stated as its name alone, with no
+// clause: a referenced constraint (`require r;`) or a bare `variant x;` (SysML.xtext OwnedReference).
+func (m *Model) shorthandReference(sym *symbols.Symbol) *symbols.Symbol {
+	if sym.Recorded() {
+		return nil
+	}
+	usage, isUsage := sym.Decl.(*ast.Usage)
+	if ast.ConstraintReferenceOf(sym.Decl) == nil && !(isUsage && usage.IsVariantReference() && usage.ReferenceSubsetting() == nil) {
+		return nil
+	}
+	return m.ReferencedFeature(sym)
+}
+
 // ReferencedFeatureChain is the features sym's reference subsetting names and the node writing them:
 // the chaining features of a chain (`x.p`, KerML 8.3.3.3.2), outermost first, else the one feature.
 func (m *Model) ReferencedFeatureChain(sym *symbols.Symbol) ([]*symbols.Symbol, ast.Node) {
@@ -83,6 +96,9 @@ func (m *Model) ReferencedFeatureChain(sym *symbols.Symbol) ([]*symbols.Symbol, 
 // that clause outside its relationship list when it is written with the
 // `references` keyword, so it is asked for its own.
 func referenceSubsettingTarget(sym *symbols.Symbol) ast.Node {
+	if target := MessageEndReference(sym); target != nil {
+		return target
+	}
 	switch decl := sym.Decl.(type) {
 	case *ast.ConnectorEnd:
 		return decl.AttachedTarget()
@@ -108,10 +124,22 @@ func referenceSubsettingTarget(sym *symbols.Symbol) ast.Node {
 // feature of the connector's owner, so it resolves one scope out — the same
 // scope the document walk uses (resolve/document.go).
 func referenceScope(sym *symbols.Symbol) *symbols.Scope {
-	if _, ok := sym.Decl.(*ast.ConnectorEnd); ok && sym.OwnerScope != nil {
+	if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionConnectorEnd {
+		// A transition succession's end is synthesized with the scope its target
+		// is written in: the transition's owner's (SysML.xtext TransitionSuccession).
+		return sym.OwnerScope
+	}
+	if sym.Kind == symbols.SymbolConnectorEnd && sym.OwnerScope != nil {
 		return sym.OwnerScope.Parent()
 	}
 	return sym.OwnerScope
+}
+
+// attachesEnd reports whether sym is a connector end, written (`connect a to b`),
+// whose target is what it reference-subsets.
+func attachesEnd(sym *symbols.Symbol) bool {
+	_, ok := sym.Decl.(*ast.ConnectorEnd)
+	return ok
 }
 
 // MemberSources returns the symbols whose scopes contribute members to sym, in
@@ -158,6 +186,23 @@ func (m *Model) MemberSources(sym *symbols.Symbol) []*symbols.Symbol {
 		m.memberSources[sym] = order
 	}
 	return order
+}
+
+// SpecializesThroughReferences reports whether t specializes f once reference
+// subsetting counts as the subsetting it is (KerML 8.3.3.3.9), as featuring does.
+func (m *Model) SpecializesThroughReferences(t, f *symbols.Symbol) bool {
+	if t == nil || f == nil {
+		return false
+	}
+	if t == f || m.Conforms(t, f) {
+		return true
+	}
+	for _, src := range m.MemberSources(t) {
+		if src == f || m.Conforms(src, f) {
+			return true
+		}
+	}
+	return false
 }
 
 // lookupSources is MemberSources in name-lookup order: each contributor and

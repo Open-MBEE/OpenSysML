@@ -30,7 +30,7 @@ var runToCompletionFeatureFQNs = map[string]string{
 // body targets, an alias followed to what it names, and tells the library's own
 // declarations from a model's spelled like them.
 type StateRedefinitionResolver interface {
-	RedefinitionTarget(scope *symbols.Scope, decl ast.Node, target ast.Node) (*symbols.Symbol, bool)
+	RedefinitionTarget(scope *symbols.Scope, decl, target ast.Node) (*symbols.Symbol, bool)
 	LibraryFeature(sym *symbols.Symbol) bool
 }
 
@@ -232,7 +232,7 @@ func (g *StateGraph) declaredScope(state *ast.StateNode, decl runToCompletionDec
 	if FeaturePath(decl.usage.Value) == "self" {
 		return state, nil
 	}
-	scope, err := g.scopeState(state, decl)
+	scope, err := g.scopeState(decl)
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +252,7 @@ func (g *StateGraph) declaredScope(state *ast.StateNode, decl runToCompletionDec
 }
 
 // scopeState resolves a scope declaration to the machine or a state vertex.
-func (g *StateGraph) scopeState(state *ast.StateNode, decl runToCompletionDecl) (*ast.StateNode, error) {
+func (g *StateGraph) scopeState(decl runToCompletionDecl) (*ast.StateNode, error) {
 	if named, ok := g.endpoints.Endpoint(decl.scope, decl.usage.Value); ok && named == g.machineDecl {
 		return nil, nil
 	}

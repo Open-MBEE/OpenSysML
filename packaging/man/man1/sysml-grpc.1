@@ -43,6 +43,11 @@ Comma\-separated exact origins allowed for browser CORS
 Exit at end of file on stdin, so a child cannot outlive the process that holds
 the write end of a pipe on it, SIGKILL included
 .TP
+.BI \-file\-root " value"
+Directory the files a request names by path (file_path, layout_path) must lie
+under, relative paths taken from it; without it the service reads any path its
+own privileges reach
+.TP
 .BI \-health\-port " int"
 Health check HTTP port. The default is 8081.
 .TP
@@ -57,6 +62,10 @@ Log level (debug, info, warn, error). The default is info.
 .TP
 .B \-man
 Write this command's manual page, in roff, to stdout and exit
+.TP
+.B \-no\-record\-cache
+Analyze every model parsed, reading no model record from the record cache and
+writing none; default off, or OPENSYSML_RECORD_CACHE=0
 .TP
 .BI \-oidc\-audience " string"
 Audience (aud) a token must name to be accepted; default the URL the service

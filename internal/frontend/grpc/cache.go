@@ -115,16 +115,14 @@ type CachedModel struct {
 	// elementId, which a query reports (queryEval.elementID).
 	elementIDsOnce sync.Once
 	elementIDs     *export.ElementIDReader
+	// elementReaderValue evaluates the metamodel over the model's symbols for
+	// GetElementProperties, built on first use.
+	elementReaderOnce  sync.Once
+	elementReaderValue *elementReader
 	// propertyTable is the reflective property table the query translator
 	// reads, built once per model.
 	queryTableOnce sync.Once
 	propertyTable  *querytranslate.Table
-	// elementForm is the model's API element form, which GetElementProperties
-	// reads per element, from one conversion made on first use; a model the
-	// conversion refuses keeps the refusal.
-	elementFormOnce sync.Once
-	elementForm     *export.ElementForm
-	elementFormErr  error
 
 	// idle are the workers requests have given back, warm with what they resolved.
 	idleMu sync.Mutex
@@ -312,6 +310,14 @@ func (m *CachedModel) ResolveQualifiedMemberName(name string) []*symbols.Symbol 
 	sc := m.SymbolContext()
 	defer sc.Lock()()
 	return sc.ResolveMemberName(name)
+}
+
+// ResolveMemberSegments resolves the segments of a qualified name from the root, an alias answered
+// as its membership, under the symbol context's lock: no segment is spelled and read again.
+func (m *CachedModel) ResolveMemberSegments(segments []string) []*symbols.Symbol {
+	sc := m.SymbolContext()
+	defer sc.Lock()()
+	return sc.Resolver.ResolveGlobalMembers(segments)
 }
 
 // LookupElementID finds the element the service reports under an id and nothing else

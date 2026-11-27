@@ -4,10 +4,12 @@
 import { Code, ConnectError } from "@connectrpc/connect";
 import {
   AuthenticationError,
+  ClosedConnectionError,
   InvalidRequestError,
   ModelFileNotFoundError,
   ModelNotFoundError,
   OpenSysMLError,
+  ServiceCancelledError,
   ServiceError,
   ServiceTimeoutError,
   ServiceUnavailableError,
@@ -52,7 +54,7 @@ const CODE_ERRORS = new Map<Code, ServiceErrorClass>([
   [Code.FailedPrecondition, InvalidRequestError],
   [Code.OutOfRange, InvalidRequestError],
   [Code.DeadlineExceeded, ServiceTimeoutError],
-  [Code.Canceled, ServiceTimeoutError],
+  [Code.Canceled, ServiceCancelledError],
   [Code.Unavailable, ServiceUnavailableError],
   [Code.Unimplemented, UnsupportedOperationError],
   [Code.Unauthenticated, AuthenticationError],
@@ -83,6 +85,10 @@ export function fromRpcError(
     return error;
   }
   const connectError = ConnectError.from(error);
+  // A call cancelled by closing its connection failed for that, not for a deadline.
+  if (connectError.code === Code.Canceled && connectError.cause instanceof ClosedConnectionError) {
+    return connectError.cause;
+  }
   const status = statusName(connectError.code);
   const message =
     connectError.rawMessage === ""

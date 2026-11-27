@@ -118,7 +118,7 @@ func (h *constraintStmtHost) performNode(engine *stmtEngine, graph *lower.Action
 		}
 		nestedOrder, nestedExprs = graph.StatementOrders[node], sub.Graph.Exprs
 	}
-	engine.env.enter(engine)
+	engine.env.enter()
 	defer engine.env.leave(engine.ctx, true)
 	defer engine.enterActivation()()
 	for _, feature := range graph.Features[node] {
@@ -167,6 +167,9 @@ func (h *constraintStmtHost) occurrence() *Instance { return nil }
 
 // materializeOccurrence is nil for the same reason occurrence is.
 func (h *constraintStmtHost) materializeOccurrence() (*Instance, error) { return nil, nil }
+
+// caseAssertions is nil: a constraint body is no step of a case.
+func (h *constraintStmtHost) caseAssertions() *caseAssertions { return nil }
 
 // runConstraintSteps runs the body's steps as one performance in a fresh frame:
 // the check's frames and bindings enclose it, the constraint's parameters are

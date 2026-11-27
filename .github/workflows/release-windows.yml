@@ -56,6 +56,9 @@ env:
   MSI_SBOM_ARTIFACT: windows-msi-sbom
   SIGNED_MSI_SBOM_ARTIFACT: windows-msi-signed-sbom
   WIX_VERSION: 5.0.2
+  # CircleCI publishes the release only after its whole suite passed on the tag,
+  # which has come within minutes of the script's 90-minute default.
+  RELEASE_GATE_TIMEOUT: 10800
 
 jobs:
   build:
@@ -69,7 +72,7 @@ jobs:
       sign: ${{ steps.gate.outputs.sign }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.tag || github.ref }}
 
@@ -227,13 +230,13 @@ jobs:
     steps:
       # No checkout: the tagged tree holds paths Windows cannot check out; the build job ships what the MSI needs.
       - name: Download the MSI packaging inputs
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ${{ env.MSI_INPUTS_ARTIFACT }}
           path: .
 
       - name: Download the unsigned binaries
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ${{ env.UNSIGNED_ARTIFACT }}
           path: dist/unsigned
@@ -241,7 +244,7 @@ jobs:
       # The SBOM the build job wrote from the installer's inputs, published
       # beside it under its name and listed with its digest.
       - name: Download the installer's SBOM
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ${{ env.MSI_SBOM_ARTIFACT }}
           path: dist/release
@@ -280,17 +283,17 @@ jobs:
     needs: [build, msi]
     if: (github.ref_type == 'tag' || inputs.tag != '') && needs.build.outputs.sign != 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 200
     permissions:
       contents: write
     steps:
       - name: Check out repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.tag || github.ref }}
 
       - name: Download the unsigned MSI
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ${{ env.UNSIGNED_MSI_ARTIFACT }}
           path: dist/release
@@ -304,7 +307,7 @@ jobs:
         run: scripts/wait-for-release-gate.sh "$TAG" "$COMMIT"
 
       - name: Upload the unsigned MSI to the GitHub Release
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
         with:
           tag_name: ${{ needs.build.outputs.version }}
           files: dist/release/*
@@ -318,12 +321,14 @@ jobs:
     needs: build
     if: needs.build.outputs.sign == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 330
+    # GitHub's ceiling for a hosted job: the gate wait and the approval wait
+    # below share it.
+    timeout-minutes: 360
     outputs:
       artifact-id: ${{ steps.upload.outputs.artifact-id }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.tag || github.ref }}
 
@@ -344,7 +349,7 @@ jobs:
 
       - name: Submit the signing request to SignPath
         id: signpath
-        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3.0
+        uses: signpath/github-action-submit-signing-request@a2c5b60d9c75f073142b653c354b632eedce097b # v3.2
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
           organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
@@ -424,7 +429,7 @@ jobs:
     steps:
       # No checkout: the tagged tree holds paths Windows cannot check out; the build job ships what the MSI needs.
       - name: Download the MSI packaging inputs
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ${{ env.MSI_INPUTS_ARTIFACT }}
           path: .
@@ -439,7 +444,7 @@ jobs:
           fi
 
       - name: Download the signed binaries
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ${{ env.SIGNED_EXE_ARTIFACT }}
           path: dist/signed
@@ -471,7 +476,7 @@ jobs:
       - name: Submit the MSI signing request to SignPath
         # The MSI artifact configuration must sign only the MSI itself: the
         # .exe files inside are already signed and z3.exe must stay unsigned.
-        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3.0
+        uses: signpath/github-action-submit-signing-request@a2c5b60d9c75f073142b653c354b632eedce097b # v3.2
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
           organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
@@ -509,13 +514,13 @@ jobs:
       contents: write
     steps:
       - name: Download the signed binaries
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ${{ env.SIGNED_EXE_ARTIFACT }}
           path: dist/signed
 
       - name: Download the signed MSI
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: windows-amd64-msi-signed
           path: dist/release
@@ -523,7 +528,7 @@ jobs:
       # Its SBOM, written by the sign job from the executables SignPath signed
       # and the pinned Z3, under the signed installer's name.
       - name: Download the signed installer's SBOM
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ${{ env.SIGNED_MSI_SBOM_ARTIFACT }}
           path: dist/release
@@ -531,7 +536,7 @@ jobs:
       # No checkout here either; the LICENSE the sysml-mcp zip carries comes
       # from the packaging inputs the build job uploaded.
       - name: Download the MSI packaging inputs
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ${{ env.MSI_INPUTS_ARTIFACT }}
           path: .
@@ -574,7 +579,7 @@ jobs:
 
       - name: Upload signed assets to the GitHub Release
         if: github.ref_type == 'tag' || inputs.tag != ''
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
         with:
           tag_name: ${{ needs.build.outputs.version }}
           files: dist/release/*

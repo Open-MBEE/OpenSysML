@@ -1,6 +1,7 @@
 package symbols
 
 import (
+	"maps"
 	"slices"
 	"sort"
 	"strings"
@@ -117,6 +118,21 @@ type Index struct {
 	dirtyNS     map[string]nsChange
 	lastTargets *layer[string, []resolvedImport]
 
+	// cyclic maps a namespace to the ones it is on a cycle of wildcard imports
+	// with, itself included, in name order.
+	cyclic *layer[string, []string]
+	// nsOrder levels the namespaces so that none reads one above it. Like noted
+	// it is replaced, never written, so an overlay shares its base's.
+	nsOrder map[string]int
+	// noted is the import graph the cycles were last recorded from: each importer
+	// with the namespaces its imports read.
+	noted map[string][]string
+	// readers is noted reversed: each namespace with the importers reading it.
+	readers map[string][]string
+	// expanded holds the importers expanded, or left without imports, since the
+	// cycles were last recorded.
+	expanded map[string]*expansionReads
+
 	// libraryDocs names the documents that hold bundled library content rather
 	// than the workspace's own, with the tier and text digest of each, and
 	// librarySyms the symbols they declare, so a consumer can tell a library name
@@ -166,6 +182,18 @@ type Index struct {
 type reexportClaim struct {
 	public bool
 	routes []gateRoute
+	// hops are the imports that surfaced the name, each naming the namespace it
+	// read: what a lookup excluding namespaces walks (see openRoutes).
+	hops []importHop
+}
+
+// importHop is one import that surfaced a name: the namespace it read the name
+// from, whether it reads that one's private memberships, and what it adds.
+type importHop struct {
+	from    string
+	private bool
+	all     bool
+	filters []ElementFilter
 }
 
 // gateRoute is one route a name reached a namespace by: the conditions it
@@ -175,6 +203,9 @@ type reexportClaim struct {
 type gateRoute struct {
 	private bool
 	filters []ElementFilter
+	// via names the namespaces the route does not continue into (KerML 8.3.2.4.5):
+	// those on a cycle with its holder that declare the name or held it privately.
+	via []string
 }
 
 // nsChange is what happened to a namespace's direct members since the last
@@ -221,6 +252,7 @@ func NewIndex() *Index {
 		bySegment:     newLayer[string, []string](gen),
 		dirtyNS:       make(map[string]nsChange),
 		lastTargets:   newLayer[string, []resolvedImport](gen),
+		cyclic:        newLayer[string, []string](gen),
 		libraryDocs:   newLayer[string, LibraryDocument](gen),
 		librarySyms:   newLayer[*Symbol, LibraryTier](gen),
 		nsFilters:     newLayer[string, map[string][]ElementFilter](gen),
@@ -332,7 +364,10 @@ func (idx *Index) Derived(key any, build func() any) any {
 	if !idx.frozen || idx.derived == nil {
 		return build()
 	}
-	value, _ := idx.derived.values.LoadOrStore(key, &derivedValue{})
+	value, ok := idx.derived.values.Load(key)
+	if !ok {
+		value, _ = idx.derived.values.LoadOrStore(key, &derivedValue{})
+	}
 	cached := value.(*derivedValue)
 	cached.once.Do(func() { cached.value = build() })
 	return cached.value
@@ -379,6 +414,10 @@ func NewOverlay(base *Index) *Index {
 		bySegment:     overLayer(base.bySegment, gen),
 		dirtyNS:       make(map[string]nsChange),
 		lastTargets:   overLayer(base.lastTargets, gen),
+		cyclic:        overLayer(base.cyclic, gen),
+		nsOrder:       base.nsOrder,
+		noted:         base.noted,
+		readers:       base.readers,
 		libraryDocs:   overLayer(base.libraryDocs, gen),
 		librarySyms:   overLayer(base.librarySyms, gen),
 		nsFilters:     overLayer(base.nsFilters, gen),
@@ -494,6 +533,18 @@ func (idx *Index) setWildcardImports(pkgFQN, doc string, imports []WildcardImpor
 func (idx *Index) ExpandWildcardImports() {
 	idx.mustBeWritable("ExpandWildcardImports")
 	defer idx.settleSegments()
+	// A route names the namespaces on a cycle with its holder, so the importers
+	// whose cycle moved are derived again once the expansion has settled.
+	for settles := 0; ; settles++ {
+		idx.expandToFixpoint()
+		if settles == expansionRounds || !idx.settleImportCycles() {
+			return
+		}
+	}
+}
+
+// expandToFixpoint expands until no importer is left to bring up to date.
+func (idx *Index) expandToFixpoint() {
 	for round := 0; round < expansionRounds; round++ {
 		if !idx.expandRound(false) {
 			return
@@ -650,6 +701,28 @@ func sameImports(a, b []resolvedImport) bool {
 	return true
 }
 
+// expansionReads is what an importer read since the import cycles were recorded.
+type expansionReads struct {
+	read []string
+	// dropped is set once its re-exports were dropped, and anew when a re-export
+	// may have gone by itself: what it reads is then listed from its re-exports.
+	dropped, anew bool
+}
+
+// noteExpanded returns the record of what importer read since the cycles were
+// recorded, which marks it to be recorded again.
+func (idx *Index) noteExpanded(importer string) *expansionReads {
+	if idx.expanded == nil {
+		idx.expanded = make(map[string]*expansionReads)
+	}
+	reads := idx.expanded[importer]
+	if reads == nil {
+		reads = &expansionReads{}
+		idx.expanded[importer] = reads
+	}
+	return reads
+}
+
 // expandImporter re-exports the visible members of every namespace pkgFQN's
 // imports name, attributing each to the document whose import surfaced it.
 //
@@ -657,10 +730,16 @@ func sameImports(a, b []resolvedImport) bool {
 // name what an earlier one in the same namespace brought in, as P's
 // `import Shared::*` names the P::Shared that its `import Outer::*` re-exported.
 func (idx *Index) expandImporter(pkgFQN string) {
-	for _, imp := range idx.imports(pkgFQN) {
+	stated := idx.imports(pkgFQN)
+	cycle := idx.cyclic.at(pkgFQN)
+	reads := idx.noteExpanded(pkgFQN)
+	for _, imp := range stated {
 		targetFQN := idx.resolveWildcardTarget(pkgFQN, imp.target)
 		if targetFQN == "" {
 			continue // target not found or ambiguous
+		}
+		if targetFQN == pkgFQN {
+			continue // the importing namespace is excluded from its own imports (KerML 8.3.2.4.6)
 		}
 		// The conditions this import adds: its own filter clause, and the `filter`
 		// members of the namespace it imports into, which restrict that namespace's
@@ -668,17 +747,20 @@ func (idx *Index) expandImporter(pkgFQN string) {
 		// suppressing it, because whether a candidate satisfies them is a question
 		// only the semantic model can answer.
 		gate := nonZeroFilters(append([]ElementFilter{imp.filter}, idx.namespaceFiltersGating(pkgFQN, imp.doc)...))
-		direct := [][]ElementFilter{gate}
+		// One slice serves every claim this import makes: a claim never writes it.
+		hop := []importHop{{from: targetFQN, private: imp.private, all: imp.all, filters: gate}}
+		reads.read = append(reads.read, targetFQN)
+		direct := []gateRoute{{filters: gate, via: viaOnCycle(cycle, nil, targetFQN, true)}}
 		for _, child := range idx.importedChildren(targetFQN, imp.all) {
 			// Extract child's primary name
 			childName := LastSegment(child.Name)
-			idx.reexportGated(joinFQN(pkgFQN, childName), child, imp.doc, imp.private,
-				idx.routesOnward(imp.doc, targetFQN, childName, child, direct, imp.all))
+			idx.reexportGated(joinFQN(pkgFQN, childName), child, imp.doc, hop,
+				idx.routesOnward(pkgFQN, cycle, direct, takenName{targetFQN, childName, child}, gate, imp.all))
 
 			// Also re-export under short name if different from primary name
 			if child.HasShortName() && child.ShortName != childName {
-				idx.reexportGated(joinFQN(pkgFQN, child.ShortName), child, imp.doc, imp.private,
-					idx.routesOnward(imp.doc, targetFQN, child.ShortName, child, direct, imp.all))
+				idx.reexportGated(joinFQN(pkgFQN, child.ShortName), child, imp.doc, hop,
+					idx.routesOnward(pkgFQN, cycle, direct, takenName{targetFQN, child.ShortName, child}, gate, imp.all))
 			}
 		}
 	}
@@ -963,6 +1045,7 @@ func (idx *Index) removeDocument(name string, expand bool) {
 			idx.wildcardMeta.del(pkgFQN)
 		}
 		idx.lastTargets.del(pkgFQN) // its import set changed: expand it again
+		idx.noteExpanded(pkgFQN).anew = true
 		idx.changedNamespace(pkgFQN)
 	}
 
@@ -1125,6 +1208,9 @@ func (idx *Index) purgeAllReexports() {
 	for _, key := range idx.reexportDocs.keys() {
 		idx.purgeReexport(key)
 	}
+	for _, importer := range idx.lastTargets.keys() {
+		idx.noteExpanded(importer).anew = true
+	}
 	idx.lastTargets.clear()
 }
 
@@ -1132,6 +1218,8 @@ func (idx *Index) purgeAllReexports() {
 // whichever documents claim it. What the surviving documents' imports still
 // support is re-derived by the following expansion.
 func (idx *Index) purgeReexportsUnder(pkgFQN string) {
+	reads := idx.noteExpanded(pkgFQN)
+	reads.read, reads.dropped = nil, true
 	for _, fqn := range idx.childKeys(pkgFQN) {
 		for _, sym := range idx.reexportedAt(fqn) {
 			idx.purgeReexport(reexportKey{fqn: fqn, sym: sym})
@@ -1145,39 +1233,92 @@ func (idx *Index) reexportedAt(fqn string) []*Symbol {
 	return slices.Clone(idx.reexported.at(fqn))
 }
 
-// reexport registers sym under fqn on behalf of a wildcard import doc states,
-// recording the claim so that removing doc can take it back. An entry the
-// importing namespace declares itself is left alone: a cycle of wildcard imports
-// brings a package its own members back, and they are not borrowed.
-// routesOnward composes the conditions already gating a name inside the
-// namespace it is imported from — sourceFQN::name, where an earlier import
-// surfaced it — with the ones this import adds. A filter therefore keeps holding
-// when a further namespace imports the filtering one onward, and the target's
-// several routes each stay a route of their own. direct holds this import's
-// gate alone, the routes of a name nothing gated on the way in.
-func (idx *Index) routesOnward(doc, sourceFQN, name string, sym *Symbol, direct [][]ElementFilter, all bool) [][]ElementFilter {
+// viaOnCycle keeps of via, and of source when the name was held privately there,
+// the namespaces on cycle: only those can be read again from the importer.
+func viaOnCycle(cycle, via []string, source string, held bool) []string {
+	if len(cycle) == 0 {
+		return nil
+	}
+	var kept []string
+	for _, ns := range via {
+		if _, on := slices.BinarySearch(cycle, ns); on {
+			kept = append(kept, ns)
+		}
+	}
+	if _, on := slices.BinarySearch(cycle, source); held && on {
+		kept = append(kept, source)
+	}
+	return kept
+}
+
+// takenName is a symbol an import takes: the namespace it is taken from and the name it has there.
+type takenName struct {
+	source, name string
+	sym          *Symbol
+}
+
+// routesOnward returns the routes by which an import into importer, gated by
+// gate, takes sourceFQN::name: its own, or each route that surfaced it continued.
+func (idx *Index) routesOnward(importer string, cycle []string, direct []gateRoute, taken takenName, gate []ElementFilter, all bool) []gateRoute {
+	sourceFQN, name, sym := taken.source, taken.name, taken.sym
 	if idx.declaredExactly(sym, sourceFQN, name) {
 		return direct // declared there, never borrowed into it
 	}
-	// The importing namespace is outside the one it imports from, so only that
-	// one's public routes reach it, unless it is an `import all`.
-	from := ""
-	if all {
-		from = sourceFQN
-	}
-	inherited := idx.ReexportGates(doc, joinFQN(sourceFQN, name), sym, from)
-	if len(inherited) == 0 {
+	claims := idx.reexportDocs.at(reexportKey{fqn: joinFQN(sourceFQN, name), sym: sym})
+	if len(claims) == 0 {
 		return direct
 	}
-	gate := direct[0]
-	if len(gate) == 0 {
-		return inherited // an unfiltered import passes the routes on as they are
+	// The importing namespace is outside the one it imports from, so only that
+	// one's public routes reach it, unless it is an `import all`.
+	var out []gateRoute
+	onward := func(routes []gateRoute) {
+		for _, route := range routes {
+			// A route that came through importer does not continue into it:
+			// importer is excluded while its imports are read (KerML 8.3.2.4.5).
+			if (route.private && !all) || slices.Contains(route.via, importer) {
+				continue
+			}
+			filters := route.filters
+			if len(gate) > 0 {
+				filters = addFilters(filters, gate)
+			}
+			out = append(out, gateRoute{filters: filters, via: viaOnCycle(cycle, route.via, sourceFQN, route.private)})
+		}
 	}
-	out := make([][]ElementFilter, 0, len(inherited))
-	for _, route := range inherited {
-		out = append(out, addFilters(route, gate))
+	if len(claims) == 1 {
+		for _, claim := range claims {
+			if len(gate) == 0 && passesOnUnchanged(claim.routes) {
+				return claim.routes // shared, as a claim's routes are never written
+			}
+			onward(claim.routes)
+		}
+		return out
+	}
+	for _, claimant := range sortedKeys(claims) {
+		onward(claims[claimant].routes)
 	}
 	return out
+}
+
+// passesOnUnchanged reports whether every route is public and came through no
+// namespace, so that an unfiltered import continues each exactly as it is.
+func passesOnUnchanged(routes []gateRoute) bool {
+	for _, route := range routes {
+		if route.private || len(route.via) > 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// sortedKeys lists the keys of m in order.
+func sortedKeys[V any](m map[string]V) []string {
+	if len(m) == 1 {
+		for key := range m {
+			return []string{key}
+		}
+	}
+	return slices.Sorted(maps.Keys(m))
 }
 
 // declaredExactly reports whether sym's declaration registered it as
@@ -1230,15 +1371,29 @@ func filtersSubsume(a, b []ElementFilter) bool {
 	return true
 }
 
+// viaWithin reports whether every namespace route a came through is one b came
+// through too, so that a continues wherever b does.
+func viaWithin(a, b []string) bool {
+	for _, ns := range a {
+		if !slices.Contains(b, ns) {
+			return false
+		}
+	}
+	return true
+}
+
 // reexportGated is reexport, additionally recording the element-filter
 // conditions the routes that surfaced the name impose on it. Routes accumulate:
 // a name is a member of the importing namespace when any one of them admits it,
 // so an unfiltered import re-exports it whatever another route filters out.
-func (idx *Index) reexportGated(fqn string, sym *Symbol, doc string, private bool, gates [][]ElementFilter) {
+func (idx *Index) reexportGated(fqn string, sym *Symbol, doc string, hop []importHop, gates []gateRoute) {
+	if len(gates) == 0 {
+		return // no route reaches the importing namespace
+	}
 	if !idx.reexport(fqn, sym) {
 		return // the namespace declares it; nothing was borrowed
 	}
-	widened := idx.claimReexport(reexportKey{fqn: fqn, sym: sym}, doc, !private, gates)
+	widened := idx.claimReexport(reexportKey{fqn: fqn, sym: sym}, doc, hop, gates)
 	if widened {
 		idx.changedName(fqn)
 	}
@@ -1258,13 +1413,13 @@ func (idx *Index) reexportGated(fqn string, sym *Symbol, doc string, private boo
 // in the index may share them (see claimReexport).
 func (c *reexportClaim) record(route gateRoute) bool {
 	for _, have := range c.routes {
-		if have.private == route.private && filtersSubsume(have.filters, route.filters) {
+		if have.private == route.private && filtersSubsume(have.filters, route.filters) && viaWithin(have.via, route.via) {
 			return false
 		}
 	}
 	kept := make([]gateRoute, 0, len(c.routes)+1)
 	for _, have := range c.routes {
-		if have.private != route.private || !filtersSubsume(route.filters, have.filters) {
+		if have.private != route.private || !filtersSubsume(route.filters, have.filters) || !viaWithin(route.via, have.via) {
 			kept = append(kept, have)
 		}
 	}
@@ -1306,16 +1461,36 @@ func (idx *Index) ReexportGates(doc, fqn string, sym *Symbol, from string) [][]E
 	return out
 }
 
-// EachReexportGate visits the routes ReexportGates would return, in order, until
-// visit accepts one, reporting whether any was visited and whether one was accepted.
-func (idx *Index) EachReexportGate(doc, fqn string, sym *Symbol, from string, visit func(filters []ElementFilter) bool) (routed, accepted bool) {
+// EachReexportGate visits the routes of ReexportGates through no namespace in
+// excluded (KerML 8.3.2.4.5) until visit accepts one, reporting both outcomes.
+func (idx *Index) EachReexportGate(doc, fqn string, sym *Symbol, from string, excluded []string, visit func(filters []ElementFilter) bool) (routed, accepted bool) {
 	idx.readName(fqn)
 	claims := idx.reexportDocs.at(reexportKey{fqn: fqn, sym: sym})
-	parent, _ := splitFQN(fqn)
+	parent, name := splitFQN(fqn)
+	inside := parent == "" || withinNamespace(from, parent)
 	if parent == "" {
-		return claims[doc].eachGateRoute(true, visit)
+		// Each document owns its root namespace alone (see ReexportGates).
+		claims = map[string]*reexportClaim{doc: claims[doc]}
 	}
-	inside := withinNamespace(from, parent)
+	if idx.mayReach(parent, excluded) {
+		for _, claim := range claims {
+			routed = routed || claim.routed(inside)
+		}
+		if !routed {
+			return false, false
+		}
+		walk := routeWalk{idx: idx, name: name, sym: sym, excluded: excluded, path: []string{parent}}
+		routes, spread := walk.spread(claims, inside)
+		if !spread {
+			routes = walk.through(claims, inside)
+		}
+		for _, filters := range routes {
+			if visit(filters) {
+				return true, true
+			}
+		}
+		return true, false
+	}
 	for _, claim := range claims {
 		r, a := claim.eachGateRoute(inside, visit)
 		routed = routed || r
@@ -1348,23 +1523,39 @@ func (c *reexportClaim) gateRoutes(private bool) [][]ElementFilter {
 	if c == nil {
 		return nil
 	}
-	n := 0
-	for _, route := range c.routes {
-		if private || !route.private {
-			n++
+	var out [][]ElementFilter
+	for i := range c.routes {
+		if c.takes(i, private) {
+			out = append(out, c.routes[i].filters)
 		}
-	}
-	if n == 0 {
-		return nil
-	}
-	out := make([][]ElementFilter, 0, n)
-	for _, route := range c.routes {
-		if route.private && !private {
-			continue
-		}
-		out = append(out, route.filters)
 	}
 	return out
+}
+
+// takes reports whether a lookup takes route i: one it may see that no other
+// such route subsumes.
+func (c *reexportClaim) takes(i int, private bool) bool {
+	route := &c.routes[i]
+	if route.private && !private {
+		return false
+	}
+	for j := range c.routes {
+		other := &c.routes[j]
+		if j == i || other.private != route.private || !filtersSubsume(other.filters, route.filters) {
+			continue
+		}
+		if j < i || !filtersSubsume(route.filters, other.filters) {
+			return false
+		}
+	}
+	return true
+}
+
+// routed reports whether the claim holds a route a lookup may see.
+func (c *reexportClaim) routed(private bool) bool {
+	return c != nil && slices.ContainsFunc(c.routes, func(route gateRoute) bool {
+		return private || !route.private
+	})
 }
 
 // eachGateRoute is gateRoutes as a walk: visit sees each route's conditions
@@ -1373,16 +1564,208 @@ func (c *reexportClaim) eachGateRoute(private bool, visit func(filters []Element
 	if c == nil {
 		return false, false
 	}
-	for _, route := range c.routes {
+	for i, route := range c.routes {
 		if route.private && !private {
 			continue
 		}
 		routed = true
+		if !c.takes(i, private) {
+			continue
+		}
 		if visit(route.filters) {
 			return true, true
 		}
 	}
 	return routed, false
+}
+
+// same reports whether two hops are the same import of the same namespace.
+func (h importHop) same(other importHop) bool {
+	return h.from == other.from && h.private == other.private && h.all == other.all &&
+		filtersSubsume(h.filters, other.filters) && filtersSubsume(other.filters, h.filters)
+}
+
+// routeWalk reads a name through the imports that surfaced it as KerML 8.3.2.4.5
+// does: no route enters a namespace in excluded or on path, the ones being read.
+type routeWalk struct {
+	idx      *Index
+	name     string
+	sym      *Symbol
+	excluded []string
+	path     []string
+	// settled holds the reads no namespace on the path cut and the namespaces
+	// each entered (collected in entered): it holds on a path through none.
+	settled map[walkStep]walkAnswer
+	entered []string
+}
+
+type walkAnswer struct {
+	routes  [][]ElementFilter
+	entered []string
+}
+
+// walkStep is a namespace read with or without its private memberships.
+type walkStep struct {
+	ns  string
+	all bool
+}
+
+// through returns the conditions of each route the claims' hops open, none
+// subsumed by another.
+func (w *routeWalk) through(claims map[string]*reexportClaim, private bool) [][]ElementFilter {
+	routes, _ := w.hops(claims, private)
+	return routes
+}
+
+// spread is through without a path, for when no namespace reached is read with
+// its private memberships: a route coming back to one then admits no more.
+func (w *routeWalk) spread(claims map[string]*reexportClaim, private bool) (routes [][]ElementFilter, ok bool) {
+	first, ok := w.open(claims, private)
+	if !ok {
+		return nil, false
+	}
+	held := make(map[string][][]ElementFilter)
+	from := make(map[string][]importHop)
+	var order []string
+	for work := slices.Clone(first); len(work) > 0; {
+		ns := work[len(work)-1].from
+		work = work[:len(work)-1]
+		if _, seen := from[ns]; seen {
+			continue
+		}
+		fqn := joinFQN(ns, w.name)
+		w.idx.readName(fqn)
+		order = append(order, ns)
+		if w.idx.declaredExactly(w.sym, ns, w.name) || !w.idx.reexported.at(fqn).has(w.sym) {
+			from[ns], held[ns] = nil, [][]ElementFilter{nil}
+			continue
+		}
+		hops, ok := w.open(w.idx.reexportDocs.at(reexportKey{fqn: fqn, sym: w.sym}), false)
+		if !ok {
+			return nil, false
+		}
+		from[ns] = hops
+		work = append(work, hops...)
+	}
+	for changed := true; changed; {
+		changed = false
+		for _, ns := range slices.Backward(order) { // the namespaces read from come later
+			var gained bool
+			held[ns], gained = takeRoutes(held, held[ns], from[ns])
+			changed = changed || gained
+		}
+	}
+	routes, _ = takeRoutes(held, nil, first)
+	return routes, true
+}
+
+// open lists the hops a read of the claims follows, false at an `import all`.
+func (w *routeWalk) open(claims map[string]*reexportClaim, private bool) (hops []importHop, ok bool) {
+	for _, doc := range sortedKeys(claims) {
+		if claims[doc] == nil {
+			continue
+		}
+		for _, hop := range claims[doc].hops {
+			if (hop.private && !private) || slices.Contains(w.excluded, hop.from) || w.reading(hop.from) {
+				continue
+			}
+			if hop.all {
+				return nil, false
+			}
+			hops = append(hops, hop)
+		}
+	}
+	return hops, true
+}
+
+// takeRoutes adds to routes what the hops bring from the routes held per namespace, reporting whether it admits more.
+func takeRoutes(held map[string][][]ElementFilter, routes [][]ElementFilter, hops []importHop) ([][]ElementFilter, bool) {
+	gained := false
+	for _, hop := range hops {
+		for _, filters := range held[hop.from] {
+			filters = addFilters(filters, hop.filters)
+			if !slices.ContainsFunc(routes, func(have []ElementFilter) bool { return filtersSubsume(have, filters) }) {
+				routes, gained = addRoute(routes, filters), true
+			}
+		}
+	}
+	return routes, gained
+}
+
+// hops is through, also reporting where on the path the outermost namespace
+// that cut a route stands, past its end when none did.
+func (w *routeWalk) hops(claims map[string]*reexportClaim, private bool) (routes [][]ElementFilter, cut int) {
+	cut = len(w.path)
+	for _, doc := range sortedKeys(claims) {
+		claim := claims[doc]
+		if claim == nil {
+			continue
+		}
+		for _, hop := range claim.hops {
+			if (hop.private && !private) || slices.Contains(w.excluded, hop.from) {
+				continue
+			}
+			if at := slices.Index(w.path, hop.from); at >= 0 {
+				cut = min(cut, at)
+				continue
+			}
+			onward, cutAt := w.read(hop.from, hop.all)
+			cut = min(cut, cutAt)
+			for _, filters := range onward {
+				routes = addRoute(routes, addFilters(filters, hop.filters))
+			}
+		}
+	}
+	return routes, cut
+}
+
+// read returns the routes by which the namespace ns holds the name, read with
+// its private memberships when all is set.
+func (w *routeWalk) read(ns string, all bool) (routes [][]ElementFilter, cut int) {
+	fqn := joinFQN(ns, w.name)
+	w.idx.readName(fqn)
+	if w.idx.declaredExactly(w.sym, ns, w.name) || !w.idx.reexported.at(fqn).has(w.sym) {
+		return [][]ElementFilter{nil}, len(w.path) + 1 // declared there
+	}
+	step := walkStep{ns: ns, all: all}
+	if answer, ok := w.settled[step]; ok && !slices.ContainsFunc(answer.entered, w.reading) {
+		w.entered = append(w.entered, answer.entered...)
+		return answer.routes, len(w.path) + 1
+	}
+	at, mark := len(w.path), len(w.entered)
+	w.path, w.entered = append(w.path, ns), append(w.entered, ns)
+	routes, cut = w.hops(w.idx.reexportDocs.at(reexportKey{fqn: fqn, sym: w.sym}), all)
+	w.path = w.path[:at]
+	if cut < at {
+		return routes, cut // cut at a namespace this read came through: this path's alone
+	}
+	if w.settled == nil {
+		w.settled = make(map[walkStep]walkAnswer)
+	}
+	w.settled[step] = walkAnswer{routes: routes, entered: slices.Compact(slices.Sorted(slices.Values(w.entered[mark:])))}
+	return routes, len(w.path) + 1
+}
+
+// reading reports whether the walk is reading the namespace ns.
+func (w *routeWalk) reading(ns string) bool {
+	return slices.Contains(w.path, ns)
+}
+
+// addRoute adds a route's conditions unless one held admits as much, dropping
+// the ones it makes redundant.
+func addRoute(routes [][]ElementFilter, filters []ElementFilter) [][]ElementFilter {
+	for _, have := range routes {
+		if filtersSubsume(have, filters) {
+			return routes
+		}
+	}
+	kept := routes[:0:0]
+	for _, have := range routes {
+		if !filtersSubsume(filters, have) {
+			kept = append(kept, have)
+		}
+	}
+	return append(kept, filters)
 }
 
 // nonZeroFilters drops the absent conditions of an unfiltered import.
@@ -1414,11 +1797,13 @@ func (idx *Index) reexport(fqn string, sym *Symbol) bool {
 //
 // The claims on key are replaced rather than written: the map and the claims in
 // it may be what a registration noted before this write reads (noteBefore).
-func (idx *Index) claimReexport(key reexportKey, doc string, public bool, gates [][]ElementFilter) bool {
+func (idx *Index) claimReexport(key reexportKey, doc string, hops []importHop, gates []gateRoute) bool {
+	hop := hops[0]
+	public := !hop.private
 	idx.noteBefore(key.fqn)
 	docs := idx.reexportDocs.at(key)
 	have, claimed := docs[doc]
-	var claim reexportClaim
+	var claim reexportClaim // copied to the heap only once it is known to change
 	if claimed {
 		claim = *have
 	}
@@ -1426,17 +1811,27 @@ func (idx *Index) claimReexport(key reexportKey, doc string, public bool, gates 
 	claim.public = claim.public || public
 	widened := false
 	for _, gate := range gates {
-		widened = claim.record(gateRoute{private: !public, filters: gate}) || widened
+		widened = claim.record(gateRoute{private: !public, filters: gate.filters, via: gate.via}) || widened
 	}
-	if !upgraded && !widened {
+	hopped := !slices.ContainsFunc(claim.hops, hop.same)
+	if hopped && len(claim.hops) == 0 {
+		claim.hops = hops
+	} else if hopped {
+		claim.hops = append(claim.hops[:len(claim.hops):len(claim.hops)], hop)
+	}
+	if !upgraded && !widened && !hopped {
 		return false // nothing new
 	}
 	next := make(map[string]*reexportClaim, len(docs)+1)
 	for other, c := range docs {
 		next[other] = c
 	}
-	next[doc] = &claim
+	stored := claim
+	next[doc] = &stored
 	idx.reexportDocs.set(key, next)
+	if hopped && !upgraded {
+		idx.changedName(key.fqn) // a lookup excluding namespaces walks the hops
+	}
 	if upgraded {
 		idx.changedName(key.fqn)
 		writableMap(idx.docReexports, doc)[key] = true
@@ -1895,6 +2290,31 @@ func (idx *Index) FQNsEndingIn(name string, limit int) []string {
 	return slices.Clone(out)
 }
 
+// DeclaredFQNsEndingIn is FQNsEndingIn kept to the namespaces that declare the
+// symbol, by its name or short name, leaving out what an import only re-exports.
+func (idx *Index) DeclaredFQNsEndingIn(name string, limit int) []string {
+	idx.readAllNames()
+	if name == "" || limit <= 0 {
+		return nil
+	}
+	var out []string
+	for _, fqn := range idx.segmentNames(name) {
+		prefix, _ := splitFQN(fqn)
+		for _, sym := range idx.fqn.at(fqn) {
+			if declared, ok := idx.declaredAt.get(sym); ok {
+				if owner, _ := splitFQN(declared); owner == prefix {
+					out = append(out, fqn)
+					break
+				}
+			}
+		}
+		if len(out) == limit {
+			break
+		}
+	}
+	return out
+}
+
 // WildcardImportsOf returns the wildcard-import targets recorded for the
 // namespace registered under fqn ("" for a document root), over the documents
 // declaring it in name order.
@@ -1914,6 +2334,68 @@ func (idx *Index) WildcardImportsOf(fqn string) []WildcardImport {
 		out = append(out, byDoc[doc]...)
 	}
 	return out
+}
+
+// OutsideImport is an import another document states through a namespace, with the declaration
+// stating it and the name of the namespace it reads: "" when it names none, or more than one.
+type OutsideImport struct {
+	Import *ast.Import
+	From   *Scope
+	Target string
+}
+
+// ImportsStatedOutside returns the imports that the declarations of the namespace registered under fqn
+// state in documents other than doc, which a scope of doc does not hold.
+func (idx *Index) ImportsStatedOutside(fqn, doc string) []OutsideImport {
+	idx.readName(fqn)
+	idx.readNamespace(fqn)
+	reexported := idx.reexported.at(fqn)
+	var out []OutsideImport
+	for _, sym := range idx.fqn.at(fqn) {
+		if sym.Scope == nil || reexported.has(sym) || DocNameOf(sym.Scope) == doc {
+			continue
+		}
+		for _, imp := range sym.Scope.Imports() {
+			stated := OutsideImport{Import: imp, From: sym.Scope}
+			if imp.Kind == ast.ImportNamespace && imp.Imported != nil {
+				target := imp.Imported.Text()
+				idx.readWildcardTarget(fqn, target)
+				stated.Target = idx.resolveWildcardTarget(fqn, target)
+			}
+			out = append(out, stated)
+		}
+	}
+	return out
+}
+
+// NamespaceAt is the scope of the one declaration registered under fqn, or nil.
+func (idx *Index) NamespaceAt(fqn string) *Scope {
+	idx.readName(fqn)
+	reexported := idx.reexported.at(fqn)
+	var only *Scope
+	for _, sym := range idx.fqn.at(fqn) {
+		if reexported.has(sym) {
+			continue
+		}
+		if only != nil || sym.Scope == nil {
+			return nil
+		}
+		only = sym.Scope
+	}
+	return only
+}
+
+// readWildcardTarget records the names resolveWildcardTarget looks under.
+func (idx *Index) readWildcardTarget(pkgFQN, targetText string) {
+	for prefix := pkgFQN; prefix != ""; {
+		idx.readName(prefix + "::" + targetText)
+		i := lastSeparator(prefix)
+		if i < 0 {
+			break
+		}
+		prefix = prefix[:i]
+	}
+	idx.readName(targetText)
 }
 
 // importedChildren returns the memberships of prefix a wildcard import of it takes (KerML 8.3.2.4.5

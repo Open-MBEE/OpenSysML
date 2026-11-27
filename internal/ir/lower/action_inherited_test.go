@@ -276,7 +276,7 @@ func TestToActionGraphInheritedActionNodeCycleTerminates(t *testing.T) {
 	}
 }
 
-func inheritedActionDecl(t *testing.T, src, name string) (ast.Node, *symbols.Scope, *ast.RootNamespace) {
+func inheritedActionDecl(t testing.TB, src, name string) (ast.Node, *symbols.Scope, *ast.RootNamespace) {
 	t.Helper()
 	p := parser.New(source.New("test.sysml", []byte(src)))
 	root := p.ParseFile()
@@ -293,7 +293,7 @@ func inheritedActionDecl(t *testing.T, src, name string) (ast.Node, *symbols.Sco
 	return decl, scope, root
 }
 
-func actionDefinition(t *testing.T, root *ast.RootNamespace, name string) *ast.Definition {
+func actionDefinition(t testing.TB, root *ast.RootNamespace, name string) *ast.Definition {
 	t.Helper()
 	var find func([]ast.Node) *ast.Definition
 	find = func(members []ast.Node) *ast.Definition {
@@ -1685,4 +1685,33 @@ func scopeName(s *symbols.Scope) string {
 		return def.Ident.Name
 	}
 	return getNodeName(s.Node())
+}
+
+// Ordered assertions are listed only for bodies declaring one: a body with none
+// answers for nothing, and one inherited from a general is still found.
+func TestOrderedAssertionsAreListedOnlyWhereOneIsDeclared(t *testing.T) {
+	src := `
+		action def Plain { action a; first start then a; }
+		action def G { assert constraint check { true } }
+		action def M :> G { first start then check; }
+	`
+	plain, plainScope, _ := inheritedActionDecl(t, src, "Plain")
+	graph, err := ToActionGraph(plain, plainScope)
+	if err != nil {
+		t.Fatalf("ToActionGraph(Plain): %v", err)
+	}
+	if got := orderedAssertionsForGraph(graph, nil); got != nil {
+		t.Fatalf("a body declaring no assertion lists %d ordered assertions", len(got))
+	}
+	if got := orderedAssertions(ast.DeclMembers(plain)); got != nil {
+		t.Fatalf("members declaring no assertion list %d ordered assertions", len(got))
+	}
+	m, mScope, root := inheritedActionDecl(t, src, "M")
+	graph, err = ToActionGraph(m, mScope)
+	if err != nil {
+		t.Fatalf("ToActionGraph(M): %v", err)
+	}
+	if got := namedNode(graph, "check"); got != actionMember(t, root, "G", "check") {
+		t.Fatalf("check node = %p, want the assertion M inherits and orders", got)
+	}
 }

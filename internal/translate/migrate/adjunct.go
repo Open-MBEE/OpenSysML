@@ -39,6 +39,11 @@ func (m *migration) adjunctOf(p *sysmlv1.Element) *adjunct {
 	return a
 }
 
+// principalPhrase opens a reason an adjunct stands apart with the principal it names.
+func principalPhrase(principal *sysmlv1.Element) string {
+	return "its principal " + describe(principal)
+}
+
 func (m *migration) readAdjunct(p *sysmlv1.Element, s *sysmlv1.Stereotype) *adjunct {
 	var principal *sysmlv1.Element
 	if ids := s.IDs("principal"); len(ids) > 0 {
@@ -58,9 +63,9 @@ func (m *migration) readAdjunct(p *sysmlv1.Element, s *sysmlv1.Stereotype) *adju
 	submachine := principal.Type == "State" && m.model.Ref(principal, "submachine") != nil
 	switch {
 	case !adjunctPrincipals[principal.Type] && !submachine:
-		a.apart = "its principal " + describe(principal) + " is a " + principal.Type + ", which SysML v1 admits as no principal"
+		a.apart = principalPhrase(principal) + " is a " + principal.Type + ", which SysML v1 admits as no principal"
 	case !m.adjunctOwns(p.Parent, principal):
-		a.apart = "its principal " + describe(principal) + " is owned by " + qualifiedName(principal.Parent) + ", neither its owner nor a generalization of it"
+		a.apart = principalPhrase(principal) + " is owned by " + qualifiedName(principal.Parent) + ", neither its owner nor a generalization of it"
 	case !m.adjunctTyped(p, principal):
 		a.apart = "its type is neither that of its principal " + describe(principal) + " nor a generalization of it"
 	}
@@ -154,10 +159,10 @@ func (m *migration) adjunctApart(p *sysmlv1.Element) string {
 	switch {
 	case why != "":
 	case nodeKind(a.principal) == nodePin && a.principal.Parent != nil && a.principal.Parent.Type != "CallBehaviorAction":
-		why = "its principal " + describe(a.principal) + " is a pin of the " + a.principal.Parent.Type + " " + describe(a.principal.Parent) +
+		why = principalPhrase(a.principal) + " is a pin of the " + a.principal.Parent.Type + " " + describe(a.principal.Parent) +
 			", and only a pin of a call behavior action is written as one usage with its property"
 	default:
-		why = "its principal " + describe(a.principal) + " is not written as a v2 usage"
+		why = principalPhrase(a.principal) + " is not written as a v2 usage"
 	}
 	return "«AdjunctProperty» is not collapsed into its principal: " + why
 }

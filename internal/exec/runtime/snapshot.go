@@ -509,8 +509,12 @@ func (c runStateCapture) restore() {
 	c.state.performers = slices.Clone(c.performers)
 	c.state.scheduler = c.scheduler
 	c.restoreSchedule()
-	clear(c.state.calcUsageRuns)
-	maps.Copy(c.state.calcUsageRuns, cloneCalcUsageRuns(c.calcUsageRuns))
+	if runs := cloneCalcUsageRuns(c.calcUsageRuns); c.state.calcUsageRuns == nil {
+		c.state.calcUsageRuns = runs
+	} else {
+		clear(c.state.calcUsageRuns)
+		maps.Copy(c.state.calcUsageRuns, runs)
+	}
 	for _, outputs := range c.calcOutputs {
 		outputs.restore()
 	}
@@ -696,6 +700,7 @@ func captureFrame(perf *actionFrame) frameCapture {
 	c.saved.streamed = maps.Clone(perf.streamed)
 	c.saved.unreceived = cloneUnreceived(perf.unreceived)
 	c.saved.nodes = slices.Clone(perf.nodes)
+	c.saved.assertions = perf.assertions.clone()
 	return c
 }
 
@@ -729,6 +734,7 @@ func (c frameCapture) restore() {
 	perf.streamed = maps.Clone(c.saved.streamed)
 	perf.unreceived = cloneUnreceived(c.saved.unreceived)
 	perf.nodes = slices.Clone(c.saved.nodes)
+	perf.assertions = c.saved.assertions.clone()
 }
 
 func cloneStepRepetitions(repeats map[repetitionGroupID]*stepRepetition) map[repetitionGroupID]*stepRepetition {

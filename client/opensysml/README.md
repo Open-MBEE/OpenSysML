@@ -209,6 +209,24 @@ for _, outcome := range exploration.Outcomes {
 fmt.Println(exploration.Status()) // complete (6 runs)
 ```
 
+`Sweep` runs an analysis case or a calc once per row of a parameter sweep
+(the `RunSweep` RPC, the CLI's `-sweep`): each `SweepRange` steps a parameter
+from `Start` through `End` by `Step`, several ranges run their product with the
+first varying slowest, and `SweepSamples` with `SweepSeed` draws the rows
+instead, reproducibly. `SweepSubject`, `SweepArguments`, `SweepArgument` and
+`SweepEngine` bind what every row shares. A run that failed is its row's
+`Error` and `Reason` and the rows after it still run; a sweep refused before
+any run is a `*VerifyError`. The call needs the `verification` capability.
+
+```go
+sweep, err := client.Sweep(ctx, model, "Demo::CostAnalysis",
+	[]opensysml.SweepRange{{Parameter: "limit", Start: opensysml.Real(2), End: opensysml.Real(30), Step: opensysml.Real(14)}},
+	opensysml.SweepSubject("Demo::ship"))
+for _, row := range sweep.Rows {
+	fmt.Println(row.Inputs, row.Outputs, row.Verdicts, row.Evaluations, row.Elapsed, row.Error)
+}
+```
+
 Every verdict, calculation and analysis carries its `Standing`: the analysis
 engine that answered (`run`, `explore`, `sweep` or `solve`), the `Strength` of
 its evidence (`observed`, `witnessed`, `bounded`, `proved`, or `not covered`)
@@ -422,10 +440,13 @@ it worth keeping.
 
 Contexts are honoured as the wire honours them. A call whose context is already
 done is refused with `CodeCanceled` or `CodeDeadlineExceeded`; a context that
-ends while a call is running withholds the answer the same way, because the
-engine — like a service answering a caller who stopped listening — still runs
-the call it started. A deadline therefore bounds how long a caller waits, not
-how long the engine works.
+ends while a call is running withholds the answer the same way. What the engine
+does with the work depends on the call: a parse (`ParseSource`, `ParseFile`,
+`ParseDocuments`) and a conversion of a model of several documents stop at their
+next document or analysis pass and cache nothing, the runs, sweeps, checks and
+explorations stop between runs, and any other call — like a service answering a
+caller who stopped listening — still runs to its end. For those a deadline
+bounds how long a caller waits, not how long the engine works.
 
 After `Close`, every call is refused with `CodeUnavailable`, and closing twice is
 not an error, so a deferred `Close` beside an explicit one is safe.
@@ -454,7 +475,12 @@ encoding time on large responses and is a debugging affordance, per
 machines reach requires a bearer token, which `WithToken` sends as
 `Authorization: Bearer` on every call; without it `Dial` reads
 `$OPENSYSML_GRPC_TOKEN` (`TokenEnv`), and a call without the right token fails
-with `CodeUnauthenticated`. This package never spawns a
+with `CodeUnauthenticated`. `Dial` sends the token over `https`, and over
+`http` to this machine only: an `http` address other machines reach is refused
+with `CodeInvalidArgument` while a token is set, unless
+`WithInsecureTokenTransport` accepts it for a proxy or tunnel that encrypts the
+connection, as `sysml-grpc -allow-insecure-token-transport` does on the serving
+side. This package never spawns a
 service: a Go process that wants the engine in-process uses `New`, which is
 strictly better than a private child — the child's entire job would be to serve
 the code `New` already calls.

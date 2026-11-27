@@ -295,8 +295,7 @@ func newStateExecutor(ctx *Context, stateMachine *symbols.Symbol, self *Instance
 func newStateExecutorForOccurrence(
 	ctx *Context,
 	stateMachine *symbols.Symbol,
-	self *Instance,
-	occurrence *Instance,
+	self, occurrence *Instance,
 ) (*StateExecutor, error) {
 	return newStateExecutorLowering(ctx, stateMachine, stateMachine, self, occurrence)
 }
@@ -307,8 +306,7 @@ func newStateExecutorForOccurrence(
 func newStateExecutorLowering(
 	ctx *Context,
 	stateMachine, lowered *symbols.Symbol,
-	self *Instance,
-	occurrence *Instance,
+	self, occurrence *Instance,
 ) (*StateExecutor, error) {
 	if stateMachine.Kind != symbols.SymbolStateUsage && stateMachine.Kind != symbols.SymbolStateDef {
 		return nil, fmt.Errorf("symbol %s is not a state machine", stateMachine.Name)
@@ -319,8 +317,7 @@ func newStateExecutorLowering(
 
 	// Lower to StateGraph, in the scope the machine's body was written in, so
 	// that everything the graph carries is evaluated where it was declared.
-	// Endpoints come from the name-resolution tier, which reported on them already.
-	graph, err := lower.ToStateGraphWithEndpoints(lowered.Decl, DeclScope(lowered), lower.NewLibraryStateTypes(ctx.model.resolver))
+	graph, err := ctx.model.stateGraph(lowered)
 	if err != nil {
 		return nil, fmt.Errorf("lower state machine: %w", err)
 	}
@@ -612,7 +609,16 @@ func (e *StateExecutor) stateAttributeContext(state *ast.StateNode, scope *symbo
 // initializeStateAttributes gives every state that owns attributes its own
 // values, so two usages of one state definition never share them.
 func (e *StateExecutor) initializeStateAttributes() error {
-	for state, attrs := range e.graph.StateAttributes {
+	// A state's defaults are evaluated after those of the states around it, which they
+	// may read, and otherwise in the order of the states' ids, the same every run.
+	states := slices.SortedFunc(maps.Keys(e.graph.StateAttributes), func(a, b *ast.StateNode) int {
+		return cmp.Or(
+			cmp.Compare(len(e.getParentChain(a)), len(e.getParentChain(b))),
+			cmp.Compare(e.stateID(a), e.stateID(b)),
+		)
+	})
+	for _, state := range states {
+		attrs := e.graph.StateAttributes[state]
 		if len(attrs) == 0 {
 			continue
 		}
@@ -670,6 +676,16 @@ func (e *StateExecutor) initializeStateAttributes() error {
 	return nil
 }
 
+// attrFrame is the frame of the attributes state itself owns, if it owns any.
+func (e *StateExecutor) attrFrame(state *ast.StateNode) (frame, bool) {
+	id := e.stateID(state)
+	data := e.stateAttrs[id]
+	if data == nil {
+		return frame{}, false
+	}
+	return frame{vars: data, cells: e.stateAttrCells[id], held: e.stateAttrIndex[id]}, true
+}
+
 // attrFramesFor are the attribute values a behavior of state reads, outermost
 // state first so an inner state's attribute shadows an enclosing one's.
 func (e *StateExecutor) attrFramesFor(state *ast.StateNode) []frame {
@@ -679,8 +695,8 @@ func (e *StateExecutor) attrFramesFor(state *ast.StateNode) []frame {
 	var frames []frame
 	chain := e.getParentChain(state)
 	for i := len(chain) - 1; i >= 0; i-- {
-		if data := e.stateAttrs[e.stateID(chain[i])]; data != nil {
-			frames = append(frames, frame{vars: data, cells: e.stateAttrCells[e.stateID(chain[i])], held: e.stateAttrIndex[e.stateID(chain[i])]})
+		if fr, ok := e.attrFrame(chain[i]); ok {
+			frames = append(frames, fr)
 		}
 	}
 	return frames
@@ -732,7 +748,7 @@ func (e *StateExecutor) materializeOccurrence() (*Instance, error) {
 	if e.occurrence != nil {
 		return e.occurrence, nil
 	}
-	if !isBehaviorDefKind(e.stateMachine.Kind) {
+	if !e.stateMachine.Kind.IsBehaviorDef() {
 		return nil, nil
 	}
 	inst, err := e.ctx.materialize(e.stateMachine, 0, nil, "")
@@ -1210,7 +1226,7 @@ func (e *StateExecutor) nextEvent() (Event, error) {
 		fps[i] = e.eventFootprint(tied[i])
 	}
 	choice.alike = e.ctx.heldAlike
-	classifyChoice(&choice, fps, nil)
+	classifyChoice(e.ctx.choiceSerials, &choice, fps, nil)
 	scheduling := e.ctx.scheduling()
 	choice.Taken = scheduling.choose(choice, nil)
 	if err := scheduling.refusal(); err != nil {
@@ -1406,7 +1422,7 @@ func (e *StateExecutor) dispatchEvent(event Event) (Dispatch, error) {
 	dispatch := Dispatch{Event: event}
 	switch event.Type {
 	case eventTime:
-		// Fire transition - handle both old (TransitionEdge) and new (lower.Transition) for backward compatibility
+		// A time event carries the lowered transition its timer or completion fires.
 		if lowerTrans, ok := event.Payload.(*lower.Transition); ok {
 			// The timer has expired, so it is no longer running: a transition that
 			// does not leave its source state re-arms it for the next round.
@@ -1458,41 +1474,7 @@ func (e *StateExecutor) dispatchEvent(event Event) (Dispatch, error) {
 			return dispatch, err
 		}
 
-		// Fallback for tests that use TransitionEdge directly
-		if edge, ok := event.Payload.(*ast.TransitionEdge); ok {
-			// Convert TransitionEdge to lower.Transition
-			// Need to find source/target states by name
-			var sourceState, targetState *ast.StateNode
-			for _, state := range e.graph.States {
-				if edge.Source != nil && len(edge.Source.Parts) > 0 {
-					if state.Name == edge.Source.Parts[len(edge.Source.Parts)-1].Text {
-						sourceState = state
-					}
-				}
-				if edge.Target != nil && len(edge.Target.Parts) > 0 {
-					if state.Name == edge.Target.Parts[len(edge.Target.Parts)-1].Text {
-						targetState = state
-					}
-				}
-			}
-			if sourceState == nil || targetState == nil {
-				return dispatch, fmt.Errorf("could not find source/target states for transition")
-			}
-
-			lowerTrans := &lower.Transition{
-				Source:  sourceState,
-				Target:  targetState,
-				Trigger: edge.Trigger,
-				Guard:   edge.Guard,
-				Effect:  lower.LowerBehaviors(edge.Effect, nil, e.stateMachine.Scope, e.ctx.Resolver(), e.graph.Exprs),
-			}
-			lowerTrans.GuardID = e.graph.Exprs.Intern(lowerTrans.Guard, lowerTrans.BodyScope)
-			var err error
-			dispatch.Fired, err = e.fireTransition(lowerTrans, route{segments: []*lower.Transition{lowerTrans}, target: e.stateID(targetState)})
-			return dispatch, err
-		}
-
-		return dispatch, fmt.Errorf("invalid TimeEvent payload: expected *lower.Transition or *ast.TransitionEdge")
+		return dispatch, fmt.Errorf("invalid TimeEvent payload: expected *lower.Transition, got %T", event.Payload)
 	default:
 		// For general events, broadcast to all active regions
 		consumed, resumed, err := e.broadcastEvent(&event)
@@ -1793,7 +1775,7 @@ func (e *StateExecutor) chooseTransition(candidate dispatchCandidate, event *Eve
 	if err != nil {
 		return nil, nil, err
 	}
-	if choice, ok := e.transitionChoice(e.stateDecl(candidate.source), transitions, candidate.enabled); ok {
+	if choice, ok := e.transitionChoice(transitions, candidate.enabled); ok {
 		whereOf := func(i int) string {
 			return transitionWhere(e.stateDecl(candidate.source), transitions[candidate.enabled[i]])
 		}
@@ -1839,7 +1821,7 @@ func (e *StateExecutor) regionOrderChoice(where string, states []*ast.StateNode,
 		fps[i] = footprint(state)
 	}
 	choice.alike = e.ctx.heldAlike
-	classifyChoice(&choice, fps, nil)
+	classifyChoice(e.ctx.choiceSerials, &choice, fps, nil)
 	choice.Taken = e.ctx.scheduling().choose(choice, nil)
 	choice.Span = states[choice.Taken].Span()
 	return choice
@@ -2118,7 +2100,7 @@ func (e *StateExecutor) chooseCompletion(source *ast.StateNode, dispatched *lowe
 	if err != nil {
 		return nil, nil, err
 	}
-	choice, ok := e.transitionChoice(source, transitions, enabled)
+	choice, ok := e.transitionChoice(transitions, enabled)
 	if !ok {
 		drain()
 		return transitions[enabled[0]], notes, nil
@@ -2282,7 +2264,7 @@ func (e *StateExecutor) transitionEnabled(trans *lower.Transition, event *Event)
 // transitionChoice is the transitions out of state enabled for one event, at
 // their declared positions, as a choice point; there is none under two. pick is
 // the position in enabled of the one that fires.
-func (e *StateExecutor) transitionChoice(state *ast.StateNode, transitions []*lower.Transition, enabled []int) (ChoicePoint, bool) {
+func (e *StateExecutor) transitionChoice(transitions []*lower.Transition, enabled []int) (ChoicePoint, bool) {
 	if len(enabled) < 2 {
 		return ChoicePoint{}, false
 	}
@@ -2291,7 +2273,7 @@ func (e *StateExecutor) transitionChoice(state *ast.StateNode, transitions []*lo
 		alts[i] = transitionName(transitions, pos)
 	}
 	choice := ChoicePoint{Kind: ChoiceTransition, Alternatives: alts}
-	classifyExclusive(&choice, e.transitionFootprints(transitions, enabled))
+	classifyExclusive(e.ctx.choiceSerials, &choice, e.transitionFootprints(transitions, enabled))
 	return choice, true
 }
 
@@ -4459,7 +4441,7 @@ func (e *StateExecutor) stepOrderChoice(due []*doAction, dispatch string) Choice
 		steps = unionFootprints(steps, doStepFootprint(e, e.stateDecl(act.state)))
 	}
 	choice.alike = e.ctx.heldAlike
-	classifyChoice(&choice, []lower.Footprint{steps, dispatchFootprint(e)}, nil)
+	classifyChoice(e.ctx.choiceSerials, &choice, []lower.Footprint{steps, dispatchFootprint(e)}, nil)
 	return choice
 }
 

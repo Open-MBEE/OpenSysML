@@ -42,6 +42,8 @@ type Model struct {
 	resolver  *resolve.Resolver
 
 	features map[*symbols.Symbol][]EffectiveFeature
+	// bodyFeatures memoizes loopBodyFeatures by the scope of the loop's body.
+	bodyFeatures map[*symbols.Scope][]EffectiveFeature
 	// effectiveTypes memoizes effectiveTypes by feature symbol.
 	effectiveTypes map[*symbols.Symbol][]*symbols.Symbol
 	// declaresChains memoizes, by type, whether it or a member source of it
@@ -153,6 +155,9 @@ type Model struct {
 	subsetters map[*symbols.Symbol]map[string][]EffectiveFeature
 	// reaching memoizes reachingSubsetters per type; callers read the shared slice.
 	reaching map[*symbols.Symbol][]reachingSubsetter
+	// declaredReaching memoizes declaredReachingSubsetters per declaring symbol, so the
+	// types inheriting one walk its nested usages once between them.
+	declaredReaching map[*symbols.Symbol][]reachingSubsetter
 	// subsetted memoizes subsettedNames per feature of a type, declaredSubsetted
 	// declaredSubsettedNames; callers read the shared slices.
 	subsetted         map[featureOfType][]string
@@ -184,9 +189,10 @@ type Model struct {
 	bindingRoots     map[*symbols.Symbol]map[string]bool
 	bindingFeatures  map[*symbols.Symbol]map[string][]lower.Binding
 
-	// namespaceUsageIndex is the model's namespace-owned bindings and subsetting
-	// usages walked once, on the first namespace denotation that needs them.
+	// namespaceUsageIndex is the model's namespace-owned bindings walked once, on the
+	// first namespace denotation that needs them; namespaceSubsetters likewise.
 	namespaceUsageIndex *namespaceModelIndex
+	namespaceSubsetters map[*symbols.Symbol][]*symbols.Symbol
 
 	// classifierBehaviors memoizes the behaviors each type binds to its objects:
 	// the machines it exhibits and the actions it performs.
@@ -196,6 +202,8 @@ type Model struct {
 	// actionInterfaces the interface a tool performance binds. Lazy, like names.
 	actionGraphs     map[*symbols.Symbol]*loweredAction
 	actionInterfaces map[*symbols.Symbol]*loweredAction
+	// stateGraphs memoizes, per state machine, its lowered graph. Lazy, like names.
+	stateGraphs map[*symbols.Symbol]*lower.StateGraph
 	// declaredShapes memoizes, by the usage performed through, the shape of a
 	// performance whose features are that usage's members (ActionExecutor.declared).
 	declaredShapes map[*symbols.Symbol]*performanceShape
@@ -276,6 +284,7 @@ func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
 		semantics:           sem,
 		resolver:            resolver,
 		features:            make(map[*symbols.Symbol][]EffectiveFeature),
+		bodyFeatures:        make(map[*symbols.Scope][]EffectiveFeature),
 		declaresChains:      make(map[*symbols.Symbol]bool),
 		chainHosts:          make(map[*symbols.Symbol]bool),
 		denotedFeatures:     make(map[*symbols.Symbol]map[*symbols.Symbol]string),
@@ -301,6 +310,7 @@ func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
 		slots:               make(map[featureOfType]string),
 		subsetters:          make(map[*symbols.Symbol]map[string][]EffectiveFeature),
 		reaching:            make(map[*symbols.Symbol][]reachingSubsetter),
+		declaredReaching:    make(map[*symbols.Symbol][]reachingSubsetter),
 		subsetted:           make(map[featureOfType][]string),
 		declaredSubsetted:   make(map[featureOfType][]string),
 		relationships:       make(map[relationshipsKey][]*ast.Relationship),
@@ -368,6 +378,7 @@ func (m *Model) RegisterScope(scope *symbols.Scope) {
 	m.census = nil
 	m.conformers = nil
 	m.namespaceUsageIndex = nil
+	m.namespaceSubsetters = nil
 	m.behaviorOrdersReady = false
 	m.behaviorOrders = nil
 	m.behaviorOrdersByEnd = nil
@@ -556,6 +567,24 @@ func (m *Model) actionGraph(sym *symbols.Symbol) (*lower.ActionGraph, error) {
 		m.actionGraphs = map[*symbols.Symbol]*loweredAction{}
 	}
 	m.actionGraphs[sym] = &loweredAction{graph: graph}
+	return graph, nil
+}
+
+// stateGraph is the lowered graph of sym's body, lowered once per Model: a function of
+// the model alone, which every execution of the machine reads and none writes.
+func (m *Model) stateGraph(sym *symbols.Symbol) (*lower.StateGraph, error) {
+	if graph, ok := m.stateGraphs[sym]; ok {
+		return graph, nil
+	}
+	// Endpoints come from the name-resolution tier, which reported on them already.
+	graph, err := lower.ToStateGraphWithEndpoints(sym.Decl, DeclScope(sym), lower.NewLibraryStateTypes(m.resolver))
+	if err != nil {
+		return nil, err
+	}
+	if m.stateGraphs == nil {
+		m.stateGraphs = map[*symbols.Symbol]*lower.StateGraph{}
+	}
+	m.stateGraphs[sym] = graph
 	return graph, nil
 }
 

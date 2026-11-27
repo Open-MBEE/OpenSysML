@@ -275,6 +275,7 @@ export class Connection {
 
   private readonly backend: ConnectionBackend;
   private readonly timeoutMs: number | undefined;
+  private readonly closing = new AbortController();
   private closed = false;
 
   private constructor(init: {
@@ -350,11 +351,12 @@ export class Connection {
   }
 
   /** Call options every request of this connection carries. */
-  callOptions(): { timeoutMs?: number } {
+  callOptions(): { timeoutMs?: number; signal: AbortSignal } {
     if (this.closed) {
       throw new ClosedConnectionError();
     }
-    return this.timeoutMs === undefined ? {} : { timeoutMs: this.timeoutMs };
+    const signal = this.closing.signal;
+    return this.timeoutMs === undefined ? { signal } : { timeoutMs: this.timeoutMs, signal };
   }
 
   /** Parses a file the service can read, and returns the model it loaded. */
@@ -2045,13 +2047,15 @@ export class Connection {
 
   /**
    * Releases this connection. A private child loses a reference and stops when
-   * the last one goes; a service this client did not start keeps running.
+   * the last one goes; a service this client did not start keeps running. A call
+   * still under way is cancelled and fails with ClosedConnectionError.
    */
   async close(): Promise<void> {
     if (this.closed) {
       return;
     }
     this.closed = true;
+    this.closing.abort(new ClosedConnectionError());
     await this.backend.release();
   }
 

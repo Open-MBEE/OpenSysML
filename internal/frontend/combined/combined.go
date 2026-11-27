@@ -54,6 +54,8 @@ var capabilities = []string{
 	"render_view_form",
 	"symbol_annotating_metadata",
 	"symbol_lookup_kind",
+	"symbol_member_direction",
+	"coordinate_frame_values",
 }
 
 // Server combines the parsing/validation and execution JSON surfaces.

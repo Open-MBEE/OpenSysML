@@ -181,7 +181,7 @@ func (e *ActionExecutor) stopAt(within []NodeRef, node NodeRef) (breakpointStop,
 // Inputs are applied after attribute defaults, so they override defaults with
 // the same name. Must be called before initialize().
 func (e *ActionExecutor) SetInputs(inputs map[string]Value) {
-	e.inputs = inputs
+	e.inputs = maps.Clone(inputs)
 }
 
 // newActionExecutor creates an action executor. self is the object performing
@@ -195,8 +195,7 @@ func newActionExecutor(ctx *Context, action *symbols.Symbol, self *Instance) (*A
 func newActionExecutorOf(
 	ctx *Context,
 	performed, action *symbols.Symbol,
-	self *Instance,
-	occurrence *Instance,
+	self, occurrence *Instance,
 ) (*ActionExecutor, error) {
 	return newActionExecutorOfGraph(ctx, performed, action, self, occurrence, nil)
 }
@@ -204,8 +203,7 @@ func newActionExecutorOf(
 func newActionExecutorOfGraph(
 	ctx *Context,
 	performed, action *symbols.Symbol,
-	self *Instance,
-	occurrence *Instance,
+	self, occurrence *Instance,
 	graph *lower.ActionGraph,
 ) (*ActionExecutor, error) {
 	if !action.Kind.IsAction() {
@@ -288,6 +286,7 @@ func newActionExecutorOn(ctx *Context, performed *symbols.Symbol, body actionBod
 	exec.owner = exec
 	exec.flow = exec
 	if occurrence != nil {
+		occurrence.performed = true
 		ctx.registerActionExecutor(exec)
 	}
 	exec.driven.exec = exec
@@ -322,15 +321,7 @@ func (e *ActionExecutor) performanceFeatures() []lower.Attribute {
 			continue
 		}
 		if i, ok := declared[name]; ok {
-			switch {
-			case e.declared != nil && features[i].Node != ast.Node(usage):
-				if e.redefinesAttribute(member, features[i]) {
-					features[i] = e.redefinedAttribute(features[i], member, usage)
-				}
-			case features[i].Value == nil && features[i].Node == ast.Node(usage):
-				features[i].Value, features[i].Scope, features[i].Binding = e.inheritedValue(member)
-			}
-			features[i].Optional = e.ctx.admitsNoValue(member)
+			e.refineDeclared(&features[i], member, usage)
 			continue
 		}
 		declared[name] = len(features)
@@ -367,6 +358,19 @@ func (e *ActionExecutor) performanceFeatures() []lower.Attribute {
 		features[i].ValueID = e.ctx.model.exprs.Intern(features[i].Value, scope)
 	}
 	return features
+}
+
+// refineDeclared folds member into the feature already held under its name.
+func (e *ActionExecutor) refineDeclared(feature *lower.Attribute, member *symbols.Symbol, usage *ast.Usage) {
+	switch {
+	case e.declared != nil && feature.Node != ast.Node(usage):
+		if e.redefinesAttribute(member, *feature) {
+			*feature = e.redefinedAttribute(*feature, member, usage)
+		}
+	case feature.Value == nil && feature.Node == ast.Node(usage):
+		feature.Value, feature.Scope, feature.Binding = e.inheritedValue(member)
+	}
+	feature.Optional = e.ctx.admitsNoValue(member)
 }
 
 // inheritedAttribute is the attribute a performance holds for an inherited member,
@@ -1665,7 +1669,7 @@ func (e *ActionExecutor) materializeOccurrence() (*Instance, error) {
 	if e.occurrence != nil {
 		return e.occurrence, nil
 	}
-	if !isBehaviorDefKind(e.action.Kind) {
+	if !e.action.Kind.IsBehaviorDef() {
 		return nil, nil
 	}
 	inst, err := e.ctx.materialize(e.action, 0, nil, "")
@@ -1674,6 +1678,7 @@ func (e *ActionExecutor) materializeOccurrence() (*Instance, error) {
 	}
 	// The run's own object: what it holds is the run's, not the model's alone.
 	inst.explicit = true
+	inst.performed = true
 	e.occurrence = inst
 	e.performances.occurrence = inst
 	e.ctx.registerActionExecutor(e)
@@ -1696,7 +1701,7 @@ func (e *ActionExecutor) materializeOccurrence() (*Instance, error) {
 		}
 	}
 	e.ctx.beginPerformanceLife(inst, e.ctx.newActivation())
-	return inst, nil
+	return inst, e.holdNodeOccurrences(e.root)
 }
 
 // returnAround holds nothing either.
@@ -1754,22 +1759,32 @@ func (e *ActionExecutor) occurrenceRedefinesAttribute(attr lower.Attribute, fv *
 // occurrence for a feature the action declares: the occurrence is authoritative
 // for those, and data mirrors what it holds after the write.
 func (e *ActionExecutor) setFeature(name string, value Value) error {
+	value, err := e.holdFeature(name, value)
+	if err != nil {
+		return err
+	}
+	e.moved = true
+	return e.streamOutput(name, value)
+}
+
+// holdFeature is setFeature's write alone, returning the value as held: nothing
+// listening hears it, so a probe's rollback (see Context.beginProbe) undoes it whole.
+func (e *ActionExecutor) holdFeature(name string, value Value) (Value, error) {
 	var err error
 	if e.occurrence != nil && e.declaresAttribute(name) {
 		if value, err = e.mirrorOccurrence(name, value); err != nil {
-			return err
+			return value, err
 		}
 	} else {
 		// No occurrence holds this feature, so its declaration is checked here
 		// rather than by the write to that occurrence.
 		scope, declared := heldDeclaration(e.root, e.graph.Scope, name)
 		if err := e.ctx.checkNamedWriteAs(scope, func() string { return actionLabelPrefix + SymbolText(e.action) }, declared, &value); err != nil {
-			return err
+			return value, err
 		}
 	}
 	e.ctx.writeBodyValue(e.root.cells, e.root.data, e.root.key(name), value)
-	e.moved = true
-	return e.streamOutput(name, value)
+	return value, nil
 }
 
 // outputListener is a node's ear on the outputs of the action it performs: perf is
@@ -2113,10 +2128,9 @@ func (e *ActionExecutor) stepTokenAt(tokenIdx int) error {
 		}
 		return fmt.Errorf("unsupported usage kind in action: %v", node.Kind)
 	case *ast.PerformActionNode:
-		if e.tokenGraph(tokenIdx).UnstatedCaseFlow {
-			return e.stepStatementNode(tokenIdx)
-		}
-		return fmt.Errorf("unsupported node type: %T", node)
+		// A step a succession end implies by chaining to an action through an
+		// object, or a `perform` of an unstated case flow: its one statement.
+		return e.stepStatementNode(tokenIdx)
 	case *ast.WhileLoopActionNode, *ast.IfActionNode, *ast.AssignmentActionNode,
 		*ast.SendStatement, *ast.TerminateStatement:
 		// An action node member written as a statement (`then send x via p;`,
@@ -3020,7 +3034,7 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 		}
 	}
 
-	perf, err := e.beginPerformance(token.frame, graph, usage, nil, nil, nil)
+	perf, err := e.beginPerformance(token.frame, graph, usage, nil, nil, nil, nil)
 	if err != nil {
 		return err
 	}

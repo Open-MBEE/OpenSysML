@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"testing"
@@ -197,6 +198,24 @@ func TestCompareIgnoresInputsThisCheckoutDoesNotHave(t *testing.T) {
 	}
 }
 
+// A tool or an input of ours that the baseline records but this run no longer has is a
+// mismatch: dropping a bridge must not drop its provenance check with it.
+func TestCompareReportsRemovedToolsAndOwnInputs(t *testing.T) {
+	recorded := Record{
+		Tools:  []Tool{{Name: "kept", Source: "a"}, {Name: "dropped", Source: "b"}},
+		Inputs: []Input{{Name: "ours", Dir: "tools/x", Origin: OriginOurs, Files: 1, Digest: "sha256:aa"}},
+	}
+	current := Record{Tools: []Tool{recorded.Tools[0]}}
+	got := Compare(recorded, current)
+	want := []Mismatch{
+		{Field: toolField("dropped", ""), Recorded: "present", Current: "not recorded", Cause: CauseOurs},
+		{Field: inputField("ours", ""), Recorded: "tools/x", Current: "not recorded", Cause: CauseOurs},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("Compare = %+v, want %+v", got, want)
+	}
+}
+
 // TestReproducesSaysWhichActionADifferenceCallsFor covers the scheduled run's
 // two verdicts, and that the recording date alone is not a non-reproduction.
 func TestReproducesSaysWhichActionADifferenceCallsFor(t *testing.T) {
@@ -230,6 +249,30 @@ func TestReproducesSaysWhichActionADifferenceCallsFor(t *testing.T) {
 	if !strings.Contains(err.Error(), "provenance.pilotTag") ||
 		!strings.Contains(err.Error(), "Investigate the provisioning") {
 		t.Errorf("a moved pin is misreported: %v", err)
+	}
+}
+
+// TestReproducesComparesNumbersExactlyAndPastAChangedLength: integers beyond 2^53 are not
+// rounded into each other, and a list of another length still has its common entries compared.
+func TestReproducesComparesNumbersExactlyAndPastAChangedLength(t *testing.T) {
+	committedPath := filepath.Join(t.TempDir(), "baseline.json")
+	committed := `{"totals":{"big":9007199254740992,"ratio":1.0},"rows":[{"n":1},{"n":2}]}`
+	if err := os.WriteFile(committedPath, []byte(committed), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	respelled := `{"totals":{"big":9007199254740992,"ratio":1},"rows":[{"n":1},{"n":2.0}]}`
+	if err := Reproduces(committedPath, []byte(respelled)); err != nil {
+		t.Errorf("the same numbers spelled differently do not reproduce: %v", err)
+	}
+	err := Reproduces(committedPath, []byte(`{"totals":{"big":9007199254740993,"ratio":1.0},"rows":[{"n":1},{"n":2}]}`))
+	if err == nil || !strings.Contains(err.Error(), "totals.big: 9007199254740992 -> 9007199254740993") {
+		t.Errorf("two integers beyond 2^53 compare equal: %v", err)
+	}
+	err = Reproduces(committedPath, []byte(`{"totals":{"big":9007199254740992,"ratio":1.0},"rows":[{"n":7},{"n":2},{"n":3}]}`))
+	for _, want := range []string{"rows: 2 entr(y|ies) in the baseline, now 3", "rows[0].n: 1 -> 7"} {
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("%v\nlacks %q", err, want)
+		}
 	}
 }
 

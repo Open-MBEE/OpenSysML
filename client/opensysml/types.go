@@ -23,6 +23,7 @@ const (
 	CapabilityQueryOrderBy                   = sysmlgrpc.CapabilityQueryOrderBy
 	CapabilityDocumentQuery                  = sysmlgrpc.CapabilityDocumentQuery
 	CapabilityInlineDocumentQuery            = sysmlgrpc.CapabilityInlineDocumentQuery
+	CapabilityQueryResultView                = sysmlgrpc.CapabilityQueryResultView
 	CapabilityRenderDocument                 = sysmlgrpc.CapabilityRenderDocument
 	CapabilityRenderView                     = sysmlgrpc.CapabilityRenderView
 	CapabilityRenderViewForm                 = sysmlgrpc.CapabilityRenderViewForm
@@ -32,6 +33,7 @@ const (
 	CapabilitySymbolNameResolution           = sysmlgrpc.CapabilitySymbolNameResolution
 	CapabilitySymbolAnnotatingMetadata       = sysmlgrpc.CapabilitySymbolAnnotatingMetadata
 	CapabilitySymbolLookupKind               = sysmlgrpc.CapabilitySymbolLookupKind
+	CapabilitySymbolMemberDirection          = sysmlgrpc.CapabilitySymbolMemberDirection
 	CapabilityImportData                     = sysmlgrpc.CapabilityImportData
 	CapabilityCompareResults                 = sysmlgrpc.CapabilityCompareResults
 	CapabilityCheck                          = sysmlgrpc.CapabilityCheck
@@ -84,6 +86,7 @@ const (
 	CapabilityElementProperties              = sysmlgrpc.CapabilityElementProperties
 	CapabilityEngines                        = sysmlgrpc.CapabilityEngines
 	CapabilityUndeterminedValue              = sysmlgrpc.CapabilityUndeterminedValue
+	CapabilityCoordinateFrameValues          = sysmlgrpc.CapabilityCoordinateFrameValues
 	CapabilityBigIntValues                   = sysmlgrpc.CapabilityBigIntValues
 	CapabilityRationalValues                 = sysmlgrpc.CapabilityRationalValues
 	CapabilityConvertDocuments               = sysmlgrpc.CapabilityConvertDocuments
@@ -96,6 +99,9 @@ const (
 	CapabilityRenderDocumentFileName         = sysmlgrpc.CapabilityRenderDocumentFileName
 	CapabilityRenderDocumentHTML             = sysmlgrpc.CapabilityRenderDocumentHTML
 	CapabilityRenderDocumentAsciiDoc         = sysmlgrpc.CapabilityRenderDocumentAsciiDoc
+	CapabilityEnginesExternal                = sysmlgrpc.CapabilityEnginesExternal
+	CapabilityInfinityValue                  = sysmlgrpc.CapabilityInfinityValue
+	CapabilityOrderDependence                = sysmlgrpc.CapabilityOrderDependence
 )
 
 // ServerInfo describes the implementation answering a Client's calls.

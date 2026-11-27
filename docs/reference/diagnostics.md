@@ -290,7 +290,7 @@ Specification: SysML v2 §8.2.2.8 EnumerationBody
 
 **error** · Syntax · `expose` outside a view body
 
-An expose is an import a view usage owns: `expose` is admitted in the body of a view usage (and, as an OpenSysML extension the notation rules report, a view definition) only. Move the expose into the view that shows the exposed elements, or write an `import` where a plain import is meant.
+An expose is an import a view usage owns: `expose` is admitted in the body of a view usage only (SysML v2 8.2.2.26.2 ViewBodyItem); a view definition body states what it renders and filters and admits none. Move the expose into the view that shows the exposed elements, or write an `import` where a plain import is meant.
 
 Specification: SysML v2 validateExposeOwningNamespace
 
@@ -330,9 +330,9 @@ Specification: the pinned SysML v2 Xtext grammar
 
 **warning** · Syntax · notation OpenSysML reads that no production of the SysML v2 grammar admits
 
-The text is an OpenSysML extension: the parser reads it and the model is analyzed, but the pinned SysML v2 and KerML grammars have no production for it, so another tool will reject the file. The message states the standard form to write instead. `-strict` promotes this finding to an error.
+The text is an OpenSysML extension: the parser reads it and the model is analyzed, but the pinned SysML v2 and KerML grammars have no production for it, so another tool will reject the file. The message states the standard form to write instead. `-strict` promotes this finding to an error. An escape sequence in a string or an unrestricted name that KerML §8.2.2.3 Table 4 does not list is reported the same way: `\r`, which the pilot grammar alone adds, is read as a carriage return, but a tool built from the specification's table has no such escape.
 
-Specification: the pinned SysML v2 and KerML Xtext grammars
+Specification: the pinned SysML v2 and KerML Xtext grammars; KerML §8.2.2.3 Table 4 (Escape Sequences)
 
 #### `objective-membership-owning-type`
 
@@ -949,7 +949,7 @@ Specification: SysML v2 validatePortUsageIsReference
 
 | Code | Severity | Summary |
 |------|----------|---------|
-| [`accepter-source-not-state`](#accepter-source-not-state) | error | a transition with a trigger whose source is not a state |
+| [`accepter-source-not-state`](#accepter-source-not-state) | error | a transition with an accepter whose source is an action but no state |
 | [`annotation-annotated-element-ownership`](#annotation-annotated-element-ownership) | error | an annotating element whose `about` names its own owner |
 | [`assignment-chain-step-not-one-object`](#assignment-chain-step-not-one-object) | error | an assignment target stepping through a feature that may hold several objects |
 | [`assignment-referent`](#assignment-referent) | error | an assignment whose target is no feature |
@@ -1066,9 +1066,9 @@ Specification: SysML v2 validatePortUsageIsReference
 
 #### `accepter-source-not-state`
 
-**error** · Constraints · a transition with a trigger whose source is not a state
+**error** · Constraints · a transition with an accepter whose source is an action but no state
 
-A transition's accepter waits in its source for the trigger, which a state can do and a pseudostate cannot. Move the trigger to a transition out of a state, or drop it from the pseudostate's transition.
+A transition's accepter waits in its source for the trigger, which a state usage does and any other action usage does not: an entry, do or exit action, a performed, accept, send, assignment or terminate action, a calculation or a case, written as the source or declared just before a transition written without one. Move the accepter to a transition out of a state, or drop it and keep the guard.
 
 Specification: SysML v2 validateTransitionUsageTriggerActions
 
@@ -2010,6 +2010,11 @@ A transition's `accept when <name>` or `when <name>` trigger names something no 
 | [`mosa-interface-no-standard`](#mosa-interface-no-standard) | warning | a modular system interface conforming to no standard |
 | [`mosa-interface-not-traced`](#mosa-interface-not-traced) | warning | a modular system interface satisfying no requirement |
 | [`mosa-proprietary-no-rationale`](#mosa-proprietary-no-rationale) | warning | an element marked `@Proprietary` with no rationale |
+| [`npr7123-compliance-matrix-missing-requirement`](#npr7123-compliance-matrix-missing-requirement) | warning | a compliance matrix whose document has no compliance entry for an active SE requirement |
+| [`npr7123-compliance-missing-justification`](#npr7123-compliance-missing-justification) | warning | a compliance entry marked tailored or not applicable with no justification |
+| [`npr7123-review-missing-entrance-or-success-criteria`](#npr7123-review-missing-entrance-or-success-criteria) | warning | a life-cycle review stating no entrance criteria or no success criteria |
+| [`npr7123-review-missing-minimum-product`](#npr7123-review-missing-minimum-product) | warning | a section 5.2.2.2 minimum product absent from its review or below the required maturity |
+| [`npr7123-semp-missing-process`](#npr7123-semp-missing-process) | warning | a SEMP not addressing all 17 common technical processes |
 | [`oosem-logical-component-not-allocated`](#oosem-logical-component-not-allocated) | warning | a logical component allocated to nothing |
 | [`oosem-requirement-not-derived`](#oosem-requirement-not-derived) | warning | a requirement derived from no higher-level requirement |
 | [`oosem-requirement-not-satisfied`](#oosem-requirement-not-satisfied) | warning | a requirement nothing satisfies |
@@ -2063,6 +2068,46 @@ Specification: MOSA extension library
 MOSA expects the justification for each proprietary element to be recorded with it. Give the annotation a `rationale`.
 
 Specification: MOSA extension library
+
+#### `npr7123-compliance-matrix-missing-requirement`
+
+**warning** · Method rules · a compliance matrix whose document has no compliance entry for an active SE requirement
+
+Table H-1 of NPR 7123.1D covers every active `[SE-nn]` requirement, so a `ComplianceMatrix` usage expects its document to hold a `@Compliance`-annotated usage of each definition in `NPR7123::SERequirements`. Add the missing entries, marking each FC, T or NA.
+
+Specification: NPR7123 extension library (NASA NPR 7123.1D)
+
+#### `npr7123-compliance-missing-justification`
+
+**warning** · Method rules · a compliance entry marked tailored or not applicable with no justification
+
+Table H-1 of NPR 7123.1D asks for a justification wherever a requirement is tailored (`T`) or not applicable (`NA`). Give the `@Compliance` annotation a `justification`.
+
+Specification: NPR7123 extension library (NASA NPR 7123.1D)
+
+#### `npr7123-review-missing-entrance-or-success-criteria`
+
+**warning** · Method rules · a life-cycle review stating no entrance criteria or no success criteria
+
+NPR 7123.1D section 5.2.2.1 (SE-34) has the technical team define entrance and success criteria for each life-cycle review, so a `LifeCycleReview` usage is expected to nest `EntranceCriterion` and `SuccessCriterion` requirement usages. Subset the transcribed criteria of the library's `ReviewCriteria` package into the review's `entranceCriteria` and `successCriteria`, tailoring them as section G.1.2 expects.
+
+Specification: NPR7123 extension library (NASA NPR 7123.1D)
+
+#### `npr7123-review-missing-minimum-product`
+
+**warning** · Method rules · a section 5.2.2.2 minimum product absent from its review or below the required maturity
+
+NPR 7123.1D section 5.2.2.2 (SE-35 to SE-56, SE-66 to SE-69) names the minimum products the technical team provides at each life-cycle review and their maturity, recorded on the library's work product definitions as `@MaturityExpectation { required = true }`. Nest an item of that product subsetting `reviewedProducts` under the review, with a `maturity` at or above the one asked for, or document the tailoring in the SEMP.
+
+Specification: NPR7123 extension library (NASA NPR 7123.1D)
+
+#### `npr7123-semp-missing-process`
+
+**warning** · Method rules · a SEMP not addressing all 17 common technical processes
+
+NPR 7123.1D section 6.2.3 (SE-58) has the SEMP define how each of the 17 common technical processes, as tailored, is applied, so a `SEMP` usage expects one nested usage per process definition of the library. Nest the missing processes (`#technicalPlanning action plan;`) with their `tailoring`.
+
+Specification: NPR7123 extension library (NASA NPR 7123.1D)
 
 #### `oosem-logical-component-not-allocated`
 

@@ -88,13 +88,6 @@ func impliedMultiplicity(owner *symbols.Symbol, span source.Span, form symbols.I
 	}
 }
 
-// IsDeclaredMultiplicityRange reports whether sym is the MultiplicityRange a usage's
-// written range declares (DeclaredMultiplicityMember), owned at the clause.
-func IsDeclaredMultiplicityRange(sym *symbols.Symbol) bool {
-	decl, ok := symbols.ImpliedDeclOf(sym)
-	return ok && decl.Form == symbols.ImpliedMultiplicityRange
-}
-
 // IsDefaultMultiplicity reports whether sym is the Multiplicity a usage's implicit
 // [1..1] is stated by (DefaultMultiplicityMember).
 func IsDefaultMultiplicity(sym *symbols.Symbol) bool {
@@ -118,7 +111,8 @@ func (m *Model) declaresMultiplicity(sym *symbols.Symbol) bool {
 // DeclaredMultiplicityMember is the nameless MultiplicityRange a usage's written range
 // (`[4]`) declares, owned at the clause as the conversion writes it; nil without a range.
 func (m *Model) DeclaredMultiplicityMember(sym *symbols.Symbol) *symbols.Symbol {
-	if m == nil || sym == nil || sym.Implicit != nil || sym.Chain != nil || sym.Expr != nil || !sym.DeclaresUsage() {
+	if m == nil || sym == nil || sym.Implicit != nil || sym.Chain != nil || sym.Expr != nil ||
+		(!sym.DeclaresUsage() && !DeclaresEndFeature(sym) && sym.Kind != symbols.SymbolCrossFeature) {
 		return nil
 	}
 	mult := UsageMultiplicityOf(sym)

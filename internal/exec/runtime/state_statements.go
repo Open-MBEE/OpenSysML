@@ -185,7 +185,8 @@ func (e *StateExecutor) endedBefore(ended []ast.Node, behavior lower.StateBehavi
 // behaviorHost prepares one execution of a behavior: its performance over the
 // machine's data and the attributes of the states around it, within firing.
 func (e *StateExecutor) behaviorHost(behavior lower.StateBehavior, firing *firing) *stateStmtHost {
-	host := &stateStmtHost{exec: e, behavior: behavior, attrs: e.attrFramesFor(behavior.Owner), firing: firing}
+	host := &stateStmtHost{exec: e, behavior: behavior, firing: firing}
+	host.attrs = host.attrFrames()
 	host.flow = &ActionExecutor{
 		performances:     performances{ctx: e.ctx, self: e.self, root: host.rootFrame(host.attrs), owner: host, behavior: e.stateMachine, occurrence: e.occurrence, thisOccurrence: e.materializeOccurrence},
 		action:           behaviorSymbol(behavior),
@@ -231,6 +232,26 @@ func (h *stateStmtHost) dataFrame() frame {
 	fr := h.exec.dataFrame()
 	fr.firing = h.firing
 	return fr
+}
+
+// attrFrames are the attributes of the states around the behavior, each written on
+// the behavior's own path, so a write by feature answers to the attribute's declaration.
+func (h *stateStmtHost) attrFrames() []frame {
+	var frames []frame
+	chain := h.exec.getParentChain(h.behavior.Owner)
+	for i := len(chain) - 1; i >= 0; i-- {
+		state := chain[i]
+		fr, ok := h.exec.attrFrame(state)
+		if !ok {
+			continue
+		}
+		fr.write = func(_ frame, name string, value Value) error {
+			_, err := h.assignStateAttributeFrom(state, name, value)
+			return err
+		}
+		frames = append(frames, fr)
+	}
+	return frames
 }
 
 // run executes the behavior's statements; a do behavior's pause where they wait
@@ -438,8 +459,10 @@ func (h *stateStmtHost) send(ec *EvalContext, s lower.Send) error {
 // exhibiting it, falling back to executor-local data.
 func (h *stateStmtHost) assignOuter(env *stmtEnv, name string, value Value, s lower.Assign) error {
 	name = h.exec.heldKey(h.behavior.Owner, s.Scope, name)
-	if written, err := h.assignStateAttribute(name, value); written || err != nil {
-		return err
+	if !h.writesMachine(s) {
+		if written, err := h.assignStateAttribute(name, value); written || err != nil {
+			return err
+		}
 	}
 	if h.exec.declaresAttribute(name) {
 		return h.exec.assignAttribute(name, value)
@@ -452,13 +475,36 @@ func (h *stateStmtHost) assignOuter(env *stmtEnv, name string, value Value, s lo
 
 func (h *stateStmtHost) assignData(env *stmtEnv, name string, value Value, s lower.Assign) error {
 	name = h.exec.heldKey(h.behavior.Owner, s.Scope, name)
-	if written, err := h.assignStateAttribute(name, value); written || err != nil {
-		return err
+	if !h.writesMachine(s) {
+		if written, err := h.assignStateAttribute(name, value); written || err != nil {
+			return err
+		}
 	}
 	if h.exec.declaresAttribute(name) {
 		return h.exec.assignAttribute(name, value)
 	}
 	return storeBodyValue(h.exec.ctx, h, env, name, value, s)
+}
+
+// writesMachine reports whether the target as written is a feature the machine holds
+// and no state around the behavior does, whatever attribute of a state takes its name.
+func (h *stateStmtHost) writesMachine(s lower.Assign) bool {
+	if s.Qualified {
+		return false
+	}
+	target, ok := h.exec.ctx.writeTargetIn(s.Scope, s.Target)
+	if !ok || target.feature == nil {
+		return false
+	}
+	if _, held := h.exec.heldAttributes()[target.feature]; !held {
+		return false
+	}
+	for _, ancestor := range h.exec.getParentChain(h.behavior.Owner) {
+		if _, held := h.exec.stateAttrIndex[h.exec.stateID(ancestor)][target.feature]; held {
+			return false
+		}
+	}
+	return true
 }
 
 // assignChain writes the feature a chained target names on the object its chain
@@ -477,13 +523,19 @@ func (h *stateStmtHost) assignForeign(ec *EvalContext, s lower.Assign, value Val
 // behavior, or by one enclosing it, and reports whether it did. The value
 // answers to the attribute's declaration as every other write does.
 func (h *stateStmtHost) assignStateAttribute(name string, value Value) (bool, error) {
-	data, scope, cells, ok := h.exec.stateAttributeValues(h.behavior.Owner, name)
+	return h.assignStateAttributeFrom(h.behavior.Owner, name, value)
+}
+
+// assignStateAttributeFrom is assignStateAttribute for the attribute state, or a
+// state enclosing it, owns.
+func (h *stateStmtHost) assignStateAttributeFrom(state *ast.StateNode, name string, value Value) (bool, error) {
+	data, scope, cells, ok := h.exec.stateAttributeValues(state, name)
 	if !ok {
 		return false, nil
 	}
 	declared := name
 	if h.exec.holdsShadowed() {
-		for _, ancestor := range h.exec.getParentChain(h.behavior.Owner) {
+		for _, ancestor := range h.exec.getParentChain(state) {
 			if _, held := h.exec.stateAttrs[h.exec.stateID(ancestor)]; held {
 				_, declared = declarationHeldUnder(h.exec.stateAttrIndex[h.exec.stateID(ancestor)], scope, name)
 				if declared != name {
@@ -510,6 +562,9 @@ func (h *stateStmtHost) performer() *Instance {
 func (h *stateStmtHost) occurrence() *Instance {
 	return h.exec.occurrence
 }
+
+// caseAssertions is nil: a state behavior is no step of a case's own flow.
+func (h *stateStmtHost) caseAssertions() *caseAssertions { return nil }
 
 // materializeOccurrence defers to the executor's.
 func (h *stateStmtHost) materializeOccurrence() (*Instance, error) {
@@ -579,8 +634,8 @@ func (h *stateStmtHost) runBlockFlow(engine *stmtEngine, block lower.Block) (stm
 }
 
 // beginLoop begins a loop a body statement reaches as a performance of the behavior's.
-func (h *stateStmtHost) beginLoop(stmt lower.Loop) (*Instance, error) {
-	return h.perfs.beginLoopPerformance(h.perfs.root, stmt)
+func (h *stateStmtHost) beginLoop(stmt lower.Loop, within *Instance) (*Instance, error) {
+	return h.perfs.beginLoopPerformance(h.perfs.root, stmt, within)
 }
 
 // runFlow runs the token flow an inline body states with its successions and

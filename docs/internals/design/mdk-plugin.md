@@ -880,6 +880,56 @@ the engine, the window or the bridge distinguishes these outcomes from any other
 window lists them, `DocGenBridge.flatten` carries them, and `DocBookRenderer` writes them as
 rows of the outcome table, so a DocGen document shows the same failure text.
 
+### 10.8 The "Publish to SysML v2 API" sequence
+
+```
+user: right-click an element ▸ OpenSysML ▸ Publish to SysML v2 API…
+  PublishAction (EDT)      dialog: server URL, token, project, branch, message, deletions
+                           ApiConfig.checkedBase() refuses a URL the token may not travel to
+                           selection.export() → ModelSource (as §10.6)
+  Engine.publish (worker)  parseSources → refuse on errors → Model.convert("api-json")
+  Publisher.publish        GET project, branch (head) → refuse a head other than the one last seen
+                           GET commits/{head}/elements, paged → creates, updates, deletions
+                           GET branch again → refuse a moved head
+                           POST projects/{id}/commits?branchId=… → the new head
+  PublishSettings          remember server, project, branch and the head, per Cameo project
+```
+
+The HTTP client (`repository/SysmlApiClient`) is the plugin's own, on `java.net.http` and the
+gson the bundle already carries: the service converts, the plugin talks to the server, and no
+RPC was added for it. It mirrors `internal/translate/interop/sysmlapi` on the wire — both
+spellings of the paging parameters, the `Link` header when a server sends one, the commit
+request's `DataVersion` changes — and in where a bearer token may go. The diff is by element id
+over the properties the model states; it is not the three-way `reposync` diff of `sysml -sync`,
+which is why the action is a one-way publication and row 4 of the parity plan is still open.
+
+### 10.9 The answer as a view, and "Render document"
+
+`Engine.runQuery` asks with `Model.runDocumentQueryAsView`, so each `QueryAnswer` carries the
+`QVTS::QueryResult` view the service wrote — in `DocumentQueryResult.resultView()` for rows, in
+`QueryOutcomeException.resultView()` for a reported failure — and `ResultsMapper` puts them in
+`RunResult.views` as `View(query, name, text)`, `name` being the view's qualified name read
+from the text (`results/ResultViews`). The text is the service's and is not rewritten: on the
+v1 path it names elements as the migrated model does, which is what it is written beside.
+
+`OperationActions.writeViews` runs after a run that was not cancelled and hands the views to
+`export/ResultViewFiles`: `anchor` is the model file to write beside — the last export of a v1
+project in this session (`ResultViewFiles.exported`, recorded by the export action), else the
+project file — and `write` puts each view in `<anchor stem>.<query>.result.sysml`
+(`ResultViews.fileName`: `::` flattened, and a digest of the query added when its text is not
+plain names, so distinct queries have distinct files). The files
+are reported as `query-result-view` diagnostics, `INFO` when written and `WARNING` when not.
+
+*Render document…* (`OperationActions.RenderAction`) asks for a folder on the EDT, exports as
+any operation does, and calls `Engine.render` under the progress runner. `DocumentRenderer`
+takes the subject and the declarations the migration report maps it to (`mappedTargets`, as
+`QueryResolver` does), keeps those that specialize `DocumentQueries::Document` or
+`QVTS::QueryResult`, and writes Markdown and HTML for each: `Model.renderDocument` for a
+document, written under the `RenderedDocument.fileName` the service planned so that sibling
+documents link it, `Model.renderView(name, form)` for a result view. Nothing is written when no
+candidate is either. The folder is opened with `java.awt.Desktop`, which is JDK, not OpenAPI,
+so the compatibility floor is unchanged.
+
 ## 11. Phased plan
 
 | Phase | Delivers | Prerequisites in OpenSysML |
@@ -1059,7 +1109,16 @@ a `Profile` named `Magic MDK DocGen` under the primary model, applied to it with
 `org.openmbee.mdk.magic.docgen.{Instantiate,ExecuteAction,ExecuteState,Verify,EvaluateCalc,RunAnalysis,RunQuery}`,
 each extending `Activity` and `CallBehaviorAction` with a generalization to `«JavaExtension»`;
 `EvaluateCalc` and `RunQuery` add a `String` tag `arguments` (the calc's argument list; the
-query's parameter bindings, §10.7). The action is idempotent and runs inside one
+query's parameter bindings, §10.7), and `RunQuery` a `String` tag `view`: `text` adds each
+answer's `QVTS::QueryResult` view to the document as SysML, `rendered` as the two tables
+`RenderView` lays out — the four attributes, and the exposed elements — so the view's rows are
+the elements of the query's own table. The bridge passes the tag through a four-argument
+`docGen(BaseElement, String, String, String)` facade only when it is set, so an extension
+with no `view` tag still runs against a plugin that has only the three-argument one; the
+plugin flattens the views under `views` (`query`, `name`, `text`, `header`, `columns`,
+`rows`), and for `rendered` `Engine.renderViews` parses each view's text beside the model and
+reads `RenderView`'s header and rows. A project whose `«RunQuery»` predates the tag gets it
+added by the same action. The action is idempotent and runs inside one
 `SessionManager` session so it is a single undo step.
 
 ### 14.4 Build and packaging

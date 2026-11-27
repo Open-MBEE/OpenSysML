@@ -118,6 +118,93 @@ func isType(metaclass string) bool {
 	return ontology.IsAncestorOrSelf(metaclass, "Type") || kermlTypeUsage[metaclassUsage[metaclass]]
 }
 
+// kermlTypeMetaclass names the KerML metaclass a type declaration recorded under a
+// kermlTypeUsage kind builds, by its keyword (KerML.xtext Type, Class, Structure, …).
+var kermlTypeMetaclass = map[string]string{
+	"type":         "Type",
+	"class":        "Class",
+	"struct":       "Structure",
+	"assoc":        "Association",
+	"assoc struct": "AssociationStructure",
+	"behavior":     "Behavior",
+	"predicate":    "Predicate",
+	"interaction":  "Interaction",
+}
+
+// kermlTypeMetaclassUsage reads kermlTypeMetaclass back to the kind the parser records.
+var kermlTypeMetaclassUsage = map[string]ast.UsageKind{
+	"Type":                 ast.UsageClass,
+	"Class":                ast.UsageClass,
+	"Structure":            ast.UsageStruct,
+	"Association":          ast.UsageAssoc,
+	"AssociationStructure": ast.UsageAssoc,
+	"Behavior":             ast.UsageBehavior,
+	"Predicate":            ast.UsagePredicate,
+	"Interaction":          ast.UsageInteraction,
+}
+
+// kermlTypeKeyword reads kermlTypeMetaclass back to the keyword, for a graph that states none;
+// `datatype` and `function` are read the same way from the metaclass only they build.
+var kermlTypeKeyword = func() map[string]string {
+	out := map[string]string{}
+	for keyword, metaclass := range kermlTypeMetaclass {
+		out[metaclass] = keyword
+	}
+	for _, keyword := range []string{"datatype", "function"} {
+		out[keywordMetaclass[keyword]] = keyword
+	}
+	return out
+}()
+
+// legacyKerMLTypeMetaclasses maps the names earlier releases typed a KerML type
+// declaration with, which the metamodel does not declare, to the metaclass each meant.
+var legacyKerMLTypeMetaclasses = map[string]string{
+	"AssociationUsage": "Association",
+	"BehaviorUsage":    "Behavior",
+	"ClassUsage":       "Class",
+	"InteractionUsage": "Interaction",
+	"PredicateUsage":   "Predicate",
+	"StructureUsage":   "Structure",
+}
+
+// legacyKerMLTypeMetaclass gives the metaclass a legacy-typed declaration builds: the one
+// its recorded keyword states (`type`, `assoc struct`), else the one its legacy name meant.
+func legacyKerMLTypeMetaclass(legacy, keyword string) string {
+	if declared, ok := kermlTypeMetaclass[keyword]; ok {
+		return declared
+	}
+	return legacyKerMLTypeMetaclasses[legacy]
+}
+
+// defFormSuffix ends the sysx:declaredKeyword of a `class def`: its metaclass is the one
+// the def-less `class` builds, which a graph stating no keyword reads back as.
+const defFormSuffix = " def"
+
+// defFormKeyword gives the keyword a definition sharing its metaclass with a def-less KerML
+// type declaration records, or "" for a definition its metaclass alone tells from one.
+func defFormKeyword(n *ast.Definition, metaclass string) string {
+	if !n.HasDefKeyword || n.Keyword == "" {
+		return ""
+	}
+	if _, shared := kermlTypeMetaclassUsage[metaclass]; !shared && metaclass != mClassifier {
+		return ""
+	}
+	return n.Keyword + defFormSuffix
+}
+
+// mClassifier is what `classifier` builds; the parser records it under DefClass.
+const mClassifier = "Classifier"
+
+// definitionMetaclassOf gives the metaclass a definition builds, reading the
+// keyword where the kind does not decide it.
+func definitionMetaclassOf(n *ast.Definition) (string, bool) {
+	if n.Kind == ast.DefClass && n.Keyword == "classifier" {
+		return mClassifier, true
+	}
+	m, ok := definitionMetaclass[n.Kind]
+	return m, ok
+}
+
 // keywordMetaclass names the metaclass a keyword builds where several spellings
 // share one AST kind (KerML.xtext:788, :924; SysML.xtext:632).
 var keywordMetaclass = map[string]string{
@@ -179,7 +266,8 @@ func declaredMetaclass(decl ast.Node) string {
 		}
 		return mPackage
 	case *ast.Definition:
-		return definitionMetaclass[n.Kind]
+		m, _ := definitionMetaclassOf(n)
+		return m
 	case *ast.Usage:
 		m, _ := usageMetaclassOf(n, false)
 		return m
@@ -192,6 +280,9 @@ func declaredMetaclass(decl ast.Node) string {
 // a kindless `name = value;` in a metadata body (SysML.xtext MetadataBodyUsage).
 func usageMetaclassOf(n *ast.Usage, inMetadataBody bool) (string, bool) {
 	if m, ok := keywordMetaclass[n.Keyword]; ok {
+		return m, true
+	}
+	if m, ok := kermlTypeMetaclass[n.Keyword]; ok && kermlTypeUsage[n.Kind] {
 		return m, true
 	}
 	switch {
@@ -225,6 +316,11 @@ func usageMetaclassOf(n *ast.Usage, inMetadataBody bool) (string, bool) {
 	}
 	if n.IsSuccessionFlow() {
 		return mSuccessionFlowUsage, true
+	}
+	if n.IsExtendedUsage() {
+		// Prefix metadata in place of a kind keyword declares a plain Usage
+		// (SysML.xtext ExtendedUsage), not a reference (SysML v2 8.3.6.10).
+		return mUsage, true
 	}
 	if n.Keyword == "" && (n.Kind == ast.UsageAttribute || inMetadataBody && n.Kind == ast.UsageEnumeration) {
 		// A kindless usage is a DefaultReferenceUsage; a name decides nothing, the
@@ -286,6 +382,7 @@ var metaclassKeywordUsage = map[string]ast.UsageKind{
 	"DataType":             ast.UsageAttribute,
 	"Function":             ast.UsageCalc,
 	"ReferenceUsage":       ast.UsageAttribute,
+	mUsage:                 ast.UsageAttribute,
 	mEventOccurrenceUsage:  ast.UsageOccurrence,
 	mAssertConstraintUsage: ast.UsageConstraint,
 	mTerminate:             ast.UsageAction,
@@ -478,6 +575,7 @@ func init() {
 	}
 	// Turtle this conversion wrote before it typed them so.
 	metaclassDefinition["IndividualDefinition"] = ast.DefIndividual
+	metaclassDefinition[mClassifier] = ast.DefClass
 	metaclassUsage["IndividualUsage"] = ast.UsageIndividual
 }
 

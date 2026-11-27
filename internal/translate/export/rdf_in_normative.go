@@ -59,6 +59,13 @@ var impliedRelationshipMetaclasses = map[string]bool{
 	mSpecialization:       true,
 	mRedefinition:         true,
 	mReferenceSubsetting:  true,
+	mCrossSubsetting:      true,
+	mUnioning:             true,
+	mIntersecting:         true,
+	mDifferencing:         true,
+	mDisjoining:           true,
+	mFeatureInverting:     true,
+	mTypeFeaturing:        true,
 	mAnnotation:           true,
 }
 
@@ -79,6 +86,13 @@ var derivedSatelliteMetaclasses = map[string]bool{
 	mSpecialization:           true,
 	mRedefinition:             true,
 	mReferenceSubsetting:      true,
+	mCrossSubsetting:          true,
+	mUnioning:                 true,
+	mIntersecting:             true,
+	mDifferencing:             true,
+	mDisjoining:               true,
+	mFeatureInverting:         true,
+	mTypeFeaturing:            true,
 	mPortConjugation:          true,
 	mConjugatedPortDefinition: true,
 	mMultiplicityRange:        true,
@@ -94,12 +108,16 @@ var relationshipSourceEnds = []string{
 	"typedFeature", "subclassifier", pSubsettingFeature, "redefiningFeature",
 	pReferencingFeature, pSpecific, pSource, pOwningFeature, "owningClassifier",
 	pOwningType, pOwningRelatedElement,
+	"crossingFeature", "typeUnioned", "typeIntersected", "typeDifferenced",
+	"typeDisjoined", "featureInverted", "featureOfType",
 }
 
 // relationshipTargetEnds are the properties naming the relationship's target.
 var relationshipTargetEnds = []string{
 	"type", "superclassifier", pSubsettedFeature, pReferencedFeature,
 	"redefinedFeature", pGeneral, pTarget,
+	"crossedFeature", "unioningType", "intersectingType", "differencingType",
+	"disjoiningType", "invertingFeature", "featuringType",
 }
 
 // normativeImplied reports whether el is one of the materialized elements a
@@ -476,6 +494,19 @@ func (d *decoder) statedIRITargets(owner *element) map[ast.RelationshipKind]map[
 	if ontology.IsAncestorOrSelf(owner.metaclass, "AnnotatingElement") {
 		kinds = append(kinds, ast.RelAnnotates)
 	}
+	// A graph from before these elements states the clause collapsed alone; an owner
+	// stating one of a class states one per target of its clause.
+	for _, child := range owner.children {
+		if !child.implied {
+			continue
+		}
+		switch child.metaclass {
+		case mCrossSubsetting, mUnioning, mIntersecting, mDifferencing, mDisjoining, mFeatureInverting, mTypeFeaturing:
+			if kind := collapsedKindsOf[child.metaclass][0]; !slices.Contains(kinds, kind) {
+				kinds = append(kinds, kind)
+			}
+		}
+	}
 	for _, kind := range kinds {
 		for _, object := range d.graph.Objects(rdf.IRI(owner.iri), rdf.SysML+relationshipProperty[kind]) {
 			if !object.IsIRI() {
@@ -511,11 +542,16 @@ func (d *decoder) coverTargets(child *element, stated map[ast.RelationshipKind]m
 // parameterMember: el is owned through a subject, actor or stakeholder membership, whose `in` is the default never
 // spelled out; a bare ParameterMembership or an ObjectiveMembership (a FeatureMembership) states a direction explicitly.
 func (d *decoder) parameterMember(el *element) bool {
+	if m, owned := d.owningMembership[el.iri]; owned && el.metaclass == usageMetaclass[ast.UsageAction] &&
+		d.metaclass(rdf.IRI(m.iri)) == mParameterMembership {
+		// A loop's written body (`loop action a { … }`) is its parameter.
+		return true
+	}
 	kind, ok := d.parameterMembershipKind(el)
 	return ok && kind != ast.UsageObjective
 }
 
-// verifyConjugated checks the conjugate's declared names against its original.
+// verifyConjugated checks the conjugate states no declared name (SysML 8.3.12.2), or an older graph's `~` of its original's.
 func (d *decoder) verifyConjugated(el, parent *element) error {
 	expectedName := ""
 	if original, ok := d.nameOf(parent, rdf.SysML+pDeclaredName); ok {
@@ -532,11 +568,11 @@ func (d *decoder) verifyConjugated(el, parent *element) error {
 	for i, value := range statedNames {
 		nameValues[i] = value.Value
 	}
-	if len(statedNames) > 1 || expectedName == "" && len(statedNames) != 0 ||
-		expectedName != "" && (len(statedNames) != 1 || !statedNames[0].IsLiteral() || statedNames[0].Value != expectedName) {
+	if len(statedNames) > 0 && (len(statedNames) != 1 || expectedName == "" ||
+		!statedNames[0].IsLiteral() || statedNames[0].Value != expectedName) {
 		return &UnsupportedError{
 			What: fmt.Sprintf("the conjugated port definition <%s>", el.iri),
-			Note: fmt.Sprintf("its declaredName is %q where the original requires %q", strings.Join(nameValues, ", "), expectedName),
+			Note: fmt.Sprintf("its declaredName is %q where the original permits no value or the legacy value %q", strings.Join(nameValues, ", "), expectedName),
 		}
 	}
 	short, hasShort := d.nameOf(parent, rdf.SysML+pDeclaredShortName)
@@ -561,7 +597,7 @@ func (d *decoder) verifyConjugated(el, parent *element) error {
 
 // verifySubjectParameter checks a satisfy's subject parameter: its value is a
 // FeatureReferenceExpression of one of the `by` targets the head states.
-func (d *decoder) verifySubjectParameter(el *element, parent *element, subjects []rdf.Term) error {
+func (d *decoder) verifySubjectParameter(el, parent *element, subjects []rdf.Term) error {
 	what := fmt.Sprintf("the subject parameter <%s>", el.iri)
 	iris := false
 	for _, subject := range subjects {

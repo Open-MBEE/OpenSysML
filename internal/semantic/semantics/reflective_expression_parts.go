@@ -2,6 +2,7 @@ package semantics
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -23,6 +24,8 @@ type expressionParts struct {
 	body      *symbols.Symbol   // a `{ … }` reference's referent, the body Expression
 	members   []*symbols.Symbol // a body's parameters and members, in the conversion's order
 	chain     *symbols.Symbol   // the Feature a receiver-reached call names its function by
+	// constructor marks a ConstructorExpression, whose result owns the params.
+	constructor bool
 }
 
 // resultBearingExpressions are the expression metaclasses whose evaluation
@@ -43,7 +46,7 @@ func isExpressionSymbol(sym *symbols.Symbol) bool {
 	}
 	switch sym.Expr.Role {
 	case symbols.ExpressionValue, symbols.ExpressionArgument, symbols.ExpressionChangeWrapper, symbols.ExpressionChangeCondition,
-		symbols.ExpressionBody, symbols.ExpressionBodyResult, symbols.ExpressionGuard:
+		symbols.ExpressionBody, symbols.ExpressionBodyResult, symbols.ExpressionGuard, symbols.ExpressionOperand, symbols.ExpressionBound, symbols.ExpressionFilterCondition:
 		return true
 	}
 	return false
@@ -61,10 +64,14 @@ func expressionElementMetaclassName(sym *symbols.Symbol) string {
 			return "Expression"
 		case symbols.ExpressionTriggerAction:
 			return "AcceptActionUsage"
+		case symbols.ExpressionLoopBody:
+			return "ActionUsage"
+		case symbols.ExpressionPayload, symbols.ExpressionAccess, symbols.ExpressionConnectorEnd, symbols.ExpressionTransitionLinkParameter, symbols.ExpressionTransitionLink:
+			return "ReferenceUsage"
 		case symbols.ExpressionTransitionSuccession:
 			return "SuccessionAsUsage"
-		case symbols.ExpressionPayload, symbols.ExpressionTransitionLinkParameter, symbols.ExpressionTransitionLink:
-			return "ReferenceUsage"
+		case symbols.ExpressionFilterPackage:
+			return "Package"
 		}
 	}
 	if isSatisfySubjectChainValue(sym) {
@@ -111,6 +118,36 @@ func (m *Model) expressionPartsOf(expr *symbols.Symbol) *expressionParts {
 	}
 	journal(m, m.expressionParts, expr, expr.Decl)
 	parts := &expressionParts{}
+	if m.specialFormParts(expr, parts) {
+		m.expressionParts[expr] = parts
+		return parts
+	}
+	if _, constructor := expr.Decl.(*ast.ConstructorExpr); constructor {
+		// A constructor owns only its result, which owns the features its
+		// arguments value (KerML 8.3.4.8.3, KerML.xtext ConstructorResultMember).
+		parts.constructor = true
+		parts.result = m.expressionParameter(expr, symbols.ExpressionResult, 0)
+	}
+	operands, typeArgument := ast.ExpressionOperands(expr.Decl)
+	m.operandParts(expr, parts, operands)
+	if typeArgument >= 0 {
+		parts.params = append(parts.params, m.expressionParameter(expr, symbols.ExpressionParameter, typeArgument))
+		parts.operands = append(parts.operands, nil)
+	}
+	if resultBearingExpressions[expressionElementMetaclassName(expr)] && parts.result == nil {
+		parts.result = m.expressionParameter(expr, symbols.ExpressionResult, 0)
+	}
+	if slot, _, _ := m.expressionChainOf(expr); slot != "" {
+		parts.chain = m.expressionParameter(expr, symbols.ExpressionChainFeature, 0)
+		parts.chain.Expr.Slot = slot
+	}
+	m.expressionParts[expr] = parts
+	return parts
+}
+
+// specialFormParts fills parts for an expression whose form fixes them — a change wrapper, a body,
+// a `{ … }` reference, a change trigger, a satisfy subject's chain — and reports whether expr is one.
+func (m *Model) specialFormParts(expr *symbols.Symbol, parts *expressionParts) bool {
 	if expr.Expr.Role == symbols.ExpressionChangeWrapper {
 		// The wrapper owns the condition it refers to and its result; the
 		// condition's own parts hang off the condition (changeArgument).
@@ -123,8 +160,7 @@ func (m *Model) expressionPartsOf(expr *symbols.Symbol) *expressionParts {
 			Expr:       &symbols.ExpressionElement{Owner: expr, Role: symbols.ExpressionChangeCondition},
 		}
 		parts.result = m.expressionParameter(expr, symbols.ExpressionResult, 0)
-		m.expressionParts[expr] = parts
-		return parts
+		return true
 	}
 	if expr.Expr.Role == symbols.ExpressionBody {
 		// The body owns the parameters and members its scope declares, in the
@@ -146,8 +182,7 @@ func (m *Model) expressionPartsOf(expr *symbols.Symbol) *expressionParts {
 				Expr:       &symbols.ExpressionElement{Owner: expr, Role: symbols.ExpressionBodyResult},
 			}
 		}
-		m.expressionParts[expr] = parts
-		return parts
+		return true
 	}
 	if body, ok := expr.Decl.(*ast.BodyExpr); ok {
 		// A `{ … }` is a FeatureReferenceExpression whose referent is the body
@@ -166,8 +201,7 @@ func (m *Model) expressionPartsOf(expr *symbols.Symbol) *expressionParts {
 		journal(m, m.bodySymbols, body, body)
 		m.bodySymbols[body] = parts.body
 		parts.result = m.expressionParameter(expr, symbols.ExpressionResult, 0)
-		m.expressionParts[expr] = parts
-		return parts
+		return true
 	}
 	if event, ok := expr.Decl.(*ast.ChangeEvent); ok && event.Condition != nil {
 		// A change trigger binds one `in` parameter to a wrapper whose
@@ -183,18 +217,20 @@ func (m *Model) expressionPartsOf(expr *symbols.Symbol) *expressionParts {
 			Expr:       &symbols.ExpressionElement{Owner: parameter, Role: symbols.ExpressionChangeWrapper},
 		})
 		parts.result = m.expressionParameter(expr, symbols.ExpressionResult, 0)
-		m.expressionParts[expr] = parts
-		return parts
+		return true
 	}
 	if isSatisfySubjectChainValue(expr) {
 		// The subject's `by a.b` binds no parameter: its chain Feature leads its result.
 		parts.chain = m.expressionParameter(expr, symbols.ExpressionChainFeature, 0)
 		parts.chain.Expr.Slot = "referent"
 		parts.result = m.expressionParameter(expr, symbols.ExpressionResult, 0)
-		m.expressionParts[expr] = parts
-		return parts
+		return true
 	}
-	operands, typeArgument := ast.ExpressionOperands(expr.Decl)
+	return false
+}
+
+// operandParts adds to parts the parameter each operand of expr binds and the operand it binds.
+func (m *Model) operandParts(expr *symbols.Symbol, parts *expressionParts, operands []ast.ExpressionOperand) {
 	for _, operand := range operands {
 		if operand.Index < 0 {
 			// A receiver no function is named for is an operand the
@@ -202,6 +238,9 @@ func (m *Model) expressionPartsOf(expr *symbols.Symbol) *expressionParts {
 			continue
 		}
 		parameter := m.expressionParameter(expr, symbols.ExpressionParameter, operand.Index)
+		if parts.constructor {
+			parameter.Expr.Owner = parts.result
+		}
 		if !operand.Argument {
 			// An operand's parameter is private; an argument list's stays public.
 			parameter.Visibility = ast.VisibilityPrivate
@@ -213,22 +252,9 @@ func (m *Model) expressionPartsOf(expr *symbols.Symbol) *expressionParts {
 			Decl:       operand.Node,
 			DeclSpan:   operand.Node.Span(),
 			Visibility: expr.Visibility,
-			Expr:       &symbols.ExpressionElement{Owner: parameter, Role: symbols.ExpressionArgument, Index: operand.Index},
+			Expr:       &symbols.ExpressionElement{Owner: parameter, Role: symbols.ExpressionArgument, Index: operand.Index, Slot: operand.Slot},
 		})
 	}
-	if typeArgument >= 0 {
-		parts.params = append(parts.params, m.expressionParameter(expr, symbols.ExpressionParameter, typeArgument))
-		parts.operands = append(parts.operands, nil)
-	}
-	if resultBearingExpressions[expressionElementMetaclassName(expr)] {
-		parts.result = m.expressionParameter(expr, symbols.ExpressionResult, 0)
-	}
-	if slot, _, _ := m.expressionChainOf(expr); slot != "" {
-		parts.chain = m.expressionParameter(expr, symbols.ExpressionChainFeature, 0)
-		parts.chain.Expr.Slot = slot
-	}
-	m.expressionParts[expr] = parts
-	return parts
 }
 
 func (m *Model) expressionParameter(expr *symbols.Symbol, role symbols.ExpressionRole, index int) *symbols.Symbol {
@@ -245,10 +271,23 @@ func (m *Model) expressionParameter(expr *symbols.Symbol, role symbols.Expressio
 // ExpressionParameters are the `in` parameters of the expression element expr,
 // one per operand and one per type argument, in the conversion's order.
 func (m *Model) ExpressionParameters(expr *symbols.Symbol) []*symbols.Symbol {
-	if parts := m.expressionPartsOf(expr); parts != nil {
+	if parts := m.expressionPartsOf(expr); parts != nil && !parts.constructor {
 		return parts.params
 	}
 	return nil
+}
+
+// constructorResultFeatures are the features the result of a ConstructorExpression
+// owns, one per argument in written order; nil for any other symbol.
+func (m *Model) constructorResultFeatures(result *symbols.Symbol) []*symbols.Symbol {
+	if result == nil || result.Expr == nil || result.Expr.Role != symbols.ExpressionResult {
+		return nil
+	}
+	parts := m.expressionPartsOf(result.Expr.Owner)
+	if parts == nil || !parts.constructor || parts.result != result {
+		return nil
+	}
+	return parts.params
 }
 
 // ExpressionArguments are the operands of the expression element expr, as
@@ -279,13 +318,69 @@ func (m *Model) ExpressionResult(expr *symbols.Symbol) *symbols.Symbol {
 	return nil
 }
 
+// ConstructorNamedFeature is the feature of the instantiated type typ a constructor's
+// named argument names, which the argument's result feature redefines (KerML 8.3.4.8.3); nil when none.
+func (m *Model) ConstructorNamedFeature(typ *symbols.Symbol, name *ast.QualifiedName) *symbols.Symbol {
+	if m == nil || typ == nil || name == nil || len(name.Parts) == 0 {
+		return nil
+	}
+	// The last part, not the text's last segment: an unrestricted name may hold `::`.
+	formal, _ := m.LookupMember(typ, name.Parts[len(name.Parts)-1].Text)
+	return formal
+}
+
+// constructorArgumentFormal is the instantiated type's feature a constructor argument param stands for:
+// by name (`new T(x = 1)`, named true) or by position (KerML 8.3.4.8.3); nil when none resolves.
+func (m *Model) constructorArgumentFormal(param *symbols.Symbol) (formal *symbols.Symbol, named bool) {
+	if m == nil || param == nil || param.Expr == nil || param.Expr.Role != symbols.ExpressionParameter {
+		return nil, false
+	}
+	result := param.Expr.Owner
+	features := m.constructorResultFeatures(result)
+	index := slices.Index(features, param)
+	if index < 0 {
+		return nil, false
+	}
+	expr := result.Expr.Owner
+	ctor, ok := expr.Decl.(*ast.ConstructorExpr)
+	if !ok {
+		return nil, false
+	}
+	operands, _ := ast.ExpressionOperands(expr.Decl)
+	if index >= len(operands) {
+		return nil, false
+	}
+	typ := m.referencedSymbol(expr, ctor.Type)
+	if name := operands[index].Name; name != nil {
+		return m.ConstructorNamedFeature(typ, name), true
+	}
+	if typ == nil {
+		return nil, false
+	}
+	position := 0
+	for _, member := range m.MembersOf(typ) {
+		if !symbols.VisibleOutside(member.Visibility) || !m.reflectiveMetaclassConforms(member, "Feature") {
+			continue
+		}
+		if position == index {
+			return member, false
+		}
+		position++
+	}
+	return nil, false
+}
+
 // expressionParameterValue is the operand the synthesized `in` parameter
 // binds, nil for a type argument's parameter or the `out`.
 func (m *Model) expressionParameterValue(param *symbols.Symbol) *symbols.Symbol {
 	if m == nil || param == nil || param.Expr == nil || param.Expr.Role != symbols.ExpressionParameter {
 		return nil
 	}
-	parts := m.expressionPartsOf(param.Expr.Owner)
+	owner := param.Expr.Owner
+	if owner != nil && owner.Expr != nil && owner.Expr.Role == symbols.ExpressionResult {
+		owner = owner.Expr.Owner
+	}
+	parts := m.expressionPartsOf(owner)
 	if parts == nil {
 		return nil
 	}
@@ -329,7 +424,7 @@ func (m *Model) expressionOwnedParts(expr *symbols.Symbol) []*symbols.Symbol {
 	if parts == nil {
 		return nil
 	}
-	out := append([]*symbols.Symbol{}, parts.params...)
+	out := append([]*symbols.Symbol{}, m.ExpressionParameters(expr)...)
 	if parts.condition != nil {
 		// A change wrapper owns its condition through a FeatureMembership,
 		// ahead of its result (changeArgument).
@@ -354,7 +449,7 @@ func (m *Model) expressionParameterParts(expr *symbols.Symbol) []*symbols.Symbol
 	if parts == nil {
 		return nil
 	}
-	out := append([]*symbols.Symbol{}, parts.params...)
+	out := append([]*symbols.Symbol{}, m.ExpressionParameters(expr)...)
 	if result := m.ExpressionResult(expr); result != nil {
 		out = append(out, result)
 	}
@@ -382,10 +477,29 @@ func (m *Model) expressionMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		m.memberships[sym] = out
 		return out
 	}
+	if IsFilterPackage(sym) {
+		out := []*symbols.Symbol{m.filterPackagePartsOf(sym).membership}
+		m.memberships[sym] = out
+		return out
+	}
+	if isLoopBody(sym) {
+		// A loop's body owns what it declares and the statements it writes, in source order.
+		out := m.withBodyMemberships(sym, nil, 0, make(map[*symbols.Symbol]bool))
+		out = mergeMemberships(out, statementMembershipsOf(sym, m.statementNodes(sym)))
+		m.memberships[sym] = out
+		return out
+	}
+	out := m.ownedExpressionMemberships(sym)
+	m.memberships[sym] = out
+	return out
+}
+
+// ownedExpressionMemberships is the memberships through which sym owns the elements its form gives it.
+func (m *Model) ownedExpressionMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 	var out []*symbols.Symbol
-	if transitionSuccessionPart(sym) {
-		// The succession a transition owns holds its two ends through an EndFeatureMembership each.
-		for _, end := range m.SuccessionEndMembers(sym) {
+	if ends := m.synthesizedSuccessionEnds(sym); ends != nil {
+		// A transition's succession owns its two ends through an EndFeatureMembership each (SuccessionEndMembers).
+		for _, end := range ends {
 			out = appendOwningMembership(out, sym, end)
 		}
 	} else if parts := m.acceptParts(sym); parts != nil {
@@ -419,12 +533,24 @@ func (m *Model) expressionMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		out = appendOwningMembership(out, sym, parts.result)
 	} else if isExpressionSymbol(sym) {
 		out = m.plainExpressionMemberships(sym)
+	} else if features := m.constructorResultFeatures(sym); len(features) > 0 {
+		for _, feature := range features {
+			out = appendOwningMembership(out, sym, feature)
+		}
 	} else if value := m.expressionParameterValue(sym); value != nil {
 		out = appendOwningMembership(out, sym, value)
 	} else if value := m.sendParameterValue(sym); value != nil {
 		out = appendOwningMembership(out, sym, value)
+	} else {
+		// A control action's parameter owns its value, then the feature an assignment's target nests.
+		if value := m.controlParameterValue(sym); value != nil && value.Expr.Slot != "target" {
+			// A chained target's base is owned by the chain the assignment writes whole.
+			out = appendOwningMembership(out, sym, value)
+		}
+		for _, feature := range m.accessFeatures(sym) {
+			out = appendOwningMembership(out, sym, feature)
+		}
 	}
-	m.memberships[sym] = out
 	return out
 }
 
@@ -474,15 +600,12 @@ func appendOwningMembership(out []*symbols.Symbol, owner, member *symbols.Symbol
 	})
 }
 
-// appendReferenceMembership appends the Membership through which owner names
-// the element name resolves to, at slot; nothing while the name is unresolved.
+// appendReferenceMembership appends the Membership through which owner names the element
+// name resolves to, at slot; it is written while the name is unresolved too, naming no member.
 func (m *Model) appendReferenceMembership(out []*symbols.Symbol, owner *symbols.Symbol, slot string, name *ast.QualifiedName) []*symbols.Symbol {
 	target := m.referencedSymbol(owner, name)
 	if target == nil {
 		target = m.subjectValueTarget(owner)
-	}
-	if target == nil {
-		return out
 	}
 	return append(out, &symbols.Symbol{
 		Kind:       symbols.SymbolRelationship,
@@ -616,6 +739,10 @@ func (m *Model) expressionScopeOf(expr *symbols.Symbol) *symbols.Scope {
 			// A constraint body's closing condition reads its names in the body (ConstraintResultMember).
 			return cur.Expr.Owner.Scope
 		}
+		if cur.Expr.Role == symbols.ExpressionFilterCondition && cur.Expr.Owner != nil {
+			// A `filter` condition reads its names in the namespace stating it (document.go FilterMember).
+			return cur.Expr.Owner.Scope
+		}
 		if cur.Expr.Role == symbols.ExpressionBody {
 			if scope := m.bodyScopeOf(cur); scope != nil {
 				return scope
@@ -679,6 +806,9 @@ func (m *Model) expressionReferencedElements(expr *symbols.Symbol, feature strin
 	}
 	for _, membership := range m.OwnedMemberships(expr) {
 		if rel := membership.Implicit; rel != nil && rel.Form == symbols.ImplicitReferenceMembership && rel.Slot == feature {
+			if rel.Member == nil {
+				return []*symbols.Symbol{}
+			}
 			return []*symbols.Symbol{rel.Member}
 		}
 	}
@@ -934,9 +1064,10 @@ func (m *Model) chainFeatureMemberships(chain *symbols.Symbol) []*symbols.Symbol
 		if target == nil && path != nil {
 			target = path[i]
 		}
-		if target == nil {
+		if target == nil && !isSatisfySubjectChainValue(owner) {
 			continue
 		}
+		// A subject's `by a.b` chain owns one chaining per link whether or not it resolves (recordSatisfySubjectValue).
 		out = append(out, &symbols.Symbol{
 			Kind:       symbols.SymbolRelationship,
 			DocName:    chain.DocName,
@@ -954,8 +1085,12 @@ func (m *Model) chainFeatureMemberships(chain *symbols.Symbol) []*symbols.Symbol
 // ChainingFeatures are the features a chain Feature chains, in order.
 func (m *Model) ChainingFeatures(chain *symbols.Symbol) []*symbols.Symbol {
 	links := []*symbols.Symbol{}
+	if chain == nil || (chain.Chain == nil && chain.Expr == nil) {
+		// Only a chain a relationship targets or an expression writes owns FeatureChainings.
+		return links
+	}
 	for _, chaining := range m.OwnedRelationships(chain) {
-		if chaining.Implicit != nil && chaining.Implicit.Form == symbols.ImplicitFeatureChaining {
+		if chaining.Implicit != nil && chaining.Implicit.Form == symbols.ImplicitFeatureChaining && chaining.Implicit.Member != nil {
 			links = append(links, chaining.Implicit.Member)
 		}
 	}
@@ -969,8 +1104,14 @@ func featureChainingElements(sym *symbols.Symbol, feature string) ([]*symbols.Sy
 	case "source", "featureChained", "owningRelatedElement", "owner":
 		return []*symbols.Symbol{rel.Owner}, true
 	case "target", "chainingFeature":
+		if rel.Member == nil {
+			return []*symbols.Symbol{}, true
+		}
 		return []*symbols.Symbol{rel.Member}, true
 	case "relatedElement":
+		if rel.Member == nil {
+			return []*symbols.Symbol{rel.Owner}, true
+		}
 		return []*symbols.Symbol{rel.Owner, rel.Member}, true
 	case "ownedRelatedElement", "ownedRelationship", "ownedElement", "ownedAnnotation", "owningRelationship",
 		"owningMembership", "owningNamespace", "documentation", "textualRepresentation":

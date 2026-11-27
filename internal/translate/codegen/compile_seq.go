@@ -115,7 +115,7 @@ func (fc *funcCompiler) scalarOperand(v, other Expr, op ast.OperatorKind, left b
 	case ast.OpLt, ast.OpLe, ast.OpGt, ast.OpGe:
 		return fc.pairOperand(v, other, left, fmt.Sprintf("type mismatch: operator '%s' is not defined for %%s and %%s; DataFunctions::'%s' takes one DataValue per operand", op, op), false, ""), nil
 	case ast.OpAnd, ast.OpConditionalAnd, ast.OpOr, ast.OpConditionalOr, ast.OpXor, ast.OpImplies:
-		return ToOne{X: v, Fail: fmt.Sprintf("type mismatch: %s operand of '%s' must be Boolean, got %%s", side, op), Bare: true}, nil
+		return ToOne{X: v, Fail: fmt.Sprintf("type mismatch: %s operand of '%s' must be Boolean, got %%s", side, op)}, nil
 	}
 	return fc.pairOperand(v, other, left, fmt.Sprintf("type mismatch: operator '%s' is not defined for %%s and %%s", op), false, ""), nil
 }
@@ -541,7 +541,7 @@ func (fc *funcCompiler) seqResult(op SeqOp, elem Type) (Type, error) {
 }
 
 // compileBodyOp is an operation applying body per element of operand.
-func (fc *funcCompiler) compileBodyOp(op SeqOp, operand ast.Node, body ast.Node) (Expr, error) {
+func (fc *funcCompiler) compileBodyOp(op SeqOp, operand, body ast.Node) (Expr, error) {
 	fc.c.collections = true
 	b, ok := body.(*ast.BodyExpr)
 	if !ok {

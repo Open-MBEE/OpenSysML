@@ -153,6 +153,9 @@ export const CAPABILITY_ACTION_TRACE = "action_trace";
 export const CAPABILITY_ENGINES = "engines";
 /** A model-level result the model leaves open as `Value.undetermined`, read as an `undetermined` value. */
 export const CAPABILITY_UNDETERMINED_VALUE = "undetermined_value";
+
+/** `Value.coordinate_frame` and `Value.coordinate_transformation`; without it each is an unsupported null. */
+export const CAPABILITY_COORDINATE_FRAME_VALUES = "coordinate_frame_values";
 /** An Integer beyond int64 as `Value.bigIntValue`, `Quantity.bigIntMagnitude` and `DocumentValue.bigIntValue`; a service without it reads one sent to it as null. */
 export const CAPABILITY_BIG_INT_VALUES = "big_int_values";
 /** An exact Rational no double holds as `Value.rationalValue`, `Quantity.rationalMagnitude` and `DocumentValue.rationalValue`; a service without it reads one sent to it as null. */

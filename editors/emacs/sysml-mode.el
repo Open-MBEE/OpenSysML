@@ -20,12 +20,15 @@
 ;; line that continues the statement above it.
 ;;
 ;; `sysml-lsp.el' connects the modes to the OpenSysML language server
-;; through lsp-mode.
+;; through lsp-mode, and `sysml-eglot.el' through Eglot.
 
 ;;; Code:
 
+(require 'xref)
 (require 'seq)
 (require 'sysml-mode-keywords)
+(require 'url-parse)
+(require 'url-util)
 
 (defgroup sysml nil
   "SysML v2 and KerML editing."
@@ -392,6 +395,58 @@ Point is at the line's first non-blank character."
 (add-to-list 'auto-mode-alist '("\\.sysml\\'" . sysml-mode))
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.kerml\\'" . kerml-mode))
+
+;;;; Bundled library documents
+
+(defvar-local sysml-library-uri nil
+  "The `sysml-stdlib:' URI of the bundled library document this buffer shows.")
+
+(defvar-local sysml--library-server nil
+  "The language server whose bundled library this buffer's text is from.")
+
+(defun sysml-library-uri-p (uri)
+  "Return non-nil when URI names a document of the bundled library.
+The server reports such locations under the `sysml-stdlib' scheme; no
+file on disk holds them."
+  (string-prefix-p "sysml-stdlib:" uri))
+
+(defun sysml-library-buffer (uri server fetch-text)
+  "Return a read-only buffer showing the bundled library document URI of SERVER.
+FETCH-TEXT is called with no arguments to return the document's text,
+once per document and server: another build may bundle a different
+library."
+  (or (seq-find (lambda (buffer)
+                  (and (equal (buffer-local-value 'sysml-library-uri buffer) uri)
+                       (eq (buffer-local-value 'sysml--library-server buffer) server)))
+                (buffer-list))
+      (let* ((text (funcall fetch-text))
+             (path (url-unhex-string (url-filename (url-generic-parse-url uri))))
+             (buffer (generate-new-buffer (format "%s <library>" (file-name-nondirectory path)))))
+        (with-current-buffer buffer
+          (insert text)
+          (if (string-suffix-p ".kerml" path) (kerml-mode) (sysml-mode))
+          (setq sysml-library-uri uri
+                sysml--library-server server)
+          (set-buffer-modified-p nil)
+          (setq buffer-read-only t)
+          (goto-char (point-min)))
+        buffer)))
+
+(defun sysml-library-xref-item (buffer beg end)
+  "Return an xref item for the text from BEG to END of library BUFFER.
+A bundled library document has no file to name, so the item is located
+in the buffer showing it; its summary is the line BEG is on.  It is not
+a match: the buffer is read-only, so a replacement must pass it by."
+  (with-current-buffer buffer
+    (save-excursion
+      (save-restriction
+        (widen)
+        (goto-char beg)
+        (let* ((bol (line-beginning-position))
+               (eol (line-end-position))
+               (summary (buffer-substring bol eol)))
+          (add-face-text-property (- beg bol) (- (min end eol) bol) 'xref-match t summary)
+          (xref-make summary (xref-make-buffer-location buffer beg)))))))
 
 (provide 'sysml-mode)
 

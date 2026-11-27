@@ -50,8 +50,13 @@ done
 read -r -a wanted <<<"${FAKE_APT_SET:-}"
 case $command in
   update)
-    [[ ${FAKE_APT_UPDATE:-ok} == ok ]] && exit 0
-    echo "Err: no reply from the mirror" >&2
+    # ppa-down and mirror-down fail as apt does, naming the index a repository did not serve.
+    case ${FAKE_APT_UPDATE:-ok} in
+      ok) exit 0 ;;
+      ppa-down) echo "E: Failed to fetch https://ppa.example/git-core/ppa/ubuntu/dists/noble/main/binary-amd64/Packages  503  Service Unavailable" >&2 ;;
+      mirror-down) echo "E: Failed to fetch http://mirror.example/dists/noble/main/binary-amd64/Packages  503  Service Unavailable" >&2 ;;
+      *) echo "Err: no reply from the mirror" >&2 ;;
+    esac
     exit 100 ;;
   install) ;;
   *) echo "apt-get stand-in: unexpected command: $*" >&2; exit 2 ;;
@@ -140,6 +145,8 @@ calls() {
   local name=$1 pattern=$2
   grep -c -e "$pattern" "$work/$name/apt.log" || true
 }
+# An apt-get update call in a log; the option-anchored pattern below counts the same calls.
+update_call=' update '
 # installs <name>: the apt-get install calls that install (neither fetch nor list).
 installs() {
   local name=$1
@@ -164,7 +171,7 @@ z3=(z3_4.13.3-1_amd64.deb libz3-4_4.13.3-1_amd64.deb)
 
 # Online, no set kept: update, one fetch, one install, the mirrors untouched.
 if run_case online 0 FAKE_APT_SET="${z3[*]}" -- z3; then
-  [[ $(calls online '^-o .* update ') == 1 ]] || fail "online: update called $(calls online ' update ') times"
+  [[ $(calls online '^-o .* update ') == 1 ]] || fail "online: update called $(calls online "$update_call") times"
   [[ $(calls online "$fetch_option") == 1 ]] || fail "online: fetched $(calls online "$fetch_option") times"
   [[ $(calls online "$list_option") == 0 ]] || fail "online: listed the set without a directory to keep it in"
   [[ $(installs online | wc -l) == 1 ]] || fail "online: $(installs online | wc -l) installs"
@@ -193,7 +200,7 @@ fi
 # offline from its files alone, with the install options, and the set is left as it was.
 seed offline "${z3[@]}"
 if run_case offline 0 FAKE_APT_SET="${z3[*]}" FAKE_APT_UPDATE=fail CI_APT_ARCHIVES="$work/offline/set" -- --no-install-recommends z3; then
-  [[ $(calls offline ' update ') == 3 ]] || fail "offline: update attempted $(calls offline ' update ') times, expected 3"
+  [[ $(calls offline "$update_call") == 3 ]] || fail "offline: update attempted $(calls offline "$update_call") times, expected 3"
   [[ $(cat "$work/offline/mirrors") == $'https://mirror.two/ubuntu\tpriority:2' ]] || fail "offline: mirrors left: $(cat "$work/offline/mirrors")"
   [[ $(installs offline | wc -l) == 1 ]] || fail "offline: $(installs offline | wc -l) installs"
   installs offline | grep -q -- "install -y --no-download --no-install-recommends $work/offline/set/libz3-4_4.13.3-1_amd64.deb $work/offline/set/z3_4.13.3-1_amd64.deb$" || fail "offline: install was $(installs offline)"
@@ -201,6 +208,31 @@ if run_case offline 0 FAKE_APT_SET="${z3[*]}" FAKE_APT_UPDATE=fail CI_APT_ARCHIV
   mentions offline 'no mirror served z3'
   mentions offline 'installing z3 offline from the 2 archives'
   set_holds offline libz3-4_4.13.3-1_amd64.deb z3_4.13.3-1_amd64.deb
+fi
+
+# A repository the install fetches nothing from fails its index: one update, no retry of it,
+# the mirrors untouched, and the packages installed from the mirror that did answer.
+if run_case unneeded-index-down 0 FAKE_APT_SET="${z3[*]}" FAKE_APT_UPDATE=ppa-down -- z3; then
+  [[ $(calls unneeded-index-down "$update_call") == 1 ]] || fail "unneeded-index-down: update attempted $(calls unneeded-index-down "$update_call") times, expected 1"
+  [[ $(calls unneeded-index-down "$fetch_option") == 1 ]] || fail "unneeded-index-down: fetched $(calls unneeded-index-down "$fetch_option") times"
+  [[ $(grep -c . "$work/unneeded-index-down/mirrors") == 2 ]] || fail "unneeded-index-down: a mirror was dropped for another repository's failure"
+  mentions unneeded-index-down 'failed only on indexes z3 does not install from'
+  mentions unneeded-index-down 'https://ppa.example/git-core/ppa/ubuntu'
+  installed unneeded-index-down z3
+fi
+
+# The same outage with the archives unreachable too is a real failure: the fetch is retried, then the step fails.
+if run_case unneeded-index-down-fetch-fails 1 FAKE_APT_SET="${z3[*]}" FAKE_APT_UPDATE=ppa-down FAKE_APT_FETCH=fail -- z3; then
+  [[ $(calls unneeded-index-down-fetch-fails "$fetch_option") == 3 ]] || fail "unneeded-index-down-fetch-fails: fetched $(calls unneeded-index-down-fetch-fails "$fetch_option") times, expected 3"
+  [[ -z $(installs unneeded-index-down-fetch-fails) ]] || fail "unneeded-index-down-fetch-fails: installed anyway"
+  mentions unneeded-index-down-fetch-fails 'no mirror served z3'
+fi
+
+# The index of the repository the packages come from fails: update is retried and the step fails.
+if run_case needed-index-down 1 FAKE_APT_SET="${z3[*]}" FAKE_APT_UPDATE=mirror-down -- z3; then
+  [[ $(calls needed-index-down "$update_call") == 3 ]] || fail "needed-index-down: update attempted $(calls needed-index-down "$update_call") times, expected 3"
+  [[ $(calls needed-index-down "$fetch_option") == 0 ]] || fail "needed-index-down: fetched against lists the update did not refresh"
+  [[ -z $(installs needed-index-down) ]] || fail "needed-index-down: installed anyway"
 fi
 
 # No set to fall back on: the failure names both the mirrors and the missing set.
@@ -234,7 +266,7 @@ fi
 # The deadline is spent before the first attempt: no attempt is made and the set is installed offline.
 seed deadline-spent "${z3[@]}"
 if run_case deadline-spent 0 FAKE_APT_SET="${z3[*]}" CI_APT_DEADLINE_SECONDS=0 CI_APT_ARCHIVES="$work/deadline-spent/set" -- z3; then
-  [[ $(calls deadline-spent ' update ') == 0 ]] || fail "deadline-spent: update attempted with no time left"
+  [[ $(calls deadline-spent "$update_call") == 0 ]] || fail "deadline-spent: update attempted with no time left"
   mentions deadline-spent 'no time left for attempt 1 of 3'
   installed deadline-spent z3
 fi

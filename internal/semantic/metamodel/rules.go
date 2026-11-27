@@ -35,6 +35,10 @@ var servedRules = []Rule{
 	{DefiningClass: "FeatureTyping", Property: "owningFeature", Basis: "opposite of Feature::ownedTyping"},
 	{DefiningClass: "FeatureInverting", Property: "owningFeature", Basis: "opposite of Feature::ownedFeatureInverting"},
 	{DefiningClass: "CrossSubsetting", Property: "owningFeature", Basis: "opposite of Feature::ownedCrossSubsetting"},
+	{DefiningClass: "CrossSubsetting", Property: "crossingFeature", Basis: "owning related element of the CrossSubsetting"},
+	{DefiningClass: "Unioning", Property: "typeUnioned", Basis: "owning related element of the Unioning"},
+	{DefiningClass: "Intersecting", Property: "typeIntersected", Basis: "owning related element of the Intersecting"},
+	{DefiningClass: "Differencing", Property: "typeDifferenced", Basis: "owning related element of the Differencing"},
 	{DefiningClass: "Subsetting", Property: "owningFeature", Basis: "opposite of Feature::ownedSubsetting"},
 	{DefiningClass: "Redefinition", Property: "owningFeature", Basis: "opposite of Feature::ownedRedefinition"},
 	{DefiningClass: "ReferenceSubsetting", Property: "owningFeature", Basis: "opposite of Feature::ownedReferenceSubsetting"},
@@ -81,6 +85,7 @@ var servedRules = []Rule{
 	{DefiningClass: "AcceptActionUsage", Property: "payloadArgument", Constraint: "deriveAcceptActionUsagePayloadArgument"},
 	{DefiningClass: "AcceptActionUsage", Property: "payloadParameter", Constraint: "deriveAcceptActionUsagePayloadParameter"},
 	{DefiningClass: "AcceptActionUsage", Property: "receiverArgument", Constraint: "deriveAcceptActionUsageReceiverArgument"},
+	{DefiningClass: "ForLoopActionUsage", Property: "loopVariable", Constraint: "deriveForLoopActionUsageLoopVariable"},
 	{DefiningClass: "SendActionUsage", Property: "payloadArgument", Constraint: "deriveSendActionUsagePayloadArgument"},
 	{DefiningClass: "SendActionUsage", Property: "senderArgument", Constraint: "deriveSendActionUsageSenderArgument"},
 	{DefiningClass: "SendActionUsage", Property: "receiverArgument", Constraint: "deriveSendActionUsageReceiverArgument"},
@@ -400,7 +405,6 @@ Flow::sourceOutputFeature
 Flow::targetInputFeature
 FlowDefinition::flowEnd
 FlowUsage::flowDefinition
-ForLoopActionUsage::loopVariable
 ForLoopActionUsage::seqArgument
 FramedConcernMembership::ownedConcern
 FramedConcernMembership::referencedConcern

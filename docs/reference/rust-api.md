@@ -19,7 +19,7 @@ A consumer developing against a checkout takes it from a path or from git:
 opensysml = { git = "https://github.com/Open-MBEE/OpenSysML.git", branch = "main" }
 ```
 
-The minimum supported Rust version is **1.83**, and there is no asynchronous
+The minimum supported Rust version is **1.85**, and there is no asynchronous
 runtime: every call blocks. A caller that needs concurrency owns that decision —
 threads, or its own runtime's blocking pool — rather than inheriting one from a
 client library.
@@ -231,10 +231,12 @@ match value {
     Value::Unset => (),                // a materialized feature with no value
     Value::Undetermined(u) => (),      // left open by the model: u.reason, u.count_lower, u.count_upper
     Value::Infinity => (),             // the unbounded `*`
+    Value::CoordinateFrame(f) => (),   // f.axes, f.scale, f.transformation
+    Value::CoordinateTransformation(t) => (), // t.source, t.target, t.shape, t.pose
 }
 ```
 
-Every variant but `Unset` and `Undetermined` — answers the service gives, never
+Every variant but `Unset`, `Undetermined`, `CoordinateFrame` and `CoordinateTransformation` — answers the service gives, never
 arguments — can be sent, nested to a bounded depth. A request value is checked before it
 is sent: a quantity's unit must be reduced and its scale exact, an array, vector or tensor
 must fill its dimensions, and a function or metaobject must name its element; anything

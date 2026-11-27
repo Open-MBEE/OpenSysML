@@ -34,6 +34,7 @@ from opensysml.typefacts import (
 from opensysml.capabilities import (
     CAPABILITY_ELEMENT_PROPERTIES,
     CAPABILITY_INLINE_DOCUMENT_QUERY,
+    CAPABILITY_QUERY_RESULT_VIEW,
     CAPABILITY_RECORD_RUN,
     CAPABILITY_RUNS,
     CAPABILITY_SELF_CHECK,
@@ -55,6 +56,8 @@ from opensysml.capabilities import (
 from opensysml.values import (
     UNSET, Array, Function, InstanceRef, MeasurementRef, Metaobject, SetValue, TensorQuantity,
     Undetermined, UnsetType,
+    AffineTransformation3d, CoordinateFrame, CoordinateTransformation, FramePlacement, FramePose,
+    FrameRotation, FrameStep, MeasurementScale,
     Vector, VectorQuantity,
 )
 from opensysml.importcompare import (
@@ -79,14 +82,14 @@ from opensysml.runs import (
     SelfCheckFinding,
     SelfCheckResult,
 )
-from opensysml.query import QueryElement, QueryError
+from opensysml.query import QueryElement, QueryElements, QueryError
 from opensysml.element_properties import ElementIdentity, ElementProperties, ElementProperty
 from opensysml.sources import SourceDocument
 from opensysml.document import (
     DocumentEvent, DocumentQueryError, DocumentQueryResult, DocumentRow, DocumentState,
     DocumentVerdict, ElementRef, Graphs, INFINITY, ObjectRef, RenderCanvas, RenderEdge,
     RenderFrame, RenderGeometry, RenderNode, RenderNote, RenderPoint, RenderPort, RenderRow,
-    RenderSpan, RenderStyle, RenderedView,
+    RenderHeaderField, RenderSpan, RenderStyle, RenderedView,
 )
 from opensysml.conversion import (
     FORMAT_API_JSON, FORMAT_SYSML, FORMAT_TURTLE, ID_FORM_QUALIFIED, ID_FORM_UUID, Conversion,
@@ -137,6 +140,8 @@ __all__ = [
     "AttributeFacts",
     "ServerInfo",
     "UNSET", "UnsetType", "Undetermined",
+    "CoordinateFrame", "CoordinateTransformation", "MeasurementScale", "FramePlacement", "FrameStep",
+    "FrameRotation", "AffineTransformation3d", "FramePose",
     "Array", "Vector", "VectorQuantity", "MeasurementRef", "Function", "Metaobject", "SetValue",
     "TensorQuantity", "InstanceRef",
     "Conversion", "FORMAT_API_JSON", "FORMAT_SYSML", "FORMAT_TURTLE", "LibraryReference",
@@ -152,6 +157,7 @@ __all__ = [
     "Bound", "EngineInfo", "Standing",
     "QueryElement", "QueryError",
     "ElementIdentity", "ElementProperties", "ElementProperty", "CAPABILITY_ELEMENT_PROPERTIES", "CAPABILITY_INLINE_DOCUMENT_QUERY",
+    "CAPABILITY_QUERY_RESULT_VIEW", "QueryElements", "RenderHeaderField",
     "SourceDocument",
     "DocumentEvent", "DocumentQueryError", "DocumentQueryResult", "DocumentRow",
     "DocumentState", "DocumentVerdict", "ElementRef", "INFINITY", "ObjectRef",

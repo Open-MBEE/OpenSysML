@@ -94,7 +94,8 @@ export interface ConvertOptions {
   /**
    * For API JSON, also write on every Namespace and Type the derived lists
    * that repeat its inherited and imported members (`membership`, `member`,
-   * `inheritedMembership`, `featureMembership`, `feature`, `inheritedFeature`).
+   * `inheritedMembership`, `importedMembership`, `featureMembership`, `feature`,
+   * `inheritedFeature`).
    * Default off: an element carries its owned structure.
    */
   inheritedMembers?: boolean;

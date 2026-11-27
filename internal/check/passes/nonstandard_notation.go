@@ -42,11 +42,10 @@ type NonstandardNotationPass struct{}
 // Level reports the syntax level: the written notation is all it reads.
 func (NonstandardNotationPass) Level() PassLevel { return LevelSyntax }
 
-// Run walks the document for extension and language-specific notation, and
-// under strict conformance escalates the parser's nonstandard-notation
-// warnings — a /* */ comment where no member may start — to errors.
+// Run walks the document for extension and language-specific notation, and under
+// strict conformance escalates the parser's nonstandard-notation warnings to errors.
 func (NonstandardNotationPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
-	if root == nil {
+	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
 	// A document of no known kind — the REPL and CLI buffer — reads as SysML,
@@ -73,7 +72,7 @@ func (NonstandardNotationPass) Run(ctx *Context, name string, root *ast.RootName
 	if w.typedByReported < root.TypedBy {
 		w.typedByInExpressions(root)
 	}
-	// A comment where no member may start is the parser's own warning, which
+	// A misplaced comment and a nonstandard escape are the parser's own warnings, which
 	// strict conformance escalates; the escalated finding replaces the warning.
 	if ctx.Options.Conformance.IsStrict() {
 		for _, d := range ctx.ParseDiagnostics {
@@ -103,9 +102,6 @@ type notationWalker struct {
 	// one-name `then <target>;` is a target transition rather than a target
 	// succession (SysML.xtext TargetTransitionUsage).
 	inStateBody bool
-	// inViewDefBody records that the body being walked is a ViewDefinitionBody
-	// (SysML.xtext ViewDefinitionBodyItem), which admits no Expose.
-	inViewDefBody bool
 	// inKerMLDeclaration counts the enclosing declarations already reported as
 	// KerML notation; their members move with them, so are not reported again.
 	inKerMLDeclaration int
@@ -199,7 +195,6 @@ func (w *notationWalker) walk(members []ast.Node) {
 			w.walkDeclaration(n.Members, n)
 			w.leaveKerMLDeclaration(reported)
 		case *ast.Import:
-			w.expose(n)
 			w.stateActivityImport(n)
 			w.walk(n.Body)
 		// An alias and a named multiplicity are the remaining members that parse
@@ -267,25 +262,24 @@ func (w *notationWalker) walk(members []ast.Node) {
 // walkDeclaration walks the body of a declaration under the body kind that
 // declaration opens.
 func (w *notationWalker) walkDeclaration(members []ast.Node, declaration ast.Node) {
-	action, viewDef, state := w.inActionBody, w.inViewDefBody, w.inStateBody
+	action, state := w.inActionBody, w.inStateBody
 	w.inActionBody = admitsActionBodyItems(declaration)
-	w.inViewDefBody = isViewDefinition(declaration)
 	w.inStateBody = isStateDeclaration(declaration)
 	w.bodies = append(w.bodies, bodyFrame{members: members})
 	w.walk(members)
 	w.bodies = w.bodies[:len(w.bodies)-1]
-	w.inActionBody, w.inViewDefBody, w.inStateBody = action, viewDef, state
+	w.inActionBody, w.inStateBody = action, state
 }
 
 // walkPackageMembers walks a namespace or package body, the member lists a fix
 // may add an import to; such a body admits no action or state items.
 func (w *notationWalker) walkPackageMembers(members []ast.Node) {
-	action, viewDef, state := w.inActionBody, w.inViewDefBody, w.inStateBody
-	w.inActionBody, w.inViewDefBody, w.inStateBody = false, false, false
+	action, state := w.inActionBody, w.inStateBody
+	w.inActionBody, w.inStateBody = false, false
 	w.bodies = append(w.bodies, bodyFrame{members: members, namespaceish: true})
 	w.walk(members)
 	w.bodies = w.bodies[:len(w.bodies)-1]
-	w.inActionBody, w.inViewDefBody, w.inStateBody = action, viewDef, state
+	w.inActionBody, w.inStateBody = action, state
 }
 
 // walkActionBody walks the body of an action node, which is an ActionBody
@@ -294,15 +288,10 @@ func (w *notationWalker) walkActionBody(members []ast.Node) {
 	if len(members) == 0 {
 		return
 	}
-	action, viewDef := w.inActionBody, w.inViewDefBody
-	w.inActionBody, w.inViewDefBody = true, false
+	action := w.inActionBody
+	w.inActionBody = true
 	w.walk(members)
-	w.inActionBody, w.inViewDefBody = action, viewDef
-}
-
-func isViewDefinition(node ast.Node) bool {
-	def, ok := node.(*ast.Definition)
-	return ok && def.Kind == ast.DefView
+	w.inActionBody = action
 }
 
 // walkStateBody walks a state body's members, where a one-name `then
@@ -311,10 +300,10 @@ func (w *notationWalker) walkStateBody(members []ast.Node) {
 	if len(members) == 0 {
 		return
 	}
-	action, viewDef, state := w.inActionBody, w.inViewDefBody, w.inStateBody
-	w.inActionBody, w.inViewDefBody, w.inStateBody = false, false, true
+	action, state := w.inActionBody, w.inStateBody
+	w.inActionBody, w.inStateBody = false, true
 	w.walk(members)
-	w.inActionBody, w.inViewDefBody, w.inStateBody = action, viewDef, state
+	w.inActionBody, w.inStateBody = action, state
 }
 
 // isStateDeclaration reports whether the declaration opens a state body.
@@ -450,16 +439,6 @@ func isBehaviorUsage(kind ast.UsageKind) bool {
 		return true
 	}
 	return false
-}
-
-// expose reports an `expose` in a view def body: Expose is a ViewBodyItem alone
-// (SysML.xtext), and every other body rejects it in the parser.
-func (w *notationWalker) expose(n *ast.Import) {
-	if !w.inViewDefBody || !n.IsExpose {
-		return
-	}
-	w.extension(keywordSpan(n, "expose"), "`expose` in a view def body",
-		"only a view usage body admits Expose; a view def body states what it renders and filters")
 }
 
 // stateActivityImport reports an import of the StateActivity extension library:

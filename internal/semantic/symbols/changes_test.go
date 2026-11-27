@@ -210,3 +210,31 @@ func TestNotedRegistrationIsUnmovedByLaterClaims(t *testing.T) {
 		t.Fatal("b.sysml claiming as it first did does not read as the registration noted then")
 	}
 }
+
+// A re-export reached through other namespaces than before reads differently
+// to a lookup excluding one of them (KerML 8.3.2.4.5), so it is a change.
+func TestTakeChangesNamesAReexportWhoseRouteMoved(t *testing.T) {
+	idx := buildIndex(t, map[string]string{
+		"base.sysml": "package L { part def A; }",
+		"m1.sysml":   "package M1 { public import L::*; }",
+		"m2.sysml":   "package M2 { public import M1::*; }",
+		"app.sysml":  "package P { public import M1::*; }",
+	})
+	idx.ExpandWildcardImports()
+	idx.TrackChanges()
+	addDoc(t, idx, "app.sysml", "package P { public import M2::*; }")
+	idx.ExpandWildcardImports()
+	if ch := idx.TakeChanges(); !ch.Names["P::A"] {
+		t.Errorf("a re-export now reached through M2 is not a change: %v", keys(ch.Names))
+	}
+}
+
+// A change to the registered spellings alone is still a change.
+func TestChangesWithOnlySpellingsIsNotEmpty(t *testing.T) {
+	if (Changes{Spellings: true}).Empty() {
+		t.Fatal("Changes{Spellings: true} reported itself empty")
+	}
+	if !(Changes{}).Empty() {
+		t.Fatal("the zero Changes is not empty")
+	}
+}

@@ -112,7 +112,7 @@ legacy form.
 
 ## Values
 
-`opensysml.decodeValue` reads all twenty-three `Value` arms;
+`opensysml.decodeValue` reads all twenty-five `Value` arms;
 `opensysml.encodeValue` writes request values.
 
 | Wire arm | MATLAB/Octave value |
@@ -131,6 +131,8 @@ legacy form.
 | `array` / `vector` | Dimensioned element cell or numeric component struct. |
 | `measurementRef` / `function` / `set` / `metaobject` | Struct wrappers retaining wire ids and members. |
 | `undetermined` | Struct with `reason`, `lower`, and `upper`; cannot be sent. |
+| `coordinateFrame` | Struct as sent (`name`, `frameId`, `typeId`, `instanceId`, `dimensions`, `axes`, `transformation`, `scale`) marked `coordinateFrame = true`; cannot be sent. |
+| `coordinateTransformation` | Struct as sent (`source`, `target`, one of `placement` / `sequence` / `affine`, `pose`) with its nested values decoded, marked `coordinateTransformation = true`; cannot be sent. |
 
 Constructors and helpers include `quantity`, `infinity`, `enumLiteral`,
 `instanceRef`, `objectRef`, `elementRef`, `functionRef`, `metaobject`,

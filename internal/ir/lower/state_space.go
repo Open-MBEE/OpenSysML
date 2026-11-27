@@ -206,7 +206,7 @@ func ToStateSpaceDynamics(action *symbols.Symbol, scope *symbols.Scope, model St
 		return nil, fmt.Errorf("%w: action %s has no %s", ErrUnsupportedStateSpace, action.Name, StateSpaceFeature)
 	}
 	if kind == ContinuousDynamics {
-		if err := dyn.lowerCrossings(members, model, exprs); err != nil {
+		if err := dyn.lowerCrossings(model, exprs); err != nil {
 			return nil, err
 		}
 	}
@@ -312,7 +312,7 @@ func (dyn *StateSpaceDynamics) lowerIntegrator(integrate *symbols.Symbol, model 
 
 // lowerCrossings collects the event occurrences typed by a ZeroCrossingEventDef: one whose
 // type declares a guard with the guard it binds, any other as a crossing of the derivative.
-func (dyn *StateSpaceDynamics) lowerCrossings(members map[string]*symbols.Symbol, model StateSpaceModel, exprs *ExprTable) error {
+func (dyn *StateSpaceDynamics) lowerCrossings(model StateSpaceModel, exprs *ExprTable) error {
 	crossingEvent := model.LibrarySymbol(ZeroCrossingEventFQN)
 	if crossingEvent == nil {
 		return nil

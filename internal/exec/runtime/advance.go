@@ -95,6 +95,7 @@ func (ctx *Context) Advance(duration float64) (AdvanceReport, error) {
 // due work made halted true — a debugger's breakpoint — before moving on.
 func (ctx *Context) AdvanceUntil(duration float64, halted func() bool) (AdvanceReport, error) {
 	defer ctx.beginExecutorRun(&ctx.clockRun)()
+	defer ctx.beginAdvance()()
 
 	report := AdvanceReport{From: ctx.clock.now, To: ctx.clock.now}
 	if math.IsNaN(duration) || math.IsInf(duration, 0) || duration < 0 {
@@ -110,6 +111,9 @@ func (ctx *Context) AdvanceUntil(duration float64, halted func() bool) (AdvanceR
 		// One executor at a time, so a halt is seen before the next due one runs.
 		for {
 			ran, _, err := ctx.stepDue(nil, &progress)
+			if err == nil {
+				err = ctx.advance.failure()
+			}
 			if err != nil {
 				report.To = ctx.clock.now
 				return report.counting(progress, ctx.run.notes[noted:]), err
@@ -125,6 +129,9 @@ func (ctx *Context) AdvanceUntil(duration float64, halted func() bool) (AdvanceR
 				break
 			}
 			stopped, err := ctx.runAttachedBehaviorsUntil(&progress, halted)
+			if err == nil {
+				err = ctx.advance.failure()
+			}
 			if err != nil {
 				report.To = ctx.clock.now
 				return report.counting(progress, ctx.run.notes[noted:]), err
@@ -144,6 +151,39 @@ func (ctx *Context) AdvanceUntil(duration float64, halted func() bool) (AdvanceR
 	ctx.setClock(deadline)
 	report.To = deadline
 	return report.counting(progress, ctx.run.notes[noted:]), ctx.advanceEnded()
+}
+
+// clockAdvance is one advance of the clock: failed is the first behavior that
+// failed while it ran, which ends the advance there with that behavior's error.
+type clockAdvance struct {
+	failed *ObjectBehavior
+}
+
+// beginAdvance makes an advance the one under way until the function returned is
+// called, which restores the advance it ran within.
+func (ctx *Context) beginAdvance() func() {
+	outer := ctx.advance
+	ctx.advance = &clockAdvance{}
+	return func() { ctx.advance = outer }
+}
+
+// failure is the error of the behavior that failed under the advance, nil when none has.
+func (a *clockAdvance) failure() error {
+	if a.failed == nil {
+		return nil
+	}
+	return a.failed.Err
+}
+
+// noteAdvanceFailure tells the advance under way that b failed, through the
+// journal, so a probe rolled back takes the note with the failure it recorded.
+func (ctx *Context) noteAdvanceFailure(b *ObjectBehavior) {
+	advance := ctx.advance
+	if advance == nil || advance.failed != nil || keepsFailure(b) {
+		return
+	}
+	ctx.noteProbeUndo(func() { advance.failed = nil })
+	advance.failed = b
 }
 
 func (ctx *Context) hasReadyDeferredBehavior() bool {
@@ -267,7 +307,7 @@ func (ctx *Context) drawDueOrder(due []clockWaiter) (int, error) {
 	}
 	choice.alike = ctx.heldAlike
 	holder := ctx.slotHolders()
-	classifyChoice(&choice, fps, func(i, j int) lower.Relation { return ctx.relationBy(due[i], due[j], holder) })
+	classifyChoice(ctx.choiceSerials, &choice, fps, func(i, j int) lower.Relation { return ctx.relationBy(due[i], due[j], holder) })
 	scheduling := ctx.scheduling()
 	pick := scheduling.choose(choice, nil)
 	if err := scheduling.refusal(); err != nil {

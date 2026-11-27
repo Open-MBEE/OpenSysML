@@ -15,7 +15,7 @@ executors:
       # The -node variant of the same image: the WebAssembly gate runs the wasm
       # binaries under Node, and an absent runtime would make it skip.
       # It carries Node LTS, 24 or later, which the gate needs.
-      - image: cimg/go:1.27-node
+      - image: cimg/go:1.27.4-node
     resource_class: medium
 
   python-executor:
@@ -32,7 +32,7 @@ executors:
 
   rust-executor:
     docker:
-      - image: cimg/rust:1.83
+      - image: cimg/rust:1.85
     resource_class: medium
 
   # The .NET SDK root global.json pins, by digest: mcr.microsoft.com/dotnet/sdk:10.0.402-noble.
@@ -200,8 +200,7 @@ commands:
       - run:
           name: Install Z3
           command: |
-            sudo apt-get update
-            sudo apt-get install -y z3
+            scripts/ci-apt-install.sh z3
             z3 --version
 
       # The second verified backend, for the portability gate: cvc5 has no apt
@@ -209,14 +208,7 @@ commands:
       # digest so a substituted asset is not run.
       - run:
           name: Install cvc5
-          command: |
-            curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors -o /tmp/cvc5.zip \
-              https://github.com/cvc5/cvc5/releases/download/cvc5-1.3.4/cvc5-Linux-x86_64-static.zip
-            echo "dcdbfada0ce493ee98259c0816e0daafc561c223aadb3af298c2968e73ea39c6  /tmp/cvc5.zip" | sha256sum --check --strict
-            unzip -p /tmp/cvc5.zip '*/bin/cvc5' > /tmp/cvc5-bin
-            sudo install -m 0755 /tmp/cvc5-bin /usr/local/bin/cvc5
-            cvc5_version="$(cvc5 --version)"
-            echo "${cvc5_version%%$'\n'*}"
+          command: scripts/ci-cvc5-install.sh
 
   # The FMI gate runs `python3` over FMPy; the executor's python3 has no pip and is
   # externally managed, so FMPy goes in a venv that later steps put first on PATH.
@@ -225,8 +217,7 @@ commands:
       - run:
           name: Install fmpy
           command: |
-            sudo apt-get update
-            sudo apt-get install -y --no-install-recommends python3-venv
+            scripts/ci-apt-install.sh --no-install-recommends python3-venv
             python3 -m venv "$HOME/fmpy-venv"
             "$HOME/fmpy-venv/bin/pip" install --only-binary ":all:" fmpy==0.3.32
             echo 'export PATH="$HOME/fmpy-venv/bin:$PATH"' >> "$BASH_ENV"
@@ -278,8 +269,7 @@ commands:
       - run:
           name: Extract the OMG specification examples
           command: |
-            sudo apt-get update
-            sudo apt-get install -y --no-install-recommends poppler-utils
+            scripts/ci-apt-install.sh --no-install-recommends poppler-utils
             ./scripts/download-spec-examples.sh
 
       - save_cache:
@@ -344,6 +334,20 @@ commands:
           key: pilot-library-xmi-v1-{{ checksum "scripts/download-pilot-library-xmi.sh" }}-{{ checksum "scripts/pilot-pin.sh" }}
           paths:
             - build/pilot-library-xmi
+
+      # The normative SysML.json, measured against by tests/export.
+      - restore_cache:
+          keys:
+            - omg-json-schema-v1-{{ checksum "scripts/download-omg-json-schema.sh" }}
+
+      - run:
+          name: Download the OMG JSON schema
+          command: ./scripts/download-omg-json-schema.sh
+
+      - save_cache:
+          key: omg-json-schema-v1-{{ checksum "scripts/download-omg-json-schema.sh" }}
+          paths:
+            - build/omg-json-schema
 
       # The Modelica Reference-FMUs, gated by tests/fmi and the Python runner's
       # real test; pinned by tag and checksum like the corpora above.
@@ -549,6 +553,11 @@ jobs:
               python3 scripts/spec_compliance.py check
             fi
 
+      # The release binary: `go run buf@version` resolves buf's module graph against sum.golang.org on every run.
+      - run:
+          name: Install buf
+          command: scripts/ci-install-buf.sh
+
       # Baseline is an ancestor of HEAD, never a live branch tip (a merge landing meanwhile would
       # read as deletions): the first parent on main or develop, the previous release on a `v*` tag.
       - run:
@@ -567,7 +576,7 @@ jobs:
               baseline=HEAD^1
               echo "branch build: comparing against the first parent, $(git rev-parse --short HEAD^1)"
             fi
-            make proto-breaking BUF_BREAKING_REF="$baseline"
+            make proto-breaking BUF=buf BUF_BREAKING_REF="$baseline"
 
       # Everything below re-checks what the queue or full tier already proved on a verified tree; the two
       # checks above stay ahead of the halt because a tag has verdicts no branch run reaches.
@@ -599,7 +608,7 @@ jobs:
       - run:
           name: Verify the committed manual pages are current
           command: |
-            sudo apt-get update && sudo apt-get install -y --no-install-recommends mandoc
+            scripts/ci-apt-install.sh --no-install-recommends mandoc
             make man-check
 
       # Internal work-item labels (waves, F<n>, P<n>, K<n>/S<n>) have no public
@@ -675,7 +684,7 @@ jobs:
 
       - run:
           name: Lint the protobuf schema
-          command: make proto-lint
+          command: make proto-lint BUF=buf
 
       # Committed stubs must be what buf generates, or the checked-in code and
       # the schema can drift apart silently. `git add -N` puts a regenerated
@@ -683,7 +692,7 @@ jobs:
       - run:
           name: Verify the committed Go stubs are current
           command: |
-            make proto-buf
+            make proto-buf BUF=buf
             git add -N api/proto
             git diff --exit-code api/proto
 
@@ -706,12 +715,12 @@ jobs:
           name: Check Go dependencies for known vulnerabilities
           command: make vulncheck
 
-  # The race-enabled suite, the pipeline's longest step: the larger class and sixteen executors of one
+  # The race-enabled suite, the pipeline's longest step: the larger class and seventeen executors of one
   # or two scripts/race-shard.sh shards each, sized so that no node runs much over 25 minutes.
   go-race-test:
     executor: go-executor
     resource_class: large
-    parallelism: 16
+    parallelism: 17
     steps:
       - checkout
       - rehearsal-checkout-tag
@@ -734,7 +743,7 @@ jobs:
             set -o pipefail
             # One entry per node; a quoted entry runs its shards in turn (tests/hygiene keeps
             # the entries the shard list of scripts/race-shard.sh).
-            shards=(runtime runtime-corpus model smt "corpus codegen" export export-library export-examples export-corpus graph translate grpc tools rest "migrate runtime-exploration" cli)
+            shards=(runtime runtime-corpus model smt "corpus codegen" export export-library export-examples export-corpus "graph graph-corpora" "translate translate-structure" grpc tools internal rest "migrate runtime-exploration" cli)
             if [ "$CIRCLE_NODE_TOTAL" != "${#shards[@]}" ]; then
               echo "error: parallelism is $CIRCLE_NODE_TOTAL, but the shard array has ${#shards[@]} nodes" >&2
               exit 1
@@ -751,8 +760,12 @@ jobs:
             exportcorpus='^TestAPIJSONWritersNeverEmitNameReferences$'
             exportlibrary='^TestLibraryFilesComeBackFromTheGraphAlone$'
             exportexamples='^TestExamplesCorpusInvariants$'
+            # The Makefile's RACE_GRAPH_CORPORA; tests/hygiene keeps the two the same.
+            graphcorpora='^TestInterfaceRecordDifferentialCorpora$'
+            # The Makefile's RACE_TRANSLATE_STRUCTURE; tests/hygiene keeps the two the same.
+            translatestructure='^TestSymbolStructureMatchesGraphStructure$'
             # The Makefile's RACE_CORPUS_SWEEP; tests/hygiene keeps the two the same.
-            corpussweep='^TestExamplesSweep$'
+            corpussweep='^Test(ExamplesSweepCommitted|ExamplesSweepCorpora)$'
             case "$shard" in
               # Its own shard and process: alone it nears 5 GB, the five suites together 9 GB under -race,
               # over this class's 8 GB. The Makefile's RACE_RUNTIME_EXPLORATION; tests/hygiene keeps the two the same.
@@ -766,14 +779,18 @@ jobs:
               export-examples) go test -json -race -pgo=off -timeout 55m -run "$exportexamples" $pkgs | stream ;;
               export) go test -json -race -pgo=off -timeout 55m -skip "$exportcorpus|$exportlibrary|$exportexamples" $pkgs | stream ;;
               corpus) go test -json -race -pgo=off -timeout 30m -skip "$corpussweep" $pkgs | stream ;;
+              graph-corpora) go test -json -race -pgo=off -timeout 55m -run "$graphcorpora" $pkgs | stream ;;
+              graph) go test -json -race -pgo=off -timeout 55m -skip "$graphcorpora" $pkgs | stream ;;
+              translate-structure) go test -json -race -pgo=off -timeout 55m -run "$translatestructure" $pkgs | stream ;;
+              translate) go test -json -race -pgo=off -timeout 30m -skip "$translatestructure" $pkgs | stream ;;
               tools)
                 go test -json -race -pgo=off -timeout 30m $pkgs | stream
                 go test -C tools -json -race -pgo=off -timeout 30m ./... | stream
                 ;;
               *)
-                # tests/migrate ran 23-32 minutes under -race on this class, tests/model about 30, internal/workspace/model
-                # 26 and internal/translate/export 20 while sharing a node: those shards get the Makefile's timeout.
-                timeout=30m; case "$shard" in migrate|graph|model|translate|grpc) timeout=55m ;; esac
+                # tests/migrate ran 23-32 minutes under -race on this class and internal/workspace/model
+                # 26 while sharing a node: those shards get the Makefile's timeout.
+                timeout=30m; case "$shard" in migrate|model|grpc) timeout=55m ;; esac
                 go test -json -race -pgo=off -timeout "$timeout" $pkgs | stream
                 ;;
             esac
@@ -789,6 +806,7 @@ jobs:
             OPENSYSML_REQUIRE_SYSML_V1TOV2: "1"
             OPENSYSML_REQUIRE_FUML_SUITE: "1"
             OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI: "1"
+            OPENSYSML_REQUIRE_OMG_JSON_SCHEMA: "1"
             # Same for the solver installed above: absent means failure, not skip.
             OPENSYSML_REQUIRE_SMT: "1"
             # Same for Node, which the executor carries: the WebAssembly gate runs
@@ -798,11 +816,12 @@ jobs:
             # the FMI gate runs rather than skips (tests/fmi).
             OPENSYSML_REQUIRE_REFERENCE_FMUS: "1"
 
-  # tests/corpus's sweep alone: -parallel models in hand at once, a whole corpus directory as one model among them.
+  # tests/corpus's two sweeps alone, a node each: -parallel models in hand at once, a whole corpus directory as one model among them.
   # Under -race on four CPUs four peaked at 7.6 GiB; three with GOGC=50 peak at 5.4 GiB in 29 minutes, inside large's 8 GB.
   go-race-sweep:
     executor: go-executor
     resource_class: large
+    parallelism: 2
     steps:
       - checkout
       - rehearsal-checkout-tag
@@ -817,14 +836,23 @@ jobs:
           name: Run the Go race sweep
           command: |
             set -o pipefail
-            # The shard scripts/race-shard.sh --sweeps names first; tests/hygiene keeps it out of the array above.
-            sweep_shard=corpus-sweep
+            # The two shards scripts/race-shard.sh --sweeps names first, one a node; tests/hygiene keeps them out of the array above.
+            sweep_shards=(corpus-sweep-committed corpus-sweep-corpora)
+            if [ "$CIRCLE_NODE_TOTAL" != "${#sweep_shards[@]}" ]; then
+              echo "error: parallelism is $CIRCLE_NODE_TOTAL, but there are ${#sweep_shards[@]} sweep shards" >&2
+              exit 1
+            fi
+            sweep_shard="${sweep_shards[$CIRCLE_NODE_INDEX]}"
             pkgs=$(scripts/race-shard.sh "$sweep_shard")
             echo "shard $sweep_shard:"; echo "$pkgs"
             stream() { python3 scripts/go-test-stream.py; }
-            # The Makefile's RACE_CORPUS_SWEEP; tests/hygiene keeps the two the same.
-            corpussweep='^TestExamplesSweep$'
-            go test -json -race -pgo=off -timeout 55m -parallel 3 -run "$corpussweep" $pkgs | stream
+            # The Makefile's RACE_CORPUS_SWEEP_COMMITTED and RACE_CORPUS_SWEEP_CORPORA; tests/hygiene keeps them the same.
+            sweepcommitted='^TestExamplesSweepCommitted$'
+            sweepcorpora='^TestExamplesSweepCorpora$'
+            case "$sweep_shard" in
+              corpus-sweep-committed) go test -json -race -pgo=off -timeout 55m -parallel 3 -run "$sweepcommitted" $pkgs | stream ;;
+              corpus-sweep-corpora) go test -json -race -pgo=off -timeout 55m -parallel 3 -run "$sweepcorpora" $pkgs | stream ;;
+            esac
           no_output_timeout: 30m
           environment:
             GOGC: "50"
@@ -844,7 +872,7 @@ jobs:
     executor: go-executor
     resource_class: large
     # The race test's shards but the runtime's corpus ones: without -race the runtime runs whole in about 19 minutes.
-    parallelism: 17
+    parallelism: 21
     steps:
       - checkout
       - rehearsal-checkout-tag
@@ -867,7 +895,7 @@ jobs:
           command: |
             # tests/export and tests/corpus whole overran 30 minutes, so make coverage-shard splits them by test name.
             # cmd/sysml has its own node: its exploration budgets took 23-30 minutes on the rest node.
-            shards=(runtime model smt corpus corpus-sweep export export-library export-examples export-corpus graph codegen translate grpc tools rest migrate cli)
+            shards=(runtime model smt corpus corpus-sweep-committed corpus-sweep-corpora export export-library export-examples export-corpus graph graph-corpora codegen translate translate-structure grpc tools internal rest migrate cli)
             if [ "$CIRCLE_NODE_TOTAL" != "${#shards[@]}" ]; then
               echo "error: parallelism is $CIRCLE_NODE_TOTAL, but the Makefile's COVERAGE_SHARDS has ${#shards[@]} shards" >&2
               exit 1
@@ -891,6 +919,7 @@ jobs:
             OPENSYSML_REQUIRE_SYSML_V1TOV2: "1"
             OPENSYSML_REQUIRE_FUML_SUITE: "1"
             OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI: "1"
+            OPENSYSML_REQUIRE_OMG_JSON_SCHEMA: "1"
             OPENSYSML_REQUIRE_SMT: "1"
             # Node is on the executor, so the WebAssembly gate runs rather than
             # skips without a runtime (tests/wasm).
@@ -975,8 +1004,10 @@ jobs:
 
   # The gates that re-run part of the suite on their own so their verdicts are
   # legible in the log, and the conformance suite over every transport.
+  # On medium's 2 CPUs and 4 GB the corpus sweep was killed and the WebAssembly gate ran past its 25 minutes.
   go-gates:
     executor: go-executor
+    resource_class: large
     steps:
       - checkout
       - rehearsal-checkout-tag
@@ -1061,11 +1092,12 @@ jobs:
 
       # The RDF and api-json round-trip ratchets over every example alone, so their
       # per-verdict counts are legible in the log and a skip cannot hide behind a green suite.
+      # Two models in hand peak near 4 GiB; four, large's CPU count, near 7 GiB of its 8.
       - run:
           name: Run corpus round-trip gates
           command: |
             set -o pipefail
-            go test -count=1 -v ./tests/corpus -run 'TestExamplesSweep' | tee corpus-roundtrip-gate.log
+            go test -count=1 -v -timeout 30m -parallel 2 ./tests/corpus -run 'TestExamplesSweep' | tee corpus-roundtrip-gate.log
             grep -E ': corpus round trip: [0-9]+ files:' corpus-roundtrip-gate.log
             grep -E 'api-json corpus round trip: [0-9]+ files:' corpus-roundtrip-gate.log
             if grep -qE '^\s*--- SKIP' corpus-roundtrip-gate.log; then
@@ -1279,7 +1311,7 @@ jobs:
   # SonarCloud analysis. The `SonarCloud` context supplies SONAR_TOKEN.
   scan:
     docker:
-      - image: cimg/go:1.27
+      - image: cimg/go:1.27.4
     # The Go sensor holds a whole directory's parse in memory; internal/exec/runtime
     # (168 files) overflows the default heap. The 8 GB container, the largest
     # class in the plan, carries: 4.8 GB analysis heap + Node capped at 1 GB
@@ -1602,12 +1634,7 @@ jobs:
       # rather than `go run`, pinned by digest so a substituted asset is not run.
       - run:
           name: Install buf
-          command: |
-            curl -fsSL -o /tmp/buf \
-              https://github.com/bufbuild/buf/releases/download/v1.57.2/buf-Linux-x86_64
-            echo "644e6fa4a62afc2b0d425d3ac9538d2f512947c0f2e82fc95c41a5eab6729414  /tmp/buf" | sha256sum --check --strict
-            sudo install -m 0755 /tmp/buf /usr/local/bin/buf
-            buf --version
+          command: scripts/ci-install-buf.sh
 
       # Committed stubs must be what buf generates, or the checked-in client and
       # the schema can drift apart silently.
@@ -1636,7 +1663,7 @@ jobs:
       - halt-if-verified
 
       - run:
-          name: Verify Rust 1.83
+          name: Verify Rust 1.85
           command: |
             rustc --version
             cargo --version
@@ -1684,12 +1711,7 @@ jobs:
 
       - run:
           name: Install Buf
-          command: |
-            curl -fsSL -o /tmp/buf \
-              https://github.com/bufbuild/buf/releases/download/v1.57.2/buf-Linux-x86_64
-            echo "644e6fa4a62afc2b0d425d3ac9538d2f512947c0f2e82fc95c41a5eab6729414  /tmp/buf" | sha256sum --check --strict
-            chmod +x /tmp/buf
-            /tmp/buf --version
+          command: scripts/ci-install-buf.sh /tmp/buf
 
       - run:
           name: Verify Rust generated artifacts
@@ -1798,12 +1820,11 @@ jobs:
       - halt-if-verified
 
       # The julia image carries no make, which the build and conformance steps
-      # run; it runs as root, so apt needs no sudo.
+      # run; it runs as root and carries no sudo, which the installer allows for.
       - run:
           name: Install make
           command: |
-            apt-get update
-            apt-get install -y --no-install-recommends make
+            scripts/ci-apt-install.sh --no-install-recommends make
             make_version="$(make --version)"
             echo "${make_version%%$'\n'*}"
 
@@ -1847,8 +1868,7 @@ jobs:
       - run:
           name: Install GNU Octave
           command: |
-            sudo apt-get update
-            sudo apt-get install -y octave
+            scripts/ci-apt-install.sh octave
 
       - run:
           name: Build sysml-grpc
@@ -2037,8 +2057,7 @@ jobs:
       - run:
           name: Install Z3
           command: |
-            sudo apt-get update
-            sudo apt-get install -y z3
+            scripts/ci-apt-install.sh z3
             z3 --version
 
       - run:
@@ -2091,12 +2110,7 @@ jobs:
       # rather than `go run`, pinned by digest so a substituted asset is not run.
       - run:
           name: Install buf
-          command: |
-            curl -fsSL -o /tmp/buf \
-              https://github.com/bufbuild/buf/releases/download/v1.57.2/buf-Linux-x86_64
-            echo "644e6fa4a62afc2b0d425d3ac9538d2f512947c0f2e82fc95c41a5eab6729414  /tmp/buf" | sha256sum --check --strict
-            sudo install -m 0755 /tmp/buf /usr/local/bin/buf
-            buf --version
+          command: scripts/ci-install-buf.sh
 
       # Committed stubs must be what buf generates, or the checked-in client and
       # the schema can drift apart silently.
@@ -2186,6 +2200,10 @@ jobs:
       - run:
           name: Build and test the plugin
           command: mvn -B -f editors/mdk/pom.xml verify -Dopensysml.requireService=true
+
+      - run:
+          name: Test the compile against Cameo from an uncompiled client
+          command: editors/mdk/scripts/compile-against-cameo-test.sh
 
       - run:
           name: Audit the plugin's dependencies
@@ -3181,7 +3199,7 @@ jobs:
             - run:
                 name: Sign the checksum manifest with cosign keyless
                 command: |
-                  go install github.com/sigstore/cosign/v3/cmd/cosign@v3.0.3
+                  go install github.com/sigstore/cosign/v3/cmd/cosign@v3.1.4
                   export PATH="$(go env GOPATH)/bin:$PATH"
 
                   # Fulcio requires the 'sigstore' audience, which the ambient
@@ -3363,7 +3381,7 @@ jobs:
           name: Stamp this release's service digests into the package
           command: |
             if ! command -v python3 >/dev/null; then
-              sudo apt-get update -q && sudo apt-get install -yq python3
+              scripts/ci-apt-install.sh python3
             fi
             python3 client/python/scripts/pin_release_checksums.py \
               --version "${CIRCLE_TAG}" \
@@ -3557,7 +3575,8 @@ jobs:
             for entry in plugins/org.openmbee.mdk.magic/plugin.xml plugins/org.openmbee.mdk.magic/bin/DIGESTS \
                 plugins/org.openmbee.mdk.magic/bin/sysml-grpc-linux-amd64 plugins/org.openmbee.mdk.magic/bin/sysml-grpc-windows-amd64.exe \
                 plugins/org.openmbee.mdk/extensions/ data/resourcemanager/; do
-              if ! unzip -l "$zip" | grep -q " $entry"; then
+              # grep -c reads the whole listing: under pipefail, -q would SIGPIPE unzip on an early match.
+              if ! unzip -l "$zip" | grep -c " $entry" > /dev/null; then
                 echo "Error: $zip lacks $entry"
                 exit 1
               fi
@@ -3732,7 +3751,7 @@ jobs:
           name: Stamp this release's service digests into the package
           command: |
             if ! command -v python3 >/dev/null; then
-              sudo apt-get update -q && sudo apt-get install -yq python3
+              scripts/ci-apt-install.sh python3
             fi
             python3 client/python/scripts/pin_release_checksums.py \
               --version "${CIRCLE_TAG}" \
@@ -3795,8 +3814,7 @@ jobs:
       - run:
           name: Install Z3
           command: |
-            sudo apt-get update
-            sudo apt-get install -y z3
+            scripts/ci-apt-install.sh z3
             z3 --version
 
       - run:
@@ -4009,7 +4027,7 @@ jobs:
           name: Stamp this release's service digests into the jar's resources
           command: |
             if ! command -v python3 >/dev/null; then
-              sudo apt-get update -q && sudo apt-get install -yq python3
+              scripts/ci-apt-install.sh python3
             fi
             python3 client/python/scripts/pin_release_checksums.py \
               --version "${CIRCLE_TAG}" \
@@ -4104,7 +4122,7 @@ jobs:
           name: Import the signing key
           command: |
             if ! command -v gpg > /dev/null; then
-              sudo apt-get update && sudo apt-get install -y gnupg
+              scripts/ci-apt-install.sh gnupg
             fi
             # The context may hold the key ASCII-armoured or base64-encoded (the
             # CircleCI UI does not keep newlines), so accept both.
@@ -4223,7 +4241,7 @@ jobs:
           name: Stamp this release's service digests into the crate
           command: |
             if ! command -v python3 >/dev/null; then
-              sudo apt-get update -q && sudo apt-get install -yq python3
+              scripts/ci-apt-install.sh python3
             fi
             python3 client/python/scripts/pin_release_checksums.py \
               --version "${CIRCLE_TAG}" \

@@ -257,12 +257,12 @@ func (d *decoder) notation() ([]byte, []*element, error) {
 func checkExtensionNamespace(graph *rdf.Graph) error {
 	for _, triple := range graph.Triples() {
 		for _, term := range []rdf.Term{triple.Subject, triple.Predicate, triple.Object} {
-			if term.Kind == rdf.TermIRI && strings.HasPrefix(term.Value, rdf.LegacyExtension) {
+			if term.Kind() == rdf.TermIRI && strings.HasPrefix(term.Value, rdf.LegacyExtension) {
 				return legacyNamespaceError(term.Value)
 			}
 		}
-		if strings.HasPrefix(triple.Object.Datatype, rdf.LegacyExtension) {
-			return legacyNamespaceError(triple.Object.Datatype)
+		if strings.HasPrefix(triple.Object.Datatype(), rdf.LegacyExtension) {
+			return legacyNamespaceError(triple.Object.Datatype())
 		}
 	}
 	return nil
@@ -289,7 +289,7 @@ var supersededPredicates = map[string]string{
 func checkSupersededPredicates(graph *rdf.Graph) error {
 	for _, triple := range graph.Triples() {
 		now, superseded := supersededPredicates[triple.Predicate.Value]
-		if !superseded || triple.Predicate.Kind != rdf.TermIRI {
+		if !superseded || triple.Predicate.Kind() != rdf.TermIRI {
 			continue
 		}
 		return &UnsupportedError{
@@ -320,7 +320,7 @@ func checkRemovedNotation(graph *rdf.Graph) error {
 				What: fmt.Sprintf("the element <%s> of type sysx:%s", triple.Subject.Value, mDeferMember),
 				Note: removedDeferNote,
 			}
-		case triple.Predicate.Kind == rdf.TermIRI && triple.Predicate.Value == rdf.OpenSysML+xDeferredEvent:
+		case triple.Predicate.Kind() == rdf.TermIRI && triple.Predicate.Value == rdf.OpenSysML+xDeferredEvent:
 			return &UnsupportedError{
 				What: fmt.Sprintf("the property sysx:%s of <%s>", xDeferredEvent, triple.Subject.Value),
 				Note: removedDeferNote,
@@ -390,17 +390,17 @@ func checkLiterals(graph *rdf.Graph, metaclasses map[rdf.Term]string) error {
 		if !object.IsLiteral() || !mappingPredicate(triple.Predicate.Value) {
 			continue
 		}
-		if object.Lang != "" {
+		if object.Lang() != "" {
 			return literalError(triple, "a language-tagged literal is an rdf:langString, and no property this mapping reads takes one")
 		}
 		allowed := literalDatatypes(rdf.LocalName(metaclasses[triple.Subject]), triple.Predicate.Value)
-		if !slices.Contains(allowed, object.Datatype) {
+		if !slices.Contains(allowed, object.Datatype()) {
 			return literalError(triple, fmt.Sprintf("%s takes %s", curie(triple.Predicate.Value), datatypeList(allowed)))
 		}
-		if !inLexicalSpace(object.Datatype, object.Value) {
-			return literalError(triple, fmt.Sprintf("%q is not in the lexical space of %s", object.Value, curie(object.Datatype)))
+		if !inLexicalSpace(object.Datatype(), object.Value) {
+			return literalError(triple, fmt.Sprintf("%q is not in the lexical space of %s", object.Value, curie(object.Datatype())))
 		}
-		if object.Datatype == rdf.XSD+"int" {
+		if object.Datatype() == rdf.XSD+"int" {
 			if _, err := strconv.ParseInt(object.Value, 10, 32); err != nil {
 				return literalError(triple, fmt.Sprintf("%q is outside the value space of xsd:int, -2147483648 to 2147483647", object.Value))
 			}
@@ -549,10 +549,10 @@ func termText(term rdf.Term) string {
 	}
 	literal := rdf.String(term.Value).String()
 	switch {
-	case term.Lang != "":
-		return literal + "@" + term.Lang
-	case term.Datatype != "":
-		return literal + "^^" + curie(term.Datatype)
+	case term.Lang() != "":
+		return literal + "@" + term.Lang()
+	case term.Datatype() != "":
+		return literal + "^^" + curie(term.Datatype())
 	}
 	return literal
 }
@@ -618,7 +618,7 @@ func literalDatatypes(metaclass, predicate string) []string {
 	switch {
 	case isIndexProperty(predicate), IsSourceRangeProperty(predicate):
 		return integerLiterals
-	case strings.HasPrefix(name, "is"), name == xHasBody, name == xDeclaredID, name == xHasEffect, name == xBracedEffect, name == xConjugatedTyping, name == xSourceMultiplicityBeforeThen,
+	case strings.HasPrefix(name, "is"), name == xHasBody, name == xStatedDefaults, name == xDeclaredID, name == xHasEffect, name == xBracedEffect, name == xConjugatedTyping, name == xSourceMultiplicityBeforeThen,
 		name == xNoteOwnLine, name == xNoteTail, name == xNoteTrailing:
 		return booleanLiterals
 	case strings.HasPrefix(predicate, rdf.SysML) && (name == pLowerBound || name == pUpperBound):
@@ -1382,7 +1382,7 @@ var referenceProperties = func() map[string]bool {
 // from the graph itself, which would otherwise be written back mis-named.
 func (d *decoder) checkReferences() error {
 	for _, triple := range d.graph.Triples() {
-		if triple.Object.Kind != rdf.TermIRI || !referenceProperties[triple.Predicate.Value] {
+		if triple.Object.Kind() != rdf.TermIRI || !referenceProperties[triple.Predicate.Value] {
 			continue
 		}
 		if d.isFilterPackageNode(triple.Object) || d.isFilterPackageNode(triple.Subject) {
@@ -1508,6 +1508,10 @@ func (d *decoder) referencedElement(iri string) (*element, error) {
 		if mappingExpressionBodyMemberSubject(d.graph, rdf.IRI(target.iri)) {
 			return target, nil
 		}
+		if d.boolOf(target, rdf.OpenSysML+xIsLoopBody) {
+			// A loop's body names nothing: what it owns is addressed under the loop.
+			return target, nil
+		}
 		return nil, &UnsupportedError{
 			What: fmt.Sprintf("the element <%s>", target.iri),
 			Note: "it is referenced but carries no sysml:qualifiedName, which is where a reference's name is read from",
@@ -1531,6 +1535,17 @@ func (d *decoder) libraryStubs() (map[string]bool, error) {
 			catalog := d.libraryCatalog
 			owned, ok := catalog.OwningMembership(id)
 			member := members[0]
+			if alias, found := sharedLibraryIndex().anonymous.AliasMembership(id); !ok && found {
+				target, resolved := sharedLibraryIndex().aliasTarget(alias)
+				if !resolved || len(members) != 1 || !member.IsIRI() || rdf.LocalName(member.Value) != target.ID {
+					return nil, &UnsupportedError{
+						What: fmt.Sprintf("the library membership <%s>", subject.Value),
+						Note: fmt.Sprintf("its id is that of the alias membership %s, and its memberElement is not the element the alias names", alias.Path),
+					}
+				}
+				stubs[subject.Value] = true
+				continue
+			}
 			memberName, memberNameKind, hasMemberName := d.librarySubjectName(member)
 			if !ok && len(members) == 1 && member.IsIRI() && hasMemberName {
 				if candidate, found := catalog.ElementNamed(memberName); found && d.libraryMetaclassCompatible(member, candidate) {
@@ -2318,6 +2333,11 @@ func (d *decoder) declarationHead(el *element) (string, error) {
 	if head, handled, err := d.behaviorHead(el); handled {
 		return head, err
 	}
+	// A KerML type declaration has no `def`: it is written in the usage form the parser
+	// reads, unless the graph records the `def` of the definition sharing its metaclass.
+	if kind, ok := kermlTypeMetaclassUsage[el.metaclass]; ok && !d.defForm(el) {
+		return d.usageHead(el, kind)
+	}
 	if kind, ok := metaclassDefinition[el.metaclass]; ok {
 		return d.definitionHead(el, kind)
 	}
@@ -2384,7 +2404,10 @@ func (d *decoder) definitionHead(el *element, kind ast.DefinitionKind) (string, 
 	if d.boolOf(el, rdf.SysML+"isVariation") && kind != ast.DefEnumeration {
 		words = append(words, "variation")
 	}
-	keyword := d.keywordOr(el, definitionKeyword(kind))
+	keyword := strings.TrimSuffix(d.keywordOr(el, definitionKeyword(kind)), defFormSuffix)
+	if el.metaclass == mClassifier {
+		keyword = "classifier"
+	}
 	// `individual def` states isIndividual by its kind keyword; writing the
 	// modifier as well would declare it twice (SysML.xtext OccurrenceDefinitionPrefix).
 	if d.boolOf(el, rdf.SysML+"isIndividual") && keyword != "individual" {
@@ -2409,7 +2432,7 @@ func (d *decoder) definitionHead(el *element, kind ast.DefinitionKind) (string, 
 	}
 	// Every definition kind but `metaclass` shares its keyword with a usage
 	// form, and is told apart from it by `def`.
-	if kind != ast.DefMetaclass {
+	if kind != ast.DefMetaclass && (keyword != "classifier" || d.defForm(el)) {
 		words = append(words, "def")
 	}
 	words = append(words, d.identWords(el)...)
@@ -2419,6 +2442,14 @@ func (d *decoder) definitionHead(el *element, kind ast.DefinitionKind) (string, 
 	}
 	words = append(words, relationships...)
 	return strings.Join(words, " "), nil
+}
+
+// defForm reports whether the graph records el as written with `def`, which the metaclass
+// a `class def` shares with the def-less `class` does not say.
+func (d *decoder) defForm(el *element) bool {
+	written, _ := d.stringOf(el, rdf.OpenSysML+xDeclaredKeyword)
+	_, definition := metaclassDefinition[el.metaclass]
+	return definition && strings.HasSuffix(written, defFormSuffix)
 }
 
 // enumeratedValue reports whether el is an enumerated value: an enumeration
@@ -2467,6 +2498,9 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		words = append(words, direction)
 	}
 	canonicalKeyword := usageKeyword(kind)
+	if written, ok := kermlTypeKeyword[el.metaclass]; ok {
+		canonicalKeyword = written
+	}
 	keyword := d.keywordOr(el, canonicalKeyword)
 	// A `message` is the flow whose ends are event occurrences it owns as
 	// parameters; their metaclass says `message` where the graph states none.
@@ -2846,7 +2880,7 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		// A qualified usage's redefinition follows the reference as `:>>`
 		// (SysML.xtext PerformActionUsageDeclaration & co.); `event` spells it.
 		if usageQualifier[el.metaclass] != "" {
-			redefined, err := d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelRedefines])
+			redefined, err := d.clauseNames(el, ast.RelRedefines)
 			if err != nil {
 				return "", err
 			}
@@ -2942,7 +2976,7 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		skip = append(skip, ast.RelTyping)
 	}
 	if isResult && el.metaclass == mReferenceUsage {
-		subsets, err := d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelSubsets])
+		subsets, err := d.clauseNames(el, ast.RelSubsets)
 		if err != nil {
 			return "", err
 		}
@@ -3432,6 +3466,10 @@ func (d *decoder) importedName(el *element) (string, error) {
 	}
 	if lib, ok := sharedLibraryIndex().catalog.OwningMembership(rdf.LocalName(term.Value)); ok {
 		return d.referenceName(rdf.ElementIRIForID(lib.ID), el)
+	}
+	// A library alias is imported under the name its Membership gives the member.
+	if alias, ok := sharedLibraryIndex().anonymous.AliasMembership(rdf.LocalName(term.Value)); ok {
+		return d.referenceName(rdf.String(alias.Owner.FQN+"::"+alias.Symbol.Name), el)
 	}
 	return d.referenceName(term, el)
 }
@@ -4284,7 +4322,7 @@ func (d *decoder) metadataDefinition(el *element) (rdf.Term, error) {
 	case 1:
 		if types[0].IsLiteral() {
 			why := notAName(types[0])
-			if types[0].Datatype == rdf.OpenSysML+dtExpression {
+			if types[0].Datatype() == rdf.OpenSysML+dtExpression {
 				why = "it is an expression, not a name"
 			}
 			if why != "" {
@@ -4460,6 +4498,13 @@ var headClauseKinds = map[string][]ast.RelationshipKind{
 	mSubsetting:           {ast.RelSubsets, ast.RelSpecializes},
 	mRedefinition:         {ast.RelRedefines},
 	mReferenceSubsetting:  {ast.RelReferences},
+	mCrossSubsetting:      {ast.RelCrosses},
+	mUnioning:             {ast.RelUnions},
+	mIntersecting:         {ast.RelIntersects},
+	mDifferencing:         {ast.RelDifferences},
+	mDisjoining:           {ast.RelDisjoint},
+	mFeatureInverting:     {ast.RelInverseOf},
+	mTypeFeaturing:        {ast.RelFeaturedBy},
 }
 
 // headClauseTargets are the properties that state a relationship element's
@@ -4473,6 +4518,13 @@ var headClauseTargets = map[string][]string{
 	mSubsetting:           {pSubsettedFeature, pGeneral, pTarget},
 	mRedefinition:         {"redefinedFeature", pSubsettedFeature, pGeneral, pTarget},
 	mReferenceSubsetting:  {pReferencedFeature, pSubsettedFeature, pGeneral, pTarget},
+	mCrossSubsetting:      {"crossedFeature", pSubsettedFeature, pGeneral, pTarget},
+	mUnioning:             {"unioningType", pTarget},
+	mIntersecting:         {"intersectingType", pTarget},
+	mDifferencing:         {"differencingType", pTarget},
+	mDisjoining:           {"disjoiningType", pTarget},
+	mFeatureInverting:     {"invertingFeature", pTarget},
+	mTypeFeaturing:        {"featuringType", pTarget},
 }
 
 // spelledHead reads the order el's head was spelled from what el owns in
@@ -4507,17 +4559,22 @@ func (d *decoder) spelledHead(el *element) []headClause {
 		if len(targets) == 0 {
 			continue
 		}
-		var candidates []headClause
+		var free, repeated []headClause
 		for _, kind := range headClauseKinds[metaclass] {
 			for index, object := range objects[kind] {
 				clause := headClause{kind: kind, index: index}
-				if slices.Contains(targets, object) && !taken[clause] {
-					candidates = append(candidates, clause)
-					break
+				if !slices.Contains(targets, object) {
+					continue
 				}
+				if taken[clause] {
+					repeated = append(repeated, clause)
+					continue
+				}
+				free = append(free, clause)
+				break
 			}
 		}
-		if clause, ok := d.headClauseOf(owned, candidates); ok {
+		if clause, ok := d.headClauseOf(owned, free, repeated); ok {
 			taken[clause] = true
 			clauses = append(clauses, clause)
 		}
@@ -4525,30 +4582,52 @@ func (d *decoder) spelledHead(el *element) []headClause {
 	return clauses
 }
 
-// headClauseOf picks the clause a relationship element states among the candidates its
-// metaclass admits: the keyword it carries decides between several, else the kinds' fixed order.
-func (d *decoder) headClauseOf(owned rdf.Term, candidates []headClause) (headClause, bool) {
-	switch len(candidates) {
-	case 0:
-		return headClause{}, false
-	case 1:
-		return candidates[0], true
-	}
+// headClauseOf picks the clause a relationship element states: the one its keyword names, else
+// a free clause before a repeated one (`: T, T`), each in the kinds' fixed order.
+func (d *decoder) headClauseOf(owned rdf.Term, free, repeated []headClause) (headClause, bool) {
 	if keyword, ok := d.graph.Object(owned, rdf.OpenSysML+xHeadClause); ok {
-		for _, clause := range candidates {
+		for _, clause := range slices.Concat(free, repeated) {
 			if relationshipSyntax[clause.kind] == keyword.Value {
 				return clause, true
 			}
 		}
 	}
-	for _, kind := range relationshipOrder {
-		for _, clause := range candidates {
-			if clause.kind == kind {
-				return clause, true
+	for _, candidates := range [][]headClause{free, repeated} {
+		for _, kind := range relationshipOrder {
+			for _, clause := range candidates {
+				if clause.kind == kind {
+					return clause, true
+				}
 			}
 		}
+		if len(candidates) > 0 {
+			return candidates[0], true
+		}
 	}
-	return candidates[0], true
+	return headClause{}, false
+}
+
+// clauseNames are the names el's head states for kind as its relationship elements order
+// them, a repeated one (`:> a, a`) as often as they state it.
+func (d *decoder) clauseNames(el *element, kind ast.RelationshipKind) ([]string, error) {
+	names, err := d.referenceList(el, rdf.SysML+relationshipProperty[kind])
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	written := make([]bool, len(names))
+	for _, clause := range d.spelledHead(el) {
+		if !clause.multiplicity && clause.kind == kind && clause.index < len(names) {
+			out = append(out, names[clause.index])
+			written[clause.index] = true
+		}
+	}
+	for index, name := range names {
+		if !written[index] {
+			out = append(out, name)
+		}
+	}
+	return out, nil
 }
 
 func (d *decoder) multiplicityText(el *element) string {
@@ -4741,7 +4820,7 @@ func (d *decoder) referenceList(el *element, property string) ([]string, error) 
 // resolves to its element there.
 func (d *decoder) referenceName(term rdf.Term, el *element) (string, error) {
 	if term.IsLiteral() {
-		if term.Datatype == rdf.OpenSysML+dtExpression {
+		if term.Datatype() == rdf.OpenSysML+dtExpression {
 			return term.Value, nil
 		}
 		if why := notAName(term); why != "" {
@@ -4987,7 +5066,7 @@ func notAName(term rdf.Term) string {
 // literalTargetName is the name a usage takes from a naming feature the graph
 // keeps as text: the last segment of a name, or of the member a chain reaches.
 func literalTargetName(term rdf.Term) (string, bool) {
-	if term.Datatype != rdf.OpenSysML+dtExpression {
+	if term.Datatype() != rdf.OpenSysML+dtExpression {
 		return lastName(term.Value), true
 	}
 	name, _ := ast.TargetName(literalTarget(term))
@@ -4996,7 +5075,7 @@ func literalTargetName(term rdf.Term) (string, bool) {
 
 // literalTarget parses a relationship target the graph keeps as expression text.
 func literalTarget(term rdf.Term) ast.Node {
-	if !term.IsLiteral() || term.Datatype != rdf.OpenSysML+dtExpression {
+	if !term.IsLiteral() || term.Datatype() != rdf.OpenSysML+dtExpression {
 		return nil
 	}
 	return parser.New(source.New("<naming>", []byte(term.Value))).ParseExpression()

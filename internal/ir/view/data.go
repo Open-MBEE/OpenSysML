@@ -23,6 +23,8 @@ type Data struct {
 	// Columns and Rows are the tabular rendering, empty for every other kind.
 	Columns []string
 	Rows    []RowData
+	// Header is what a query-result rendering states about its run.
+	Header []HeaderField `json:",omitempty"`
 	// Lanes are a run timeline's object machines.
 	Lanes []Lane
 	// Canvas is the drawing surface the view states, nil for none.
@@ -130,6 +132,7 @@ func (r *Rendering) data(ports *portView) Data {
 		Run:      r.Run,
 		RunUntil: r.RunUntil,
 		Columns:  r.Columns,
+		Header:   r.Header,
 		Lanes:    r.Lanes,
 		Canvas:   r.Canvas,
 		Notes:    r.Notes,

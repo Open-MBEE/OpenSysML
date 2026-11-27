@@ -1423,9 +1423,9 @@
         "clause": "8.3.26.2",
         "name": "validateExposeOwningNamespace"
       },
-      "checks": "Only view usages expose elements. Every owner probed agrees in direction with the pilot — a view usage (plain, typed, nested in a part or a view def, `expose D`, `D::*`, `D::**`, filtered) is silent in both; a part, action, requirement, viewpoint or rendering definition or usage is an error in OpenSysML where the pilot grammar has a syntax error (`mismatched input 'expose' expecting '}'`), and a package body is a parse error in both. The one deliberate residue is a `view def` body: a `nonstandard-notation` **warning** in OpenSysML (`` `expose` in a view def body``, the maintainer decision recorded in [spec-compliance.md](spec-compliance.md)) where the pilot has the same syntax error",
-      "implementation": "internal/syntax/parser/defusage.go:misplacedMember (syntax tier, so an unrelated syntax error elsewhere no longer hides it); the view def warning is internal/check/passes/nonstandard_notation.go:notationWalker.expose",
-      "message": "`'expose' declares what a view usage exposes and is only allowed in a view usage body`. Stays approximate: `expose` in a view definition body is a deliberate extension (warning), see spec-compliance.md.",
+      "checks": "Only view usages expose elements. Every owner probed agrees in direction with the pilot — a view usage (plain, typed, nested in a part or a view def, `expose D`, `D::*`, `D::**`, filtered) is silent in both; a part, action, requirement, viewpoint or rendering definition or usage is an error in OpenSysML where the pilot grammar has a syntax error (`mismatched input 'expose' expecting '}'`), and a package body is a parse error in both. A `view def` body is the same error: `ViewDefinitionBodyItem` (SysML v2 8.2.2.26.2) offers no `Expose`, which only `ViewBodyItem` does, and the pilot has the same syntax error",
+      "implementation": "internal/syntax/parser/defusage.go:Parser.misplacedMember, reached through internal/syntax/parser/defusage.go:Parser.bodyAdmitsMember, which admits `expose` in a view usage body alone (syntax tier, like the pilot)",
+      "message": "`'expose' declares what a view usage exposes and is only allowed in a view usage body`",
       "negativeCase": "`grammar/g67-expose-outside-view-body.sysml`",
       "codes": [
         "expose-owning-namespace"
@@ -1433,8 +1433,7 @@
       "passes": [
         "syntax"
       ],
-      "status": "approximate",
-      "rationale": "an `expose` in a `view def` body is a `nonstandard-notation` warning where the pilot has a syntax error"
+      "status": "faithful"
     },
     {
       "name": "validateExpressionResultExpressionMembership",
@@ -4186,7 +4185,7 @@
         "name": "validateTransitionUsageTriggerActions"
       },
       "checks": "A transition with an accepter has a state as its source",
-      "implementation": "internal/check/passes/behavior/state_transition.go:transitionChecker.checkAccepterSource",
+      "implementation": "internal/check/passes/behavior/state_transition.go:transitionChecker.checkAccepterSources",
       "message": "—",
       "negativeCase": "`xpect/p34-accepter-source-not-state.sysml`",
       "codes": [
@@ -13537,6 +13536,12 @@
       "pass": "MOSAPass",
       "basis": "extension",
       "note": "Audits the elements a model classifies with the MOSA extension library against that method's openness rules, beyond KerML and SysML."
+    },
+    {
+      "file": "internal/check/passes/npr7123.go",
+      "pass": "NPR7123Pass",
+      "basis": "extension",
+      "note": "Audits the elements a model classifies with the NPR7123 extension library against what NASA NPR 7123.1D states of them, beyond KerML and SysML."
     },
     {
       "file": "internal/check/passes/oosem_method.go",

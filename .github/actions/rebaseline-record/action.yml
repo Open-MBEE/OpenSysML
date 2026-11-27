@@ -1,0 +1,110 @@
+name: Re-record the generated baselines
+description: >-
+  Run every recorder over the merged tree, refuse a change outside the generated paths or a movement
+  the merge does not explain, and commit the result. The ci:rebaseline workflow runs it once per
+  merge: again when the branch or develop moved under the first.
+
+inputs:
+  base:
+    description: The merge base of the branch and develop.
+    required: true
+  ours:
+    description: The branch head the merge was made from.
+    required: true
+  theirs:
+    description: The develop commit merged.
+    required: true
+  merged:
+    description: The merge the recorders run over.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    # Dependency order: the snapshot and stubs first, the figure blocks last.
+    - name: Regenerate the library snapshot and the protobuf stubs
+      shell: bash
+      run: |
+        make stdlib-snapshot
+        make proto-buf proto-ts proto-rust python-proto proto-csharp BUF=buf
+
+    # Our side alone is re-measured against the recorded pilot side. A merged baseline that reproduces is kept as it
+    # is; one that does not is re-recorded, with the pilot only for a rule the recorded column does not hold.
+    - name: Accept the merged derived-property differential and derived census, or re-record them
+      shell: bash
+      run: |
+        set -euo pipefail
+        go run -C tools ./cmd/pilot-apijson-diff -check -pilot-record build/pilot-apijson-record ||
+          go run -C tools ./cmd/pilot-apijson-diff -update -pilot-record build/pilot-apijson-record
+        go run -C tools ./cmd/derived-census -check -recorded-pilot ||
+          go run -C tools ./cmd/derived-census -update -recorded-pilot ||
+          go run -C tools ./cmd/derived-census -update
+
+    # tests/export is named by its recorders, the tests that call checkGolden: -update writes nowhere else, and
+    # the package whole is seven minutes of tests that record nothing.
+    - name: Re-record the per-file ratchets
+      shell: bash
+      run: |
+        go test -count=1 ./tests/corpus -run 'TestPilotCorporaDiagnostics|TestSpecExamplesDiagnostics|TestPSSMSuiteMigration|TestExamplesSweep' \
+          -update-pilot-corpora -update-spec-examples -update-pssm-migration -update-corpus-roundtrip -update-api-json-roundtrip
+        go test -count=1 ./internal/translate/export -run TestSymbolStructureMatchesGraphStructure -update-structure-differential
+        go test -count=1 ./internal/exec/runtime -run TestLibraryAndPrefixSweep -update-library-prefix-sweep
+        go test -count=1 ./tests/export -run '^(TestGoldenConversions|TestSupersededThenDoneMembershipReadsBack)$' -update
+        go test -count=1 ./tests/parser -run TestGolden -update
+
+    - name: Restate the generated documentation blocks
+      shell: bash
+      run: make docs-counts
+
+    # Only the generated paths and the pages carrying a generated block may change;
+    # the training expectation is asserted, never re-recorded.
+    - name: Only generated paths changed
+      shell: bash
+      run: |
+        set -euo pipefail
+        git add -N .
+        changed=$(git diff --name-only)
+        allowed=$(printf '%s\n%s\n' "$GENERATED_PATHS" "$DOC_COUNT_PATHS" | sed '/^$/d')
+        other=""
+        while IFS= read -r file; do
+          [ -n "$file" ] || continue
+          if [ "$file" = tests/corpus/testdata/training_examples_expected.txt ]; then
+            echo "the recorders changed $file, which is never re-recorded" >&2
+            exit 1
+          fi
+          ok=0
+          while IFS= read -r path; do
+            case "$file" in "$path"|"$path"/*) ok=1 ;; *) ;; esac  # another generated path may still claim the file
+          done <<< "$allowed"
+          case "$file" in */testdata/*.golden|*/testdata/*.golden.*|*/testdata/*.sha256) ;; */testdata/*.sysml|*/testdata/*.kerml|*/testdata/*.ttl) ok=0 ;; *) ;; esac  # any other file keeps the generated-paths verdict
+          [ "$ok" = 1 ] || other="$other$file"$'\n'
+        done <<< "$changed"
+        if [ -n "$other" ]; then
+          printf 'the recorders changed files outside the generated paths:\n%s' "$other" >&2
+          exit 1
+        fi
+
+    # A record neither side moved that the fresh run moves is not the merge's doing.
+    - name: Every movement is explained by the merge
+      id: movement
+      shell: bash
+      run: |
+        set -o pipefail
+        printf '%s\n' "$GENERATED_PATHS" | sed '/^$/d' | xargs python3 scripts/rebaseline-movement.py \
+          --base "${{ inputs.base }}" --ours "${{ inputs.ours }}" \
+          --theirs "${{ inputs.theirs }}" --merged "${{ inputs.merged }}" \
+          --summary build/rebaseline-summary.md
+
+    - name: Commit the re-recorded baselines
+      shell: bash
+      run: |
+        git add -A
+        if git diff --cached --quiet; then
+          echo "nothing re-recorded; the merge alone is pushed"
+        else
+          git commit -q -F - <<EOF
+        chore(baselines): re-record after merging develop
+
+        $(cat build/rebaseline-summary.md)
+        EOF
+        fi

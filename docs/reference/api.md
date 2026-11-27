@@ -80,6 +80,9 @@ client with `CodeUnimplemented` — and is not part of the `Client` interface; t
 explains why.
 
 `ListEngines` names the analysis engines the service answers with, as `EngineInfo` in name order.
+Each carries its origin beside what it answers: `Kind` (`built-in`, or the manifest entry's `tool`,
+`engine`, `policy` or `sampler`), `Protocol`, the entry's `Source`, `Command` and `Version`, and
+`Served`, false for a manifest engine the service lists without running.
 `VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction` and `ValidateInstance` take `WithEngine(name)` and
 `RunAnalysis` and `ExploreAnalysis` take `Engine(name)`, and `Calculate` (`EvaluateCalc` with
 options, its arguments under `CalcArguments`) takes `CalcEngine(name)`, to put the question to one engine,
@@ -106,7 +109,7 @@ carries none, and so does a service without the `verdict_notes` capability.
 `VerifyConstraint` and `VerifyRequirement` also take `VerifyArguments(values...)` and
 `VerifyArgument(name, value)`, binding the element's `in` parameters positionally in declaration
 order or by name, as `Arguments` and `Argument` bind a case's for `RunAnalysis`. A name no parameter
-has, more positional values than parameters, a parameter left without a value, default or same-named value on the checked object, or a value
+has, more positional values than parameters, a parameter left without a value or default, or a value
 not of the parameter's type is an undecided `Verdict` naming it. Arguments need the
 `verification_arguments` capability, checked before anything is sent, and only the evaluate question
 takes them: `QuestionHolds` and `QuestionSatisfiable` leave the free features to the solver.
@@ -1131,13 +1134,22 @@ derives — a send's `payloadArgument`, `senderArgument`, `receiverArgument` —
 has none, so it reports, compares and orders as written (`new Alarm(3)`), and
 a path continues through it (`senderArgument.@type`, `senderArgument.referent.name`).
 
+A connector — a connection, an interface, a binding — is a row whose
+`sourceFeature` and `targetFeature` are the features its ends relate, so the port graph is
+one scoped query. An end written as a chain (`connect a.p to b.p`) relates a chain feature
+with no `@id`, reported as written (`a.p`); `sourceFeature.featureTarget` and
+`targetFeature.featureTarget` are the ports themselves on either kind of end, and
+`relatedFeature.featureTarget` in a constraint selects the connectors reaching a port. A
+`transition` is a `TransitionUsage` row with its own `@id` (positional when unnamed),
+`owner`, `source` and `target`.
+
 | Property | Reports | Ordered |
 |---|---|---|
 | `@id` | The element's qualified name or export-compatible positional name, which is also how `scope` names it | |
 | `qualifiedName` | The element's qualified name; absent for an element with a positional `@id` | |
 | `@type` | The element's metamodel type (table below) | |
 | `name` | The element's own name, the last segment of its qualified name | |
-| `declaredName` | `name`, absent when the name is an effective name borrowed from a referenced feature | |
+| `declaredName` | `name`, absent when the name is an effective name: one borrowed from a referenced feature, or the `~P` of the `ConjugatedPortDefinition` a `port def P` implies | |
 | `shortName` | The element's effective short name (`<'HLR-R001'>` declares `HLR-R001`); absent when it has none | |
 | `declaredShortName` | `shortName`, absent when the short name is borrowed from a redefined or subsetted feature | |
 | `documentation` | The body text of the element's `doc` comment, delimiters and indentation removed; absent when undocumented. This single-valued record reports the first body of an element declaring several — a document query's `Project` carries every body | |
@@ -1151,9 +1163,13 @@ a path continues through it (`senderArgument.@type`, `senderArgument.referent.na
 | `type` | Qualified name of the resolved type of a typed feature; absent when untyped or unresolved | |
 | `satisfiedRequirement` | The requirement a non-verification satisfy usage references, or the satisfy usage itself when it declares the requirement; absent when unresolved or not a satisfy usage | |
 | `satisfyingFeature` | The feature named by a satisfy usage's `by` clause; a feature chain (`by v.heater`) reports the feature the chain ends at; absent when there is no `by` clause or it is unresolved | |
+| `verifiedRequirement` | On a `verify` in an objective, the requirement it references, or the `verify` itself when it declares the requirement; on a verification case, the first requirement its objective verifies; absent when unresolved or on any other element | |
+| `verifyingCase` | The verification case whose objective holds a `verify`; absent for a `verify` no verification case's objective holds and for any other element | |
 | `elementId` | The `elementId` `Convert` writes for the element (qualified id form), read from a conversion of the model made once: a declared id as declared, a bundled library element's fixed id — a standard-library element's normative id, an OpenSysML extension's extension id (a library file's copy included) — any other the encoding of its qualified or positional name. It is the API JSON `@id` too, except in a model of several identity scopes, whose `@id` the scope qualifies. Absent for a library element a model gives an id of its own, which `Convert` references by name. A query reading it of a model `Convert` refuses is `FAILED_PRECONDITION`. Reported only when a query selects or constrains it, never by an empty `select`, since reading it converts the model | |
 | `multiplicityLower` | Declared lower bound | ✅ |
 | `multiplicityUpper` | Declared upper bound, `*` when unbounded | ✅ |
+| `symbolKind` | The symbol kind `GetSymbol` reports as `SymbolInfo.kind` (`partDef`, `stateUsage`, `actionUsage`), present on every row, one with a positional `@id` included. It tells apart rows no `LookupSymbol` reaches; a transition is an `actionUsage` here and a `TransitionUsage` by `@type` | |
+| `text` | `RequirementDefinition::text` / `RequirementUsage::text`: the body of the requirement's `doc`, as `documentation` reads it; absent for a requirement that states none. This single-valued record reports the first body. On any other element `text` names a feature of the model, as every name outside this table does | |
 
 ### `@type` — symbol kind → metamodel type
 
@@ -1314,6 +1330,19 @@ for a query written in the request. Python:
 `model.run_document_query(...)` and `model.render_document(...)`
 (`client/python/opensysml/document.py`). The JSON shape of a binding and of the
 result table, captured, is on [the wire contract](wire-contract.md#rundocumentquery).
+
+`RunDocumentQueryRequest.as_view` and `QueryRequest.as_view` ask for the answer written as a
+`QVTS::QueryResult` view as well ([QVTS guide](../guide/qvts.md#write-the-answer-as-a-view)):
+the response's `result_view` is the SysML text declaring it, a string that is empty when the
+request did not ask, and a query that fails with a `QueryOutcome` detail carries a
+`QueryResultView` detail beside it, whose `text` is the view. `RenderViewResponse.header` holds such a view's
+four attributes as `RenderHeaderField`s, and `RenderViewRequest.form` writes it into
+`RenderViewResponse.text` as a document of that header and its rows in `markdown`, `html` or
+`asciidoc`, besides the forms every view takes: `markdown` on a `QVTS::QueryResult` view is the
+header-and-rows document, and `html` or `asciidoc` on a view of another definition is refused
+with `INVALID_ARGUMENT` as any form its kind is not written in. All of it is advertised as
+`query_result_view`, and the document forms need `render_view_form` as well; a service without
+the capability does not know the fields, so a client checks the capability before asking.
 
 Both name a loaded model by its hash and a definition by qualified name, and
 compose the engine packages the REPL and CLI compose — `queryplan` →

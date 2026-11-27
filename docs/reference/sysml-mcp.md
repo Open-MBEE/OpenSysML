@@ -422,12 +422,12 @@ agent can discover the surface without this page.
 | `list_engines` | List the analysis engines this build registers (the ListEngines RPC, as the CLI's -engines does): each with the questions it answers (evaluate, outcomes, holds, sensitive, satisfiable, sweep, compute), the strongest evidence it can produce, the bounds it takes, and whether it can run here. | no |
 | `migrate` | Migrate a SysML v1 model — UML XMI with the SysML profile, an Eclipse UML2 .uml file or a Cameo/MagicDraw .mdzip archive — to SysML v2 in one of the representations convert writes (the Migrate RPC, the CLI's -migrate). | no |
 | `parse` | Parse SysML v2 / KerML documents as one model and return its modelHash, the root namespace of each document and every diagnostic (the ParseSources RPC). | no |
-| `query` | Select elements of a parsed model with a SysML v2 API & Services Query — scope, select, where, orderBy — or OSLC query text (the Query RPC), run as a document-query plan over the model's elements, or over the objects `instantiate` created when `@type` names an element (`rdf:type=elmt:<id>`); an object answers its path too. | no |
+| `query` | Select elements of a parsed model with a SysML v2 API & Services Query — scope, select, where, orderBy — or OSLC query text (the Query RPC), run as a document-query plan over the model's elements, or over the objects `instantiate` created when `@type` names an element (`rdf:type=elmt:<id>`); an object answers its path too. `asView` also writes the answer as a `QVTS::QueryResult` view, in `resultView`. | no |
 | `record_run` | Run an analysis case — once, over the rows of a sweep (`ranges`), or as a Monte Carlo sample (`runs`) — and record the runs into the model as AnalysisRecords declarations (the RecordRun RPC, the CLI's -record-run/-record-into, the REPL's %record). | no |
 | `render_model_document` | Render a named document of a model given by modelHash, paths or sources (the workspace group's render_document renders by name over the root) — a part def specializing DocumentQueries::Document — to Markdown or HTML (the RenderDocument RPC, the CLI's -render-document), byte for byte what the CLI writes. | no |
-| `render_model_view` | Render a declared view or a targeted pseudo-view of a model given by modelHash, paths or sources as diagram data (the RenderView RPC; the workspace group's render_view renders by name over the root): nodes flattened parents first, edges with their ports, table columns and rows, canvas, notes and notices. With `form` the rendering is also written as text, Mermaid, Markdown, Graphviz dot, PlantUML, D2, draw.io, CSV or TSV, exactly as `sysml -render` writes it. | no |
+| `render_model_view` | Render a declared view or a targeted pseudo-view of a model given by modelHash, paths or sources as diagram data (the RenderView RPC; the workspace group's render_view renders by name over the root): nodes flattened parents first, edges with their ports, table columns and rows, canvas, notes and notices. With `form` the rendering is also written as text, Mermaid, Markdown, Graphviz dot, PlantUML, D2, draw.io, CSV or TSV, exactly as `sysml -render` writes it; a QVTS::QueryResult view is written as a document of its header and rows in Markdown, HTML or AsciiDoc. | no |
 | `run_analysis` | Run an analysis case (the RunAnalysis RPC, the REPL's %analysis): its subject and inputs bound from the arguments and its own declarations, its body run, every declared output answered with the verdict of its objective and of each assertion in its body; a verification case also answers its own verdict. | no |
-| `run_document_query` | Run a named document query with parameter bindings, or a query expression written in place of a name (`inlineQuery`, planned by the same compiler in the model's context; needs the `inline_document_query` capability), and answer its typed rows (the RunDocumentQuery RPC, the REPL's %run-query). | no |
+| `run_document_query` | Run a named document query with parameter bindings, or a query expression written in place of a name (`inlineQuery`, planned by the same compiler in the model's context; needs the `inline_document_query` capability), and answer its typed rows (the RunDocumentQuery RPC, the REPL's %run-query); `asView` also writes the answer as a `QVTS::QueryResult` view, in `resultView`. | no |
 | `run_runs` | Run an action, or a Simulation::MonteCarlo analysis case, a number of times (the RunRuns RPC, the CLI's -runs/-observe, the REPL's %runs): every run is an ordinary run in a context of its own, drawing its modeled randomness from a seed derived from `seed`. | no |
 | `run_sweep` | Run an analysis case or calc once per row of a parameter sweep (the RunSweep RPC, the CLI's -sweep): each row an ordinary run with the swept parameters bound to that row's values, stepped through the ranges' cartesian product or drawn with samples and seed. | no |
 | `self_check` | Apply the SysMLValidation constraints, and those of any rule packages named, reflectively to every element of a model (the SelfCheck RPC, the CLI's -self-check and -self-check-package): each element is handed to every constraint whose input its metaclass conforms to. | no |
@@ -514,7 +514,8 @@ Every tool requires one scope — an OAuth 2.0 scope token (RFC 6749 § 3.3) —
 credential does not grant the tool's scope is refused with a JSON-RPC error (code `-32030`,
 `insufficient_scope`) whose message and `data` name the tool and the scope, so an agent can ask for
 the scope rather than guess; `tools/list` is never narrowed, so the agent still sees what the server
-has. Over stdin and stdout, and over `-http` without a token, the one caller is the local principal
+has. Reading a resource (`resources/read`, and subscribing to one) requires `sysml:read` and is
+refused the same way, naming the request in place of a tool. Over stdin and stdout, and over `-http` without a token, the one caller is the local principal
 and holds every scope, so a host that starts the server itself loses nothing. The bearer token
 named by `-token-file`, `-token` or `OPENSYSML_MCP_TOKEN` holds every scope as well; a credential an
 authorization server issues carries the scopes it was granted.
@@ -551,7 +552,13 @@ With `-http ADDR` the server is started once and speaks the **Streamable HTTP** 
 path `/mcp` of that address to every client that connects — remote agents, or several agents over
 one project — until it is told to stop with SIGINT or SIGTERM. Stopping closes the clients'
 sessions, so their event streams end, and gives the connections up to `-shutdown-timeout` (30 seconds) to drain. The
-clients share one workspace and one runtime cache. REPL sessions belong to the **principal** that
+clients of one principal share one workspace, and all of them one runtime cache: a document
+`open_document` holds open is read — by the `sysml://workspace/` resources and by every tool — only
+by the principal that opened it, and another principal reads the file on disk. The local principal
+and the holder of the bearer token use the workspace indexed at start; each principal an
+authenticator names has the workspace indexed again for it on its first session, up to 32 such
+principals, past which a further principal's session is refused (`400`) until the server restarts.
+REPL sessions belong to the **principal** that
 opened them — the identity of the credential, `source:subject`, or the one local principal when the
 server authenticates nobody — so a `session_*` name one client opens is the session every other
 client *of the same principal* sees under that name, `session_list` lists that principal's sessions
@@ -765,7 +772,7 @@ token, and client scopes named after the server's scopes with *Include in token 
 | `-root DIR` | `.` | Workspace folder whose model documents the server indexes and edits |
 | `-tools GROUPS` | `all` | Tool groups to serve, comma-separated: `lsp`, `runtime`, `session` |
 | `-strict` | off | Strict conformance from the start: notation no pinned SysML v2 production admits is an error |
-| `-no-record-cache` | off | Parse every document and hold it loaded, reading and writing no interface record (also `OPENSYSML_RECORD_CACHE=0`) |
+| `-no-record-cache` | off | Parse every document and hold it loaded, reading and writing no interface record, and analyze every model the runtime tools parse, reading and writing no model record (also `OPENSYSML_RECORD_CACHE=0`) |
 | `-cache-size N` | `100` | Parsed models the runtime tools hold, at least 1 |
 | `-log-level LEVEL` | `warn` | Lowest level logged to stderr: `debug`, `info`, `warn` or `error` |
 | `-stdio` | — | Serve over stdin/stdout; the default transport, accepted for hosts that name it; not with `-http` |

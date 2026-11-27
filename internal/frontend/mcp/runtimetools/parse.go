@@ -30,6 +30,7 @@ type SymbolInput struct {
 	IncludeLibraryMembers bool   `json:"includeLibraryMembers,omitempty" jsonschema:"list the members inherited from standard-library content too, which are otherwise withheld and counted"`
 	ResolveName           bool   `json:"resolveName,omitempty" jsonschema:"resolve symbolId as a qualified name from the root namespace as the notation does: through imports, an alias answered by the element it names, a member not visible from outside its namespace not found; otherwise symbolId is an id the service reported"`
 	Lookup                string `json:"lookup,omitempty" jsonschema:"what symbolId is, stated rather than guessed: LOOKUP_KIND_QUALIFIED_NAME reads it only as a qualified name, LOOKUP_KIND_ELEMENT_ID only as an id an answer reported (a childIds or members entry, a positional id as Owner::@3, an unnamed connector end's id); empty reads a name first, then an id; resolveName is ignored once it is stated"`
+	MemberOf              string `json:"memberOf,omitempty" jsonschema:"the type the element is read as a feature of, as Demo::Vehicle::fuelPort: the direction reported is then the one relative to that type, which a conjugated port typing reverses"`
 }
 
 // ElementPropertiesInput names an element and the metamodel properties to read.
@@ -106,7 +107,7 @@ func (g *group) registerParse(s *mcp.Server) {
 		}
 		resp, err := g.svc.GetSymbol(ctx, &pb.GetSymbolRequest{
 			ModelHash: m.hash, SymbolId: in.SymbolID, IncludeLibraryMembers: in.IncludeLibraryMembers,
-			ResolveName: in.ResolveName, Lookup: lookup,
+			ResolveName: in.ResolveName, Lookup: lookup, MemberOf: in.MemberOf,
 		})
 		if err != nil {
 			return nil, nil, toolError(err)
@@ -122,7 +123,8 @@ func (g *group) registerParse(s *mcp.Server) {
 			"the positional id of an unnamed member (Owner::@2) or by the id an earlier answer's element value carried, which walks the " +
 			"model and into the standard library; empty properties reads every property the element carries. A property the metaclass " +
 			"does not declare, or OpenSysML does not derive for the element, answers `unsupported` with the reason. An unknown element " +
-			"answers with `error` set rather than failing. The result is the GetElementPropertiesResponse as protojson writes it.",
+			"answers with `error` set rather than failing. A document with a syntax error, or one declaring a name an earlier document declares, " +
+			"is left out and listed in `excludedDocuments`; only its own elements answer its error. The result is the GetElementPropertiesResponse as protojson writes it.",
 		Annotations: toolkit.ReadOnly("Read element properties"),
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in ElementPropertiesInput) (*mcp.CallToolResult, Result, error) {
 		m, err := g.resolve(ctx, in.ModelInput)

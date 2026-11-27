@@ -11,7 +11,7 @@ dependency footprint, service ownership and release verification are in
 <dependency>
   <groupId>org.openmbee</groupId>
   <artifactId>opensysml</artifactId>
-  <version>0.12.1</version>
+  <version>0.13.0</version>
 </dependency>
 ```
 
@@ -293,6 +293,10 @@ in turn, ascending. `queryOslc` needs the `oslc_query` capability; a scope namin
 no element is refused as `INVALID_ARGUMENT`, and an unknown property as a
 `QueryOutcomeException` (see [Document queries](#document-queries-and-rendering)).
 
+`queryAsView(query)` and `queryOslcAsView(text)` return a `QuerySelection`: the same
+`elements()` and, in `resultView()`, the answer written as a `QVTS::QueryResult` view (see
+[The answer as a view](#the-answer-as-a-view)).
+
 ### Several documents, and conversion
 
 `Connection.parseSources` reads a list of `SourceDocument`s — `file(Path)` for
@@ -481,6 +485,28 @@ besides the ones the view's rendering shows (`"all"` for every one); the
 (`"positioned"`, the default, `"most"` or `"ports"`), each folded node naming
 its `compartment`. This call requires the `render_view` capability.
 
+#### The answer as a view
+
+```java
+DocumentQueryResult cabin = model.runDocumentQueryAsView("QVTSDemo::CabinMass", Map.of());
+cabin.resultView();          // "package CabinMassResult { … view cabinMass : QueryResult { … } }"
+QuerySelection found = model.queryOslcAsView("oslc.where=sysml:name=\"cabin\"");
+found.elements(); found.resultView();
+```
+
+`runDocumentQueryAsView`, `runInlineDocumentQueryAsView`, `queryAsView` and `queryOslcAsView`
+ask the service to write the answer as one view typed by `QVTS::QueryResult`
+([QVTS guide](../guide/qvts.md#write-the-answer-as-a-view)); `resultView()` is its SysML text,
+and `""` from the calls that did not ask. A query the model has no answer for still has a
+view, of its path or model error: `QueryOutcomeException.resultView()`. These calls need the
+`query_result_view` capability (`Capabilities.QUERY_RESULT_VIEW`).
+
+`model.renderView(name, DocumentForm.MARKDOWN)` (or `HTML`, `ASCIIDOC`) renders a result view
+that is part of the model as a document: `RenderedView.header()` holds its four attributes as
+`HeaderField`s, `rows()` the exposed elements, and `text()` the rendered document. It needs
+the `render_view_form` capability too, and `HTML` or `ASCIIDOC` for a view that is not a
+`QVTS::QueryResult` is refused as `INVALID_ARGUMENT`.
+
 `DocumentValue` is sealed over `ElementRef`, `ObjectRef` (an object the service
 holds, by id or by path, with the `ElementRef` it is held under), `DocumentVerdict`,
 `DocumentState`, `DocumentEvent`, the literal kinds `StringValue`, `IntegerValue`,
@@ -575,6 +601,9 @@ else if (value instanceof Value.InstanceReference v)    rendered = "instance " +
 else if (value instanceof Value.Sequence v)             rendered = v.elements().toString();
 else if (value instanceof Value.UndeterminedValue v)    rendered = "<undetermined>: " + v.reason();  // left open by the model
 else if (value instanceof Value.InfinityValue v)        rendered = "*";       // unbounded
+else if (value instanceof Value.CoordinateFrameValue v) rendered = v.frame().name();   // axes, scale, transformation
+else if (value instanceof Value.CoordinateTransformationValue v)
+  rendered = v.transformation().pose().map(Object::toString).orElse("unposed");        // source, target, shape, pose
 else if (value instanceof Value.NullValue v)            rendered = "null";    // evaluated, no value
 else                                                    rendered = "unset";   // declared, never given one
 ```

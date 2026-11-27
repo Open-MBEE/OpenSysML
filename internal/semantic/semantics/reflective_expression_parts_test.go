@@ -150,21 +150,20 @@ func TestExpressionOwnsItsParametersAndResult(t *testing.T) {
 		t.Errorf("literal ownedElement: %v", names(got))
 	}
 
-	// `a as T` owns a parameter for its operand and one for the type
-	// argument, unbound, after it; and its result.
+	// `a as T` owns a parameter for its operand and its result, which T types
+	// (KerML.xtext TypeResultMember): the type is no parameter of its own.
 	y := m.ValueExpression(member(t, m, d, "y"))
-	yParams := m.ExpressionParameters(y)
-	if got := names(yParams); !equal(got, []string{"Feature", "Feature"}) {
+	if got := names(m.ExpressionParameters(y)); !equal(got, []string{"Feature"}) {
 		t.Fatalf("y parameters: %v", got)
 	}
 	if got := names(m.ExpressionArguments(y)); !equal(got, []string{"FeatureReferenceExpression"}) {
 		t.Errorf("y arguments: %v", got)
 	}
-	if yParams[1].Expr.Index != 1 || m.ValueExpression(yParams[1]) != nil || len(m.OwnedMemberships(yParams[1])) != 0 {
-		t.Error("y's type argument parameter binds a value")
-	}
-	if got := names(m.OwnedMemberships(y)); !equal(got, []string{"ParameterMembership", "ParameterMembership", "ReturnParameterMembership"}) {
+	if got := names(m.OwnedMemberships(y)); !equal(got, []string{"ParameterMembership", "ReturnParameterMembership"}) {
 		t.Errorf("y owned memberships: %v", got)
+	}
+	if got, ok := m.ReflectiveElements(m.ExpressionResult(y), "type"); !ok || len(got) != 1 || got[0].Name != "Integer" {
+		t.Errorf("y result type: %v", names(got))
 	}
 
 	// A literal value owns nothing.
@@ -320,6 +319,14 @@ func TestInvocationOwnsItsArgumentParameters(t *testing.T) {
 			t.Fatalf("%s: value expression %v", c.name, expr)
 		}
 		params, args := m.ExpressionParameters(expr), m.ExpressionArguments(expr)
+		if c.metaclass == "ConstructorExpression" {
+			// A constructor owns only its result, which owns the argument
+			// features (KerML 8.3.4.8.3).
+			if len(params) != 0 {
+				t.Errorf("%s: constructor owns %d parameters, want none", c.name, len(params))
+			}
+			params = m.constructorResultFeatures(m.ExpressionResult(expr))
+		}
 		if len(params) != len(c.args) || len(args) != len(c.args) {
 			t.Errorf("%s: %d parameters, %d arguments, want %d", c.name, len(params), len(args), len(c.args))
 			continue
@@ -338,9 +345,17 @@ func TestInvocationOwnsItsArgumentParameters(t *testing.T) {
 		if m.ExpressionResult(expr) == nil {
 			t.Errorf("%s: no result parameter", c.name)
 		}
-		// The Membership to the function, the parameters, the result.
-		if got := len(m.OwnedMemberships(expr)); got != len(c.args)+2 {
-			t.Errorf("%s owns %d memberships, want %d", c.name, got, len(c.args)+2)
+		// The Membership to the function, the parameters, the result; a
+		// constructor's result owns the parameters instead.
+		want := len(c.args) + 2
+		if c.metaclass == "ConstructorExpression" {
+			want = 2
+			if got := len(m.OwnedMemberships(m.ExpressionResult(expr))); got != len(c.args) {
+				t.Errorf("%s: the result owns %d memberships, want %d", c.name, got, len(c.args))
+			}
+		}
+		if got := len(m.OwnedMemberships(expr)); got != want {
+			t.Errorf("%s owns %d memberships, want %d", c.name, got, want)
 		}
 	}
 }
@@ -450,9 +465,14 @@ func TestExpressionOwnsTheMembershipToWhatItNames(t *testing.T) {
 			t.Errorf("Membership.%s = %v (%v), want empty", feature, names(got), ok)
 		}
 	}
+	// An unresolved reference still owns the Membership it is written with (KerML 8.2.5.8.3
+	// FeatureReferenceMember); it names no member, so memberElement stays underived.
 	dangling := m.ValueExpression(member(t, m, d, "dangling"))
-	if got := names(m.OwnedMemberships(dangling)); len(got) != 1 || got[0] != "ReturnParameterMembership" {
-		t.Errorf("an unresolved reference owns %v, want its result only", got)
+	if got := names(m.OwnedMemberships(dangling)); len(got) != 2 || got[0] != "Membership" || got[1] != "ReturnParameterMembership" {
+		t.Errorf("an unresolved reference owns %v, want a Membership naming nothing, then its result", got)
+	}
+	if got, ok := m.ReflectiveElements(m.OwnedMemberships(dangling)[0], "memberElement"); ok {
+		t.Errorf("an unresolved reference's Membership.memberElement = %v, want underived", names(got))
 	}
 	if got, ok := m.ReflectiveElements(dangling, "referent"); !ok || len(got) != 0 {
 		t.Errorf("an unresolved reference's referent = %v (%v)", names(got), ok)
@@ -730,5 +750,60 @@ func TestBodyParameterValueOwnsTheBodyItDeclares(t *testing.T) {
 	}
 	if m.ownerOf(v) != inner {
 		t.Errorf("v's owner moved to %v after reading the outer body", m.ownerOf(v))
+	}
+}
+
+// A cast and an extent name the type of their result (KerML.xtext TypeResultMember), where a
+// classification test names a second `in` parameter (TypeReferenceMember).
+func TestCastAndExtentTypeTheirResult(t *testing.T) {
+	m, root := buildModelWithStdlib(t, `
+		package P {
+			part def Command;
+			part def C {
+				ref part original : Command;
+				ref part narrowed = original as Command;
+				ref part allCommands = all Command;
+				attribute isCmd = original istype Command;
+			}
+		}
+	`)
+	pkg, _ := root.LookupLocal("P")
+	c := member(t, m, pkg, "C")
+	types := func(sym *symbols.Symbol) []string {
+		var out []string
+		got, _ := m.ReflectiveElements(sym, "type")
+		for _, s := range got {
+			out = append(out, s.Name)
+		}
+		return out
+	}
+	equal := func(a, b []string) bool { return strings.Join(a, ",") == strings.Join(b, ",") }
+	for _, tc := range []struct {
+		name       string
+		parameters [][]string
+		arguments  int
+		result     []string
+	}{
+		{"narrowed", [][]string{{"Anything"}}, 1, []string{"Command"}},
+		{"allCommands", nil, 0, []string{"Command"}},
+		{"isCmd", [][]string{{"Anything"}, {"Command"}}, 1, []string{"Boolean"}},
+	} {
+		expr := m.ValueExpression(member(t, m, c, tc.name))
+		params := m.ExpressionParameters(expr)
+		if len(params) != len(tc.parameters) {
+			t.Errorf("%s: %d parameters, want %d", tc.name, len(params), len(tc.parameters))
+			continue
+		}
+		for i, p := range params {
+			if got := types(p); !equal(got, tc.parameters[i]) {
+				t.Errorf("%s: parameter %d type = %v, want %v", tc.name, i, got, tc.parameters[i])
+			}
+		}
+		if got := len(m.ExpressionArguments(expr)); got != tc.arguments {
+			t.Errorf("%s: %d arguments, want %d", tc.name, got, tc.arguments)
+		}
+		if got := types(m.ExpressionResult(expr)); !equal(got, tc.result) {
+			t.Errorf("%s: result type = %v, want %v", tc.name, got, tc.result)
+		}
 	}
 }

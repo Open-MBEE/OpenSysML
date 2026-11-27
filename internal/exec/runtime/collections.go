@@ -588,7 +588,7 @@ func (ec *EvalContext) applyValueBody(body Value, args ...Value) (Value, error) 
 // `Boolean[1]` — a selector, a rejector, a test — and reports a result that is
 // not a Boolean rather than reading it as false, which would silently drop the
 // element it was asked about.
-func (ec *EvalContext) applyPredicate(op string, body Value, arg Value) (bool, error) {
+func (ec *EvalContext) applyPredicate(op string, body, arg Value) (bool, error) {
 	val, err := ec.applyTest(op, body, arg)
 	if err != nil {
 		return false, err
@@ -601,7 +601,7 @@ func (ec *EvalContext) applyPredicate(op string, body Value, arg Value) (bool, e
 
 // applyTest is applyPredicate admitting a test the model leaves undetermined,
 // which it returns as such for the operation to weigh.
-func (ec *EvalContext) applyTest(op string, body Value, arg Value) (Value, error) {
+func (ec *EvalContext) applyTest(op string, body, arg Value) (Value, error) {
 	val, err := ec.applyBody(body, arg)
 	if err != nil {
 		return Value{}, err
@@ -685,7 +685,7 @@ func builtinArrayIndex(ec *EvalContext, args []Value) (Value, error) {
 // arrayIndex addresses an array — or a vector, which is an Array of one
 // dimension — by its indexes in row-major order. The library body answers null
 // for an array of rank 0, which no index addresses.
-func arrayIndex(op string, arr Value, indexesVal Value) (Value, error) {
+func arrayIndex(op string, arr, indexesVal Value) (Value, error) {
 	arr = soleElement(arr)
 	indexes, err := indexList(op, elementsOf(indexesVal))
 	if err != nil {
@@ -1649,7 +1649,7 @@ func (ctx *Context) aggregate(op string, args []Value, operator ast.OperatorKind
 	}
 	acc := kind.identity(identity)
 	for _, elem := range elements {
-		if elem.Kind != ValConst || !elem.Const.IsNumeric() {
+		if elem.Kind != ValConst || !elem.Const.IsExtendedNumeric() {
 			return Value{}, fmt.Errorf("%w: %s requires numeric elements, got %s", ErrTypeMismatch, op, DescribeValue(elem))
 		}
 		if a, ok := acc.Int64(); ok && operator == ast.OpAdd {
@@ -1675,10 +1675,8 @@ func typedZero(unit Unit, kind aggregateKind) Value {
 	return NewQuantityValue(&Quantity{Num: kind.identity(0), Unit: unit})
 }
 
-// aggregateQuantities folds a collection holding a quantity in the unit of its
-// first element, as the binary operator does. A bare number is a magnitude of
-// dimension one, so mixing one in reports incommensurable units. Points on a
-// measurement scale have no sum or product, so a fold over them is refused.
+// aggregateQuantities folds quantities in the unit of the first, a bare number being of
+// dimension one; points have no sum or product, a cyclic ratio scale's values have.
 func (ctx *Context) aggregateQuantities(op string, elements []Value, operator ast.OperatorKind, kind aggregateKind) (Value, error) {
 	var acc Value
 	for i, elem := range elements {
@@ -1691,7 +1689,7 @@ func (ctx *Context) aggregateQuantities(op string, elements []Value, operator as
 			held.Num = num
 			q = &held
 		}
-		if err := ctx.refusePoints(op, "points have no sum or product to fold; fold their differences from one point instead", q); err != nil {
+		if _, _, err := ctx.ratioOperands(op, "points have no sum or product to fold; fold their differences from one point instead", q); err != nil {
 			return Value{}, fmt.Errorf("%s: %w", op, err)
 		}
 		if i == 0 {
@@ -1726,10 +1724,13 @@ func foldNumeric(op string, operator ast.OperatorKind, acc, elem semantics.Value
 		}
 		return res, nil
 	}
-	// An infinity has no place in a sum or a product of measured values: the
-	// aggregation would answer an infinity for every element that follows.
-	if acc.Kind == semantics.ValInfinity || elem.Kind == semantics.ValInfinity {
-		return semantics.Value{}, fmt.Errorf("%w: %s requires finite elements", ErrTypeMismatch, op)
+	// An infinite element makes the aggregation the extended reals' sum or product.
+	if acc.IsInfinite() || elem.IsInfinite() {
+		res, err := semantics.InfinityArith(operator, acc, elem)
+		if err != nil {
+			return semantics.Value{}, fmt.Errorf("%s: %w", op, err)
+		}
+		return res, nil
 	}
 	if acc.IsExact() && elem.IsExact() {
 		res, err := semantics.RatArith(operator, acc, elem, maxBits)

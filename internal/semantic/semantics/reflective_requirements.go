@@ -100,6 +100,9 @@ func (m *Model) requirementConstraints(sym *symbols.Symbol, kind string) []*symb
 			continue
 		}
 		member := membership.Implicit.Member
+		if member == nil {
+			continue
+		}
 		if k, ok := requirementConstraintKind(member); ok && k == kind {
 			out = append(out, member)
 		}
@@ -162,4 +165,13 @@ func (m *Model) requirementTexts(sym *symbols.Symbol) ([]symbols.FilterValue, bo
 		values = append(values, symbols.FilterValue{Kind: symbols.FilterValueString, Str: body})
 	}
 	return values, true
+}
+
+// RequirementTextsOf is RequirementDefinition::text / RequirementUsage::text as strings,
+// in order; false for an element that is neither.
+func (m *Model) RequirementTextsOf(sym *symbols.Symbol) ([]string, bool) {
+	if m == nil || sym == nil || !m.conformsToAny(sym, "RequirementDefinition", "RequirementUsage") {
+		return nil, false
+	}
+	return m.DocumentationOf(sym), true
 }

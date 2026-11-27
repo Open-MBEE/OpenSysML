@@ -1,0 +1,11 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::Rig",
+  "objects": [
+    {
+      "finalState": "far",
+      "stateVisits": ["gauge", "go", "far"]
+    }
+  ]
+}

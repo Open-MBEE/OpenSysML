@@ -36,12 +36,27 @@ var (
 // generalSpecialization reports the graph a GeneralView's filters select and
 // the filter text that selects it; false leaves the view a tree.
 func (r *Renderer) generalSpecialization(view *symbols.Symbol) (Kind, string, bool) {
-	if !r.nearestStandardIsGeneral(view) {
+	selected, text, ok := r.generalSelection(view)
+	if !ok {
 		return "", "", false
+	}
+	for _, kind := range []Kind{KindRequirement, KindPackage, KindCase, KindDefinition} {
+		if selected[kind] {
+			return kind, text, true
+		}
+	}
+	return "", "", false
+}
+
+// generalSelection is every graph a GeneralView's filters select and the
+// filter text selecting them; false when the filters are not such a selection.
+func (r *Renderer) generalSelection(view *symbols.Symbol) (map[Kind]bool, string, bool) {
+	if view == nil || !r.nearestStandardIsGeneral(view) {
+		return nil, "", false
 	}
 	filters := r.viewFilters(view)
 	if len(filters) == 0 {
-		return "", "", false
+		return nil, "", false
 	}
 	selected := map[Kind]bool{}
 	texts := make([]string, 0, len(filters))
@@ -49,16 +64,11 @@ func (r *Renderer) generalSpecialization(view *symbols.Symbol) (Kind, string, bo
 		predicate := r.model.CompileElementFilter(filter)
 		text, ok := r.classifyFilter(predicate, selected)
 		if !ok {
-			return "", "", false
+			return nil, "", false
 		}
 		texts = append(texts, text)
 	}
-	for _, kind := range []Kind{KindRequirement, KindPackage, KindCase, KindDefinition} {
-		if selected[kind] {
-			return kind, strings.Join(texts, "; "), true
-		}
-	}
-	return "", "", false
+	return selected, strings.Join(texts, "; "), true
 }
 
 // nearestStandardIsGeneral reports whether the standard view definition that
@@ -170,6 +180,9 @@ type generalGraph struct {
 	nodes map[symbols.ElementKey]*Node
 	order []*symbols.Symbol
 	edges map[generalEdgeKey]bool
+	// definitions marks a requirement graph whose filters select definitions and
+	// usages too, which it then draws beside the requirements.
+	definitions bool
 	// exposed is what the view exposes when the graph overlays a rendering of
 	// another kind, whose ends it draws only when exposed; nil for a general graph.
 	exposed map[symbols.ElementKey]bool
@@ -187,6 +200,10 @@ type generalEdgeKey struct {
 func (r *Renderer) renderGeneral(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
 	g := &generalGraph{r: r, view: view, kind: out.Kind, out: out, ids: &nodeIDs{},
 		nodes: map[symbols.ElementKey]*Node{}, edges: map[generalEdgeKey]bool{}}
+	if g.kind == KindRequirement {
+		selected, _, _ := r.generalSelection(view)
+		g.definitions = selected[KindDefinition]
+	}
 	library, other := 0, 0
 	viewInLibrary := view != nil && r.libraryDeclared(view)
 	for _, sym := range exposed {
@@ -203,6 +220,10 @@ func (r *Renderer) renderGeneral(view *symbols.Symbol, exposed []*symbols.Symbol
 	var related []Edge
 	if g.kind == KindRequirement {
 		related = g.requirementRelationships()
+		// Drawn before any edge, so an edge to a party does not depend on node order.
+		for _, sym := range exposedNodes {
+			g.requirementParties(sym)
+		}
 	}
 	for _, sym := range exposedNodes {
 		if g.kind == KindPackage {
@@ -248,7 +269,7 @@ func (g *generalGraph) admits(sym *symbols.Symbol) bool {
 	case KindPackage:
 		return sym.Kind == symbols.SymbolPackage
 	case KindRequirement:
-		return isRequirement(sym) && generalNodeKind(g.r, sym)
+		return (g.definitions || isRequirement(sym)) && generalNodeKind(g.r, sym)
 	}
 	return generalNodeKind(g.r, sym)
 }
@@ -264,6 +285,8 @@ func generalNodeKind(r *Renderer, sym *symbols.Symbol) bool {
 		return sym.Kind != symbols.SymbolMetadataDef
 	case *ast.Usage:
 		return sym.Kind != symbols.SymbolMetadataUsage
+	case *ast.SubjectMember:
+		return true
 	case *ast.RequireMember, *ast.AssumeMember:
 		// The constraint a `require constraint` or `assume constraint` member
 		// declares; one naming a constraint instead is drawn as the edge to it.
@@ -349,10 +372,16 @@ func (g *generalGraph) drawn(sym *symbols.Symbol) *Node {
 
 // add records an edge once: an import edge once per import declaration.
 func (g *generalGraph) add(edge Edge) {
+	g.addKeyed(edge, edge.Kind == EdgeImport || g.exposed != nil)
+}
+
+// addKeyed records an edge once, or once per declaration when distinct: what
+// tells apart two edges that read the same.
+func (g *generalGraph) addKeyed(edge Edge, distinct bool) {
 	key := generalEdgeKey{from: edge.From, to: edge.To, label: edge.text(), kind: edge.Kind}
 	// Distinct declarations draw distinct import edges, and distinct exposed
 	// relationships distinct edges, each with its own route.
-	if edge.Kind == EdgeImport || g.exposed != nil {
+	if distinct {
 		key.origin = edge.Origin
 	}
 	if g.edges[key] {
@@ -492,6 +521,9 @@ func (g *generalGraph) structuralEdges(sym *symbols.Symbol) {
 	if owner := g.drawn(sym.OwnerScope.Owner()); owner != nil && owner != from {
 		edge := Edge{From: owner.ID, To: from.ID, ToLabel: g.r.usageMultiplicity(sym), Origin: symbolOrigin(sym)}
 		g.r.memberEdge(sym, &edge)
+		if role := g.requirementRole(sym.OwnerScope.Owner(), sym); role != "" {
+			edge.Label = role
+		}
 		g.add(edge)
 	}
 }
@@ -500,7 +532,7 @@ func (g *generalGraph) structuralEdges(sym *symbols.Symbol) {
 // to: one declared as such, or the constraint a require or assume member declares.
 func ownedUsage(sym *symbols.Symbol) bool {
 	switch sym.Decl.(type) {
-	case *ast.Usage, *ast.RequireMember, *ast.AssumeMember:
+	case *ast.Usage, *ast.SubjectMember, *ast.RequireMember, *ast.AssumeMember:
 		return true
 	}
 	return false
@@ -587,17 +619,86 @@ func (g *generalGraph) featureEdges(sym *symbols.Symbol, from *Node) {
 	if sym.Scope == nil {
 		return
 	}
-	for _, member := range sym.Scope.Members() {
-		if _, usage := member.Decl.(*ast.Usage); !usage || g.drawn(member) != nil || !generalNodeKind(g.r, member) {
+	// AllMembers keeps declaration order across named and unnamed features.
+	for _, member := range sym.Scope.AllMembers() {
+		if !featureDecl(member) || g.drawn(member) != nil || !generalNodeKind(g.r, member) {
 			continue
 		}
 		kind := g.r.membershipKind(member)
-		for _, typ := range g.r.drawnTypes(member) {
+		role := g.requirementRole(sym, member)
+		for _, typ := range g.roleTypes(member, role) {
 			if to := g.drawn(typ); to != nil {
-				g.add(Edge{From: from.ID, To: to.ID, Kind: kind, ToLabel: symbols.LastSegment(g.r.fqn(member)), Origin: symbolOrigin(member)})
+				edge := Edge{From: from.ID, To: to.ID, Kind: kind, Label: role, ToLabel: symbols.LastSegment(g.r.fqn(member)), Origin: symbolOrigin(member)}
+				// Unnamed features of one type read the same and are still one edge each.
+				g.addKeyed(edge, member.Name == "" || edge.Kind == EdgeImport || g.exposed != nil)
 			}
 		}
 	}
+}
+
+// requirementRole names the edge a requirement graph draws to a requirement's
+// subject, actor or stakeholder; "" for any other feature or graph.
+func (g *generalGraph) requirementRole(owner, member *symbols.Symbol) string {
+	if g.kind != KindRequirement || !isRequirement(owner) {
+		return ""
+	}
+	switch decl := member.Decl.(type) {
+	case *ast.SubjectMember:
+		return "«subject»"
+	case *ast.Usage:
+		switch decl.Kind {
+		case ast.UsageActor:
+			return "«actor»"
+		case ast.UsageStakeholder:
+			return "«stakeholder»"
+		}
+	}
+	return ""
+}
+
+// roleTypes is what the edge of a feature goes to: its declared types, and for
+// a role declared without one the types of the features it redefines or subsets.
+func (g *generalGraph) roleTypes(member *symbols.Symbol, role string) []*symbols.Symbol {
+	types := g.r.drawnTypes(member)
+	if len(types) > 0 || role == "" || g.drawn(member) != nil {
+		return types
+	}
+	for _, typ := range g.r.model.DeclaredFeatureTypes(member) {
+		if original := semantics.OriginalPortDefinitionOf(typ); original != nil {
+			typ = original
+		}
+		types = append(types, typ)
+	}
+	return types
+}
+
+// requirementParties draws, beside a requirement, the model's own types of its
+// subject, actors and stakeholders.
+func (g *generalGraph) requirementParties(sym *symbols.Symbol) {
+	if sym.Scope == nil {
+		return
+	}
+	for _, member := range sym.Scope.AllMembers() {
+		role := g.requirementRole(sym, member)
+		if role == "" {
+			continue
+		}
+		for _, typ := range g.roleTypes(member, role) {
+			if g.drawn(typ) == nil && !g.r.libraryDeclared(typ) && generalNodeKind(g.r, typ) {
+				g.node(typ)
+			}
+		}
+	}
+}
+
+// featureDecl reports whether member is declared as a feature of its owner: a
+// usage, or the subject parameter of a requirement or case.
+func featureDecl(member *symbols.Symbol) bool {
+	switch member.Decl.(type) {
+	case *ast.Usage, *ast.SubjectMember:
+		return true
+	}
+	return false
 }
 
 func structuralEdgeKind(kind ast.RelationshipKind) (EdgeKind, string, bool) {

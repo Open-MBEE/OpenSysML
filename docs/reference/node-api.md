@@ -39,7 +39,8 @@ const model = await connection.loads("package Demo { part def Car; }");
 of its own and closes it with the model. `connect()` is the longer-lived form, and
 every model parsed over it shares one service and one parse cache. `Connection`
 and `Model` both implement `Symbol.asyncDispose`, so `await using` closes them;
-`close()` is the explicit form and is safe to call twice.
+`close()` is the explicit form and is safe to call twice. Closing a connection cancels
+the calls still under way on it, which fail with `ClosedConnectionError`.
 
 `ConnectOptions` extends `TransportOptions`:
 
@@ -153,6 +154,8 @@ switch (value.kind) {
   case "sequence": value.elements;               // SysMLValue[]
   case "undetermined": value.reason; value.countLower; value.countUpper;  // left open by the model
   case "infinity": break;                        // the unbounded `*`
+  case "coordinateFrame": value.axes; value.transformation?.pose;   // answer only
+  case "coordinateTransformation": value.source; value.target; value.shape; value.pose;
   case "null":     value.reason;                 // evaluated, no value
   case "unset":    break;                        // declared, never given one
   case "absent":   break;                        // the service sent no value at all
@@ -186,7 +189,7 @@ knowing its members.
 | `ServiceStartError` | a private child failed to start, or died while it was needed |
 | `AuthenticationError` | the service refused the call's credentials: no bearer token, or not the one it expects (`UNAUTHENTICATED`) |
 | `StaleServiceError` | the running service reports another version than `version` asked for |
-| `ClosedConnectionError` | the connection was closed and cannot be used again |
+| `ClosedConnectionError` | the connection was closed and cannot be used again, or was closed while the call was under way |
 | `ParseError` | a file could not be read, or its content did not parse; carries `diagnostics` |
 | `EvaluationError` | the call succeeded and the answer reports a model failure |
 | `ExecutionError` | an execution the service ran failed; carries `diagnostics`; a failed traced `executeState` also carries its partial `trace` and `traceDropped` |

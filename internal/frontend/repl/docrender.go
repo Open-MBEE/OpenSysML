@@ -97,6 +97,9 @@ func (s *Session) evaluateDocument(invocation, extension string) (*docir.Documen
 	}
 	idx := s.browseIndex()
 	sem, resolver := ctx.Semantics(), ctx.Resolver()
+	if result, ok, err := s.queryResultDocument(sym); ok || err != nil {
+		return result, nil, err
+	}
 	if !docplan.IsDocumentDefinition(idx, sem, sym) {
 		return nil, nil, fmt.Errorf("%s is not a document: one is a part def specializing DocumentQueries::Document", notationName(fqn))
 	}
@@ -249,7 +252,7 @@ func (s *Session) documentSymbols(idx *symbols.Index, sem *semantics.Model) []*s
 // word names the form its graph-shaped diagrams are written in, a third the
 // drawing style.
 func (s *Session) doRenderDocument(invocation string) ([]string, bool, error) {
-	name, opts, usage := parseRenderDocumentArgs(invocation)
+	name, opts, usage := s.parseRenderDocumentArgs(invocation)
 	if usage != nil {
 		return usage, false, nil
 	}
@@ -263,10 +266,10 @@ func (s *Session) doRenderDocument(invocation string) ([]string, bool, error) {
 // parseRenderDocumentArgs reads %render-document's arguments: the document, the
 // diagram form and the drawing style; usage is what to print instead when they
 // do not read.
-func parseRenderDocumentArgs(invocation string) (name string, opts docrender.MarkdownOptions, usage []string) {
+func (s *Session) parseRenderDocumentArgs(invocation string) (name string, opts docrender.MarkdownOptions, usage []string) {
 	fields := splitQueryArgs(strings.TrimSpace(invocation))
 	if len(fields) == 0 || len(fields) > 4 {
-		return "", opts, []string{renderDocumentUsage}
+		return "", opts, s.usage(renderDocumentUsage)
 	}
 	opts = docrender.MarkdownOptions{Drawer: replext.Drawer(), WithoutGraphviz: replext.Drawer() == nil}
 	options := min(len(fields), 2)
@@ -306,7 +309,7 @@ func parseRenderDocumentArgs(invocation string) (name string, opts docrender.Mar
 // rendered is an error.
 func (s *Session) RenderDocument(invocation string, html bool) (lines []string, rendered bool, err error) {
 	defer s.enter()()
-	name, opts, usage := parseRenderDocumentArgs(invocation)
+	name, opts, usage := s.parseRenderDocumentArgs(invocation)
 	if usage != nil {
 		return nil, false, &UsageError{Lines: usage}
 	}
@@ -338,4 +341,25 @@ func (s *Session) renderDocumentHTMLFragment(name string, opts docrender.Markdow
 		Drawer:          opts.Drawer,
 		Files:           files,
 	})
+}
+
+// queryResultDocument is the document a view typed by QVTS::QueryResult is
+// written as; false for any other element.
+func (s *Session) queryResultDocument(sym *symbols.Symbol) (*docir.Document, bool, error) {
+	if !semantics.IsView(sym) {
+		return nil, false, nil
+	}
+	renderer, err := s.overlaidRenderer("", 0)
+	if err != nil {
+		return nil, false, err
+	}
+	if !renderer.IsQueryResult(sym) {
+		return nil, false, nil
+	}
+	rendering, err := renderer.Render(sym)
+	if err != nil {
+		return nil, true, err
+	}
+	document, err := docir.QueryResult(rendering)
+	return document, true, err
 }

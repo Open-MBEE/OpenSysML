@@ -314,7 +314,7 @@ func (r runner) run(t *testing.T, binary string, args ...string) result {
 
 // runWithInput completes a process fed lines — a file of them on a file-driven
 // target, the lines themselves on a pipe-driven one — and returns what it wrote.
-func (r runner) runWithInput(t *testing.T, binary string, lines string, args ...string) result {
+func (r runner) runWithInput(t *testing.T, binary, lines string, args ...string) result {
 	t.Helper()
 	var stdin io.Reader = strings.NewReader(lines)
 	if r.stdin == stdinFile {
@@ -715,6 +715,27 @@ func TestWasmRuns(t *testing.T) {
 					for _, want := range []string{"binds an address", "use -transport stdio"} {
 						if !strings.Contains(got.output, want) {
 							t.Errorf("-transport %s is missing %q:\n%s", transport, want, got.output)
+						}
+					}
+				}
+			})
+
+			t.Run("refuses the servers that only bind addresses", func(t *testing.T) {
+				for _, refusal := range []struct {
+					name string
+					args []string
+					want []string
+				}{
+					{"sysml-mcp", []string{"-http", "127.0.0.1:0"}, []string{"-http 127.0.0.1:0 binds an address", "leave -http out"}},
+					{"sysml-jupyter-kernel", []string{"-connection-file", "connection.json"}, []string{"binds the addresses", "run a native build"}},
+				} {
+					got := r.run(t, link(t, target, refusal.name, ""), refusal.args...)
+					if got.code != 2 {
+						t.Errorf("%s %v exited %d, want 2:\n%s", refusal.name, refusal.args, got.code, got.output)
+					}
+					for _, want := range refusal.want {
+						if !strings.Contains(got.output, want) {
+							t.Errorf("%s %v is missing %q:\n%s", refusal.name, refusal.args, want, got.output)
 						}
 					}
 				}

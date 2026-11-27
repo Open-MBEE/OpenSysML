@@ -67,7 +67,7 @@ package Demo {
     <dependency>
       <groupId>org.openmbee</groupId>
       <artifactId>opensysml</artifactId>
-      <version>0.12.1</version>
+      <version>0.13.0</version>
     </dependency>
     ```
 
@@ -260,6 +260,13 @@ Node `model.elementProperties`, Java `ElementProperties`, Rust `element_properti
 .NET `Model.ElementPropertiesAsync` — as does the MCP server (`element_properties`); each refuses the
 call before it is sent when the service does not advertise the capability. The WASM build serves
 neither it nor `Convert`.
+
+A model of several documents is read one document at a time: a document with a syntax error, or one
+declaring a top-level name an earlier document already declares, is left out instead of refusing
+every element. The answer lists the documents left out and why (Go `ExcludedDocuments`, Python
+`excluded_documents`, Node `excludedDocuments`, Java `excludedDocuments()`, Rust and Julia
+`excluded_documents`, MATLAB `excludedDocuments`), and only a read of an element of such a document
+fails, with that document's error.
 
 === "Go"
 

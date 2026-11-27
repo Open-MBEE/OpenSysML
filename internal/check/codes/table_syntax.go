@@ -50,8 +50,10 @@ var syntaxCodes = []Entry{
 		Code: "nonstandard-notation", Tier: TierSyntax, Severity: "warning",
 		Summary: "notation OpenSysML reads that no production of the SysML v2 grammar admits",
 		Meaning: "The text is an OpenSysML extension: the parser reads it and the model is analyzed, but the pinned SysML v2 and KerML grammars have no production for it, so another tool will reject the file. " +
-			"The message states the standard form to write instead. `-strict` promotes this finding to an error.",
-		Spec: "the pinned SysML v2 and KerML Xtext grammars",
+			"The message states the standard form to write instead. `-strict` promotes this finding to an error. " +
+			"An escape sequence in a string or an unrestricted name that KerML §8.2.2.3 Table 4 does not list is reported the same way: `\\r`, which the pilot grammar alone adds, " +
+			"is read as a carriage return, but a tool built from the specification's table has no such escape.",
+		Spec: "the pinned SysML v2 and KerML Xtext grammars; KerML §8.2.2.3 Table 4 (Escape Sequences)",
 	},
 	{
 		Code: "kerml-notation", Tier: TierSyntax, Severity: "error",
@@ -157,7 +159,7 @@ var syntaxCodes = []Entry{
 	{
 		Code: "expose-owning-namespace", Tier: TierSyntax, Severity: "error",
 		Summary: "`expose` outside a view body",
-		Meaning: "An expose is an import a view usage owns: `expose` is admitted in the body of a view usage (and, as an OpenSysML extension the notation rules report, a view definition) only. " +
+		Meaning: "An expose is an import a view usage owns: `expose` is admitted in the body of a view usage only (SysML v2 8.2.2.26.2 ViewBodyItem); a view definition body states what it renders and filters and admits none. " +
 			"Move the expose into the view that shows the exposed elements, or write an `import` where a plain import is meant.",
 		Spec: "SysML v2 validateExposeOwningNamespace",
 	},
