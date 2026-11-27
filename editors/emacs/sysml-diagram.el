@@ -735,25 +735,66 @@ Needs `sysml-diagram-mmdc-program' and a frame that can display SVG."
       (let ((svg (sysml-diagram--mermaid-to-svg mmdc (plist-get result :artifact)))
             (buffer (get-buffer-create (format "*SysML Image: %s*" (buffer-name source)))))
         (with-current-buffer buffer
-          (let ((inhibit-read-only t))
+          (special-mode))
+        (pop-to-buffer buffer)
+        (with-current-buffer buffer
+          (let ((limit (sysml-diagram--image-size-limit
+                        (window-frame (get-buffer-window buffer t))))
+                (inhibit-read-only t))
             (erase-buffer)
-            (insert-image (create-image svg 'svg t))
-            (special-mode)))
-        (pop-to-buffer buffer)))))
+            (insert-image (create-image svg 'svg t :max-width (car limit) :max-height (cdr limit)))))))))
+
+;; Defined only in an Emacs built with image support.
+(defvar max-image-size)
+
+(defun sysml-diagram--image-size-limit (frame)
+  "Return the largest (WIDTH . HEIGHT) image that FRAME can display.
+The size is in logical pixels, while `max-image-size' counts them at
+the frame's scale factor.  Return nil when `max-image-size' sets no
+limit."
+  (let ((scale (frame-scale-factor frame)))
+    (cond ((floatp max-image-size)
+           (cons (floor (* max-image-size (frame-pixel-width frame)) scale)
+                 (floor (* max-image-size (frame-pixel-height frame)) scale)))
+          ((integerp max-image-size)
+           (let ((side (floor max-image-size scale)))
+             (cons side side))))))
+
+(defconst sysml-diagram--mmdc-config
+  "{\"look\": \"classic\", \"htmlLabels\": false, \"flowchart\": {\"wrappingWidth\": 400}}"
+  "Mermaid configuration for an SVG librsvg can draw.
+Shapes use the classic look rather than the neo one, whose CSS
+`drop-shadow' on every node takes librsvg minutes to draw on a large
+view.  Labels are SVG text rather than HTML in `foreignObject', which
+librsvg does not draw, and wrap only where a label's line exceeds 400
+pixels.")
 
 (defun sysml-diagram--mermaid-to-svg (mmdc mermaid)
   "Return the SVG text MMDC draws for the Mermaid source MERMAID."
   (let* ((input (make-temp-file "sysml-view" nil ".mmd" mermaid))
+         (config (make-temp-file "sysml-view" nil ".json" sysml-diagram--mmdc-config))
          (output (concat (file-name-sans-extension input) ".svg"))
          (log (generate-new-buffer " *sysml-mmdc*")))
     (unwind-protect
-        (let ((status (call-process mmdc nil log nil "--quiet" "-i" input "-o" output)))
+        (let ((status (call-process mmdc nil log nil
+                                    "--quiet" "-c" config "-i" input "-o" output)))
           (unless (and (eql status 0) (file-exists-p output))
             (error "%s failed: %s" mmdc (with-current-buffer log (string-trim (buffer-string)))))
           (with-temp-buffer
             (insert-file-contents output)
+            ;; Mermaid starts each word after the first in a <tspan> of its
+            ;; own with a leading space, which librsvg drops unless preserved.
+            (goto-char (point-min))
+            (when (search-forward "<svg " nil t)
+              (insert "xml:space=\"preserve\" "))
+            ;; Mermaid leaves entity codes escaped in SVG text labels:
+            ;; https://github.com/mermaid-js/mermaid/issues/7015
+            (goto-char (point-min))
+            (while (re-search-forward "&amp;\\(#[0-9]+\\|quot\\);" nil t)
+              (replace-match (concat "&" (match-string 1) ";") t t))
             (buffer-string)))
       (delete-file input)
+      (delete-file config)
       (when (file-exists-p output) (delete-file output))
       (kill-buffer log))))
 
