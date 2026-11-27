@@ -22,6 +22,7 @@ const (
 	relationshipVerification   = "verification"
 	relationshipDerivation     = "derivation"
 	relationshipRefinement     = "refinement"
+	relationshipDependency     = "dependency"
 )
 
 // Traversal directions: outgoing follows an edge from its source to its
@@ -184,7 +185,7 @@ func supportedRelationship(kind string) bool {
 	switch kind {
 	case relationshipConnection, relationshipAllocation,
 		relationshipSatisfaction, relationshipVerification,
-		relationshipDerivation, relationshipRefinement:
+		relationshipDerivation, relationshipRefinement, relationshipDependency:
 		return true
 	}
 	return false
@@ -256,7 +257,7 @@ func (e *executor) scanScope(edges *relationshipEdges, kind string, scope *symbo
 // scanSymbol records the edges the given symbol's declaration states: the
 // resolved targets of a lineage relationship, the resolved end features of a
 // connector usage, the subject and requirement of a satisfaction assertion,
-// the requirements of a derivation, or the ends of a refinement dependency.
+// the requirements of a derivation, or the ends of a dependency or refinement.
 func (e *executor) scanSymbol(edges *relationshipEdges, kind string, sym *symbols.Symbol) {
 	if relKind, lineage := lineageKinds[kind]; lineage {
 		for _, target := range e.lineageTargets(sym, relKind) {

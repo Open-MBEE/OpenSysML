@@ -31,6 +31,7 @@ const (
 	specMOSA  = "MOSA extension library"
 	specOOSEM = "OOSEM extension library"
 	specNPR   = "NPR7123 extension library (NASA NPR 7123.1D)"
+	specHDBK  = "HDBK1009 extension library (NASA-HDBK-1009A)"
 )
 
 // methodCodes are the codes of the method rules: findings of the MOSA and OOSEM
@@ -112,6 +113,55 @@ var methodCodes = []Entry{
 		Meaning: "NPR 7123.1D section 6.2.3 (SE-58) has the SEMP define how each of the 17 common technical processes, as tailored, is applied, so a `SEMP` usage expects one nested usage per process definition of the library. " +
 			"Nest the missing processes (`#technicalPlanning action plan;`) with their `tailoring`.",
 		Spec: specNPR,
+	},
+	{
+		Code: "hdbk1009-requirement-not-derived", Tier: TierMethod, Severity: "warning",
+		Summary: "a goal, objective, technical requirement or measure of performance deriving from nothing at the level above it",
+		Meaning: "Figure 7-1 of NASA-HDBK-1009A derives goals from needs, objectives from goals, system requirements from objectives, subsystem and component requirements from system or subsystem requirements, and measures of performance from measures of effectiveness. The rule fires once the model declares the level above. Subsystem requirements with no system requirement above them answer to each other: among several, one that neither derives from another nor is another's origin is reported. " +
+			"Add a `#derivation connection` with the element at a `#derive` end and its origin at an `#original` end.",
+		Spec: specHDBK,
+	},
+	{
+		Code: "hdbk1009-expectation-not-traced", Tier: TierMethod, Severity: "warning",
+		Summary: "a stakeholder expectation statement, need, goal or objective with no trace",
+		Meaning: "Figure 7-1 of NASA-HDBK-1009A traces each stakeholder expectation statement to its stakeholders and each need, goal and objective to the expectation statements. The rule fires once the model declares stakeholders or expectation statements. " +
+			"Add a `dependency` from the element to the stakeholder or expectation statement.",
+		Spec: specHDBK,
+	},
+	{
+		Code: "hdbk1009-measure-not-refining", Tier: TierMethod, Severity: "warning",
+		Summary: "a measure of effectiveness refining no objective, or a measure of performance refining no requirement",
+		Meaning: "Figure 7-1 of NASA-HDBK-1009A has measures of effectiveness refine the objectives and measures of performance refine the system/subsystem requirements. The rule fires once the model declares the refined level. " +
+			"Add a `#refinement dependency` from the measure to what it refines.",
+		Spec: specHDBK,
+	},
+	{
+		Code: "hdbk1009-requirement-not-verified", Tier: TierMethod, Severity: "warning",
+		Summary: "a technical requirement no verification verifies",
+		Meaning: "Figure 7-2 of NASA-HDBK-1009A has the verification requirements verify the requirements; in SysML v2 the `verify` is stated in the objective of a verification case. The rule fires once the model declares verification requirements. " +
+			"Name the requirement in a `verify` in the objective of a V&V case.",
+		Spec: specHDBK,
+	},
+	{
+		Code: "hdbk1009-vv-requirement-not-refined", Tier: TierMethod, Severity: "warning",
+		Summary: "a verification or validation requirement no V&V case refines",
+		Meaning: "Figure 7-2 of NASA-HDBK-1009A has each V&V case refine a verification or validation requirement. The rule fires once the model declares V&V cases. " +
+			"Add a `#refinement dependency` from the V&V case to the requirement.",
+		Spec: specHDBK,
+	},
+	{
+		Code: "hdbk1009-vv-requirement-missing-method", Tier: TierMethod, Severity: "warning",
+		Summary: "a verification or validation requirement stating no method",
+		Meaning: "The verification and validation matrices of NASA-HDBK-1009A sections 8.17 and 8.22 show the method of each verification and validation requirement. " +
+			"Give the requirement a `verifyMethod`.",
+		Spec: specHDBK,
+	},
+	{
+		Code: "hdbk1009-objective-not-validated", Tier: TierMethod, Severity: "warning",
+		Summary: "an objective no validation requirement satisfies, or a validation requirement satisfying no objective",
+		Meaning: "Figure 7-2 of NASA-HDBK-1009A has the validation requirements satisfy the objectives. The rule fires once the model declares both. " +
+			"State `satisfy <objective> by <validation requirement>;`.",
+		Spec: specHDBK,
 	},
 	{
 		Code: "oosem-requirement-not-derived", Tier: TierMethod, Severity: "warning",

@@ -141,7 +141,7 @@ library package DocumentQueries {
 		in source : Element[0..*] ordered;
 		/* relationshipKind: "specialization", "subsetting", "redefinition",
 		 * "typing", "connection", "allocation", "satisfaction", "verification",
-		 * "derivation" or "refinement"; direction: "outgoing" or "incoming". */
+		 * "derivation", "refinement" or "dependency"; direction: "outgoing" or "incoming". */
 		in relationshipKind : String[1];
 		in direction : String[1];
 		/* maxDepth: how many relationships to follow; null (the default) is unbounded. */

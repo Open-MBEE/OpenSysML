@@ -68,8 +68,8 @@
         "name": "examples",
         "dir": "examples",
         "origin": "ours",
-        "files": 69,
-        "digest": "sha256:9462ded1fdc328aa07ac526c8e8051136d8dc5dcb19005cab4877478607700f6"
+        "files": 70,
+        "digest": "sha256:5a1d325441037c8fca42d942d1c0f9e46d691e791c885bd418f43e8d84e16819"
       },
       {
         "name": "probes",
@@ -82,21 +82,21 @@
         "name": "opensysml-libraries",
         "dir": "internal/workspace/libs/stdlib/OpenSysML Libraries",
         "origin": "ours",
-        "files": 18,
-        "digest": "sha256:8ef6d80c9983abb0af6edc68d26de9a25be15f16561ca3b9e9387ed2b070a7ec"
+        "files": 19,
+        "digest": "sha256:013942c63d7ba7f6f29ae5b2a102110c69eb415289ebed84bd1b7709eea8040a"
       }
     ],
     "recorded": "2026-11-24"
   },
   "totals": {
-    "files": 939,
+    "files": 940,
     "filesFullyAgreeing": 542,
     "agreement": 1119,
     "severityMismatch": 8,
-    "openSysMLOnly": 127,
-    "pilotOnly": 2454,
-    "openSysMLDiagnostics": 1254,
-    "pilotDiagnostics": 3581
+    "openSysMLOnly": 135,
+    "pilotOnly": 2461,
+    "openSysMLDiagnostics": 1262,
+    "pilotDiagnostics": 3588
   },
   "roots": [
     {
@@ -17729,14 +17729,14 @@
       "name": "examples",
       "dir": "examples",
       "totals": {
-        "files": 69,
+        "files": 70,
         "filesFullyAgreeing": 61,
         "agreement": 4,
         "severityMismatch": 0,
-        "openSysMLOnly": 14,
-        "pilotOnly": 73,
-        "openSysMLDiagnostics": 18,
-        "pilotDiagnostics": 77
+        "openSysMLOnly": 22,
+        "pilotOnly": 80,
+        "openSysMLDiagnostics": 26,
+        "pilotDiagnostics": 84
       },
       "files": [
         {
@@ -17770,6 +17770,81 @@
               "severity": "warning",
               "category": "unmapped",
               "count": 6
+            }
+          ]
+        },
+        {
+          "path": "hdbk1009-demo/hdbk1009-demo.sysml",
+          "agreement": [],
+          "severityMismatch": [],
+          "openSysMLOnly": [
+            {
+              "line": 53,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 3
+            },
+            {
+              "line": 78,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 109,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 2
+            },
+            {
+              "line": 172,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 2
+            }
+          ],
+          "pilotOnly": [
+            {
+              "line": 232,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 239,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 251,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 258,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 270,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 277,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 289,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
             }
           ]
         },
@@ -18539,6 +18614,16 @@
     },
     {
       "side": "opensysml",
+      "message": "This component requirement derives from no system requirement: the model declares system requirements, so Figure 7-1 of NASA-HDBK-1009A expects a #derivation connection naming it at a #derive end and a system requirement at an #original end.",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "This component requirement is verified by nothing: the model declares verification requirements, so Figure 7-2 of NASA-HDBK-1009A expects a V\u0026V case whose objective states `verify` of it.",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
       "message": "This element is marked @Proprietary with no rationale: MOSA expects the justification for each proprietary element to be recorded, so give the annotation a `rationale`.",
       "count": 1
     },
@@ -18554,12 +18639,42 @@
     },
     {
       "side": "opensysml",
+      "message": "This measure of performance derives from no measure of effectiveness: the model declares measures of effectiveness, so Figure 7-1 of NASA-HDBK-1009A expects a #derivation connection naming it at a #derive end and a measure of effectiveness at an #original end.",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
       "message": "This modular system interface names no interface control authority: the model names one for other interfaces, so MOSA expects an @InterfaceControl annotation on it or its definition.",
       "count": 1
     },
     {
       "side": "opensysml",
       "message": "This modular system interface satisfies no requirement: the model declares interface requirements, so MOSA expects a `satisfy` naming it (or its definition) after `by`.",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "This objective derives from no goal: the model declares goals, so Figure 7-1 of NASA-HDBK-1009A expects a #derivation connection naming it at a #derive end and a goal at an #original end.",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "This objective is satisfied by no validation requirement: the model declares validation requirements, so Figure 7-2 of NASA-HDBK-1009A expects a `satisfy` of it by one.",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "This objective is traced to no stakeholder expectation statement: the model declares stakeholder expectation statements, so Figure 7-1 of NASA-HDBK-1009A expects a dependency from it to one.",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "This verification requirement is refined by no V\u0026V case: the model declares V\u0026V cases, so Figure 7-2 of NASA-HDBK-1009A expects a #refinement dependency from one to it.",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "This verification requirement states no verifyMethod: the matrices of NASA-HDBK-1009A sections 8.17 and 8.22 show the method of each.",
       "count": 1
     },
     {
@@ -25205,14 +25320,14 @@
       }
     ],
     "totals": {
-      "files": 939,
+      "files": 940,
       "filesFullyAgreeing": 543,
       "agreement": 1119,
       "severityMismatch": 8,
-      "openSysMLOnly": 126,
-      "pilotOnly": 2454,
-      "openSysMLDiagnostics": 1253,
-      "pilotDiagnostics": 3581
+      "openSysMLOnly": 134,
+      "pilotOnly": 2461,
+      "openSysMLDiagnostics": 1261,
+      "pilotDiagnostics": 3588
     },
     "findings": [
       {

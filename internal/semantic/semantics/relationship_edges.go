@@ -1,6 +1,8 @@
 package semantics
 
 import (
+	"slices"
+
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -22,6 +24,16 @@ const (
 type RelationshipEdge struct {
 	Source *symbols.Symbol
 	Target *symbols.Symbol
+	// SourcePath and TargetPath are the features a derivation's end inherits its requirement
+	// through, outermost first: [a] for `a.r` where a's definition declares r, else nil.
+	SourcePath, TargetPath []*symbols.Symbol
+}
+
+// SameEnds reports an edge from an element to itself reached the same way:
+// `a.r` and `b.r` are two requirements though both name one inherited r.
+func (e RelationshipEdge) SameEnds() bool {
+	return symbols.SameElement(e.Source, e.Target) &&
+		slices.EqualFunc(e.SourcePath, e.TargetPath, symbols.SameElement)
 }
 
 // RelationshipEdgesOf returns the resolved edges sym's declaration states, in declaration order.
@@ -164,7 +176,7 @@ func (m *Model) derivationEdges(sym *symbols.Symbol) []RelationshipEdge {
 	var out []RelationshipEdge
 	for _, original := range originals {
 		for _, target := range derived {
-			out = append(out, RelationshipEdge{Source: original, Target: target})
+			out = append(out, RelationshipEdge{Source: original.element, Target: target.element, SourcePath: original.path, TargetPath: target.path})
 		}
 	}
 	return out
@@ -196,7 +208,93 @@ const (
 
 type derivationEnd struct {
 	role      derivationRole
-	referents []*symbols.Symbol
+	referents []derivationReferent
+}
+
+// derivationReferent is a requirement an end refers to and the features it
+// is inherited through (see RelationshipEdge).
+type derivationReferent struct {
+	element *symbols.Symbol
+	path    []*symbols.Symbol
+}
+
+// derivationPath is the features node inherits its requirement through, read from what each
+// segment resolves to: a feature is a step when a type it conforms to declares the next segment.
+func (m *Model) derivationPath(scope *symbols.Scope, node ast.Node) []*symbols.Symbol {
+	steps := m.resolvedSteps(scope, node)
+	if len(steps) == 0 {
+		return nil
+	}
+	if holder := m.inheritingScopeOwner(scope, steps[0]); holder != nil {
+		steps = append([]*symbols.Symbol{holder}, steps...)
+	}
+	var path []*symbols.Symbol
+	for i, step := range steps[:len(steps)-1] {
+		declarer := steps[i+1].Owner()
+		if step.DeclaresUsage() && declarer != nil && !symbols.SameElement(declarer, step) && m.readsMembersOf(scope, step, declarer) {
+			path = append(path, step)
+		}
+	}
+	return path
+}
+
+// readsMembersOf reports whether a chain through step reaches declarer's members: step, or a
+// type or value its member lookup passes to (`x = ps#(1)` reads ps's), conforms to declarer.
+func (m *Model) readsMembersOf(scope *symbols.Scope, step, declarer *symbols.Symbol) bool {
+	if m.Conforms(step, declarer) {
+		return true
+	}
+	return slices.ContainsFunc(m.resolver.ChainHolders(scope, step), func(holder *symbols.Symbol) bool {
+		return symbols.SameElement(holder, declarer) || m.Conforms(holder, declarer)
+	})
+}
+
+// resolvedSteps is what each name segment of the chain node resolves to, outermost first, a
+// chain's operand as what its member is read from (`this` is the object owning the chain).
+func (m *Model) resolvedSteps(scope *symbols.Scope, node ast.Node) []*symbols.Symbol {
+	var steps []*symbols.Symbol
+	prefixes := chainPrefixes(node)
+	for i := len(prefixes) - 1; i >= 0; i-- {
+		target, ok := m.resolver.ResolveTarget(scope, prefixes[i])
+		if !ok || target == nil {
+			return nil
+		}
+		name, _ := prefixes[i].(*ast.QualifiedName)
+		if chain, chained := prefixes[i].(*ast.FeatureChainExpr); chained {
+			name = chain.Member
+		}
+		if name == nil {
+			steps = append(steps, target)
+		}
+		for j := 0; name != nil && j < len(name.Parts); j++ {
+			part, ok := m.resolver.PartSymbol(name, j)
+			if !ok {
+				return nil
+			}
+			steps = append(steps, part)
+		}
+		if holders := m.resolver.ChainHolders(scope, target); i > 0 && len(holders) != 0 {
+			steps[len(steps)-1] = holders[0]
+		}
+	}
+	return steps
+}
+
+// inheritingScopeOwner is the element enclosing scope that a bare name finds first as an
+// inherited member: in `c : D { … r … }`, r is c's.
+func (m *Model) inheritingScopeOwner(scope *symbols.Scope, first *symbols.Symbol) *symbols.Symbol {
+	named := func(member *symbols.Symbol) bool { return symbols.SameElement(member, first) }
+	for s := scope; s != nil; s = s.Parent() {
+		holder := s.Owner()
+		if holder == nil || !slices.ContainsFunc(m.MembersOf(holder), named) {
+			continue
+		}
+		if first.OwnerScope != s {
+			return holder
+		}
+		return nil
+	}
+	return nil
 }
 
 func (m *Model) derivationUsageEnds(sym *symbols.Symbol) []derivationEnd {
@@ -209,7 +307,7 @@ func (m *Model) derivationUsageEnds(sym *symbols.Symbol) []derivationEnd {
 		end := derivationEnd{role: m.derivationRoleOf(attachment.EndFeature)}
 		if attachment.Attachment != nil {
 			if target, ok := m.resolver.ResolveTarget(sym.OwnerScope, attachment.Attachment); ok && target != nil {
-				end.referents = append(end.referents, target)
+				end.referents = append(end.referents, derivationReferent{target, m.derivationPath(sym.OwnerScope, attachment.Attachment)})
 			}
 		}
 		ends = append(ends, end)
@@ -224,7 +322,7 @@ func (m *Model) derivationUsageEnds(sym *symbols.Symbol) []derivationEnd {
 			if !ok || target == nil || m.isDerivationRoleFeature(target) {
 				continue
 			}
-			end.referents = append(end.referents, target)
+			end.referents = append(end.referents, derivationReferent{target, m.derivationPath(feature.OwnerScope, rel.Target)})
 		}
 		ends = append(ends, end)
 	}
@@ -236,7 +334,10 @@ func (m *Model) derivationUsageEnds(sym *symbols.Symbol) []derivationEnd {
 func (m *Model) derivationDefinitionEnds(sym *symbols.Symbol) []derivationEnd {
 	var ends []derivationEnd
 	for _, feature := range m.EndFeatures(sym) {
-		end := derivationEnd{role: m.derivationRoleOf(feature), referents: m.requirementTypes(feature)}
+		end := derivationEnd{role: m.derivationRoleOf(feature)}
+		for _, typ := range m.requirementTypes(feature) {
+			end.referents = append(end.referents, derivationReferent{element: typ})
+		}
 		for _, rel := range relationshipsOfEnd(feature) {
 			if rel.Kind != ast.RelReferences && rel.Kind != ast.RelSubsets {
 				continue
@@ -245,7 +346,7 @@ func (m *Model) derivationDefinitionEnds(sym *symbols.Symbol) []derivationEnd {
 			if !ok || target == nil || m.isDerivationRoleFeature(target) || !m.conformsToLibrary(target, "Requirements::RequirementCheck") {
 				continue
 			}
-			end.referents = append(end.referents, target)
+			end.referents = append(end.referents, derivationReferent{target, m.derivationPath(feature.OwnerScope, rel.Target)})
 		}
 		ends = append(ends, end)
 	}
@@ -285,7 +386,7 @@ func (m *Model) isDerivationRoleFeature(target *symbols.Symbol) bool {
 			m.conformsToLibrary(target, "DerivationConnections::derivedRequirements"))
 }
 
-func splitDerivationEnds(ends []derivationEnd) (originals, derived []*symbols.Symbol) {
+func splitDerivationEnds(ends []derivationEnd) (originals, derived []derivationReferent) {
 	hasOriginal := false
 	for _, end := range ends {
 		if end.role == roleOriginal {

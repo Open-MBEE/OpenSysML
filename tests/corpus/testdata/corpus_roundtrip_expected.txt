@@ -20,6 +20,7 @@ stable	external-tool-demo/thermal.sysml
 stable	general-views-demo/use-cases.sysml
 stable	general-views-demo/vehicle.sysml
 stable	gridview-relationship-matrix.sysml
+stable	hdbk1009-demo/hdbk1009-demo.sysml
 stable	mosa-demo/mosa-demo.sysml
 stable	npr7123-demo/npr7123-demo.sysml
 stable	oosem-demo/oosem-demo.sysml

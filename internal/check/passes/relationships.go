@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/kit"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -21,8 +22,18 @@ func GatherRelationships(ctx *Context, doc string) (*symbols.GatheredRelationshi
 	}
 	g := &relationshipRecorder{idx: ctx.Index, out: &symbols.GatheredRelationships{}, oosem: newOOSEMAudit(ctx), mosa: newMOSAAudit(ctx)}
 	kit.WalkSymbols(ctx, root, func(sym *symbols.Symbol) {
-		if usage, ok := sym.Decl.(*ast.Usage); ok {
-			g.gather(sym, usage)
+		switch decl := sym.Decl.(type) {
+		case *ast.Usage:
+			g.gather(sym, decl)
+			switch {
+			case decl.Kind == ast.UsageSatisfy && decl.Keyword == "verify":
+				g.out.Verifications = append(g.out.Verifications, g.edges(ctx, sym, semantics.RelationshipVerification)...)
+			case decl.Kind == ast.UsageConnection:
+				g.out.RequirementDerivations = append(g.out.RequirementDerivations, g.edges(ctx, sym, semantics.RelationshipDerivation)...)
+			}
+		case *ast.Dependency:
+			g.out.Dependencies = append(g.out.Dependencies, g.edges(ctx, sym, semantics.RelationshipDependency)...)
+			g.out.Refinements = append(g.out.Refinements, g.edges(ctx, sym, semantics.RelationshipRefinement)...)
 		}
 	})
 	if g.err != nil {
@@ -76,6 +87,18 @@ func (g *relationshipRecorder) gather(sym *symbols.Symbol, usage *ast.Usage) {
 		}
 		g.out.Satisfactions = append(g.out.Satisfactions, s)
 	}
+}
+
+// edges records the edges of one kind sym states, one source to one target each.
+func (g *relationshipRecorder) edges(ctx *Context, sym *symbols.Symbol, kind semantics.RelationshipKind) []symbols.GatheredEnds {
+	var out []symbols.GatheredEnds
+	for _, edge := range ctx.Model().RelationshipEdgesOf(sym, kind) {
+		if kind == semantics.RelationshipDerivation && edge.SameEnds() {
+			continue // a requirement derived from itself has no origin to record
+		}
+		out = append(out, g.ends(sym, []*symbols.Symbol{edge.Source}, []*symbols.Symbol{edge.Target}))
+	}
+	return out
 }
 
 func (g *relationshipRecorder) ends(of *symbols.Symbol, sources, targets []*symbols.Symbol) symbols.GatheredEnds {

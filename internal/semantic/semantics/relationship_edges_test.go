@@ -196,3 +196,93 @@ func TestRelationshipEdgesOfDerivationRefinementAndDependency(t *testing.T) {
 		})
 	}
 }
+
+// A derivation edge keeps the features each end inherits its requirement through, however
+// the end is spelled: two parts inheriting one requirement are told apart, and every
+// spelling of one requirement is the same end.
+func TestRelationshipEdgesOfDerivationKeepEndPaths(t *testing.T) {
+	m, root := buildRelationshipModelWithStdlib(t, "t.sysml", source.KindSysML, `package P {
+		private import RequirementDerivation::*;
+		part def D { requirement r; }
+		part a : D;
+		part b : D;
+		#derivation connection across { end #original ::> a.r; end #derive ::> b.r; }
+		#derivation connection within { end #original ::> a.r; end #derive ::> a.r; }
+		#derivation connection names { end #original ::> a::r; end #derive ::> b::r; }
+		package Q { public import P::a; }
+		#derivation connection imported { end #original ::> a::r; end #derive ::> Q::a::r; }
+		#derivation connection rooted { end #original ::> $::P::a::r; end #derive ::> a::r; }
+		part p {
+			requirement q;
+			#derivation connection declared { end #original ::> q; end #derive ::> p.q; }
+			#derivation connection self connect q to this.q;
+		}
+		#derivation connection qualified { end #original ::> p.q; end #derive ::> p::q; }
+		package Shown { public import p::q; }
+		#derivation connection reexported { end #original ::> Shown::q; end #derive ::> p::q; }
+		part c : D { #derivation connection inherited { end #original ::> r; end #derive ::> c.r; } }
+		part def E { part held { requirement s; } }
+		part e : E;
+		part f : E;
+		#derivation connection mixed { end #original ::> e.held::s; end #derive ::> e::held::s; }
+		#derivation connection holders { end #original ::> e.held::s; end #derive ::> f::held::s; }
+		part ps : D [2];
+		ref one = ps#(1);
+		ref other = ps#(2);
+		#derivation connection indexed { end #original ::> one.r; end #derive ::> other.r; }
+		requirement top;
+		part h { alias t for top; }
+		#derivation connection aliased { end #original ::> top; end #derive ::> h.t; }
+		part outer : D {
+			part inner : D {
+				#derivation connection nested { end #original ::> outer.r; end #derive ::> inner.r; }
+				#derivation connection bare { end #original ::> r; end #derive ::> outer.inner.r; }
+			}
+		}
+	}`)
+	index := m.resolver.Index()
+	fqns := func(path []*symbols.Symbol) []string {
+		var out []string
+		for _, sym := range path {
+			out = append(out, index.GetFQN(sym))
+		}
+		return out
+	}
+	for _, tc := range []struct {
+		symbol         string
+		source, target []string
+		sameEnds       bool
+	}{
+		{"P::across", []string{"P::a"}, []string{"P::b"}, false},
+		{"P::within", []string{"P::a"}, []string{"P::a"}, true},
+		{"P::names", []string{"P::a"}, []string{"P::b"}, false},
+		{"P::rooted", []string{"P::a"}, []string{"P::a"}, true},
+		{"P::imported", []string{"P::a"}, []string{"P::a"}, true},
+		{"P::p::declared", nil, nil, true},
+		{"P::p::self", nil, nil, true},
+		{"P::qualified", nil, nil, true},
+		{"P::reexported", nil, nil, true},
+		{"P::c::inherited", []string{"P::c"}, []string{"P::c"}, true},
+		{"P::mixed", []string{"P::e"}, []string{"P::e"}, true},
+		{"P::holders", []string{"P::e"}, []string{"P::f"}, false},
+		{"P::indexed", []string{"P::one"}, []string{"P::other"}, false},
+		{"P::aliased", nil, nil, true},
+		{"P::outer::inner::nested", []string{"P::outer"}, []string{"P::outer::inner"}, false},
+		{"P::outer::inner::bare", []string{"P::outer::inner"}, []string{"P::outer::inner"}, true},
+	} {
+		edges := m.RelationshipEdgesOf(nestedSym(t, root, tc.symbol), RelationshipDerivation)
+		if len(edges) != 1 {
+			t.Fatalf("RelationshipEdgesOf(%s) = %v, want one edge", tc.symbol, edges)
+		}
+		edge := edges[0]
+		if got := fqns(edge.SourcePath); !reflect.DeepEqual(got, tc.source) {
+			t.Errorf("%s: source path %v, want %v", tc.symbol, got, tc.source)
+		}
+		if got := fqns(edge.TargetPath); !reflect.DeepEqual(got, tc.target) {
+			t.Errorf("%s: target path %v, want %v", tc.symbol, got, tc.target)
+		}
+		if edge.SameEnds() != tc.sameEnds {
+			t.Errorf("%s: SameEnds() = %v, want %v", tc.symbol, edge.SameEnds(), tc.sameEnds)
+		}
+	}
+}
