@@ -196,6 +196,7 @@ func TestPrefixAlternativesStillAccepted(t *testing.T) {
 		{"variant_usage", "a.sysml", "package P { variation part def V { variant part v; } }"},
 		{"cross_feature_direction", "a.kerml", "package P { assoc A { end in x : T feature e; } }"},
 		{"abstract_definition", "a.sysml", "package P { abstract part def V; }"},
+		{"abstract_metadata_definition", "a.sysml", "package P { abstract metadata def M; }"},
 		{"variation_definition", "a.sysml", "package P { variation part def V; }"},
 		{"enumeration_definition", "a.sysml", "package P { enum def E { a; b; } }"},
 		{"enumeration_definition_prefix_metadata", "a.sysml", "package P { metadata def M; #M enum def E; }"},

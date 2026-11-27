@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
@@ -54,7 +53,7 @@ func TestElementPropertiesAnswersEveryElementOfTheCorpora(t *testing.T) {
 		excluded[exclusion.Document] = exclusion
 	}
 	t.Logf("%d documents, %d excluded", len(documents), len(excluded))
-	answered, refused := 0, 0
+	answered, refused, hidden := 0, 0, 0
 	cached.Index.Registered(func(fqn string, syms []*symbols.Symbol) {
 		for _, sym := range syms {
 			if sym.Name == "" || sym.Implicit != nil || sym.Expr != nil || sym.DocName == "" || cached.Index.Library(sym) || cached.Index.GetFQN(sym) != fqn {
@@ -71,14 +70,19 @@ func TestElementPropertiesAnswersEveryElementOfTheCorpora(t *testing.T) {
 				refused++
 				continue
 			}
-			if resp.Error != "" && !strings.HasPrefix(resp.Error, "element not found") {
+			// A name the root cannot see (a private member's) is declared and still not found.
+			if resp.Error == "element not found: "+fqn && len(cached.ResolveMemberName(fqn)) == 0 {
+				hidden++
+				continue
+			}
+			if resp.Error != "" {
 				t.Errorf("%s (%s) is refused: %s", fqn, sym.DocName, resp.Error)
 				continue
 			}
 			answered++
 		}
 	})
-	t.Logf("%d elements answered, %d refused with their document's error", answered, refused)
+	t.Logf("%d elements answered, %d refused with their document's error, %d not visible from the root", answered, refused, hidden)
 	if answered == 0 {
 		t.Fatal("no element was answered")
 	}

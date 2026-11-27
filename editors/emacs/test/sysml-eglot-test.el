@@ -42,6 +42,106 @@
     (sysml-eglot--keep-mode-faces)
     (should-not (local-variable-p 'eglot-semantic-token-types))))
 
+;;;; Running elements
+
+(defun sysml-eglot-test--lens (line end title element kind)
+  "Return a Run lens titled TITLE naming ELEMENT of KIND.
+Its range is on LINE, from column 15 to column END."
+  (list :range (list :start (list :line line :character 15)
+                     :end (list :line line :character end))
+        :command (list :title title :command "opensysml.runElement"
+                       :arguments (vector (list :uri "file:///ws/m.sysml"
+                                                :element element :kind kind)))))
+
+(defmacro sysml-eglot-test--with-lenses (lenses &rest body)
+  "Run BODY in a model buffer whose server answers LENSES, a vector.
+`started' holds the arguments `sysml-run-element' was called with."
+  (declare (indent 1))
+  `(let (started)
+     (cl-letf (((symbol-function 'eglot-current-server) (lambda () 'server))
+               ((symbol-function 'eglot-server-capable) (lambda (&rest _) t))
+               ((symbol-function 'eglot--signal-textDocument/didChange) #'ignore)
+               ((symbol-function 'sysml-eglot--folders) (lambda (_) '("/ws")))
+               ;; Eglot asks the server whether its project is remote.
+               ((symbol-function 'eglot-uri-to-path)
+                (lambda (uri) (string-remove-prefix "file://" uri)))
+               ((symbol-function 'jsonrpc-request)
+                (lambda (_server method _params)
+                  (should (eq method :textDocument/codeLens))
+                  ,lenses))
+               ((symbol-function 'sysml-eglot--find-tool) (lambda (_) "/bin/sysml"))
+               ((symbol-function 'sysml-run-element)
+                (lambda (&rest args) (setq started args))))
+       (with-temp-buffer
+         (insert "package Demo {\n    action def Fly;\n    action def Land;\n}\n")
+         (setq buffer-file-name "/ws/m.sysml")
+         (unwind-protect
+             (progn ,@body)
+           (setq buffer-file-name nil))))))
+
+(defconst sysml-eglot-test--lenses
+  (vector
+   ;; A reference-count lens carries no command until it is resolved.
+   (list :range '(:start (:line 1 :character 15) :end (:line 1 :character 18))
+         :data '(:element "Demo::Fly"))
+   (sysml-eglot-test--lens 1 18 "Run Fly" "Demo::Fly" "action")
+   (sysml-eglot-test--lens 2 19 "Run Land" "Demo::Land" "action"))
+  "The lenses of the buffer `sysml-eglot-test--with-lenses' makes.")
+
+(ert-deftest sysml-eglot-runs-the-element-at-point ()
+  (sysml-eglot-test--with-lenses sysml-eglot-test--lenses
+    (goto-char (point-min))
+    (search-forward "Land")
+    (sysml-eglot-run-element)
+    (should (equal started '("action" "Demo::Land" ("/ws") "/bin/sysml")))))
+
+(ert-deftest sysml-eglot-reads-the-element-away-from-a-name ()
+  (sysml-eglot-test--with-lenses sysml-eglot-test--lenses
+    (goto-char (point-min))
+    (cl-letf (((symbol-function 'completing-read)
+               (lambda (_prompt elements &rest _)
+                 (should (equal elements '("Demo::Fly" "Demo::Land")))
+                 "Demo::Fly")))
+      (sysml-eglot-run-element))
+    (should (equal started '("action" "Demo::Fly" ("/ws") "/bin/sysml")))))
+
+(ert-deftest sysml-eglot-reads-the-element-with-a-prefix-argument ()
+  (sysml-eglot-test--with-lenses sysml-eglot-test--lenses
+    (goto-char (point-min))
+    (search-forward "Land")
+    (cl-letf (((symbol-function 'completing-read) (lambda (&rest _) "Demo::Fly")))
+      (sysml-eglot-run-element t))
+    (should (equal (cadr started) "Demo::Fly"))))
+
+(ert-deftest sysml-eglot-tells-elements-sharing-a-name-apart ()
+  (sysml-eglot-test--with-lenses
+      (vector (sysml-eglot-test--lens 1 18 "Run Fly" "Demo::Fly" "action")
+              (sysml-eglot-test--lens 2 19 "Run Fly" "Other::Fly" "action"))
+    (goto-char (point-min))
+    (cl-letf (((symbol-function 'completing-read) (lambda (&rest _) "Other::Fly")))
+      (sysml-eglot-run-element))
+    (should (equal (cadr started) "Other::Fly"))))
+
+(ert-deftest sysml-eglot-says-when-nothing-can-be-run ()
+  (sysml-eglot-test--with-lenses (vector (aref sysml-eglot-test--lenses 0))
+    (should-error (sysml-eglot-run-element) :type 'user-error)
+    (should-not started)))
+
+(ert-deftest sysml-eglot-does-not-run-without-a-server ()
+  (with-temp-buffer
+    (should-error (sysml-eglot-run-element) :type 'user-error)))
+
+(ert-deftest sysml-eglot-finds-the-tool-beside-the-server ()
+  (let* ((dir (file-name-as-directory (make-temp-file "bin" t)))
+         (exec-path (list dir)))
+    (unwind-protect
+        (progn
+          (dolist (f '("sysml-lsp" "sysml"))
+            (write-region "" nil (expand-file-name f dir))
+            (set-file-modes (expand-file-name f dir) #o755))
+          (should (equal (sysml-eglot--find-tool nil) (expand-file-name "sysml" dir))))
+      (delete-directory dir t))))
+
 ;;;; Live server
 
 (defmacro sysml-eglot-test--with-session (file &rest body)
@@ -190,6 +290,30 @@
                           (font-lock-ensure)
                           (get-text-property name 'face)))
       (should (eq (get-text-property keyword 'face) 'sysml-declaration-keyword-face)))))
+
+(ert-deftest sysml-eglot-live-runs-the-element-at-point ()
+  (let ((sysml (expand-file-name "bin/sysml" sysml-test--repo)))
+    (unless (file-executable-p sysml)
+      (sysml-test--require-server)
+      (ert-skip (format "%s is missing; run `make build'" sysml)))
+    (sysml-eglot-test--with-session
+        (sysml-test--fixture "package Demo {\n    action def Fly;\n    part def Wing;\n}\n")
+      (let ((exec-path (cons (file-name-directory sysml) exec-path))
+            (root (file-name-directory buffer-file-name))
+            started)
+        (cl-letf (((symbol-function 'compilation-start)
+                   (lambda (command &rest _) (setq started (list command default-directory)))))
+          ;; An edit not yet sent: the lens must still be found where the name now is.
+          (goto-char (point-min))
+          (insert "\n")
+          (search-forward "Fly")
+          (cl-letf (((symbol-function 'save-some-buffers) (lambda (&rest _) (save-buffer))))
+            (sysml-eglot-run-element)))
+        (should (equal (car started)
+                       (mapconcat #'shell-quote-argument
+                                  (list sysml "-action" "Demo::Fly" (directory-file-name root))
+                                  " ")))
+        (should (equal (cadr started) root))))))
 
 (provide 'sysml-eglot-test)
 

@@ -84,9 +84,10 @@ The server is found in this order, as the VS Code extension finds it:
 After rebuilding the server, `M-x lsp-workspace-restart` picks the new binary up.
 
 Under Eglot the server is `sysml-lsp` on `exec-path`, and `M-x eglot-reconnect`
-picks a rebuilt one up. Code lenses are lsp-mode's only. The server's settings
-go through Eglot's own `eglot-workspace-configuration`; see
-[Settings](#settings).
+picks a rebuilt one up. Code lenses are lsp-mode's only: Eglot does not show
+them, and [`M-x sysml-eglot-run-element`](#code-lenses) runs what a Run or
+Evaluate lens would. The server's settings go through Eglot's own
+`eglot-workspace-configuration`; see [Settings](#settings).
 
 `M-.` on a standard library name, such as `Integer` after `import ScalarValues::*`,
 shows its declaration in a read-only buffer whose text the server serves
@@ -107,6 +108,19 @@ commands, carried out here rather than sent back to the server:
   workspace folder of the session (the file alone when none holds it), in a
   compilation buffer. Nothing runs while a model buffer is left unsaved. `sysml` is looked for beside the server, then
   in the project's `bin/`, then on `exec-path`.
+
+Eglot shows no code lenses. `M-x xref-find-references` lists a definition's
+references, and `M-x sysml-eglot-run-element` runs or evaluates the element whose
+name point is on, the same way: it asks the server for the buffer's Run and
+Evaluate lenses, so it offers exactly the elements lsp-mode shows one on. Away
+from such a name, or with a prefix argument, it reads the element from the
+minibuffer by its qualified name. `sysml` is looked for beside the `sysml-lsp` on `exec-path`, then in
+the project's `bin/`, then on `exec-path`. Bind it if you like:
+
+```elisp
+(with-eval-after-load 'sysml-eglot
+  (define-key sysml-base-mode-map (kbd "C-c C-r") #'sysml-eglot-run-element))
+```
 
 ## Highlighting
 
