@@ -64,7 +64,13 @@ func expressionElementMetaclassName(sym *symbols.Symbol) string {
 			return "Expression"
 		case symbols.ExpressionTriggerAction:
 			return "AcceptActionUsage"
-		case symbols.ExpressionPayload, symbols.ExpressionConnectorEnd, symbols.ExpressionTransitionLinkParameter, symbols.ExpressionTransitionLink:
+		case symbols.ExpressionPayload:
+			if sym.Kind == symbols.SymbolActionUsage {
+				// A loop's body parameter (SysML.xtext ActionBodyParameter).
+				return "ActionUsage"
+			}
+			return "ReferenceUsage"
+		case symbols.ExpressionAccess, symbols.ExpressionConnectorEnd, symbols.ExpressionTransitionLinkParameter, symbols.ExpressionTransitionLink:
 			return "ReferenceUsage"
 		case symbols.ExpressionTransitionSuccession:
 			return "SuccessionAsUsage"
