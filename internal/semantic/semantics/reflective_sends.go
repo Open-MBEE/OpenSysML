@@ -72,11 +72,11 @@ func (m *Model) sendPartsOf(sym *symbols.Symbol) *sendParts {
 	return parts
 }
 
-// bindArgumentReference binds the name an argument expression writes, as the accept's
-// receiver is bound, so its referent reads where no document walk ran.
+// bindArgumentReference binds the name argument leads with in scope, so its referent reads where no
+// walk ran; a chain's target reads on demand, through its operand or outward (resolveChainSegment).
 func (m *Model) bindArgumentReference(scope *symbols.Scope, argument ast.Node) {
-	slot, name, _ := expressionReference(argument)
-	if name == nil || scope == nil || m.resolver == nil {
+	slot, name, leads := expressionReference(argument)
+	if name == nil || !leads || scope == nil || m.resolver == nil {
 		return
 	}
 	if slot == "function" {
@@ -134,13 +134,16 @@ func (m *Model) sendParameterValue(param *symbols.Symbol) *symbols.Symbol {
 	return nil
 }
 
-// nodeParameters are the parameters an accept or send action owns beyond its
-// declared members, in argument order; nil for any other symbol.
+// nodeParameters are the parameters an accept, send or control action owns beyond its
+// declared members, in parameter order; nil for any other symbol.
 func (m *Model) nodeParameters(sym *symbols.Symbol) []*symbols.Symbol {
 	if params := m.acceptParameters(sym); params != nil {
 		return params
 	}
-	return m.sendParameters(sym)
+	if params := m.sendParameters(sym); params != nil {
+		return params
+	}
+	return m.controlParameters(sym)
 }
 
 // sendElements is ReflectiveElements for the arguments of a send action

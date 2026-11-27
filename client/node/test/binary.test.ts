@@ -211,6 +211,30 @@ test("$OPENSYSML_GITHUB_REPO chooses the repository, and the URLs follow it", ()
   );
 });
 
+test("a repository, tag or asset that would change the URL's path or query is refused", async () => {
+  const asset = "sysml-grpc-linux-amd64";
+  for (const repo of ["Owner/Repo?x=1", "Owner/Repo#frag", "Owner/../Other/Repo", "Owner/..", "Owner", "Owner/Repo/extra", "Owner/Re po"]) {
+    assert.throws(() => releaseDownloadUrl(VERSION, asset, { githubRepo: repo }), DownloadError, repo);
+    await assert.rejects(resolveLatestVersion({ githubRepo: repo }), DownloadError, repo);
+  }
+  process.env[REPO_ENV] = "Owner/Repo/../../evil/repo";
+  assert.throws(() => releaseDownloadUrl(VERSION, asset), DownloadError);
+  for (const version of ["v1.0.0/../../v0.1.0", "v1.0.0?x", "v1.0.0#x", "..", ".", "v1..0", ""]) {
+    assert.throws(() => releaseDownloadUrl(version, asset, { githubRepo: REPO }), DownloadError, version);
+  }
+  for (const name of ["../SHA256SUMS", "a/b", "a?b", ""]) {
+    assert.throws(() => releaseDownloadUrl(VERSION, name, { githubRepo: REPO }), DownloadError, name);
+  }
+  assert.equal(
+    releaseDownloadUrl("_nightly", asset, { githubRepo: REPO }),
+    `https://github.com/${REPO}/releases/download/_nightly/${asset}`,
+  );
+  assert.equal(
+    releaseDownloadUrl("nightly-2026.01.02+build.3", "SHA256SUMS.sigstore.json", { githubRepo: "my-org/Open.SysML_2" }),
+    "https://github.com/my-org/Open.SysML_2/releases/download/nightly-2026.01.02+build.3/SHA256SUMS.sigstore.json",
+  );
+});
+
 test("a pinned release is downloaded, verified, cached and made executable", async (t) => {
   const release = await serveRelease(served());
   t.after(() => release.close());

@@ -966,6 +966,11 @@ func (d *decoder) segmentsText(segments []rdf.Term, in *element) ([]string, erro
 			operand = ""
 			continue
 		}
+		if local, ok := d.bodyLocalName(segment); ok {
+			parts = append(parts, nameText(local))
+			operand = local
+			continue
+		}
 		target, name, err := d.namedMember(segment)
 		if err != nil {
 			return nil, err

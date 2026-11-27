@@ -319,8 +319,8 @@ func testNodePinMemberThroughAScalarPin(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected an error chaining a member through a scalar pin")
 	}
-	if !strings.Contains(err.Error(), "p.v") || !strings.Contains(err.Error(), "non-instance") {
-		t.Errorf("error %q does not name the pin read through", err)
+	if !strings.Contains(err.Error(), "cannot read member mark of p.v: an Integer has no members") {
+		t.Errorf("error %q does not name the member and the pin read through", err)
 	}
 }
 

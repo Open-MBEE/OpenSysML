@@ -225,7 +225,7 @@ func TestCompiledBodyLocals(t *testing.T) {
 	negative := f.same(t, "NaturalResult", intArg(0))
 	wantErrorIs(t, "NaturalResult(0)", negative, ErrTypeMismatch)
 	bad := f.same(t, "BadCondition", realArg(1))
-	if bad.err == nil || !strings.Contains(bad.err.Error(), "condition of 'if' must evaluate to a Boolean") {
+	if bad.err == nil || !strings.Contains(bad.err.Error(), "condition of 'if' must evaluate to a Boolean, got a Real") {
 		t.Errorf("BadCondition(1) = %v", bad.err)
 	}
 	// The evaluator reads a local declared later through its declaration; the

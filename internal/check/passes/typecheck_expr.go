@@ -35,7 +35,7 @@ type exprChecker struct {
 	// an action rather than evaluate a behavior (see performs).
 	performed map[*ast.InvocationExpr]bool
 	// bindings are the arguments bound to a non-conforming parameter, reported by
-	// diagnostics() (w9c_argument_bindings.go); warned keeps one from being judged twice.
+	// diagnostics() (w9c_argument_bindings.go); warned keeps one from being warned about twice.
 	bindings []argumentBinding
 	warned   map[ast.Node]bool
 	// memo is what the silent checkers spawned from this one have typed, so a call read

@@ -423,6 +423,9 @@ func expandAPIJSONCompactValue(value any, bareReference bool, ids []string) (any
 		return expanded, nil
 	case map[string]any:
 		if id, ok := value["@id"].(json.Number); ok {
+			if len(value) != 1 {
+				return nil, fmt.Errorf("a compact API reference object holds only @id, not also %q", siblingKey(value))
+			}
 			expandedID, err := expandAPIJSONCompactReference(id, ids)
 			if err != nil {
 				return nil, err
@@ -1715,4 +1718,16 @@ func apiJSONStatedDefaults(objects []apiJSONElementData) bool {
 		}
 	}
 	return false
+}
+
+// siblingKey names the first key, in sorted order, an object holds beside @id.
+func siblingKey(object map[string]any) string {
+	keys := make([]string, 0, len(object))
+	for key := range object {
+		if key != "@id" {
+			keys = append(keys, key)
+		}
+	}
+	sort.Strings(keys)
+	return keys[0]
 }

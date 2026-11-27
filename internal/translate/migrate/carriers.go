@@ -2,7 +2,6 @@ package migrate
 
 import (
 	"strconv"
-	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
@@ -112,7 +111,7 @@ func (m *migration) carrierSignal(v *sysmlv1.Element, incoming []*sysmlv1.Elemen
 		sig = s
 	}
 	if cat, _ := m.classify(sig); cat != catItemDef {
-		return nil, "the signal " + m.nameFor(sig) + isWrittenAs + aOrAn(cat.keyword()) + ", which no item holds"
+		return nil, "the signal " + m.nameFor(sig) + isWrittenAs + kwArticle(cat.keyword()) + ", which no item holds"
 	}
 	return sig, ""
 }
@@ -140,7 +139,7 @@ func (m *migration) incomingSignal(t, sig *sysmlv1.Element) (*sysmlv1.Element, s
 		case eff.Parent != t:
 			return nil, "the effect of the transition from " + describe(src) + " is written once, as its own action def, which cannot keep the accepted signal", true
 		case eff.Type != "Activity" && eff.Type != "OpaqueBehavior" && eff.Type != "FunctionBehavior":
-			return nil, "the effect of the transition from " + describe(src) + " is " + aOrAn(eff.Type) + ", which has no action form to keep the accepted signal in", true
+			return nil, "the effect of the transition from " + describe(src) + " is " + kwArticle(eff.Type) + ", which has no action form to keep the accepted signal in", true
 		}
 	}
 	return sig, "", false
@@ -168,15 +167,7 @@ func eventKind(ev *sysmlv1.Element) string {
 	if ev == nil {
 		return "no event"
 	}
-	return aOrAn(ev.Type)
-}
-
-// aOrAn prefixes a noun with its indefinite article.
-func aOrAn(noun string) string {
-	if strings.ContainsRune("aeiouAEIOU", rune(noun[0])) {
-		return "an " + noun
-	}
-	return "a " + noun
+	return kwArticle(ev.Type)
 }
 
 // carrierMatch says why the parameters of a state's behaviors do not take the attributes

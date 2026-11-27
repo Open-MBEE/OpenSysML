@@ -18,6 +18,8 @@ func TestRuntimeRobustnessExpressionReads(t *testing.T) {
 	t.Run("operation_of_a_destroyed_object", testOperationOfADestroyedObject)
 	t.Run("structured_attribute_chain_of_an_unknown_feature", testStructuredAttributeChainOfAnUnknownFeature)
 	t.Run("elements_chain_of_a_non_numeric_collection", testElementsChainOfANonNumericCollection)
+	t.Run("member_read_of_a_value", testMemberReadOfAValue)
+	t.Run("member_read_past_a_computed_feature", testMemberReadPastAComputedFeature)
 	t.Run("indeterminate_form_over_an_infinity", testIndeterminateFormOverAnInfinity)
 	t.Run("unbounded_value_compared_with_a_string", testUnboundedValueComparedWithAString)
 	t.Run("negative_infinity_read_as_a_natural", testNegativeInfinityReadAsANatural)
@@ -215,8 +217,70 @@ func testElementsChainOfANonNumericCollection(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected chaining elements of a non-numeric collection to fail")
 	}
-	if !strings.Contains(err.Error(), "cannot chain through non-instance member") {
-		t.Errorf("error should report the member lookup, got: %v", err)
+	if want := "cannot read member elements: a String has no members"; !strings.HasSuffix(err.Error(), ": "+want) {
+		t.Errorf("error = %q, want it to end %q", err, want)
+	}
+}
+
+// testMemberReadOfAValue: a member read from a value that is no object names the
+// member, the feature the chain started from when it has one, and what the value is.
+func testMemberReadOfAValue(t *testing.T) {
+	for _, tc := range []struct{ name, expr, want string }{
+		{"string_literal", `"a".b`, "cannot read member b: a String has no members"},
+		{"sequence_of_integers", `(1, 2).x`, "cannot read member x: an Integer has no members"},
+		{"null", `null.x`, "cannot read member x: null has no members"},
+		{"boolean_literal", `true.x`, "cannot read member x: a Boolean has no members"},
+		{"integer_feature", `n.x`, "cannot read member x of n: an Integer has no members"},
+		{"string_feature", `s.x`, "cannot read member x of s: a String has no members"},
+		{"element_of_a_feature", `xs.x`, "cannot read member x of xs: a String has no members"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			src := `
+				package test {
+					private import ScalarValues::*;
+					calc def Probe {
+						in n : Integer;
+						attribute s : String = "q";
+						attribute xs : String[*] = ("a", "b");
+						return : Anything[*] = ` + tc.expr + `;
+					}
+				}
+			`
+			err := calcErrorWithLibraries(t, src, "Probe", []Value{constInt(1)}, 10000)
+			if err == nil || !strings.HasSuffix(err.Error(), ": "+tc.want) {
+				t.Errorf("%s: error = %v, want %q", tc.expr, err, tc.want)
+			}
+		})
+	}
+}
+
+// testMemberReadPastAComputedFeature: the error names the feature whose value has no
+// members, not the one the chain began at, and says so of no value the model leaves open.
+func testMemberReadPastAComputedFeature(t *testing.T) {
+	src := `
+		package test {
+			private import ScalarValues::*;
+			private import VectorValues::*;
+			attribute two : NumericalVectorValue { :>> dimension = 2; :>> elements = (1, 2); }
+			attribute sum = two + two;
+			part def A { attribute n : Integer = 1; }
+			part def Chooser {
+				attribute c : Boolean;
+				part a1 : A;
+				part a2 : A;
+			}
+			part chooser : Chooser;
+		}
+	`
+	for _, tc := range []struct{ expr, want string }{
+		{"test::sum.rank.x", "cannot read member x of rank: an Integer has no members"},
+		{"(test::two + test::two).rank.x", "cannot read member x of rank: an Integer has no members"},
+		{"(if test::chooser.c ? test::chooser.a1 else test::chooser.a2).n", "cannot read member n: the model does not determine the value it is read from"},
+	} {
+		_, _, err := evalDeclaredExpr(t, src, tc.expr)
+		if err == nil || !strings.HasSuffix(err.Error(), tc.want) {
+			t.Errorf("%s: error = %v, want %q", tc.expr, err, tc.want)
+		}
 	}
 }
 

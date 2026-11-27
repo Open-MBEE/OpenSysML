@@ -1417,7 +1417,12 @@ func (*comparisonError) Error() string { return "unsupported comparison" }
 // compareValue compares one value as WhereFeature does: an element by its cell name or,
 // when the written value is qualified, its qualified name; an expression by its written text.
 func (e *executor) compareValue(actual Value, c comparison) (bool, error) {
-	if sym, ok := actual.Element(); ok && (sym.Expr != nil || !strings.Contains(c.expected, "::")) {
+	sym, ok := actual.Element()
+	// A parameter an action's notation states compares as it reads: as written, or by its name under its action.
+	if text, written, stated := e.context.statedParameterText(sym); stated && (written || strings.Contains(c.expected, "::")) {
+		return c.text(text)
+	}
+	if ok && (sym.Expr != nil || !strings.Contains(c.expected, "::")) {
 		return c.text(e.valueText(actual))
 	}
 	return compareValue(actual, c)
