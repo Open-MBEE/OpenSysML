@@ -69,7 +69,7 @@ func TestLoopAndConditionalMetaclasses(t *testing.T) {
 	for _, want := range []string{
 		"sysml:WhileLoopActionUsage", "sysml:ForLoopActionUsage", "sysml:IfActionUsage",
 		"sysx:branchKind \"then\"", "sysml:ParameterMembership", "sysx:whileCondition", "sysx:untilCondition",
-		"sysx:loopVariable", "sysx:collection",
+		"sysml:loopVariable", "sysx:collection",
 	} {
 		if !strings.Contains(turtle, want) {
 			t.Errorf("the graph should carry %s:\n%s", want, turtle)

@@ -15,8 +15,8 @@ directory here with its own build.
   sdist (`make jupyterlab-build`); see [`docs/guide/12-jupyter.md`](../docs/guide/12-jupyter.md).
 
 - **[Emacs](emacs/)** — `sysml-mode` and `kerml-mode` for `.sysml`/`.kerml` files
-  (highlighting, indentation, comments, imenu), an [lsp-mode](https://emacs-lsp.github.io/lsp-mode/)
-  client that runs `sysml-lsp`, and `M-x sysml-diagram-show`, a buffer showing a view of the
+  (highlighting, indentation, comments, imenu), [lsp-mode](https://emacs-lsp.github.io/lsp-mode/)
+  and [Eglot](https://github.com/joaotavora/eglot) clients that run `sysml-lsp`, and `M-x sysml-diagram-show`, a buffer showing a view of the
   model that follows the cursor and redraws as the model changes. Its keyword lists are
   generated from the lexer by `make emacs-keywords`, from the same grouping
   ([`editors/internal/keywords`](internal/keywords/)) as the VS Code and JupyterLab grammars;
@@ -49,7 +49,7 @@ directory here with its own build.
 
 ## Versions
 
-The editors carry the core version — `0.12.1` now — the same lockstep the clients
+The editors carry the core version — `0.13.0` now — the same lockstep the clients
 follow, even though nothing publishes them. `check_version.py --editors` checks
 every manifest (the three package.json files and their locks, the Cameo and SysON
 poms and their children's `<parent><version>`), and a release fails early when

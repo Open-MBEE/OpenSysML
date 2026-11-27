@@ -901,26 +901,12 @@ func (c *featureReferenceChecker) chainMemberFeaturedWithin(scope *symbols.Scope
 	holders := c.cc.resolver.ChainHolders(scope, prev)
 	for _, ctx := range ctxs {
 		if !slices.ContainsFunc(holders, func(holder *symbols.Symbol) bool {
-			return c.chainingFeatureConforms(holder, ctx)
+			return c.cc.featuringContextConforms(holder, ctx)
 		}) {
 			return false
 		}
 	}
 	return true
-}
-
-// chainingFeatureConforms reports whether prev specializes the featuring type
-// ctx, through the features it references as well as its declared generals.
-func (c *featureReferenceChecker) chainingFeatureConforms(prev, ctx *symbols.Symbol) bool {
-	if c.cc.featuringContextConforms(prev, ctx) {
-		return true
-	}
-	for _, src := range c.cc.model.MemberSources(prev) {
-		if src == ctx || c.cc.model.Conforms(src, ctx) {
-			return true
-		}
-	}
-	return false
 }
 
 func (c *featureReferenceChecker) reportChainMember(span source.Span) {

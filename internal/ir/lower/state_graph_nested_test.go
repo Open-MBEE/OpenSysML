@@ -1033,3 +1033,34 @@ func TestToStateGraph_EndpointQualifiedThroughTheMachine(t *testing.T) {
 		}
 	}
 }
+
+// The machine's id is fixed when the states are numbered: one past the last of
+// them, whatever becomes of the origin table afterwards.
+func TestMachineIDIsFixedWhenStatesAreNumbered(t *testing.T) {
+	root, machine := parseStateUsage(t, `
+		package test {
+			state Machine {
+				entry; then idle;
+				state idle;
+				state busy;
+			}
+		}
+	`)
+	graph := graphOf(t, root, machine)
+	want := graph.MachineID()
+	if int(want) != len(graph.ID)+1 {
+		t.Fatalf("machine id %d over %d numbered states, want one past the last", want, len(graph.ID))
+	}
+	for _, id := range graph.ID {
+		if id == want {
+			t.Fatalf("machine id %d is also a state's", want)
+		}
+	}
+	graph.Origins = graph.Origins[:1]
+	if got := graph.MachineID(); got != want {
+		t.Errorf("machine id %d after the origin table shrank, want %d", got, want)
+	}
+	if got := (*StateGraph)(nil).MachineID(); got != 0 {
+		t.Errorf("machine id of a nil graph = %d, want 0", got)
+	}
+}

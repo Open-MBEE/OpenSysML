@@ -6,7 +6,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // The reference judges each argument of an operator or invocation as a binding to
@@ -225,4 +229,29 @@ func TestW9CArgumentBindingsInStateAssignment(t *testing.T) {
 	}
 }`
 	w9cWantLines(t, src, "bound-feature-types", 13)
+}
+
+// A value that conforms to one parameter is still judged against the next one
+// it is bound to, and warned about once.
+func TestJudgeBindingJudgesAValueAgainstEachParameter(t *testing.T) {
+	_, _, idx := analyzeInputs(t, "a.sysml", "part def A; part def B;")
+	root := idx.DocumentRoot("a.sysml")
+	a, okA := root.LookupLocal("A")
+	b, okB := root.LookupLocal("B")
+	if !okA || !okB {
+		t.Fatal("A and B not indexed")
+	}
+	resolver := resolve.New(idx)
+	ec := &exprChecker{resolver: resolver, model: NewTypedModel(resolver)}
+	value := &ast.LiteralInteger{}
+	isA := func(*symbols.Scope, ast.Node) []*symbols.Symbol { return []*symbols.Symbol{a} }
+	ec.judgeBinding(root, value, []*symbols.Symbol{a}, source.Span{}, isA)
+	if len(ec.bindings) != 0 {
+		t.Fatalf("a conforming value was warned about: %+v", ec.bindings)
+	}
+	ec.judgeBinding(root, value, []*symbols.Symbol{b}, source.Span{}, isA)
+	ec.judgeBinding(root, value, []*symbols.Symbol{b}, source.Span{}, isA)
+	if len(ec.bindings) != 1 {
+		t.Fatalf("got %d warnings for an A bound to a B parameter twice, want 1", len(ec.bindings))
+	}
 }

@@ -80,14 +80,7 @@ func (c *compiler) referencesData(sym *symbols.Symbol) bool {
 
 // elementKindWords names an element's kind for a diagnostic: "a part usage".
 func elementKindWords(sym *symbols.Symbol) string {
-	family := sym.Kind.Family()
-	switch {
-	case sym.Kind.IsDefinition():
-		return "a " + family + " definition"
-	case sym.Kind.IsFeature():
-		return "a " + family + " usage"
-	}
-	return "a " + family
+	return "a " + sym.Kind.Phrase()
 }
 
 // valuePath splits the target into the element read and the member path read

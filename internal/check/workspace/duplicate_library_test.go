@@ -151,3 +151,21 @@ func TestDuplicateLibrariesSurvivesAnInterfaceRecordReload(t *testing.T) {
 		t.Fatalf("a plain package opened twice: %d findings, want none", len(got))
 	}
 }
+
+// Findings on one document are ordered by the copy references resolve to, not
+// by the order the duplicated names were met in.
+func TestDuplicateLibrariesOrdersFindingsOnOneDocumentByUsedCopy(t *testing.T) {
+	ws := model.NewWorkspace()
+	ws.Open("/ws/a/q.sysml", []byte("library package Q { part def A; }"), 1)
+	ws.Open("/ws/b/p.sysml", []byte("library package P { part def B; }"), 1)
+	ws.Open("/ws/s/both.sysml", []byte("library package P { part def C; } library package Q { part def D; }"), 1)
+	got := ws.WorkspaceFindings()
+	if len(got) != 2 {
+		t.Fatalf("%d findings, want 2: %+v", len(got), got)
+	}
+	for i, used := range []string{"/ws/a/q.sysml", "/ws/b/p.sysml"} {
+		if got[i].Document != "/ws/s/both.sysml" || got[i].Used != used {
+			t.Errorf("finding %d on %q (used %q), want on /ws/s/both.sysml with %s used", i, got[i].Document, got[i].Used, used)
+		}
+	}
+}

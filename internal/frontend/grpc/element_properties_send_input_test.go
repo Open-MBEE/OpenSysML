@@ -45,7 +45,8 @@ func TestGetElementPropertiesListsASendActionsInputParameters(t *testing.T) {
 		}
 	}`)
 	parameters := answeredElements(t, r, "P__T__sendRef", "parameter")
-	if want := []string{"P__T__sendRef___400:ReferenceUsage", "P__T__sendRef___401:ReferenceUsage"}; !slices.Equal(parameters, want) {
+	// Each is named by the SendAction parameter it redefines (SysML 8.4.12.4), and keeps its positional id.
+	if want := []string{"P::T::sendRef::payload", "P::T::sendRef::sender"}; !slices.Equal(parameters, want) {
 		t.Fatalf("parameter = %v, want %v", parameters, want)
 	}
 	for _, parameter := range []string{"P__T__sendRef___400", "P__T__sendRef___401"} {

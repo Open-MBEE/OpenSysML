@@ -321,6 +321,15 @@ func ownerFeatureValue(owner *Instance, feature string) *FeatureValue {
 // materializeConnectorStarting is materializeConnectorAs, its classifier behaviors started only
 // when start is set: a namespace path records what the usage denotes first, then starts them.
 func (ctx *Context) materializeConnectorStarting(owner *Instance, connSym, base *symbols.Symbol, id int64, start bool, keep func(*Instance)) error {
+	attach := func(end semantics.ConnectorEndAttachment) (Value, error) {
+		return ctx.attachConnectorEnd(owner, connSym, end)
+	}
+	return ctx.materializeConnectorAttaching(owner, connSym, base, id, start, attach, keep)
+}
+
+// materializeConnectorAttaching is materializeConnectorStarting with each end read by attach.
+func (ctx *Context) materializeConnectorAttaching(owner *Instance, connSym, base *symbols.Symbol, id int64, start bool,
+	attach func(semantics.ConnectorEndAttachment) (Value, error), keep func(*Instance)) error {
 	ends := ctx.model.semantics.ConnectorObjectEnds(connSym)
 	if len(ends) == 0 {
 		return fmt.Errorf("%w: %s declares no end to attach", errConnectorEnd, connectorName(connSym))
@@ -361,7 +370,7 @@ func (ctx *Context) materializeConnectorStarting(owner *Instance, connSym, base 
 	var unnamed []Value
 	ctx.behaviorRunDepth++
 	for _, end := range ends {
-		val, err := ctx.attachConnectorEnd(owner, connSym, end)
+		val, err := attach(end)
 		if err != nil {
 			ctx.behaviorRunDepth--
 			abandon()
@@ -467,7 +476,11 @@ func (ctx *Context) attachConnectorEnd(owner *Instance, connSym *symbols.Symbol,
 	if scope == nil {
 		scope = owner.Type.OwnerScope
 	}
-	ec := NewEvalContextIn(ctx, scope, owner)
+	return ctx.readConnectorEnd(NewEvalContextIn(ctx, scope, owner), connSym, end)
+}
+
+// readConnectorEnd evaluates what one end attaches to in ec, the environment its names are read in.
+func (ctx *Context) readConnectorEnd(ec *EvalContext, connSym *symbols.Symbol, end semantics.ConnectorEndAttachment) (Value, error) {
 	defer ec.beginStep()()
 	// An indexed end holds the one element its index selects, read as the
 	// `#(` expression it was written as, so an index that selects nothing
@@ -890,4 +903,88 @@ func (ctx *Context) connectorEndError(connSym *symbols.Symbol, end semantics.Con
 		Location:  ctx.sourceLocation(file, span),
 		Err:       cause,
 	}
+}
+
+// performedConnector reads a connection usage a behavior being performed declares as the
+// performance's own connectors, its lower bound attached on first read to what its ends name there.
+func (ec *EvalContext) performedConnector(sym *symbols.Symbol) (Value, bool, error) {
+	ctx := ec.ctx
+	if sym == nil || sym.OwnerScope == nil || !ctx.model.semantics.IsConnectorObjectUsage(sym) {
+		return Value{}, false, nil
+	}
+	var perf *actionFrame
+	for i := len(ec.frames) - 1; i >= 0 && perf == nil; i-- {
+		if f := ec.frames[i].perf; f != nil && ctx.performanceDeclares(f, sym) {
+			perf = f
+		}
+	}
+	if perf == nil {
+		return Value{}, false, nil
+	}
+	// A performance run as an occurrence already holding the connection reads the occurrence's.
+	if perf.parent == nil {
+		if val, ok, err := ec.performanceFeatureOf(sym); ok || err != nil {
+			return val, true, err
+		}
+	}
+	// Held in the performance's own data, a parent's read of the step and a held image carry it.
+	if val, ok, err := ctx.readBodyValue(perf.cells, perf.data, sym.Name); ok || err != nil {
+		return val, true, err
+	}
+	mult := ctx.featureMultiplicity(sym, ctx.findOwnerType(sym))
+	scope := sym.OwnerScope
+	if origin := ctx.model.semantics.ConnectorEndsOrigin(sym); origin != nil && origin.OwnerScope != nil {
+		scope = origin.OwnerScope
+	}
+	attach := func(end semantics.ConnectorEndAttachment) (Value, error) {
+		if end.Attachment == nil {
+			return Value{}, ctx.connectorEndError(sym, end, errors.New("names no feature"))
+		}
+		return ctx.readConnectorEnd(ec.evalIn(scope), sym, end)
+	}
+	count, err := ctx.lowerBoundCount(mult, 0, SymbolText(sym))
+	if err != nil {
+		return Value{}, true, err
+	}
+	release := ctx.elementScope()
+	if err := ctx.chargeElements(count); err != nil {
+		release()
+		return Value{}, true, err
+	}
+	mark := len(ctx.created)
+	commit, rollback := ctx.beginJournal()
+	fail := func(err error) (Value, bool, error) {
+		rollback()
+		ctx.abandonInstancesSince(mark)
+		release()
+		return Value{}, true, err
+	}
+	elements := make([]Value, 0, count)
+	for range count {
+		var conn *Instance
+		if err := ctx.materializeConnectorAttaching(nil, sym, sym, 0, true, attach, func(c *Instance) { conn = c }); err != nil {
+			return fail(err)
+		}
+		val, err := ctx.objectValue(conn)
+		if err != nil {
+			return fail(err)
+		}
+		elements = append(elements, val)
+	}
+	commit()
+	val := sequenceOf(elements)
+	if one, _ := mult.HasBounds(1, 1); one {
+		val = elements[0]
+	}
+	ctx.writeBodyValue(perf.cells, perf.data, sym.Name, val)
+	return val, true, nil
+}
+
+// performanceDeclares reports whether perf performs the behavior declaring sym, or one inheriting it.
+func (ctx *Context) performanceDeclares(perf *actionFrame, sym *symbols.Symbol) bool {
+	if perf.scope == nil || perf.scope == sym.OwnerScope {
+		return perf.scope != nil
+	}
+	performed, declaring := perf.scope.Owner(), sym.OwnerScope.Owner()
+	return performed != nil && declaring != nil && ctx.model.semantics.Conforms(performed, declaring)
 }

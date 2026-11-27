@@ -311,7 +311,7 @@ func (e *StateExecutor) entryStep(progress *dueProgress) (bool, error) {
 		Span:         e.stateMachine.DeclSpan,
 	}
 	choice.alike = e.ctx.heldAlike
-	classifyChoice(&choice, fps, nil)
+	classifyChoice(e.ctx.choiceSerials, &choice, fps, nil)
 	choice.Taken = e.ctx.scheduling().choose(choice, nil)
 	if err := e.ctx.scheduling().refusal(); err != nil {
 		return false, err

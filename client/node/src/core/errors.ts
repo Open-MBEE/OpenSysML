@@ -82,6 +82,13 @@ export class AuthenticationError extends ServiceError {}
 /** A call exceeded its deadline, or was cancelled. */
 export class ServiceTimeoutError extends ServiceError {}
 
+/**
+ * A call was cancelled, by its own abort signal or by the service, rather than
+ * running past its deadline. A ServiceTimeoutError, as it was before it had a
+ * class of its own.
+ */
+export class ServiceCancelledError extends ServiceTimeoutError {}
+
 /** The service was unreachable, refused the stream, or died before answering. */
 export class ServiceUnavailableError extends ServiceError {}
 

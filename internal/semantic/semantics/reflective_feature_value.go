@@ -48,7 +48,10 @@ func (m *Model) ValueExpression(sym *symbols.Symbol) *symbols.Symbol {
 			if parts := m.acceptParts(sym); parts != nil {
 				return parts.parameterValue(sym)
 			}
-			return m.sendParameterValue(sym)
+			if value := m.sendParameterValue(sym); value != nil {
+				return value
+			}
+			return m.controlParameterValue(sym)
 		}
 		return m.expressionParameterValue(sym)
 	}
