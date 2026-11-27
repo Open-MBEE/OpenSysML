@@ -6,7 +6,6 @@ import (
 	"bufio"
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -27,31 +26,14 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var (
-	buildOnce   sync.Once
-	builtServer string
-	buildErr    error
-)
-
 // serviceBinary builds cmd/sysml-grpc once per test binary and returns its path.
 func serviceBinary(t *testing.T) string {
 	t.Helper()
-	buildOnce.Do(func() {
-		dir, err := os.MkdirTemp("", "sysml-grpc-build")
-		if err != nil {
-			buildErr = err
-			return
-		}
-		builtServer = filepath.Join(dir, "sysml-grpc")
-		build := exec.Command("go", gobuild.Args(builtServer)...)
-		if out, err := build.CombinedOutput(); err != nil {
-			buildErr = fmt.Errorf("go build: %v\n%s", err, out)
-		}
-	})
-	if buildErr != nil {
-		t.Fatalf("building the service: %v", buildErr)
+	path, err := testBuilds.Build("sysml-grpc", ".")
+	if err != nil {
+		t.Fatalf("building the service: %v", err)
 	}
-	return builtServer
+	return path
 }
 
 // builtVersion is the version the built binary resolves for itself: the module

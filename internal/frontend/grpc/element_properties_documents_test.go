@@ -186,3 +186,60 @@ func TestElementPropertiesRefuseAModelWhoseIdsCannotBeMinted(t *testing.T) {
 		}
 	}
 }
+
+// A document whose ids the element form cannot write (two declarations claiming one id) is
+// excluded alone, with that error; the other document still answers.
+func TestElementPropertiesExcludesTheDocumentWhoseIdsCollide(t *testing.T) {
+	r := parseDocumentsForElementProperties(t,
+		&pb.SourceDocument{Name: "a.sysml", Source: &pb.SourceDocument_Content{Content: "package A { part x; }"}},
+		&pb.SourceDocument{Name: "d.sysml", Source: &pb.SourceDocument_Content{Content: "package D {\n\tprivate import IdentityMetadata::*;\n\tpart def A { @ElementId { id = \"same\"; } }\n\tpart def B { @ElementId { id = \"same\"; } }\n}"}},
+	)
+	answered := r.read("A::x", "name")
+	if answered.Error != "" || len(answered.Properties) != 1 {
+		t.Fatalf("A::x answers %+v, want its name", answered)
+	}
+	if got := excludedNames(answered); !slices.Equal(got, []string{"d.sysml"}) {
+		t.Fatalf("excluded documents = %v, want [d.sysml]", got)
+	}
+	reason := answered.ExcludedDocuments[0].Error
+	if !strings.Contains(reason, "its id lands on the same IRI as D::A") {
+		t.Errorf("d.sysml is excluded for %q, want the colliding id", reason)
+	}
+	for _, id := range []string{"D", "D::A", "D::B"} {
+		if refused := r.read(id, "name"); refused.Error != reason || len(refused.Properties) != 0 {
+			t.Errorf("%s answers %+v, want its document's error", id, refused)
+		}
+	}
+}
+
+// What one set of documents excludes is not reported for another set parsed by the same service.
+func TestElementPropertiesExclusionsStayWithTheirDocumentSet(t *testing.T) {
+	srv := mustNewService(t, 10)
+	parse := func(documents ...*pb.SourceDocument) *elementPropertiesReader {
+		t.Helper()
+		parsed, err := srv.ParseSources(context.Background(), &pb.ParseSourcesRequest{Documents: documents})
+		if err != nil {
+			t.Fatalf("ParseSources: %v", err)
+		}
+		return &elementPropertiesReader{t: t, srv: srv, hash: parsed.ModelHash}
+	}
+	readable := &pb.SourceDocument{Name: "a.sysml", Source: &pb.SourceDocument_Content{Content: "package A { part x; }"}}
+	broken := parse(readable,
+		&pb.SourceDocument{Name: "c.sysml", Source: &pb.SourceDocument_Content{Content: "package C { part y }"}})
+	whole := parse(readable,
+		&pb.SourceDocument{Name: "c.sysml", Source: &pb.SourceDocument_Content{Content: "package C { part y; }"}})
+	if broken.hash == whole.hash {
+		t.Fatal("the two document sets share a model")
+	}
+	if got := excludedNames(broken.read("A::x", "name")); !slices.Equal(got, []string{"c.sysml"}) {
+		t.Errorf("the set with a syntax error excludes %v, want [c.sysml]", got)
+	}
+	for _, id := range []string{"A::x", "C::y"} {
+		if resp := whole.read(id, "name"); resp.Error != "" || len(resp.Properties) != 1 || len(resp.ExcludedDocuments) != 0 {
+			t.Errorf("%s of the readable set answers %+v, want its name and no excluded document", id, resp)
+		}
+	}
+	if got := excludedNames(broken.read("A::x", "name")); !slices.Equal(got, []string{"c.sysml"}) {
+		t.Errorf("after the readable set was read, the other excludes %v, want [c.sysml]", got)
+	}
+}

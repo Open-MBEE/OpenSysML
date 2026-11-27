@@ -27,6 +27,8 @@ type Scope struct {
 	recorded         bool                                // rebuilt from an interface record: no node, imports and filters held here
 	imports          []*ast.Import                       // a recorded scope's import declarations
 	nodeImports      atomic.Pointer[[]*ast.Import]       // lazily collected import declarations of node
+	loopGuard        atomic.Pointer[Scope]               // a loop scope's view for its conditions (LoopGuard)
+	guardView        bool                                // a LoopGuard view of the parent scope
 	filters          []ElementFilter                     // a recorded scope's `filter` conditions
 }
 
@@ -107,6 +109,55 @@ func (s *Scope) Imports() []*ast.Import {
 	}
 	s.nodeImports.Store(&out)
 	return out
+}
+
+// LoopGuard returns the scope a loop's conditions resolve in, given the loop's own: itself, or,
+// where the body states imports, a view that reads the body's declarations but not those imports.
+func (s *Scope) LoopGuard() *Scope {
+	if s == nil {
+		return nil
+	}
+	if _, isLoop := s.node.(*ast.WhileLoopActionNode); !isLoop || len(s.Imports()) == 0 {
+		return s
+	}
+	if view := s.loopGuard.Load(); view != nil {
+		return view
+	}
+	view := NewScope(s, nil)
+	view.docName, view.bodyLocal, view.guardView = s.docName, true, true
+	s.loopGuard.CompareAndSwap(nil, view)
+	return s.loopGuard.Load()
+}
+
+// GuardView reports whether a lookup leaving this scope for its parent comes from a loop's
+// condition: the view LoopGuard gave, or the scope of a body expression the condition holds.
+func (s *Scope) GuardView() bool {
+	if s == nil || s.guardView {
+		return s != nil
+	}
+	body, isBody := s.node.(*ast.BodyExpr)
+	if !isBody || s.parent == nil {
+		return false
+	}
+	loop, isLoop := s.parent.node.(*ast.WhileLoopActionNode)
+	return isLoop && (spanHolds(loop.Condition, body) || spanHolds(loop.Until, body))
+}
+
+// spanHolds reports whether inner is written within outer.
+func spanHolds(outer ast.Node, inner *ast.BodyExpr) bool {
+	if outer == nil {
+		return false
+	}
+	out, in := outer.Span(), inner.Span()
+	return out.Offset <= in.Offset && in.End() <= out.End()
+}
+
+// treeScope is the scope whose children a body expression read from s is linked under.
+func (s *Scope) treeScope() *Scope {
+	if s != nil && s.guardView {
+		return s.parent
+	}
+	return s
 }
 
 // BodyLocal reports whether this scope's names exist only inside the body that

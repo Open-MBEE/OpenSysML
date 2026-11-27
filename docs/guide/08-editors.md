@@ -345,7 +345,9 @@ Under either client the server is found as the VS Code extension finds it:
   `sysml.strictConformance`; setting it republishes every open document's
   diagnostics without a restart. Under Eglot it is `(:sysml (:strictConformance t))`
   in `eglot-workspace-configuration`, sent again by
-  `M-x eglot-signal-didChangeConfiguration`. The code lenses are lsp-mode's only.
+  `M-x eglot-signal-didChangeConfiguration`. The code lenses are lsp-mode's only;
+  under Eglot, `M-x sysml-eglot-run-element` runs or evaluates the element at
+  point as a Run or Evaluate lens does.
 - **`M-x sysml-diagram-show`** is the counterpart of [the diagram
   panel](#the-diagram-panel): the same renderings, drawn as a tree of elements
   with their edges and what could not be represented. `RET` on an element visits

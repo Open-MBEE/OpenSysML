@@ -19,7 +19,9 @@
 ;; - `sysml-eglot-render-changed-functions', run on the server's
 ;;   `opensysml/renderChanged' notification;
 ;; - read-only buffers of the bundled library documents, whose text the
-;;   server serves through `opensysml/stdlibContent'.
+;;   server serves through `opensysml/stdlibContent';
+;; - `sysml-eglot-run-element', which runs an executable element as the
+;;   server's Run and Evaluate code lenses do.  Eglot shows no code lenses.
 ;;
 ;; The server is found as under lsp-mode: the `sysml-lsp-server-path'
 ;; setting, else `bin/sysml-lsp' in the project root, else `sysml-lsp' on
@@ -74,6 +76,81 @@ an empty buffer; it is located in the document's library buffer instead."
 
 (advice-add 'eglot--xref-make-match :around #'sysml-eglot--xref-library-match)
 
+;;;; Running elements
+
+;; A Run or Evaluate lens's command is the client's to carry out: the server
+;; serves no `workspace/executeCommand', so `eglot-execute' cannot run it.
+
+(defconst sysml-eglot--run-element-command "opensysml.runElement"
+  "The client command a Run or Evaluate code lens invokes.")
+
+(defun sysml-eglot--run-lenses ()
+  "Return the current buffer's Run and Evaluate code lenses."
+  (let ((server (eglot-current-server)))
+    (unless server
+      (user-error "No language server manages this buffer; start it with M-x eglot"))
+    (unless (eglot-server-capable :codeLensProvider)
+      (user-error "This language server offers no code lenses"))
+    ;; The lenses are matched to point, so the server must have the buffer's text.
+    (eglot--signal-textDocument/didChange)
+    (seq-filter (lambda (lens)
+                  (equal (plist-get (plist-get lens :command) :command)
+                         sysml-eglot--run-element-command))
+                (jsonrpc-request server :textDocument/codeLens
+                                 (list :textDocument (list :uri (eglot-path-to-uri buffer-file-name)))))))
+
+(defun sysml-eglot--lens-at-point (lenses)
+  "Return the one of LENSES on the name at point, or nil.
+A lens's range is the name of the element it runs."
+  (seq-find (lambda (lens)
+              (pcase-let ((`(,beg . ,end) (eglot-range-region (plist-get lens :range))))
+                (<= beg (point) end)))
+            lenses))
+
+(defun sysml-eglot--read-lens (lenses)
+  "Read one of LENSES from the minibuffer by its element's qualified name.
+A title holds the element's short name, which two packages may share;
+no two lenses share the qualified name, the one given to `sysml'."
+  (let ((elements (mapcar (lambda (lens)
+                            (plist-get (seq-first (plist-get (plist-get lens :command) :arguments))
+                                       :element))
+                          lenses)))
+    (nth (seq-position elements (completing-read "Run or evaluate: " elements nil t))
+         lenses)))
+
+(defun sysml-eglot--folders (server)
+  "Return the file names of SERVER's workspace folders."
+  (mapcar (lambda (folder) (eglot-uri-to-path (plist-get folder :uri)))
+          (eglot-workspace-folders server)))
+
+(defun sysml-eglot--find-tool (folders)
+  "Return the `sysml' executable to run elements with, or nil.
+The project root is the first of the workspace FOLDERS, and the language
+server the one found from it; see `sysml-find-tool'."
+  (let ((root (car folders)))
+    (sysml-find-tool (sysml--find-server root) root)))
+
+(defun sysml-eglot-run-element (&optional choose)
+  "Run or evaluate an executable element of the current buffer with `sysml'.
+The elements are those the server offers a Run or Evaluate code lens
+on: each action, state, calc, constraint and requirement `sysml' can
+run by name, in a file on disk.  The one whose name point is on is
+run; elsewhere, or with the prefix argument CHOOSE, one is read from
+the minibuffer.  See `sysml-run-element' for how it is run."
+  (interactive "P")
+  (let* ((lenses (sysml-eglot--run-lenses))
+         (lens (cond ((null lenses)
+                      (user-error "The server offers nothing to run in this buffer"))
+                     ((and (not choose) (sysml-eglot--lens-at-point lenses)))
+                     (t (sysml-eglot--read-lens lenses))))
+         (args (car (append (plist-get (plist-get lens :command) :arguments) nil)))
+         (uri (plist-get args :uri))
+         (folders (sysml-eglot--folders (eglot-current-server))))
+    (sysml-run-element (plist-get args :kind)
+                       (plist-get args :element)
+                       (and uri (sysml-run-paths (eglot-uri-to-path uri) folders))
+                       (sysml-eglot--find-tool folders))))
+
 ;;;; Formatting
 
 (defun sysml-eglot--format-with-mode-offset (format &rest args)
@@ -111,16 +188,21 @@ Modifiers are left off for the same reason: the server marks an
 A build is looked for in the root of PROJECT, the project Eglot starts
 the server for, or of the current buffer's when Eglot passes none.  The
 executable is named as its own host names it, since Eglot starts it there.
-When `sysml-lsp-server-path' is unset, none is found and INTERACTIVE is
-non-nil, the bare executable name is returned, which has \\[eglot] prompt
-for the program to run."
-  (let ((root (if project (project-root project) (sysml--project-root))))
-    (if (and interactive
-             (not sysml-lsp-server-path)
-             (not (sysml--find-server root t)))
-        (cons sysml--server-executable sysml-lsp-server-args)
-      (pcase-let ((`(,server . ,args) (sysml--server-command root t)))
-        (cons (file-local-name server) args)))))
+When none is found and INTERACTIVE is non-nil, a command is returned for
+\\[eglot] to prompt with rather than an error signaled: the bare
+executable name when `sysml-lsp-server-path' is unset, and the configured
+path under a prefix argument, which always prompts.  A configured path
+that is not executable is otherwise an error, never passed over for
+another server."
+  (let* ((root (if project (project-root project) (sysml--project-root)))
+         (server (sysml--find-server root t)))
+    (cond
+     (server (cons (file-local-name server) sysml-lsp-server-args))
+     ((and interactive (not sysml-lsp-server-path))
+      (cons sysml--server-executable sysml-lsp-server-args))
+     ((and interactive current-prefix-arg)
+      (cons sysml-lsp-server-path sysml-lsp-server-args))
+     (t (sysml--server-command root t)))))
 
 (add-to-list 'eglot-server-programs
              '((sysml-mode kerml-mode) . sysml-eglot--server-command))

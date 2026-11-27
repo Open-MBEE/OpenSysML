@@ -8,12 +8,10 @@ import (
 	"fmt"
 	"maps"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
-	"sync"
 	"testing"
 
 	"connectrpc.com/connect"
@@ -897,32 +895,19 @@ var conformanceTools = map[string]struct {
 	"toolcalc": {"Thermo", []string{`"mass"`, `"power"`, `"warn"`, `"Tmax"`}},
 }
 
-var conformanceToolBuilds sync.Map // name -> string path or error
+// testBuilds holds the commands this package's tests build and drive as processes.
+var testBuilds = gobuild.Scratch{Pattern: "grpc-conformance-builds"}
+
+// TestMain removes the directory the commands under test were built into.
+func TestMain(m *testing.M) { testBuilds.Main(m) }
 
 // conformanceToolBinary builds a stand-in once per test binary.
 func conformanceToolBinary(t *testing.T, name string) string {
 	t.Helper()
-	if built, ok := conformanceToolBuilds.Load(name); ok {
-		switch v := built.(type) {
-		case string:
-			return v
-		case error:
-			t.Fatalf("building the %s stand-in: %v", name, v)
-		}
-	}
-	dir, err := os.MkdirTemp("", "conformance-tool")
+	path, err := testBuilds.Build(name, filepath.Join("..", "..", "internal", "exec", "analysis", "testdata", name))
 	if err != nil {
-		t.Fatal(err)
-	}
-	path := filepath.Join(dir, name)
-	build := exec.Command("go", gobuild.Args(path)...)
-	build.Dir = filepath.Join("..", "..", "internal", "exec", "analysis", "testdata", name)
-	if out, err := build.CombinedOutput(); err != nil {
-		err = fmt.Errorf("go build: %v\n%s", err, out)
-		conformanceToolBuilds.Store(name, err)
 		t.Fatalf("building the %s stand-in: %v", name, err)
 	}
-	conformanceToolBuilds.Store(name, path)
 	return path
 }
 

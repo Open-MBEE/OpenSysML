@@ -542,6 +542,11 @@ func (d *decoder) coverTargets(child *element, stated map[ast.RelationshipKind]m
 // parameterMember: el is owned through a subject, actor or stakeholder membership, whose `in` is the default never
 // spelled out; a bare ParameterMembership or an ObjectiveMembership (a FeatureMembership) states a direction explicitly.
 func (d *decoder) parameterMember(el *element) bool {
+	if m, owned := d.owningMembership[el.iri]; owned && el.metaclass == usageMetaclass[ast.UsageAction] &&
+		d.metaclass(rdf.IRI(m.iri)) == mParameterMembership {
+		// A loop's written body (`loop action a { … }`) is its parameter.
+		return true
+	}
 	kind, ok := d.parameterMembershipKind(el)
 	return ok && kind != ast.UsageObjective
 }

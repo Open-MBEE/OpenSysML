@@ -6,9 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -16,38 +14,19 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
-
-	"github.com/Open-MBEE/OpenSysML/tests/testutil/gobuild"
 )
 
 // The binary is what an editor starts, so the lifecycle is tested through it:
 // the transport flag a language client passes and the exit status it waits for
 // are only observable from outside the process.
-var (
-	buildOnce   sync.Once
-	builtServer string
-	buildErr    error
-)
-
 // serverBinary builds cmd/sysml-lsp once per test binary and returns its path.
 func serverBinary(t *testing.T) string {
 	t.Helper()
-	buildOnce.Do(func() {
-		dir, err := os.MkdirTemp("", "sysml-lsp-build")
-		if err != nil {
-			buildErr = err
-			return
-		}
-		builtServer = filepath.Join(dir, "sysml-lsp")
-		build := exec.Command("go", gobuild.Args(builtServer)...)
-		if out, err := build.CombinedOutput(); err != nil {
-			buildErr = fmt.Errorf("go build: %v\n%s", err, out)
-		}
-	})
-	if buildErr != nil {
-		t.Fatalf("building the server: %v", buildErr)
+	path, err := testBuilds.Build("sysml-lsp", ".")
+	if err != nil {
+		t.Fatalf("building the server: %v", err)
 	}
-	return builtServer
+	return path
 }
 
 type lockedBuffer struct {

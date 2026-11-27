@@ -35,11 +35,8 @@ func LookupNamedMember(idx *symbols.Index, model *semantics.Model, id string) []
 	if syms := LookupNamed(idx, id); len(syms) > 0 {
 		return syms
 	}
-	name := id
-	if plain, ok := UnquotedName(id); ok {
-		name = plain
-	}
-	if sym, _ := MemberChain(idx, model, name); sym != nil {
+	// The notation's own segments are walked, so a quoted one holding `::` stays one member.
+	if sym, _ := MemberChainSegments(idx, model, NameSegments(id)); sym != nil {
 		return []*symbols.Symbol{sym}
 	}
 	return nil
@@ -54,10 +51,15 @@ func LookupNamedMember(idx *symbols.Index, model *semantics.Model, id string) []
 // fully-qualified name the member is declared under; nil and "" when no prefix
 // is a declaration the rest walks from.
 func MemberChain(idx *symbols.Index, model *semantics.Model, name string) (*symbols.Symbol, string) {
+	return MemberChainSegments(idx, model, strings.Split(name, "::"))
+}
+
+// MemberChainSegments is MemberChain over a name already cut into its unquoted
+// segments, so one that holds `::` inside its quotes stays one member.
+func MemberChainSegments(idx *symbols.Index, model *semantics.Model, segments []string) (*symbols.Symbol, string) {
 	if idx == nil || model == nil {
 		return nil, ""
 	}
-	segments := strings.Split(name, "::")
 	// The longest prefix is tried first, so a nested feature is preferred over
 	// the type it happens to share a name with.
 	for i := len(segments) - 1; i > 0; i-- {
@@ -83,7 +85,7 @@ func MemberChain(idx *symbols.Index, model *semantics.Model, name string) (*symb
 		}
 		fqn := idx.GetFQN(sym)
 		if fqn == "" {
-			fqn = name
+			fqn = strings.Join(segments, "::")
 		}
 		return sym, fqn
 	}

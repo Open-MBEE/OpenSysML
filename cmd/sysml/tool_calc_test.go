@@ -1,45 +1,23 @@
 package main
 
 import (
-	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
-	"sync"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
-	"github.com/Open-MBEE/OpenSysML/tests/testutil/gobuild"
-)
-
-var (
-	toolCalcOnce sync.Once
-	toolCalcPath string
-	toolCalcErr  error
 )
 
 // toolCalcStandin builds the tool stand-in of the analysis package's tests once per
 // test binary.
 func toolCalcStandin(t *testing.T) string {
 	t.Helper()
-	toolCalcOnce.Do(func() {
-		dir, err := os.MkdirTemp("", "toolcalc")
-		if err != nil {
-			toolCalcErr = err
-			return
-		}
-		toolCalcPath = filepath.Join(dir, "toolcalc")
-		build := exec.Command("go", gobuild.Args(toolCalcPath)...)
-		build.Dir = filepath.Join("..", "..", "internal", "exec", "analysis", "testdata", "toolcalc")
-		if out, err := build.CombinedOutput(); err != nil {
-			toolCalcErr = fmt.Errorf("go build: %v\n%s", err, out)
-		}
-	})
-	if toolCalcErr != nil {
-		t.Fatalf("building the tool stand-in: %v", toolCalcErr)
+	path, err := testBuilds.Build("toolcalc", filepath.Join("..", "..", "internal", "exec", "analysis", "testdata", "toolcalc"))
+	if err != nil {
+		t.Fatalf("building the tool stand-in: %v", err)
 	}
-	return toolCalcPath
+	return path
 }
 
 // toolCalcManifest writes a manifest naming Thermo and points OPENSYSML_TOOLS at it.

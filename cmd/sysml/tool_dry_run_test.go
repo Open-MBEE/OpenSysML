@@ -3,14 +3,11 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
-	"github.com/Open-MBEE/OpenSysML/tests/testutil/gobuild"
 )
 
 // toolCaseModel is a tool-computed action and the case performing it.
@@ -29,32 +26,14 @@ const toolCaseModel = `package Tools {
 }
 `
 
-var (
-	toolOnce sync.Once
-	toolPath string
-	toolErr  error
-)
-
 // dryRunStandin builds the analysis package's tool stand-in once per test binary.
 func dryRunStandin(t *testing.T) string {
 	t.Helper()
-	toolOnce.Do(func() {
-		dir, err := os.MkdirTemp("", "toolstandin")
-		if err != nil {
-			toolErr = err
-			return
-		}
-		toolPath = filepath.Join(dir, "toolstandin")
-		build := exec.Command("go", gobuild.Args(toolPath)...)
-		build.Dir = filepath.Join("..", "..", "internal", "exec", "analysis", "testdata", "toolstandin")
-		if out, err := build.CombinedOutput(); err != nil {
-			toolErr = fmt.Errorf("go build: %v\n%s", err, out)
-		}
-	})
-	if toolErr != nil {
-		t.Fatalf("building the stand-in tool: %v", toolErr)
+	path, err := testBuilds.Build("toolstandin", filepath.Join("..", "..", "internal", "exec", "analysis", "testdata", "toolstandin"))
+	if err != nil {
+		t.Fatalf("building the stand-in tool: %v", err)
 	}
-	return toolPath
+	return path
 }
 
 // dryRunManifest writes the tool entries into a manifest directory of the test's
