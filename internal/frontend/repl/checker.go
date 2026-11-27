@@ -253,7 +253,7 @@ func (s *Session) doCheckBounds(args []string) []string {
 	for _, arg := range args {
 		name, value, found := strings.Cut(arg, "=")
 		if !found {
-			return []string{"usage: %check-bounds [depth=<n>] [states=<n>] [unroll=<n>] [timeout=<duration>] | off"}
+			return s.usage("usage: %check-bounds [depth=<n>] [states=<n>] [unroll=<n>] [timeout=<duration>] | off")
 		}
 		var err error
 		switch name {
@@ -327,7 +327,7 @@ func settingText(values []string, empty string) string {
 // engine they would search instead, so the hint names the selection to leave.
 func (s *Session) doReplay(args []string) []string {
 	if len(args) != 1 {
-		return []string{"usage: %replay <witness>"}
+		return s.usage("usage: %replay <witness>")
 	}
 	policy, err := runtime.ParseSchedulePolicy("replay:" + args[0])
 	if err != nil {

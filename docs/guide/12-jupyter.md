@@ -117,7 +117,7 @@ instances built from it are rebuilt on their next use. `%clear` starts the sessi
 `%quit` is noted rather than acted on — the notebook's own shutdown ends the kernel.
 
 Everything the prompt prints is the cell's standard output. A declaration that does not
-parse, a command that fails, or an expression that cannot be evaluated is an error output
+parse, a command that fails or is answered with its usage, or an expression that cannot be evaluated is an error output
 with the prompt's message, and the cells queued behind it (as when running the whole
 notebook) are skipped, as notebooks expect.
 
