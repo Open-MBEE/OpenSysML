@@ -26,13 +26,17 @@ func ExploreWith(stop context.Context, policy SchedulePolicy, jobs int, fresh fu
 	return newExploreQueue(policy, budget, jobs).explore(stop, fresh, run)
 }
 
+// MaxExploreJobs bounds the jobs one exploration puts to work: each is a goroutine holding
+// a worker's context, and both the count asked for and the runs budget come from outside.
+const MaxExploreJobs = 256
+
 // newExploreQueue is the queue over an exploration's prefixes under budget, the root prefix
-// queued, for min(jobs, runs) jobs.
+// queued, for min(jobs, runs, MaxExploreJobs) jobs.
 func newExploreQueue(policy SchedulePolicy, budget ExploreBudget, jobs int) *exploreQueue {
 	q := &exploreQueue{
 		policy:        policy,
 		budget:        budget,
-		jobs:          max(min(jobs, budget.Runs), 1),
+		jobs:          max(min(jobs, budget.Runs, MaxExploreJobs), 1),
 		result:        &Exploration{Budget: budget},
 		reached:       make(map[string]int),
 		probabilities: &probabilityNode{children: make(map[int]*probabilityNode)},

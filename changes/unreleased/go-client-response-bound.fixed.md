@@ -1,1 +1,0 @@
-- The Go client's `Dial` bounds each response message at 128 MiB (`DefaultMaxResponseBytes`), failing a larger one with `CodeResourceExhausted` instead of buffering it; `WithMaxResponseBytes` names another bound.

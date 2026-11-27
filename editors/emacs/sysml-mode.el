@@ -20,12 +20,17 @@
 ;; line that continues the statement above it.
 ;;
 ;; `sysml-lsp.el' connects the modes to the OpenSysML language server
-;; through lsp-mode.
+;; through lsp-mode, and `sysml-eglot.el' through Eglot.
 
 ;;; Code:
 
+(require 'compile)
+(require 'project)
+(require 'xref)
 (require 'seq)
 (require 'sysml-mode-keywords)
+(require 'url-parse)
+(require 'url-util)
 
 (defgroup sysml nil
   "SysML v2 and KerML editing."
@@ -392,6 +397,330 @@ Point is at the line's first non-blank character."
 (add-to-list 'auto-mode-alist '("\\.sysml\\'" . sysml-mode))
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.kerml\\'" . kerml-mode))
+
+;;;; The language server
+
+(defconst sysml--server-executable
+  (if (eq system-type 'windows-nt) "sysml-lsp.exe" "sysml-lsp")
+  "File name of the language server.")
+
+(defcustom sysml-lsp-server-path nil
+  "Absolute path to the `sysml-lsp' executable.
+When nil, `bin/sysml-lsp' in the project root is used if it exists and
+`sysml-project-builds' allows it, then `sysml-lsp' on the variable
+`exec-path'.  lsp-mode and Eglot both start the server this names."
+  :type '(choice (const :tag "Find it" nil) file)
+  :risky t)
+
+(defcustom sysml-lsp-server-args nil
+  "Extra arguments passed to the language server, under lsp-mode and Eglot."
+  :type '(repeat string)
+  :risky t)
+
+(defcustom sysml-project-builds nil
+  "Whether the `sysml-lsp' and `sysml' a project builds in its `bin/' may be run.
+An alist of project roots, a remote one under its full remote name, and
+whether the executables there may be run; a root matches with or without
+its trailing slash.  What is listed here stands before any answer given
+to the question.  A project not listed is asked about once, when it holds
+one of them, and the answer saved in `sysml-project-builds-file'; a
+session that cannot ask, such as a batch one, runs neither."
+  :type '(alist :key-type directory
+                :value-type (choice (const :tag "Run them" t)
+                                    (const :tag "Do not run them" nil)))
+  :risky t)
+
+(defcustom sysml-project-builds-file
+  (locate-user-emacs-file "sysml-project-builds.eld")
+  "File the answers about running project builds are saved in.
+It holds an alist like `sysml-project-builds', read each time a build
+is looked for, so an answer given or changed in another Emacs holds
+here too.  Saving an answer changes the entry of its project alone."
+  :type 'file
+  :risky t)
+
+(defvar sysml--project-build-answers nil
+  "Answers of this session that could not be saved, like `sysml-project-builds'.")
+
+(defun sysml--project-root ()
+  "Return the root of the current buffer's project, or nil."
+  (when-let* ((project (project-current)))
+    (project-root project)))
+
+(defun sysml--project-build-key (root)
+  "Return the name `sysml-project-builds' lists the project root ROOT under.
+A remote name is left unexpanded, which would need its host."
+  (file-name-as-directory (if (file-remote-p root) root (expand-file-name root))))
+
+(defun sysml--saved-project-builds ()
+  "Return the answers saved in `sysml-project-builds-file'.
+Signal an error when the file is there and is not such an alist."
+  (when (file-exists-p sysml-project-builds-file)
+    (let ((answers (with-temp-buffer
+                     (insert-file-contents sysml-project-builds-file)
+                     (read (current-buffer)))))
+      (unless (and (listp answers)
+                   (seq-every-p (lambda (entry)
+                                  (and (consp entry) (stringp (car entry))
+                                       (booleanp (cdr entry))))
+                                answers))
+        (error "Not a list of project builds: %s" sysml-project-builds-file))
+      answers)))
+
+(defun sysml--save-project-build (root allowed)
+  "Save in `sysml-project-builds-file' whether the build of ROOT is ALLOWED.
+The file is read anew and written whole under another name first, so the
+answers another Emacs saved stay, and no reader sees half of it."
+  (let* ((file (expand-file-name sysml-project-builds-file))
+         (others (seq-remove (lambda (entry)
+                               (string= (sysml--project-build-key (car entry)) root))
+                             (sysml--saved-project-builds)))
+         (_ (make-directory (file-name-directory file) t))
+         (new (make-temp-file file)))
+    (with-temp-file new
+      (insert ";; Whether the sysml-lsp and sysml each project builds may be run.\n")
+      (let ((print-length nil)
+            (print-level nil))
+        (pp (cons (cons root allowed) others) (current-buffer))))
+    (rename-file new file t)))
+
+(defun sysml--project-build-answer (root)
+  "Return the entry for the project root ROOT, or nil when there is none.
+`sysml-project-builds' stands before an answer this session could not
+save, and that before those `sysml-project-builds-file' holds."
+  (let* ((key (sysml--project-build-key root))
+         (find (lambda (answers)
+                 (seq-find (lambda (entry)
+                             (string= (sysml--project-build-key (car entry)) key))
+                           answers))))
+    (or (funcall find sysml-project-builds)
+        (funcall find sysml--project-build-answers)
+        (funcall find (condition-case err
+                          (sysml--saved-project-builds)
+                        (error (message "Could not read the saved project builds: %s"
+                                        (error-message-string err))
+                               nil))))))
+
+(defun sysml--project-build-allowed-p (root)
+  "Return non-nil when the executables in the `bin/' of project ROOT may be run.
+The user is asked the first time, and `sysml-project-builds-file'
+records the answer, since opening a file of a checkout would otherwise
+run what that checkout supplies."
+  (let ((root (sysml--project-build-key root))
+        (known (sysml--project-build-answer root)))
+    (cond
+     (known (cdr known))
+     (noninteractive nil)
+     (t (let ((allowed (y-or-n-p (format "Run the sysml-lsp and sysml built in %sbin/? "
+                                         root))))
+          (condition-case err
+              (sysml--save-project-build root allowed)
+            (error
+             (push (cons root allowed) sysml--project-build-answers)
+             (message "Could not save the answer, which holds for this session: %s"
+                      (error-message-string err))))
+          allowed)))))
+
+(defun sysml--project-build-file (name root)
+  "Return the executable NAME in the `bin/' of project ROOT, or nil.
+ROOT may be nil."
+  (when-let* ((root)
+              (candidate (expand-file-name (concat "bin/" name) root))
+              ((file-executable-p candidate)))
+    candidate))
+
+(defun sysml--project-build (name root)
+  "Return the executable NAME in the `bin/' of project ROOT, or nil.
+It is nil when ROOT is nil, holds no such executable, or is not allowed
+to run it; see `sysml--project-build-allowed-p'."
+  (when-let* ((candidate (sysml--project-build-file name root))
+              ((sysml--project-build-allowed-p root)))
+    candidate))
+
+(defun sysml--refused-project-build (name root)
+  "Return the executable NAME in the `bin/' of project ROOT if it may not be run.
+It may not when `sysml-project-builds' says so, or says nothing in a
+session that cannot ask.  Nobody is asked."
+  (when-let* ((candidate (sysml--project-build-file name root)))
+    (let ((known (sysml--project-build-answer root)))
+      (and (if known (not (cdr known)) noninteractive) candidate))))
+
+(defun sysml--instead-of-project-build (name root found)
+  "Return FOUND, the executable NAME to use, or nil.
+Say so when it is used in place of a build project ROOT may not run."
+  (when-let* ((found)
+              (refused (sysml--refused-project-build name root)))
+    (message "Using %s: `sysml-project-builds' does not allow %s to run" found refused))
+  found)
+
+(defun sysml--missing-executable (name root advice)
+  "Return the text saying the executable NAME was not found.
+A build of it project ROOT may not run is named; otherwise ADVICE, how
+to get one, is given."
+  (format-message
+   "Could not find %s: %s, or put it on `exec-path'" name
+   (if-let* ((refused (sysml--refused-project-build name root)))
+       (format-message
+        "the build in %s is not allowed to run; allow it in `sysml-project-builds'%s"
+        (file-name-directory refused)
+        (if (equal name sysml--server-executable) ", set `sysml-lsp-server-path'" ""))
+     advice)))
+
+(defun sysml--find-server (root &optional remote)
+  "Return the language server executable, or nil when none is found.
+ROOT is the project root to look for a build in, or nil; a build there
+is used only when `sysml-project-builds' allows it.  With REMOTE
+non-nil, variable `exec-path' is that of the host of `default-directory'."
+  (cond
+   (sysml-lsp-server-path
+    (and (file-executable-p sysml-lsp-server-path) sysml-lsp-server-path))
+   ((sysml--project-build sysml--server-executable root))
+   (t (sysml--instead-of-project-build
+       sysml--server-executable root
+       (executable-find sysml--server-executable remote)))))
+
+(defun sysml--missing-server (root)
+  "Return the text saying no language server was found for project ROOT."
+  (sysml--missing-executable
+   sysml--server-executable root
+   (format-message "build it with `make build' and set `sysml-lsp-server-path'")))
+
+(defun sysml--server-command (root &optional remote)
+  "Return the command to start the language server with.
+ROOT and REMOTE are as for `sysml--find-server'."
+  (let ((server (sysml--find-server root remote)))
+    (unless server
+      (user-error "%s" (sysml--missing-server root)))
+    (cons server sysml-lsp-server-args)))
+
+;;;; Bundled library documents
+
+(defvar-local sysml-library-uri nil
+  "The `sysml-stdlib:' URI of the bundled library document this buffer shows.")
+
+(defvar-local sysml--library-server nil
+  "The language server whose bundled library this buffer's text is from.")
+
+(defun sysml-library-uri-p (uri)
+  "Return non-nil when URI names a document of the bundled library.
+The server reports such locations under the `sysml-stdlib' scheme; no
+file on disk holds them."
+  (string-prefix-p "sysml-stdlib:" uri))
+
+(defun sysml-library-buffer (uri server fetch-text)
+  "Return a read-only buffer showing the bundled library document URI of SERVER.
+FETCH-TEXT is called with no arguments to return the document's text,
+once per document and server: another build may bundle a different
+library."
+  (or (seq-find (lambda (buffer)
+                  (and (equal (buffer-local-value 'sysml-library-uri buffer) uri)
+                       (eq (buffer-local-value 'sysml--library-server buffer) server)))
+                (buffer-list))
+      (let* ((text (funcall fetch-text))
+             (path (url-unhex-string (url-filename (url-generic-parse-url uri))))
+             (buffer (generate-new-buffer (format "%s <library>" (file-name-nondirectory path)))))
+        (with-current-buffer buffer
+          (insert text)
+          (if (string-suffix-p ".kerml" path) (kerml-mode) (sysml-mode))
+          (setq sysml-library-uri uri
+                sysml--library-server server)
+          (set-buffer-modified-p nil)
+          (setq buffer-read-only t)
+          (goto-char (point-min)))
+        buffer)))
+
+(defun sysml-library-xref-item (buffer beg end)
+  "Return an xref item for the text from BEG to END of library BUFFER.
+A bundled library document has no file to name, so the item is located
+in the buffer showing it; its summary is the line BEG is on.  It is not
+a match: the buffer is read-only, so a replacement must pass it by."
+  (with-current-buffer buffer
+    (save-excursion
+      (save-restriction
+        (widen)
+        (goto-char beg)
+        (let* ((bol (line-beginning-position))
+               (eol (line-end-position))
+               (summary (buffer-substring bol eol)))
+          (add-face-text-property (- beg bol) (- (min end eol) bol) 'xref-match t summary)
+          (xref-make summary (xref-make-buffer-location buffer beg)))))))
+
+;;;; Running elements
+
+;; A Run or Evaluate code lens's command is the client's to carry out, by
+;; running `sysml'.  This is the part of that every client shares.
+
+(defconst sysml--tool
+  (if (eq system-type 'windows-nt) "sysml.exe" "sysml")
+  "File name of the command-line tool a Run or Evaluate lens runs.")
+
+(defconst sysml--run-flags
+  '(("action" . "-action")
+    ("state" . "-state")
+    ("calc" . "-calc")
+    ("constraint" . "-constraint")
+    ("requirement" . "-requirement"))
+  "The `sysml' flag that runs each kind of element a lens names.")
+
+(defun sysml-find-tool (server root)
+  "Return the `sysml' executable to run Run and Evaluate lenses with, or nil.
+It is looked for beside the language server executable SERVER, then in
+the `bin/' of the project root ROOT when `sysml-project-builds' allows
+it, then on the variable `exec-path', as the VS Code extension looks.
+SERVER and ROOT may be nil."
+  (or (when-let* ((server)
+                  (sibling (expand-file-name sysml--tool (file-name-directory server))))
+        (and (file-executable-p sibling) sibling))
+      (sysml--project-build sysml--tool root)
+      (sysml--instead-of-project-build sysml--tool root (executable-find sysml--tool))))
+
+(defun sysml-run-paths (file folders)
+  "Return the model paths to load when running an element declared in FILE.
+When one of the workspace FOLDERS holds FILE these are all the folders,
+which the server indexes together, so a name another root declares
+resolves as it does in the editor; FILE alone when no folder holds it."
+  (if (seq-some (lambda (folder)
+                  (or (string= folder file)
+                      (string-prefix-p (file-name-as-directory folder) file)))
+                folders)
+      (copy-sequence folders)
+    (list file)))
+
+(defun sysml--unsaved-model-buffers ()
+  "Return the model buffers holding edits not yet saved to their file."
+  (seq-filter (lambda (buffer)
+                (with-current-buffer buffer
+                  (and buffer-file-name
+                       (buffer-modified-p)
+                       (derived-mode-p 'sysml-base-mode))))
+              (buffer-list)))
+
+(defun sysml-run-element (kind element paths tool &optional root)
+  "Run ELEMENT, an executable element of KIND, with the `sysml' executable TOOL.
+KIND and ELEMENT are the kind and qualified name a Run or Evaluate lens
+names, and PATHS the model paths to load; see `sysml-run-paths'.  Model
+buffers are saved first, since `sysml' reads the files on disk; nothing
+runs while one stays unsaved.  The output is shown in a compilation
+buffer.  When TOOL is nil, the error names the build the project root
+ROOT may not run, if that is why."
+  (let ((flag (cdr (assoc kind sysml--run-flags))))
+    (unless (and flag (stringp element) (not (string-empty-p element)) paths)
+      (user-error "This lens names nothing sysml can run"))
+    (unless tool
+      (user-error "%s" (sysml--missing-executable
+                        sysml--tool root
+                        (format-message "build it with `make build' beside sysml-lsp"))))
+    (save-some-buffers nil (lambda () (derived-mode-p 'sysml-base-mode)))
+    (when-let* ((unsaved (sysml--unsaved-model-buffers)))
+      (user-error "Not run: %s not saved" (mapconcat #'buffer-name unsaved ", ")))
+    ;; Run from the folder (or the file's directory) the paths name.
+    (let ((default-directory (file-name-as-directory
+                              (let ((path (car (last paths))))
+                                (if (file-directory-p path) path (file-name-directory path))))))
+      (compilation-start (mapconcat #'shell-quote-argument
+                                    (append (list tool flag element) paths) " ")
+                         nil
+                         (lambda (_mode) (format "*SysML Run: %s*" element))))))
 
 (provide 'sysml-mode)
 

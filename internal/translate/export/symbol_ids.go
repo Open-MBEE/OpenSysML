@@ -158,10 +158,11 @@ func (s *SymbolIDs) compute(sym *symbols.Symbol) (string, bool) {
 			return rdf.LocalName(membership.Value), true
 		}
 	}
-	// A `for` variable is keyed by its loop, which the conversion writes as a
-	// string (sysx:loopVariable), not as an element of its own.
-	if _, ok := sym.Decl.(*ast.WhileLoopActionNode); ok && sym.Name != "" {
-		return "", false
+	// A `for` variable declares no node of its own: its symbol is keyed by the
+	// loop, which the conversion writes it under (loopVariable).
+	if semantics.IsLoopVariable(sym) {
+		element, _, ok := s.ids.OfExpressionPart(doc, sym.Decl, xLoopVariable)
+		return element, ok
 	}
 	// A body's parameter declares no node of its own: its symbol is keyed by the
 	// body, which the conversion writes as the reference the parameter is in<i> of.
@@ -373,6 +374,11 @@ func (s *SymbolIDs) implicitMembershipID(rel *symbols.ImplicitRelationship, doc 
 		// An action a subaction performs is owned through the member written as the membership.
 		return s.ids.OfDeclaration(doc, node, "")
 	}
+	if semantics.IsLoopVariable(rel.Member) {
+		// A `for` variable is keyed by its loop; its FeatureMembership is minted off the variable.
+		_, membership, ok := s.ids.OfExpressionPart(doc, rel.Member.Decl, xLoopVariable)
+		return membership, ok
+	}
 	if body, ok := rel.Member.Decl.(*ast.BodyExpr); ok && rel.Member.Name != "" {
 		// A body's parameter is keyed by its body; its FeatureMembership is minted
 		// off the parameter (bodyParameter), not off the body's own membership.
@@ -404,6 +410,10 @@ func (s *SymbolIDs) implicitWrittenID(rel *symbols.ImplicitRelationship, doc str
 	if _, ok := rel.Owner.Decl.(*ast.BodyExpr); ok && rel.Owner.Name != "" {
 		// A body parameter's head clauses are materialized off the parameter, in
 		// the order written per kind (bodyParameter, materializeRelationships).
+		return s.bodyParameterRelationshipID(rel)
+	}
+	if semantics.IsLoopVariable(rel.Owner) {
+		// A `for` variable's head clauses are materialized off the variable (loopVariable).
 		return s.bodyParameterRelationshipID(rel)
 	}
 	if rel.Owner != nil && isConnectorEnd(rel.Owner) && rel.Kind.ReferenceSubsets() {
@@ -493,6 +503,13 @@ func (s *SymbolIDs) expressionID(sym *symbols.Symbol) (string, bool) {
 			return rdf.ExpressionNodeID(base, "filter"), ok
 		}
 		return s.partID(owner, sym.Expr.Slot)
+	case symbols.ExpressionAccess:
+		// A feature an assignment's target nests is minted at its slot (nodeParameter).
+		return s.partID(owner, sym.Expr.Slot)
+	case symbols.ExpressionLoopBody:
+		// A loop's body is minted off the loop (loopBody).
+		base, ok := s.of(owner)
+		return base + loopBodySuffix, ok
 	case symbols.ExpressionTransitionSuccession:
 		// The conversion mints a transition's succession off the transition (recordTransitionSuccession).
 		return s.partID(owner, "succession")
@@ -520,6 +537,10 @@ func (s *SymbolIDs) expressionID(sym *symbols.Symbol) (string, bool) {
 			return base + encodedSegment(naming.TriggerSegment), true
 		}
 	case symbols.ExpressionPayload:
+		if slot, ok := semantics.NodeParameterSlot(sym); ok {
+			// An assignment's or loop's parameter is minted at its slot (nodeParameter).
+			return s.partID(owner, slot)
+		}
 		if owner.Kind == symbols.SymbolSendActionUsage {
 			// A send's argument parameter is its unnamed member at the argument's position (encodeSendArguments).
 			base, ok := s.of(owner)
@@ -540,6 +561,11 @@ func (s *SymbolIDs) expressionID(sym *symbols.Symbol) (string, bool) {
 // declaration it is written as, or an argument at its position under its expression.
 func (s *SymbolIDs) declaredExpressionID(sym, owner *symbols.Symbol) (string, bool) {
 	doc := sym.DocName
+	if _, stated := semantics.NodeParameterSlot(owner); stated && sym.Expr.Role == symbols.ExpressionValue {
+		// The value of an assignment's or loop's parameter is the parameter's `value` part (nodeParameterValue).
+		base, ok := s.of(owner)
+		return rdf.ExpressionNodeID(base, pValue), ok
+	}
 	if sym.Expr.Role == symbols.ExpressionValue && owner.Expr != nil && owner.Expr.Role == symbols.ExpressionPayload &&
 		owner.Expr.Owner != nil && owner.Expr.Owner.Kind == symbols.SymbolSendActionUsage {
 		// The value of a send's argument parameter is the parameter's `value` part.
@@ -622,8 +648,8 @@ func isConnectorEnd(sym *symbols.Symbol) bool {
 	return sym.Kind == symbols.SymbolConnectorEnd || sym.Expr != nil && sym.Expr.Role == symbols.ExpressionConnectorEnd
 }
 
-// bodyParameterRelationshipID spells the relationship a body parameter's head clause writes (`in a : T :> f`):
-// the parameter's id and the suffix the conversion mints for the clause's kind at its position.
+// bodyParameterRelationshipID spells the relationship a head clause of a body parameter (`in a : T :> f`)
+// or of a `for` variable writes: the parameter's id and the suffix the conversion mints for the clause's kind at its position.
 func (s *SymbolIDs) bodyParameterRelationshipID(rel *symbols.ImplicitRelationship) (string, bool) {
 	element, ok := s.of(rel.Owner)
 	if !ok {

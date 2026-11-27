@@ -1,7 +1,6 @@
 package apijson
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -14,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/exporter"
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/subprocess"
 )
 
 // pilotExport is one corpus root exported through the pinned pilot.
@@ -114,24 +114,35 @@ type pilotRun struct {
 	Stderr string `json:"stderr"`
 }
 
+// maxPilotStderr bounds what one launcher run may write to standard error.
+const maxPilotStderr = 64 << 20
+
 // launchPilot runs the launcher over dir's files, writing the bridge's documents under out.
 func launchPilot(launcher, dir, out string, libraries, files []string, timeout time.Duration) (pilotRun, error) {
 	args := pilotArgs(dir, out, libraries, files)
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := subprocess.Timeout(context.Background(), timeout)
 	defer cancel()
 	// #nosec G204 -- launcher is an explicit CLI override or repo-local artifact.
 	command := exec.CommandContext(ctx, launcher, args...)
-	var stderr bytes.Buffer
-	command.Stdout, command.Stderr = os.Stdout, &stderr
+	subprocess.Group(command)
+	command.WaitDelay = subprocess.WaitDelay
+	stderr := subprocess.Stream(maxPilotStderr, cancel)
+	command.Stdout, command.Stderr = os.Stdout, stderr
 	runErr := command.Run()
+	if stderr.Over() {
+		return pilotRun{}, fmt.Errorf("pilot export of %s wrote more than %d bytes to standard error", dir, maxPilotStderr)
+	}
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 		return pilotRun{}, fmt.Errorf("pilot export of %s exceeded %s", dir, timeout)
 	}
-	status, err := exporter.Status(dir, runErr, stderr.String())
+	if ctx.Err() != nil {
+		return pilotRun{}, fmt.Errorf("pilot export of %s: %w", dir, subprocess.ErrInterrupted)
+	}
+	status, err := exporter.Status(dir, runErr, string(stderr.Bytes()))
 	if err != nil {
 		return pilotRun{}, err
 	}
-	return pilotRun{Status: status, Stderr: stderr.String()}, nil
+	return pilotRun{Status: status, Stderr: string(stderr.Bytes())}, nil
 }
 
 // readPilot keys the documents a run wrote under out for dir's files.

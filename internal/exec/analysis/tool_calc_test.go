@@ -3,12 +3,8 @@ package analysis
 import (
 	"context"
 	"errors"
-	"fmt"
-	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
@@ -19,7 +15,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
-	"github.com/Open-MBEE/OpenSysML/tests/testutil/gobuild"
 )
 
 // toolCalcEnv are the stand-in's own variables, from testdata/toolcalc.
@@ -48,32 +43,14 @@ const toolCalcDriver = `package Calc {
 	}
 }`
 
-var (
-	toolCalcOnce    sync.Once
-	toolCalcBinPath string
-	toolCalcBinErr  error
-)
-
 // toolcalc builds the calc stand-in once per test binary and returns its path.
 func toolcalc(t *testing.T) string {
 	t.Helper()
-	toolCalcOnce.Do(func() {
-		dir, err := os.MkdirTemp("", "toolcalc")
-		if err != nil {
-			toolCalcBinErr = err
-			return
-		}
-		toolCalcBinPath = filepath.Join(dir, "toolcalc")
-		build := exec.Command("go", gobuild.Args(toolCalcBinPath)...)
-		build.Dir = filepath.Join("testdata", "toolcalc")
-		if out, err := build.CombinedOutput(); err != nil {
-			toolCalcBinErr = fmt.Errorf("go build: %v\n%s", err, out)
-		}
-	})
-	if toolCalcBinErr != nil {
-		t.Fatalf("building the calc stand-in: %v", toolCalcBinErr)
+	path, err := testBuilds.Build("toolcalc", filepath.Join("testdata", "toolcalc"))
+	if err != nil {
+		t.Fatalf("building the calc stand-in: %v", err)
 	}
-	return toolCalcBinPath
+	return path
 }
 
 // thermoEntry is the manifest entry the driver's ToolExecution resolves to.

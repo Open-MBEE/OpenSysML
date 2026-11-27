@@ -164,6 +164,13 @@ inputs and declines. Objects are `InstanceID` handles that `Feature`,
 `SetFeature`, `Accepts`, `Send` and `Perform` take, and `Evaluate` reads them
 where an expression names one.
 
+The calls that run the model also come bound to a context: `InstantiateContext`,
+`FeatureContext`, `SetFeatureContext`, `EvaluateContext`, `AcceptsContext`,
+`SendContext`, `AdvanceContext` and `PerformContext`. When the context ends, a
+run under way stops at its next step and a call still waiting behind another
+gives up; either answers `CodeCanceled` or `CodeDeadlineExceeded`, and the
+session keeps what the stopped run had done and answers later calls.
+
 A `Session` is not part of the `Client` interface, on purpose. `Client` is the
 set of RPCs the service answers, and `New` and `Dial` are held to identical
 answers by the conformance suite; a session is state the engine holds between

@@ -1,9 +1,12 @@
 package passes
 
 import (
+	"runtime"
+	"slices"
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -307,4 +310,193 @@ func stringForSpan(t *testing.T, src string, span source.Span) string {
 		t.Fatalf("span %#v is outside source of length %d", span, len(src))
 	}
 	return src[span.Offset : span.Offset+span.Len]
+}
+
+// nestedNots writes a filter condition of n `not` operators around one classification test.
+func nestedNots(n int) string {
+	return filterMetadata + "package P { filter " + strings.Repeat("not (", n) + "@Safety" + strings.Repeat(")", n) + "; }\n"
+}
+
+// TestAFilterNestedPastTheBoundIsNotEvaluated: the pass recurses once per operator, so a
+// condition past the bound is reported once as not evaluated instead of being walked.
+func TestAFilterNestedPastTheBoundIsNotEvaluated(t *testing.T) {
+	if diags := filterDiags(t, nestedNots(semantics.MaxFilterDepth-1)); len(diags) != 0 {
+		t.Fatalf("a condition inside the bound: got %v, want no findings", diags)
+	}
+	diags := filterDiags(t, nestedNots(semantics.MaxFilterDepth+1))
+	if len(diags) != 1 || diags[0].Code != "filter-not-evaluated" {
+		t.Fatalf("a condition past the bound: got %v, want one filter-not-evaluated", diags)
+	}
+}
+
+// TestAFilterNestedPastTheBoundInsideAConstructorIsNotEvaluated: the levels under a
+// constructor's argument count toward the bound like any other.
+func TestAFilterNestedPastTheBoundInsideAConstructorIsNotEvaluated(t *testing.T) {
+	n := semantics.MaxFilterDepth + 1
+	src := filterMetadata + "package P { filter new Safety(" + strings.Repeat("not (", n) + "true" + strings.Repeat(")", n) + ") == null; }\n"
+	diags := filterDiags(t, src)
+	if len(diags) != 1 || diags[0].Code != "filter-not-evaluated" {
+		t.Fatalf("got %v, want one filter-not-evaluated", diags)
+	}
+}
+
+// TestAFilterNestedPastTheBoundStillMustBeBoolean: the bound stops the evaluation of a
+// condition, not the rule that it yields a truth value.
+func TestAFilterNestedPastTheBoundStillMustBeBoolean(t *testing.T) {
+	n := semantics.MaxFilterDepth + 1
+	nots, closes := strings.Repeat("not (", n), strings.Repeat(")", n)
+	for _, tc := range []struct{ name, condition string }{
+		{"a sum", "1" + strings.Repeat(" + 1", n)},
+		{"a negation", strings.Repeat("-(", n) + "1" + closes},
+		{"an integer under nots", nots + "1" + closes},
+		{"a sum under nots", nots + "1 + 1" + closes},
+		{"an integer ending a conjunction", strings.Repeat("@Safety and ", n) + "1"},
+		{"an integer heading a conjunction", "1" + strings.Repeat(" and @Safety", n)},
+		{"a constructor", "new Safety(" + nots + "true" + closes + ")"},
+		{"a constructor over a sum", "new Safety(1" + strings.Repeat(" + 1", n) + ")"},
+		{"a conditional", strings.Repeat("if true ? 1 else ", n) + "2"},
+		{"a conditional under nots", nots + strings.Repeat("if true ? 1 else ", n) + "2" + closes},
+		{"a sum compared under nots", nots + "1" + strings.Repeat(" + 1", n) + closes},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			diags := filterDiags(t, filterMetadata+"package P { filter "+tc.condition+"; }\n")
+			if len(diags) != 1 || diags[0].Code != "filter-not-boolean" || diags[0].Severity != diag.SeverityError {
+				t.Fatalf("got %v, want one filter-not-boolean error", diags)
+			}
+		})
+	}
+}
+
+// TestAFilterNestedPastTheBoundOnAnUnresolvedTypeSaysNothingMore: the lower tier's failure
+// gates a condition at any depth.
+func TestAFilterNestedPastTheBoundOnAnUnresolvedTypeSaysNothingMore(t *testing.T) {
+	n := semantics.MaxFilterDepth + 1
+	src := "package P { filter " + strings.Repeat("not (", n) + "@Missing" + strings.Repeat(")", n) + "; }\n"
+	if diags := filterDiags(t, src); len(diags) != 0 {
+		t.Fatalf("got %v, want no filter findings", diags)
+	}
+}
+
+// TestAFilterNestedPastTheBoundOnAnUnresolvedNameIsNotEvaluable: an operand that names
+// nothing leaves the condition without a result, as it does within the bound.
+func TestAFilterNestedPastTheBoundOnAnUnresolvedNameIsNotEvaluable(t *testing.T) {
+	n := semantics.MaxFilterDepth + 1
+	for _, tc := range []struct{ name, condition string }{
+		{"a sum", "missing" + strings.Repeat(" + missing", n)},
+		{"a negation", strings.Repeat("-(", n) + "missing" + strings.Repeat(")", n)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			diags := filterDiags(t, "package P { filter "+tc.condition+"; }\n")
+			if len(diags) != 1 || diags[0].Code != "filter-not-evaluable" {
+				t.Fatalf("got %v, want one filter-not-evaluable error", diags)
+			}
+		})
+	}
+}
+
+// TestAFilterNestedPastTheBoundOnAnOperatorOutsideTheSubsetIsNotEvaluable: an operator a
+// condition cannot be written with is refused at any depth.
+func TestAFilterNestedPastTheBoundOnAnOperatorOutsideTheSubsetIsNotEvaluable(t *testing.T) {
+	n := semantics.MaxFilterDepth + 1
+	for _, tc := range []struct{ name, condition string }{
+		{"a null-coalescing chain", "1" + strings.Repeat(" ?? 1", n)},
+		{"a conditional on the candidate", strings.Repeat("if @Safety ? 1 else ", n) + "2"},
+		{"a division by zero", "1 / 0" + strings.Repeat(" + 1", n)},
+		{"a sequence", strings.Repeat("(1, ", n) + "1" + strings.Repeat(")", n)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			diags := filterDiags(t, filterMetadata+"package P { filter "+tc.condition+"; }\n")
+			if len(diags) != 1 || diags[0].Code != "filter-not-evaluable" || diags[0].Severity != diag.SeverityError {
+				t.Fatalf("got %v, want one filter-not-evaluable error", diags)
+			}
+		})
+	}
+}
+
+// TestAFilterNestedPastTheBoundThatFoldsToATruthValueIsOnlyNotEvaluated: a constant
+// condition is in no error however deep it is written.
+func TestAFilterNestedPastTheBoundThatFoldsToATruthValueIsOnlyNotEvaluated(t *testing.T) {
+	n := semantics.MaxFilterDepth + 1
+	for _, tc := range []struct{ name, condition string }{
+		{"a conditional", strings.Repeat("if false ? 1 else ", n) + "true"},
+		{"a comparison of sums", "1" + strings.Repeat(" + 1", n) + " == 1" + strings.Repeat(" + 1", n)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			diags := filterDiags(t, "package P { filter "+tc.condition+"; }\n")
+			if len(diags) != 1 || diags[0].Code != "filter-not-evaluated" || diags[0].Severity != diag.SeverityWarning {
+				t.Fatalf("got %v, want one filter-not-evaluated warning", diags)
+			}
+		})
+	}
+}
+
+// TestAFilterNestedPastTheBoundIsInTheErrorsItIsInWithinIt: the bound moves no error, so
+// a shape reports the same filter errors written a few levels deep and past the bound.
+func TestAFilterNestedPastTheBoundIsInTheErrorsItIsInWithinIt(t *testing.T) {
+	const reflective = `package R1 {
+			private import ScalarValues::*;
+			metaclass M { var feature a : Boolean[1]; }
+			feature p : M[1];
+		}
+	`
+	const linked = `package Q {
+			part def Link { part onward : Link; attribute ready : ScalarValues::Boolean; }
+			part head : Link;
+		}
+	`
+	errorsOf := func(src string) []string {
+		var codes []string
+		for _, d := range filterDiags(t, src) {
+			if d.Severity == diag.SeverityError {
+				codes = append(codes, d.Code)
+			}
+		}
+		slices.Sort(codes)
+		return codes
+	}
+	for _, tc := range []struct {
+		name      string
+		prelude   string
+		condition func(n int) string
+		want      []string
+	}{
+		{"a chain from a package feature", linked,
+			func(n int) string { return "Q::head" + strings.Repeat(".onward", n) + ".ready" }, nil},
+		{"a chain from a package feature to no feature", linked,
+			func(n int) string { return "Q::head" + strings.Repeat(".onward", n) + ".absent" },
+			[]string{"filter-not-boolean"}},
+		{"a constructor over a conjunction on the candidate", filterMetadata,
+			func(n int) string {
+				return "new Safety((if @Safety ? true else false)" + strings.Repeat(" and @Safety", n) + ")"
+			},
+			[]string{"filter-not-boolean"}},
+		{"a reflective chain beside a null-coalescing chain", reflective,
+			func(n int) string { return "R1::p.a and (1" + strings.Repeat(" ?? 1", n) + ")" },
+			[]string{"filter-not-evaluable"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, n := range []int{8, semantics.MaxFilterDepth + 1} {
+				got := errorsOf(tc.prelude + "package P { filter " + tc.condition(n) + "; }\n")
+				if !slices.Equal(got, tc.want) {
+					t.Errorf("nested %d deep: got filter errors %v, want %v", n, got, tc.want)
+				}
+			}
+		})
+	}
+}
+
+// TestAFilterNestedPastTheBoundCostsNothingForABranchNotTaken: finding the faults of a
+// conditional folds the branch it takes, not the sum of a million-bit power beside it.
+func TestAFilterNestedPastTheBoundCostsNothingForABranchNotTaken(t *testing.T) {
+	src := "package P { filter if true ? true else (2 ** 1000000" + strings.Repeat(" + 1", 10_000) + " > 0); }\n"
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	diags := filterDiags(t, src)
+	runtime.ReadMemStats(&after)
+	if len(diags) != 1 || diags[0].Code != "filter-not-evaluated" {
+		t.Fatalf("got %v, want one filter-not-evaluated warning", diags)
+	}
+	if spent := after.TotalAlloc - before.TotalAlloc; spent > 256<<20 {
+		t.Errorf("checking it allocated %d MiB, want under 256: the sum is in the branch not taken", spent>>20)
+	}
 }

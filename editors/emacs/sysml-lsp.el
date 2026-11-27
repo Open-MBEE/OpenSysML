@@ -22,45 +22,14 @@
 
 ;;; Code:
 
-(require 'compile)
 (require 'lsp-mode)
 (require 'sysml-mode)
-(require 'url-parse)
-(require 'url-util)
 
 (defgroup sysml-lsp nil
   "The OpenSysML language server, through lsp-mode."
   :group 'sysml
   :prefix "sysml-lsp-"
   :link '(url-link "https://github.com/Open-MBEE/OpenSysML"))
-
-(defconst sysml-lsp--executable
-  (if (eq system-type 'windows-nt) "sysml-lsp.exe" "sysml-lsp")
-  "File name of the language server.")
-
-(defconst sysml-lsp--tool
-  (if (eq system-type 'windows-nt) "sysml.exe" "sysml")
-  "File name of the command-line tool a Run or Evaluate lens runs.")
-
-(defconst sysml-lsp--run-flags
-  '(("action" . "-action")
-    ("state" . "-state")
-    ("calc" . "-calc")
-    ("constraint" . "-constraint")
-    ("requirement" . "-requirement"))
-  "The `sysml' flag that runs each kind of element a lens names.")
-
-(defcustom sysml-lsp-server-path nil
-  "Absolute path to the `sysml-lsp' executable.
-When nil, `bin/sysml-lsp' in the project root is used if it exists, then
-`sysml-lsp' on the variable `exec-path'."
-  :type '(choice (const :tag "Find it" nil) file)
-  :risky t)
-
-(defcustom sysml-lsp-server-args nil
-  "Extra arguments passed to the language server."
-  :type '(repeat string)
-  :risky t)
 
 (lsp-defcustom sysml-lsp-strict-conformance nil
   "Judge documents as conforming SysML v2.
@@ -93,31 +62,16 @@ client always handles it and only these functions act on it.")
 
 (defun sysml-lsp--project-root ()
   "Return the root of the current project, or nil."
-  (or (lsp-workspace-root)
-      (when-let* ((project (project-current)))
-        (project-root project))))
+  (or (lsp-workspace-root) (sysml--project-root)))
 
 (defun sysml-lsp--find-server ()
   "Return the language server executable, or nil when none is found."
-  (cond
-   (sysml-lsp-server-path
-    (and (file-executable-p sysml-lsp-server-path) sysml-lsp-server-path))
-   ((when-let* ((root (sysml-lsp--project-root))
-                (candidate (expand-file-name (concat "bin/" sysml-lsp--executable) root)))
-      (and (file-executable-p candidate) candidate)))
-   (t (executable-find sysml-lsp--executable))))
+  (sysml--find-server (sysml-lsp--project-root)))
 
 (defun sysml-lsp--find-tool ()
   "Return the `sysml' executable to run Run and Evaluate lenses with, or nil.
-It is looked for beside the server in use, then in the project's `bin/',
-then on the variable `exec-path', as the VS Code extension looks."
-  (or (when-let* ((server (sysml-lsp--find-server))
-                  (sibling (expand-file-name sysml-lsp--tool (file-name-directory server))))
-        (and (file-executable-p sibling) sibling))
-      (when-let* ((root (sysml-lsp--project-root))
-                  (candidate (expand-file-name (concat "bin/" sysml-lsp--tool) root)))
-        (and (file-executable-p candidate) candidate))
-      (executable-find sysml-lsp--tool)))
+See `sysml-find-tool'."
+  (sysml-find-tool (sysml-lsp--find-server) (sysml-lsp--project-root)))
 
 ;;;; Commands the server's code lenses invoke
 
@@ -138,68 +92,27 @@ Its arguments are the document URI, the position and the locations."
 
 (defun sysml-lsp--run-paths (file)
   "Return the model paths to load when running an element declared in FILE.
-When a workspace folder holds FILE these are all the folders, which the
-server indexes together, so a name another root declares resolves as it
-does in the editor; FILE alone when no folder holds it."
-  (let ((folders (lsp-session-folders (lsp-session))))
-    (if (seq-some (lambda (folder)
-                    (or (string= folder file)
-                        (string-prefix-p (file-name-as-directory folder) file)))
-                  folders)
-        (copy-sequence folders)
-      (list file))))
-
-(defun sysml-lsp--run-arguments (args)
-  "Return the `sysml' arguments running the element a lens's ARGS name, or nil."
-  (when-let* ((flag (cdr (assoc (lsp-get args :kind) sysml-lsp--run-flags)))
-              (element (lsp-get args :element))
-              ((not (string-empty-p element)))
-              (file (lsp--uri-to-path (lsp-get args :uri))))
-    (append (list flag element) (sysml-lsp--run-paths file))))
-
-(defun sysml-lsp--unsaved-model-buffers ()
-  "Return the model buffers holding edits not yet saved to their file."
-  (seq-filter (lambda (buffer)
-                (with-current-buffer buffer
-                  (and buffer-file-name
-                       (buffer-modified-p)
-                       (derived-mode-p 'sysml-base-mode))))
-              (buffer-list)))
+The folders are the session's; see `sysml-run-paths'."
+  (sysml-run-paths file (lsp-session-folders (lsp-session))))
 
 (defun sysml-lsp--run-element (command)
   "Run the element a Run or Evaluate lens COMMAND names, with `sysml'.
-Model buffers are saved first, since `sysml' reads the files on disk;
-nothing runs while one stays unsaved.  The output is shown in a
-compilation buffer."
-  (let* ((args (seq-first (lsp-get command :arguments)))
-         (argv (and args (sysml-lsp--run-arguments args)))
-         (tool (sysml-lsp--find-tool)))
-    (unless argv
-      (user-error "This lens names nothing sysml can run"))
-    (unless tool
-      (user-error "Could not find %s; build it with `make build' beside sysml-lsp, or put it on `exec-path'"
-                  sysml-lsp--tool))
-    (save-some-buffers nil (lambda () (derived-mode-p 'sysml-base-mode)))
-    (when-let* ((unsaved (sysml-lsp--unsaved-model-buffers)))
-      (user-error "Not run: %s not saved" (mapconcat #'buffer-name unsaved ", ")))
-    ;; Run from the folder (or the file's directory) the paths name.
-    (let ((default-directory (file-name-as-directory
-                              (let ((path (car (last argv))))
-                                (if (file-directory-p path) path (file-name-directory path))))))
-      (compilation-start (mapconcat #'shell-quote-argument (cons tool argv) " ")
-                         nil
-                         (lambda (_mode) (format "*SysML Run: %s*" (lsp-get args :element)))))))
+See `sysml-run-element'."
+  (let* ((args (car (append (lsp-get command :arguments) nil)))
+         (uri (and args (lsp-get args :uri))))
+    (sysml-run-element (and args (lsp-get args :kind))
+                       (and args (lsp-get args :element))
+                       (and uri (sysml-lsp--run-paths (lsp--uri-to-path uri)))
+                       (sysml-lsp--find-tool)
+                       (sysml-lsp--project-root))))
 
 ;;;; Bundled library documents
 
 (defconst sysml-lsp--stdlib-content-method "opensysml/stdlibContent"
   "The request serving the text of a bundled library document.")
 
-(defvar-local sysml-lsp-stdlib-uri nil
-  "The `sysml-stdlib:' URI of the bundled library document this buffer shows.")
-
-(defvar-local sysml-lsp--stdlib-workspace nil
-  "The `sysml-lsp' workspace whose server this library buffer's text is from.")
+(define-obsolete-variable-alias 'sysml-lsp-stdlib-uri 'sysml-library-uri "0.14.0")
+(define-obsolete-function-alias 'sysml-lsp-stdlib-uri-p #'sysml-library-uri-p "0.14.0")
 
 (defun sysml-lsp--workspace ()
   "Return the current buffer's `sysml-lsp' workspace, or nil."
@@ -207,41 +120,54 @@ compilation buffer."
               (eq (lsp--client-server-id (lsp--workspace-client ws)) 'sysml-lsp))
             (lsp-workspaces)))
 
-(defun sysml-lsp-stdlib-uri-p (uri)
-  "Return non-nil when URI names a document of the bundled library.
-The server reports such locations under the `sysml-stdlib' scheme; no
-file on disk holds them."
-  (string-prefix-p "sysml-stdlib:" uri))
-
 (defun sysml-lsp-stdlib-buffer (uri)
   "Return a read-only buffer showing the bundled library document URI.
-Its text is asked of the current buffer's server, once per document and
-server: another build may bundle a different library."
-  (let ((workspace (sysml-lsp--workspace)))
-    (or (seq-find (lambda (buffer)
-                    (and (equal (buffer-local-value 'sysml-lsp-stdlib-uri buffer) uri)
-                         (eq (buffer-local-value 'sysml-lsp--stdlib-workspace buffer) workspace)))
-                  (buffer-list))
-      (let* ((text (lsp-get (lsp-request sysml-lsp--stdlib-content-method (list :uri uri)) :text))
-             (path (url-unhex-string (url-filename (url-generic-parse-url uri))))
-             (buffer (generate-new-buffer (format "%s <library>" (file-name-nondirectory path)))))
-        (with-current-buffer buffer
-          (insert text)
-          (if (string-suffix-p ".kerml" path) (kerml-mode) (sysml-mode))
-          (setq sysml-lsp-stdlib-uri uri
-                sysml-lsp--stdlib-workspace workspace)
-          (set-buffer-modified-p nil)
-          (setq buffer-read-only t)
-          (goto-char (point-min)))
-        buffer))))
+Its text is asked of the current buffer's server; see
+`sysml-library-buffer'."
+  (sysml-library-buffer
+   uri (sysml-lsp--workspace)
+   (lambda () (lsp-get (lsp-request sysml-lsp--stdlib-content-method (list :uri uri)) :text))))
+
+(defun sysml-lsp--library-xref-item (location)
+  "Return an xref item for LOCATION, a place in a bundled library document."
+  (let ((buffer (sysml-lsp-stdlib-buffer (lsp--location-uri location)))
+        (range (lsp--location-range location)))
+    (with-current-buffer buffer
+      (sysml-library-xref-item buffer
+                                (lsp--position-to-point (lsp:range-start range))
+                                (lsp--position-to-point (lsp:range-end range))))))
+
+(defun sysml-lsp--xref-library-items (to-xref-items locations)
+  "Call TO-XREF-ITEMS with LOCATIONS, adding those in the bundled library.
+A `sysml-stdlib:' URI names no file, so lsp-mode would drop its
+locations; each is located in the document's library buffer instead.
+They follow the locations in files."
+  (if (not (sysml-lsp--workspace))
+      (funcall to-xref-items locations)
+    (let* ((locations (cond ((vectorp locations) (append locations nil))
+                            ((and locations (lsp--location-uri locations)) (list locations))
+                            (t locations)))
+           (library (seq-filter (lambda (location)
+                                  (sysml-library-uri-p (lsp--location-uri location)))
+                                locations)))
+      (nconc (funcall to-xref-items (vconcat (seq-difference locations library #'eq)))
+             (mapcar #'sysml-lsp--library-xref-item library)))))
+
+(advice-add 'lsp--locations-to-xref-items :around #'sysml-lsp--xref-library-items)
 
 (defun sysml-lsp--server-command ()
   "Return the command to start the language server with."
-  (let ((server (sysml-lsp--find-server)))
-    (unless server
-      (user-error "Could not find %s: build it with `make build' and set `sysml-lsp-server-path', or put it on `exec-path'"
-                  sysml-lsp--executable))
-    (cons server sysml-lsp-server-args)))
+  (sysml--server-command (sysml-lsp--project-root)))
+
+(defun sysml-lsp--server-found-p ()
+  "Return non-nil when a language server is found for this buffer.
+Say so when the only one is a build the project may not run, which
+lsp-mode would otherwise report as no server at all."
+  (let ((root (sysml-lsp--project-root)))
+    (cond ((sysml--find-server root) t)
+          ((sysml--refused-project-build sysml--server-executable root)
+           (message "%s" (sysml--missing-server root))
+           nil))))
 
 (defun sysml-lsp--enable-semantic-tokens ()
   "Turn on semantic tokens in this buffer when `sysml-lsp-semantic-tokens' is set."
@@ -264,7 +190,7 @@ server: another build may bundle a different library."
 (lsp-register-client
  (make-lsp-client
   :new-connection (lsp-stdio-connection #'sysml-lsp--server-command
-                                        (lambda () (and (sysml-lsp--find-server) t)))
+                                        #'sysml-lsp--server-found-p)
   :activation-fn (lsp-activate-on "sysml" "kerml")
   :server-id 'sysml-lsp
   :synchronize-sections '("sysml")

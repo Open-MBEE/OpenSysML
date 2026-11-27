@@ -1,1 +1,0 @@
-- Computing the identities of metadata body features reuses their owning membership positions, avoiding repeated scans of metadata-heavy scopes without changing their identities.

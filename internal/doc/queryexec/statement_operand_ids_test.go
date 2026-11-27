@@ -39,11 +39,11 @@ func TestStatementOperandsReadTheConversionIDs(t *testing.T) {
 		definition string
 		want       []string
 	}{
-		{"Assign", []string{"Observatory__Assign___400_ptarget", "Observatory__Assign___400_ptarget_pa0", "Observatory__Assign___400_pvalue"}},
-		{"NamedAssign", []string{"Observatory__NamedAssign__n_ptarget", "Observatory__NamedAssign__n_ptarget_pa0", "Observatory__NamedAssign__n_pvalue"}},
-		{"TypedAssign", []string{"Observatory__TypedAssign__n___400_ptarget", "Observatory__TypedAssign__n___400_ptarget_pa0", "Observatory__TypedAssign__n___400_pvalue"}},
-		{"For", []string{"Observatory__For___400_pcollection", "Observatory__For___400_pcollection_pa0", "Observatory__For___400_pcollection_pa1"}},
-		{"NamedFor", []string{"Observatory__NamedFor__n_pcollection", "Observatory__NamedFor__n_pcollection_pa0", "Observatory__NamedFor__n_pcollection_pa1"}},
+		{"Assign", []string{"Observatory__Assign___400_ptarget", "Observatory__Assign___400_ptarget_pa0", "Observatory__Assign___400_pvalueParameter_pvalue"}},
+		{"NamedAssign", []string{"Observatory__NamedAssign__n_ptarget", "Observatory__NamedAssign__n_ptarget_pa0", "Observatory__NamedAssign__n_pvalueParameter_pvalue"}},
+		{"TypedAssign", []string{"Observatory__TypedAssign__n___400_ptarget", "Observatory__TypedAssign__n___400_ptarget_pa0", "Observatory__TypedAssign__n___400_pvalueParameter_pvalue"}},
+		{"For", []string{"Observatory__For___400_pcollectionParameter_pvalue", "Observatory__For___400_pcollectionParameter_pvalue_pa0", "Observatory__For___400_pcollectionParameter_pvalue_pa1"}},
+		{"NamedFor", []string{"Observatory__NamedFor__n_pcollectionParameter_pvalue", "Observatory__NamedFor__n_pcollectionParameter_pvalue_pa0", "Observatory__NamedFor__n_pcollectionParameter_pvalue_pa1"}},
 		{"While", []string{
 			"Observatory__While___400_puntilCondition", "Observatory__While___400_puntilCondition_pa0", "Observatory__While___400_puntilCondition_pa1",
 			"Observatory__While___400_pwhileCondition", "Observatory__While___400_pwhileCondition_pa0", "Observatory__While___400_pwhileCondition_pa1",

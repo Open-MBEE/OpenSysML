@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -919,6 +918,6 @@ func TestFindRoot(t *testing.T) {
 func TestFailureErrorMessage(t *testing.T) {
 	err := &FailureError{Shards: []string{"smt", "cli"}}
 	if got := err.Error(); !strings.Contains(got, "smt") || !strings.Contains(got, "cli") || !strings.Contains(got, "failed") {
-		t.Fatal(fmt.Sprintf("Error() = %q", got))
+		t.Fatalf("Error() = %q", got)
 	}
 }

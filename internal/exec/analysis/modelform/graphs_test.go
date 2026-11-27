@@ -423,11 +423,37 @@ func TestGraphsStateCarriesTheLoweredGraph(t *testing.T) {
 func TestGraphsRefusesSubjectsWithoutAGraph(t *testing.T) {
 	model, idx := graphsModel(t)
 	sym := lookupOne(t, idx, "test")
-	if _, err := GraphsOf(model, sym); !errors.Is(err, ErrGraphsSubject) {
-		t.Fatalf("GraphsOf(package) = %v, want ErrGraphsSubject", err)
+	for name, want := range map[string]string{
+		"test":               "no lowered graph for the package test: the subject must be an action or a state machine",
+		"test::Machine::log": "no lowered graph for the attribute usage test::Machine::log: the subject must be an action or a state machine",
+	} {
+		_, err := GraphsOf(model, lookupOne(t, idx, name))
+		if !errors.Is(err, ErrGraphsSubject) || err.Error() != want {
+			t.Errorf("GraphsOf(%s) = %v, want ErrGraphsSubject reading %q", name, err, want)
+		}
 	}
 	if _, err := GraphsOf(nil, sym); !errors.Is(err, ErrGraphsSubject) {
 		t.Fatalf("GraphsOf(nil model) = %v, want ErrGraphsSubject", err)
+	}
+}
+
+// A state without a body, a transition and a control node are parts of their
+// owner's graph: the refusal says so in words, not by the type of the syntax node.
+func TestGraphsRefusesAVertexOrAnEdgeOfAMachine(t *testing.T) {
+	model, idx := graphsModelOf(t, `package P {
+		state def Machine { state off; state on; transition off_on first off then on; }
+		action def Split { fork f; action a; action b; succession guarded first a if true then b; }
+	}`)
+	for name, want := range map[string]string{
+		"P::Machine::off":    "no lowered graph for the state usage P::Machine::off: a state declared without a body is a vertex of its owner's graph",
+		"P::Machine::off_on": "no lowered graph for the action usage P::Machine::off_on: a transition is an edge of its owner's graph",
+		"P::Split::f":        "no lowered graph for the action usage P::Split::f: a control node is a node of its owner's graph",
+		"P::Split::guarded":  "no lowered graph for the action usage P::Split::guarded: a transition is an edge of its owner's graph",
+	} {
+		_, err := GraphsOf(model, lookupOne(t, idx, name))
+		if !errors.Is(err, ErrGraphsSubject) || err.Error() != want {
+			t.Errorf("GraphsOf(%s) = %v, want ErrGraphsSubject reading %q", name, err, want)
+		}
 	}
 }
 

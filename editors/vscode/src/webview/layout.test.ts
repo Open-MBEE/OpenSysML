@@ -37,6 +37,7 @@ import {
   portName,
   simpleName,
   simpleNames,
+  fixedReason,
   layoutCanvas,
   liftedEdges,
   MARGIN,
@@ -1123,6 +1124,66 @@ test("movable and steerable need the placeable kind and a declared target", () =
   assert.equal(steerable(placeable, placeable.edges[1]), false);
   const table = layoutCanvas(rendering([declared], [], { kind: "table" }));
   assert.equal(movable(table, table.nodes.get("a")!), false);
+});
+
+test("fixedReason says why a start or done node, and any node no workspace document declares, does not move", () => {
+  const placeable = layoutCanvas(
+    rendering([
+      node("a", "a"),
+      node("s", "start", { kind: "initial", fqn: undefined }),
+      node("d", "done", { kind: "final", fqn: undefined }),
+      node("b", "b", { fqn: undefined }),
+    ]),
+  );
+  assert.equal(fixedReason(placeable, placeable.nodes.get("a")!), undefined);
+  assert.match(fixedReason(placeable, placeable.nodes.get("s")!) ?? "", /^start is a standard library element/);
+  assert.match(fixedReason(placeable, placeable.nodes.get("d")!) ?? "", /^done is a standard library element/);
+  assert.match(fixedReason(placeable, placeable.nodes.get("b")!) ?? "", /^No workspace document declares b/);
+  const listed = layoutCanvas(rendering([node("a", "a"), node("p", "robot", { kind: "performer", parent: "a" })]));
+  assert.equal(movable(listed, listed.nodes.get("p")!), false);
+  assert.match(fixedReason(listed, listed.nodes.get("p")!) ?? "", /^robot is listed as a performer here/);
+  const table = layoutCanvas(rendering([node("s", "start", { kind: "initial", fqn: undefined })], [], { kind: "table" }));
+  assert.equal(fixedReason(table, table.nodes.get("s")!), undefined);
+});
+
+test("a lane does not move when its performer has a lane drawn earlier or in an enclosing flow", () => {
+  const declared = (uri: string, line: number) => ({
+    ...origin,
+    uri,
+    range: { start: { line, character: 0 }, end: { line, character: 4 } },
+  });
+  const lane = (id: string, parent: string, performer: string, extra: Partial<RenderNode> = {}) =>
+    node(id, performer, {
+      kind: "swimlane",
+      parent,
+      fqn: `Parts::${performer}`,
+      origin: declared("file:///parts.sysml", performer.length),
+      ...extra,
+    });
+  const unnamed = { fqn: undefined, declaration: declared("file:///parts.sysml", 9).range };
+  const nested = layoutCanvas(
+    rendering([
+      node("run", "run"),
+      lane("outer", "run", "arm"),
+      lane("anon", "run", "", { ...unnamed, origin: declared("file:///parts.sysml", 9) }),
+      node("build", "build", { parent: "run" }),
+      lane("inner", "build", "arm", { fitted: true }),
+      lane("only", "build", "robot"),
+      lane("namesake", "build", "arm", { origin: declared("file:///more.sysml", 3) }),
+      lane("anonInner", "build", "", { ...unnamed, origin: declared("file:///parts.sysml", 9), fitted: true }),
+      node("other", "other"),
+      lane("apart", "other", "arm", { fitted: true }),
+    ]),
+  );
+  for (const id of ["outer", "anon", "only", "namesake"]) {
+    assert.equal(movable(nested, nested.nodes.get(id)!), true, id);
+  }
+  for (const id of ["inner", "anonInner", "apart"]) {
+    assert.equal(movable(nested, nested.nodes.get(id)!), false, id);
+    assert.equal(movedNode(nested, id, 10, 10), undefined, id);
+  }
+  assert.match(fixedReason(nested, nested.nodes.get("inner")!) ?? "", /^arm has another swimlane in this view/);
+  assert.match(fixedReason(nested, nested.nodes.get("apart")!) ?? "", /^arm has another swimlane in this view/);
 });
 
 test("movable and steerable take a target another document declares, named or not, and no library's", () => {

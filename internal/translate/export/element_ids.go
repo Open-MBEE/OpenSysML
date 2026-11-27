@@ -265,8 +265,13 @@ func (ids *ElementIDs) recordStatementOperands(e *encoder, node ast.Node, subjec
 	case *ast.ActionExecutionNode:
 		record(xExpression, n.Expression)
 	case *ast.AssignmentActionNode:
+		if n.Target != nil {
+			target := ids.recordNodeParameter(e, n, subject, xTargetParameter, xTargetParameter)
+			feature := ids.recordNodeParameter(e, n, target, xTargetParameter+"."+xTargetFeature, xTargetFeature)
+			ids.recordNodeParameter(e, n, feature, xTargetParameter+"."+xTargetFeature+"."+xAccessedFeature, xAccessedFeature)
+		}
 		record(xTarget, n.Target)
-		record(pValue, n.Value)
+		ids.recordNodeParameterValue(e, n, n.Value, subject, xValueParameter)
 	case *ast.TerminateStatement:
 		record(xExpression, n.Target)
 	case *ast.IfActionNode:
@@ -274,13 +279,55 @@ func (ids *ElementIDs) recordStatementOperands(e *encoder, node ast.Node, subjec
 	case *ast.WhileLoopActionNode:
 		switch n.Kind {
 		case ast.LoopFor:
-			record(xCollection, n.Collection)
+			ids.recordLoopVariable(e, n, subject)
+			ids.recordNodeParameterValue(e, n, n.Collection, subject, xCollectionParameter)
 		case ast.LoopWhile:
 			record(xWhileCondition, n.Condition)
 			record(xUntilCondition, n.Until)
 		default:
+			ids.recordNodeParameter(e, n, subject, xEmptyParameter, xEmptyParameter)
 			record(xUntilCondition, n.Condition)
 		}
+		body := e.ids.minted(rdf.IRI(subject.Value+loopBodySuffix), subject, loopBodySuffix)
+		ids.recordOwnedPart(e, n, loopBodySlot, body)
+	}
+}
+
+// loopBodySlot files a loop's body (loopBody) among the loop's parts.
+const loopBodySlot = "loopBody"
+
+// recordNodeParameter records the ReferenceUsage owner writes at slot for a part of statement
+// (nodeParameter), filed under statement at path, and returns it.
+func (ids *ElementIDs) recordNodeParameter(e *encoder, statement ast.Node, owner rdf.Term, path, slot string) rdf.Term {
+	param := e.ids.mintedNode(rdf.ExpressionIRI(owner, slot), owner, slot)
+	ids.recordOwnedPart(e, statement, path, param)
+	return param
+}
+
+// recordNodeParameterValue records the parameter statement writes at slot and the expression
+// it is bound to (nodeParameterValue), with its parts.
+func (ids *ElementIDs) recordNodeParameterValue(e *encoder, statement, value ast.Node, subject rdf.Term, slot string) {
+	if value != nil {
+		ids.recordOwnedExpression(e, value, ids.recordNodeParameter(e, statement, subject, slot, slot), pValue)
+	}
+}
+
+// recordOwnedPart files element and the membership owning it under node at slot.
+func (ids *ElementIDs) recordOwnedPart(e *encoder, node ast.Node, slot string, element rdf.Term) {
+	membership := e.ids.minted(rdf.OwningMembershipIRIOf(element), element, rdf.OwningMembershipSuffix)
+	ids.recordPart(e, node, slot, partIDs{element: rdf.LocalName(element.Value), membership: rdf.LocalName(membership.Value)})
+}
+
+// recordLoopVariable records the ReferenceUsage a `for` loop writes for its variable
+// (loopVariable), the membership owning it and the relationships its head states.
+func (ids *ElementIDs) recordLoopVariable(e *encoder, loop *ast.WhileLoopActionNode, subject rdf.Term) {
+	variable := e.ids.mintedNode(rdf.ExpressionIRI(subject, xLoopVariable), subject, xLoopVariable)
+	ids.recordOwnedPart(e, loop, xLoopVariable, variable)
+	head := map[ast.Node]string{}
+	e.clauseRelationshipIDs(variable, false, loop.VariableRelationships, head)
+	for key, id := range head {
+		ids.relationshipByNode[key] = id
+		ids.relationshipBySpan[spanKey{e.file.Name(), key.Span()}] = id
 	}
 }
 
@@ -814,8 +861,12 @@ func (e *encoder) writtenDependencyAnnotation(node, parent ast.Node, subject rdf
 // writtenClauseRelationships records the relationship written for each distinct target of the
 // head's clauses (materializeRelationships), by the clause or by the target of an implicit one.
 func (e *encoder) writtenClauseRelationships(node, parent ast.Node, subject rdf.Term, parents map[ast.Node]ast.Node, out map[ast.Node]string) {
-	classifier := isClassifier(declaredMetaclass(node))
-	clauses := e.writtenHeadClauses(node, parent, parents)
+	e.clauseRelationshipIDs(subject, isClassifier(declaredMetaclass(node)), e.writtenHeadClauses(node, parent, parents), out)
+}
+
+// clauseRelationshipIDs records, into out, the relationship materialized under subject for
+// each of clauses, by the clause or by the target of an implicit one.
+func (e *encoder) clauseRelationshipIDs(subject rdf.Term, classifier bool, clauses []*ast.Relationship, out map[ast.Node]string) {
 	chains := chainTargets(clauses)
 	for _, kind := range materializedKinds {
 		objects, at := e.clauseObjects(subject, clauses, kind, chains)
@@ -934,7 +985,12 @@ func (e *encoder) clauseObject(subject rdf.Term, rel *ast.Relationship, chains m
 		return rdf.ExpressionIRI(subject, fmt.Sprintf("chain%d", k)).Value
 	}
 	if name, ok := rel.Target.(*ast.QualifiedName); ok && !qualifiedNameHasChain(name) {
-		return e.reference(name).Value
+		object := e.reference(name)
+		if rel.Kind == ast.RelTyping && rel.Conjugated {
+			// `: ~P` names P's conjugate, an object of its own beside `: P` (relationships).
+			object = e.conjugateReference(object)
+		}
+		return object.Value
 	}
 	return "expr:" + e.text(rel.Target)
 }
@@ -1468,6 +1524,11 @@ func (e *encoder) registerExpressionIDs(ids *ElementIDs, subject rdf.Term, node 
 	}
 	if resultBearing[expressionMetaclass(node)] {
 		e.registerExpressionPart(ids, subject, node, "out")
+		if ast.ExpressionTypeResult(node) != nil {
+			// The result's FeatureTyping by the type a cast or extent names is minted off the result.
+			typing := ids.partByNode[partKey{node, "out"}].element + relationshipSuffix(ast.RelTyping, false, 1, 0)
+			ids.recordPart(e, node, "out.ft0", partIDs{element: typing})
+		}
 	}
 }
 

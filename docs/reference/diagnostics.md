@@ -673,7 +673,7 @@ Specification: KerML 1.0 validateElementFilterMembershipIsModelLevelEvaluable an
 
 **warning** · Typing · an element filter OpenSysML does not evaluate
 
-The filter condition is well formed but uses a form OpenSysML's model-level evaluator does not implement yet, so every candidate is kept as if the filter were absent. Rewrite the condition with metadata tests and comparisons the evaluator covers, or expect the unfiltered members.
+The filter condition is well formed but uses a form OpenSysML's model-level evaluator does not implement yet, or nests its operators more than 256 deep, so every candidate is kept as if the filter were absent. Rewrite the condition with metadata tests and comparisons the evaluator covers, or expect the unfiltered members.
 
 #### `flow-def-end-not-usage`
 

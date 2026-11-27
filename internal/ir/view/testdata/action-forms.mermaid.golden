@@ -45,11 +45,7 @@ in ^receiver`")
     end
     n3("`⭓ *«send action»*
 **sendAlarm**
-Alarm to sensor
-parameters
-in ^payload
-in ^sender
-in ^receiver`")
+Alarm to sensor`")
     subgraph n22 ["`*«performer»* **controller**
 perform actions`"]
       direction TD

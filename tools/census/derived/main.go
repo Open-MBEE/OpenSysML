@@ -40,7 +40,7 @@ func Main(args []string, stdout, stderr io.Writer) int {
 	launcherFlag := flags.String("exporter", "", "pilot JSON exporter launcher (default: <repo>/build/pilot-json-exporter/export-json)")
 	outFlag := flags.String("out", "", "output directory (default: <repo>/build/"+toolName+")")
 	rootsFlag := flags.String("roots", "", "comma-separated subset of the corpus roots to measure (default: all)")
-	timeoutFlag := flags.Duration("timeout", 30*time.Minute, "time allowed for the pilot's export of one root")
+	timeoutFlag := flags.Duration("timeout", 30*time.Minute, "time allowed for the pilot's export of one root (0 means no limit)")
 	updateFlag := flags.Bool("update", false, "re-record "+CommittedBaseline+" from this run")
 	checkFlag := flags.Bool("check", false, "fail unless this run reproduces "+CommittedBaseline+" and no served rule is newly silent where the pilot answers")
 	requireFlag := flags.Bool("require-exporter", false, "fail rather than reuse the recorded pilot column when the exporter is absent")

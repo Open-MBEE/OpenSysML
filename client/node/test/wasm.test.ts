@@ -28,6 +28,7 @@ import {
   createWasmTransport,
   instantiateInline,
   loadGoConstructor,
+  MAX_PENDING_WASM_CALLS,
   serveWasmPort,
   WorkerWasmHost,
   type GoConstructor,
@@ -484,6 +485,201 @@ test("worker calls remove aborted pending entries and ignore late answers", asyn
   assert.equal(pending.size, 0);
 
   await host.close();
+});
+
+test("a worker host refuses a call past its bound on unanswered calls", async () => {
+  const posted: WasmWorkerRequest[] = [];
+  let onMessage: ((message: WasmWorkerResponse) => void) | undefined;
+  const host = new WorkerWasmHost({
+    post(message) {
+      posted.push(message);
+      if (message.type === "init") {
+        onMessage?.({ type: "ready", version: "fake-worker" });
+      }
+    },
+    onMessage(listener) {
+      onMessage = listener;
+    },
+    onFailure() {},
+    terminate() {},
+  });
+  await host.start({ type: "init", wasm: emptyWasm }, []);
+
+  const held = Array.from({ length: MAX_PENDING_WASM_CALLS }, () => host.call("NeverAnswers", "{}"));
+  // Refused in the turn that made it, before any of the held calls is posted.
+  assert.equal(host.refusal()?.code, Code.ResourceExhausted);
+  await assert.rejects(host.call("OneTooMany", "{}"), { code: Code.ResourceExhausted });
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  const calls = posted.filter((message) => message.type === "call");
+  assert.equal(calls.length, MAX_PENDING_WASM_CALLS);
+
+  // An answer frees a place for the next call.
+  onMessage?.({ type: "answer", id: calls[0].id, envelope: "{}" });
+  assert.equal(await held[0], "{}");
+  void host.call("Fits", "{}").catch(() => undefined);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.equal(posted.filter((message) => message.type === "call").length, MAX_PENDING_WASM_CALLS + 1);
+  assert.equal(host.refusal()?.code, Code.ResourceExhausted);
+  onMessage?.({ type: "answer", id: calls[1].id, envelope: "{}" });
+  assert.equal(await held[1], "{}");
+  assert.equal(host.refusal(), undefined);
+  for (const call of held.slice(2)) {
+    call.catch(() => undefined);
+  }
+  await host.close();
+});
+
+test("a call the host would refuse never listens on the caller's signal", async () => {
+  let calls = 0;
+  let full = true;
+  const client = clientFor({
+    version: "fake",
+    call: () => {
+      calls++;
+      return Promise.resolve('{"jsonrpc":"2.0","id":null,"result":{"version":"fake","capabilities":[]}}');
+    },
+    close: () => Promise.resolve(),
+    refusal: () =>
+      full ? new ConnectError("the host holds its bound of calls", Code.ResourceExhausted) : undefined,
+  });
+  // One signal is shared by every call of a connection, so a refused call that
+  // joined its listeners would make each later one cost more than the last.
+  const shared = new AbortController();
+  let listeners = 0;
+  const addEventListener = shared.signal.addEventListener.bind(shared.signal);
+  shared.signal.addEventListener = (...args: Parameters<AbortSignal["addEventListener"]>): void => {
+    listeners++;
+    addEventListener(...args);
+  };
+  await assert.rejects(client.getServerInfo({}, { signal: shared.signal }), { code: Code.ResourceExhausted });
+  assert.equal(listeners, 0);
+  assert.equal(calls, 0);
+
+  full = false;
+  assert.equal((await client.getServerInfo({}, { signal: shared.signal })).version, "fake");
+  assert.equal(calls, 1);
+  assert.notEqual(listeners, 0);
+});
+
+test("a cancelled call on a full host is cancelled, not refused", async () => {
+  let calls = 0;
+  const client = clientFor({
+    version: "fake",
+    call: () => {
+      calls++;
+      return Promise.resolve('{"jsonrpc":"2.0","id":null,"result":{"version":"fake","capabilities":[]}}');
+    },
+    close: () => Promise.resolve(),
+    refusal: () => new ConnectError("the host holds its bound of calls", Code.ResourceExhausted),
+  });
+  // A call already cancelled needs no place, so the caller hears its own reason.
+  const reason = new Error("the caller gave up");
+  await assert.rejects(
+    client.getServerInfo({}, { signal: AbortSignal.abort(reason) }),
+    (error: unknown) => {
+      assert.ok(error instanceof ConnectError);
+      assert.equal(error.code, Code.Canceled);
+      assert.equal(error.cause, reason);
+      return true;
+    },
+  );
+  await assert.rejects(client.getServerInfo({}, { signal: AbortSignal.abort() }), { code: Code.Canceled });
+  assert.equal(calls, 0);
+});
+
+test("a worker port refuses a call past its bound on waiting calls", () => {
+  const answers: WasmWorkerResponse[] = [];
+  let deliver: ((event: MessageEvent<WasmWorkerRequest>) => void) | undefined;
+  serveWasmPort({
+    postMessage(message) {
+      answers.push(message);
+    },
+    addEventListener(_type, listener) {
+      deliver = listener;
+    },
+  });
+  // Delivered in one turn, so none of the queue has run when the last arrives.
+  for (let id = 1; id <= MAX_PENDING_WASM_CALLS + 1; id++) {
+    deliver?.({ data: { type: "call", id, method: "Echo", params: "{}" } } as MessageEvent<WasmWorkerRequest>);
+  }
+  assert.equal(answers.length, 1);
+  const refused = answers[0];
+  assert.ok(refused.type === "answer" && refused.id === MAX_PENDING_WASM_CALLS + 1);
+  assert.match(refused.envelope, /waiting calls/);
+});
+
+test("a worker port drops the calls cancelled while they waited", async () => {
+  const answers: WasmWorkerResponse[] = [];
+  let deliver: ((event: MessageEvent<WasmWorkerRequest>) => void) | undefined;
+  serveWasmPort({
+    postMessage(message) {
+      answers.push(message);
+    },
+    addEventListener(_type, listener) {
+      deliver = listener;
+    },
+  });
+  const send = (data: WasmWorkerRequest): void => {
+    deliver?.({ data } as MessageEvent<WasmWorkerRequest>);
+  };
+  // Several full queues are sent and cancelled in one turn: none stays behind.
+  let id = 0;
+  for (let round = 0; round < 3; round++) {
+    const first = id + 1;
+    for (let n = 0; n < MAX_PENDING_WASM_CALLS; n++) {
+      send({ type: "call", id: ++id, method: "Echo", params: "{}" });
+    }
+    for (let cancelled = first; cancelled <= id; cancelled++) {
+      send({ type: "cancel", id: cancelled });
+    }
+  }
+  const last = ++id;
+  send({ type: "call", id: last, method: "Echo", params: "{}" });
+  // One turn of the port's queue reaches the surviving call, not one per cancelled call.
+  await new Promise<void>((resolve) => setTimeout(resolve, 20));
+  assert.deepEqual(
+    answers.map((answer) => (answer.type === "answer" ? answer.id : answer.type)),
+    [last],
+  );
+});
+
+test("an inline start that never finishes fails at its deadline and frees the next start", async (t) => {
+  let ran = 0;
+  class CountingGo extends FakeGo {
+    override run(): Promise<void> {
+      ran += 1;
+      return super.run();
+    }
+  }
+  const instantiate = WebAssembly.instantiate.bind(WebAssembly);
+  let release: (() => void) | undefined;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  // Only the first instantiation is held back; the start after it goes straight through.
+  let first = true;
+  t.mock.method(WebAssembly, "instantiate", (async (...args: [BufferSource, WebAssembly.Imports]) => {
+    if (first) {
+      first = false;
+      await held;
+    }
+    return await instantiate(...args);
+  }) as typeof WebAssembly.instantiate);
+
+  const stuck = instantiateInline(emptyWasm, CountingGo, 50);
+  const next = instantiateInline(emptyWasm, FakeGo);
+  await assert.rejects(stuck, (error: unknown) => {
+    assert.ok(error instanceof OpenSysMLError);
+    assert.match(error.message, /did not start within 50 ms/);
+    return true;
+  });
+  assert.equal((await next).version, "fake-wasm");
+
+  // The start given up never runs its Go program, which would take the host global.
+  release?.();
+  await new Promise<void>((resolve) => setTimeout(resolve, 10));
+  assert.equal(ran, 0);
+  assert.equal("sysmlWasm" in globalThis, false);
 });
 
 test("a worker port never starts a call cancelled while it waited", async () => {

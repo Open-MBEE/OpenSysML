@@ -74,8 +74,13 @@ PYTHON_REQUIREMENTS := docs-requirements.txt
 JAVA_PROJECT_DIRS := client/java editors/syson editors/mdk
 EMACS_DIR := editors/emacs
 EMACS ?= emacs
-# Where `make emacs-test` installs lsp-mode for the suites, outside any user config.
+# Where `make emacs-test` installs the client for the suites, outside any user config.
 EMACS_DEPS ?= $(CURDIR)/build/emacs-deps
+# The client `make emacs-compile` and `make emacs-test` check the package with: lsp-mode or eglot.
+EMACS_CLIENT ?= lsp-mode
+EMACS_CLIENT_FILE := $(if $(filter eglot,$(EMACS_CLIENT)),sysml-eglot,sysml-lsp)
+EMACS_BATCH = OPENSYSML_EMACS_DEPS=$(EMACS_DEPS) OPENSYSML_EMACS_CLIENT=$(EMACS_CLIENT) \
+	$(EMACS) -Q --batch -l $(EMACS_DIR)/test/deps.el -L $(EMACS_DIR)
 PYTHON ?= python3
 # api/proto/buf.gen.python.yaml starts the interpreter this names.
 export PYTHON
@@ -518,7 +523,7 @@ audit-rust: ## Fail on RustSec advisories against client/rust/Cargo.lock (cargo 
 
 audit-java: ## Fail on OSV advisories against the Maven trees' compile and runtime dependencies (JAVA_PROJECT_DIRS=dir... narrows)
 	@# A CycloneDX SBOM carries the versions Maven resolved, reactor modules included, which osv-scanner's own pom resolver cannot follow.
-	@# scripts/maven-sbom.sh asks a mirror of Maven Central for the plugin that writes it when Central refuses.
+	@# scripts/maven-sbom.sh asks a mirror of Maven Central for the plugin that writes it, and Central when the mirror refuses.
 	@for dir in $(JAVA_PROJECT_DIRS); do echo "osv-scanner $$dir" && scripts/maven-sbom.sh "$$dir" $(CYCLONEDX_MAVEN_VERSION) && $(SCA_BIN)/osv-scanner scan source -L "$$dir/target/bom.json" || exit 1; done
 
 audit: vulncheck audit-npm audit-python audit-rust audit-java ## Run every dependency audit, as CI and the release procedure do
@@ -796,24 +801,21 @@ emacs-keywords: ## Regenerate the Emacs mode's keyword lists from the lexer keyw
 	go run ./$(EMACS_DIR)/tools/genkeywords -out $(EMACS_DIR)
 	@echo "✓ Keyword lists generated"
 
-emacs-compile: ## Byte-compile and checkdoc the Emacs package, warnings as errors
-	@echo "Byte-compiling the Emacs package..."
-	OPENSYSML_EMACS_DEPS=$(EMACS_DEPS) $(EMACS) -Q --batch -l $(EMACS_DIR)/test/deps.el \
-		-L $(EMACS_DIR) --eval '(setq byte-compile-error-on-warn t)' \
+emacs-compile: ## Byte-compile and checkdoc the Emacs package under EMACS_CLIENT, warnings as errors
+	@echo "Byte-compiling the Emacs package with $(EMACS_CLIENT)..."
+	$(EMACS_BATCH) --eval '(setq byte-compile-error-on-warn t)' \
 		-f batch-byte-compile $(EMACS_DIR)/sysml-mode-keywords.el $(EMACS_DIR)/sysml-mode.el \
-		$(EMACS_DIR)/sysml-lsp.el $(EMACS_DIR)/sysml-diagram.el
+		$(EMACS_DIR)/$(EMACS_CLIENT_FILE).el $(EMACS_DIR)/sysml-diagram.el
 	rm -f $(EMACS_DIR)/*.elc
-	OPENSYSML_EMACS_DEPS=$(EMACS_DEPS) $(EMACS) -Q --batch -l $(EMACS_DIR)/test/deps.el \
-		-L $(EMACS_DIR) -l $(EMACS_DIR)/test/checkdoc.el \
+	$(EMACS_BATCH) -l $(EMACS_DIR)/test/checkdoc.el \
 		$(EMACS_DIR)/sysml-mode-keywords.el $(EMACS_DIR)/sysml-mode.el \
-		$(EMACS_DIR)/sysml-lsp.el $(EMACS_DIR)/sysml-diagram.el
+		$(EMACS_DIR)/$(EMACS_CLIENT_FILE).el $(EMACS_DIR)/sysml-diagram.el
 	@echo "✓ Emacs package compiles cleanly"
 
-emacs-test: ## Run the Emacs package's ERT suites (the live ones need `make build`)
-	@echo "Running Emacs tests..."
-	OPENSYSML_EMACS_DEPS=$(EMACS_DEPS) $(EMACS) -Q --batch -l $(EMACS_DIR)/test/deps.el \
-		-L $(EMACS_DIR) -L $(EMACS_DIR)/test \
-		-l $(EMACS_DIR)/test/sysml-mode-test.el -l $(EMACS_DIR)/test/sysml-lsp-test.el \
+emacs-test: ## Run the Emacs package's ERT suites under EMACS_CLIENT (the live ones need `make build`)
+	@echo "Running Emacs tests with $(EMACS_CLIENT)..."
+	$(EMACS_BATCH) -L $(EMACS_DIR)/test \
+		-l $(EMACS_DIR)/test/sysml-mode-test.el -l $(EMACS_DIR)/test/$(EMACS_CLIENT_FILE)-test.el \
 		-l $(EMACS_DIR)/test/sysml-diagram-test.el \
 		-f ert-run-tests-batch-and-exit
 	@echo "✓ Emacs tests passed"

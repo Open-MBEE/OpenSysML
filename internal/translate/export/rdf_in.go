@@ -1520,6 +1520,10 @@ func (d *decoder) referencedElement(iri string) (*element, error) {
 		if mappingExpressionBodyMemberSubject(d.graph, rdf.IRI(target.iri)) {
 			return target, nil
 		}
+		if d.boolOf(target, rdf.OpenSysML+xIsLoopBody) {
+			// A loop's body names nothing: what it owns is addressed under the loop.
+			return target, nil
+		}
 		return nil, &UnsupportedError{
 			What: fmt.Sprintf("the element <%s>", target.iri),
 			Note: "it is referenced but carries no sysml:qualifiedName, which is where a reference's name is read from",

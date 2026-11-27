@@ -388,17 +388,16 @@ func (r *Resolver) resolveBehaviorDecl(scope *symbols.Scope, decl ast.Node) bool
 		r.resolveExpr(scope, d.ActionRef)
 		return true
 	case *ast.WhileLoopActionNode:
-		// The loop owns its body's declarations, and its condition is checked
-		// against them: `loop { action charging; } until charging.done`. The
-		// collection a `for` loop iterates over is evaluated before the loop is
-		// entered, so it resolves outside the body.
+		// The loop's condition is checked against its body's declarations (`loop { action charging; }
+		// until charging.done`); a `for` collection and variable type resolve outside the body.
 		body := scope
 		if child := r.childScope(scope, d); child != nil {
 			body = child
 		}
+		r.resolveRelationships(scope, d, d.VariableRelationships)
 		r.resolveExpr(scope, d.Collection)
-		r.resolveExpr(body, d.Condition)
-		r.resolveExpr(body, d.Until)
+		r.resolveExpr(body.LoopGuard(), d.Condition)
+		r.resolveExpr(body.LoopGuard(), d.Until)
 		r.walkMembers(body, d.Body)
 		return true
 	case *ast.IfActionNode:

@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"fmt"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -17,6 +18,9 @@ func TestRuntimeRobustnessInterrupt(t *testing.T) {
 	t.Run("ActionRunStopsFromAnotherGoroutine", testInterruptFromAnotherGoroutine)
 	t.Run("EvaluationStopsAtItsNextStep", testInterruptStopsAnEvaluation)
 	t.Run("StateDoBehaviorStopsAtItsNextStep", testInterruptStopsAStateDoBehavior)
+	t.Run("StateCompletionCycleStopsAtItsNextStep", testInterruptStopsAStateCompletionCycle)
+	t.Run("InterruptionIsNotTheBehaviorsFailure", testInterruptIsNotRecordedOnABehavior)
+	t.Run("InterruptedDeferredStartIsRecordedFailed", testInterruptFailsADeferredStart)
 }
 
 const spinningAction = `
@@ -139,5 +143,97 @@ func testInterruptStopsAStateDoBehavior(t *testing.T) {
 	flag.Store(true)
 	if err := exec.RunToQuiescence(); !errors.Is(err, ErrInterrupted) {
 		t.Fatalf("RunToQuiescence() = %v, want ErrInterrupted", err)
+	}
+}
+
+// testInterruptStopsAStateCompletionCycle checks a machine cycling through
+// completion transitions, with no do behavior or effect to count a step, stops too.
+func testInterruptStopsAStateCompletionCycle(t *testing.T) {
+	src := `
+		package test {
+			state def Machine {
+				entry; then a;
+				state a; state b;
+				transition a_b first a then b;
+				transition b_a first b then a;
+			}
+		}
+	`
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+	ctx.maxStateEvents = 1_000
+	flag := new(atomic.Bool)
+	ctx.SetInterrupt(flag)
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "Machine", ast.DefState)
+	if sym == nil {
+		t.Fatal("state def Machine not found")
+	}
+	exec, err := ctx.CreateStateExecutor(sym)
+	if err != nil {
+		t.Fatalf("create state executor: %v", err)
+	}
+	flag.Store(true)
+	if err := exec.RunToQuiescence(); !errors.Is(err, ErrInterrupted) {
+		t.Fatalf("RunToQuiescence() = %v, want ErrInterrupted", err)
+	}
+}
+
+// testInterruptIsNotRecordedOnABehavior checks a run of a type-bound behavior
+// stopped from outside is not recorded as that behavior's failure, which would
+// end it for every later run, while a failure of its own still is.
+func testInterruptIsNotRecordedOnABehavior(t *testing.T) {
+	bound := &ObjectBehavior{typeBound: true}
+	if recordsFailure(bound, fmt.Errorf("machine: %w", ErrInterrupted)) {
+		t.Error("an interrupted run was recorded as the behavior's failure")
+	}
+	if !recordsFailure(bound, errors.New("the model failed")) {
+		t.Error("a behavior's own failure was not recorded on it")
+	}
+}
+
+// testInterruptFailsADeferredStart checks a held behavior whose start is stopped
+// from outside is recorded failed rather than left neither started nor failed,
+// which later runs would pass over in silence.
+func testInterruptFailsADeferredStart(t *testing.T) {
+	src := `package test {
+		attribute def Wake;
+		state def Earlier {
+			entry; then waiting;
+			state waiting;
+			transition first waiting accept Wake then done;
+		}
+		state def Later {
+			entry; then done;
+		}
+		part def Holder {
+			exhibit state earlier : Earlier;
+			exhibit state later : Later;
+			first earlier then later;
+		}
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	inst, err := ctx.Instantiate(oneSymbol(t, idx, "test::Holder"))
+	if err != nil {
+		t.Fatalf("instantiate Holder: %v", err)
+	}
+	later := behaviorNamed(t, inst, "later")
+	if later.deferred == nil {
+		t.Fatal("later exhibit was not held while earlier awaits Wake")
+	}
+	var stop atomic.Bool
+	ctx.SetInterrupt(&stop)
+	stop.Store(true)
+	err = ctx.releaseDeferredBehavior(later)
+	stop.Store(false)
+	if !errors.Is(err, ErrInterrupted) {
+		t.Fatalf("release of the held exhibit under a raised flag = %v, want ErrInterrupted", err)
+	}
+	if later.deferred != nil {
+		t.Error("the interrupted start is still held")
+	}
+	if !errors.Is(later.Err, ErrStartInterrupted) {
+		t.Errorf("the interrupted start recorded %v on the behavior, want ErrStartInterrupted", later.Err)
+	}
+	if errors.Is(later.Err, ErrInterrupted) {
+		t.Error("the recorded failure reads as an interruption of the run that next asks for the behavior")
 	}
 }
