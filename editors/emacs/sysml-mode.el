@@ -25,6 +25,7 @@
 ;;; Code:
 
 (require 'compile)
+(require 'xref)
 (require 'seq)
 (require 'sysml-mode-keywords)
 (require 'url-parse)
@@ -431,6 +432,22 @@ library."
           (setq buffer-read-only t)
           (goto-char (point-min)))
         buffer)))
+
+(defun sysml-library-xref-item (buffer beg end)
+  "Return an xref item for the text from BEG to END of library BUFFER.
+A bundled library document has no file to name, so the item is located
+in the buffer showing it; its summary is the line BEG is on.  It is not
+a match: the buffer is read-only, so a replacement must pass it by."
+  (with-current-buffer buffer
+    (save-excursion
+      (save-restriction
+        (widen)
+        (goto-char beg)
+        (let* ((bol (line-beginning-position))
+               (eol (line-end-position))
+               (summary (buffer-substring bol eol)))
+          (add-face-text-property (- beg bol) (- (min end eol) bol) 'xref-match t summary)
+          (xref-make summary (xref-make-buffer-location buffer beg)))))))
 
 ;;;; Running elements
 

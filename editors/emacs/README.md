@@ -84,10 +84,15 @@ The server is found in this order, as the VS Code extension finds it:
 After rebuilding the server, `M-x lsp-workspace-restart` picks the new binary up.
 
 Under Eglot the server is `sysml-lsp` on `exec-path`, and `M-x eglot-reconnect`
-picks a rebuilt one up. The `sysml-lsp-strict-conformance` setting is
-lsp-mode's only, and so are code lenses, which Eglot does not show;
-[`M-x sysml-eglot-run-element`](#code-lenses) runs what a Run or Evaluate lens
-would.
+picks a rebuilt one up. Code lenses are lsp-mode's only: Eglot does not show
+them, and [`M-x sysml-eglot-run-element`](#code-lenses) runs what a Run or
+Evaluate lens would. The server's settings go through Eglot's own
+`eglot-workspace-configuration`; see [Settings](#settings).
+
+`M-.` on a standard library name, such as `Integer` after `import ScalarValues::*`,
+shows its declaration in a read-only buffer whose text the server serves
+(`opensysml/stdlibContent`), under either client. A reference found in the
+library is listed and visited the same way.
 
 ## Code lenses
 
@@ -205,6 +210,29 @@ is refused when the server does not advertise the render methods
 | `sysml-lsp-semantic-tokens` | `t` | Add the server's semantic tokens to highlighting. |
 | `sysml-diagram-mmdc-program` | `"mmdc"` | The Mermaid CLI pictures are drawn with. |
 | `sysml-diagram-display-action` | right side window | How the view buffer is displayed. |
+
+The `sysml-lsp-` settings are lsp-mode's. Under Eglot, the server's settings are
+set where Eglot keeps every server's, in `eglot-workspace-configuration`, under
+`:sysml`. Strict conformance, for every project:
+
+```elisp
+(setq-default eglot-workspace-configuration
+              '(:sysml (:strictConformance t)))
+```
+
+or for one project, in its `.dir-locals.el`:
+
+```elisp
+((nil . ((eglot-workspace-configuration . (:sysml (:strictConformance t))))))
+```
+
+Eglot sends the value when the server starts. After changing it,
+`M-x eglot-signal-didChangeConfiguration` sends it again, and the server
+republishes every open document's diagnostics without a restart. Turning the
+setting off again takes `:json-false`: Eglot sends `nil` as JSON `null`, which
+the server does not read as a boolean. The
+server's other settings ([LSP extensions](../../docs/reference/lsp.md)), such as
+`:keepLineBreaks` and `:disabledLints`, go beside it under `:sysml`.
 
 ## Keyword generation
 
