@@ -22,8 +22,6 @@ type targetLookup struct {
 	// targets keeps what lookupTargets answered, so a lattice of named imports is
 	// read once per name.
 	targets map[namedIn]lookedUp
-	// besideNamed is set while a sibling of named imports is bound for boundByImports.
-	besideNamed int
 	// spare holds the emptied sets of finished walks, for the next ones.
 	spare []map[string]bool
 }
@@ -137,87 +135,22 @@ func (idx *Index) leftBrings(fqn, name string, look *targetLookup) bool {
 	return false
 }
 
-// boundBeside resolves name, the first segment of a wildcard import's target, where an
-// import the namespace under fqn leaves to name lookup may bring it: to the one
-// namespace name lookup reads there, or "" when the index cannot tell which.
-func (idx *Index) boundBeside(fqn, name string, look *targetLookup) string {
-	members, known := idx.membersByLookup(fqn, name, true, nil, look)
-	if !known || len(members) != 1 {
-		return ""
-	}
-	return members[0]
-}
-
-// hiddenByImports reports whether the imports of the namespace under fqn, which
-// imports name by name, bring several namespaces under it: name is the first segment
-// of the wildcard import of target stated under importer. It reports so only where the
-// index binds every one of them itself; an alias for name is a member, and hides nothing.
-func (idx *Index) hiddenByImports(importer, target, fqn, key, name string, look *targetLookup) bool {
-	for _, sym := range idx.fqn.at(key) {
-		if sym.Kind == SymbolAlias {
-			return false
-		}
-	}
-	var paths []string
-	for _, sym := range idx.fqn.at(fqn) {
-		if sym.Scope == nil {
-			continue
-		}
-		for _, imp := range sym.Scope.Imports() {
-			if imp.Kind != ast.ImportMembership || imp.Imported == nil || len(imp.Imported.Parts) == 0 ||
-				imp.Imported.Parts[len(imp.Imported.Parts)-1].Text != name {
-				continue
-			}
-			if imp.Imported.Global {
-				return false
-			}
-			paths = append(paths, imp.Imported.Text())
-		}
-	}
-	if len(paths) == 0 {
-		return false
-	}
-	// The wildcard import of target is pending while its first segment resolves.
-	leave, found := look.enter(namedIn{importer, ofWildcardImport + target})
-	if found != entered {
-		return false
+// boundBeside resolves name, the first segment of the wildcard import of target stated
+// under importer, in the namespace under fqn on its way out, as name lookup reads it
+// there: to the one namespace bearing it. Not found when none does or several hide
+// each other (KerML 7.2.5.4), not known when the index cannot tell.
+func (idx *Index) boundBeside(importer, target, fqn, name string, look *targetLookup) (bound string, found, known bool) {
+	// The import is pending while its first segment resolves.
+	leave, entry := look.enter(namedIn{importer, ofWildcardImport + target})
+	if entry != entered {
+		return "", false, false
 	}
 	defer leave()
-	var brought []string
-	for _, path := range paths {
-		to := idx.wildcardTarget(fqn, path, false, look)
-		if to == "" {
-			return false
-		}
-		brought = union(brought, []string{to})
+	members, known := idx.membersByLookup(fqn, name, true, nil, look)
+	if !known || len(members) != 1 {
+		return "", false, known
 	}
-	for _, imp := range idx.imports(fqn) {
-		if look.passes(namedIn{fqn, ofWildcardImport + imp.target}) {
-			continue
-		}
-		// A sibling whose own first segment an import names stays with name lookup.
-		look.besideNamed++
-		to := idx.wildcardTarget(fqn, imp.target, imp.all, look)
-		look.besideNamed--
-		if to == "" {
-			return false
-		}
-		// It brings a member its target owns; one the target imports stays with name lookup.
-		member := to + "::" + name
-		idx.readName(member)
-		if idx.declaresUnder(member) {
-			if owned, ok := idx.wildcardTargetAt(member); !ok {
-				return false
-			} else if imp.all || idx.namedFromOutside(member) {
-				brought = union(brought, []string{owned})
-			}
-			continue
-		}
-		if members, known := idx.membersByLookup(to, name, false, nil, look); !known || len(members) != 0 {
-			return false
-		}
-	}
-	return len(brought) > 1
+	return members[0], true, true
 }
 
 // surfacesBeside reports whether name lookup, resolving another import's target, reads
@@ -292,8 +225,10 @@ func (idx *Index) lookupTargets(fqn, path, of string, global bool, pending *ast.
 	return targets, true
 }
 
-// membersByLookup lists what name may name in the namespace under fqn, seen from inside
-// it or through an import of it: several when they collide. Not known when the index cannot tell.
+// membersByLookup lists what name names in the namespace under fqn, seen from inside it
+// or through an import of it: its member, else the one element its imports bring under
+// name, none when they bring several, which hide each other whatever their visibility.
+// Not known when the index cannot tell.
 func (idx *Index) membersByLookup(fqn, name string, inside bool, pending *ast.Import, look *targetLookup) (members []string, known bool) {
 	key := name
 	if fqn != "" {
@@ -308,63 +243,82 @@ func (idx *Index) membersByLookup(fqn, name string, inside bool, pending *ast.Im
 		member, ok := idx.wildcardTargetAt(key)
 		return []string{member}, ok
 	}
-	if members, known = idx.boundByLookup(fqn, key, name, inside, pending, look); !known || len(members) != 0 {
-		return members, known
+	members, visible, aliased, known := idx.boundByLookup(fqn, key, name, inside, pending, look)
+	if !known {
+		return nil, false
 	}
-
-	// Past its own named imports and aliases, what its wildcard imports bring: the
-	// members of the targets the index resolved, then of the ones left to name lookup.
-	leave, found := look.enter(namedIn{fqn, ofMember + name})
-	if found != entered {
-		return nil, found == alreadyPending
-	}
-	defer leave()
-	for _, imp := range idx.lastTargets.at(fqn) {
-		if imp.fqn == "" || (!inside && imp.private) {
-			continue
-		}
-		brought, known := idx.membersByLookup(imp.fqn, name, false, nil, look)
-		if !known {
+	// An alias is a member, named before anything an import brings.
+	if !aliased {
+		// Past its named imports, what its wildcard imports bring: the members of the
+		// targets the index resolved, then of the ones left to name lookup.
+		leave, found := look.enter(namedIn{fqn, ofMember + name})
+		switch found {
+		case tooDeep:
 			return nil, false
-		}
-		members = union(members, brought)
-	}
-	for _, imp := range idx.imports(fqn) {
-		if !inside && imp.private {
-			continue
-		}
-		if look.passes(namedIn{fqn, ofWildcardImport + imp.target}) || !idx.surfacesBeside(fqn, imp.target, name) {
-			continue
-		}
-		if !idx.leftBy(fqn, imp.target, look) {
-			continue
-		}
-		targets, known := idx.lookupTargets(fqn, imp.target, ofWildcardImport, false, nil, look)
-		if !known {
-			return nil, false
-		}
-		for _, target := range targets {
-			brought, known := idx.membersByLookup(target, name, false, nil, look)
-			if !known {
-				return nil, false
+		case entered:
+			defer leave()
+			stated, resolved := idx.imports(fqn), idx.lastTargets.at(fqn)
+			for i, imp := range stated {
+				if look.passes(namedIn{fqn, ofWildcardImport + imp.target}) || !idx.surfacesBeside(fqn, imp.target, name) {
+					continue
+				}
+				var targets []string
+				if i < len(resolved) && resolved[i].fqn != "" && !idx.leftBy(fqn, imp.target, look) {
+					targets = []string{resolved[i].fqn}
+				} else if targets, known = idx.lookupTargets(fqn, imp.target, ofWildcardImport, false, nil, look); !known {
+					return nil, false
+				}
+				for _, target := range targets {
+					brought, known := idx.membersByLookup(target, name, false, nil, look)
+					if !known {
+						return nil, false
+					}
+					if len(brought) != 0 {
+						members, visible = union(members, brought), visible || inside || !imp.private
+					}
+				}
 			}
-			members = union(members, brought)
 		}
+	}
+	if len(members) != 1 || !visible {
+		return nil, true
 	}
 	return members, true
 }
 
-// boundByLookup lists what the named imports and aliases the namespace under fqn states
-// bind name to; not known when one of them does not resolve.
-func (idx *Index) boundByLookup(fqn, key, name string, inside bool, pending *ast.Import, look *targetLookup) (bound []string, known bool) {
-	reexported := idx.reexported.at(fqn)
+// boundByLookup lists what the namespace under fqn binds name to by itself: the target
+// of the first alias it declares for name (aliased), else those of its named imports
+// of name, whatever their visibility; visible when one binding it is seen by the reader.
+func (idx *Index) boundByLookup(fqn, key, name string, inside bool, pending *ast.Import, look *targetLookup) (bound []string, visible, aliased, known bool) {
+	reexported := idx.reexported.at(key)
+	for _, sym := range idx.fqn.at(key) {
+		if sym.Kind != SymbolAlias || reexported.has(sym) {
+			continue
+		}
+		if !inside && !VisibleOutside(sym.Visibility) {
+			return nil, false, true, true
+		}
+		if sym.Recorded() {
+			if sym.Facts.Alias.IsZero() {
+				return nil, false, true, false
+			}
+			return []string{sym.Facts.Alias.FQN}, true, true, true
+		}
+		al, ok := sym.Decl.(*ast.Alias)
+		if !ok || al.For == nil {
+			return nil, false, true, false
+		}
+		bound, known = idx.lookupTargets(fqn, al.For.Text(), ofAlias, al.For.Global, nil, look)
+		return bound, true, true, known
+	}
+	reexported = idx.reexported.at(fqn)
 	for _, sym := range idx.fqn.at(fqn) {
 		if sym.Scope == nil || reexported.has(sym) {
 			continue
 		}
 		for _, imp := range sym.Scope.Imports() {
 			if imp == pending || imp.Kind != ast.ImportMembership || imp.Imported == nil || len(imp.Imported.Parts) == 0 ||
-				imp.Imported.Parts[len(imp.Imported.Parts)-1].Text != name || (!inside && !VisibleOutside(imp.Visibility)) {
+				imp.Imported.Parts[len(imp.Imported.Parts)-1].Text != name {
 				continue
 			}
 			if look.passes(namedIn{fqn, ofNamedImport + imp.Imported.Text()}) {
@@ -372,34 +326,14 @@ func (idx *Index) boundByLookup(fqn, key, name string, inside bool, pending *ast
 			}
 			targets, known := idx.lookupTargets(fqn, imp.Imported.Text(), ofNamedImport, imp.Imported.Global, imp, look)
 			if !known {
-				return nil, false
+				return nil, false, false, false
 			}
-			bound = union(bound, targets)
+			if len(targets) != 0 {
+				bound, visible = union(bound, targets), visible || inside || VisibleOutside(imp.Visibility)
+			}
 		}
 	}
-	reexported = idx.reexported.at(key)
-	for _, sym := range idx.fqn.at(key) {
-		if sym.Kind != SymbolAlias || reexported.has(sym) || (!inside && !VisibleOutside(sym.Visibility)) {
-			continue
-		}
-		if sym.Recorded() {
-			if sym.Facts.Alias.IsZero() {
-				return nil, false
-			}
-			bound = union(bound, []string{sym.Facts.Alias.FQN})
-			continue
-		}
-		al, ok := sym.Decl.(*ast.Alias)
-		if !ok || al.For == nil {
-			return nil, false
-		}
-		targets, known := idx.lookupTargets(fqn, al.For.Text(), ofAlias, al.For.Global, nil, look)
-		if !known {
-			return nil, false
-		}
-		bound = union(bound, targets)
-	}
-	return bound, true
+	return bound, visible, false, true
 }
 
 // union appends to names the ones of more it does not hold.

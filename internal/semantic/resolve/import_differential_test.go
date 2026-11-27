@@ -149,8 +149,8 @@ func TestWildcardImportDifferential(t *testing.T) {
 			}
 			agrees := reads[0] == want
 			held := idx.LookupQualified("P::K::N::" + member)
-			// The index may leave the first import to name lookup, never the second.
-			if member == "H" && want != "" && len(held) == 0 {
+			// The index holds what name lookup reads.
+			if want != "" && len(held) == 0 {
 				agrees = false
 			}
 			for _, sym := range held {
@@ -166,14 +166,16 @@ func TestWildcardImportDifferential(t *testing.T) {
 			}
 			wrong[key] = true
 			// The other revision read the name as expected here: lookup alone, or lookup and the index.
-			if was, ok := base[name]; ok && (was == want || was == want+","+want) {
+			// Where the index here only lacks the name, the base revision's index held it.
+			lacks := reads[0] == want && len(held) == 0
+			if was, ok := base[name]; ok && (was == want+","+want || (was == want && !lacks)) {
 				regressed++
 				t.Errorf("%s reads %q, the base revision %q", name, read, was)
 			}
 		}
 	})
 
-	const wantModels, knownGap = 60720, 24
+	const wantModels, knownGap = 60720, 16
 	if models != wantModels {
 		t.Errorf("enumerated %d models, want %d", models, wantModels)
 	}
