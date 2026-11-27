@@ -23,7 +23,9 @@
 ;;
 ;; The server is found as under lsp-mode: the `sysml-lsp-server-path'
 ;; setting, else `bin/sysml-lsp' in the project root, else `sysml-lsp' on
-;; `exec-path', and it is passed `sysml-lsp-server-args'.
+;; `exec-path', and it is passed `sysml-lsp-server-args'.  Its settings are
+;; set in `eglot-workspace-configuration' under `:sysml', for instance
+;; (:sysml (:strictConformance t)).
 
 ;;; Code:
 
@@ -59,6 +61,18 @@ Its text is asked of the current buffer's server; see
      (lambda ()
        (plist-get (jsonrpc-request server sysml-eglot--stdlib-content-method (list :uri uri))
                   :text)))))
+
+(defun sysml-eglot--xref-library-match (make-match name uri range)
+  "Call MAKE-MATCH with NAME, URI and RANGE unless URI is a library document.
+A `sysml-stdlib:' URI names no file, so Eglot would locate the match in
+an empty buffer; it is located in the document's library buffer instead."
+  (if (sysml-library-uri-p uri)
+      (let ((buffer (sysml-eglot-stdlib-buffer uri)))
+        (pcase-let ((`(,beg . ,end) (with-current-buffer buffer (eglot-range-region range))))
+          (sysml-library-xref-item buffer beg end)))
+    (funcall make-match name uri range)))
+
+(advice-add 'eglot--xref-make-match :around #'sysml-eglot--xref-library-match)
 
 ;;;; Formatting
 

@@ -240,6 +240,10 @@ navigation continues from one library file to the next (from `Occurrences.kerml`
 say). The editor is read-only and the server refuses an edit to it — the library is what the
 server validates the model against, and changing it would change what every diagnostic means.
 
+In Emacs, `M-.` on a library name (and a reference found in the library) opens a read-only
+buffer of the bundled text on the declaring line, under lsp-mode and Eglot alike. That buffer
+is not a document of the server's, so navigation does not continue from inside it.
+
 A workspace that holds the library twice — a `sysml.library` copy under the folder beside the
 bundled one, or an `OPENSYSML_LIBRARY_PATH` tree with two copies — gets the
 [`library-declared-twice`](../reference/diagnostics.md#library-declared-twice) warning once, on
@@ -339,7 +343,9 @@ Under either client the server is found as the VS Code extension finds it:
   the statement above.
 - **Strict conformance** is `sysml-lsp-strict-conformance`, sent as
   `sysml.strictConformance`; setting it republishes every open document's
-  diagnostics without a restart. It and the code lenses are lsp-mode's only.
+  diagnostics without a restart. Under Eglot it is `(:sysml (:strictConformance t))`
+  in `eglot-workspace-configuration`, sent again by
+  `M-x eglot-signal-didChangeConfiguration`. The code lenses are lsp-mode's only.
 - **`M-x sysml-diagram-show`** is the counterpart of [the diagram
   panel](#the-diagram-panel): the same renderings, drawn as a tree of elements
   with their edges and what could not be represented. `RET` on an element visits

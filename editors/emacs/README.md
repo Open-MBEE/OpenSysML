@@ -85,7 +85,13 @@ Both clients look in that order and pass `sysml-lsp-server-args`. After rebuildi
 the server, `M-x lsp-workspace-restart` picks the new binary up, or
 `M-x eglot-reconnect` under Eglot.
 
-Code lenses and the `sysml-lsp-strict-conformance` setting are lsp-mode's only.
+Code lenses are lsp-mode's only. Under Eglot the server's settings go through
+Eglot's own `eglot-workspace-configuration`; see [Settings](#settings).
+
+`M-.` on a standard library name, such as `Integer` after `import ScalarValues::*`,
+shows its declaration in a read-only buffer whose text the server serves
+(`opensysml/stdlibContent`), under either client. A reference found in the
+library is listed and visited the same way.
 
 ## Code lenses
 
@@ -190,6 +196,29 @@ is refused when the server does not advertise the render methods
 | `sysml-lsp-semantic-tokens` | `t` | Add the server's semantic tokens to highlighting. |
 | `sysml-diagram-mmdc-program` | `"mmdc"` | The Mermaid CLI pictures are drawn with. |
 | `sysml-diagram-display-action` | right side window | How the view buffer is displayed. |
+
+The `sysml-lsp-` settings are lsp-mode's. Under Eglot, the server's settings are
+set where Eglot keeps every server's, in `eglot-workspace-configuration`, under
+`:sysml`. Strict conformance, for every project:
+
+```elisp
+(setq-default eglot-workspace-configuration
+              '(:sysml (:strictConformance t)))
+```
+
+or for one project, in its `.dir-locals.el`:
+
+```elisp
+((nil . ((eglot-workspace-configuration . (:sysml (:strictConformance t))))))
+```
+
+Eglot sends the value when the server starts. After changing it,
+`M-x eglot-signal-didChangeConfiguration` sends it again, and the server
+republishes every open document's diagnostics without a restart. Turning the
+setting off again takes `:json-false`: Eglot sends `nil` as JSON `null`, which
+the server does not read as a boolean. The
+server's other settings ([LSP extensions](../../docs/reference/lsp.md)), such as
+`:keepLineBreaks` and `:disabledLints`, go beside it under `:sysml`.
 
 ## Keyword generation
 
