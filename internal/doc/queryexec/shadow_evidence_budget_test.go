@@ -11,8 +11,7 @@ import (
 )
 
 // The excluded holder's unmaterialized attribute is the only numeric operand
-// source, so its evidence read has to evaluate a default. A spent caller budget
-// must not turn the valid empty result into an operand error.
+// source; a spent caller budget must not turn its evidence into an operand error.
 const shadowEvidenceBudgetFixture = `
 private import ScalarValues::*;
 part def Excluded { attribute annotations : Integer = ScalarFunctions::max(5, 1); }

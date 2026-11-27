@@ -8,9 +8,8 @@ import (
 	"time"
 )
 
-// An evidence probe reads on its own budget, so a caller that nearly spent its
-// steps or elements cannot turn a valid preview into a budget failure. Nested
-// probes stay on that budget, and the caller's counters are untouched after.
+// An evidence probe reads on its own budget; nested probes share it and leave
+// the caller's counters untouched even when its steps or elements are spent.
 func TestProbeEvidenceHasAnIndependentBudget(t *testing.T) {
 	_, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `package P { part def D; }`))
 	ctx.maxSteps = 10
@@ -48,6 +47,41 @@ func TestProbeEvidenceHasAnIndependentBudget(t *testing.T) {
 	}
 	if err := ctx.chargeElements(5); !errors.Is(err, ErrElementLimitExceeded) {
 		t.Fatalf("an ordinary element charge after the probe = %v, want %v", err, ErrElementLimitExceeded)
+	}
+}
+
+// Bulk compiled charges and required-tail listings bypass their budgets in an
+// evidence preview too; the caller's guards return once the probe ends.
+func TestProbeEvidenceIgnoresBulkStepAndElementGuards(t *testing.T) {
+	_, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `package P { part def D; }`))
+	ctx.maxSteps, ctx.maxElements = 6, 2
+	ctx.run.steps = 5
+	sequence := NewSequenceValue(&Sequence{required: &requiredMembers{ctx: ctx, count: 10}})
+
+	err := ctx.ProbeEvidence(func() error {
+		if err := ctx.chargeSteps(20); err != nil {
+			return err
+		}
+		held, err := ctx.HeldElements(sequence)
+		if err != nil {
+			return err
+		}
+		if len(held) != 10 {
+			return fmt.Errorf("held elements = %d, want 10", len(held))
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("evidence preview past both bulk budgets: %v", err)
+	}
+	if ctx.run.steps != 5 {
+		t.Fatalf("the caller's steps = %d, want 5", ctx.run.steps)
+	}
+	if err := ctx.chargeSteps(20); !errors.Is(err, ErrStepLimitExceeded) {
+		t.Fatalf("an ordinary bulk charge after the probe = %v, want %v", err, ErrStepLimitExceeded)
+	}
+	if _, err := ctx.HeldElements(sequence); !errors.Is(err, ErrElementLimitExceeded) {
+		t.Fatalf("an ordinary listing after the probe = %v, want %v", err, ErrElementLimitExceeded)
 	}
 }
 
