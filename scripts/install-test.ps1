@@ -11,6 +11,9 @@ param(
     [Parameter(Mandatory)][string]$Script,
     [Parameter(Mandatory)][string]$BaseUrl,
     [Parameter(Mandatory)][string]$MirrorUrl,
+    [Parameter(Mandatory)][string]$PendingUrl,
+    [Parameter(Mandatory)][string]$FailingUrl,
+    [Parameter(Mandatory)][string]$CutUrl,
     [Parameter(Mandatory)][string]$HostPlatform,
     [Parameter(Mandatory)][string]$Good,
     [Parameter(Mandatory)][string]$Signed,
@@ -220,6 +223,61 @@ if (Test-Ok 'latest from a mirror without the redirect' -BaseUrl $MirrorUrl) {
     Assert-Said "$MirrorUrl/latest/download/opensysml-$HostPlatform.tar.gz"
     Assert-Installed sysml, sysml-lsp
 }
+
+# A release is latest before its assets are uploaded: the newest earlier stable
+# release that has a manifest is installed instead, and verified against it.
+$env:OPENSYSML_RELEASES_API = "$PendingUrl/list.json"
+if (Test-Ok 'latest without assets yet' -BaseUrl $PendingUrl) {
+    Assert-Said 'v8.3.0 is the latest release, but its assets are not uploaded yet; installing v8.1.0, the newest release that has them.'
+    Assert-Said 'Installing OpenSysML (v8.1.0)'
+    Assert-Said "$PendingUrl/download/v8.1.0/opensysml-$HostPlatform.tar.gz"
+    Assert-Said "opensysml-$HostPlatform.tar.gz verified"
+    Assert-Said 'sysml v8.1.0'
+    Assert-Installed sysml, sysml-lsp
+}
+if (Test-Ok 'dry run of latest without assets yet' -BaseUrl $PendingUrl -DryRun) {
+    Assert-Said 'Installing OpenSysML (v8.1.0)'
+    Assert-Said "from:     $PendingUrl/download/v8.1.0/opensysml-$HostPlatform.tar.gz"
+}
+# The same through a script block, as `irm | iex` runs it, where the installer's variables are not script-scoped.
+$script:n++
+$blockDir = Join-Path $work "install-$script:n"
+$blockOut = (& pwsh -NoProfile -Command "& ([scriptblock]::Create((Get-Content -Raw -LiteralPath '$Script'))) -BaseUrl '$PendingUrl' -InstallDir '$blockDir'" 2>&1 | ForEach-Object { "$_" }) -join "`n"
+if ($LASTEXITCODE -eq 0 -and $blockOut.Contains('Installing OpenSysML (v8.1.0)') -and (Test-Path -LiteralPath (Join-Path $blockDir 'sysml'))) {
+    Write-Host 'ok   latest without assets yet, from a script block'
+} else {
+    Write-Failure "latest without assets yet, from a script block: exit $LASTEXITCODE`n$blockOut"
+}
+# Asking for the release by name is not a request for whatever is installable.
+$null = Test-Failure 'a named release without assets' "could not download $PendingUrl/download/v8.3.0/SHA256SUMS.txt" -BaseUrl $PendingUrl -Version v8.3.0
+$env:OPENSYSML_RELEASES_API = "$PendingUrl/list-none.json"
+$null = Test-Failure 'latest without assets and no earlier release with them' "v8.3.0 is the latest release, but its assets are not uploaded yet ($PendingUrl/download/v8.3.0/SHA256SUMS.txt is missing) and no earlier release has a SHA256SUMS.txt" -BaseUrl $PendingUrl
+$env:OPENSYSML_RELEASES_API = "$PendingUrl/missing.json"
+$null = Test-Failure 'latest without assets and an unreachable releases list' "the earlier releases could not be listed from $PendingUrl/missing.json; pass -Version <tag>" -BaseUrl $PendingUrl
+$env:OPENSYSML_RELEASES_API = "$PendingUrl/list-object.json"
+$null = Test-Failure 'latest without assets and a releases answer that is not a list' "the earlier releases could not be listed from $PendingUrl/list-object.json; pass -Version <tag>" -BaseUrl $PendingUrl
+$env:OPENSYSML_RELEASES_API = "$PendingUrl/list-scalars.json"
+$null = Test-Failure 'latest without assets and a releases list of things that are not releases' 'and no earlier release has a SHA256SUMS.txt' -BaseUrl $PendingUrl
+# A manifest that broke off is never read, whichever release it belongs to.
+$env:OPENSYSML_RELEASES_API = "$PendingUrl/list.json"
+if (Test-Failure 'latest whose manifest is cut off' "could not download $CutUrl/download/v8.3.0/SHA256SUMS.txt" -BaseUrl $CutUrl) {
+    Assert-Unsaid 'not uploaded yet'
+}
+$env:OPENSYSML_RELEASES_API = "$PendingUrl/list-cut.json"
+if (Test-Failure 'latest without assets and an earlier manifest that is cut off' "$PendingUrl/download/v8.2.3/SHA256SUMS.txt could not be downloaded" -BaseUrl $PendingUrl) {
+    Assert-Unsaid 'installing v8.1.0'
+}
+# Only a manifest that is not there is a release without assets: a server error is a failure.
+$env:OPENSYSML_RELEASES_API = "$PendingUrl/list.json"
+if (Test-Failure 'latest whose manifest the server fails on' "could not download $FailingUrl/download/v8.3.0/SHA256SUMS.txt" -BaseUrl $FailingUrl) {
+    Assert-Unsaid 'not uploaded yet'
+}
+$env:OPENSYSML_RELEASES_API = "$PendingUrl/list-failing.json"
+if (Test-Failure 'latest without assets and an earlier manifest the server fails on' "$PendingUrl/download/v8.2.2/SHA256SUMS.txt could not be downloaded" -BaseUrl $PendingUrl) {
+    Assert-Unsaid 'installing v8.1.0'
+}
+$env:OPENSYSML_RELEASES_API = $null
+$null = Test-Failure 'latest without assets on a mirror that lists no releases' 'the earlier releases could not be listed; pass -Version <tag>' -BaseUrl $PendingUrl
 
 if (Test-Ok 'nightly' -Version nightly) {
     Assert-Said 'Installing OpenSysML (the nightly snapshot)'

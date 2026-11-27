@@ -30,9 +30,9 @@
       "many": true,
       "derived": true,
       "values": [
-        "SendFamily__Control__ping___400",
-        "SendFamily__Control__ping___401",
-        "SendFamily__Control__ping___402"
+        "SendFamily::Control::ping::payload",
+        "SendFamily::Control::ping::sender",
+        "SendFamily::Control::ping::receiver"
       ]
     }
   ]

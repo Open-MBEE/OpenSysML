@@ -2274,7 +2274,7 @@ func (e *encoder) memberNames(membership rdf.Term, node ast.Node) {
 	sym := e.ids.declSym[node]
 	// The membership names its member by the model's effective name whatever the
 	// member's identity: `require q.k;` is `k` here, positional in its id.
-	if !name.Named && sym != nil {
+	if !name.Named && sym != nil && !e.ids.model.NamedByNodeParameterRole(sym) {
 		name.Text, name.Named = e.ids.model.EffectiveNamed(sym)
 	}
 	if name.Named {

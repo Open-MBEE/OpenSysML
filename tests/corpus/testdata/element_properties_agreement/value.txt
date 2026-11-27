@@ -66,7 +66,7 @@ AttributeUsage::inheritedMembership	218	symbol-51
 AttributeUsage::isConjugated	1	export-56
 AttributeUsage::member	218	symbol-51
 AttributeUsage::membership	218	symbol-51
-AttributeUsage::ownedMember	749	symbol-08
+AttributeUsage::ownedMember	747	symbol-08
 AttributeUsage::ownedRelationship	78	symbol-03
 AttributeUsage::ownedSpecialization	3	export-07
 AttributeUsage::ownedSubsetting	3	export-57
@@ -104,9 +104,9 @@ ConstraintUsage::ownedReferenceSubsetting	2	export-57
 ConstraintUsage::ownedRelationship	4	symbol-03
 ConstraintUsage::ownedSpecialization	2	export-07
 ConstraintUsage::ownedSubsetting	2	export-57
-Dependency::ownedAnnotation	9	export-57
+Dependency::ownedAnnotation	2	export-57
 Dependency::ownedRelatedElement	3	export-06
-Dependency::ownedRelationship	12	symbol-03
+Dependency::ownedRelationship	5	symbol-03
 Disjoining::ownedRelatedElement	1	export-06
 Disjoining::ownedRelationship	1	symbol-03
 Documentation::owner	9	export-56
@@ -221,10 +221,10 @@ MembershipImport::ownedRelatedElement	1	export-60
 MembershipImport::owningNamespace	174	symbol-69
 MembershipImport::target	6	export-14
 MembershipImport::visibility	1	export-05
-MetadataUsage::annotation	9	export-57
+MetadataUsage::annotation	2	export-57
 MetadataUsage::mayTimeVary	3	symbol-68
 MetadataUsage::ownedAnnotatingRelationship	7	export-57
-MetadataUsage::owningRelationship	9	export-04
+MetadataUsage::owningRelationship	2	export-04
 MetadataUsage::type	26	symbol-71
 Multiplicity::ownedRelationship	3	symbol-03
 Multiplicity::ownedSpecialization	3	export-07
@@ -240,7 +240,7 @@ Namespace::ownedRelationship	1	symbol-82
 NamespaceExpose::owningNamespace	24	symbol-69
 NamespaceImport::ownedRelatedElement	1	export-06
 NamespaceImport::owningMembership	2	export-02
-NamespaceImport::owningNamespace	311	symbol-69
+NamespaceImport::owningNamespace	297	symbol-69
 NamespaceImport::owningRelatedElement	2	export-56
 NamespaceImport::owningRelationship	2	export-04
 NamespaceImport::visibility	2	export-05
@@ -283,11 +283,12 @@ OperatorExpression::ownedMembership	16	symbol-09
 OperatorExpression::ownedRelationship	16	symbol-03
 OperatorExpression::owner	11	export-57
 OperatorExpression::parameter	16	symbol-54
+OwningMembership::memberName	9	symbol-86
 OwningMembership::visibility	2	export-05
 Package::documentation	2	export-57
 Package::ownedElement	3	symbol-02
 Package::ownedMember	2	symbol-63
-ParameterMembership::memberName	2852	symbol-85
+ParameterMembership::memberName	2966	symbol-85
 ParameterMembership::visibility	12	export-05
 PartDefinition::feature	1	symbol-51
 PartDefinition::featureMembership	1	symbol-51
@@ -322,6 +323,7 @@ PerformActionUsage::feature	4	symbol-51
 PerformActionUsage::featureMembership	4	symbol-51
 PerformActionUsage::inheritedFeature	1	symbol-51
 PerformActionUsage::inheritedMembership	1	symbol-51
+PerformActionUsage::mayTimeVary	2	symbol-87
 PerformActionUsage::member	4	symbol-51
 PerformActionUsage::membership	4	symbol-51
 PerformActionUsage::nestedAction	1	export-57
@@ -388,7 +390,7 @@ RenderingUsage::isReference	28	symbol-67
 RenderingUsage::member	26	symbol-51
 RenderingUsage::membership	26	symbol-51
 RequirementConstraintMembership::memberName	2	export-69
-RequirementUsage::declaredName	27	symbol-01
+RequirementUsage::declaredName	24	symbol-01
 RequirementUsage::directedFeature	6	symbol-53
 RequirementUsage::directedUsage	6	symbol-53
 RequirementUsage::feature	6	symbol-51
@@ -398,10 +400,10 @@ RequirementUsage::inheritedMembership	6	symbol-51
 RequirementUsage::input	6	symbol-53
 RequirementUsage::member	6	symbol-51
 RequirementUsage::membership	6	symbol-51
-RequirementUsage::shortName	5	export-57
+RequirementUsage::shortName	2	export-57
 RequirementUsage::usage	6	symbol-51
-RequirementVerificationMembership::memberShortName	5	export-57
-ReturnParameterMembership::memberName	3808	symbol-85
+RequirementVerificationMembership::memberShortName	2	export-57
+ReturnParameterMembership::memberName	3783	symbol-85
 ReturnParameterMembership::membershipOwningNamespace	2	export-56
 ReturnParameterMembership::owner	2	export-56
 ReturnParameterMembership::owningRelatedElement	2	export-56

@@ -107,7 +107,7 @@ func (tm *typeModifier) reference(m *migration, p *sysmlv1.Element) {
 	}
 }
 
-// kwArticle names a usage keyword with its article.
+// kwArticle names a usage keyword or a UML metaclass with its article.
 func kwArticle(kw string) string {
 	return article(kw) + kw
 }
