@@ -26,7 +26,7 @@ root examples: models 70, skipped 0, matched 55684, unmatched 22
   Element::owningMembership: equal 55682, different 2, symbol-missing 0, symbol-extra 0
   Element::owningNamespace: equal 55682, different 2, symbol-missing 0, symbol-extra 0
   Element::owningRelationship: equal 55680, different 4, symbol-missing 0, symbol-extra 0
-  Element::qualifiedName: equal 54035, different 14, symbol-missing 0, symbol-extra 0
+  Element::qualifiedName: equal 55670, different 14, symbol-missing 0, symbol-extra 0
   Element::shortName: equal 55682, different 2, symbol-missing 0, symbol-extra 0
   EnumerationUsage::enumerationDefinition: equal 0, different 30, symbol-missing 0, symbol-extra 0
   Expression::function: equal 5857, different 170, symbol-missing 0, symbol-extra 21
