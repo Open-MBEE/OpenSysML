@@ -1551,8 +1551,9 @@ func (r *Rendering) writePictures(b *strings.Builder) {
 		if !ok {
 			continue
 		}
-		fmt.Fprintf(b, "  picture%d@{ img: \"%s\", label: \"%s\", w: %s, h: %s }\n",
-			i, src, mermaidText(picture.Alt), formatCoord(picture.Width), formatCoord(picture.Height))
+		// A shape data label drops a backticked span under SVG text labels (mermaid-js/mermaid#7013).
+		fmt.Fprintf(b, "  picture%d[%s]@{ img: \"%s\", w: %s, h: %s }\n",
+			i, mermaidQuoted(mermaidText(picture.Alt)), src, formatCoord(picture.Width), formatCoord(picture.Height))
 	}
 }
 
@@ -1932,7 +1933,7 @@ func (r *Rendering) writeSequenceNote(b *strings.Builder, note Note, participant
 	}
 }
 
-var mermaidImagePattern = regexp.MustCompile(`^\s*picture[0-9]+@\{[^}\r\n]*img:\s*"([^"\r\n]*)"`)
+var mermaidImagePattern = regexp.MustCompile(`^\s*picture[0-9]+\["[^"\r\n]*"\]@\{[^}\r\n]*img:\s*"([^"\r\n]*)"`)
 
 // InlineMermaidImages embeds each readable local flowchart image in source.
 // base is the working directory used to resolve relative image paths.

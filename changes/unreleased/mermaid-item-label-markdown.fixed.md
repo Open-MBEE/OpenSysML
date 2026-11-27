@@ -1,3 +1,4 @@
 - The Mermaid form writes the label of a flow or message drawn on a connection in brackets ahead of its `shape: text`, so Mermaid reads it as markdown: `«flow»` shows in italics instead of as `` `*«flow»* `` with its backticks and asterisks, and SVG text labels (`htmlLabels: false`) no longer leave it blank.
 - A Mermaid flowchart label that opens with a backtick (a node, subgraph, pin or edge label) is written with that backtick as `#96;`, so Mermaid no longer reads it as the start of a markdown string and refuses the diagram; a backtick anywhere else in a label stays literal.
 - A Mermaid note, comment, doc, rep or objective writes its text in brackets ahead of its `shape: notch-rect`, so SVG text labels (`htmlLabels: false`) no longer drop a span between backticks from it.
+- A Mermaid picture writes its alternative text in brackets ahead of its `img` shape data, so SVG text labels no longer drop a span between backticks from it.

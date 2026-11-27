@@ -733,9 +733,9 @@ func TestMermaidPicturesAndNotices(t *testing.T) {
 		},
 	}
 	source := rendering.Mermaid()
-	if !strings.Contains(source, `picture0@{ img: "`+filepath.ToSlash(filepath.Join(dir, "local.png"))+`", label: "", w: 40, h: 30 }`) ||
+	if !strings.Contains(source, `picture0[" "]@{ img: "`+filepath.ToSlash(filepath.Join(dir, "local.png"))+`", w: 40, h: 30 }`) ||
 		!strings.Contains(source, "%% layout: picture0 x=10 y=20 w=40 h=30") ||
-		strings.Contains(source, "picture1@{") ||
+		strings.Contains(source, "picture1[") ||
 		!strings.Contains(source, "missing.png at (50, 60) size 20×10; the file does not read") {
 		t.Errorf("picture source, geometry or notice:\n%s", source)
 	}
@@ -760,14 +760,14 @@ func TestInlineMermaidImages(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "local.png"), imageData.Bytes(), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	source := "---\nconfig:\n  theme: base\n---\n%% view: V\nflowchart LR\n  picture0@{ img: \"local.png\", label: \"alt\", w: 1, h: 1 }\n"
+	source := "---\nconfig:\n  theme: base\n---\n%% view: V\nflowchart LR\n  picture0[\"alt\"]@{ img: \"local.png\", w: 1, h: 1 }\n"
 	got := InlineMermaidImages(source, dir)
 	wantData := "data:image/png;base64," + base64.StdEncoding.EncodeToString(imageData.Bytes())
 	if !strings.Contains(got, wantData) || strings.Contains(got, `img: "local.png"`) {
 		t.Errorf("image is not inlined:\n%s", got)
 	}
 	missing := InlineMermaidImages(strings.ReplaceAll(source, "local.png", "missing.png"), dir)
-	if strings.Contains(missing, "picture0@{") ||
+	if strings.Contains(missing, "picture0[") ||
 		!strings.Contains(missing, "%% not represented: picture missing.png not drawn; the file does not read") {
 		t.Errorf("missing image is not dropped with a notice:\n%s", missing)
 	}
@@ -776,7 +776,7 @@ func TestInlineMermaidImages(t *testing.T) {
 		t.Fatal(err)
 	}
 	unsupported := InlineMermaidImages(strings.ReplaceAll(source, "local.png", "unsupported.img"), dir)
-	if strings.Contains(unsupported, "picture0@{") ||
+	if strings.Contains(unsupported, "picture0[") ||
 		!strings.Contains(unsupported, "the file is not a supported image") {
 		t.Errorf("unsupported image is not dropped with a notice:\n%s", unsupported)
 	}
@@ -800,7 +800,7 @@ func TestInlineMermaidImages(t *testing.T) {
 		t.Fatal(err)
 	}
 	overLimit := InlineMermaidImages(strings.ReplaceAll(source, "local.png", "large.png"), dir)
-	if strings.Contains(overLimit, "picture0@{") ||
+	if strings.Contains(overLimit, "picture0[") ||
 		!strings.Contains(overLimit, "inlining would exceed Mermaid's text ceiling") {
 		t.Errorf("over-limit image is not dropped with a notice:\n%s", overLimit)
 	}
@@ -840,11 +840,16 @@ func TestMermaidDrawsBacktickedTextWithInstalledMMDC(t *testing.T) {
 		{ID: "b", Kind: "part", Name: "b"},
 	}, Edges: []Edge{{From: "a", To: "b", Kind: EdgeConnection, Label: "c `EDGE` d"}},
 		Notes: []Note{{Text: "n `NOTE` o", Anchor: "a"}, {Text: "e `FREE` f"}}}
+	picturePath := filepath.Join(t.TempDir(), "picture.png")
+	if err := os.WriteFile(picturePath, twoByTwoPNG(t), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	labelled.Pictures = []Picture{{Location: picturePath, Alt: "p `ALT` q", Width: 20, Height: 20}}
 	commented := &Rendering{Kind: KindTree, Roots: []*Node{
 		{ID: "a", Kind: "part", Name: "a"},
 		{ID: "c", Kind: commentKind, Text: "c `COMMENT` d"},
 	}, Edges: []Edge{{From: "c", To: "a", Kind: EdgeAnchor}}}
-	sources := []string{labelled.Mermaid(), commented.Mermaid()}
+	sources := []string{InlineMermaidImages(labelled.Mermaid(), ""), commented.Mermaid()}
 	for _, config := range []string{"", svgTextLabelsConfig(t)} {
 		t.Run(configName(config), func(t *testing.T) {
 			var drawn strings.Builder
@@ -863,7 +868,7 @@ func TestMermaidDrawsBacktickedTextWithInstalledMMDC(t *testing.T) {
 				}
 				drawn.Write(svg)
 			}
-			for _, want := range []string{"`NODE`", "`COMMENT`", "`EDGE`", "`NOTE`", "`FREE`"} {
+			for _, want := range []string{"`NODE`", "`COMMENT`", "`EDGE`", "`NOTE`", "`FREE`", "`ALT`"} {
 				if !strings.Contains(drawn.String(), want) {
 					t.Errorf("drawing lacks %s; sources:\n%s", want, strings.Join(sources, "\n"))
 				}
