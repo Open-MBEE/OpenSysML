@@ -3026,8 +3026,8 @@ func (d *decoder) usageHeadAs(el *element, kind ast.UsageKind, keyword string) (
 		head += " terminate"
 	}
 	value, hasValue := d.stringOf(el, rdf.SysML+pValue)
-	// The value an older graph states on an assignment is its operand, written after `:=`, not a binding.
-	if el.metaclass == mAssignment {
+	// An assignment stating no sysx:assignedValue is an older graph's, whose value is the operand after `:=`.
+	if _, assigned := d.stringOf(el, rdf.OpenSysML+xAssignedValue); el.metaclass == mAssignment && !assigned {
 		hasValue = false
 	}
 	// `assert c;`, `assert c[1]` and `assert c { … }` name the `c` they refer to;

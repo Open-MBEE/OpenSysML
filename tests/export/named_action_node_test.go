@@ -86,6 +86,7 @@ func TestRicherActionNodeIsOneElementOfItsMetaclass(t *testing.T) {
         action redefAssign :>> base assign p.w := 1;
         #Tag action taggedAssign[1] : Act assign p.w := 1;
         abstract action abstractAssign assign p.w := 1;
+        action boundAssign : Act = base assign p.w := 1;
         action typedIf : Act if true { assign p.w := 1; } else { assign p.w := 2; }
         action typedWhile : Act while true { assign p.w := 1; }
         action typedFor : Act for i in (1, 2) { assign p.w := i; }
@@ -101,6 +102,7 @@ func TestRicherActionNodeIsOneElementOfItsMetaclass(t *testing.T) {
 		"redefAssign":    "AssignmentActionUsage",
 		"taggedAssign":   "AssignmentActionUsage",
 		"abstractAssign": "AssignmentActionUsage",
+		"boundAssign":    "AssignmentActionUsage",
 		"typedIf":        "IfActionUsage",
 		"typedWhile":     "WhileLoopActionUsage",
 		"typedFor":       "ForLoopActionUsage",
@@ -172,6 +174,7 @@ func TestRicherActionNodeIsOneElementOfItsMetaclass(t *testing.T) {
 		"action redefAssign redefines base assign p.w := 1;",
 		"#Tag action taggedAssign[1] : Act assign p.w := 1;",
 		"abstract action abstractAssign assign p.w := 1;",
+		"action boundAssign : Act = base assign p.w := 1;",
 		"action typedIf : Act if true {",
 		"action typedWhile : Act while true {",
 		"action typedFor : Act for i in (1, 2) {",
