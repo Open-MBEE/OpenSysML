@@ -2,10 +2,13 @@ package semantics
 
 import (
 	"errors"
+	"runtime"
+	"runtime/debug"
 	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
@@ -285,4 +288,45 @@ func TestFilterChainThroughNestedFeatures(t *testing.T) {
 	want(t, "(root.inner).k == 3", selects(t, src, "(root.inner).k == 3", "seatBelt"), true)
 	want(t, "root.inner::k == 3", selects(t, src, "root.inner::k == 3", "seatBelt"), true)
 	want(t, "root.m == 2", selects(t, src, "root.m == 2", "seatBelt"), true)
+}
+
+// TestChainHopsWalksAChainOfAnyLength: a chain nests one level per hop, so collecting its
+// hops takes no call depth: a million of them fit a stack far smaller than recursion needs.
+func TestChainHopsWalksAChainOfAnyLength(t *testing.T) {
+	const hops = 1_000_000
+	var chain *ast.FeatureChainExpr
+	var operand ast.Node = &ast.FeatureReference{}
+	for range hops {
+		member := &ast.QualifiedName{}
+		member.SetSingleton(ast.NameSegment{Text: "next"})
+		chain = &ast.FeatureChainExpr{Operand: operand, Member: member}
+		operand = chain
+	}
+	defer debug.SetMaxStack(debug.SetMaxStack(8 << 20))
+	if got := chainHops(chain); len(got) != hops || got[0] != "next" {
+		t.Fatalf("got %d hops, want %d", len(got), hops)
+	}
+}
+
+// TestConstFoldsCopyNoFoldedValue: remembering what each operator of a condition folds to
+// costs about what folding it once does, however large the values on the way.
+func TestConstFoldsCopyNoFoldedValue(t *testing.T) {
+	src := "2 ** 1000000" + strings.Repeat(" + 1", 1000) + " > 0"
+	expr := parser.New(source.New("<e>", []byte(src))).ParseExpression().(*ast.OperatorExpr)
+	allocated := func(f func()) uint64 {
+		var before, after runtime.MemStats
+		runtime.ReadMemStats(&before)
+		f()
+		runtime.ReadMemStats(&after)
+		return after.TotalAlloc - before.TotalAlloc
+	}
+	once := allocated(func() { EvalConst(expr) })
+	remembered := allocated(func() {
+		if kind, ok := (constFolds{}).of(expr); !ok || kind.Kind != symbols.FilterValueBool || !kind.Bool {
+			t.Errorf("got %+v ok=%v, want true", kind, ok)
+		}
+	})
+	if remembered > once+once/2+1<<20 {
+		t.Errorf("remembering the folds allocated %d bytes, folding once %d", remembered, once)
+	}
 }
