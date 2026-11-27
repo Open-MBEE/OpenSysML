@@ -21,4 +21,4 @@ func Group(cmd *exec.Cmd) {
 }
 
 // interrupts are the signals a terminal or a supervisor stops this process with.
-var interrupts = []os.Signal{os.Interrupt, syscall.SIGTERM}
+var interrupts = []os.Signal{os.Interrupt, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGQUIT}
