@@ -10,6 +10,7 @@ func TestACommandAnsweredWithItsUsageFails(t *testing.T) {
 	for _, code := range []string{
 		"%save",
 		"%validate a b",
+		"%save a b",
 		"%instantiate",
 		"%render-run",
 		"%render-run nope",

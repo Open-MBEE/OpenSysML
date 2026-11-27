@@ -10,6 +10,7 @@ func TestReplCommandAnsweredWithItsUsageIsAnError(t *testing.T) {
 	for _, line := range []string{
 		"%save",
 		"%validate a b",
+		"%save a b",
 		"%instantiate",
 		"%render-run",
 		"%render-run nope",

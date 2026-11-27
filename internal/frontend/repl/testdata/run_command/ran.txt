@@ -92,7 +92,6 @@
 %render-document M::v bogusstyle
 %runs 3 1 f(
 %load --cells
-%print a b
 %advance 30
 %action M::drive ;; %continue ;; %render-run timeline
 %current
@@ -129,3 +128,5 @@
 %print M::hint
 %eval "a; usage: %b"
 %eval M::hint
+%advance 2 min
+%advance 1 bogus junk

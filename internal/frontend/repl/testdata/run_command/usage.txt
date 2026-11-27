@@ -61,3 +61,16 @@
 %import
 %trace on ;; %action M::drive ;; %continue ;; %render-run timeline limit=x
 %features
+%print M::car extra
+%save out.sysml extra
+%verbosity quiet loud
+%search Veh extra
+%view M::v extra
+%graphs M::drive extra
+%instantiate M::car extra words
+%check M::Light extra
+%explain M::Light extra
+%solve M::Light extra
+%break accelerate extra
+%occurrence M::drive extra
+%print a b
