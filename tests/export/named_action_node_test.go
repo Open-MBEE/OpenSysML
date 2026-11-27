@@ -264,3 +264,40 @@ func TestNamedControlNodesAndSuccessionFlowKeepTheirMetaclass(t *testing.T) {
 		}
 	}
 }
+
+// A graph written before the value parameter was states an assignment's value as sysml:value
+// on the assignment: it is the operand after `:=`, not a binding in the node's declaration.
+func TestAssignmentNodeValueStatedOnTheNodeIsItsOperand(t *testing.T) {
+	const src = `package P {
+	part def PD { attribute w; }
+	part p : PD;
+	action def Act;
+	action def A {
+		action kinded : Act assign p.w := 1;
+		action named assign p.w := 2;
+		assign p.w := 3;
+	}
+}
+`
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	older := strings.ReplaceAll(string(withoutTriples(t, turtle, "sysx:sourceText")), "sysx:assignedValue ", "sysml:value ")
+	if strings.Count(older, "sysml:value ") < 3 {
+		t.Fatalf("the graph does not state the three values on their assignments:\n%s", older)
+	}
+	back, err := convert.Convert("m.ttl", []byte(older), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation: %v", err)
+	}
+	for _, statement := range []string{
+		"        action kinded : Act assign p.w := 1;\n",
+		"        action named assign p.w := 2;\n",
+		"        assign p.w := 3;\n",
+	} {
+		if !strings.Contains(string(back), statement) {
+			t.Errorf("the statement %q did not come back:\n%s", statement, back)
+		}
+	}
+}
