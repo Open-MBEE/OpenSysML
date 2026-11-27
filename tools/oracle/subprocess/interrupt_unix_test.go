@@ -4,6 +4,8 @@ package subprocess
 
 import (
 	"errors"
+	"os"
+	"os/exec"
 	"syscall"
 	"testing"
 	"time"
@@ -28,5 +30,30 @@ func TestAnInterruptStopsTheHelper(t *testing.T) {
 				t.Fatalf("returned after %s, so the helper outlived the signal", elapsed)
 			}
 		})
+	}
+}
+
+// ignoredHangup marks the re-run of this test binary that inherits an ignored hangup.
+const ignoredHangup = "SUBPROCESS_TEST_IGNORED_HANGUP"
+
+// TestAnIgnoredHangupStaysIgnored: a run started under nohup inherits the hangup as
+// ignored, so a closing terminal must not end its helper.
+func TestAnIgnoredHangupStaysIgnored(t *testing.T) {
+	shell := sh(t)
+	if os.Getenv(ignoredHangup) == "" {
+		// #nosec G204 -- the test binary re-runs itself.
+		child := exec.Command(shell, "-c", `trap "" HUP; exec "$0" -test.run='^TestAnIgnoredHangupStaysIgnored$'`, os.Args[0])
+		child.Env = append(os.Environ(), ignoredHangup+"=1")
+		if out, err := child.CombinedOutput(); err != nil {
+			t.Fatalf("with the hangup ignored: %v\n%s", err, out)
+		}
+		return
+	}
+	go func() {
+		time.Sleep(300 * time.Millisecond)
+		_ = syscall.Kill(syscall.Getpid(), syscall.SIGHUP)
+	}()
+	if _, _, err := Output(2*time.Second, 1<<10, shell, "-c", "sleep 600 | cat"); !errors.Is(err, ErrTimeout) {
+		t.Fatalf("got %v, want the hangup ignored and ErrTimeout", err)
 	}
 }

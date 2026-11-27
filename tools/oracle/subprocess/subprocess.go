@@ -6,8 +6,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"os/signal"
+	"slices"
 	"sync"
 	"time"
 )
@@ -25,13 +27,20 @@ const WaitDelay = 10 * time.Second
 
 // Timeout is ctx bounded by timeout, where zero or less means no limit, and ended by an
 // interrupt of this process, which a helper in a process group of its own never receives.
+// A signal this process was started ignoring, as under nohup, stays ignored.
 func Timeout(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
-	ctx, release := signal.NotifyContext(ctx, interrupts...)
+	ctx, release := signal.NotifyContext(ctx, heeded(interrupts)...)
 	if timeout <= 0 {
 		return ctx, release
 	}
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	return ctx, func() { cancel(); release() }
+}
+
+// heeded is the signals of sigs this process is not ignoring: catching an ignored one
+// would make it stop a run its starter asked it to survive.
+func heeded(sigs []os.Signal) []os.Signal {
+	return slices.DeleteFunc(slices.Clone(sigs), signal.Ignored)
 }
 
 // Output runs name and returns its streams, each held to limit bytes, within timeout.
