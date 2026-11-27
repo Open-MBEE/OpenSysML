@@ -74,6 +74,12 @@ func (fc *filterChecker) walk(scope *symbols.Scope) {
 		}
 		return true
 	})
+	// A loop body or if branch has a scope but no symbol, so no member leads to it.
+	for _, child := range scope.Children() {
+		if child.Owner() == nil {
+			fc.walk(child)
+		}
+	}
 }
 
 // check reports the faults of one condition.
