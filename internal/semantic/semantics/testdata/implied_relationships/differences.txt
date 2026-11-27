@@ -388,3 +388,8 @@ pilot	rows.sysml	TypeFeaturing	R::Veh::m2/FeatureReferenceExpression[0]/BindingC
 pilot	rows.sysml	TypeFeaturing	R::W2::wm::whileTest/BindingConnector[0]	R::W2	binding-featuring
 pilot	rows.sysml	TypeFeaturing	R::W::wl::untilTest/BindingConnector[0]	R::W	binding-featuring
 pilot	rows.sysml	TypeFeaturing	R::W::wl::whileTest/BindingConnector[0]	R::W	binding-featuring
+model	rows.kerml	Specialization	K::CQ::s	Performances::Performance::enclosedPerformances	class-owned-step
+pilot	rows.kerml	Specialization	K::CQ::s	Performances::performances	class-owned-step
+pilot	rows.kerml	Specialization	K::E3::ed/InvocationExpression[0]	K::E3::ed/InvocationExpression[0]/Feature[0]	receiver-invocation
+pilot	rows.kerml	Specialization	K::E3::ed/InvocationExpression[0]/Feature[0]	Base::things	receiver-invocation
+pilot	rows.kerml	TypeFeaturing	K::E3::ed/InvocationExpression[0]/BindingConnector[0]	K::E3::ed/InvocationExpression[0]	binding-featuring

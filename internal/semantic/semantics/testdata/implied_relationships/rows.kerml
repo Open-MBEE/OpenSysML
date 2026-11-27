@@ -47,4 +47,7 @@ package K {
 		expr ex : F { d1 }
 		binding bnd; succession sc;
 	}
+	behavior BQ { out r : D; }
+	class CQ { step s : BQ; }
+	class E3 { feature c : CQ; feature ed = c.s(); }
 }

@@ -225,5 +225,12 @@ func (m *Model) invocationBehaviors(expr *symbols.Symbol) []*symbols.Symbol {
 		}
 		out = append(out, instantiated)
 	}
+	// A call reached through a receiver instantiates its chain, a behavior where it ends at no function.
+	if parts := m.expressionPartsOf(expr); parts != nil && parts.chain != nil && parts.chain.Expr.Slot != "referent" {
+		links := m.ChainingFeatures(parts.chain)
+		if n := len(links); n > 0 && !m.reflectiveMetaclassConforms(links[n-1], "Function") && len(m.FunctionTypes(links[n-1])) == 0 {
+			out = append(out, parts.chain)
+		}
+	}
 	return out
 }

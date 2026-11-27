@@ -159,6 +159,10 @@ var impliedDifferenceReasons = map[string]string{
 		"requirement satisfied; the latter redefines the former already, and the model derives it alone",
 	"trigger-invocation": "the model holds no parameter of a TriggerInvocationExpression and no function for it yet, so the rows of " +
 		"checkTriggerInvocationExpressionSpecialization and of its parameters are the pilot's alone, and its featuring is its owning payload's",
+	"class-owned-step": "the model has a step a class owns subset Performances::Performance::enclosedPerformances; " +
+		"checkStepEnclosedPerformanceSpecialization holds of a step a behavior or a step owns, and the pilot states Performances::performances",
+	"receiver-invocation": "the pilot has an invocation reached through a receiver subset the chain it owns, a Feature subsetting Base::things; " +
+		"the model has such an invocation of a behavior bound to its result, and its result subset the chain, but not the invocation itself yet",
 	"typed-feature-base": "the test of a conditional or a loop redefines the library's ifTest, whileTest or untilTest, a feature typed by " +
 		"BooleanEvaluation the model has subset Performances::booleanEvaluations and the pilot Base::things; " +
 		"so the model finds Performances::evaluations, and the Evaluation::result its result would redefine, redundant (KerML 8.4.2)",

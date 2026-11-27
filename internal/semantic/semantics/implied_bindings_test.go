@@ -245,3 +245,40 @@ func TestImpliedFeatureChainExpressionTargetAndResult(t *testing.T) {
 		t.Errorf("the result specializes %s, want the chain and not the feature it ends at", fqnsOf(m, got))
 	}
 }
+
+// A chain read before any binding connector keeps the features it chains once one is read.
+func TestImpliedChainSurvivesTheFirstBindingRead(t *testing.T) {
+	m, _ := buildModelWithLibraryNamedKind(t, "b.kerml", source.KindKerML,
+		`package P { datatype D; class C { feature a : D; feature b : D = a; }
+			assoc AX { end [1] feature xa : C; end [0..*] feature xb : C; } }`)
+	chain := m.ImpliedCrossedChain(lookupOne(t, m, "P::AX::xa"))
+	if chain == nil {
+		t.Fatal("xa has no crossed chain")
+	}
+	if len(m.ImpliedBindingConnectors(lookupOne(t, m, "P::C::b"))) != 1 {
+		t.Fatal("P::C::b owns no implied binding connector")
+	}
+	if links := m.impliedChainingFeatures(chain); len(links) != 2 {
+		t.Errorf("the crossed chain chains %d features after a binding read, want 2", len(links))
+	}
+}
+
+// A connector, its ends and its chain are distinct elements: none conforms to another or to their owner.
+func TestImpliedBindingElementsAreDistinct(t *testing.T) {
+	m, _ := buildModelWithLibraryNamedKind(t, "b.kerml", source.KindKerML,
+		`package P { datatype D; class C { feature a : D; feature b : D = a; } }`)
+	b := lookupOne(t, m, "P::C::b")
+	connector := m.ImpliedBindingConnectors(b)[0]
+	ends, _, _ := m.ImpliedBinding(connector)
+	elements := append([]*symbols.Symbol{b, connector, ends[0], ends[1]}, m.ImpliedOwnedFeatures(ends[0])...)
+	for i, one := range elements {
+		for j, other := range elements {
+			if i != j && symbols.KeyOf(one) == symbols.KeyOf(other) {
+				t.Errorf("elements %d and %d share a key", i, j)
+			}
+		}
+	}
+	if m.Conforms(ends[0], ends[1]) || m.Conforms(ends[1], ends[0]) || m.Conforms(connector, b) {
+		t.Error("distinct held elements conform to one another")
+	}
+}

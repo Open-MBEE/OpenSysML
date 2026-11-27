@@ -9,6 +9,8 @@ BindingConnector	K::E2::einvd/InvocationExpression[0]/Feature[0]	K::E2::einvd/In
 BindingConnector	K::E2::einvd/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]	K::E2::d1 = K::E2::einvd/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
 BindingConnector	K::E2::ex	K::E2::ex/FeatureReferenceExpression[0]/Feature[0] = K::F::r
 BindingConnector	K::E2::ex/FeatureReferenceExpression[0]	K::E2::d1 = K::E2::ex/FeatureReferenceExpression[0]/Feature[0]
+BindingConnector	K::E3::ed	K::E3::ed/BindingConnector[0]/Feature[0]/Feature[0] = K::E3::ed
+BindingConnector	K::E3::ed/InvocationExpression[0]	K::E3::ed/InvocationExpression[0] = K::E3::ed/InvocationExpression[0]/Feature[1]
 BindingConnector	K::E::echain	K::E::echain/BindingConnector[0]/Feature[0]/Feature[0] = K::E::echain
 BindingConnector	K::E::echain/FeatureChainExpression[0]/Feature[0]	K::E::echain/FeatureChainExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0] = K::E::echain/FeatureChainExpression[0]/Feature[0]
 BindingConnector	K::E::echain/FeatureChainExpression[0]/Feature[0]/FeatureReferenceExpression[0]	K::E::ps = K::E::echain/FeatureChainExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
@@ -89,6 +91,10 @@ FeatureChaining	K::E2::einvd/BindingConnector[0]/Feature[0]/Feature[0]	[0] K::E2
 FeatureChaining	K::E2::einvd/BindingConnector[0]/Feature[0]/Feature[0]	[1] K::E2::einvd/InvocationExpression[0]/Feature[1]
 FeatureChaining	K::E2::einvd/InvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	[0] K::E2::einvd/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]
 FeatureChaining	K::E2::einvd/InvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	[1] K::E2::einvd/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
+FeatureChaining	K::E3::ed/BindingConnector[0]/Feature[0]/Feature[0]	[0] K::E3::ed/InvocationExpression[0]
+FeatureChaining	K::E3::ed/BindingConnector[0]/Feature[0]/Feature[0]	[1] K::E3::ed/InvocationExpression[0]/Feature[1]
+FeatureChaining	K::E3::ed/Feature[0]	[0] K::E3::ed/InvocationExpression[0]
+FeatureChaining	K::E3::ed/Feature[0]	[1] K::E3::ed/InvocationExpression[0]/Feature[1]
 FeatureChaining	K::E::echain/BindingConnector[0]/Feature[0]/Feature[0]	[0] K::E::echain/FeatureChainExpression[0]
 FeatureChaining	K::E::echain/BindingConnector[0]/Feature[0]/Feature[0]	[1] K::E::echain/FeatureChainExpression[0]/Feature[1]
 FeatureChaining	K::E::echain/FeatureChainExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	[0] K::E::echain/FeatureChainExpression[0]/Feature[0]/FeatureReferenceExpression[0]
@@ -232,6 +238,11 @@ Redefinition	K::E2::ex/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThin
 Redefinition	K::E2::ex/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
 Redefinition	K::E2::ex/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
 Redefinition	K::E2::ex/FeatureReferenceExpression[0]/Feature[0]	Performances::Evaluation::result
+Redefinition	K::E3::ed/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	K::E3::ed/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	K::E3::ed/InvocationExpression[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	K::E3::ed/InvocationExpression[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	K::E3::ed/InvocationExpression[0]/Feature[1]	Performances::Evaluation::result
 Redefinition	K::E::echain/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
 Redefinition	K::E::echain/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
 Redefinition	K::E::echain/FeatureChainExpression[0]/Feature[0]	ControlFunctions::'.'::source
@@ -466,6 +477,10 @@ ReferenceSubsetting	K::E2::ex/BindingConnector[0]/Feature[0]	K::E2::ex/FeatureRe
 ReferenceSubsetting	K::E2::ex/BindingConnector[0]/Feature[1]	K::F::r
 ReferenceSubsetting	K::E2::ex/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	K::E2::d1
 ReferenceSubsetting	K::E2::ex/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	K::E2::ex/FeatureReferenceExpression[0]/Feature[0]
+ReferenceSubsetting	K::E3::ed/BindingConnector[0]/Feature[0]	K::E3::ed/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	K::E3::ed/BindingConnector[0]/Feature[1]	K::E3::ed
+ReferenceSubsetting	K::E3::ed/InvocationExpression[0]/BindingConnector[0]/Feature[0]	K::E3::ed/InvocationExpression[0]
+ReferenceSubsetting	K::E3::ed/InvocationExpression[0]/BindingConnector[0]/Feature[1]	K::E3::ed/InvocationExpression[0]/Feature[1]
 ReferenceSubsetting	K::E::echain/BindingConnector[0]/Feature[0]	K::E::echain/BindingConnector[0]/Feature[0]/Feature[0]
 ReferenceSubsetting	K::E::echain/BindingConnector[0]/Feature[1]	K::E::echain
 ReferenceSubsetting	K::E::echain/FeatureChainExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	K::E::echain/FeatureChainExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]
@@ -594,11 +609,14 @@ Subclassification	K::A	Links::BinaryLink
 Subclassification	K::A3	Links::Link
 Subclassification	K::AX	Links::BinaryLink
 Subclassification	K::B	Performances::Performance
+Subclassification	K::BQ	Performances::Performance
 Subclassification	K::C	Occurrences::Occurrence
 Subclassification	K::CC	Occurrences::Occurrence
+Subclassification	K::CQ	Occurrences::Occurrence
 Subclassification	K::D	Base::DataValue
 Subclassification	K::E	Occurrences::Occurrence
 Subclassification	K::E2	Occurrences::Occurrence
+Subclassification	K::E3	Occurrences::Occurrence
 Subclassification	K::F	Performances::Evaluation
 Subclassification	K::FR	Performances::Evaluation
 Subclassification	K::G	Performances::Evaluation
@@ -625,9 +643,11 @@ Subsetting	K::AX::xb/Feature[0]/MultiplicityRange[0]/LiteralInfinity[0]	Performa
 Subsetting	K::AX::xb/Feature[0]/MultiplicityRange[0]/LiteralInteger[0]	Performances::literalIntegerEvaluations
 Subsetting	K::B::x	Base::dataValues
 Subsetting	K::B::y	Base::dataValues
+Subsetting	K::BQ::r	Base::dataValues
 Subsetting	K::CC::cn	Links::binaryLinks
 Subsetting	K::CC::x	Occurrences::occurrences
 Subsetting	K::CC::y	Occurrences::occurrences
+Subsetting	K::CQ::s	Performances::performances
 Subsetting	K::E2::bnd	Links::links
 Subsetting	K::E2::d1	Base::dataValues
 Subsetting	K::E2::ebeh	K::E2::ebeh/Feature[0]
@@ -666,6 +686,15 @@ Subsetting	K::E2::ex/FeatureReferenceExpression[0]	Performances::evaluations
 Subsetting	K::E2::ex/FeatureReferenceExpression[0]/BindingConnector[0]	Links::selfLinks
 Subsetting	K::E2::ex/FeatureReferenceExpression[0]/Feature[0]	K::E2::d1
 Subsetting	K::E2::sc	Links::links
+Subsetting	K::E3::c	Occurrences::occurrences
+Subsetting	K::E3::ed	K::E3::ed/Feature[0]
+Subsetting	K::E3::ed/BindingConnector[0]	Links::selfLinks
+Subsetting	K::E3::ed/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	K::E3::ed/InvocationExpression[0]	K::E3::ed/InvocationExpression[0]/Feature[0]
+Subsetting	K::E3::ed/InvocationExpression[0]	Performances::evaluations
+Subsetting	K::E3::ed/InvocationExpression[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	K::E3::ed/InvocationExpression[0]/Feature[0]	Base::things
+Subsetting	K::E3::ed/InvocationExpression[0]/Feature[1]	K::E3::ed/InvocationExpression[0]/Feature[0]
 Subsetting	K::E::d1	Base::dataValues
 Subsetting	K::E::d2	Base::dataValues
 Subsetting	K::E::echain	Base::dataValues
@@ -913,11 +942,13 @@ TypeFeaturing	K::B2::x2	K::B2
 TypeFeaturing	K::B2::y2	K::B2
 TypeFeaturing	K::B::x	K::B
 TypeFeaturing	K::B::y	K::B
+TypeFeaturing	K::BQ::r	K::BQ
 TypeFeaturing	K::CC::cn	K::CC
 TypeFeaturing	K::CC::cn::a	K::CC::cn
 TypeFeaturing	K::CC::cn::b	K::CC::cn
 TypeFeaturing	K::CC::x	K::CC
 TypeFeaturing	K::CC::y	K::CC
+TypeFeaturing	K::CQ::s	K::CQ
 TypeFeaturing	K::E2::bnd	K::E2
 TypeFeaturing	K::E2::d1	K::E2
 TypeFeaturing	K::E2::ebeh	K::E2
@@ -975,6 +1006,16 @@ TypeFeaturing	K::E2::ex/FeatureReferenceExpression[0]/BindingConnector[0]/Featur
 TypeFeaturing	K::E2::ex/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	K::E2::ex/FeatureReferenceExpression[0]/BindingConnector[0]
 TypeFeaturing	K::E2::ex/FeatureReferenceExpression[0]/Feature[0]	K::E2::ex/FeatureReferenceExpression[0]
 TypeFeaturing	K::E2::sc	K::E2
+TypeFeaturing	K::E3::c	K::E3
+TypeFeaturing	K::E3::ed	K::E3
+TypeFeaturing	K::E3::ed/BindingConnector[0]	K::E3
+TypeFeaturing	K::E3::ed/BindingConnector[0]/Feature[0]	K::E3::ed/BindingConnector[0]
+TypeFeaturing	K::E3::ed/BindingConnector[0]/Feature[1]	K::E3::ed/BindingConnector[0]
+TypeFeaturing	K::E3::ed/InvocationExpression[0]	K::E3
+TypeFeaturing	K::E3::ed/InvocationExpression[0]/BindingConnector[0]	K::E3::ed/InvocationExpression[0]
+TypeFeaturing	K::E3::ed/InvocationExpression[0]/BindingConnector[0]/Feature[0]	K::E3::ed/InvocationExpression[0]/BindingConnector[0]
+TypeFeaturing	K::E3::ed/InvocationExpression[0]/BindingConnector[0]/Feature[1]	K::E3::ed/InvocationExpression[0]/BindingConnector[0]
+TypeFeaturing	K::E3::ed/InvocationExpression[0]/Feature[1]	K::E3::ed/InvocationExpression[0]
 TypeFeaturing	K::E::d1	K::E
 TypeFeaturing	K::E::d2	K::E
 TypeFeaturing	K::E::echain	K::E
