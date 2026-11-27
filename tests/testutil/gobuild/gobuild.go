@@ -5,7 +5,6 @@ package gobuild
 import (
 	"fmt"
 	"os"
-	"sync"
 )
 
 // modulePattern names every package of this module for -coverpkg.
@@ -54,30 +53,4 @@ func Args(out string, extra ...string) []string {
 // Dir returns the counter directory of the coverage run, or "" outside one.
 func Dir() string {
 	return os.Getenv(DirEnv)
-}
-
-// Scratch is a directory a test binary builds its commands into once; the package's
-// TestMain removes it after the run, so a cached build outlives no test binary.
-type Scratch struct {
-	// Pattern names the directory, as os.MkdirTemp reads it.
-	Pattern string
-
-	once sync.Once
-	dir  string
-	err  error
-}
-
-// Dir returns the directory, made on first use.
-func (s *Scratch) Dir() (string, error) {
-	s.once.Do(func() { s.dir, s.err = os.MkdirTemp("", s.Pattern) })
-	return s.dir, s.err
-}
-
-// Remove deletes the directory and what was built into it; a Scratch never used has none.
-func (s *Scratch) Remove() error {
-	s.once.Do(func() {})
-	if s.dir == "" {
-		return nil
-	}
-	return os.RemoveAll(s.dir)
 }

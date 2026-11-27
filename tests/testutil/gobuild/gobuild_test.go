@@ -1,9 +1,16 @@
 package gobuild
 
 import (
+	"bufio"
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
+	"strconv"
+	"strings"
+	"syscall"
 	"testing"
 )
 
@@ -68,5 +75,145 @@ func TestScratchIsRemoved(t *testing.T) {
 	}
 	if _, err := os.Stat(dir); !os.IsNotExist(err) {
 		t.Errorf("%s is still there: %v", dir, err)
+	}
+}
+
+// TestScratchBuildsEachCommandOnce pins that a command asked for twice is built once, into
+// the directory Remove deletes.
+func TestScratchBuildsEachCommandOnce(t *testing.T) {
+	scratch := Scratch{Pattern: "gobuild-test-build"}
+	pkgDir := filepath.Join("testdata", "hello")
+	first, err := scratch.Build("hello", pkgDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	built, err := os.Stat(first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := scratch.Build("hello", pkgDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	again, err := os.Stat(second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second != first || !again.ModTime().Equal(built.ModTime()) {
+		t.Errorf("built again: %s at %v, then %s at %v", first, built.ModTime(), second, again.ModTime())
+	}
+	if dir, _ := scratch.Dir(); filepath.Dir(first) != dir {
+		t.Errorf("%s is not in the scratch directory %s", first, dir)
+	}
+	if err := scratch.Remove(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(first); !os.IsNotExist(err) {
+		t.Errorf("%s is still there: %v", first, err)
+	}
+}
+
+// TestScratchReportsAFailedBuild pins that a build that fails is an error, not a path.
+func TestScratchReportsAFailedBuild(t *testing.T) {
+	scratch := Scratch{Pattern: "gobuild-test-failed"}
+	t.Cleanup(func() { _ = scratch.Remove() })
+	if path, err := scratch.Build("absent", filepath.Join("testdata", "absent")); err == nil {
+		t.Errorf("building a package that is not there gave %s", path)
+	}
+}
+
+// TestRemoveAbandonedKeepsWhatARunningProcessOwns pins which directories a new run removes:
+// those named for a process that is gone, and nothing else.
+func TestRemoveAbandonedKeepsWhatARunningProcessOwns(t *testing.T) {
+	gone := exec.Command(os.Args[0], "-test.run=^$")
+	if err := gone.Run(); err != nil {
+		t.Fatal(err)
+	}
+	root := t.TempDir()
+	const prefix = "builds-"
+	abandoned := prefix + strconv.Itoa(gone.Process.Pid) + "-1"
+	kept := []string{
+		prefix + strconv.Itoa(os.Getpid()) + "-1",
+		"other-" + strconv.Itoa(gone.Process.Pid) + "-1",
+		prefix + "unowned",
+		prefix + strconv.Itoa(gone.Process.Pid) + "-more-1",
+	}
+	for _, name := range append([]string{abandoned}, kept...) {
+		if err := os.Mkdir(filepath.Join(root, name), 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	file := prefix + strconv.Itoa(gone.Process.Pid) + "-2"
+	if err := os.WriteFile(filepath.Join(root, file), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	removeAbandoned(root, prefix)
+
+	if _, err := os.Stat(filepath.Join(root, abandoned)); !os.IsNotExist(err) {
+		t.Errorf("%s, whose process is gone, is still there: %v", abandoned, err)
+	}
+	for _, name := range append(kept, file) {
+		if _, err := os.Stat(filepath.Join(root, name)); err != nil {
+			t.Errorf("%s was removed: %v", name, err)
+		}
+	}
+}
+
+// scratchHolderEnv makes this test binary hold a Scratch directory until it is signalled.
+const scratchHolderEnv = "GOBUILD_TEST_HOLD_SCRATCH"
+
+// TestScratchHolder is the process TestScratchIsRemovedOnInterrupt signals: it prints its
+// scratch directory and waits.
+func TestScratchHolder(t *testing.T) {
+	if os.Getenv(scratchHolderEnv) == "" {
+		t.Skip("run by TestScratchIsRemovedOnInterrupt")
+	}
+	scratch := Scratch{Pattern: "gobuild-test-held"}
+	dir, err := scratch.Dir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println(dir)
+	select {}
+}
+
+// TestScratchIsRemovedOnInterrupt pins that an interrupted run, whose TestMain never gets
+// to remove the directory, leaves none.
+func TestScratchIsRemovedOnInterrupt(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("a process cannot be sent an interrupt on Windows")
+	}
+	for _, sig := range []os.Signal{os.Interrupt, syscall.SIGTERM} {
+		t.Run(sig.String(), func(t *testing.T) {
+			holder := exec.Command(os.Args[0], "-test.run=^TestScratchHolder$")
+			holder.Env = append(os.Environ(), scratchHolderEnv+"=1")
+			out, err := holder.StdoutPipe()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := holder.Start(); err != nil {
+				t.Fatal(err)
+			}
+			line, err := bufio.NewReader(out).ReadString('\n')
+			if err != nil {
+				_ = holder.Process.Kill()
+				t.Fatal(err)
+			}
+			dir := strings.TrimSpace(line)
+			if _, err := os.Stat(dir); err != nil {
+				_ = holder.Process.Kill()
+				t.Fatalf("the holder's directory: %v", err)
+			}
+			if err := holder.Process.Signal(sig); err != nil {
+				t.Fatal(err)
+			}
+			if err := holder.Wait(); err == nil {
+				t.Error("the interrupted run reported success")
+			}
+			if _, err := os.Stat(dir); !os.IsNotExist(err) {
+				t.Errorf("%s is still there: %v", dir, err)
+			}
+		})
 	}
 }
