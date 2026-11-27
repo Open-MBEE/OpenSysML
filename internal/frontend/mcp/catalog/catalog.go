@@ -263,6 +263,7 @@ var Unserved = map[string]string{
 	"metamodel-table":     "no RPC answers the pinned metamodel's table as JSON",
 	"portable":            "MigrateRequest has no portable field",
 	"keep-line-breaks":    "ConvertRequest has no keep-line-breaks field",
+	"interchange":         "ConvertRequest has no interchange field",
 	"render-all":          "no RPC renders every declared view",
 	"render-overlay":      "RenderViewRequest has no overlay field",
 	"list":                noListing,
