@@ -24,6 +24,17 @@ public sealed class ConformanceQueryDocsRenderingTests
             Wire.QueryResponse.Descriptor, Wire.RunDocumentQueryResponse.Descriptor, Wire.RenderDocumentResponse.Descriptor, Wire.RenderViewResponse.Descriptor);
         IMessage[] samples = [.. CompleteQueryDocsWire.All, .. CompleteWire.Values];
 
+        // A QVTS::QueryResult view is answered only under a capability this client does not bind, so it asks for none.
+        Assert.DoesNotContain("query_result_view", CapabilitiesTests.Constants.Values);
+        reachable.ExceptWith(
+        [
+            "sysml.QueryResponse.result_view",
+            "sysml.RunDocumentQueryResponse.result_view",
+            "sysml.RenderViewResponse.header",
+            "sysml.RenderHeaderField.name",
+            "sysml.RenderHeaderField.value",
+        ]);
+
         Assert.Equal([], reachable.Except(CompleteWire.SetFields(samples), StringComparer.Ordinal).ToArray());
     }
 
