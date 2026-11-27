@@ -10,6 +10,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
@@ -160,7 +161,7 @@ func RequireObject(sym *symbols.Symbol) error {
 
 func notAnObject(sym *symbols.Symbol) error {
 	kind := sym.Notation()
-	return fmt.Errorf("%w: %s is %s %s, which has no object to validate", ErrNotAnObject, sym.Name, articleFor(kind), kind)
+	return fmt.Errorf("%w: %s is %s %s, which has no object to validate", ErrNotAnObject, sym.Name, diag.IndefiniteArticle(kind), kind)
 }
 
 // ValidateObject checks every assertion about root and the objects it holds: asserted

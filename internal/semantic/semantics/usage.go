@@ -92,7 +92,7 @@ func (m *Model) synthesizedUsageMayTimeVary(sym *symbols.Symbol) (varies, ok boo
 	case symbols.ExpressionPayload:
 		// A trigger's parameters are owned by the AcceptActionUsage the trigger implies, an action.
 		return m.UsageMayTimeVaryUnderKind(ast.UsageAction), true
-	case symbols.ExpressionNodeParameter, symbols.ExpressionLoopBody:
+	case symbols.ExpressionAccess, symbols.ExpressionLoopBody:
 		// It is nested in an occurrence it varies over: the action node, or the parameter nesting it.
 		return m.UsageMayTimeVaryUnderKind(ast.UsageAction), true
 	case symbols.ExpressionTransitionLink:

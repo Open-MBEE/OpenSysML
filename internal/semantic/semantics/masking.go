@@ -160,13 +160,12 @@ func (m *Model) MaskingRedefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol 
 	return m.maskingRedefinedFeatures(sym)
 }
 
-// maskingRedefinedFeatures returns the features sym redefines by clause, by parameter
-// position (KerML 8.4.4.6) or by case role, which its owner does not inherit. A library role (a view's `render`,
-// a state's `entry` action) leaves the library name reachable, as in the pilot.
+// maskingRedefinedFeatures returns the features sym redefines by clause, parameter position (KerML 8.4.4.6), case
+// role or node parameter, which its owner does not inherit. A library role (a view's `render`) stays reachable.
 func (m *Model) maskingRedefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 	explicit := m.RedefinedFeatures(sym)
 	parameters := m.MaskedParameterRedefinitions(sym)
-	roles := m.caseRoleRedefinitions(sym)
+	roles := append(m.caseRoleRedefinitions(sym), m.controlParameterRedefinitions(sym)...)
 	if len(parameters) == 0 && len(roles) == 0 {
 		return explicit
 	}
@@ -408,6 +407,12 @@ func (m *Model) forEachMaskCandidate(sym *symbols.Symbol, declared bool, yield f
 		})
 		if stopped {
 			return
+		}
+		// The parameters an action node's notation implies redefine the ones of its kind.
+		for _, parameter := range m.nodeParameters(sym) {
+			if !yield(parameter) {
+				return
+			}
 		}
 	}
 	for _, src := range m.MemberSources(sym) {

@@ -76,9 +76,15 @@ func (m *Model) outputElements(sym *symbols.Symbol) ([]*symbols.Symbol, bool) {
 	if !behaviorLike(sym) {
 		return m.directedFeatures(sym, ast.DirOut, ast.DirInOut), true
 	}
+	// A parameter the action's notation states masks the one of its kind it redefines; an accept's payload
+	// is inout as that one is (SysML 8.3.17.2 validateAcceptActionUsageParameters), so an output too.
+	stated := m.nodeParameters(sym)
+	masked := func(inherited *symbols.Symbol) bool {
+		return slices.ContainsFunc(stated, func(param *symbols.Symbol) bool { return m.redefines(param, inherited) })
+	}
 	var out []*symbols.Symbol
 	for _, parameter := range m.BehaviorParametersOf(sym) {
-		if parameter.Symbol == nil || parameter.IsResult ||
+		if parameter.Symbol == nil || parameter.IsResult || masked(parameter.Symbol) ||
 			(parameter.Direction != ast.DirOut && parameter.Direction != ast.DirInOut) {
 			continue
 		}

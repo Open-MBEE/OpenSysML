@@ -7,6 +7,8 @@ import (
 	"math"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
@@ -35,6 +37,75 @@ type Session struct {
 	rt      *runtime.Context
 	mu      sync.Mutex
 	closed  bool
+	// turn holds the one call Under is running, and stop is raised to interrupt
+	// that call's run when its context ends.
+	turn chan struct{}
+	stop atomic.Bool
+	// call is the context of the call Under is running, which a tool it puts
+	// to the engines is bound to.
+	call atomic.Pointer[context.Context]
+}
+
+// errSessionInterrupted is a run stopped because the context of the call Under
+// ran it for ended.
+var errSessionInterrupted = errors.New("the session call was interrupted")
+
+// Under runs call, a function making this session's calls, bound to ctx: it
+// waits its turn behind another such call for no longer than ctx lasts, and a
+// run under way when ctx ends stops at its next step. Either is answered with
+// the CANCELED or DEADLINE_EXCEEDED status ctx ended with; the session keeps
+// what the stopped run had done and answers later calls.
+func (ss *Session) Under(ctx context.Context, call func() error) error {
+	select {
+	case ss.turn <- struct{}{}:
+	case <-ctx.Done():
+		return endedStatus(ctx)
+	}
+	defer func() { <-ss.turn }()
+	if ctx.Err() != nil {
+		return endedStatus(ctx)
+	}
+	ss.call.Store(&ctx)
+	defer ss.call.Store(nil)
+	raised := make(chan struct{})
+	halt := context.AfterFunc(ctx, func() {
+		defer close(raised)
+		ss.stop.Store(true)
+	})
+	defer func() {
+		if !halt() {
+			<-raised
+		}
+		ss.stop.Store(false)
+	}()
+	if err := call(); !errors.Is(err, errSessionInterrupted) {
+		return err
+	}
+	return endedStatus(ctx)
+}
+
+// turnScoped is a context following the call Under is running when it is
+// consulted, or the background one outside a call bound to a context.
+type turnScoped struct{ ss *Session }
+
+func (t turnScoped) current() context.Context {
+	if ctx := t.ss.call.Load(); ctx != nil {
+		return *ctx
+	}
+	return context.Background()
+}
+
+func (t turnScoped) Deadline() (time.Time, bool) { return t.current().Deadline() }
+func (t turnScoped) Done() <-chan struct{}       { return t.current().Done() }
+func (t turnScoped) Err() error                  { return t.current().Err() }
+func (turnScoped) Value(any) any                 { return nil }
+
+// endedStatus is the status of a call whose context ended.
+func endedStatus(ctx context.Context) error {
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return statusError(connect.CodeDeadlineExceeded, "the session call ran past its deadline")
+	}
+	return statusError(connect.CodeCanceled, "the session call was cancelled")
 }
 
 // SessionFailure is a session call the model answered with a failure — a name
@@ -52,14 +123,29 @@ func sessionFailuref(format string, args ...any) *SessionFailure {
 }
 
 // runFailure classifies a runtime error: one at the session's object bound is
-// the RESOURCE_EXHAUSTED status; any other is the model's failure, so described.
+// the RESOURCE_EXHAUSTED status and a run or tool Under stopped is its to answer; any
+// other is the model's failure, so described.
 func (ss *Session) runFailure(err error, format string, args ...any) error {
+	if errors.Is(err, runtime.ErrInterrupted) || ss.endedTool(err) {
+		return errSessionInterrupted
+	}
 	if errors.Is(err, runtime.ErrInstanceLimitExceeded) {
 		return statusErrorf(connect.CodeResourceExhausted,
 			"the session holds %d objects, and one more would pass the %d that %s allows; raise it to hold more (the objects are released when the session closes)",
 			ss.rt.InstanceCount(), ss.rt.MaxInstances(), HeldObjectsEnvVar)
 	}
 	return sessionFailuref(format, append(args, err)...)
+}
+
+// endedTool reports whether err is the end of the context of the call under
+// way, which a tool the call started fails with once that context ends.
+func (ss *Session) endedTool(err error) bool {
+	ctx := ss.call.Load()
+	if ctx == nil {
+		return false
+	}
+	ended := (*ctx).Err()
+	return ended != nil && errors.Is(err, ended)
 }
 
 // SessionTransition is one transition of a state machine as a session reports
@@ -159,9 +245,12 @@ func (s *Service) OpenSession(modelHash string) (*Session, error) {
 	}
 	w, release := cached.worker()
 	// A session runtime outlives any one call; plans rebind the runner on the worker.
-	rt := s.newRuntimeOver(context.Background(), w)
+	ss := &Session{svc: s, cached: cached, worker: w, release: release, turn: make(chan struct{}, 1)}
+	rt := s.newRuntimeOver(turnScoped{ss}, w)
 	rt.SetMaxInstances(s.maxHeldObjects)
-	return &Session{svc: s, cached: cached, worker: w, release: release, rt: rt}, nil
+	rt.SetInterrupt(&ss.stop)
+	ss.rt = rt
+	return ss, nil
 }
 
 // Close releases the session's worker; a closed session refuses every call.
@@ -549,7 +638,7 @@ func (ss *Session) Advance(seconds float64) (*SessionAdvance, error) {
 	}
 	report, err := ss.rt.Advance(seconds)
 	if err != nil {
-		if errors.Is(err, runtime.ErrInstanceLimitExceeded) {
+		if errors.Is(err, runtime.ErrInstanceLimitExceeded) || errors.Is(err, runtime.ErrInterrupted) {
 			return nil, ss.runFailure(err, "advance failed: %v")
 		}
 		return nil, &SessionFailure{Message: fmt.Sprintf("advance failed: %v", err), Diagnostics: ss.diagnostics(report.Notes)}
@@ -591,7 +680,7 @@ func (ss *Session) Perform(object int64, actionID string, inputs map[string]*pb.
 	defer exec.Release()
 	exec.KeepTraversals(true)
 	if err := exec.RunToCompletion(); err != nil {
-		if errors.Is(err, runtime.ErrInstanceLimitExceeded) {
+		if errors.Is(err, runtime.ErrInstanceLimitExceeded) || errors.Is(err, runtime.ErrInterrupted) {
 			return nil, ss.runFailure(err, "action %s failed: %v", actionID)
 		}
 		return nil, &SessionFailure{Message: fmt.Sprintf("action %s failed: %v", actionID, err), Diagnostics: ss.diagnostics(exec.Notes())}

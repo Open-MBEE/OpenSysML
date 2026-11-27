@@ -41,7 +41,7 @@ func Main(args []string, stderr io.Writer) int {
 	launcherFlag := flags.String("exporter", "", "pilot JSON exporter launcher (default: <repo>/build/pilot-json-exporter/export-json)")
 	outFlag := flags.String("out", "", "output directory (default: <repo>/build/"+toolName+")")
 	rootsFlag := flags.String("roots", "", "comma-separated subset of the corpus roots to compare (default: all)")
-	timeoutFlag := flags.Duration("timeout", 30*time.Minute, "time allowed for the pilot's export of one root")
+	timeoutFlag := flags.Duration("timeout", 30*time.Minute, "time allowed for the pilot's export of one root (0 means no limit)")
 	updateFlag := flags.Bool("update", false, "re-record "+committedBaseline+" from this run (with -roots, those roots' fragments only)")
 	checkFlag := flags.Bool("check", false, "fail unless this run reproduces "+committedBaseline+" (with -roots, those roots' fragments and the index)")
 	reindexFlag := flags.Bool("reindex", false, "rebuild "+committedBaseline+"/"+baseline.IndexFile+" from the committed fragments, without the pilot")

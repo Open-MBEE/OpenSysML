@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
@@ -25,6 +26,19 @@ type dialOptions struct {
 	clearToken bool
 	// maxResponse is the response bound WithMaxResponseBytes named; 0 is the default.
 	maxResponse int
+	// timeout is the call bound WithCallTimeout named; timeoutSet tells zero from unset.
+	timeout    time.Duration
+	timeoutSet bool
+}
+
+// DefaultCallTimeout bounds one call whose context carries no deadline, unless
+// WithCallTimeout names another bound.
+const DefaultCallTimeout = 10 * time.Minute
+
+// WithCallTimeout bounds each call whose context carries no deadline of its own; one that
+// runs longer fails with CodeDeadlineExceeded. Zero or less leaves such calls unbounded.
+func WithCallTimeout(d time.Duration) DialOption {
+	return func(o *dialOptions) { o.timeout, o.timeoutSet = d, true }
 }
 
 // DefaultMaxResponseBytes bounds one response message unless WithMaxResponseBytes
@@ -55,7 +69,7 @@ func WithInsecureTokenTransport() DialOption {
 }
 
 // WithHTTPClient names the HTTP client the connection uses, for callers with
-// their own transport, TLS or timeout policy. The default is
+// their own transport, TLS or connection timeouts. The default is
 // http.DefaultClient.
 func WithHTTPClient(httpClient *http.Client) DialOption {
 	return func(o *dialOptions) { o.httpClient = httpClient }
@@ -76,6 +90,8 @@ func WithJSONBody() DialOption {
 // scheme is dialed as http. Requests cross as Connect protobuf unless
 // WithJSONBody says otherwise. Closing leaves the service running: it was not
 // this package's to stop.
+// A call whose context carries no deadline is given DefaultCallTimeout, or the bound
+// WithCallTimeout names, so a service that stops answering fails the call.
 // With a token set, an http address other machines reach is refused with
 // CodeInvalidArgument unless WithInsecureTokenTransport accepts it.
 func Dial(address string, opts ...DialOption) (Client, error) {
@@ -95,9 +111,15 @@ func Dial(address string, opts ...DialOption) (Client, error) {
 	if config.maxResponse <= 0 {
 		config.maxResponse = DefaultMaxResponseBytes
 	}
+	if !config.timeoutSet {
+		config.timeout = DefaultCallTimeout
+	}
 	connectOpts := []connect.ClientOption{
 		connect.WithReadMaxBytes(config.maxResponse),
 		connect.WithInterceptors(knownValues{}),
+	}
+	if config.timeout > 0 {
+		connectOpts = append(connectOpts, connect.WithInterceptors(callTimeout(config.timeout)))
 	}
 	if config.json {
 		connectOpts = append(connectOpts, connect.WithProtoJSON())
@@ -114,6 +136,20 @@ func Dial(address string, opts ...DialOption) (Client, error) {
 	return &client{caller: &remote{
 		rpc: protoconnect.NewSysMLServiceClient(config.httpClient, address, connectOpts...),
 	}}, nil
+}
+
+// callTimeout gives a unary call whose context has no deadline one of this length.
+func callTimeout(d time.Duration) connect.UnaryInterceptorFunc {
+	return func(next connect.UnaryFunc) connect.UnaryFunc {
+		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
+			if _, bounded := ctx.Deadline(); bounded {
+				return next(ctx, req)
+			}
+			ctx, cancel := context.WithTimeout(ctx, d)
+			defer cancel()
+			return next(ctx, req)
+		}
+	}
 }
 
 // tokenTransport refuses an address a bearer token would cross in clear: one

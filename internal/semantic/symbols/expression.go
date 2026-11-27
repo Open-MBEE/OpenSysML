@@ -64,12 +64,12 @@ const (
 	// ExpressionTransitionLink is the ReferenceUsage a transition owns last through a FeatureMembership,
 	// after its succession, as the pilot exports it (TransitionUsage::transitionLink); Owner is the transition.
 	ExpressionTransitionLink
-	// ExpressionNodeParameter is a ReferenceUsage an assignment or loop node owns for a part of its
-	// statement, or a feature its target nests; Owner is the node or nesting feature, Slot its position.
-	ExpressionNodeParameter
 	// ExpressionLoopBody is the ActionUsage a loop's `{ … }` body is, which the loop owns as a parameter
 	// (SysML.xtext ActionBodyParameter); Owner is the loop, Decl its node.
 	ExpressionLoopBody
+	// ExpressionAccess is a feature an assignment's target parameter owns to name the feature assigned:
+	// startingAt, owned by the target, and accessedFeature, owned by startingAt (SysML.xtext TargetParameter).
+	ExpressionAccess
 )
 
 // ExpressionElement is the side record of a symbol the reflective layer

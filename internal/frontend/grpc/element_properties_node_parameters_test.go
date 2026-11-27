@@ -323,6 +323,8 @@ package P {
         loop { attribute flag : ScalarValues::Integer; } until flag;
         while flag { attribute flag : ScalarValues::Integer; }
         loop action body1 { attribute x : ScalarValues::Boolean; } until body1.x;
+        attribute xs : ScalarValues::Integer[*];
+        loop { private import Q::*; } until xs->ControlFunctions::exists { in x : ScalarValues::Integer; flag };
     }
 }`) {
 		t.Errorf("unexpected diagnostic: %s", d.GetMessage())
@@ -334,13 +336,41 @@ package P {
         while inWhile { attribute inWhile : ScalarValues::Boolean; }
         loop { action charging { out attribute finished : ScalarValues::Boolean; } } until charging.finished;
         loop action body1 { attribute inNamed : ScalarValues::Boolean; } until inNamed;
+        attribute xs : ScalarValues::Integer[*];
+        loop { attribute inExpr : ScalarValues::Integer; } until xs->ControlFunctions::exists { in x : ScalarValues::Integer; x > inExpr };
     }
 }`) {
 		messages = append(messages, d.GetMessage())
 	}
-	for _, name := range []string{"inBlock", "inWhile", "charging", "inNamed"} {
+	for _, name := range []string{"inBlock", "inWhile", "charging", "inNamed", "inExpr"} {
 		if !slices.ContainsFunc(messages, func(m string) bool { return strings.HasPrefix(m, "unresolved reference: "+name) }) {
 			t.Errorf("%s is not reported unresolved in %q", name, messages)
 		}
+	}
+}
+
+// TestParseLoopGuardBodyExpressionDoesNotSeeBodyImport: a body expression in the condition is
+// part of the condition, so a name only the loop's body imports is unresolved there.
+func TestParseLoopGuardBodyExpressionDoesNotSeeBodyImport(t *testing.T) {
+	srv := mustNewService(t, 10)
+	parsed, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{Source: &pb.ParseFileRequest_Content{
+		Content: `package Q { attribute only : ScalarValues::Integer; }
+package P {
+    action def A {
+        attribute xs : ScalarValues::Integer[*];
+        loop { private import Q::*; } until xs->ControlFunctions::exists { in x : ScalarValues::Integer; x > only };
+    }
+}`}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var unresolved int
+	for _, d := range parsed.GetDiagnostics() {
+		if strings.Contains(d.GetMessage(), "unresolved reference: only") {
+			unresolved++
+		}
+	}
+	if unresolved != 1 {
+		t.Errorf("unresolved `only` reported %d times, want 1: %v", unresolved, parsed.GetDiagnostics())
 	}
 }

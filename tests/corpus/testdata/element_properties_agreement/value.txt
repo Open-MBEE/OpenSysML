@@ -137,7 +137,7 @@ FeatureChaining::relatedElement	2	symbol-59
 FeatureChaining::target	2	symbol-59
 FeatureInverting::ownedRelatedElement	1	export-06
 FeatureInverting::ownedRelationship	1	symbol-03
-FeatureMembership::memberName	20	export-69
+FeatureMembership::memberName	272	export-69
 FeatureMembership::ownedMemberName	13	export-56
 FeatureMembership::visibility	2	export-05
 FeatureReferenceExpression::directedFeature	2	symbol-53
@@ -277,8 +277,8 @@ OwningMembership::visibility	1	export-05
 Package::documentation	2	export-57
 Package::ownedElement	3	symbol-02
 Package::ownedMember	2	symbol-63
-ParameterMembership::memberName	2851	symbol-85
-ParameterMembership::visibility	16	export-05
+ParameterMembership::memberName	3241	symbol-85
+ParameterMembership::visibility	15	export-05
 PartDefinition::feature	1	symbol-51
 PartDefinition::featureMembership	1	symbol-51
 PartDefinition::member	1	symbol-51
@@ -312,6 +312,7 @@ PerformActionUsage::feature	4	symbol-51
 PerformActionUsage::featureMembership	4	symbol-51
 PerformActionUsage::inheritedFeature	1	symbol-51
 PerformActionUsage::inheritedMembership	1	symbol-51
+PerformActionUsage::mayTimeVary	2	symbol-87
 PerformActionUsage::member	4	symbol-51
 PerformActionUsage::membership	4	symbol-51
 PerformActionUsage::nestedAction	1	export-57

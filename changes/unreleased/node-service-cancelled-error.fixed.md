@@ -1,0 +1,1 @@
+- The Node client now raises `ServiceCancelledError` for a call that came back `CANCELLED`, so a caller can tell a cancelled call from one that ran past its deadline. It is a subclass of `ServiceTimeoutError`, which both statuses used to raise, so code that catches `ServiceTimeoutError` still catches it.

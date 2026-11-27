@@ -21,6 +21,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
@@ -105,13 +106,7 @@ func (k Kind) GraphShaped() bool { return k.Supported() && !k.Tabular() }
 // article is the indefinite article the kind reads with, so a message says "an
 // action rendering" rather than "a action rendering".
 func (k Kind) article() string {
-	switch {
-	case k == "":
-		return "a"
-	case strings.ContainsRune("aeiou", rune(k[0])):
-		return "an"
-	}
-	return "a"
+	return diag.IndefiniteArticle(string(k))
 }
 
 // ErrUnsupportedKind is the rendering kind a view states that this package does

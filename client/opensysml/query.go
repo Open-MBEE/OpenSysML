@@ -180,10 +180,11 @@ func queryToProto(query Query) *pb.Query {
 }
 
 func (c *client) selectElements(ctx context.Context, model *Model, req *pb.QueryRequest) (*QueryAnswer, error) {
-	hash, err := c.call(model)
+	hash, done, err := c.call(model)
 	if err != nil {
 		return nil, err
 	}
+	defer done()
 	req.ModelHash = hash
 	needed := []string{CapabilityQuery}
 	if req.OslcQuery != "" {

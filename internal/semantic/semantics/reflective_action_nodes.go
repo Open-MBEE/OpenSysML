@@ -201,7 +201,12 @@ func (m *Model) statementScopeOwner(scope *symbols.Scope) *symbols.Symbol {
 		// What a loop's body writes is scoped under the loop and owned by its body.
 		owner = body
 	}
-	for _, node := range m.statementNodes(owner) {
+	nodes := m.statementNodes(owner)
+	// A node written as its statement (`action lp for i in s { … }`) is registered as its body's owner.
+	if node, ok := m.statementScopes[scope]; ok {
+		return node
+	}
+	for _, node := range nodes {
 		if node.Scope == scope {
 			return node
 		}
@@ -289,23 +294,6 @@ func (m *Model) statementOperands(sym *symbols.Symbol) []*symbols.Symbol {
 			Expr:       &symbols.ExpressionElement{Owner: sym, Role: symbols.ExpressionOperand, Slot: slot},
 		})
 	}
-	// parameter adds the ReferenceUsage the node owns at slot for a part of its statement, bound to
-	// value when the part states one (SysML.xtext NodeParameter), and returns it.
-	parameter := func(owner *symbols.Symbol, slot string, value ast.Node, at source.Span) *symbols.Symbol {
-		usage := &ast.Usage{Kind: ast.UsageAttribute, IsReference: true, Direction: ast.DirIn, Value: value}
-		usage.NodeSpan = at
-		param := transitionPart(sym, usage, at, symbols.SymbolReferenceUsage, owner, symbols.ExpressionNodeParameter)
-		param.Expr.Slot = slot
-		if value != nil {
-			m.ownNodeParameterPart(param, transitionPart(sym, value, value.Span(), symbols.SymbolExpression, param, symbols.ExpressionValue))
-		}
-		if owner == sym {
-			out = append(out, param)
-		} else {
-			m.ownNodeParameterPart(owner, param)
-		}
-		return param
-	}
 	decl := sym.Decl
 	if statement := nodeStatementOf(decl); statement != nil {
 		// `action a assign x := y;` is the assignment: its operands are the
@@ -318,30 +306,17 @@ func (m *Model) statementOperands(sym *symbols.Symbol) []*symbols.Symbol {
 	case *ast.WhileLoopActionNode:
 		switch d.Kind {
 		case ast.LoopFor:
-			if d.Collection != nil {
-				parameter(sym, "collectionParameter", d.Collection, d.Collection.Span())
-			}
+			// The collection is the value of the loop's `seq` parameter (controlPartsOf).
 		case ast.LoopUntil:
-			// `loop { … } until c;` tests its condition after each iteration: it is the until
-			// condition, and an empty parameter stands where a while condition would (encodeLoop).
-			parameter(sym, "emptyParameter", nil, source.Span{Offset: d.Span().Offset})
+			// `loop { … } until c;` tests its condition after each iteration: it is the until condition.
 			add("untilCondition", d.Condition)
 		default:
 			add("whileCondition", d.Condition)
 			add("untilCondition", d.Until)
 		}
 	case *ast.AssignmentActionNode:
-		if d.Target != nil {
-			// The target parameter nests the feature assigned and the one accessed
-			// (SysML.xtext TargetParameter, TargetFeature), ahead of the name written.
-			at := source.Span{Offset: d.Target.Span().Offset}
-			target := parameter(sym, "targetParameter", nil, at)
-			parameter(parameter(target, "targetFeature", nil, at), "accessedFeature", nil, at)
-		}
+		// The value is that of the assignment's `replacementValues` parameter (controlPartsOf).
 		add("target", d.Target)
-		if d.Value != nil {
-			parameter(sym, "valueParameter", d.Value, d.Value.Span())
-		}
 	case *ast.TerminateStatement:
 		add("expression", d.Target)
 	case *ast.PerformActionNode:
@@ -404,27 +379,42 @@ func isBodySuccessionNode(node ast.Node) bool {
 	return false
 }
 
-// ownNodeParameterPart records part, a value or a nested feature, as owned by the node parameter param.
-func (m *Model) ownNodeParameterPart(param, part *symbols.Symbol) {
-	if m.nodeParameterParts == nil {
-		m.nodeParameterParts = make(map[*symbols.Symbol][]*symbols.Symbol)
+// statementParts are the operands of the statement sym with the ReferenceUsage parameters an
+// assignment or loop states beside them (controlPartsOf), in the order they are written.
+func (m *Model) statementParts(sym *symbols.Symbol) []*symbols.Symbol {
+	operands := m.statementOperands(sym)
+	if sym == nil {
+		return operands
 	}
-	if _, recorded := m.nodeParameterParts[param]; !recorded {
-		journal(m, m.nodeParameterParts, param, param.Expr.Owner.Decl)
+	switch statementOf(sym).(type) {
+	case *ast.AssignmentActionNode, *ast.WhileLoopActionNode:
+	default:
+		return operands
 	}
-	m.nodeParameterParts[param] = append(m.nodeParameterParts[param], part)
+	out := make([]*symbols.Symbol, 0, len(operands)+2)
+	for _, param := range m.controlParameters(sym) {
+		if param.Expr == nil || param.Expr.Role != symbols.ExpressionPayload || param.Kind != symbols.SymbolReferenceUsage {
+			continue
+		}
+		for len(operands) > 0 && operands[0].DeclSpan.Offset < param.DeclSpan.Offset {
+			out, operands = append(out, operands[0]), operands[1:]
+		}
+		out = append(out, param)
+	}
+	return append(out, operands...)
 }
 
-// nodeParameterValue is the expression the node parameter param is bound to, nil for an empty one
-// or any other symbol.
-func (m *Model) nodeParameterValue(param *symbols.Symbol) *symbols.Symbol {
-	if param == nil || param.Expr == nil || param.Expr.Role != symbols.ExpressionNodeParameter {
+// statementOf is the statement sym is: the node synthesized for it, or the usage written as it
+// with a plain head; nil where the statement is a node nested in the usage, and for anything else.
+func statementOf(sym *symbols.Symbol) ast.Node {
+	if sym == nil || sym.Expr != nil || sym.Implicit != nil || IsLoopVariable(sym) {
 		return nil
 	}
-	for _, part := range m.nodeParameterParts[param] {
-		if part.Expr.Role == symbols.ExpressionValue {
-			return part
-		}
+	if _, usage := sym.Decl.(*ast.Usage); usage {
+		return nodeStatementOf(sym.Decl)
+	}
+	if IsStatementNode(sym.Decl) {
+		return sym.Decl
 	}
 	return nil
 }

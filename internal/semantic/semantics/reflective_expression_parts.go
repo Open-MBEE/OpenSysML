@@ -66,7 +66,7 @@ func expressionElementMetaclassName(sym *symbols.Symbol) string {
 			return "AcceptActionUsage"
 		case symbols.ExpressionLoopBody:
 			return "ActionUsage"
-		case symbols.ExpressionNodeParameter, symbols.ExpressionPayload, symbols.ExpressionConnectorEnd, symbols.ExpressionTransitionLinkParameter, symbols.ExpressionTransitionLink:
+		case symbols.ExpressionPayload, symbols.ExpressionAccess, symbols.ExpressionConnectorEnd, symbols.ExpressionTransitionLinkParameter, symbols.ExpressionTransitionLink:
 			return "ReferenceUsage"
 		case symbols.ExpressionTransitionSuccession:
 			return "SuccessionAsUsage"
@@ -541,9 +541,14 @@ func (m *Model) ownedExpressionMemberships(sym *symbols.Symbol) []*symbols.Symbo
 		out = appendOwningMembership(out, sym, value)
 	} else if value := m.sendParameterValue(sym); value != nil {
 		out = appendOwningMembership(out, sym, value)
-	} else if sym.Expr.Role == symbols.ExpressionNodeParameter {
-		for _, part := range m.nodeParameterParts[sym] {
-			out = appendOwningMembership(out, sym, part)
+	} else {
+		// A control action's parameter owns its value, then the feature an assignment's target nests.
+		if value := m.controlParameterValue(sym); value != nil && value.Expr.Slot != "target" {
+			// A chained target's base is owned by the chain the assignment writes whole.
+			out = appendOwningMembership(out, sym, value)
+		}
+		for _, feature := range m.accessFeatures(sym) {
+			out = appendOwningMembership(out, sym, feature)
 		}
 	}
 	return out

@@ -19,7 +19,7 @@ func (s *Session) doTool(tail string) ([]string, bool, error) {
 		return []string{errPrefix + err.Error(), toolUsage}, false, nil
 	}
 	if inv.name == "" {
-		return []string{toolUsage}, false, nil
+		return s.usage(toolUsage), false, nil
 	}
 	return s.withTrace(s.toolDryRunInv(inv)).Lines, false, nil
 }

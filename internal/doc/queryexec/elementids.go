@@ -153,13 +153,19 @@ func nodeParameterSlot(sym *symbols.Symbol) (ast.Node, string, bool) {
 	slot, owner := loopBodySlot, sym.Expr.Owner
 	switch sym.Expr.Role {
 	case symbols.ExpressionLoopBody:
-	case symbols.ExpressionNodeParameter:
-		slot = sym.Expr.Slot
-		for ; owner != nil && owner.Expr != nil && owner.Expr.Role == symbols.ExpressionNodeParameter; owner = owner.Expr.Owner {
-			slot = owner.Expr.Slot + "." + slot
-		}
 	default:
-		return nil, "", false
+		stated, ok := semantics.NodeParameterSlot(sym)
+		if !ok {
+			return nil, "", false
+		}
+		slot = stated
+		for ; owner != nil; owner = owner.Expr.Owner {
+			nesting, nested := semantics.NodeParameterSlot(owner)
+			if !nested {
+				break
+			}
+			slot = nesting + "." + slot
+		}
 	}
 	if owner == nil || owner.Decl == nil {
 		return nil, "", false

@@ -1419,9 +1419,14 @@ jobs:
           make audit-java JAVA_PROJECT_DIRS=editors/mdk
 
   emacs-package:
-    name: Emacs package
+    name: Emacs package (${{ matrix.client }})
     needs: changes
     if: needs.changes.outputs.emacs == 'true'
+    # Each client runs alone, so the package is checked to load without the other.
+    strategy:
+      fail-fast: false
+      matrix:
+        client: [lsp-mode, eglot]
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -1430,6 +1435,7 @@ jobs:
       # The suites drive a live sysml-lsp: requiring it turns "binary absent"
       # into a failure instead of a skip.
       OPENSYSML_REQUIRE_EMACS_LSP: "1"
+      EMACS_CLIENT: ${{ matrix.client }}
     steps:
       - name: Check out repository
         id: checkout
@@ -1456,7 +1462,8 @@ jobs:
         with:
           extra_nix_config: experimental-features = nix-command
 
-      # Emacs 29.1 is the oldest the package supports.
+      # Emacs 29.1 is the oldest the package supports; deps.el installs the
+      # Eglot from GNU ELPA that sysml-eglot needs on it.
       - name: Set up Emacs
         uses: purcell/setup-emacs@c851e5408f2d2f657fa80375bbe3fb35029aa488 # v6.0
         with:

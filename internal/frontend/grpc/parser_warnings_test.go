@@ -9,11 +9,9 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"sync"
 	"testing"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
-	"github.com/Open-MBEE/OpenSysML/tests/testutil/gobuild"
 )
 
 const (
@@ -185,32 +183,14 @@ func TestModelDiagnosticsReportEachOnce(t *testing.T) {
 	}
 }
 
-var (
-	cliOnce sync.Once
-	cliPath string
-	cliErr  error
-)
-
 // sysmlCLI builds cmd/sysml once per test binary.
 func sysmlCLI(t *testing.T) string {
 	t.Helper()
-	cliOnce.Do(func() {
-		dir, err := os.MkdirTemp("", "sysml-cli")
-		if err != nil {
-			cliErr = err
-			return
-		}
-		cliPath = filepath.Join(dir, "sysml")
-		build := exec.Command("go", gobuild.Args(cliPath)...)
-		build.Dir = filepath.Join("..", "..", "..", "cmd", "sysml")
-		if out, err := build.CombinedOutput(); err != nil {
-			cliErr = fmt.Errorf("go build: %v\n%s", err, out)
-		}
-	})
-	if cliErr != nil {
-		t.Fatalf("building sysml: %v", cliErr)
+	path, err := testBuilds.Build("sysml", filepath.Join("..", "..", "..", "cmd", "sysml"))
+	if err != nil {
+		t.Fatalf("building sysml: %v", err)
 	}
-	return cliPath
+	return path
 }
 
 // cliDiagnostics runs `sysml -validate -json` on the file and returns its

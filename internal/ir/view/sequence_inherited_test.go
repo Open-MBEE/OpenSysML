@@ -2,6 +2,7 @@ package view
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -456,6 +457,83 @@ func TestSequenceRenderingDrawsAnActionsInheritedEventOnTheUsage(t *testing.T) {
 	}
 }
 
+// A private event is not inherited (KerML 8.3.3.1 inheritableMemberships), so an
+// order from one, named or not, stays on the definition and off the lifelines typed by it.
+func TestSequenceRenderingKeepsAPrivateEventOffTheLifelinesSpecializingItsOwner(t *testing.T) {
+	for name, private := range map[string]string{
+		"unnamed": "private event occurrence;\n\t\tthen event occurrence got;",
+		"named":   "private event occurrence hidden;\n\t\tevent occurrence got;\n\t\tsuccession first hidden then got;",
+	} {
+		t.Run(name, func(t *testing.T) {
+			rendering := renderSequenceOf(t, `package P {
+	item def Ping;
+	part def Client {
+		`+private+`
+	}
+	part def Scene {
+		part server {
+			event occurrence a;
+		}
+		part client : Client;
+		message reply of Ping from server.a to client.got;
+	}
+}`, "Client", "Scene")
+			got := sequenceEnds(rendering)
+			if !slices.Contains(got, "reply of Ping: server.a -> client.got") {
+				t.Errorf("edges = %q, want the message on the client lifeline", got)
+			}
+			for _, edge := range got {
+				if strings.HasPrefix(edge, ": client.") {
+					t.Errorf("edges = %q, want no order from the private event on the client lifeline", got)
+				}
+			}
+			if proxies := len(lifelineNamed(t, rendering, "client").Children); proxies != 1 {
+				t.Errorf("client lifeline holds %d events, want got alone; edges %q", proxies, got)
+			}
+		})
+	}
+}
+
+// lifelineNamed is the lifeline of a sequence with the given name.
+func lifelineNamed(t *testing.T, rendering *Rendering, name string) *Node {
+	t.Helper()
+	for _, root := range rendering.Roots {
+		if root.Name == name {
+			return root
+		}
+	}
+	t.Fatalf("no lifeline %q among %d", name, len(rendering.Roots))
+	return nil
+}
+
+// An inherited chain of `then` through a private event still orders the messages
+// at its ends, though neither the event nor the links at it are drawn on the lifeline.
+func TestSequenceRenderingOrdersMessagesThroughAPrivateEventItDoesNotDraw(t *testing.T) {
+	rendering := renderSequenceOf(t, `package P {
+	item def Ping;
+	part def Client {
+		event occurrence sent;
+		then private event occurrence;
+		then event occurrence got;
+	}
+	part def Scene {
+		part server {
+			event occurrence a;
+			event occurrence b;
+		}
+		part client : Client;
+		message reply of Ping from server.a to client.got;
+		message ask of Ping from client.sent to server.b;
+	}
+}`, "Client", "Scene")
+	if got := messageLabels(rendering); !slices.Equal(got, []string{"ask of Ping", "reply of Ping"}) {
+		t.Errorf("messages = %v, want ask before reply through the private event; edges %q", got, sequenceEnds(rendering))
+	}
+	if proxies := len(lifelineNamed(t, rendering, "client").Children); proxies != 2 {
+		t.Errorf("client lifeline holds %d events, want sent and got; edges %q", proxies, sequenceEnds(rendering))
+	}
+}
+
 // An order a usage states between events it holds only by reference subsetting is
 // read on a lifeline specializing both that usage and the one referenced.
 func TestSequenceRenderingReadsAnOrderOverEventsHeldByReferenceSubsetting(t *testing.T) {
@@ -509,6 +587,248 @@ func TestSequenceRenderingKeepsAReferencingUsagesOrderOffTheUsageReferenced(t *t
 	want := []string{
 		"ask of Ping: P::client.sent -> a",
 		"reply of Ping: b -> P::client.got",
+	}
+	if got := sequenceEnds(rendering); !slices.Equal(got, want) {
+		t.Errorf("got %q\nwant %q", got, want)
+	}
+}
+
+// A public alias is a membership of its own, inherited whatever the visibility of the
+// event it names, so a message naming a private event through one ends on the lifeline.
+func TestSequenceRenderingDrawsAPrivateEventNamedThroughAnInheritedAlias(t *testing.T) {
+	rendering := renderSequenceOf(t, `package P {
+	item def Ping;
+	part def Client {
+		private event occurrence hidden;
+		public alias shown for hidden;
+	}
+	part def Scene {
+		part server {
+			event occurrence a;
+		}
+		part client : Client;
+		message reply of Ping from server.a to client.shown;
+	}
+}`, "Client", "Scene")
+	if got := sequenceEnds(rendering); !slices.Contains(got, "reply of Ping: server.a -> client.hidden") {
+		t.Errorf("edges = %q, want the message to end on the client lifeline", got)
+	}
+}
+
+// A private alias is no more inherited than the private event it names, so the
+// order from that event stays off the lifeline.
+func TestSequenceRenderingKeepsAPrivateEventWithAPrivateAliasOffTheLifeline(t *testing.T) {
+	rendering := renderSequenceOf(t, `package P {
+	item def Ping;
+	part def Client {
+		private event occurrence hidden;
+		private alias shown for hidden;
+		event occurrence got;
+		succession first hidden then got;
+	}
+	part def Scene {
+		part server {
+			event occurrence a;
+		}
+		part client : Client;
+		message reply of Ping from server.a to client.got;
+	}
+}`, "Client", "Scene")
+	got := sequenceEnds(rendering)
+	if slices.Contains(got, ": client.hidden -> client.got") {
+		t.Errorf("edges = %q, want no order from the private event on the client lifeline", got)
+	}
+	if proxies := len(lifelineNamed(t, rendering, "client").Children); proxies != 1 {
+		t.Errorf("client lifeline holds %d events, want got alone; edges %q", proxies, got)
+	}
+}
+
+// A lifeline that redefines a named succession it inherits draws the redefining
+// succession alone; a lifeline that only inherits it still reads the original.
+func TestSequenceRenderingDropsAnInheritedSuccessionTheLifelineRedefines(t *testing.T) {
+	rendering := renderSequenceOf(t, `package P {
+	item def Ping;
+	part server {
+		event occurrence a;
+		event occurrence b;
+		event occurrence c;
+		event occurrence d;
+	}
+	part source {
+		event occurrence sent;
+		event occurrence got;
+		succession original first sent then got;
+	}
+	part client :> source {
+		succession replacement :>> original first sent then got;
+	}
+	part heir :> client;
+	part other :> source;
+	message m1 of Ping from client.sent to server.a;
+	message m2 of Ping from server.b to client.got;
+	message m3 of Ping from heir.sent to server.a;
+	message m4 of Ping from server.b to heir.got;
+	message m5 of Ping from other.sent to server.c;
+	message m6 of Ping from server.d to other.got;
+}`, "server", "source", "client", "heir", "other", "m1", "m2", "m3", "m4", "m5", "m6")
+	want := []string{
+		"m1 of Ping: P::client.sent -> a",
+		"replacement: P::client.sent -> P::client.got",
+		"m2 of Ping: b -> P::client.got",
+		"m3 of Ping: P::heir.sent -> a",
+		"replacement: P::heir.sent -> P::heir.got",
+		"m4 of Ping: b -> P::heir.got",
+		"m5 of Ping: P::other.sent -> c",
+		"original: P::other.sent -> P::other.got",
+		"m6 of Ping: d -> P::other.got",
+		"original: sent -> got",
+	}
+	if got := sequenceEnds(rendering); !slices.Equal(got, want) {
+		t.Errorf("got %q\nwant %q", got, want)
+	}
+}
+
+// The same holds for a succession over events its usage holds by reference subsetting.
+func TestSequenceRenderingDropsARedefinedSuccessionOverReferenceSubsetEvents(t *testing.T) {
+	rendering := renderSequenceOf(t, `package P {
+	item def Ping;
+	part server {
+		event occurrence a;
+		event occurrence b;
+	}
+	part source {
+		event occurrence sent;
+		event occurrence got;
+	}
+	ref part observer ::> source {
+		succession original first sent then got;
+	}
+	part client :> observer, source {
+		succession replacement :>> original first sent then got;
+	}
+	message ask of Ping from client.sent to server.a;
+	message reply of Ping from server.b to client.got;
+}`, "server", "observer", "client", "ask", "reply")
+	want := []string{
+		"ask of Ping: P::client.sent -> a",
+		"replacement: P::client.sent -> P::client.got",
+		"reply of Ping: b -> P::client.got",
+	}
+	if got := sequenceEnds(rendering); !slices.Equal(got, want) {
+		t.Errorf("got %q\nwant %q", got, want)
+	}
+}
+
+// A redefining succession that states no ends keeps the ends it inherits, under
+// its own name: the nearest stated ones when it redefines through a chain.
+func TestSequenceRenderingReadsARedefiningSuccessionOverTheEndsItInherits(t *testing.T) {
+	rendering := renderSequenceOf(t, `package P {
+	item def Ping;
+	part server {
+		event occurrence a;
+		event occurrence b;
+		event occurrence c;
+	}
+	part source {
+		event occurrence sent;
+		event occurrence mid;
+		event occurrence got;
+		succession original first sent then got;
+	}
+	part client :> source {
+		succession renamed :>> original;
+	}
+	part narrowed :> source {
+		succession shorter :>> original first sent then mid;
+	}
+	part heir :> narrowed {
+		succession kept :>> shorter;
+	}
+	message m1 of Ping from client.sent to server.a;
+	message m2 of Ping from server.b to client.got;
+	message m3 of Ping from heir.sent to server.a;
+	message m4 of Ping from server.c to heir.mid;
+}`, "server", "source", "client", "narrowed", "heir", "m1", "m2", "m3", "m4")
+	want := []string{
+		"m1 of Ping: P::client.sent -> a",
+		"renamed: P::client.sent -> P::client.got",
+		"m2 of Ping: b -> P::client.got",
+		"m3 of Ping: P::heir.sent -> a",
+		"kept: P::heir.sent -> P::heir.mid",
+		"m4 of Ping: c -> P::heir.mid",
+		"original: sent -> got",
+		"shorter: P::narrowed.sent -> P::narrowed.mid",
+	}
+	if got := sequenceEnds(rendering); !slices.Equal(got, want) {
+		t.Errorf("got %q\nwant %q", got, want)
+	}
+}
+
+// A succession redefining two that state no order between them reads the ends of
+// the nearest one stating them, not those of one that one redefines.
+func TestSequenceRenderingReadsTheNearestEndsARedefiningSuccessionInherits(t *testing.T) {
+	rendering := renderSequenceOf(t, `package P {
+	item def Ping;
+	part server {
+		event occurrence a;
+		event occurrence b;
+	}
+	part source {
+		event occurrence sent;
+		event occurrence mid;
+		event occurrence got;
+		succession original first sent then got;
+	}
+	part plain :> source {
+		succession same :>> original;
+	}
+	part narrowed :> source {
+		succession shorter :>> original first sent then mid;
+	}
+	part joined :> plain, narrowed {
+		succession both :>> same, shorter;
+	}
+	message m1 of Ping from joined.sent to server.a;
+	message m2 of Ping from server.b to joined.mid;
+}`, "server", "source", "joined", "m1", "m2")
+	want := []string{
+		"m1 of Ping: P::joined.sent -> a",
+		"both: P::joined.sent -> P::joined.mid",
+		"m2 of Ping: b -> P::joined.mid",
+		"original: sent -> got",
+	}
+	if got := sequenceEnds(rendering); !slices.Equal(got, want) {
+		t.Errorf("got %q\nwant %q", got, want)
+	}
+}
+
+// A lifeline inheriting a redefining succession from a usage that is not shown
+// still reads it, in place of the one redefined.
+func TestSequenceRenderingReadsASuccessionRedefinedByAUsageNotShown(t *testing.T) {
+	rendering := renderSequenceOf(t, `package P {
+	item def Ping;
+	part server {
+		event occurrence a;
+		event occurrence b;
+	}
+	part source {
+		event occurrence sent;
+		event occurrence mid;
+		event occurrence got;
+		succession original first sent then got;
+	}
+	part hidden :> source {
+		succession replacement :>> original first sent then mid;
+	}
+	part leaf :> hidden;
+	message ask of Ping from leaf.sent to server.a;
+	message reply of Ping from server.b to leaf.mid;
+}`, "server", "source", "leaf", "ask", "reply")
+	want := []string{
+		"ask of Ping: P::leaf.sent -> a",
+		"replacement: P::leaf.sent -> P::leaf.mid",
+		"reply of Ping: b -> P::leaf.mid",
+		"original: sent -> got",
 	}
 	if got := sequenceEnds(rendering); !slices.Equal(got, want) {
 		t.Errorf("got %q\nwant %q", got, want)

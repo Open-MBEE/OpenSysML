@@ -6,10 +6,8 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
@@ -24,32 +22,21 @@ import (
 	"github.com/Open-MBEE/OpenSysML/tests/testutil/gobuild"
 )
 
-var (
-	runnerOnce sync.Once
-	runnerPath string
-	runnerErr  error
-)
+// testBuilds holds the commands this package's tests build and drive as processes.
+var testBuilds = gobuild.Scratch{Pattern: "fmi-engine-builds"}
+
+// TestMain removes the directory the commands under test were built into.
+func TestMain(m *testing.M) { testBuilds.Main(m) }
 
 // runner builds the stand-in FMI runner once per test binary and returns its path.
 func runner(t *testing.T) string {
 	t.Helper()
-	runnerOnce.Do(func() {
-		dir, err := os.MkdirTemp("", "fmirunner")
-		if err != nil {
-			runnerErr = err
-			return
-		}
-		runnerPath = filepath.Join(dir, "fmirunner")
-		build := exec.Command("go", gobuild.Args(runnerPath)...)
-		build.Dir = filepath.Join("testdata", "fmirunner")
-		if out, err := build.CombinedOutput(); err != nil {
-			runnerErr = fmt.Errorf("go build: %v\n%s", err, out)
-		}
-	})
-	if runnerErr != nil {
-		t.Fatalf("building the stand-in runner: %v", runnerErr)
+	path, err := testBuilds.Build("fmirunner", filepath.Join("testdata", "fmirunner"))
+	if err != nil {
+		t.Fatalf("building the stand-in runner: %v", err)
 	}
-	return runnerPath
+	t.Cleanup(func() { os.Remove(filepath.Join(os.TempDir(), "fmirunner-request.json")) })
+	return path
 }
 
 // scratch writes a file the stand-in reads from TMPDIR, and returns its path.
