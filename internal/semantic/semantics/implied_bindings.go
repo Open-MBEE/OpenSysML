@@ -67,6 +67,8 @@ func (m *Model) impliedBindingsOf(owner *symbols.Symbol) []*impliedBinding {
 	if m.impliedBindings == nil {
 		m.impliedBindings = make(map[*symbols.Symbol][]*impliedBinding)
 		m.bindingOfConnector = make(map[*symbols.Symbol]*impliedBinding)
+	}
+	if m.impliedChains == nil {
 		m.impliedChains = make(map[*symbols.Symbol]*impliedChain)
 	}
 	m.resolver.Enter()
