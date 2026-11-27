@@ -22,6 +22,8 @@ type targetLookup struct {
 	// targets keeps what lookupTargets answered, so a lattice of named imports is
 	// read once per name.
 	targets map[namedIn]lookedUp
+	// besideNamed is set while a sibling of named imports is bound for boundByImports.
+	besideNamed int
 	// spare holds the emptied sets of finished walks, for the next ones.
 	spare []map[string]bool
 }
@@ -144,6 +146,78 @@ func (idx *Index) boundBeside(fqn, name string, look *targetLookup) string {
 		return ""
 	}
 	return members[0]
+}
+
+// hiddenByImports reports whether the imports of the namespace under fqn, which
+// imports name by name, bring several namespaces under it: name is the first segment
+// of the wildcard import of target stated under importer. It reports so only where the
+// index binds every one of them itself; an alias for name is a member, and hides nothing.
+func (idx *Index) hiddenByImports(importer, target, fqn, key, name string, look *targetLookup) bool {
+	for _, sym := range idx.fqn.at(key) {
+		if sym.Kind == SymbolAlias {
+			return false
+		}
+	}
+	var paths []string
+	for _, sym := range idx.fqn.at(fqn) {
+		if sym.Scope == nil {
+			continue
+		}
+		for _, imp := range sym.Scope.Imports() {
+			if imp.Kind != ast.ImportMembership || imp.Imported == nil || len(imp.Imported.Parts) == 0 ||
+				imp.Imported.Parts[len(imp.Imported.Parts)-1].Text != name {
+				continue
+			}
+			if imp.Imported.Global {
+				return false
+			}
+			paths = append(paths, imp.Imported.Text())
+		}
+	}
+	if len(paths) == 0 {
+		return false
+	}
+	// The wildcard import of target is pending while its first segment resolves.
+	leave, found := look.enter(namedIn{importer, ofWildcardImport + target})
+	if found != entered {
+		return false
+	}
+	defer leave()
+	var brought []string
+	for _, path := range paths {
+		to := idx.wildcardTarget(fqn, path, false, look)
+		if to == "" {
+			return false
+		}
+		brought = union(brought, []string{to})
+	}
+	for _, imp := range idx.imports(fqn) {
+		if look.passes(namedIn{fqn, ofWildcardImport + imp.target}) {
+			continue
+		}
+		// A sibling whose own first segment an import names stays with name lookup.
+		look.besideNamed++
+		to := idx.wildcardTarget(fqn, imp.target, imp.all, look)
+		look.besideNamed--
+		if to == "" {
+			return false
+		}
+		// It brings a member its target owns; one the target imports stays with name lookup.
+		member := to + "::" + name
+		idx.readName(member)
+		if idx.declaresUnder(member) {
+			if owned, ok := idx.wildcardTargetAt(member); !ok {
+				return false
+			} else if imp.all || idx.namedFromOutside(member) {
+				brought = union(brought, []string{owned})
+			}
+			continue
+		}
+		if members, known := idx.membersByLookup(to, name, false, nil, look); !known || len(members) != 0 {
+			return false
+		}
+	}
+	return len(brought) > 1
 }
 
 // surfacesBeside reports whether name lookup, resolving another import's target, reads

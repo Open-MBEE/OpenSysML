@@ -818,6 +818,15 @@ func (idx *Index) wildcardTarget(pkgFQN, targetText string, all bool, look *targ
 		// A member the namespace owns is found before any import of its name.
 		owned := idx.declaresUnder(key)
 		if !owned && idx.namesByLookup(prefix, key, true, &walk) {
+			// What its imports bring under the segment apart hides each other (KerML
+			// 7.2.5.4), and binds nothing: the segment is sought further out.
+			if look.besideNamed == 0 && idx.hiddenByImports(pkgFQN, targetText, prefix, key, first, look) {
+				if i := lastSeparator(prefix); i >= 0 {
+					prefix = prefix[:i]
+					continue
+				}
+				return ""
+			}
 			if idx.leftToLookup != nil {
 				idx.leftToLookup[stated] = true
 			}

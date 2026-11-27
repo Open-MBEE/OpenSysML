@@ -76,7 +76,7 @@ func TestWildcardImportTargetBelowAMembershipImport(t *testing.T) {
 		"P::Rooted::RootedIn::A": 0,
 		"P::Self::A":             0,
 		"P::Missing::A":          0,
-		"P::Hidden::HiddenIn::A": 0,
+		"P::Hidden::HiddenIn::A": 1,
 		"P::Hidden::HiddenIn::B": 0,
 		"P::Hidden::HiddenIn::E": 0,
 		"P::Twice::TwiceIn::B":   0,
