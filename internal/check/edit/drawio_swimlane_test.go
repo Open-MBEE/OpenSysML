@@ -219,17 +219,15 @@ func TestDrawioMovedSwimlaneBesideItsFoldedPlacedLane(t *testing.T) {
 }
 
 // The placed lane of a performer with another lane in a nested flow, moved in the file, is
-// named by the flow it is drawn in, whether or not a Layout places that flow.
+// named by the flow it is drawn in, which is pinned with it when no Layout places that flow.
 func TestDrawioMovedPlacedSwimlaneBesideANestedLane(t *testing.T) {
 	lane := func(f *view.DrawioFile) *view.DrawioCell {
 		return drawioFirst(f, func(c *view.DrawioCell) bool { return c.Vertex && strings.Contains(c.Label, "arm") })
 	}
 	edited, imp, re := swimlaneRoundTrip(t, "PlacedLane::nestedView", lane, shifted(t, 40, 30))
-	if len(imp.Edits) != 1 || imp.Edits[0].Kind != view.DrawioEditLayout || imp.Edits[0].FQN != "PlacedLane::arm" {
-		t.Fatalf("edits = %+v, want one Layout about PlacedLane::arm", imp.Edits)
-	}
-	if layout := imp.Edits[0].Layout; layout.X != 360 || layout.Y != 150 {
-		t.Errorf("layout = %+v, want 360,150", layout)
+	about := slices.IndexFunc(imp.Edits, func(e view.DrawioEdit) bool { return e.Kind == view.DrawioEditLayout && e.FQN == "PlacedLane::arm" })
+	if about < 0 || !slices.Equal(imp.Edits[about].Within, []string{"PlacedLane::assemble"}) {
+		t.Fatalf("edits = %+v, want a Layout about PlacedLane::arm within PlacedLane::assemble", imp.Edits)
 	}
 	if was, again := lane(edited), lane(re); again == nil || !drawioSameBox(was.Geometry, again.Geometry) {
 		t.Errorf("swimlane was at %+v, re-exported at %+v", was.Geometry, again)

@@ -429,3 +429,46 @@ func TestSwimlaneLayoutPlacesOneLaneOutsideAView(t *testing.T) {
 		}
 	}
 }
+
+// A Layout about a performer alone places its swimlane and pins no node: every
+// form still draws the whole flow, as it does for a view with no Layout.
+func TestSwimlanePlacedAloneLeavesNoNodeUndrawn(t *testing.T) {
+	for _, view := range []string{"LaneAlone::cornerView", "LaneAlone::sizedView"} {
+		rendering := render(t, "action-swimlane-layout-alone.sysml", view)
+		if lane := laneOf(t, rendering, "load"); lane == nil || !lane.Geometry.placed() {
+			t.Fatalf("%s: the lane of load is not placed by the Layout about line::robot", view)
+		}
+		if p := placeRendering(rendering); p.positioned() {
+			t.Errorf("%s: %d of %d nodes pinned, want none by a swimlane alone", view, p.count, p.nodes)
+		}
+		for _, form := range []Form{FormDot, FormMermaid, FormPlantUML, FormD2, FormDrawio} {
+			out, err := rendering.Write(form)
+			if err != nil {
+				t.Fatalf("%s: write %s: %v", view, form, err)
+			}
+			if strings.Contains(out, "left undrawn") {
+				t.Errorf("%s: %s leaves nodes undrawn", view, form)
+			}
+			for _, want := range []string{"load", "weld", "ship", "line.robot", "line.welder"} {
+				if !strings.Contains(out, want) {
+					t.Errorf("%s: %s lacks %q", view, form, want)
+				}
+			}
+		}
+	}
+}
+
+// The draw.io form keeps the stated size of a swimlane placed alone, around the node it holds.
+func TestSwimlanePlacedAloneKeepsItsStatedSizeInDrawio(t *testing.T) {
+	rendering := render(t, "action-swimlane-layout-alone.sysml", "LaneAlone::sizedView")
+	out, err := rendering.Write(FormDrawio)
+	if err != nil {
+		t.Fatalf("write drawio: %v", err)
+	}
+	if !strings.Contains(out, `width="220" height="180"`) {
+		t.Errorf("no cell with the lane's stated 220x180:\n%s", out)
+	}
+	if edges := strings.Count(out, `edge="1"`); edges < 2 {
+		t.Errorf("%d edges drawn, want the two successions of the flow", edges)
+	}
+}

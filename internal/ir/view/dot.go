@@ -2182,7 +2182,7 @@ func (w *dotWriter) dotClusterAttributes(node *Node) []string {
 	switch g := node.Geometry; {
 	case node.ID == w.frameRoot:
 		label = w.labels.dotFramedLabel(node)
-	case g != nil && g.HasSize:
+	case g != nil && g.HasSize && w.placement.placed[node.ID]:
 		height, _ := w.headroom(node)
 		label, _ = w.labels.dotFittedLabel(node, g.Width, math.Max(height, dotLineHeight(dotFitFloor)))
 	}
