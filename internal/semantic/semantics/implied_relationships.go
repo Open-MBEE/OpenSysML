@@ -31,6 +31,7 @@ func (m *Model) ImpliedRedefinitions(sym *symbols.Symbol) []*symbols.Symbol {
 	add(m.implicitEndRedefinitions(sym))
 	add(m.ImplicitRoleRedefinitions(sym))
 	add(m.flowFeatureRedefinitions(sym))
+	add(m.controlParameterRedefinitions(sym))
 	// A written redefinition of the same feature leaves nothing to imply.
 	written := m.writtenRedefinedFeatures(sym)
 	return slices.DeleteFunc(out, func(feature *symbols.Symbol) bool {

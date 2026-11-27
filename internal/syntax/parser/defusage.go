@@ -344,7 +344,7 @@ func (p *Parser) checkDefinitionKindPrefix(kind ast.DefinitionKind, mods feature
 	case ast.DefAttribute, ast.DefPort:
 		if mods.isIndividual {
 			p.prefixNotAdmitted(mods.individual, fmt.Sprintf("%s %s definition: only an occurrence definition admits 'individual'",
-				indefiniteArticle(kind.String()), kind))
+				diag.IndefiniteArticle(kind.String()), kind))
 		}
 	}
 }
@@ -369,13 +369,6 @@ func (p *Parser) prefixNotAdmitted(t lexer.Token, what string) {
 		return
 	}
 	p.error(t.Span, fmt.Sprintf("'%s' cannot prefix %s", p.src.Text(t.Span), what))
-}
-
-func indefiniteArticle(word string) string {
-	if strings.ContainsRune("aeiou", rune(word[0])) {
-		return "an"
-	}
-	return "a"
 }
 
 // abstractOrVariation names the prefix keyword of the pair already read.

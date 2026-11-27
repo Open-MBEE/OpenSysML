@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -72,17 +73,43 @@ func readBaseline(root, path string) (baseline, error) {
 	if err != nil {
 		return nil, err
 	}
+	// A report always spells its diagnostics, `null` when it found none.
 	var recorded struct {
-		Diagnostics []diagnostic `json:"diagnostics"`
+		Diagnostics json.RawMessage `json:"diagnostics"`
 	}
 	if err := json.Unmarshal(data, &recorded); err != nil {
-		return nil, fmt.Errorf("%s: not a JSON report: %v", path, err)
+		return nil, notAReport(path, "", err)
 	}
-	known := make(baseline, len(recorded.Diagnostics))
-	for _, d := range recorded.Diagnostics {
+	if recorded.Diagnostics == nil {
+		return nil, fmt.Errorf(`%s: %s: it has no "diagnostics"`, path, notAReportText)
+	}
+	var diagnostics []diagnostic
+	if err := json.Unmarshal(recorded.Diagnostics, &diagnostics); err != nil {
+		return nil, notAReport(path, "diagnostics", err)
+	}
+	known := make(baseline, len(diagnostics))
+	for _, d := range diagnostics {
 		known[baselineKey{d.Code, workspacePath(root, d.File), d.Message}] = true
 	}
 	return known, nil
+}
+
+const notAReportText = "not a JSON report, as -validate -json -o writes"
+
+// notAReport says why the JSON under member of the baseline file, the file
+// itself when member is empty, could not be read as a report's.
+func notAReport(path, member string, err error) error {
+	var mistyped *json.UnmarshalTypeError
+	if !errors.As(err, &mistyped) {
+		return fmt.Errorf("%s: %s: %v", path, notAReportText, err)
+	}
+	if mistyped.Field != "" {
+		member += "." + mistyped.Field
+	}
+	if member == "" {
+		return fmt.Errorf("%s: %s: it holds a JSON %s, not an object", path, notAReportText, mistyped.Value)
+	}
+	return fmt.Errorf("%s: %s: its %q holds a JSON %s", path, notAReportText, member, mistyped.Value)
 }
 
 // accepts reports whether the baseline knows a finding of file.

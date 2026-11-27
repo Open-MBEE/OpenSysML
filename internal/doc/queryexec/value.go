@@ -541,14 +541,38 @@ func (c Context) WrittenExpression(sym *symbols.Symbol) (string, bool) {
 func (c Context) PropertyText(v Value) (string, bool) {
 	text, ok := v.Text(c.Identity)
 	if sym, isElement := v.Element(); isElement && text == "" {
+		if stated, _, isParameter := c.statedParameterText(sym); isParameter {
+			return stated, stated != ""
+		}
 		return c.WrittenExpression(sym)
 	}
 	return text, ok
 }
 
-// elementText is what an element compares and orders as: its qualified name,
-// or the written text of an expression element, which has none.
+// statedParameterText is how a surface reads a parameter the notation of its action states, an element no
+// scope declares: the expression written for it, else its name under its action. ok is false for any other.
+func (c Context) statedParameterText(sym *symbols.Symbol) (text string, written, ok bool) {
+	owner := c.Model.NodeParameterOwner(sym)
+	if owner == nil {
+		return "", false, false
+	}
+	if text, _ := c.WrittenExpression(sym); text != "" {
+		return text, true, true
+	}
+	name, named := c.Model.EffectiveNamed(sym)
+	action, _ := ElementValue(owner).Text(c.Identity)
+	if !named || action == "" {
+		return "", false, true
+	}
+	return action + "::" + name, false, true
+}
+
+// elementText is what an element compares and orders as: its qualified name, or the text a surface reads
+// one with none as, a parameter its action's notation states or the written text of an expression element.
 func (e *executor) elementText(sym *symbols.Symbol) string {
+	if text, _, stated := e.context.statedParameterText(sym); stated {
+		return text
+	}
 	if name := symbols.FQNOf(sym); name != "" {
 		return name
 	}

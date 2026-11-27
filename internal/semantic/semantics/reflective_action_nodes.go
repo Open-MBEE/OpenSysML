@@ -113,7 +113,12 @@ func (m *Model) statementScopeOwner(scope *symbols.Scope) *symbols.Symbol {
 	if owner == nil {
 		return nil
 	}
-	for _, node := range m.statementNodes(owner) {
+	nodes := m.statementNodes(owner)
+	// A node written as its statement (`action lp for i in s { … }`) is registered as its body's owner.
+	if node, ok := m.statementScopes[scope]; ok {
+		return node
+	}
+	for _, node := range nodes {
 		if node.Scope == scope {
 			return node
 		}

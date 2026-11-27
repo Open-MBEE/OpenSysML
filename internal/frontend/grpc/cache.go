@@ -312,6 +312,14 @@ func (m *CachedModel) ResolveQualifiedMemberName(name string) []*symbols.Symbol 
 	return sc.ResolveMemberName(name)
 }
 
+// ResolveMemberSegments resolves the segments of a qualified name from the root, an alias answered
+// as its membership, under the symbol context's lock: no segment is spelled and read again.
+func (m *CachedModel) ResolveMemberSegments(segments []string) []*symbols.Symbol {
+	sc := m.SymbolContext()
+	defer sc.Lock()()
+	return sc.Resolver.ResolveGlobalMembers(segments)
+}
+
 // LookupElementID finds the element the service reports under an id and nothing else
 // (see symbolfacts.Context.LookupID), under the symbol context's lock.
 func (m *CachedModel) LookupElementID(id string) []*symbols.Symbol {
