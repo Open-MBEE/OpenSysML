@@ -151,6 +151,8 @@ func TestEvidenceProbeContinuesTheSeededDrawStream(t *testing.T) {
 	mustSchedule(t, ctx, mustPolicy(t, "seed:5"))
 	ctx.SetModelSeed(11)
 	ctx.run.scheduler = ctx.schedulerUnder(ctx.schedule)
+	endRun := ctx.enterRun(ctx.run)
+	defer endRun()
 	unit := distribution{
 		draw:   func(rng *rand.Rand) semantics.Value { return drawnReal(rng.Float64()) },
 		admits: realWithin(0, 1),
@@ -280,6 +282,130 @@ func TestProbeEvidenceRollsBackWritesAndObjects(t *testing.T) {
 	}
 	if lazy.Materialized {
 		t.Fatal("the probe left the lazy child materialized")
+	}
+}
+
+// A top-level preview starts under the settings a new run would use, not under
+// the last run's scheduler: a seed or draw policy changed after that run counts.
+func TestEvidenceProbeUsesCurrentDrawSettingsAtTopLevel(t *testing.T) {
+	m := parseLibraryModel(t, drawingModel)
+	ctx, _ := m.fresh()
+	mustSchedule(t, ctx, mustPolicy(t, "declared"))
+	ctx.run.scheduler = ctx.schedulerUnder(ctx.schedule)
+	ctx.SetModelSeed(11)
+	unit := distribution{
+		draw:   func(rng *rand.Rand) semantics.Value { return drawnReal(rng.Float64()) },
+		admits: realWithin(0, 1),
+	}
+	expected, err := ctx.newScheduler().draw("expected", unit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var preview semantics.Value
+	if err := ctx.ProbeEvidence(func() error {
+		var drawErr error
+		preview, drawErr = ctx.draw("preview", unit)
+		return drawErr
+	}); err != nil {
+		t.Fatalf("preview after setting a seed: %v", err)
+	}
+	if preview != expected {
+		t.Fatalf("preview drew %v, want the current settings' %v", preview, expected)
+	}
+	if draws := ctx.DrawsTaken(); len(draws) != 0 {
+		t.Fatalf("a top-level preview recorded draws: %v", draws)
+	}
+
+	ctx.SetDrawPolicy(DrawMax)
+	fixed := distribution{
+		draw:   unit.draw,
+		admits: unit.admits,
+		fixed:  realPoints(0, 1, 0.5),
+	}
+	var underMax semantics.Value
+	if err := ctx.ProbeEvidence(func() error {
+		var drawErr error
+		underMax, drawErr = ctx.draw("preview", fixed)
+		return drawErr
+	}); err != nil {
+		t.Fatalf("preview after setting the draw policy: %v", err)
+	}
+	if point, _ := fixed.fixedPoint(DrawMax); underMax != point {
+		t.Fatalf("preview under %s drew %v, want %v", DrawMax, underMax, point)
+	}
+}
+
+// Nested probes inside one evidence preview keep their steps charged to it, so
+// segments that each fit cannot spend the same allowance twice; writes still roll back.
+func TestNestedProbesShareTheEvidenceStepCap(t *testing.T) {
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `package P { part def D { attribute v : Integer = 1; } part d : D; }`))
+	budgets := ctx.Budgets()
+	budgets.MaxSteps = 12
+	if err := ctx.SetBudgets(budgets); err != nil {
+		t.Fatal(err)
+	}
+	spend := func(steps int) error {
+		for i := 0; i < steps; i++ {
+			if err := ctx.incrementStep(); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	obj := instantiateNamed(t, ctx, idx, "P::d")
+	err := ctx.ProbeEvidence(func() error {
+		for i := 0; i < 3; i++ {
+			err := ctx.Probe(func() error {
+				if i == 0 {
+					setInt(t, ctx, obj, "v", 7)
+				}
+				return spend(8)
+			})
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if !errors.Is(err, ErrStepLimitExceeded) {
+		t.Fatalf("three nested reads of 8 steps under a 12-step cap = %v, want %v", err, ErrStepLimitExceeded)
+	}
+	if got := readInt(t, ctx, obj, "v"); got != 1 {
+		t.Fatalf("a nested probe left v = %d, want 1", got)
+	}
+	if ctx.run.steps != 0 {
+		t.Fatalf("the evidence preview charged the caller %d steps", ctx.run.steps)
+	}
+}
+
+// A nested probe's rollback still restores writes and the caller's counters
+// when the preview panics, not just when it returns a typed error.
+func TestNestedEvidenceProbeRollsBackOnPanic(t *testing.T) {
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `package P { part def D { attribute v : Integer = 1; } part d : D; }`))
+	obj := instantiateNamed(t, ctx, idx, "P::d")
+	held := len(ctx.InstanceIDs())
+	func() {
+		defer func() {
+			if recover() == nil {
+				t.Error("the preview did not panic")
+			}
+		}()
+		ctx.ProbeEvidence(func() error {
+			return ctx.Probe(func() error {
+				setInt(t, ctx, obj, "v", 7)
+				_ = ctx.incrementStep()
+				panic("stop inside the preview")
+			})
+		})
+	}()
+	if got := readInt(t, ctx, obj, "v"); got != 1 {
+		t.Fatalf("a panicking probe left v = %d, want 1", got)
+	}
+	if len(ctx.InstanceIDs()) != held {
+		t.Fatalf("a panicking probe left %d objects, want %d", len(ctx.InstanceIDs()), held)
+	}
+	if ctx.run.steps != 0 {
+		t.Fatalf("a panicking probe charged the caller %d steps", ctx.run.steps)
 	}
 }
 

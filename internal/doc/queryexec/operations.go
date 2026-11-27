@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -514,6 +515,9 @@ func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequen
 	// Operand evidence comes from the query's starting rows, so conjunction
 	// term order cannot change an operand's verdict.
 	evidence := e.builtinShadowEvidence(source, property, comparison, columnIndex)
+	if evidence.interrupted != nil {
+		return sequence{}, evidence.interrupted
+	}
 	var columnErr error
 	columnComparable := false
 	for i := range source.values {
@@ -555,6 +559,11 @@ func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequen
 					// A value read from a feature shadowing a built-in name
 					// follows the shadow's operand, whatever the term order.
 					continue
+				}
+				if compareErr == errComparison && evidence.unavailable != nil {
+					// Evidence could not finish reading, so the operand's
+					// verdict is not the reason the comparison failed.
+					return sequence{}, evidence.unavailable
 				}
 				if compareErr != errComparison {
 					return sequence{}, e.invalidArgument(expression, "value", expected)
@@ -601,6 +610,20 @@ func terminalProperty(property string) string {
 type builtinShadowEvidence struct {
 	shadowed   bool
 	comparable bool
+	// unavailable is why a preview could not finish reading evidence.
+	unavailable error
+	// interrupted is a cancellation, which ends the query wherever it surfaced.
+	interrupted error
+}
+
+// evidenceUnavailable is the typed failure that kept a preview from finishing;
+// other read failures leave the operand's own verdict to the filter.
+func evidenceUnavailable(err error) error {
+	if err != nil && (errors.Is(err, runtime.ErrStepLimitExceeded) ||
+		errors.Is(err, runtime.ErrElementLimitExceeded)) {
+		return err
+	}
+	return nil
 }
 
 func (e *executor) builtinShadowEvidence(source sequence, property string, comparison comparison, columnIndex int) builtinShadowEvidence {
@@ -608,6 +631,17 @@ func (e *executor) builtinShadowEvidence(source sequence, property string, compa
 		return builtinShadowEvidence{}
 	}
 	var evidence builtinShadowEvidence
+	noteFailure := func(err error) {
+		if errors.Is(err, runtime.ErrInterrupted) {
+			if evidence.interrupted == nil {
+				evidence.interrupted = err
+			}
+			return
+		}
+		if evidence.unavailable == nil {
+			evidence.unavailable = evidenceUnavailable(err)
+		}
+	}
 	note := func(values []Value, origins []valueSource) bool {
 		for i, value := range values {
 			origin := sourceModel
@@ -627,7 +661,7 @@ func (e *executor) builtinShadowEvidence(source sequence, property string, compa
 	if columnIndex >= 0 {
 		// A projected column supplies its own cells, including those of the
 		// starting rows: a feature hidden beneath a computed cell is not read.
-		for _, cell := range e.startingColumnCells(source, columnIndex) {
+		for _, cell := range e.startingColumnCells(source, columnIndex, noteFailure) {
 			if note(cell.Values(), cell.sources) {
 				return evidence
 			}
@@ -638,6 +672,7 @@ func (e *executor) builtinShadowEvidence(source sequence, property string, compa
 	// change the verdict; a built-in's own scan is not evidence for itself.
 	for _, row := range startingRows(source) {
 		values, _, origins, err := e.shadowEvidenceReach(row, property)
+		noteFailure(err)
 		if err == nil && note(values, origins) {
 			return evidence
 		}
@@ -647,9 +682,9 @@ func (e *executor) builtinShadowEvidence(source sequence, property string, compa
 
 // startingColumnCells supplies one column of a sequence's starting rows,
 // leaving an excluded row's other projected properties unread.
-func (e *executor) startingColumnCells(source sequence, columnIndex int) []Cell {
+func (e *executor) startingColumnCells(source sequence, columnIndex int, noteFailure func(error)) []Cell {
 	if source.starting != nil {
-		return source.starting.cellsForColumn(e, columnIndex)
+		return source.starting.cellsForColumn(e, columnIndex, noteFailure)
 	}
 	var out []Cell
 	for _, cells := range startingCells(source) {
@@ -662,7 +697,7 @@ func (e *executor) startingColumnCells(source sequence, columnIndex int) []Cell 
 
 // cellsForColumn reuses read cells and asks for missing rows one column at a
 // time, so a failing sibling cannot erase this column's evidence.
-func (s *startingEvidence) cellsForColumn(e *executor, columnIndex int) []Cell {
+func (s *startingEvidence) cellsForColumn(e *executor, columnIndex int, noteFailure func(error)) []Cell {
 	out := make([]Cell, 0, len(s.rows))
 	if s.projection == nil || columnIndex < 0 || columnIndex >= len(s.projection.properties) {
 		return out
@@ -674,6 +709,7 @@ func (s *startingEvidence) cellsForColumn(e *executor, columnIndex int) []Cell {
 			continue
 		}
 		cell, err := q.startingCell(row, columnIndex)
+		noteFailure(err)
 		if err == nil && cell != nil {
 			out = append(out, *cell)
 		}

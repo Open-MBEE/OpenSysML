@@ -870,10 +870,10 @@ func (ctx *Context) newEvidenceRunState() *runState {
 	state.stepLimit = min(ctx.maxSteps, DefaultMaxSteps)
 	state.elementLimit = min(ctx.maxElements, DefaultMaxElements)
 	state.fixedLimit = true
-	// Continue the caller's seeded stream so a preview sees the next draw a
-	// regular read would; beginProbe restores the shared scheduler afterwards.
-	if outer := ctx.run; outer != nil {
-		state.scheduler = outer.scheduler
+	// A preview nested in a run continues that run's stream; a top-level one
+	// starts under the current settings, as an ordinary lazy read does.
+	if ctx.runDepth > 0 && ctx.run != nil {
+		state.scheduler = ctx.run.scheduler
 	}
 	return state
 }
@@ -1056,6 +1056,9 @@ func (ctx *Context) endExecutorRun(run *executorRun) func() {
 func (ctx *Context) beginProbe() func() {
 	run := ctx.run
 	steps, elements, trace, writes := run.steps, run.elements, ctx.trace, ctx.stepWrites
+	// A nested probe inside an evidence preview keeps its steps charged to the
+	// preview's counter, so a dotted read cannot spend the same allowance twice.
+	keepCharges := run.fixedLimit && ctx.probes > 0
 	ids, nextID, tookHigh := ctx.ids, ctx.ids.next, ctx.took.high
 	endBoundary := func() { /* no boundary to close */ }
 	if ctx.probes == 0 {
@@ -1079,7 +1082,10 @@ func (ctx *Context) beginProbe() func() {
 		}
 		ctx.probes--
 		ctx.leaveRun()
-		run.steps, run.elements, ctx.trace, ctx.stepWrites = steps, elements, trace, writes
+		ctx.trace, ctx.stepWrites = trace, writes
+		if !keepCharges {
+			run.steps, run.elements = steps, elements
+		}
 	}
 }
 
