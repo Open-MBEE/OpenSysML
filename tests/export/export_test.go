@@ -3954,15 +3954,15 @@ func backFromTheGraphAloneAs(t *testing.T, name, turtle string) string {
 func TestLoopConditionsLinkTheEnclosingBodyAndNamedLoopBody(t *testing.T) {
 	turtle := toTurtle(t, filepath.Join("testdata", "convert", "loop_scopes.sysml"))
 	for want, count := range map[string]int{
-		"sysml:referent elmt:Loops__Charge___401__charging ;": 1,
-		"sysml:referent elmt:Loops__Charge__prep ;":           2,
+		"sysml:referent elmt:Loops__Charge___403__cycle ;": 1,
+		"sysml:referent elmt:Loops__Charge__prep ;":        3,
 	} {
 		if got := strings.Count(turtle, want); got != count {
 			t.Errorf("the graph carries %q %d times, want %d\n%s", want, got, count, turtle)
 		}
 	}
 	back := backFromTheGraphAlone(t, turtle)
-	for _, want := range []string{"} until charging.done;", "while prep.done {", "} until prep.done;"} {
+	for _, want := range []string{"} until cycle.done;", "while prep.done {", "} until prep.done;"} {
 		if !strings.Contains(back, want) {
 			t.Errorf("the notation should read %q\n%s", want, back)
 		}
