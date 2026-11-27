@@ -328,3 +328,18 @@ func TestPerformedFlowNodesArePlacedThroughThePerformActionUsage(t *testing.T) {
 		t.Errorf("notices %q, want none", rendering.Notices)
 	}
 }
+
+// One Layout about a performer places one lane in the whole view: its lane in another exposed flow is drawn around its nodes.
+func TestSwimlaneLayoutPlacesOneLaneAcrossTheFlowsOfAView(t *testing.T) {
+	rendering := render(t, "action-swimlane-layout.sysml", "PlacedLane::sharedView")
+	first, second := laneOf(t, rendering, "load"), laneOf(t, rendering, "pack")
+	if first == nil || second == nil {
+		t.Fatalf("lanes of load and pack: %v, %v, want both", first, second)
+	}
+	if g := first.Geometry; !g.placed() || g.X != 320 || g.Y != 120 {
+		t.Errorf("first flow's lane geometry %+v, want the Layout about station::robot", g)
+	}
+	if second.Geometry.placed() {
+		t.Errorf("second flow's lane geometry %+v, want none", second.Geometry)
+	}
+}

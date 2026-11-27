@@ -2326,21 +2326,16 @@ export function movable(layout: CanvasLayout, entry: PlacedNode): boolean {
 }
 
 // placedLane is the lane a Layout about a swimlane's performer places: the outermost of the
-// performer's lanes under one root, then the first drawn. Any other node is its own.
+// performer's lanes in the diagram, then the first drawn. Any other node is its own.
 function placedLane(layout: CanvasLayout, entry: PlacedNode): PlacedNode {
   const performer = laneOrigin(entry);
   if (performer === undefined) {
     return entry;
   }
   const depth = (of: PlacedNode): number => (of.parent ? depth(of.parent) + 1 : 0);
-  const root = (of: PlacedNode): PlacedNode => (of.parent ? root(of.parent) : of);
   let placed: PlacedNode | undefined;
   for (const other of layout.nodes.values()) {
-    if (
-      laneOrigin(other) === performer &&
-      root(other) === root(entry) &&
-      (placed === undefined || depth(other) < depth(placed))
-    ) {
+    if (laneOrigin(other) === performer && (placed === undefined || depth(other) < depth(placed))) {
       placed = other;
     }
   }
@@ -2364,7 +2359,7 @@ export function fixedReason(layout: CanvasLayout, entry: PlacedNode): string | u
   }
   const name = entry.node.name || entry.node.kind;
   if (entry.node.kind === SWIMLANE_KIND && reachable(entry.node)) {
-    return `${name} has another swimlane in this flow, the outermost, and its Layout places that one; drag that swimlane instead.`;
+    return `${name} has another swimlane in this diagram, the outermost or the first drawn, and its Layout places that one; drag that swimlane instead.`;
   }
   if (entry.node.kind === PERFORMER_ROW_KIND) {
     return `${name} is listed as a performer here and moves with the action it performs; drag its swimlane to place it.`;

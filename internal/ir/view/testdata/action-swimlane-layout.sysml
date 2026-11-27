@@ -43,4 +43,28 @@ package PlacedLane {
 		expose assemble;
 		metadata Layout about arm { x = 320; y = 120; }
 	}
+
+
+	// One performer with a lane in each of two exposed flows no Layout places.
+	action runA {
+		action load;
+		then action ship;
+	}
+	action runB {
+		action pack;
+		then action post;
+	}
+	part station {
+		part robot {
+			perform runA.load;
+			perform runB.pack;
+		}
+	}
+	view sharedView : ActionFlowView {
+		expose runA;
+		expose runB;
+		metadata Layout about station::robot { x = 320; y = 120; width = 220; height = 180; }
+		metadata Layout about runA::load { x = 350; y = 190; }
+		metadata Layout about runB::pack { x = 350; y = 190; }
+	}
 }

@@ -730,6 +730,7 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn, query bool) (*Rend
 		// Unreachable: KindOf refuses an unsupported kind.
 		return nil, &UnsupportedKindError{Kind: kind, View: r.notationName(view), Stated: stated}
 	}
+	placeLanesOnce(out.Roots)
 	foldCollapsed(out)
 	out.finishExpansionFold()
 	r.noteDepthCuts(view, out)

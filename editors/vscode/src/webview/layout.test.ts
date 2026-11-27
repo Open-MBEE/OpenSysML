@@ -1146,7 +1146,7 @@ test("fixedReason says why a start or done node, and any node no workspace docum
   assert.equal(fixedReason(table, table.nodes.get("s")!), undefined);
 });
 
-test("a lane in a nested flow does not move when its performer has a lane in an enclosing flow", () => {
+test("a lane does not move when its performer has a lane drawn earlier or in an enclosing flow", () => {
   const declared = (uri: string, line: number) => ({
     ...origin,
     uri,
@@ -1175,14 +1175,15 @@ test("a lane in a nested flow does not move when its performer has a lane in an 
       lane("apart", "other", "arm"),
     ]),
   );
-  for (const id of ["outer", "anon", "only", "namesake", "apart"]) {
+  for (const id of ["outer", "anon", "only", "namesake"]) {
     assert.equal(movable(nested, nested.nodes.get(id)!), true, id);
   }
-  for (const id of ["inner", "anonInner"]) {
+  for (const id of ["inner", "anonInner", "apart"]) {
     assert.equal(movable(nested, nested.nodes.get(id)!), false, id);
     assert.equal(movedNode(nested, id, 10, 10), undefined, id);
   }
-  assert.match(fixedReason(nested, nested.nodes.get("inner")!) ?? "", /^arm has another swimlane in this flow/);
+  assert.match(fixedReason(nested, nested.nodes.get("inner")!) ?? "", /^arm has another swimlane in this diagram/);
+  assert.match(fixedReason(nested, nested.nodes.get("apart")!) ?? "", /^arm has another swimlane in this diagram/);
 });
 
 test("movable and steerable take a target another document declares, named or not, and no library's", () => {
