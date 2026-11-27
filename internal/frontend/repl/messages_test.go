@@ -227,3 +227,26 @@ func TestCaretCountsPrintedCells(t *testing.T) {
 		})
 	}
 }
+
+// TestCaretFollowsTabsBeforeTheFinding pins that a tab before a finding is
+// repeated on the caret line, so the caret lands under the finding at whatever
+// tab stops the terminal uses for the echoed line above it.
+func TestCaretFollowsTabsBeforeTheFinding(t *testing.T) {
+	const src = "package A {\n\tpart p : Zed;\n\t\tpart   q : Yak;\n\tpart r :\tWye;\n}"
+	got := strings.Join(renderResult(NewSession().Submit(src), VerbosityNormal), "\n")
+	for _, want := range []string{
+		"2:11: error[unresolved]: unresolved reference: Zed\n\tpart p : Zed;\n\t         ^~~",
+		"3:14: error[unresolved]: unresolved reference: Yak\n\t\tpart   q : Yak;\n\t\t           ^~~",
+		"4:11: error[unresolved]: unresolved reference: Wye\n\tpart r :\tWye;\n\t        \t^~~",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("expected %q in output:\n%s", want, got)
+		}
+	}
+
+	const expr = "1 +\t\"a\""
+	err := exprError(expr, "type mismatch", source.Span{Offset: 14, Len: 3}, 10)
+	if want := "1:5: type mismatch\n" + expr + "\n   \t^~~"; err.Error() != want {
+		t.Errorf("exprError = %q; want %q", err.Error(), want)
+	}
+}
