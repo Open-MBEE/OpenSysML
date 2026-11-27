@@ -222,7 +222,9 @@ func FaultOf(err error) Fault {
 	switch {
 	case errors.As(err, &notDocument), errors.As(err, &unknownForm):
 		return FaultArgument
-	case errors.Is(err, runtime.ErrInstanceLimitExceeded):
+	case errors.Is(err, runtime.ErrInstanceLimitExceeded),
+		errors.Is(err, runtime.ErrStepLimitExceeded),
+		errors.Is(err, runtime.ErrElementLimitExceeded):
 		return FaultBudget
 	case errors.As(err, &planErr):
 		switch planErr.Kind {

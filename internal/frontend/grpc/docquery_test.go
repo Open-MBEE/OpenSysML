@@ -14,6 +14,7 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docset"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 )
 
 // telescopeFixture is the document pipeline's own telescope-domain fixture, so
@@ -533,6 +534,29 @@ func TestDocumentStatusMapsBudgetExhaustion(t *testing.T) {
 		if connect.CodeOf(err) != tc.code {
 			t.Errorf("%s: code = %v, want %v", tc.kind, connect.CodeOf(err), tc.code)
 		}
+	}
+}
+
+// A query that spent a runtime budget collecting evidence is reported as
+// RESOURCE_EXHAUSTED over RunDocumentQuery, not as a model fault or an argument.
+func TestDocumentStatusMapsEvidenceBudgetToResourceExhausted(t *testing.T) {
+	for name, budget := range map[string]error{
+		"steps":    runtime.ErrStepLimitExceeded,
+		"elements": runtime.ErrElementLimitExceeded,
+	} {
+		read := &queryexec.Error{Kind: queryexec.ErrorUnevaluableFeature,
+			Cause: fmt.Errorf("evidence probe: %w", budget)}
+		if code := connect.CodeOf(documentStatus(read)); code != connect.CodeResourceExhausted {
+			t.Errorf("%s: code = %v, want %v: %v", name, code, connect.CodeResourceExhausted, read)
+		}
+	}
+	read := &queryexec.Error{Kind: queryexec.ErrorUnevaluableFeature, Cause: errors.New("bad value")}
+	if code := connect.CodeOf(documentStatus(read)); code != connect.CodeFailedPrecondition {
+		t.Errorf("a model's feature read: code = %v, want %v", code, connect.CodeFailedPrecondition)
+	}
+	argument := &queryexec.Error{Kind: queryexec.ErrorUnknownBinding}
+	if code := connect.CodeOf(documentStatus(argument)); code != connect.CodeInvalidArgument {
+		t.Errorf("an argument: code = %v, want %v", code, connect.CodeInvalidArgument)
 	}
 }
 

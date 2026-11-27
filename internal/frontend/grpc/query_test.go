@@ -4,11 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"slices"
 	"testing"
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -1197,4 +1200,24 @@ func answeredIDs(resp *pb.QueryResponse) []string {
 		ids = append(ids, element.Id)
 	}
 	return ids
+}
+
+// A query execution that spent a runtime budget collecting evidence is
+// RESOURCE_EXHAUSTED over the Query RPC, however the evaluator wrapped it.
+func TestQueryExecStatusMapsEvidenceBudgetToResourceExhausted(t *testing.T) {
+	held := &heldObjects{}
+	for name, budget := range map[string]error{
+		"steps":    runtime.ErrStepLimitExceeded,
+		"elements": runtime.ErrElementLimitExceeded,
+	} {
+		read := &queryexec.Error{Kind: queryexec.ErrorUnevaluableFeature,
+			Cause: fmt.Errorf("evidence probe: %w", budget)}
+		if code := connect.CodeOf(held.queryExecStatus(read)); code != connect.CodeResourceExhausted {
+			t.Errorf("%s: code = %v, want %v: %v", name, code, connect.CodeResourceExhausted, read)
+		}
+	}
+	read := &queryexec.Error{Kind: queryexec.ErrorUnevaluableFeature, Cause: errors.New("bad value")}
+	if code := connect.CodeOf(held.queryExecStatus(read)); code != connect.CodeInvalidArgument {
+		t.Errorf("a model's feature read: code = %v, want %v", code, connect.CodeInvalidArgument)
+	}
 }

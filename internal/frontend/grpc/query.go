@@ -9,6 +9,7 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/querytranslate"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -377,13 +378,14 @@ func translatorKind(err error) QueryErrorKind {
 	}
 }
 
-// queryExecStatus reports a plan the evaluator refused: a fault in the query
-// as INVALID_ARGUMENT under its kind with the QVTS record attached, a model no
-// conversion writes elementIds for as FAILED_PRECONDITION, exhaustion as the
-// population reports it.
+// queryExecStatus maps a refused query to INVALID_ARGUMENT or FAILED_PRECONDITION,
+// and a spent runtime budget to RESOURCE_EXHAUSTED with the QVTS record attached.
 func (h *heldObjects) queryExecStatus(err error) error {
 	if status := h.exhausted(err); status != nil {
 		return status
+	}
+	if errors.Is(err, runtime.ErrStepLimitExceeded) || errors.Is(err, runtime.ErrElementLimitExceeded) {
+		return documentStatus(err)
 	}
 	var execErr *queryexec.Error
 	if !errors.As(err, &execErr) {

@@ -5,6 +5,7 @@ package docset_test
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docir"
@@ -65,5 +66,25 @@ func TestFaultOfClassifiesTheDocumentPipelinesFailures(t *testing.T) {
 	}
 	if docset.QueryOutcomeOf(wrapped) != nil || docset.QueryOutcomeOf(&docplan.Error{}) != nil {
 		t.Error("QueryOutcomeOf answers an outcome no query recorded")
+	}
+}
+
+// A runtime budget spent evaluating a query is a resource fault, wrapped or
+// bare; the same unevaluable-feature kind without one remains a model's fault.
+func TestFaultOfClassifiesEvaluationBudgets(t *testing.T) {
+	for name, tc := range map[string]struct {
+		err   error
+		fault docset.Fault
+	}{
+		"steps":             {runtime.ErrStepLimitExceeded, docset.FaultBudget},
+		"elements":          {runtime.ErrElementLimitExceeded, docset.FaultBudget},
+		"wrapped steps":     {&queryexec.Error{Kind: queryexec.ErrorUnevaluableFeature, Cause: runtime.ErrStepLimitExceeded}, docset.FaultBudget},
+		"nested elements":   {&queryexec.Error{Kind: queryexec.ErrorUnevaluableFeature, Cause: fmt.Errorf("evidence: %w", runtime.ErrElementLimitExceeded)}, docset.FaultBudget},
+		"a model's failure": {&queryexec.Error{Kind: queryexec.ErrorUnevaluableFeature, Cause: errors.New("bad value")}, docset.FaultModel},
+		"an argument":       {&queryexec.Error{Kind: queryexec.ErrorUnknownBinding}, docset.FaultArgument},
+	} {
+		if fault := docset.FaultOf(tc.err); fault != tc.fault {
+			t.Errorf("FaultOf(%s) = %v, want %v", name, fault, tc.fault)
+		}
 	}
 }
