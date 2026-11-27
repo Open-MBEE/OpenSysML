@@ -4522,6 +4522,9 @@ func (e *StateExecutor) runStep(progress *dueProgress) (bool, error) {
 	if e.completionDue {
 		return true, e.completeMachine()
 	}
+	if e.ctx.interrupted() {
+		return false, ErrInterrupted
+	}
 	maxStateEvents, maxDoSteps := e.ctx.maxStateEvents, e.ctx.maxDoSteps
 	ran, err := e.runDoRound()
 	if err != nil {
