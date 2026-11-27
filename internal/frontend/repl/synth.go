@@ -713,7 +713,7 @@ func (s *Session) doSolve(name string) ([]string, bool, error) {
 func (s *Session) doConfigure(args []string) ([]string, bool, error) {
 	args, asJSON := solveJSONFlag(args)
 	if len(args) == 0 {
-		return []string{configureUsage}, false, nil
+		return s.usage(configureUsage), false, nil
 	}
 	return solveOutput("configure", s.configureVariants(args[0], args[1:]), asJSON)
 }

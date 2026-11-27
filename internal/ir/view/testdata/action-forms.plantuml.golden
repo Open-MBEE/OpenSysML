@@ -47,7 +47,7 @@ state "<size:10>//«action def»//</size>\n**Monitor**\nparameters\nin sensor\no
   state "<size:10>//«performer»//</size>\n**sensor**\nperform actions" as n21 <<swimlane>> <<region>> {
     state "⚑ <size:10>//«accept action»//</size>\n**acceptReading**\nreading : Reading\nparameters\nout reading\nin ^receiver" as n2 <<accept action>> <<usage>>
   }
-  state "⭓ <size:10>//«send action»//</size>\n**sendAlarm**\nAlarm to sensor\nparameters\nin ^payload\nin ^sender\nin ^receiver" as n3 <<send action>> <<usage>>
+  state "⭓ <size:10>//«send action»//</size>\n**sendAlarm**\nAlarm to sensor" as n3 <<send action>> <<usage>>
   state "<size:10>//«performer»//</size>\n**controller**\nperform actions" as n22 <<swimlane>> <<region>> {
     state "<size:10>//«assign»//</size>\n**tally**\ncount := count + 1" as n4 <<assign>> <<usage>>
   }

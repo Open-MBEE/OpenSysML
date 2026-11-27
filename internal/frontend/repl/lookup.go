@@ -782,6 +782,7 @@ func (s *Session) namedRoot(ref objectRef) (*runtime.Instance, string, []objectS
 		noInstance    string
 		noInstanceSym *symbols.Symbol
 		unresolved    error
+		enclosed      bool
 	)
 	for i := head; i > 0; i-- {
 		name := objref.JoinTyped(ref.Segments[:i])
@@ -803,11 +804,10 @@ func (s *Session) namedRoot(ref objectRef) (*runtime.Instance, string, []objectS
 			shown := declarationNotation(sym)
 			return nil, "", nil, &ObjectRefError{Ref: ref.Text, Detail: fmt.Sprintf("%s is a %s, not an object: its member is written %s::%s", shown, objref.NamespaceKind(sym), shown, ref.Segments[head].Text)}
 		}
-		// A namespace short of the whole name only encloses what failed to resolve.
-		if i < head && objref.IsNamespace(sym) {
-			break
-		}
-		if noInstance == "" {
+		// A namespace short of the whole name only encloses what failed to resolve:
+		// past it a held object is still walked from, but nothing lacks an instance.
+		enclosed = enclosed || i < head && objref.IsNamespace(sym)
+		if noInstance == "" && !enclosed {
 			noInstance, noInstanceSym = fqn, sym
 		}
 	}

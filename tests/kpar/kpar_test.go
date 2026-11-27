@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -304,8 +305,9 @@ func TestMalformedArchiveUnderLibraryRootIsAWarning(t *testing.T) {
 	if report.Errors {
 		t.Errorf("errors:\n%s", strings.Join(report.Found, "\n"))
 	}
-	if !containsSubstring(report.Found, bad+": not a project interchange archive") {
-		t.Errorf("found %q, want a warning on %s", report.Found, bad)
+	want := bad + ": not a project interchange archive: the file is not a ZIP archive"
+	if !slices.ContainsFunc(report.Found, func(line string) bool { return strings.HasSuffix(strings.TrimSpace(line), want) }) {
+		t.Errorf("found %q, want a warning ending %q", report.Found, want)
 	}
 }
 

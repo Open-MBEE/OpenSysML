@@ -339,7 +339,7 @@ func (h *heldObjects) walked(inst *runtime.Instance, label string, err error) (*
 // name, and the segments left to walk from it.
 func (h *heldObjects) namedRoot(ref objref.Ref) (*runtime.Instance, string, []objref.Segment, error) {
 	head := objref.Head(ref.Segments)
-	noInstance := ""
+	noInstance, enclosed := "", false
 	for i := head; i > 0; i-- {
 		sym, err := h.lookup(ref.Segments[:i])
 		if err != nil {
@@ -358,11 +358,10 @@ func (h *heldObjects) namedRoot(ref objref.Ref) (*runtime.Instance, string, []ob
 				"%q is not an object reference: %s is a %s, not an object: its member is written %s::%s",
 				ref.Text, shown, objref.NamespaceKind(sym), shown, ref.Segments[head].Text)
 		}
-		// A namespace short of the whole name only encloses what failed to resolve.
-		if i < head && objref.IsNamespace(sym) {
-			break
-		}
-		if noInstance == "" {
+		// A namespace short of the whole name only encloses what failed to resolve:
+		// past it a held object is still walked from, but nothing lacks an instance.
+		enclosed = enclosed || i < head && objref.IsNamespace(sym)
+		if noInstance == "" && !enclosed {
 			noInstance = fqn
 		}
 	}
