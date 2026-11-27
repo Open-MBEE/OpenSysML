@@ -244,6 +244,8 @@ this change.
 | A union or tree keeps its projected cells as operand evidence across a later filter, in either term order | `internal/doc/queryexec/setop_evidence_regressions_test.go:TestQueryProjectedSetOpsKeepOperandEvidenceAcrossFilters` |
 | Object-valued shadow evidence is captured before the probe rolls back its lazy part, and the captured value proves a built-in's operand | `internal/doc/queryexec/setop_evidence_regressions_test.go:TestQueryLazyShadowEvidenceKeepsItsCapturedValue` |
 | A dotted evidence read resolves every segment in one probe, leaving an excluded object's lazy part unmaterialized | `internal/doc/queryexec/setop_evidence_regressions_test.go:TestQueryDottedEvidenceLeavesExcludedLazyPartLazy` |
+| Operand evidence materializes an excluded row's lazily evaluated attribute even after a separate evaluation spent the model's step budget | `internal/doc/queryexec/shadow_evidence_budget_test.go:TestQueryShadowEvidenceDoesNotInheritASpentStepBudget`; `internal/exec/runtime/probe_budget_test.go:TestProbeEvidenceHasAnIndependentBudget`, `:TestProbeEvidenceHonoursTheInterrupt`, `:TestProbeEvidenceRollsBackWritesAndObjects` |
+| A probe that took no identity skips the identity scan on rollback, so evidence collection over a held population stays linear | `internal/exec/runtime/probe_budget_test.go:TestProbeWithoutAnAllocationDoesNotScanHeldIdentities` |
 
 The tests execute document queries over real `.sysml` fixtures through the
 shared `queryexec` executor, which is the executor behind the CLI, the REPL, the

@@ -1300,7 +1300,7 @@ func (e *executor) shadowEvidenceReach(row Value, property string) (values []Val
 		err = read()
 		return values, reach, sources, err
 	}
-	err = e.context.Runtime.Probe(read)
+	err = e.context.Runtime.ProbeEvidence(read)
 	return values, reach, sources, err
 }
 

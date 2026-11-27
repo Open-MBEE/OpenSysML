@@ -921,6 +921,22 @@ func (ctx *Context) Probe(fn func() error) error {
 	return fn()
 }
 
+// ProbeEvidence previews a read on an independent budget, undoing what it
+// materializes or writes; nested runtime calls share it until the probe ends.
+func (ctx *Context) ProbeEvidence(fn func() error) error {
+	if ctx == nil || fn == nil {
+		return fmt.Errorf("%w: probing evidence needs a context and reader", ErrNoSuchFeature)
+	}
+	outer := ctx.run
+	ctx.run = ctx.newEvidenceRunState()
+	end := ctx.beginProbe()
+	defer func() {
+		end()
+		ctx.run = outer
+	}()
+	return fn()
+}
+
 // ProbeFeatureValue previews a feature read and undoes what it materializes,
 // writes or starts. use must copy any value it keeps before the probe ends.
 func (ctx *Context) ProbeFeatureValue(inst *Instance, name string, use func(Value) error) error {

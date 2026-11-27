@@ -803,7 +803,9 @@ func (ctx *Context) claimID(id int64) {
 type runState struct {
 	steps    int64
 	elements int64
-	notes    []RunNote
+	// unbounded frees an evidence probe from this context's step and element budgets.
+	unbounded bool
+	notes     []RunNote
 	// marks is what the run's values stand on (order_marks.go).
 	marks orderMarks
 	// performers are the objects the run's executors have performed on, kept
@@ -829,6 +831,13 @@ func (r *runState) notePerformer(w clockWaiter) {
 // newRunState is the state a run starts with, under the schedule policy set now.
 func (ctx *Context) newRunState() *runState {
 	return &runState{scheduler: ctx.newScheduler()}
+}
+
+// newEvidenceRunState starts the independent budget one evidence probe reads on.
+func (ctx *Context) newEvidenceRunState() *runState {
+	state := ctx.newRunState()
+	state.unbounded = true
+	return state
 }
 
 // enterRun brackets one call of the run with this state: a top-level call installs
@@ -1009,7 +1018,7 @@ func (ctx *Context) endExecutorRun(run *executorRun) func() {
 func (ctx *Context) beginProbe() func() {
 	run := ctx.run
 	steps, elements, trace, writes := run.steps, run.elements, ctx.trace, ctx.stepWrites
-	ids, nextID := ctx.ids, ctx.ids.next
+	ids, nextID, tookHigh := ctx.ids, ctx.ids.next, ctx.took.high
 	endBoundary := func() { /* no boundary to close */ }
 	if ctx.probes == 0 {
 		endBoundary = ctx.beginRunBoundary()
@@ -1025,7 +1034,9 @@ func (ctx *Context) beginProbe() func() {
 		rollback()
 		endBoundary()
 		restoreSchedule()
-		if ctx.ids == ids {
+		// A read that took no identity has nothing to release: scanning every
+		// held identity for one would make a population of probes quadratic.
+		if ctx.ids == ids && (ctx.ids.next != nextID || ctx.took.high != tookHigh) {
 			ids.release(ctx, nextID)
 		}
 		ctx.probes--
@@ -1131,13 +1142,15 @@ func (ctx *Context) incrementStep() error {
 	if ctx.interrupted() {
 		return ErrInterrupted
 	}
-	if ctx.run.steps >= ctx.maxSteps {
+	if !ctx.run.unbounded && ctx.run.steps >= ctx.maxSteps {
 		if ctx.run.steps < math.MaxInt64 {
 			ctx.run.steps++
 		}
 		return ctx.stepLimitExceeded()
 	}
-	ctx.run.steps++
+	if ctx.run.steps < math.MaxInt64 {
+		ctx.run.steps++
+	}
 	return nil
 }
 
@@ -1182,7 +1195,7 @@ func (ctx *Context) beginStep() (int64, func()) {
 func (ctx *Context) chargeElements(n int64) error {
 	ctx.run.elements += n
 	// A count that overflowed is past any budget, so it reads as one.
-	if ctx.run.elements > ctx.maxElements || ctx.run.elements < 0 {
+	if !ctx.run.unbounded && (ctx.run.elements > ctx.maxElements || ctx.run.elements < 0) {
 		return fmt.Errorf("%w (%d elements; raise %s to allow more)", ErrElementLimitExceeded, ctx.maxElements, MaxElementsEnvVar)
 	}
 	return nil

@@ -1,0 +1,2 @@
+- Operand evidence reads now preview on an independent evaluation budget: a document query can still find a comparable value behind a lazily evaluated held attribute after an earlier session evaluation spent the model's step budget, instead of rejecting a valid comparison. The probe keeps its rollback of writes, materialized objects and behaviors.
+- A runtime probe that took no identity now skips the full held-identity scan on rollback, so a filter collecting evidence over a large held population no longer does quadratic work under the runtime lock.
