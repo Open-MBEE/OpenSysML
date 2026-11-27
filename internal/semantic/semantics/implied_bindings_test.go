@@ -282,3 +282,19 @@ func TestImpliedBindingElementsAreDistinct(t *testing.T) {
 		t.Error("distinct held elements conform to one another")
 	}
 }
+
+// A receiver call whose callee resolves to nothing instantiates no behavior, so nothing is bound to its result.
+func TestImpliedInvocationOfAnUnresolvedReceiverCallBindsNothing(t *testing.T) {
+	m, _ := buildModelWithLibraryNamedKind(t, "b.kerml", source.KindKerML,
+		`package P { behavior B { out r; } class C { step s : B; }
+			class E { feature c : C; feature good = c.s(); feature bad = c.missing(); } }`)
+	for name, want := range map[string]int{"good": 1, "bad": 0} {
+		value := m.ValueExpression(lookupOne(t, m, "P::E::"+name))
+		if value == nil {
+			t.Fatalf("%s has no value expression", name)
+		}
+		if got := len(m.invocationBehaviors(value)); got != want {
+			t.Errorf("%s instantiates %d behaviors, want %d", name, got, want)
+		}
+	}
+}
