@@ -92,7 +92,7 @@ initial`")
 **plant**`"]
     n11["`*«actor»*
 **operator**`"]
-    n12@{ shape: notch-rect, label: "objective<br>Inspect the plant and report its operating state." }
+    n12["objective<br>Inspect the plant and report its operating state."]@{ shape: notch-rect }
     n13("`*«perform action»*
 **run**
 declares no nodes`")

@@ -31,7 +31,7 @@ flowchart LR
 **vehicle**`"]
   n2["`*«actor»*
 **driver**`"]
-  n3@{ shape: notch-rect, label: "objective<br>Transport the vehicle and its passengers safely." }
+  n3["objective<br>Transport the vehicle and its passengers safely."]@{ shape: notch-rect }
   n4(["`*«use case»*
 **addFuel**`"])
   n5["`*«actor»*
@@ -54,12 +54,12 @@ flowchart LR
 **FuelAnalysis**`"])
   n14["`*«subject»*
 **vehicle**`"]
-  n15@{ shape: notch-rect, label: "objective<br>Estimate the fuel remaining after a journey." }
+  n15["objective<br>Estimate the fuel remaining after a journey."]@{ shape: notch-rect }
   n16(["`*«verification def»*
 **FuelVerification**`"])
   n17["`*«subject»*
 **vehicle**`"]
-  n18@{ shape: notch-rect, label: "objective" }
+  n18["objective"]@{ shape: notch-rect }
   n0 ---|"«subject»"| n1
   n2 --- n0
   n0 -.- n3

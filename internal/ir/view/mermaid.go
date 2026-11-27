@@ -1223,13 +1223,13 @@ func mermaidNodeShape(kind Kind, node *Node, labels labeller, options Options) s
 		case "actor", "subject":
 			return "[" + mermaidNodeLabel(node, labels) + "]"
 		case "objective":
-			return "@{ shape: notch-rect, label: \"" + labels.mermaid(node) + "\" }"
+			return mermaidCard(labels.mermaid(node))
 		}
 	}
 	switch node.Kind {
 	case commentKind, docKind, repKind:
 		// Mermaid's card is the nearest to the note's folded corner.
-		return "@{ shape: notch-rect, label: \"" + labels.mermaid(node) + "\" }"
+		return mermaidCard(labels.mermaid(node))
 	case startKind, "initial":
 		return `@{ shape: f-circ, label: "" }`
 	case "final":
@@ -1328,10 +1328,20 @@ func mermaidLabel(node *Node, labels labeller, lines []string, title bool) strin
 // mermaidQuoted quotes a flowchart's bracket or edge label. Only a leading backtick is escaped: it
 // would open a markdown string, and SVG text labels draw an entity as written.
 func mermaidQuoted(label string) string {
+	if label == "" {
+		// Mermaid rejects an empty quoted label in brackets.
+		return `" "`
+	}
 	if rest, found := strings.CutPrefix(label, "`"); found {
 		label = "#96;" + rest
 	}
 	return `"` + label + `"`
+}
+
+// mermaidCard is a note's folded-corner card. Its label goes in brackets: under SVG text labels
+// Mermaid reads a shape data label as markdown and drops a backticked span (mermaid-js/mermaid#7013).
+func mermaidCard(label string) string {
+	return "[" + mermaidQuoted(label) + "]@{ shape: notch-rect }"
 }
 
 var mermaidMultiplicity = regexp.MustCompile(`\[[0-9.*]*\]`)
@@ -1477,7 +1487,7 @@ func (r *Rendering) writeNotes(b *strings.Builder, owners map[int]string, owner,
 				}
 			}
 		}
-		fmt.Fprintf(b, "%snote%d@{ shape: notch-rect, label: \"%s\" }\n", indent, i, strings.Join(lines, "<br>"))
+		fmt.Fprintf(b, "%snote%d%s\n", indent, i, mermaidCard(strings.Join(lines, "<br>")))
 	}
 }
 

@@ -54,7 +54,7 @@ func TestMermaidFlowchartShapes(t *testing.T) {
 		{"case", "analysis case def", false, StylePilot, `([`},
 		{"actor", "actor", false, StylePilot, `["`},
 		{"subject", "subject", false, StylePilot, `["`},
-		{"objective", "objective", false, StylePilot, `@{ shape: notch-rect, label:`},
+		{"objective", "objective", false, StylePilot, `["«objective»<br>objective"]@{ shape: notch-rect }`},
 		{"cameo", "part", false, StyleCameo, `["`},
 		{"start", startKind, true, StylePilot, `@{ shape: f-circ, label: "" }`},
 		{"initial", "initial", true, StylePilot, `@{ shape: f-circ, label: "" }`},
@@ -106,7 +106,7 @@ func TestMermaidQuotedLabelsUseMermaidEscaping(t *testing.T) {
 	}}, Notes: []Note{{Anchor: "fork", Text: `note "text"\path`}}}).Mermaid()
 	for _, want := range []string{
 		`@{ shape: fork, label: "split #quot;part#quot;\path" }`,
-		`label: "note #quot;text#quot;\path"`,
+		`["note #quot;text#quot;\path"]@{ shape: notch-rect }`,
 	} {
 		if !strings.Contains(source, want) {
 			t.Errorf("Mermaid literal %q missing:\n%s", want, source)
@@ -347,7 +347,7 @@ func TestMermaidNotesInEachGrammar(t *testing.T) {
 			{Text: "free"},
 		},
 	}).Mermaid()
-	if !strings.Contains(flow, `note0@{ shape: notch-rect, label: "first<br>second" }`) ||
+	if !strings.Contains(flow, `note0["first<br>second"]@{ shape: notch-rect }`) ||
 		strings.Count(flow, "note0 -.- a") != 2 {
 		t.Errorf("flowchart notes or anchor:\n%s", flow)
 	}
@@ -436,7 +436,7 @@ func TestMermaidNotesInEachGrammar(t *testing.T) {
 		Roots: []*Node{{ID: "a", Kind: "action", Name: "a"}, {ID: "b", Kind: "action", Name: "b"}},
 		Notes: []Note{{EdgeFrom: "a", EdgeTo: "b", Text: "edge note"}},
 	}).Mermaid()
-	if strings.Contains(undrawnEdgeNote, "note0@{") ||
+	if strings.Contains(undrawnEdgeNote, "note0[") ||
 		strings.Contains(undrawnEdgeNote, "note0 -.- a") ||
 		!strings.Contains(undrawnEdgeNote, "not represented: 1 note(s) not drawn because their edge is not drawn: a->b") {
 		t.Errorf("note with no drawn edge was not omitted and noticed:\n%s", undrawnEdgeNote)
@@ -445,7 +445,7 @@ func TestMermaidNotesInEachGrammar(t *testing.T) {
 		Notes: []Note{{EdgeFrom: "a", EdgeTo: "b", Text: "edge note"}},
 	}).Mermaid()
 	if !strings.Contains(undrawnEdgeNoteOnly, "empty[") ||
-		strings.Contains(undrawnEdgeNoteOnly, "note0@{") ||
+		strings.Contains(undrawnEdgeNoteOnly, "note0[") ||
 		!strings.Contains(undrawnEdgeNoteOnly, "not represented: 1 note(s) not drawn because their edge is not drawn: a->b") {
 		t.Errorf("undrawn edge note left an otherwise empty flowchart without a placeholder or notice:\n%s", undrawnEdgeNoteOnly)
 	}
@@ -454,7 +454,7 @@ func TestMermaidNotesInEachGrammar(t *testing.T) {
 		Edges: []Edge{{From: "b", To: "a", Kind: EdgeFlow}},
 		Notes: []Note{{EdgeFrom: "a", EdgeTo: "b", Text: "edge note"}},
 	}).Mermaid()
-	if strings.Contains(reversedEdgeNote, "note0@{") ||
+	if strings.Contains(reversedEdgeNote, "note0[") ||
 		!strings.Contains(reversedEdgeNote, "not represented: 1 note(s) not drawn because their edge is not drawn: a->b") {
 		t.Errorf("note matched an edge with the opposite direction:\n%s", reversedEdgeNote)
 	}
@@ -468,7 +468,7 @@ func TestMermaidNotesInEachGrammar(t *testing.T) {
 	}
 	emptyFlow := (&Rendering{Kind: KindTree, Notes: []Note{{Text: "free"}}}).Mermaid()
 	if strings.Contains(emptyFlow, "empty[") ||
-		!strings.Contains(emptyFlow, `note0@{ shape: notch-rect, label: "free" }`) {
+		!strings.Contains(emptyFlow, `note0["free"]@{ shape: notch-rect }`) {
 		t.Errorf("free note missing from an otherwise empty flowchart:\n%s", emptyFlow)
 	}
 }
@@ -579,12 +579,12 @@ func TestMermaidFlowchartNotesUseInnermostCommonBody(t *testing.T) {
 	sourceText := rendering.Mermaid()
 	innerAt := strings.Index(sourceText, "subgraph inner [")
 	leafAt := strings.Index(sourceText, "leaf(")
-	innerNoteAt := strings.Index(sourceText, "note0@{")
+	innerNoteAt := strings.Index(sourceText, "note0[")
 	firstEnd := strings.Index(sourceText[innerAt:], "\n    end\n")
-	outerNoteAt := strings.Index(sourceText, "note1@{")
+	outerNoteAt := strings.Index(sourceText, "note1[")
 	outerEnd := strings.Index(sourceText, "\n  end\n")
-	freeAt := strings.Index(sourceText, "note2@{")
-	sharedAt := strings.Index(sourceText, "note3@{")
+	freeAt := strings.Index(sourceText, "note2[")
+	sharedAt := strings.Index(sourceText, "note3[")
 	if innerAt < 0 || leafAt < innerAt || innerNoteAt < leafAt || firstEnd < 0 ||
 		innerNoteAt > innerAt+firstEnd || outerNoteAt < 0 || outerEnd < outerNoteAt ||
 		freeAt < outerEnd || sharedAt < outerEnd {
@@ -813,11 +813,7 @@ func TestMermaidRendersWithInstalledMMDC(t *testing.T) {
 	}
 	pup := os.Getenv("OPENSYSML_MMDC_PUPPETEER")
 	cases := installedMermaidCases(t)
-	noHTML := filepath.Join(t.TempDir(), "nohtml.json")
-	if err := os.WriteFile(noHTML, []byte(`{"flowchart":{"htmlLabels":false}}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	for _, config := range []string{"", noHTML} {
+	for _, config := range []string{"", svgTextLabelsConfig(t)} {
 		config := config
 		t.Run(configName(config), func(t *testing.T) {
 			if err := renderInstalledMermaidBatch(binary, pup, config, cases); err != nil {
@@ -826,6 +822,51 @@ func TestMermaidRendersWithInstalledMMDC(t *testing.T) {
 					t.Fatalf("mmdc could not render the %s batch: %v", configName(config), err)
 				}
 				t.Fatalf("mmdc could not render %s: %v", bad.name, err)
+			}
+		})
+	}
+}
+
+// TestMermaidDrawsBacktickedTextWithInstalledMMDC checks the drawn text, which a source Mermaid
+// accepts can still lose: SVG text labels drop a span between backticks it reads as markdown. A
+// leading backtick is left out, its #96; drawn as written there (mermaid-js/mermaid#7015).
+func TestMermaidDrawsBacktickedTextWithInstalledMMDC(t *testing.T) {
+	binary := os.Getenv("OPENSYSML_MMDC")
+	if binary == "" {
+		return
+	}
+	labelled := &Rendering{Kind: KindInterconnection, Shown: Shown{ElementEdgeLabels: true}, Roots: []*Node{
+		{ID: "a", Kind: "part", Name: "a `NODE` b"},
+		{ID: "b", Kind: "part", Name: "b"},
+	}, Edges: []Edge{{From: "a", To: "b", Kind: EdgeConnection, Label: "c `EDGE` d"}},
+		Notes: []Note{{Text: "n `NOTE` o", Anchor: "a"}, {Text: "e `FREE` f"}}}
+	commented := &Rendering{Kind: KindTree, Roots: []*Node{
+		{ID: "a", Kind: "part", Name: "a"},
+		{ID: "c", Kind: commentKind, Text: "c `COMMENT` d"},
+	}, Edges: []Edge{{From: "c", To: "a", Kind: EdgeAnchor}}}
+	sources := []string{labelled.Mermaid(), commented.Mermaid()}
+	for _, config := range []string{"", svgTextLabelsConfig(t)} {
+		t.Run(configName(config), func(t *testing.T) {
+			var drawn strings.Builder
+			for i, source := range sources {
+				dir := t.TempDir()
+				input, output := filepath.Join(dir, "input.mmd"), filepath.Join(dir, "output.svg")
+				if err := os.WriteFile(input, []byte(source), 0o600); err != nil {
+					t.Fatal(err)
+				}
+				if err := runInstalledMermaid(binary, os.Getenv("OPENSYSML_MMDC_PUPPETEER"), config, input, output); err != nil {
+					t.Fatalf("mmdc could not render source %d:\n%s\n%v", i, source, err)
+				}
+				svg, err := os.ReadFile(output)
+				if err != nil {
+					t.Fatal(err)
+				}
+				drawn.Write(svg)
+			}
+			for _, want := range []string{"`NODE`", "`COMMENT`", "`EDGE`", "`NOTE`", "`FREE`"} {
+				if !strings.Contains(drawn.String(), want) {
+					t.Errorf("drawing lacks %s; sources:\n%s", want, strings.Join(sources, "\n"))
+				}
 			}
 		})
 	}
@@ -995,6 +1036,18 @@ func twoByTwoPNG(t *testing.T) []byte {
 	return data
 }
 
+// svgTextLabelsConfig is a Mermaid configuration drawing <text> labels where HTML labels are the
+// default, as the PDF form's does.
+func svgTextLabelsConfig(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "svg-text-labels.json")
+	config := `{"htmlLabels":false,"flowchart":{"htmlLabels":false},"class":{"htmlLabels":false}}`
+	if err := os.WriteFile(path, []byte(config), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
 func configName(config string) string {
 	if config == "" {
 		return "default"
@@ -1019,6 +1072,10 @@ func renderInstalledMermaidBatch(binary, puppeteer, config string, cases []insta
 	if err := os.WriteFile(input, []byte(markdown.String()), 0o600); err != nil {
 		return err
 	}
+	return runInstalledMermaid(binary, puppeteer, config, input, output)
+}
+
+func runInstalledMermaid(binary, puppeteer, config, input, output string) error {
 	args := []string{"-i", input, "-o", output}
 	if puppeteer != "" {
 		args = append(args, "-p", puppeteer)

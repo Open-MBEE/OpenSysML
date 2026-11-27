@@ -30,7 +30,7 @@ flowchart LR
       direction LR
       n1_anchor[" "]
       n1.0["^fuelOut"]
-      note0@{ shape: notch-rect, label: "the line" }
+      note0["the line"]@{ shape: notch-rect }
     end
     subgraph n2 ["`*«part»* **engine**`"]
       direction LR
@@ -45,8 +45,8 @@ flowchart LR
     n5["`*«flow»*
 ◀—`"]@{ shape: text }
     n6["«message»<br>—#gt;"]@{ shape: text }
-    note1@{ shape: notch-rect, label: "shared<br>shared" }
-    note2@{ shape: notch-rect, label: "the reading" }
+    note1["shared<br>shared"]@{ shape: notch-rect }
+    note2["the reading"]@{ shape: notch-rect }
   end
   n1.0 === n4
   n4 === n5
