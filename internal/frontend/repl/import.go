@@ -33,7 +33,7 @@ func (s *Session) ImportData(path string, opts ImportOptions) Verdict {
 func (s *Session) doImport(tail string) ([]string, bool, error) {
 	args := parseArgs(strings.TrimSpace(tail))
 	if len(args) == 0 {
-		return []string{importUsage}, false, nil
+		return s.usage(importUsage), false, nil
 	}
 	path := nameText(args[0])
 	var opts ImportOptions

@@ -143,7 +143,7 @@ func (s *Session) setClockStep(step float64) error {
 // doClockStep shows the clock step, or sets it when exactly one is named.
 func (s *Session) doClockStep(args []string) []string {
 	if len(args) > 1 {
-		return []string{"usage: %clock-step [<seconds>]"}
+		return s.usage("usage: %clock-step [<seconds>]")
 	}
 	if len(args) > 0 {
 		step, err := runtime.ParseClockStep(args[0])
@@ -163,7 +163,7 @@ func (s *Session) doClockStep(args []string) []string {
 // doDraws shows the draw policy, or sets it when exactly one is named.
 func (s *Session) doDraws(args []string) []string {
 	if len(args) > 1 {
-		return []string{"usage: %draws [random|min|max|average]"}
+		return s.usage("usage: %draws [random|min|max|average]")
 	}
 	if len(args) > 0 {
 		policy, err := runtime.ParseDrawPolicy(args[0])

@@ -22,7 +22,7 @@ func (s *Session) doRecord(tail string) ([]string, bool, error) {
 		return []string{errPrefix + err.Error(), recordUsage}, false, nil
 	}
 	if inv.name == "" {
-		return []string{recordUsage}, false, nil
+		return s.usage(recordUsage), false, nil
 	}
 	return s.withTrace(s.recordAnalysisInv(inv, into, "%record "+strings.TrimSpace(tail))).Lines, false, nil
 }
