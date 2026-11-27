@@ -92,9 +92,8 @@ func TestHungUpRequestEndsItsToolCall(t *testing.T) {
 	}
 }
 
-// TestCallOfAnEndedRequestIsNotStarted checks a call dispatched after the POST
-// that carried it ended is given a context already over, and that a call no
-// POST carried, as over stdio, is left its own.
+// TestCallOfAnEndedRequestIsNotStarted checks a call whose POST already ended
+// gets a context already over, and one no POST carried, as over stdio, its own.
 func TestCallOfAnEndedRequestIsNotStarted(t *testing.T) {
 	var live liveRequests
 	var carried http.Header
