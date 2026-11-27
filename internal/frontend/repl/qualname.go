@@ -16,7 +16,9 @@ type parsedName struct {
 	// qualified reports a name of several segments; one segment holding `::`
 	// inside its quotes is not.
 	qualified bool
-	ok        bool
+	// segments are the name's segments, each as the index registers it.
+	segments []string
+	ok       bool
 }
 
 // plainName is a name spelled as the symbol index registers it: the notation
@@ -34,7 +36,7 @@ func parseName(text string) parsedName {
 	if !ok {
 		return parsedName{}
 	}
-	return parsedName{name: strings.Join(segments, "::"), qualified: len(segments) > 1, ok: true}
+	return parsedName{name: strings.Join(segments, "::"), qualified: len(segments) > 1, segments: segments, ok: true}
 }
 
 // nameSegments reads a name's segments as the index registers them, a quoted
