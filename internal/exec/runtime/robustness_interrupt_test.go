@@ -18,6 +18,7 @@ func TestRuntimeRobustnessInterrupt(t *testing.T) {
 	t.Run("ActionRunStopsFromAnotherGoroutine", testInterruptFromAnotherGoroutine)
 	t.Run("EvaluationStopsAtItsNextStep", testInterruptStopsAnEvaluation)
 	t.Run("StateDoBehaviorStopsAtItsNextStep", testInterruptStopsAStateDoBehavior)
+	t.Run("StateCompletionCycleStopsAtItsNextStep", testInterruptStopsAStateCompletionCycle)
 	t.Run("InterruptionIsNotTheBehaviorsFailure", testInterruptIsNotRecordedOnABehavior)
 	t.Run("InterruptedDeferredStartIsRecordedFailed", testInterruptFailsADeferredStart)
 }
@@ -129,6 +130,37 @@ func testInterruptStopsAStateDoBehavior(t *testing.T) {
 	`
 	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
 	ctx.maxDoSteps = 1_000_000
+	flag := new(atomic.Bool)
+	ctx.SetInterrupt(flag)
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "Machine", ast.DefState)
+	if sym == nil {
+		t.Fatal("state def Machine not found")
+	}
+	exec, err := ctx.CreateStateExecutor(sym)
+	if err != nil {
+		t.Fatalf("create state executor: %v", err)
+	}
+	flag.Store(true)
+	if err := exec.RunToQuiescence(); !errors.Is(err, ErrInterrupted) {
+		t.Fatalf("RunToQuiescence() = %v, want ErrInterrupted", err)
+	}
+}
+
+// testInterruptStopsAStateCompletionCycle checks a machine cycling through
+// completion transitions, with no do behavior or effect to count a step, stops too.
+func testInterruptStopsAStateCompletionCycle(t *testing.T) {
+	src := `
+		package test {
+			state def Machine {
+				entry; then a;
+				state a; state b;
+				transition a_b first a then b;
+				transition b_a first b then a;
+			}
+		}
+	`
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+	ctx.maxStateEvents = 1_000
 	flag := new(atomic.Bool)
 	ctx.SetInterrupt(flag)
 	sym := findSymbolByName(idx.DocumentRoot("<test>"), "Machine", ast.DefState)

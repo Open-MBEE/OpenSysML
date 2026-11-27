@@ -171,3 +171,80 @@ func TestSessionCloseDoesNotHoldCallsBehindARun(t *testing.T) {
 		t.Fatalf("PerformContext cancelled = %v, want CodeCanceled", err)
 	}
 }
+
+// cyclingSessionSource is a state machine that, once in a, cycles between a and
+// b on completion transitions with no effect, guard or do behavior: enter names
+// the state its entry leads to.
+func cyclingSessionSource(enter string) string {
+	return `package Cycle {
+	attribute def Go;
+	part def Quiet {
+		exhibit state s {
+			entry; then ` + enter + `;
+			state idle; state a; state b;
+			transition idle_a first idle accept Go then a;
+			transition a_b first a then b;
+			transition b_a first b then a;
+		}
+	}
+	part quiet : Quiet;
+}`
+}
+
+// openCycling opens a session over cyclingSessionSource under an event budget
+// no test run reaches.
+func openCycling(t *testing.T, enter string) *opensysml.Session {
+	t.Helper()
+	t.Setenv("OPENSYSML_MAX_EVENTS", "1000000000000")
+	client := newClient(t)
+	session, err := opensysml.OpenSession(client, parse(t, client, cyclingSessionSource(enter)))
+	if err != nil {
+		t.Fatalf("OpenSession: %v", err)
+	}
+	t.Cleanup(func() { _ = session.Close() })
+	return session
+}
+
+// TestSessionContextStopsAMachineCyclingOnCompletions checks a state machine
+// that cycles through completion transitions with nothing to run between them
+// stops when the call's context does, at its creation and while time advances.
+func TestSessionContextStopsAMachineCyclingOnCompletions(t *testing.T) {
+	ended := map[string]struct {
+		context func() (context.Context, context.CancelFunc)
+		code    opensysml.Code
+	}{
+		"deadline": {func() (context.Context, context.CancelFunc) {
+			return context.WithTimeout(context.Background(), 50*time.Millisecond)
+		}, opensysml.CodeDeadlineExceeded},
+		"cancel": {func() (context.Context, context.CancelFunc) {
+			ctx, cancel := context.WithCancel(context.Background())
+			time.AfterFunc(50*time.Millisecond, cancel)
+			return ctx, cancel
+		}, opensysml.CodeCanceled},
+	}
+	for name, end := range ended {
+		t.Run("advance/"+name, func(t *testing.T) {
+			session := openCycling(t, "idle")
+			quiet, err := session.Instantiate("Cycle::quiet")
+			if err != nil {
+				t.Fatalf("Instantiate: %v", err)
+			}
+			if _, err := session.Send(quiet, "Cycle::Go", nil); err != nil {
+				t.Fatalf("Send: %v", err)
+			}
+			ctx, release := end.context()
+			defer release()
+			if _, err := session.AdvanceContext(ctx, 1); statusCode(err) != end.code {
+				t.Fatalf("AdvanceContext = %v, want %v", err, end.code)
+			}
+		})
+		t.Run("instantiate/"+name, func(t *testing.T) {
+			session := openCycling(t, "a")
+			ctx, release := end.context()
+			defer release()
+			if _, err := session.InstantiateContext(ctx, "Cycle::quiet"); statusCode(err) != end.code {
+				t.Fatalf("InstantiateContext = %v, want %v", err, end.code)
+			}
+		})
+	}
+}
