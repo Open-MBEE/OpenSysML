@@ -49,6 +49,12 @@ environment variable for unattended installs:
 | Show the choice, install nothing | `--dry-run` | `-DryRun` | |
 | Also verify the manifest's cosign signature | `--verify-signature` | | |
 
+A release is marked `latest` when it is published, a few minutes before its assets are uploaded. Until
+they are, `latest` installs the newest earlier release that has a `SHA256SUMS.txt`, and says so; a release
+named with `--version` is never substituted. The earlier releases are read from GitHub's releases API
+(`GITHUB_TOKEN` or `GH_TOKEN`, when set, authenticates that request); a mirror names its own copy of the
+list in `OPENSYSML_RELEASES_API`.
+
 Only the assets the named tools come from are downloaded and verified: `sysml` and `sysml-lsp` from the
 `opensysml-<platform>` bundle, `sysml-grpc` and `sysml-jupyter-kernel` from their own per-platform binaries.
 

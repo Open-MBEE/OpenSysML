@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
 # Writes <tree>/target/bom.json, the CycloneDX SBOM `make audit-java` scans. The plugin that
-# writes it is no dependency of any pom.xml, so a run that finds it in no cache asks Maven Central.
+# writes it is no dependency of any pom.xml, so a run that finds it in no cache asks a mirror of
+# Maven Central for it, and Maven Central when the mirror refuses.
 set -euo pipefail
 
 [[ $# -eq 2 ]] || { echo "usage: $0 <Maven tree> <cyclonedx-maven-plugin version>" >&2; exit 2; }
@@ -32,10 +33,11 @@ done
 log=$(mktemp)
 trap 'rm -f "$log"' EXIT
 for ((attempt = 1; attempt <= attempts; attempt++)); do
-  # Every second attempt asks the mirror, as global settings so that a user's proxy still applies; -U asks again for what was refused.
+  # The first attempt and every second one after it ask the mirror, which sets no rate limit, as global settings
+  # so that a user's proxy still applies; the others ask Maven Central. -U asks again for what was refused.
   extra=()
   ((attempt == 1)) || extra+=(-U)
-  ((attempt % 2 == 1)) || extra+=(-gs "$mirror")
+  ((attempt % 2 == 0)) || extra+=(-gs "$mirror")
   status=0
   ${bounded[@]+"${bounded[@]}"} mvn ${extra[@]+"${extra[@]}"} "${goal[@]}" 2>&1 | tee "$log" || status=$?
   ((status != 0)) || exit 0

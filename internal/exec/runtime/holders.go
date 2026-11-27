@@ -386,9 +386,6 @@ func (w *returnedWalk) walk(stmts []lower.Statement) {
 		case lower.Loop:
 			if s.Bound {
 				w.written(s.Body.Scope, s.Variable, valueSource{scope: s.Scope, expr: s.Collection})
-				if s.Alias != "" {
-					w.written(s.Body.Scope, s.Alias, valueSource{scope: s.Scope, expr: s.Collection})
-				}
 			}
 			w.walk(s.Body.Steps())
 		case lower.Block:

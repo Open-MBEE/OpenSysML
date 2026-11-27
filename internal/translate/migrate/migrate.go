@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/simresults"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/mtip"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
@@ -2126,10 +2127,7 @@ func (m *migration) effectiveTypes(f *sysmlv1.Element) []*sysmlv1.Element {
 
 // article is the indefinite article before a word: "an item", "a part".
 func article(word string) string {
-	if strings.ContainsRune("aeiou", rune(word[0])) {
-		return "an "
-	}
-	return "a "
+	return diag.IndefiniteArticle(word) + " "
 }
 
 // instanceOf reports whether an instance written to specialize the

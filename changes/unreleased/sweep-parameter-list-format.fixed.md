@@ -1,0 +1,1 @@
+- **A sweep over a parameter the target does not declare lists the declared inputs as prose.** `sysml -sweep 'zz=1..3' -calc 'P::Fall(1,2)'` and `%sweep` ended their refusal with a Go slice, `(it declares [a b])`, and `(it declares [])` for a target with no input; they now read `(it declares a, b)` and `(it declares none)`.

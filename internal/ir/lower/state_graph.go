@@ -63,6 +63,9 @@ type StateGraph struct {
 	// exit behaviors. A parallel machine's regions are TopRegions instead.
 	Machine *ast.StateNode
 
+	// machineID is the machine state's id, set when the states are numbered.
+	machineID program.StateID
+
 	// declOf: synthesized state → the declaration it was built from, since the
 	// scope tree is keyed by what the scope builder saw rather than by the state
 	// nodes lowering derives from it.
@@ -970,7 +973,7 @@ func machineMembers(stateMachineDecl ast.Node) ([]ast.Node, error) {
 	case *ast.Definition:
 		return n.Members, nil
 	}
-	return nil, fmt.Errorf("state machine must be Usage or Definition, got %T", stateMachineDecl)
+	return nil, errPartOfOwner(stateMachineDecl)
 }
 
 // collectVertices records every state and pseudostate the machine body declares,
