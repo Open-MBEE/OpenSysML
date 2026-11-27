@@ -49,8 +49,8 @@ func testCalcNonBooleanCondition(t *testing.T) {
 		}
 	`
 	err := invokeCalcInSource(t, src, "counting", 3, 10000)
-	if err == nil || !strings.Contains(err.Error(), "must evaluate to a Boolean") {
-		t.Errorf("expected a non-Boolean condition error, got: %v", err)
+	if err == nil || !strings.HasSuffix(err.Error(), "condition of 'while' must evaluate to a Boolean, got an Integer") {
+		t.Errorf("expected a non-Boolean condition error naming the Integer, got: %v", err)
 	}
 }
 

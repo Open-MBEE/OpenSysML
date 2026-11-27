@@ -368,7 +368,7 @@ func (m *Model) UnitProductOfExprBy(node ast.Node, lookup UnitLookup) (UnitProdu
 			return UnitProduct{}, nil
 		}
 	}
-	return UnitProduct{}, fmt.Errorf("%w: %T", ErrUnitExpr, node)
+	return UnitProduct{}, fmt.Errorf("%w: %s", ErrUnitExpr, describeNonUnitExpr(node))
 }
 
 // unitProductOfName is the named unit qn writes, identified by the declaration

@@ -41,7 +41,7 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		m.memberships[sym] = out
 		return out
 	}
-	statements := append(m.statementOperands(sym), m.statementNodes(sym)...)
+	statements := append(m.statementParts(sym), m.statementNodes(sym)...)
 	parts := m.transitionMembers(sym)
 	ends := m.synthesizedSuccessionEnds(sym)
 	synthesized := m.synthesizedMembersOf(sym)
@@ -838,12 +838,9 @@ func expressionMembershipMetaclassName(member *symbols.Symbol) string {
 		return "OwningMembership"
 	case symbols.ExpressionTransitionLinkParameter, symbols.ExpressionLoopBody:
 		return "ParameterMembership"
-	case symbols.ExpressionNodeParameter:
-		if owner := member.Expr.Owner; owner != nil && owner.Expr != nil && owner.Expr.Role == symbols.ExpressionNodeParameter {
-			// An assignment's target parameter nests its features (SysML.xtext TargetFeatureMember).
-			return "FeatureMembership"
-		}
-		return "ParameterMembership"
+	case symbols.ExpressionAccess:
+		// An assignment's target parameter nests its features (SysML.xtext TargetFeatureMember).
+		return "FeatureMembership"
 	case symbols.ExpressionTransitionLink:
 		return "FeatureMembership"
 	}

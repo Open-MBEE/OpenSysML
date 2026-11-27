@@ -1756,7 +1756,7 @@ func (e *stmtEngine) condition(id program.ExprID, scope *symbols.Scope, what str
 	value = soleElement(value)
 	if value.Kind != ValConst || value.Const.Kind != semantics.ValBool {
 		return false, fmt.Errorf("%s: %s must evaluate to a Boolean, got %s",
-			e.host.describe(), what, value.Kind)
+			e.host.describe(), what, describeOperand(value))
 	}
 	return value.Const.Bool, nil
 }

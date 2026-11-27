@@ -2593,7 +2593,7 @@ func lowerBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope, resolv
 	block := Block{Node: owner, Scope: scope}
 	for _, member := range members {
 		actual := unwrapMembership(member)
-		if actual == nil || isAnnotation(actual) {
+		if actual == nil || isAnnotation(actual) || statesNoStep(actual) {
 			continue
 		}
 		block.Statements = append(block.Statements, lowerStatement(actual, scope, resolver, exprs, ancestors))
