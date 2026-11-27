@@ -24,6 +24,8 @@ export interface WasmHost {
   readonly version: string;
   call(method: string, params: string, signal?: AbortSignal): Promise<string>;
   close(): Promise<void>;
+  /** The refusal a call made now would get, so that nothing is prepared for it. */
+  refusal?(): ConnectError | undefined;
 }
 
 /** The Go runtime interface exposed by wasm_exec.js. */
@@ -215,8 +217,14 @@ export function createWasmTransport(host: WasmHost, options: TransportOptions): 
     header: HeadersInit | undefined,
     input: Parameters<Transport["unary"]>[4],
     contextValues: Parameters<Transport["unary"]>[5],
-  ): Promise<UnaryResponse<I, O>> =>
-    runUnaryCall({
+  ): Promise<UnaryResponse<I, O>> => {
+    // Refused here, a call past the host's bound never joins the listeners of the
+    // caller's signal, whose cost grows with the calls already waiting on it.
+    const refusal = host.refusal?.();
+    if (refusal !== undefined) {
+      return Promise.reject(refusal);
+    }
+    return runUnaryCall({
       req: {
         stream: false,
         service: method.parent,
@@ -250,6 +258,7 @@ export function createWasmTransport(host: WasmHost, options: TransportOptions): 
         };
       },
     });
+  };
 
   return {
     unary: callUnary,
@@ -316,6 +325,8 @@ export class WorkerWasmHost implements WasmHost {
   private resolveReady!: () => void;
   private rejectReady!: (error: unknown) => void;
   private nextId = 1;
+  // Calls not yet settled, those still waiting for the worker to start included.
+  private held = 0;
   private failure: ConnectError | undefined;
   private closed = false;
 
@@ -349,6 +360,28 @@ export class WorkerWasmHost implements WasmHost {
     if (this.closed) {
       throw new ConnectError("the sysml-wasm worker is closed", Code.Unavailable);
     }
+    const refusal = this.refusal();
+    if (refusal !== undefined) {
+      throw refusal;
+    }
+    this.held++;
+    try {
+      return await this.post(method, params, signal);
+    } finally {
+      this.held--;
+    }
+  }
+
+  refusal(): ConnectError | undefined {
+    return this.held < MAX_PENDING_WASM_CALLS
+      ? undefined
+      : new ConnectError(
+          `the sysml-wasm worker already holds ${MAX_PENDING_WASM_CALLS} unanswered calls`,
+          Code.ResourceExhausted,
+        );
+  }
+
+  private async post(method: string, params: string, signal?: AbortSignal): Promise<string> {
     if (signal === undefined) {
       await this.ready;
     } else {
@@ -359,12 +392,6 @@ export class WorkerWasmHost implements WasmHost {
     }
     this.throwIfFailed();
     this.throwIfClosed();
-    if (this.pending.size >= MAX_PENDING_WASM_CALLS) {
-      throw new ConnectError(
-        `the sysml-wasm worker already holds ${MAX_PENDING_WASM_CALLS} unanswered calls`,
-        Code.ResourceExhausted,
-      );
-    }
     const id = this.nextId++;
     return new Promise<string>((resolve, reject) => {
       if (signal === undefined) {

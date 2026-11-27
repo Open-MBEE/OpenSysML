@@ -506,8 +506,10 @@ test("a worker host refuses a call past its bound on unanswered calls", async ()
   await host.start({ type: "init", wasm: emptyWasm }, []);
 
   const held = Array.from({ length: MAX_PENDING_WASM_CALLS }, () => host.call("NeverAnswers", "{}"));
-  await new Promise<void>((resolve) => setImmediate(resolve));
+  // Refused in the turn that made it, before any of the held calls is posted.
+  assert.equal(host.refusal()?.code, Code.ResourceExhausted);
   await assert.rejects(host.call("OneTooMany", "{}"), { code: Code.ResourceExhausted });
+  await new Promise<void>((resolve) => setImmediate(resolve));
   const calls = posted.filter((message) => message.type === "call");
   assert.equal(calls.length, MAX_PENDING_WASM_CALLS);
 
@@ -517,10 +519,46 @@ test("a worker host refuses a call past its bound on unanswered calls", async ()
   void host.call("Fits", "{}").catch(() => undefined);
   await new Promise<void>((resolve) => setImmediate(resolve));
   assert.equal(posted.filter((message) => message.type === "call").length, MAX_PENDING_WASM_CALLS + 1);
-  for (const call of held.slice(1)) {
+  assert.equal(host.refusal()?.code, Code.ResourceExhausted);
+  onMessage?.({ type: "answer", id: calls[1].id, envelope: "{}" });
+  assert.equal(await held[1], "{}");
+  assert.equal(host.refusal(), undefined);
+  for (const call of held.slice(2)) {
     call.catch(() => undefined);
   }
   await host.close();
+});
+
+test("a call the host would refuse never listens on the caller's signal", async () => {
+  let calls = 0;
+  let full = true;
+  const client = clientFor({
+    version: "fake",
+    call: () => {
+      calls++;
+      return Promise.resolve('{"jsonrpc":"2.0","id":null,"result":{"version":"fake","capabilities":[]}}');
+    },
+    close: () => Promise.resolve(),
+    refusal: () =>
+      full ? new ConnectError("the host holds its bound of calls", Code.ResourceExhausted) : undefined,
+  });
+  // One signal is shared by every call of a connection, so a refused call that
+  // joined its listeners would make each later one cost more than the last.
+  const shared = new AbortController();
+  let listeners = 0;
+  const addEventListener = shared.signal.addEventListener.bind(shared.signal);
+  shared.signal.addEventListener = (...args: Parameters<AbortSignal["addEventListener"]>): void => {
+    listeners++;
+    addEventListener(...args);
+  };
+  await assert.rejects(client.getServerInfo({}, { signal: shared.signal }), { code: Code.ResourceExhausted });
+  assert.equal(listeners, 0);
+  assert.equal(calls, 0);
+
+  full = false;
+  assert.equal((await client.getServerInfo({}, { signal: shared.signal })).version, "fake");
+  assert.equal(calls, 1);
+  assert.notEqual(listeners, 0);
 });
 
 test("a worker port refuses a call past its bound on waiting calls", () => {

@@ -270,7 +270,8 @@ run synchronously and cannot be interrupted while they block the JavaScript
 thread.
 
 A worker holds at most 1024 unanswered calls: one more is refused with
-`ResourceExhausted` until an answer or a cancellation frees a place. An inline
+`ResourceExhausted` until an answer or a cancellation frees a place, and the
+refusal costs the same however many calls were made at once. An inline
 start that has not finished within 60 seconds fails with an `OpenSysMLError`
 and lets the next start take its turn.
 
