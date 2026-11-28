@@ -456,3 +456,71 @@ func TestDrawioMovedNodeShownTwiceKeepsItsMoveBesideAPlacedSwimlane(t *testing.T
 		t.Errorf("the import writes %+v about %s, the file moved it to %+v", layouts, weld, moved.Geometry)
 	}
 }
+
+const unnamedStepOwnFlowModel = `package G {
+	private import DiagramLayout::*;
+	action runA { action load; then action; then action weld; }
+	action runB { action pack; then action ship; }
+	part robot { perform runA.load; }
+	part packer { perform runB.pack; }
+	view both : StandardViewDefinitions::ActionFlowView {
+		expose runA;
+		expose runB;
+		metadata Layout about robot { x = 320; y = 120; }
+	}
+	view onlyA : StandardViewDefinitions::ActionFlowView {
+		expose runA;
+	}
+}
+`
+
+// A move in the flow holding a step with no name writes nothing on that step's declaration,
+// whichever of the flow's cells the file moved: the import says so, and a view drawing the
+// flow alone draws it as before.
+func TestDrawioMoveInAFlowWritesNoLayoutOnItsUntouchedUnnamedStep(t *testing.T) {
+	count := func(content string) (vertices, edges int) {
+		_, r, o := drawioModel(t, content, "G::onlyA")
+		_, f := drawioExport(t, r, o)
+		for i := range f.Cells {
+			switch c := &f.Cells[i]; {
+			case c.Vertex && !c.Relative:
+				vertices++
+			case c.Edge:
+				edges++
+			}
+		}
+		return vertices, edges
+	}
+	wantV, wantE := count(unnamedStepOwnFlowModel)
+	for name, pick := range map[string]func(*view.DrawioFile) *view.DrawioCell{
+		"lane":  laneOf("G::runA::load"),
+		"node":  cellNamed("G::runA::load"),
+		"step":  cellNamed("G::runA::weld"),
+		"frame": cellNamed("G::runA"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			m, rendering, options := drawioModel(t, unnamedStepOwnFlowModel, "G::both")
+			document, exported := drawioExport(t, rendering, options)
+			cell := pick(exported)
+			if cell == nil {
+				t.Fatal("the export has no cell to move")
+			}
+			_, imp := drawioImport(t, drawioImporter(t, rendering, options), rendering.View, shifted(t, 40, 30)(document, cell.ID))
+			for _, e := range imp.Edits {
+				if e.Kind == view.DrawioEditLayout && e.FQN == "" {
+					t.Errorf("a Layout is written on a declaration no name reaches: %+v", e)
+				}
+			}
+			if !slices.ContainsFunc(imp.Notices, func(n string) bool { return strings.Contains(n, "G::runA: holds a node with no name") }) {
+				t.Errorf("the import does not say it left the unnamed step unplaced: %q", imp.Notices)
+			}
+			res, err := Apply(m, DrawioOperations(imp, false))
+			if err != nil {
+				t.Fatalf("apply %+v: %v", imp.Edits, err)
+			}
+			if v, e := count(string(res.Content)); v != wantV || e != wantE {
+				t.Errorf("G::onlyA draws %d vertices and %d edges after the import into G::both, it drew %d and %d", v, e, wantV, wantE)
+			}
+		})
+	}
+}

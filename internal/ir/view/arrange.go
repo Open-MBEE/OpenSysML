@@ -27,6 +27,7 @@ type arranger struct {
 	unrouted   bool                  // this build has no router; the form routes on opening
 	routed     map[int]bool          // the edges (by index) the router gave their route
 	unroutable []int                 // the edges (by index) the router found no path for
+	crowded    []string              // what a flow drawn around its placed swimlanes covers of another's, each a notice
 	inward     map[int]drawioEnds    // per edge, the ends that lead into the port's owner
 	beside     map[string]bool       // the flows whose free nodes sit beside their placed swimlanes, not under
 	grid       int                   // nodes and notes laid on the grid for want of a position
@@ -73,6 +74,9 @@ func (a *arranger) layout(r *Rendering) {
 		}
 		a.settle(root, at)
 		a.extend(a.boxes[root.ID])
+	}
+	if lanesAlone {
+		a.crowded = a.crowdedLanes(placed)
 	}
 	for _, picture := range r.Pictures {
 		a.extend(drawioBox{X: picture.X, Y: picture.Y, Width: picture.Width, Height: picture.Height})
@@ -322,6 +326,65 @@ func (a *arranger) lanesFrame(node *Node, at drawioBox) drawioBox {
 		}
 	}
 	return drawioBox{X: at.X, Y: at.Y, Width: right + drawioNestedPad - at.X, Height: bottom + drawioNestedPad - at.Y}
+}
+
+// crowdedLanes says, for each swimlane a flow in roots frames that another flow's frame is
+// drawn over, which of that flow's lanes is stated too near it and the gap that clears it.
+func (a *arranger) crowdedLanes(roots []*Node) []string {
+	var notices []string
+	for _, over := range roots {
+		if _, framesLanes := a.aroundLanes(over); !framesLanes {
+			continue
+		}
+		frame := a.boxes[over.ID]
+		for _, under := range roots {
+			if _, framesLanes := a.aroundLanes(under); under == over || !framesLanes {
+				continue
+			}
+			for _, covered := range under.Children {
+				box := a.boxes[covered.ID]
+				if covered.Kind != swimlaneKind || !covered.Geometry.placed() || !frame.overlaps(box) {
+					continue
+				}
+				if notice := a.crowdNotice(over, frame, covered, box); notice != "" {
+					notices = append(notices, notice)
+				}
+			}
+		}
+	}
+	return notices
+}
+
+// crowdNotice names the placed swimlane of the flow over nearest the swimlane covered, which
+// over's frame is drawn across, and the gap between the two that keeps the frame clear of it.
+func (a *arranger) crowdNotice(over *Node, frame drawioBox, covered *Node, box drawioBox) string {
+	notice, least := "", math.Inf(1)
+	for _, lane := range over.Children {
+		own := a.boxes[lane.ID]
+		if lane.Kind != swimlaneKind || !lane.Geometry.placed() {
+			continue
+		}
+		var stated, needed float64
+		var axis string
+		switch {
+		case own.Y >= box.bottom():
+			stated, needed, axis = own.Y-box.bottom(), own.Y-frame.Y, "below"
+		case own.bottom() <= box.Y:
+			stated, needed, axis = box.Y-own.bottom(), frame.bottom()-own.bottom(), "above"
+		case own.X >= box.right():
+			stated, needed, axis = own.X-box.right(), own.X-frame.X, "right of"
+		case own.right() <= box.X:
+			stated, needed, axis = box.X-own.right(), frame.right()-own.right(), "left of"
+		default:
+			continue // the two Layouts overlap as stated
+		}
+		if stated < least {
+			least = stated
+			notice = fmt.Sprintf("swimlane %s is placed %g px %s swimlane %s, in another flow: the frame of %s needs %g px there and is drawn over that swimlane; a Layout that far apart keeps them clear",
+				lane.Name, stated, axis, covered.Name, over.Name, math.Ceil(needed))
+		}
+	}
+	return notice
 }
 
 // coversOtherLanes is the area root, drawn from at, covers of the frames the other roots draw

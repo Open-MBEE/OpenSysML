@@ -541,6 +541,14 @@ func TestSwimlanesPlacedAloneKeepTheirFlowsApartInDrawio(t *testing.T) {
 			if at := lanes["line.packer"]; at.X != 320 || at.Y != c.y {
 				t.Errorf("lane of line.packer drawn at %v,%v, its Layout says 320,%v", at.X, at.Y, c.y)
 			}
+			// Stated nearer than the lower flow's header is tall, the lanes cannot both be kept clear: the file says so.
+			const crowded = "swimlane line.packer is placed 48 px below swimlane line.robot, in another flow: the frame of LaneStacked::runB needs 92 px there and is drawn over that swimlane"
+			if said := strings.Contains(out, crowded); said == c.apart {
+				t.Errorf("notice of a frame drawn over a swimlane: %v, want %v:\n%s", said, !c.apart, out)
+			}
+			if c.apart && strings.Contains(out, "drawn over that swimlane") {
+				t.Errorf("lanes drawn clear of each other are noticed as covered:\n%s", out)
+			}
 			runA, runB := named("LaneStacked::runA"), named("LaneStacked::runB")
 			if c.apart && overlap(runA, runB) {
 				t.Errorf("flow runA at %+v overlaps flow runB at %+v", runA, runB)

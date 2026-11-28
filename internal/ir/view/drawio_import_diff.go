@@ -178,7 +178,7 @@ func (i *DrawioImporter) Import(file *DrawioFile) (*DrawioImport, error) {
 		return nil, &DrawioViewError{View: i.norm.View, Pages: []string{file.View}}
 	}
 	out := &DrawioImport{View: i.norm.View}
-	m := &drawioMatcher{norm: i.norm, drawn: i.drawn, w: i.w, base: i.base, file: file, out: out, nodes: i.nodes, ports: i.ports, positioned: i.positioned, framed: map[string]bool{}, paired: map[string]*DrawioCell{}}
+	m := &drawioMatcher{norm: i.norm, drawn: i.drawn, w: i.w, base: i.base, file: file, out: out, nodes: i.nodes, ports: i.ports, positioned: i.positioned, framed: map[string]bool{}, unnamed: map[string]bool{}, paired: map[string]*DrawioCell{}}
 	m.match()
 	m.canvas()
 	m.resolveRenames()
@@ -212,7 +212,9 @@ type drawioMatcher struct {
 	// framed are the cells whose Layout pinning a container already wrote;
 	// paired is the file's cell for each baseline cell matched so far.
 	framed map[string]bool
-	paired map[string]*DrawioCell
+	// unnamed are the frames holding a node with no name the import left unplaced, each noticed once.
+	unnamed map[string]bool
+	paired  map[string]*DrawioCell
 	// positioned is whether the rendering states a place for anything it draws.
 	positioned bool
 }
@@ -821,11 +823,6 @@ func (m *drawioMatcher) placeRoots() {
 		if node == nil || !root.Vertex || root.Relative || m.nodes[m.frameOf(root)] != nil || m.framed[root.ID] || placed[edited.ID] {
 			continue
 		}
-		if m.unnamedIn(root.ID) {
-			// Placing it would place that node in every view, for a file that left it alone.
-			m.out.Notices = append(m.out.Notices, fmt.Sprintf("%s: holds a node with no name, which only a Layout on its declaration places, in every view; the file left it alone, so it is not placed and the view leaves it undrawn", root.FQN))
-			continue
-		}
 		if m.framesChildren(root.ID) {
 			m.pin(root.ID)
 			continue
@@ -844,24 +841,6 @@ type layoutTarget struct {
 // layoutTargetOf is the target of the Layout edit e.
 func layoutTargetOf(e DrawioEdit) layoutTarget {
 	return layoutTarget{name: e.FQN, within: strings.Join(e.Within, "\x00"), origin: e.Origin}
-}
-
-// unnamedIn reports whether a node drawn in the baseline cell id's frame, at any depth, has no
-// qualified name: only a Layout on its declaration places it, in every view.
-func (m *drawioMatcher) unnamedIn(id string) bool {
-	for i := range m.base.Cells {
-		child := &m.base.Cells[i]
-		if child.Parent != id || !child.Vertex || child.Relative || m.nodes[child.ID] == nil {
-			continue
-		}
-		if origin, _ := m.originOf(child.ID); origin.Located() && m.targetName(m.editedOf(child), child) == "" {
-			return true
-		}
-		if m.unnamedIn(child.ID) {
-			return true
-		}
-	}
-	return false
 }
 
 // lanePlaced reports whether a Layout places a swimlane of the rendering.
@@ -905,6 +884,18 @@ func (m *drawioMatcher) framePlace(cell, base *DrawioCell, node *Node, sized boo
 	if base.FQN == "" && cell.FQN == "" && !origin.Located() {
 		return // a section of a node's box, standing for no declaration
 	}
+	if name == "" && m.leftAlone(cell, base) {
+		// Only a Layout on its declaration places a node with no name, in every view, and the file left it alone.
+		if frame := m.frameOf(base); !m.unnamed[frame] {
+			m.unnamed[frame] = true
+			holder := "the view"
+			if parent := m.base.Cell(frame); parent != nil && parent.FQN != "" {
+				holder = parent.FQN
+			}
+			m.out.Notices = append(m.out.Notices, fmt.Sprintf("%s: holds a node with no name, which only a Layout on its declaration places, in every view; the file left it alone, so it is not placed and the view leaves it undrawn", holder))
+		}
+		return
+	}
 	box := fullBox(cell)
 	layout := &semantics.Layout{X: box.X - m.frameShift(base).X, Y: box.Y - m.frameShift(base).Y, Collapsed: cell.Collapsed}
 	if sized {
@@ -914,6 +905,17 @@ func (m *drawioMatcher) framePlace(cell, base *DrawioCell, node *Node, sized boo
 		layout.Hidden = node.Geometry.Hidden
 	}
 	m.out.Edits = append(m.out.Edits, DrawioEdit{Kind: DrawioEditLayout, Cell: cell.ID, Label: cell.Label, FQN: name, Origin: origin, Within: within, Layout: layout})
+}
+
+// leftAlone reports whether the file shows the cell where the baseline drew it in its parent,
+// which the file may have moved.
+func (m *drawioMatcher) leftAlone(cell, base *DrawioCell) bool {
+	was, is := fullBox(base), fullBox(cell)
+	if parent := m.base.Cell(base.Parent); parent != nil && parent.Vertex {
+		from, to := fullBox(parent), fullBox(m.editedOf(parent))
+		was.X, was.Y = was.X+to.X-from.X, was.Y+to.Y-from.Y
+	}
+	return sameBox(was, is)
 }
 
 // targetName is the name an annotation about the cell's element states: its
