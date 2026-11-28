@@ -55,20 +55,25 @@ func (m *Model) ExpressionNodeFunction(node ast.Node) *symbols.Symbol {
 }
 
 // TriggerFunction returns the function a TriggerInvocationExpression of the TriggerKind kind
-// invokes (SysML 8.3.17.17, instantiatedType): nil for any other kind and without the library.
+// invokes (SysML 8.3.17.17, instantiatedType): the bundled library's declaration, nil for any other kind and without it.
 func (m *Model) TriggerFunction(kind string) *symbols.Symbol {
 	if m == nil {
 		return nil
 	}
+	var function *symbols.Symbol
 	switch kind {
 	case "when":
-		return m.libSymbol("Triggers::TriggerWhen")
+		function = m.libSymbol("Triggers::TriggerWhen")
 	case "at":
-		return m.libSymbol("Triggers::TriggerAt")
+		function = m.libSymbol("Triggers::TriggerAt")
 	case "after":
-		return m.libSymbol("Triggers::TriggerAfter")
+		function = m.libSymbol("Triggers::TriggerAfter")
 	}
-	return nil
+	if function == nil || !m.libraryDeclared(function) {
+		// libSymbol answers a sole model declaration of the name where the library is absent.
+		return nil
+	}
+	return function
 }
 
 // expressionParameterRedefinitions returns what an expression's parameter or result redefines in each

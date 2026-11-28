@@ -165,3 +165,45 @@ func TestImpliedTriggerReceiverBindingOfATransitionTrigger(t *testing.T) {
 		t.Errorf("the trigger action owns %d implied binding connectors, want 1", got)
 	}
 }
+
+// An accept action that redefines its receiver in its body binds that redefinition, whatever it is named.
+func TestImpliedTriggerReceiverBindingOfARenamedReceiver(t *testing.T) {
+	m, _ := buildModelWithLibraryNamedKind(t, "t.sysml", source.KindSysML, `package P {
+	part def PQ;
+	action def A {
+		part q : PQ;
+		action renamed accept after 5 [SI::s] { in r redefines receiver = q; }
+		action same accept after 5 [SI::s] { in redefines receiver = q; }
+	}
+}`)
+	for _, name := range []string{"P::A::renamed", "P::A::same"} {
+		owner := lookupOne(t, m, name)
+		receiver, _, parameter := m.triggerReceiverBinding(owner)
+		if receiver == nil || receiver.Owner() != owner {
+			t.Errorf("%s: the bound receiver is %q, want the one the action redefines", name, m.resolver.Index().GetFQN(receiver))
+		}
+		if got := m.resolver.Index().GetFQN(parameter); got != "Triggers::TriggerAfter::receiver" {
+			t.Errorf("%s: the bound parameter is %q", name, got)
+		}
+		if got := len(m.ImpliedBindingConnectors(owner)); got != 1 {
+			t.Errorf("%s owns %d implied binding connectors, want 1", name, got)
+		}
+	}
+}
+
+// Without the library a model's own declaration named as a Triggers function is not the trigger function.
+func TestTriggerFunctionIsTheLibraryDeclaration(t *testing.T) {
+	m, _ := buildModel(t, `package Triggers { calc def TriggerWhen; calc def TriggerAt; calc def TriggerAfter; }
+package P { action def A { attribute c; action aw accept when c; } }`)
+	if m.libSymbol("Triggers::TriggerWhen") != lookupOne(t, m, "Triggers::TriggerWhen") {
+		t.Fatal("libSymbol does not answer the model's Triggers::TriggerWhen")
+	}
+	for _, kind := range []string{"when", "at", "after"} {
+		if function := m.TriggerFunction(kind); function != nil {
+			t.Errorf("TriggerFunction(%q) answers the model declaration %q", kind, m.resolver.Index().GetFQN(function))
+		}
+	}
+	if connectors := m.ImpliedBindingConnectors(lookupOne(t, m, "P::A::aw")); len(connectors) != 0 {
+		t.Errorf("the accept action owns %d implied binding connectors without the library", len(connectors))
+	}
+}

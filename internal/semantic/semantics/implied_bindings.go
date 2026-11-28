@@ -183,12 +183,27 @@ func (m *Model) triggerReceiverBinding(owner *symbols.Symbol) (receiver, invocat
 		if owner.Expr != nil {
 			inheriting = m.libSymbol("Actions::TransitionAction::accepter")
 		}
-		receiver, _ = m.LookupMember(inheriting, "receiver")
+		receiver = m.inheritedReceiver(inheriting)
 	}
 	if receiver == nil || parameter == nil {
 		return nil, nil, nil
 	}
 	return receiver, invocation, parameter
+}
+
+// inheritedReceiver returns the receiver parameter an accept action has without `via`: its member that is, or
+// that redefines under any name, the receiver of AcceptPerformance.
+func (m *Model) inheritedReceiver(action *symbols.Symbol) *symbols.Symbol {
+	base := m.libSymbol("Transfers::AcceptPerformance::receiver")
+	if action == nil || base == nil {
+		return nil
+	}
+	for _, member := range m.MembersOf(action) {
+		if member == base || slices.Contains(m.AllRedefinedFeatures(member), base) {
+			return member
+		}
+	}
+	return nil
 }
 
 // boundValue returns the value expression a feature is bound to and that value's result parameter;
