@@ -23,6 +23,7 @@ import (
 func (d *decoder) render(roots []*element) (string, error) {
 	for {
 		d.printed = map[*element]bool{}
+		d.aboutWritten = map[*element]bool{}
 		d.rebuilt = map[*element]bool{}
 		d.prefixed = map[*element]bool{}
 		d.bodyAt = map[*element]region{}

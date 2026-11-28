@@ -336,10 +336,10 @@ func (m *Model) statementOperands(sym *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
-// NodeStatementOf is the statement a plain-headed action node is written as (`action a assign …`,
-// `action a if …`; SysML v2 §8.2.2.17 ActionNode), the rule the conversion reads (naming.NodeStatement).
+// NodeStatementOf is the statement an action node is written as (`action a assign …`,
+// `action a : A if …`; SysML v2 §8.2.2.17 ActionNode), the rule the conversion reads (naming.NodeStatement).
 func NodeStatementOf(n *ast.Usage) ast.Node {
-	if n == nil || !PlainNodeHead(n) {
+	if n == nil || n.PrefixKeyword != "" {
 		return nil
 	}
 	switch s := symbols.ActionNodeStatementOf(n).(type) {
@@ -347,16 +347,6 @@ func NodeStatementOf(n *ast.Usage) ast.Node {
 		return s
 	}
 	return nil
-}
-
-// PlainNodeHead reports whether an action node declares nothing but its visibility
-// and name: no prefix, modifier, specialization, multiplicity or value.
-func PlainNodeHead(n *ast.Usage) bool {
-	return len(n.Prefixes) == 0 && n.PrefixKeyword == "" && len(n.Relationships) == 0 &&
-		n.Multiplicity == nil && n.CrossFeature == nil && n.Value == nil &&
-		!n.IsAbstract && !n.IsVariation && !n.IsVariant && !n.IsReference && !n.IsVariable &&
-		!n.IsIndividual && n.Portion == ast.PortionNone && !n.IsPortion && n.Direction == ast.DirNone &&
-		!n.IsEnd && !n.IsConstant && !n.IsDerived && !n.IsOrdered && !n.IsNonunique && !n.IsParallel
 }
 
 // nodeStatementOf is NodeStatementOf for any declaration.
@@ -405,7 +395,7 @@ func (m *Model) statementParts(sym *symbols.Symbol) []*symbols.Symbol {
 }
 
 // statementOf is the statement sym is: the node synthesized for it, or the usage written as it
-// with a plain head; nil where the statement is a node nested in the usage, and for anything else.
+// (its declaration's typing and prefix included); nil where the statement is a node nested in the usage, and for anything else.
 func statementOf(sym *symbols.Symbol) ast.Node {
 	if sym == nil || sym.Expr != nil || sym.Implicit != nil || IsLoopVariable(sym) {
 		return nil
