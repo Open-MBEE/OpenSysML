@@ -785,10 +785,11 @@ func (m *drawioMatcher) pin(id string) {
 	}
 }
 
-// placeRoots places every root of a view placing nothing, once the file moves a swimlane and
-// so places a node: a view placing some nodes leaves the rest undrawn, and the file shows all.
+// placeRoots places every root of a view placing nothing but swimlanes, once the file moves a
+// swimlane or a node beside a placed one and so places a node: a view placing some nodes
+// leaves the rest undrawn, and the file shows all.
 func (m *drawioMatcher) placeRoots() {
-	if m.positioned || !m.laneMoved() {
+	if m.positioned || !m.laneMoved() && !m.lanePlaced() {
 		return
 	}
 	placed := map[string]bool{}
@@ -806,6 +807,11 @@ func (m *drawioMatcher) placeRoots() {
 		if node == nil || !root.Vertex || root.Relative || m.nodes[m.frameOf(root)] != nil || m.framed[root.ID] || placed[edited.ID] {
 			continue
 		}
+		if m.unnamedIn(root.ID) {
+			// Placing it would place that node in every view, for a file that left it alone.
+			m.out.Notices = append(m.out.Notices, fmt.Sprintf("%s: holds a node with no name, which only a Layout on its declaration places, in every view; the file left it alone, so it is not placed and the view leaves it undrawn", root.FQN))
+			continue
+		}
 		if m.framesChildren(root.ID) {
 			m.pin(root.ID)
 			continue
@@ -813,6 +819,34 @@ func (m *drawioMatcher) placeRoots() {
 		m.framed[root.ID] = true
 		m.framePlace(edited, root, node, !node.Geometry.placed() || node.Geometry.HasSize)
 	}
+}
+
+// unnamedIn reports whether a node drawn in the baseline cell id's frame, at any depth, has no
+// qualified name: only a Layout on its declaration places it, in every view.
+func (m *drawioMatcher) unnamedIn(id string) bool {
+	for i := range m.base.Cells {
+		child := &m.base.Cells[i]
+		if child.Parent != id || !child.Vertex || child.Relative || m.nodes[child.ID] == nil {
+			continue
+		}
+		if origin, _ := m.originOf(child.ID); origin.Located() && m.targetName(m.editedOf(child), child) == "" {
+			return true
+		}
+		if m.unnamedIn(child.ID) {
+			return true
+		}
+	}
+	return false
+}
+
+// lanePlaced reports whether a Layout places a swimlane of the rendering.
+func (m *drawioMatcher) lanePlaced() bool {
+	for _, node := range m.nodes {
+		if node.Kind == swimlaneKind && node.Geometry.placed() {
+			return true
+		}
+	}
+	return false
 }
 
 // laneMoved reports whether the file has a swimlane at another box than the baseline's.

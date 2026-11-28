@@ -28,6 +28,7 @@ type arranger struct {
 	routed     map[int]bool          // the edges (by index) the router gave their route
 	unroutable []int                 // the edges (by index) the router found no path for
 	inward     map[int]drawioEnds    // per edge, the ends that lead into the port's owner
+	beside     map[string]bool       // the flows whose free nodes sit beside their placed swimlanes, not under
 	grid       int                   // nodes and notes laid on the grid for want of a position
 	extent     drawioBox             // the bounds of everything placed
 }
@@ -35,7 +36,7 @@ type arranger struct {
 // newArranger is an arranger with nothing settled yet, sizing boxes by labels
 // and drawing the ports of ports.
 func newArranger(labels labeller, ports portView) arranger {
-	return arranger{labels: labels, ports: ports, boxes: map[string]drawioBox{}, routed: map[int]bool{}, inward: map[int]drawioEnds{}}
+	return arranger{labels: labels, ports: ports, boxes: map[string]drawioBox{}, beside: map[string]bool{}, routed: map[int]bool{}, inward: map[int]drawioEnds{}}
 }
 
 // layout settles a box for every node: the stated one, or one fitted to the
@@ -60,7 +61,17 @@ func (a *arranger) layout(r *Rendering) {
 		}
 	}
 	for _, root := range placed {
-		a.settle(root, around[root.ID])
+		at := around[root.ID]
+		if _, framesLanes := a.aroundLanes(root); lanesAlone && framesLanes {
+			// Its free nodes go beside its lanes when under them they cover more of another flow's lanes.
+			if under := a.coversOtherLanes(root, at, r.Roots); under > 0 {
+				a.beside[root.ID] = true
+				if a.coversOtherLanes(root, at, r.Roots) >= under {
+					delete(a.beside, root.ID)
+				}
+			}
+		}
+		a.settle(root, at)
 		a.extend(a.boxes[root.ID])
 	}
 	for _, picture := range r.Pictures {
@@ -183,6 +194,14 @@ func (a *arranger) settleChildren(node *Node, box drawioBox) {
 			origin.Y = math.Max(origin.Y, a.boxes[child.ID].bottom()+gap)
 		}
 	}
+	if a.beside[node.ID] {
+		origin = drawioBox{X: box.X + drawioNestedPad, Y: box.Y + a.headroom(node) + gap}
+		for _, child := range node.Children {
+			if child.Geometry.placed() || holdsPlaced(child) {
+				origin.X = math.Max(origin.X, a.boxes[child.ID].right()+gap)
+			}
+		}
+	}
 	origin.Y = a.settleLanes(lanes, origin, gap)
 	for i, child := range drawioGrid(sizes, origin, gap) {
 		a.settle(unplaced[i], child)
@@ -292,6 +311,40 @@ func (a *arranger) aroundLanes(node *Node) (drawioBox, bool) {
 	return drawioBox{X: minX - drawioNestedPad, Y: minY - a.headroom(node) - drawioNestedGap}, true
 }
 
+// lanesFrame is the least box an unplaced container draws around its placed swimlanes, from
+// the corner aroundLanes gives it.
+func (a *arranger) lanesFrame(node *Node, at drawioBox) drawioBox {
+	right, bottom := at.X, at.Y
+	for _, child := range node.Children {
+		if child.Geometry.placed() && child.Kind == swimlaneKind {
+			size := a.fitted(child)
+			right, bottom = math.Max(right, child.Geometry.X+size.Width), math.Max(bottom, child.Geometry.Y+size.Height)
+		}
+	}
+	return drawioBox{X: at.X, Y: at.Y, Width: right + drawioNestedPad - at.X, Height: bottom + drawioNestedPad - at.Y}
+}
+
+// coversOtherLanes is the area root, drawn from at, covers of the frames the other roots draw
+// around their placed swimlanes.
+func (a *arranger) coversOtherLanes(root *Node, at drawioBox, roots []*Node) float64 {
+	size := a.fitted(root)
+	box := drawioBox{X: at.X, Y: at.Y, Width: size.Width, Height: size.Height}
+	area := 0.0
+	for _, other := range roots {
+		corner, framesLanes := a.aroundLanes(other)
+		if other == root || !framesLanes {
+			continue
+		}
+		frame := a.lanesFrame(other, corner)
+		width := math.Min(box.right(), frame.right()) - math.Max(box.X, frame.X)
+		height := math.Min(box.bottom(), frame.bottom()) - math.Max(box.Y, frame.Y)
+		if width > 0 && height > 0 {
+			area += width * height
+		}
+	}
+	return area
+}
+
 // childShift is what a container's placed children move by: nothing when the
 // container is placed too, else the offset putting their bounds under its header.
 func (a *arranger) childShift(node *Node, box drawioBox) drawioBox {
@@ -369,7 +422,7 @@ func (a *arranger) fitted(node *Node) drawioBox {
 // probe is an arranger sizing and placing as a does, with nothing settled,
 // for measuring a container's children before they are settled under it.
 func (a *arranger) probe() *arranger {
-	return &arranger{labels: a.labels, ports: a.ports, positions: a.positions, side: a.side, portRoom: a.portRoom, pixelPins: a.pixelPins, boxes: map[string]drawioBox{}}
+	return &arranger{labels: a.labels, ports: a.ports, positions: a.positions, side: a.side, portRoom: a.portRoom, pixelPins: a.pixelPins, beside: a.beside, boxes: map[string]drawioBox{}}
 }
 
 // headroom is the height of a node's header and compartments, under which its

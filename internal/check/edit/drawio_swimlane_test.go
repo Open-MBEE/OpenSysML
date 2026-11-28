@@ -331,3 +331,92 @@ func TestDrawioMovedSwimlaneKeepsTheOtherFlowsOfAViewPlacingNoNode(t *testing.T)
 		})
 	}
 }
+
+const unnamedStepLaneModel = `package U {
+	action runA { action load; then action ship; }
+	action runB { action pack; then action; then action post; }
+	part robot { perform runA.load; }
+	view both : StandardViewDefinitions::ActionFlowView {
+		expose runA;
+		expose runB;
+	}
+	view other : StandardViewDefinitions::ActionFlowView {
+		expose runB;
+	}
+}
+`
+
+// A lane moved in a view placing no node writes nothing on the declaration of a step the
+// file left alone: a step with no name in another flow stays unplaced, and so does every
+// other view drawing it.
+func TestDrawioMovedSwimlaneWritesNoLayoutOnAnUntouchedUnnamedStep(t *testing.T) {
+	m, rendering, options := drawioModel(t, unnamedStepLaneModel, "U::both")
+	document, exported := drawioExport(t, rendering, options)
+	lane := laneOf("U::runA::load")(exported)
+	if lane == nil {
+		t.Fatal("the export has no swimlane")
+	}
+	_, imp := drawioImport(t, drawioImporter(t, rendering, options), rendering.View, shifted(t, 40, 30)(document, lane.ID))
+	for _, e := range imp.Edits {
+		if e.Kind == view.DrawioEditLayout && e.FQN == "" {
+			t.Errorf("a Layout is written on a declaration no name reaches: %+v", e)
+		}
+	}
+	res, err := Apply(m, DrawioOperations(imp, false))
+	if err != nil {
+		t.Fatalf("apply %+v: %v", imp.Edits, err)
+	}
+	count := func(content string) (vertices, edges int) {
+		_, r, o := drawioModel(t, content, "U::other")
+		_, f := drawioExport(t, r, o)
+		for i := range f.Cells {
+			switch c := &f.Cells[i]; {
+			case c.Vertex && !c.Relative:
+				vertices++
+			case c.Edge:
+				edges++
+			}
+		}
+		return vertices, edges
+	}
+	wantV, wantE := count(unnamedStepLaneModel)
+	if v, e := count(string(res.Content)); v != wantV || e != wantE {
+		t.Errorf("U::other draws %d vertices and %d edges after the import into U::both, it drew %d and %d", v, e, wantV, wantE)
+	}
+}
+
+// A node moved in the file of a view whose only Layouts are about performers places every
+// flow the file shows: the re-export leaves none undrawn and each placed lane where it was.
+func TestDrawioMovedNodeKeepsTheFlowsAndLanesOfAViewPlacingSwimlanesAlone(t *testing.T) {
+	count := func(f *view.DrawioFile) (vertices, edges int) {
+		for i := range f.Cells {
+			switch c := &f.Cells[i]; {
+			case c.Vertex && !c.Relative:
+				vertices++
+			case c.Edge:
+				edges++
+			}
+		}
+		return vertices, edges
+	}
+	for _, c := range []struct{ view, moved string }{
+		{"T::both", "T::runB::pack"}, {"T::both", "T::runA::ship"},
+		{"T::one", "T::runA::load"}, {"T::one", "T::runB::post"},
+		{"T::free", "T::idle::rest"}, {"T::free", "T::runA::load"},
+	} {
+		t.Run(c.view+" "+c.moved, func(t *testing.T) {
+			edited, imp, re := swimlaneRoundTripOf(t, twoFlowLaneModel, c.view, cellNamed(c.moved), shifted(t, 40, 30))
+			wantV, wantE := count(edited)
+			if v, e := count(re); v != wantV || e != wantE {
+				t.Errorf("re-exported %d vertices and %d edges, the file had %d and %d (edits %+v)", v, e, wantV, wantE, imp.Edits)
+			}
+			lane := laneOf("T::runA::load")
+			if was, again := lane(edited), lane(re); was == nil || again == nil || was.Geometry.X != again.Geometry.X || was.Geometry.Y != again.Geometry.Y {
+				t.Errorf("the lane of line.robot was at %+v, re-exported at %+v", was, again)
+			}
+			if was, again := cellNamed(c.moved)(edited), cellNamed(c.moved)(re); again == nil || !drawioSameBox(was.Geometry, again.Geometry) {
+				t.Errorf("%s was at %+v, re-exported at %+v", c.moved, was.Geometry, again)
+			}
+		})
+	}
+}
