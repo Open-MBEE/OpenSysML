@@ -787,11 +787,17 @@ func (m *drawioMatcher) pin(id string) {
 	}
 }
 
+// placesEveryRoot reports whether the import places every root the file shows: the view places
+// nothing but swimlanes, or the file moved one.
+func (m *drawioMatcher) placesEveryRoot() bool {
+	return !m.positioned && (m.laneMoved() || m.lanePlaced())
+}
+
 // placeRoots places every root of a view placing nothing but swimlanes, once the file moves a
 // swimlane or a node beside a placed one and so places a node: a view placing some nodes
 // leaves the rest undrawn, and the file shows all.
 func (m *drawioMatcher) placeRoots() {
-	if m.positioned || !m.laneMoved() && !m.lanePlaced() {
+	if !m.placesEveryRoot() {
 		return
 	}
 	placed, stated := map[string]bool{}, map[layoutTarget]bool{}
@@ -884,8 +890,9 @@ func (m *drawioMatcher) framePlace(cell, base *DrawioCell, node *Node, sized boo
 	if base.FQN == "" && cell.FQN == "" && !origin.Located() {
 		return // a section of a node's box, standing for no declaration
 	}
-	if name == "" && m.leftAlone(cell, base) {
-		// Only a Layout on its declaration places a node with no name, in every view, and the file left it alone.
+	if name == "" && m.placesEveryRoot() && m.leftAlone(cell, base) {
+		// Only a Layout on its declaration places a node with no name, in every view; the file left
+		// it alone, and it is placed here only because the import places every root.
 		if frame := m.frameOf(base); !m.unnamed[frame] {
 			m.unnamed[frame] = true
 			holder := "the view"

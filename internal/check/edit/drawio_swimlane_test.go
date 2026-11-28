@@ -524,3 +524,45 @@ func TestDrawioMoveInAFlowWritesNoLayoutOnItsUntouchedUnnamedStep(t *testing.T) 
 		})
 	}
 }
+
+const unnamedStepPlainModel = `package N {
+	action runA { action load; then action; then action weld; }
+	view plain : StandardViewDefinitions::ActionFlowView {
+		expose runA;
+	}
+}
+`
+
+func drawioCounts(f *view.DrawioFile) (vertices, edges int) {
+	for i := range f.Cells {
+		switch c := &f.Cells[i]; {
+		case c.Vertex && !c.Relative:
+			vertices++
+		case c.Edge:
+			edges++
+		}
+	}
+	return vertices, edges
+}
+
+// A move in a view placing nothing keeps the step with no name of the moved flow drawn: the
+// import places it as it always did, the rule sparing it being for an import placing every
+// root.
+func TestDrawioMoveInAViewPlacingNothingKeepsItsUnnamedStep(t *testing.T) {
+	for name, pick := range map[string]func(*view.DrawioFile) *view.DrawioCell{
+		"node":  cellNamed("N::runA::weld"),
+		"frame": cellNamed("N::runA"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			var exported *view.DrawioFile
+			_, imp, re := swimlaneRoundTripOf(t, unnamedStepPlainModel, "N::plain", func(f *view.DrawioFile) *view.DrawioCell {
+				exported = f
+				return pick(f)
+			}, shifted(t, 40, 30))
+			wantV, wantE := drawioCounts(exported)
+			if v, e := drawioCounts(re); v != wantV || e != wantE {
+				t.Errorf("the view draws %d vertices and %d edges after the import, it drew %d and %d (notices %q)", v, e, wantV, wantE, imp.Notices)
+			}
+		})
+	}
+}
