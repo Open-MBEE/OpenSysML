@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 	"github.com/santhosh-tekuri/jsonschema/v6/kind"
 )
@@ -230,7 +232,11 @@ func TestAPIJSONNormativeSchema(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		document, err := cachedAPIJSON(path, source, "standard", "graph")
+		graph, err := convert.ModelGraph([]convert.Input{{Name: path, Data: source}}, convert.Options{ID: export.IDUUID})
+		if err != nil {
+			t.Fatalf("%s: %v", path, err)
+		}
+		document, err := export.WriteAPIJSONWithOptions(graph, export.APIJSONOptions{Interchange: true})
 		if err != nil {
 			t.Fatalf("%s: %v", path, err)
 		}
