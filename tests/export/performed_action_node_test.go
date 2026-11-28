@@ -56,19 +56,30 @@ func TestPerformedActionNodeOwnsItsStatement(t *testing.T) {
 	}
 }
 
-// assertPerformedStatement fails unless the graph states P::A::n as a PerformActionUsage and one element of metaclass.
+// assertPerformedStatement fails unless the graph states P::A::n as a PerformActionUsage and one element of
+// metaclass, which n owns.
 func assertPerformedStatement(t *testing.T, turtle []byte, metaclass string) {
 	t.Helper()
-	if !performedNode.Match(turtle) {
-		t.Errorf("the graph does not state n as a PerformActionUsage:\n%s", turtle)
+	wrapper := performedNode.FindSubmatch(turtle)
+	if wrapper == nil {
+		t.Fatalf("the graph does not state n as a PerformActionUsage:\n%s", turtle)
 	}
-	if got := strings.Count(string(turtle), "\n    a sysml:"+metaclass+" ;"); got != 1 {
-		t.Errorf("the graph states %d %s, want 1:\n%s", got, metaclass, turtle)
+	var statements []string
+	for _, subject := range strings.Split(string(turtle), "\n\n") {
+		if strings.Contains(subject, "\n    a sysml:"+metaclass+" ;") {
+			statements = append(statements, subject)
+		}
+	}
+	if len(statements) != 1 {
+		t.Fatalf("the graph states %d %s, want 1:\n%s", len(statements), metaclass, turtle)
+	}
+	if owner := "\n    sysml:owner " + string(wrapper[1]) + " ;"; !strings.Contains(statements[0], owner) {
+		t.Errorf("n does not own the %s:\n%s", metaclass, statements[0])
 	}
 }
 
 // A state's subaction is addressed under its membership (`P__A___400__n`).
-var performedNode = regexp.MustCompile(`\nelmt:P__A__(\w+__)?n\n    a sysml:PerformActionUsage ;`)
+var performedNode = regexp.MustCompile(`\n(elmt:P__A__(?:\w+__)?n)\n    a sysml:PerformActionUsage ;`)
 
 var statedMetaclass = regexp.MustCompile(`\n    a sysml:(\w+) ;`)
 
