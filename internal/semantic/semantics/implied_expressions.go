@@ -16,6 +16,9 @@ func (m *Model) ExpressionFunction(expr *symbols.Symbol) *symbols.Symbol {
 	if function := m.ExpressionNodeFunction(expr.Decl); function != nil {
 		return function
 	}
+	if expressionElementMetaclassName(expr) == "TriggerInvocationExpression" {
+		return m.TriggerFunction(TriggerKind(expr.Decl))
+	}
 	if _, invocation := expr.Decl.(*ast.InvocationExpr); invocation {
 		for _, function := range m.expressionReferencedElements(expr, "function") {
 			if function != nil {
@@ -47,6 +50,23 @@ func (m *Model) ExpressionNodeFunction(node ast.Node) *symbols.Symbol {
 		return m.libSymbol(fqnSelect)
 	case *ast.CollectExpr:
 		return m.libSymbol(fqnCollect)
+	}
+	return nil
+}
+
+// TriggerFunction returns the function a TriggerInvocationExpression of the TriggerKind kind
+// invokes (SysML 8.3.17.17, instantiatedType): nil for any other kind and without the library.
+func (m *Model) TriggerFunction(kind string) *symbols.Symbol {
+	if m == nil {
+		return nil
+	}
+	switch kind {
+	case "when":
+		return m.libSymbol("Triggers::TriggerWhen")
+	case "at":
+		return m.libSymbol("Triggers::TriggerAt")
+	case "after":
+		return m.libSymbol("Triggers::TriggerAfter")
 	}
 	return nil
 }

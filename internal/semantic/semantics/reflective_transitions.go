@@ -524,8 +524,8 @@ func optionalElement(sym *symbols.Symbol) []*symbols.Symbol {
 	return []*symbols.Symbol{sym}
 }
 
-// triggerKind is the TriggerKind a time or change event's TriggerInvocationExpression has.
-func triggerKind(node ast.Node) string {
+// TriggerKind is the TriggerKind a time or change event's TriggerInvocationExpression has.
+func TriggerKind(node ast.Node) string {
 	switch n := node.(type) {
 	case *ast.ChangeEvent:
 		return "when"

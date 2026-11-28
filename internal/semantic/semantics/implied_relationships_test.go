@@ -157,8 +157,9 @@ var impliedDifferenceReasons = map[string]string{
 		"checkInvocationExpressionBehaviorResultSpecialization asks that the result specialize the behavior, which types nothing",
 	"satisfy-subject": "the pilot has the subject of a satisfied requirement redefine Requirements::RequirementCheck::subj beside the subject of the " +
 		"requirement satisfied; the latter redefines the former already, and the model derives it alone",
-	"trigger-invocation": "the model holds no parameter of a TriggerInvocationExpression and no function for it yet, so the rows of " +
-		"checkTriggerInvocationExpressionSpecialization and of its parameters are the pilot's alone, and its featuring is its owning payload's",
+	"trigger-receiver": "checkAcceptActionUsageReceiverBindingConnector (SysML Table 33) has an accept action own a BindingConnector between its " +
+		"receiver parameter and the receiver parameter of its TriggerInvocationExpression; the pilot adds one only to a trigger " +
+		"that owns a second parameter, which a trigger written `when`, `at` or `after` inherits instead, so its export states none",
 	"class-owned-step": "the model has a step a class owns subset Performances::Performance::enclosedPerformances; " +
 		"checkStepEnclosedPerformanceSpecialization holds of a step a behavior or a step owns, and the pilot states Performances::performances",
 	"receiver-invocation": "the pilot has an invocation reached through a receiver subset the chain it owns, a Feature subsetting Base::things; " +
@@ -199,7 +200,8 @@ func impliedRelationshipDifferences(t *testing.T) map[string]map[string]string {
 func TestImpliedRelationshipsAgreeWithThePilotPerRow(t *testing.T) {
 	differences := impliedRelationshipDifferences(t)
 	reasons := map[string]bool{}
-	for name, kind := range map[string]source.Kind{"rows.kerml": source.KindKerML, "rows.sysml": source.KindSysML, "expressions.sysml": source.KindSysML} {
+	for name, kind := range map[string]source.Kind{"rows.kerml": source.KindKerML, "rows.sysml": source.KindSysML, "expressions.sysml": source.KindSysML,
+		"triggers.sysml": source.KindSysML} {
 		dir := filepath.Join("testdata", "implied_relationships")
 		src, err := os.ReadFile(filepath.Join(dir, name))
 		if err != nil {

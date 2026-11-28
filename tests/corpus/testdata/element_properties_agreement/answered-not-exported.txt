@@ -298,13 +298,13 @@ Feature::featuringType	1	symbol-17
 Feature::inheritedFeature	340	symbol-72
 Feature::inheritedMembership	340	symbol-72
 Feature::input	1	symbol-72
-Feature::name	6641	symbol-72
+Feature::name	6689	symbol-72
 Feature::output	1	symbol-72
 Feature::ownedRedefinition	340	symbol-72
 Feature::ownedSpecialization	340	symbol-72
 Feature::ownedSubsetting	340	symbol-72
 Feature::qualifiedName	14	symbol-86
-Feature::type	6496	symbol-19
+Feature::type	6531	symbol-19
 FeatureChainExpression::instantiatedType	503	symbol-29
 FeatureChainExpression::operand	503	symbol-30
 FeatureChaining::relatedElement	297	symbol-10
@@ -441,7 +441,7 @@ OperatorExpression::qualifiedName	4	symbol-86
 OwningMembership::ownedMemberFeature	9	symbol-16
 OwningMembership::owningType	9	symbol-45
 ParameterMembership::ownedMemberFeature	16	symbol-16
-ParameterMembership::ownedMemberName	3410	symbol-85
+ParameterMembership::ownedMemberName	3458	symbol-85
 PartDefinition::ownedFlow	11	symbol-45
 PartDefinition::ownedInterface	3	symbol-45
 PartDefinition::ownedRequirement	1	symbol-45

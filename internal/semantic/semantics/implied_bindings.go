@@ -26,6 +26,8 @@ type impliedBinding struct {
 	// initial the chain that features it instead when the value is an initial one (KerML 8.4.4.11).
 	valued  *symbols.Symbol
 	initial *symbols.Symbol
+	// owned marks a connector its owner owns as a feature, which features it (SysML Table 33).
+	owned bool
 }
 
 // impliedChain is a feature chain an implied relationship owns, with the features it chains.
@@ -126,6 +128,13 @@ func (m *Model) impliedBindingsOf(owner *symbols.Symbol) []*impliedBinding {
 			bind(source, parts.linkParameters[0])
 		}
 	}
+	if receiver, invocation, parameter := m.triggerReceiverBinding(owner); receiver != nil {
+		// checkAcceptActionUsageReceiverBindingConnector: between the receiver and the receiver
+		// parameter of the trigger invocation, reached through the invocation.
+		binding := bind(receiver, nil)
+		binding.owned = true
+		binding.related[1] = m.heldChain(binding.ends[1], []*symbols.Symbol{invocation, parameter})
+	}
 	if !m.resolver.Leave() {
 		return out
 	}
@@ -136,6 +145,50 @@ func (m *Model) impliedBindingsOf(owner *symbols.Symbol) []*impliedBinding {
 		m.bindingOfConnector[binding.connector] = binding
 	}
 	return out
+}
+
+// triggerReceiverBinding returns, for an accept action whose payload a trigger invocation values, its receiver
+// parameter, the invocation and the receiver parameter the invocation inherits; nil for any other symbol.
+func (m *Model) triggerReceiverBinding(owner *symbols.Symbol) (receiver, invocation, parameter *symbols.Symbol) {
+	var payload *symbols.Symbol
+	if owner.Expr != nil {
+		if owner.Expr.Role != symbols.ExpressionTriggerAction {
+			return nil, nil, nil
+		}
+		if parts := m.acceptParts(owner); parts != nil {
+			payload, receiver = parts.payload, parts.receiver
+		}
+	} else if symbols.AcceptPayloadOf(owner.Decl) != nil {
+		for _, param := range m.controlParameters(owner) {
+			switch m.nodeParameterName(owner, param) {
+			case "payload":
+				payload = param
+			case "receiver":
+				receiver = param
+			}
+		}
+	}
+	if payload == nil {
+		return nil, nil, nil
+	}
+	invocation = m.ValueExpression(payload)
+	if invocation == nil || expressionElementMetaclassName(invocation) != "TriggerInvocationExpression" {
+		return nil, nil, nil
+	}
+	parameter = m.argumentParameter(m.ExpressionFunction(invocation), 1, false)
+	if receiver == nil {
+		// Without `via` the action inherits its receiver: a trigger action, which no scope holds, the one
+		// of the accepter it subsets (checkAcceptActionUsageTriggerActionSpecialization).
+		inheriting := owner
+		if owner.Expr != nil {
+			inheriting = m.libSymbol("Actions::TransitionAction::accepter")
+		}
+		receiver, _ = m.LookupMember(inheriting, "receiver")
+	}
+	if receiver == nil || parameter == nil {
+		return nil, nil, nil
+	}
+	return receiver, invocation, parameter
 }
 
 // boundValue returns the value expression a feature is bound to and that value's result parameter;
@@ -243,6 +296,9 @@ func (m *Model) inclusionTypeFeaturings(sym *symbols.Symbol) []FeaturingType {
 		case binding != nil && binding.valued != nil:
 			// checkFeatureValueBindingConnector: the featuring types of the feature with the value.
 			return m.DerivedFeaturingTypes(binding.valued)
+		case binding != nil && binding.owned:
+			// checkFeatureFeatureMembershipTypeFeaturing: an ownedFeature, and a binding does not time vary.
+			return []FeaturingType{m.plainFeaturingType(sym.Inclusion.Owner)}
 		}
 		// checkConnectorTypeFeaturing: no type owns an implied connector, so it has its default.
 		if featuring := m.connectorDefaultFeaturingType(sym); featuring.Type != nil {
