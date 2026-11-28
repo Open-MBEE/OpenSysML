@@ -721,7 +721,7 @@ The `sysx:` properties:
 | `sysx:endForm` | The notation an end-binding head writes its ends in — `to`, `nary`, `equals`, `firstThen`, `fromTo`, `flowTo`, `satisfy`, `then` — so the head is rebuilt from the graph rather than read back from its text. See [End-binding heads](#end-binding-heads). |
 | `sysx:endVerb` | The verb a head writes ahead of its ends when its own keyword is the noun form (`connection c connect a to b`, `connector c from a to b`). Without it the verb would be missing or doubled. |
 | `sysx:endReferencesKeyword` | On a named end, the ReferencesKeyword written between the name and the feature when it is the word `references` (`bind e1 references a = …`). Absent, the end is written with `::>`; a value other than the two spellings is refused. |
-| `sysx:endElement` | On an indexed connector end (`connect s.y#(1) to k.u`, an OpenSysML extension), the expression node of the index the end selects one element of its feature with, encoded as any other expression. The end's `ReferenceSubsetting` reaches the whole feature as a standard end's does, so a reader of the standard vocabulary sees `s.y` connected; the index is what the decoder writes back as `#( … )`, and without it the end comes back attaching the whole feature. |
+| `sysx:endElement` | On an indexed connector end (`connect s.y#(1) to k.u`, an OpenSysML extension), the expression node of the index the end selects one element of its feature with, encoded as any other expression. The end's `ReferenceSubsetting` reaches the whole feature as a standard end's does, so a reader of the standard vocabulary sees `s.y` connected; the index is what the decoder writes back as `#( … )`, and without it the end comes back attaching the whole feature. The connector's derived `sysml:relatedFeature`, `sysml:sourceFeature`, `sysml:targetFeature`, `sysml:source` and `sysml:target` keep naming the referenced feature, as metamodel reflection derives it; the selector is found from the ordered `sysml:connectorEnd` links, whose end elements carry `sysx:endElement`. The lower IR keeps the selector beside the port path routing addresses, and the analysis model form writes the end from its source extent, including quoted names and body indices. |
 | `sysx:sourceMember`, `sysx:targetMember` | The member a succession sequences from or to where the notation names no end (`then b;`, or a `then` beside an unnamed member), or where the name the notation supplies for an end links no element (a `then` after `action redefines walk;` whose `walk` is inherited). The end is the element itself rather than only a name, so a same-named member elsewhere cannot be mistaken for it. |
 | `sysx:condition` | The condition a condition member states, as its notation. |
 | `sysx:resultExpression` | The expression an expression body (`{ in y : Real; y + x }`) ends in, after its parameters. The bare expression a calculation or case body computes is not an extension: it is the Expression its `sysml:ResultExpressionMembership` owns. See [Result expressions](#result-expressions). |
@@ -1651,6 +1651,75 @@ members it sequences, as `sysx:sourceMember` and `sysx:targetMember`
 today; the per-file verdicts are in
 [rdf-corpus-roundtrip.md](../project/rdf-corpus-roundtrip.md).
 
+## Verbatim equation mapping annotations
+
+A model can carry an equation that the engine has no expression form for — a
+Modelica medium-state call, a stream value, or an event-regularising conditional
+— as the String value of a metadata annotation on the element that states it.
+The annotation is an ordinary user-defined metadata definition; the engine adds
+no reserved vocabulary. A minimal definition and a constraint body that uses it
+are:
+
+```sysml
+package ModelicaMapping {
+    private import ScalarValues::*;
+    metadata def EquationMapping {
+        attribute body : String;
+    }
+}
+
+package Steam {
+    private import ScalarValues::*;
+    private import ModelicaMapping::*;
+    part def SteamGenerator {
+        attribute state_a;
+        attribute m_flow : Real = 2.0;
+        port port_a;
+        port port_b;
+        constraint steamEquations {
+            @EquationMapping { body = "Medium.temperature(state_a)"; }
+            @EquationMapping { body = "inStream(port_a.h_outflow)"; }
+            @EquationMapping { body = "noEvent(if abs(m_flow) > 1.0 then m_flow else 1.0)"; }
+            m_flow > 0.0
+        }
+    }
+}
+```
+
+The `body` binding is text. Its `Medium`, `inStream`, `noEvent` and `then` are
+not resolved, typed or evaluated as SysML expressions, so the model analyses
+cleanly even though none of those names is declared. They are the payload a
+downstream generator consumes. The constraint's own condition (`m_flow > 0.0`)
+is an ordinary expression and decides the constraint, exactly as a constraint
+body with no annotations does.
+
+Reading the equations back uses the ordinary metadata access expression:
+`SteamGenerator::steamEquations.metadata#(1).body` evaluates to the String
+`"Medium.temperature(state_a)"`, and the annotations are answered in the order
+they were stated. An annotation that states no `body`, or a constraint body
+whose only members are annotations, is not a condition: evaluating it fails with
+the typed no-value error, never a vacuous verdict.
+
+In the graph each binding is a `sysml:ReferenceUsage` whose `sysml:value` is a
+literal holding the equation verbatim; in the API element form the same literal
+is the `value` property of that element (`"value": "inStream(port_a.h_outflow)"`).
+Neither writer rewrites the equation: quotes, backslashes, ampersands, angle
+brackets, newlines and non-ASCII characters survive both formats and the
+graph-to-notation reader. The API element form HTML-escapes `<`, `>` and `&` as
+`\u003c`, `\u003e` and `\u0026`; the Turtle writer emits those three characters
+as ordinary literal characters. Both decode to the same string.
+
+What this surface does **not** do is give those three Modelica forms a SysML
+expression spelling. The engine's conditional expression is
+`if c ? a else b`, not Modelica's `if c then a else b`; there is no `inStream`
+or `noEvent` builtin and no thermodynamic-state package call form. That route
+would need new grammar, evaluation and export and is a known limitation,
+recorded by a skipped test in `internal/translate/export/verbatim_equation_test.go`.
+Generating a class body from these annotations, and the `omc` differential
+against a hand-written golden, belong to the consuming generator, not to the
+engine. The rationale and the acceptance mapping are recorded in
+[constraint-body metadata equations](../project/constraint-body-metadata-equations.md).
+
 ## Limitations
 
 These are the constructs the mapping does not fully represent. Each is a
@@ -1870,7 +1939,13 @@ by the memberships' side (`sysml:membershipOwningNamespace`); when both shapes
 appear for one message, `sysx:memberIndex` on the memberships orders the ends,
 or the flow's `sysml:sourceFeature`/`sysml:targetFeature` does, and a message
 whose ends neither source can order is refused rather than reversed. Named ends carry `sysml:declaredName` and `sysml:name`; multiplicity
-bounds are on the end. A qualified target such as `rover.telemetry` is an
+bounds are on the end. An indexed end (`s.y#(1)`) states its selector as
+`sysx:endElement` on the end element the ordered `sysml:connectorEnd` links
+reach, and keeps its `ReferenceSubsetting` to the whole port; the connector's
+derived `sysml:sourceFeature`, `sysml:targetFeature`,
+`sysml:relatedFeature`, `sysml:source` and `sysml:target` keep naming that
+referenced port, as metamodel reflection derives them. A qualified
+target such as `rover.telemetry` is an
 owned `sysml:Feature` — a *chain feature* — that owns one `sysml:FeatureChaining`
 relationship per link, in order, and keeps the derived `sysml:chainingFeature`
 list beside it; the end's `ReferenceSubsetting` owns the chain as its

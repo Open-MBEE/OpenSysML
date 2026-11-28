@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // executePerformedAction executes the action named by action, performed by an
@@ -505,11 +506,31 @@ func TestInheritedBehaviorPortShadowsThePerformersConnectedPort(t *testing.T) {
 	}
 }
 
+// Routing addresses the port an indexed end selects from, not the selected
+// element: carrying the selector in the lowering must not change delivery.
+func TestIndexedEndStillRoutesToItsPort(t *testing.T) {
+	_, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `package P { }`))
+	conns := []lower.Connection{{Ends: []lower.ConnectionEnd{
+		{Path: "a", Index: &ast.LiteralInteger{Value: "1"}},
+		{Path: "b"},
+	}}}
+	receiving, outbound := ctx.receivingEnds(conns, "a", nil)
+	if len(receiving) != 1 || receiving[0] != "b" || len(outbound) != 0 {
+		t.Errorf("from the indexed end: receiving = %v, outbound = %v, want [b] and none", receiving, outbound)
+	}
+	if !hasConnectionEnd(conns[0], "a") {
+		t.Errorf("the indexed end should still join the port a")
+	}
+	if hasConnectionEnd(conns[0], "a#(1)") {
+		t.Errorf("routing should not match the selector as a port path")
+	}
+}
+
 // A port declaring no flow features constrains no direction, so it receives
 // whatever reaches it in either direction (see also TestSendViaPortRoutesInEitherDirection).
 func TestUndirectedPortsReceiveInEitherDirection(t *testing.T) {
 	_, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `package P { }`))
-	conns := []lower.Connection{{Ends: []string{"a", "b"}}}
+	conns := []lower.Connection{{Ends: []lower.ConnectionEnd{{Path: "a"}, {Path: "b"}}}}
 	for _, from := range []string{"a", "b"} {
 		receiving, outbound := ctx.receivingEnds(conns, from, nil)
 		if len(receiving) != 1 || len(outbound) != 0 {

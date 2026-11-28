@@ -1,0 +1,2 @@
+- **The opt-in A/B timing script now forces uncached test runs on both arms.** `GOFLAGS=-count=1` prevents the serial arm from caching passing tests that the bounded arm would replay, so the figures measure execution rather than cache hits; the documented numbers and their interpretation are unchanged.
+- **The timing script confines its temporary directories to the home cache.** `GATE_TIMING_TMP` is resolved under `$HOME/.cache/opensysml`; absolute paths, `..`, unsupported characters and symlinked components are rejected before any directory is created or written.
