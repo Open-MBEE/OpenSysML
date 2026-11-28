@@ -46,6 +46,12 @@ func impliedRelationshipRows(t *testing.T, m *Model, root *symbols.Scope) []stri
 		owned, _ := m.ReflectiveElements(sym, "ownedElement")
 		// A range owns its bounds through memberships ownedElement does not read yet.
 		owned = append(slices.Clone(owned), m.MultiplicityBounds(sym)...)
+		// The elements held for implied relationships: binding connectors, their ends, the chains they own.
+		// A transition's succession owns its ends through memberships ownedElement does not read yet.
+		if transitionSuccessionPart(sym) {
+			owned = append(owned, m.SuccessionEndMembers(sym)...)
+		}
+		owned = append(owned, impliedOwnedElements(m, sym)...)
 		counts := map[string]int{}
 		for _, child := range owned {
 			meta := "?"
@@ -62,6 +68,7 @@ func impliedRelationshipRows(t *testing.T, m *Model, root *symbols.Scope) []stri
 		}
 		if sym.Kind != symbols.SymbolPackage {
 			owner := key(sym)
+			rows = append(rows, heldElementRows(m, sym, owner, key)...)
 			for _, general := range m.ImpliedSpecializations(sym) {
 				rows = append(rows, "Specialization\t"+owner+"\t"+key(general))
 			}
@@ -85,6 +92,10 @@ func impliedRelationshipRows(t *testing.T, m *Model, root *symbols.Scope) []stri
 		}
 		for _, child := range owned {
 			walk(child)
+		}
+		// A connector relates features keyed under its ends, so its row follows them.
+		if _, related, ok := m.ImpliedBinding(sym); ok {
+			rows = append(rows, "BindingConnector\t"+key(m.ownerOf(sym))+"\t"+key(related[0])+" = "+key(related[1]))
 		}
 	}
 	root.WalkDeclarations(func(sym *symbols.Symbol) {
@@ -110,7 +121,7 @@ func pilotImpliedRows(t *testing.T, path string) []string {
 		if !ok || strings.Count(rest, "\t") != 1 {
 			t.Fatalf("%s: malformed row %q", path, line)
 		}
-		if kind != "Redefinition" && kind != "TypeFeaturing" {
+		if !slices.Contains([]string{"Redefinition", "TypeFeaturing", "BindingConnector", "FeatureChaining"}, kind) {
 			kind = "Specialization"
 		}
 		rows = append(rows, kind+"\t"+rest)
@@ -128,16 +139,8 @@ var impliedDifferenceReasons = map[string]string{
 		"the pilot implies nothing for it",
 	"value-featuring": "checkExpressionTypeFeaturing gives a value expression the featuring types of its featureWithValue; " +
 		"the pilot states none for the value of a variable feature",
-	"crossing": "checkFeatureCrossingSpecialization: the CrossSubsetting targets a feature chain, an element the model does not hold yet; " +
-		"with it the end's Occurrences::occurrences is redundant",
-	"chain-target-feature": "checkFeatureChainExpressionTargetRedefinition, checkFeatureChainExpressionSourceTargetRedefinition and " +
-		"checkFeatureChainExpressionResultSpecialization name the feature nested in a chain expression's source parameter and " +
-		"the chain its result owns, elements the model does not hold yet; the result specializes the target feature itself, " +
-		"so it has the types that chain would give it",
 	"lazy-operand": "the pilot owns the then and else operands of a conditional through a FeatureReferenceExpression referring to " +
 		"the written expression; the model holds the written expression as the operand, so the rows under it differ",
-	"valuation-result": "checkFeatureValuationSpecialization: a valued feature declaring no specialization subsets the result of its value, " +
-		"which the pilot states as a chain the feature owns, an element the model does not hold yet; the model derives the kind's base",
 	"sequence-nesting": "KerML 8.2.5.8.1: a sequence expression of more than two items nests, each ',' taking the rest as its second argument; " +
 		"the model holds one ',' expression over all the items, so the rows under the nested ones differ",
 	"loop-variable-subsetting": "the pilot has the variable of a for loop subset the loop's own seq parameter; no constraint states it: " +
@@ -146,6 +149,20 @@ var impliedDifferenceReasons = map[string]string{
 		"the pilot states none of a loop variable",
 	"branch-action": "SysML.xtext ActionBodyParameter: an action written as the branch of a conditional is its thenClause or elseClause parameter; " +
 		"the model holds the branch as an action of its own owning the written one, as its default export writes it",
+	"binding-featuring": "the pilot states a featuring type for the binding connector of a feature reference, a result, a behavior invocation or a transition; " +
+		"checkConnectorTypeFeaturing implies only the defaultFeaturingType, which is null where no featuring type has every related feature featured within it",
+	"endless-connector": "the pilot has a binding connector or a succession written without ends specialize Links::links alone; " +
+		"checkBindingConnectorSpecialization and checkSuccessionSpecialization name Links::selfLinks and Occurrences::happensBeforeLinks whatever the ends",
+	"behavior-result-typing": "the pilot types the result of a behavior invocation by the behavior, and so has it subset Occurrences::occurrences; " +
+		"checkInvocationExpressionBehaviorResultSpecialization asks that the result specialize the behavior, which types nothing",
+	"satisfy-subject": "the pilot has the subject of a satisfied requirement redefine Requirements::RequirementCheck::subj beside the subject of the " +
+		"requirement satisfied; the latter redefines the former already, and the model derives it alone",
+	"trigger-invocation": "the model holds no parameter of a TriggerInvocationExpression and no function for it yet, so the rows of " +
+		"checkTriggerInvocationExpressionSpecialization and of its parameters are the pilot's alone, and its featuring is its owning payload's",
+	"class-owned-step": "the model has a step a class owns subset Performances::Performance::enclosedPerformances; " +
+		"checkStepEnclosedPerformanceSpecialization holds of a step a behavior or a step owns, and the pilot states Performances::performances",
+	"receiver-invocation": "the pilot has an invocation reached through a receiver subset the chain it owns, a Feature subsetting Base::things; " +
+		"the model has such an invocation of a behavior bound to its result, and its result subset the chain, but not the invocation itself yet",
 	"typed-feature-base": "the test of a conditional or a loop redefines the library's ifTest, whileTest or untilTest, a feature typed by " +
 		"BooleanEvaluation the model has subset Performances::booleanEvaluations and the pilot Base::things; " +
 		"so the model finds Performances::evaluations, and the Evaluation::result its result would redefine, redundant (KerML 8.4.2)",
@@ -182,7 +199,7 @@ func impliedRelationshipDifferences(t *testing.T) map[string]map[string]string {
 func TestImpliedRelationshipsAgreeWithThePilotPerRow(t *testing.T) {
 	differences := impliedRelationshipDifferences(t)
 	reasons := map[string]bool{}
-	for name, kind := range map[string]source.Kind{"rows.kerml": source.KindKerML, "rows.sysml": source.KindSysML} {
+	for name, kind := range map[string]source.Kind{"rows.kerml": source.KindKerML, "rows.sysml": source.KindSysML, "expressions.sysml": source.KindSysML} {
 		dir := filepath.Join("testdata", "implied_relationships")
 		src, err := os.ReadFile(filepath.Join(dir, name))
 		if err != nil {
@@ -300,4 +317,35 @@ func TestImpliedRedefinitionsOfARecordedFlowPayload(t *testing.T) {
 			t.Errorf("fixture %d: implied redefinitions %v, want %v", i, got, want)
 		}
 	}
+}
+
+// impliedOwnedElements returns the elements sym owns only once implied relationships are included:
+// its binding connectors, a connector's ends, and the chain an end or sym's implied relationship owns.
+func impliedOwnedElements(m *Model, sym *symbols.Symbol) []*symbols.Symbol {
+	out := m.ImpliedBindingConnectors(sym)
+	if ends, _, ok := m.ImpliedBinding(sym); ok {
+		out = append(out, ends[:]...)
+	}
+	return append(out, m.ImpliedOwnedFeatures(sym)...)
+}
+
+// heldElementRows returns the rows of what sym is as a held element: an
+// end's reference and a chain's chaining features in order.
+func heldElementRows(m *Model, sym *symbols.Symbol, owner string, key func(*symbols.Symbol) string) []string {
+	var rows []string
+	if referred := m.ImpliedEndReference(sym); referred != nil {
+		rows = append(rows, "Specialization\t"+owner+"\t"+key(referred))
+	}
+	for i, link := range heldChainingFeatures(m, sym) {
+		rows = append(rows, fmt.Sprintf("FeatureChaining\t%s\t[%d] %s", owner, i, key(link)))
+	}
+	return rows
+}
+
+// heldChainingFeatures returns the features a chain held for an implied relationship chains.
+func heldChainingFeatures(m *Model, sym *symbols.Symbol) []*symbols.Symbol {
+	if sym.Inclusion == nil {
+		return nil
+	}
+	return m.ChainingFeatures(sym)
 }

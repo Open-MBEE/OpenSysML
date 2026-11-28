@@ -79,6 +79,9 @@ func (m *Model) derivedFeaturingTypes(feature *symbols.Symbol, deriving map[*sym
 
 // impliedTypeFeaturings derives ImpliedTypeFeaturings beside the features being derived.
 func (m *Model) impliedTypeFeaturings(feature *symbols.Symbol, deriving map[*symbols.Symbol]bool) []FeaturingType {
+	if feature.Inclusion != nil {
+		return m.inclusionTypeFeaturings(feature)
+	}
 	owner := m.ownerOf(feature)
 	if feature.Expr != nil {
 		owner = feature.Expr.Owner
@@ -103,7 +106,12 @@ func (m *Model) impliedTypeFeaturings(feature *symbols.Symbol, deriving map[*sym
 	case m.nodeParameterOwner(feature) != nil || feature.Expr != nil && feature.Expr.Role == symbols.ExpressionAccess:
 		// KerML checkFeatureFeatureMembershipTypeFeaturing: a node owns its parameters, an assignment's target
 		// its access features; each may time vary, its owner being an occurrence (SysML 8.3.6.4 mayTimeVary).
-		return []FeaturingType{m.impliedFeaturingType(owner, feature.Kind != symbols.SymbolExpression && !m.isKerMLDoc(feature))}
+		timeVarying := feature.Kind != symbols.SymbolExpression && !m.isKerMLDoc(feature)
+		if feature.Expr != nil && feature.Expr.Role == symbols.ExpressionTransitionLink {
+			// A transition's transitionLink does not time vary (UsageMayTimeVary).
+			timeVarying = false
+		}
+		return []FeaturingType{m.impliedFeaturingType(owner, timeVarying)}
 	case isExpressionParameterSymbol(feature):
 		// KerML checkFeatureFeatureMembershipTypeFeaturing: an expression owns its parameters.
 		return []FeaturingType{m.plainFeaturingType(owner)}

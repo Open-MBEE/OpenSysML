@@ -497,6 +497,11 @@ func (m *Model) kindBaseDefinitionFQNs(sym *symbols.Symbol, isKerML bool) []stri
 // A KerML association is binary by its effective ends, a SysML connection,
 // interface or flow by its owned ones (KerML 1.1 §7.4.8, SysML v2 §7.13.2, §7.14.2).
 func (m *Model) kindBaseFQN(sym *symbols.Symbol, isKerML bool) (string, bool) {
+	if transitionSuccessionPart(sym) {
+		// The succession a transition owns shares its declaration and is a succession all the same.
+		fqn, ok := implicitUsageBases[ast.UsageSuccession]
+		return fqn, ok
+	}
 	if sym == nil {
 		return "", false
 	}
@@ -583,6 +588,10 @@ func (m *Model) kindBaseFQN(sym *symbols.Symbol, isKerML bool) (string, bool) {
 func (m *Model) usageBaseFeatureFQN(sym *symbols.Symbol) (string, bool) {
 	if sym == nil || m.isKerMLDoc(sym) {
 		return "", false
+	}
+	if transitionSuccessionPart(sym) {
+		fqn, ok := implicitUsageBases[ast.UsageSuccession]
+		return fqn, ok
 	}
 	switch d := sym.Decl.(type) {
 	case *ast.Usage:
