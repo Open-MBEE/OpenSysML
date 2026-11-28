@@ -1,16 +1,13 @@
 {
   "fixtures": 63,
-  "elements": 6691,
-  "invalidElements": 1037,
+  "elements": 6690,
+  "invalidElements": 354,
   "missingRequired": {
-    "action": 97,
     "actionDefinition": 7,
-    "assertedConstraint": 26,
     "associationEnd": 5,
     "attributeDefinition": 13,
     "behavior": 9,
     "bodyAction": 9,
-    "calculation": 31,
     "chainingFeature": 5,
     "connectionEnd": 4,
     "constraintDefinition": 2,
@@ -21,14 +18,13 @@
     "endFeature": 37,
     "entryAction": 1,
     "enumeratedValue": 4,
-    "eventOccurrence": 40,
-    "exhibitedState": 5,
+    "eventOccurrence": 5,
+    "exhibitedState": 1,
     "exposedElement": 1,
     "feature": 37,
     "featureMembership": 37,
     "featureTarget": 3,
     "featuringType": 3,
-    "filterCondition": 89,
     "function": 2,
     "general": 5,
     "ifArgument": 5,
@@ -39,22 +35,20 @@
     "inheritedFeature": 37,
     "inheritedMembership": 37,
     "input": 37,
-    "instantiatedType": 75,
+    "instantiatedType": 2,
     "interfaceEnd": 3,
-    "isModelLevelEvaluable": 521,
+    "isModelLevelEvaluable": 48,
     "itemDefinition": 12,
     "member": 38,
     "memberElement": 3,
     "memberElementId": 19,
     "membership": 38,
-    "metaclass": 33,
     "occurrenceDefinition": 25,
     "output": 37,
     "ownedMemberShortName": 2,
-    "owningAnnotatingRelationship": 57,
     "partDefinition": 12,
-    "performedAction": 32,
-    "predicate": 58,
+    "performedAction": 5,
+    "predicate": 2,
     "qualifiedName": 1,
     "referencedFeature": 2,
     "referent": 9,
@@ -93,9 +87,7 @@
     "viewRendering": 6,
     "whileArgument": 6
   },
-  "nonSchemaKeys": {
-    "operand": 114
-  },
+  "nonSchemaKeys": {},
   "invalidValues": {
     "enumerationDefinition type": 9,
     "general type": 1,
@@ -105,7 +97,6 @@
     "type type": 2
   },
   "unknownMetaclasses": {
-    "sysx:Note": 1,
     "sysx:Pseudostate": 6
   }
 }

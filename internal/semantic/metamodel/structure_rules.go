@@ -479,13 +479,37 @@ func (e *Evaluator) structureProperty(element Element, class, name string) (Valu
 		if name == "loopVariable" {
 			return e.structureLoopVariable(element)
 		}
+	case "EventOccurrenceUsage":
+		if name == "eventOccurrence" {
+			return e.structureReferencedTarget(element, class, name, "OccurrenceUsage")
+		}
 	case "PerformActionUsage":
 		if name == "performedAction" {
-			return e.structurePerformedAction(element)
+			return e.structureReferencedTarget(element, class, name, "ActionUsage")
 		}
 	case "ExhibitStateUsage":
 		if name == "exhibitedState" {
-			return e.structurePerformedAction(element)
+			return e.structureReferencedTarget(element, class, name, "StateUsage")
+		}
+	case "AssertConstraintUsage":
+		if name == "assertedConstraint" {
+			return e.structureReferencedTarget(element, class, name, "ConstraintUsage")
+		}
+	case "Package":
+		if name == "filterCondition" {
+			return e.structureFilterConditions(element)
+		}
+	case "BooleanExpression":
+		if name == "predicate" {
+			return e.structurePredicate(element)
+		}
+	case "MetadataFeature":
+		if name == "metaclass" {
+			return e.structureMetaclass(element)
+		}
+	case "CalculationDefinition":
+		if name == "calculation" {
+			return e.structureFilteredEffectiveFeatures(element, "CalculationUsage")
 		}
 	case "Definition":
 		switch name {
@@ -689,7 +713,7 @@ func (e *Evaluator) structureProperty(element Element, class, name string) (Valu
 		case "result":
 			return e.structureResultFeatures(element, "Expression", "result")
 		case "isModelLevelEvaluable":
-			return e.structureAttribute(element, name)
+			return e.structureExpressionModelLevelEvaluable(element)
 		}
 	case "InstantiationExpression":
 		switch name {
@@ -716,7 +740,7 @@ func (e *Evaluator) structureProperty(element Element, class, name string) (Valu
 		case "result":
 			return e.structureResultFeatures(element, "Function", "result")
 		case "isModelLevelEvaluable":
-			return e.structureAttribute(element, name)
+			return e.structureFunctionModelLevelEvaluable(element)
 		}
 	case "Connector":
 		switch name {
@@ -8486,6 +8510,11 @@ func (e *Evaluator) structureInvocationArguments(element Element) (Value, bool, 
 		}
 	}
 	if len(actualFeatures) > len(formalInputs) {
+		// The structure states an n-ary operator (a sequence `a, b, c`) as one expression over
+		// the binary library function, so its arguments are its input values in order.
+		if _, stated := e.statedOperator(element); stated && !constructor {
+			return e.structureInputValues(element)
+		}
 		return Value{}, true, false
 	}
 

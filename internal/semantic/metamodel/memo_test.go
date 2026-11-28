@@ -64,11 +64,11 @@ func TestAPropertyWithoutARuleLeavesNothingPerElement(t *testing.T) {
 	values, reasons, memos := len(evaluator.cache), len(evaluator.reasons), len(evaluator.memos)
 	for _, aspect := range []string{"a", "b", "c"} {
 		element := Element{Aspect: aspect}
-		if _, ok := evaluator.Property(element, "CalculationDefinition", "calculation"); ok {
+		if _, ok := evaluator.Property(element, "ViewDefinition", "view"); ok {
 			t.Fatal("a property without a rule succeeded")
 		}
-		want := Reason{Category: ReasonNoRule, Detail: "CalculationDefinition::calculation"}
-		if got, ok := evaluator.Explain(element, "CalculationDefinition", "calculation"); !ok || got != want {
+		want := Reason{Category: ReasonNoRule, Detail: "ViewDefinition::view"}
+		if got, ok := evaluator.Explain(element, "ViewDefinition", "view"); !ok || got != want {
 			t.Fatalf("Explain = %#v, %t; want %#v", got, ok, want)
 		}
 	}

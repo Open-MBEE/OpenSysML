@@ -1042,6 +1042,22 @@ func (e *Evaluator) typedDefinitionProperty(
 	return elementValue(ElementOf(definitions[0])), true
 }
 
+// statedOperator is the operator an OperatorExpression without syntax states in the structure,
+// which names the library function it instantiates (KerML 8.3.4.8.17 OperatorExpression).
+func (e *Evaluator) statedOperator(element Element) (string, bool) {
+	if expressionNodeOf(element) != nil || e.options.Structure == nil || e.model == nil {
+		return "", false
+	}
+	if isOperator, known := e.isMetaclass(element, "OperatorExpression"); !known || !isOperator {
+		return "", false
+	}
+	operator, ok := e.options.Structure.Attribute(element, "operator")
+	if !ok || operator.Kind != StringValue || operator.String == "" {
+		return "", false
+	}
+	return operator.String, true
+}
+
 func (e *Evaluator) instantiationExpressionProperty(element Element, name string) (Value, bool) {
 	unsupported := func(reason Reason) (Value, bool) {
 		return e.unsupported(element, "InstantiationExpression", name, reason)
@@ -1053,6 +1069,13 @@ func (e *Evaluator) instantiationExpressionProperty(element Element, name string
 		})
 	}
 	expressionNode := expressionNodeOf(element)
+	if operator, stated := e.statedOperator(element); stated {
+		function := e.model.OperatorFunctionNamed(operator)
+		if function == nil || !semantics.IsType(function) {
+			return e.unresolvedInstantiationOperator(element, operator)
+		}
+		return elementValue(ElementOf(function)), true
+	}
 	if operator, ok := expressionNode.(*ast.OperatorExpr); ok {
 		if e.model == nil {
 			return unsupported(Reason{

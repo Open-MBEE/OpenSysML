@@ -172,6 +172,10 @@ func apiJSONEachElement(graph *rdf.Graph, options APIJSONOptions, visit func(api
 		if id, _ := rdf.SubjectID(subject); library && reached != nil && !reached[id] {
 			continue
 		}
+		// A note is source layout, not an element of the model the interchange form states.
+		if options.Interchange && settled.Type(subject) == rdf.OpenSysML+mNote {
+			continue
+		}
 		element, err := writer.element(subject)
 		if err != nil {
 			return err
