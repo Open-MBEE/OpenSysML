@@ -212,7 +212,7 @@ func (a *npr7150Audit) mappingEntries(sym *symbols.Symbol) []npr7150Mapping {
 		}
 		entry := npr7150Mapping{usage: sym}
 		for _, binding := range metadata.Bindings {
-			literal, text := a.stated(npr7150Read{binding.Scope, binding.Value}, nil, map[*symbols.Symbol]bool{})
+			literal, text := a.stated(npr7150Read{binding.Scope, binding.Value}, nil, npr7150Reads{})
 			switch binding.Feature {
 			case "comply":
 				if semantics.EnumerationOwning(literal) == a.defs[npr7150MappingKind] {
@@ -233,12 +233,61 @@ type npr7150Read struct {
 	expr  ast.Node
 }
 
+// npr7150Reads is the receivers each feature was already read from in one walk.
+type npr7150Reads map[*symbols.Symbol][]string
+
+// enter records a read of feature from owner, and reports false for a cycle: the feature was
+// already read from that receiver, or from one this receiver is a member of.
+func (r npr7150Reads) enter(feature *symbols.Symbol, owner *npr7150Read) bool {
+	receiver := owner.receiver()
+	for _, earlier := range r[feature] {
+		if earlier == receiver || earlier != "" && strings.HasPrefix(receiver, earlier) {
+			return false
+		}
+	}
+	r[feature] = append(r[feature], receiver)
+	return true
+}
+
+// receiver names what r reads from by the scope it is written in and the names it chains, so
+// two reads of one chain agree whichever nodes spell it; no receiver is the empty name.
+func (r *npr7150Read) receiver() string {
+	if r == nil {
+		return ""
+	}
+	return fmt.Sprintf("%p", r.scope) + chainedNames(r.expr)
+}
+
+// chainedNames is the names expr chains, each closed by a separator no name holds.
+func chainedNames(expr ast.Node) string {
+	var names *ast.QualifiedName
+	prefix := ""
+	switch expr := expr.(type) {
+	case *ast.FeatureReference:
+		names = expr.Name
+	case *ast.FeatureChainExpr:
+		prefix, names = chainedNames(expr.Operand), expr.Member
+	default:
+		return fmt.Sprintf("%p\x00", expr)
+	}
+	if names == nil {
+		return prefix
+	}
+	var b strings.Builder
+	b.WriteString(prefix)
+	for _, part := range names.Parts {
+		b.WriteString(part.Text)
+		b.WriteByte(0)
+	}
+	return b.String()
+}
+
 // stated is what read states once every feature it names, by reference or through a feature
 // chain, is followed to its own value: the enumeration literal it ends in, or the text of the
 // string. owner is the chain operand the value is being read from, whose redefinitions stand
 // for the features they redefine. A value that ends in `null`, in a feature bound to nothing,
 // in a member of an operand that is `null` or in a cycle states neither.
-func (a *npr7150Audit) stated(read npr7150Read, owner *npr7150Read, seen map[*symbols.Symbol]bool) (*symbols.Symbol, string) {
+func (a *npr7150Audit) stated(read npr7150Read, owner *npr7150Read, seen npr7150Reads) (*symbols.Symbol, string) {
 	switch value := read.expr.(type) {
 	case *ast.LiteralString:
 		return nil, source.StringValue(value.Value)
@@ -259,11 +308,10 @@ func (a *npr7150Audit) stated(read npr7150Read, owner *npr7150Read, seen map[*sy
 
 // statedBy is what feature states: itself when it is an enumeration literal, else what its
 // value states, or what the features it redefines state when it writes no value.
-func (a *npr7150Audit) statedBy(feature *symbols.Symbol, owner *npr7150Read, seen map[*symbols.Symbol]bool) (*symbols.Symbol, string) {
-	if feature == nil || seen[feature] {
+func (a *npr7150Audit) statedBy(feature *symbols.Symbol, owner *npr7150Read, seen npr7150Reads) (*symbols.Symbol, string) {
+	if feature == nil || !seen.enter(feature, owner) {
 		return nil, ""
 	}
-	seen[feature] = true
 	if semantics.EnumerationOwning(feature) != nil {
 		return feature, ""
 	}

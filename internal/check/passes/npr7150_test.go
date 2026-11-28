@@ -241,6 +241,9 @@ func TestNPR7150ChainedDisposition(t *testing.T) {
 		"sibling":    {config: "\n\t\tpart def Config { attribute policy : MappingKind; attribute kind : MappingKind = policy; }\n\t\tpart cfg : Config { :>> policy = MappingKind::fullyCompliant; }"},
 		"unset":      {config: "\n\t\tpart def Config { attribute policy : MappingKind default MappingKind::fullyCompliant; attribute kind : MappingKind = policy; }\n\t\tpart cfg : Config { :>> policy = null; }", missing: 1},
 		"empty":      {config: "\n\t\tattribute def Config { attribute kind : MappingKind = MappingKind::fullyCompliant; }\n\t\tattribute cfg : Config[0..1] = null;", missing: 1},
+		"delegated":  {config: "\n\t\tpart def Config { attribute policy : MappingKind default MappingKind::fullyCompliant; attribute kind : MappingKind = policy; }\n\t\tpart baseline : Config;\n\t\tpart cfg : Config { :>> policy = baseline.kind; }"},
+		"cyclic":     {config: "\n\t\tpart def Config { attribute policy : MappingKind; attribute kind : MappingKind = policy; }\n\t\tpart baseline : Config { :>> policy = cfg.kind; }\n\t\tpart cfg : Config { :>> policy = baseline.kind; }", missing: 1},
+		"recursive":  {config: "\n\t\tpart def Config { part inner : Config; attribute kind : MappingKind = inner.kind; }\n\t\tpart cfg : Config;", missing: 1},
 		"blank":      {config: "\n\t\tpart cfg { attribute kind : MappingKind; }", missing: 1},
 		"null":       {config: "\n\t\tpart def Config { attribute kind : MappingKind = MappingKind::fullyCompliant; }\n\t\tpart cfg : Config { :>> kind = null; }", missing: 1},
 	} {
