@@ -12,6 +12,9 @@ func (m *Model) ImpliedSpecializations(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym == nil {
 		return nil
 	}
+	if sym.Inclusion != nil {
+		return m.inclusionGenerals(sym)
+	}
 	defer m.own(sym).LeaveDoc()
 	if cached, ok := m.impliedSpecializations[sym]; ok {
 		return cached
@@ -27,6 +30,22 @@ func (m *Model) ImpliedSpecializations(sym *symbols.Symbol) []*symbols.Symbol {
 		}
 	}
 	add(m.impliedFeatureGenerals(sym))
+	// The chain a value or a chain expression's result is reached through stands for the feature it ends at.
+	if chain := m.impliedSubsettedChain(sym); chain != nil {
+		ends := m.DirectSupertypes(chain)
+		reached := append(slices.Clone(ends), m.FeatureValueGeneral(sym))
+		reached = append(reached, m.expressionElementGenerals(sym)...)
+		candidates = slices.DeleteFunc(candidates, func(general *symbols.Symbol) bool { return slices.Contains(reached, general) })
+		candidates = append(candidates, chain)
+	}
+	// checkFeatureCrossingSpecialization: the CrossSubsetting of an end owning a cross feature.
+	if chain := m.ImpliedCrossedChain(sym); chain != nil {
+		candidates = append(candidates, chain)
+	}
+	// checkTransitionUsageSuccessionSourceSpecialization: the ReferenceSubsetting of the source end.
+	if source := m.impliedTransitionSourceEnd(sym); source != nil {
+		candidates = append(candidates, source)
+	}
 	// What is left of the supertypes is what the declaration states.
 	declared := slices.DeleteFunc(slices.Clone(m.DirectSupertypes(sym)), func(super *symbols.Symbol) bool {
 		return slices.Contains(candidates, super)

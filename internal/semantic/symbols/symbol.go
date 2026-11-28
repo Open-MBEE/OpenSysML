@@ -508,6 +508,10 @@ type Symbol struct {
 	// Chain is the chain target this symbol denotes as a feature, or nil for
 	// every ordinary symbol (see ChainingFeature).
 	Chain *ChainingFeature
+
+	// Inclusion is set on an element held for an implied relationship, or nil for
+	// every other symbol (see InclusionElement).
+	Inclusion *InclusionElement
 }
 
 // EmptyNames is the set of a symbol's identifiers that are the empty name.

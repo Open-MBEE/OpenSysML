@@ -29,21 +29,11 @@ package R {
 	action def Ter { part p : PQ; action ta terminate p; action tb terminate; }
 	action def AsgC { part p : PQ; in v : AD; action ac assign p.q := v; }
 	action def LoopT { in xs : AD[*]; action lt for j : AD in xs { } }
-	calc def G2 { in a : AD; in b : AD; return r : AD; }
-	part def P2 { attribute px : AD; attribute py : AD; }
-	part def E {
-		attribute d1 : AD; attribute d2 : AD; part ps : P2;
-		attribute eop : AD = d1 + d2;
-		attribute einv : AD = G2(d1, d2);
-		part enew : P2 = new P2(d1, d2);
-		attribute echain : AD = (ps).px;
-		attribute elit = 1;
-		attribute eidx = d1#(1);
-		attribute esel = d1.?{in v : AD; true};
-		attribute ecol = d1.{in v : AD; v};
-		attribute econd = if true ? d1 else d2;
-		attribute enest : AD = G2(d1 + d2, G2(d1, d2));
-		calc cu : G2 { in a = d1; in b = d2; }
-		constraint cc { d1 == d2 }
-	}
+	state def ST { state sa; state sb; transition tr first sa then sb; }
+	part def Sat { part sv : Veh; requirement sr : R; satisfy sr by sv; }
+	calc def CR { in c : AD; return res : AD; c }
+	calc def CDf { in a : AD; in b : AD default a; return r : AD; }
+	part def E2 { attribute d1 : AD; attribute einvd : AD = CDf(d1); attribute edef : AD default d1; attribute einit : AD := d1; }
+	action def AccT { in c : Boolean; part q : PQ; action aw accept when c via q; }
+	part def Sat2 { requirement sr2 : R; satisfy sr2; }
 }
