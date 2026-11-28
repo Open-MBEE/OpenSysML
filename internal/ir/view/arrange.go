@@ -347,7 +347,7 @@ func (a *arranger) crowdedLanes(roots []*Node) []string {
 				covers := []string{fmt.Sprintf("swimlane %s (%s)", covered.Name, frame.shared(box))}
 				covers = append(covers, a.coveredSteps(frame, covered.Children)...)
 				covers = append(covers, fmt.Sprintf("the frame of %s (%s)", under.Name, frame.shared(a.boxes[under.ID])))
-				if notice := a.crowdNotice(over, frame, covered, box, strings.Join(covers, ", ")); notice != "" {
+				if notice := a.crowdNotice(over, frame, covered, box, a.boxes[under.ID], strings.Join(covers, ", ")); notice != "" {
 					notices = append(notices, notice)
 				}
 			}
@@ -358,32 +358,43 @@ func (a *arranger) crowdedLanes(roots []*Node) []string {
 
 // crowdNotice names the placed swimlane of the flow over nearest the swimlane covered, which
 // over's frame is drawn across, and the gap between the two that keeps the frame clear of it.
-func (a *arranger) crowdNotice(over *Node, frame drawioBox, covered *Node, box drawioBox, covers string) string {
+func (a *arranger) crowdNotice(over *Node, frame drawioBox, covered *Node, box, around drawioBox, covers string) string {
 	notice, least := "", math.Inf(1)
 	for _, lane := range over.Children {
 		own := a.boxes[lane.ID]
 		if lane.Kind != swimlaneKind || !lane.Geometry.placed() {
 			continue
 		}
-		var stated, needed float64
-		var axis string
+		var stated, needed, shift float64
+		var axis, away string
 		switch {
 		case own.Y >= box.bottom():
-			stated, needed, axis = own.Y-box.bottom(), own.Y-frame.Y, "below"
+			stated, needed, axis, away = own.Y-box.bottom(), own.Y-frame.Y, "below", "lower"
+			shift = around.bottom() - frame.Y
 		case own.bottom() <= box.Y:
-			stated, needed, axis = box.Y-own.bottom(), frame.bottom()-own.bottom(), "above"
+			stated, needed, axis, away = box.Y-own.bottom(), frame.bottom()-own.bottom(), "above", "higher"
+			shift = frame.bottom() - around.Y
 		case own.X >= box.right():
-			stated, needed, axis = own.X-box.right(), own.X-frame.X, "right of"
+			stated, needed, axis, away = own.X-box.right(), own.X-frame.X, "right of", "further right"
+			shift = around.right() - frame.X
 		case own.right() <= box.X:
-			stated, needed, axis = box.X-own.right(), frame.right()-own.right(), "left of"
+			stated, needed, axis, away = box.X-own.right(), frame.right()-own.right(), "left of", "further left"
+			shift = frame.right() - around.X
 		default:
 			continue // the two Layouts overlap as stated
 		}
-		if stated < least {
-			least = stated
-			notice = fmt.Sprintf("swimlane %s is placed %g px %s swimlane %s, in another flow: the frame of %s needs %g px there and is drawn over %s; a Layout that far apart keeps them clear",
-				lane.Name, stated, axis, covered.Name, over.Name, math.Ceil(needed), covers)
+		if stated >= least {
+			continue
 		}
+		least = stated
+		if over.Geometry.placed() {
+			// A Layout holds the frame where it is, so moving the lane alone leaves it over the other.
+			notice = fmt.Sprintf("swimlane %s is placed %g px %s swimlane %s, in another flow: the frame of %s, which its Layout places, is drawn over %s; Layouts placing that frame and what it holds %g px %s keep them clear",
+				lane.Name, stated, axis, covered.Name, over.Name, covers, math.Ceil(shift), away)
+			continue
+		}
+		notice = fmt.Sprintf("swimlane %s is placed %g px %s swimlane %s, in another flow: the frame of %s needs %g px there and is drawn over %s; a Layout that far apart keeps them clear",
+			lane.Name, stated, axis, covered.Name, over.Name, math.Ceil(needed), covers)
 	}
 	return notice
 }

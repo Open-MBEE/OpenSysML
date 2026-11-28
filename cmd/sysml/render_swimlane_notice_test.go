@@ -88,10 +88,14 @@ func TestRenderSaysWhichStackedSwimlanesAFlowFrameCovers(t *testing.T) {
 		by               float64
 		notice           string
 	}{
-		{"post", "LaneStacked::runB::post", "x", 8, notice},
+		{"post", "LaneStacked::runB::post", "x", 8, "swimlane line.packer is placed 48 px below swimlane line.robot, in another flow: " +
+			"the frame of LaneStacked::runB, which its Layout places, is drawn over swimlane line.robot (142×44 px), " +
+			"its step load (64×28 px), the frame of LaneStacked::runA (174×60 px); " +
+			"Layouts placing that frame and what it holds 60 px lower keep them clear"},
 		{"runB", "LaneStacked::runB", "y", 10, "swimlane line.packer is placed 58 px below swimlane line.robot, in another flow: " +
-			"the frame of LaneStacked::runB needs 92 px there and is drawn over swimlane line.robot (142×34 px), " +
-			"its step load (64×18 px), the frame of LaneStacked::runA (174×50 px)"},
+			"the frame of LaneStacked::runB, which its Layout places, is drawn over swimlane line.robot (142×34 px), " +
+			"its step load (64×18 px), the frame of LaneStacked::runA (174×50 px); " +
+			"Layouts placing that frame and what it holds 50 px lower keep them clear"},
 	} {
 		dir := t.TempDir()
 		source, err := os.ReadFile(model)
@@ -123,7 +127,8 @@ func TestRenderSaysWhichStackedSwimlanesAFlowFrameCovers(t *testing.T) {
 		if got := runFiles(t, binary, []string{copied}, "-import-diagram", file); got.status != exitHolds {
 			t.Fatalf("import: exit status = %d\n%s", got.status, got.output())
 		}
-		for _, form := range []string{"text", "mermaid", "dot", "plantuml", "d2", "drawio"} {
+		forms := []string{"text", "mermaid", "dot", "plantuml", "d2", "drawio"}
+		for _, form := range forms {
 			t.Run("imported/"+c.name+"/"+form, func(t *testing.T) {
 				got := runFiles(t, binary, []string{copied}, "-render", "LaneStacked::closeView", "-render-form", form)
 				if got.status != exitHolds {
@@ -134,5 +139,28 @@ func TestRenderSaysWhichStackedSwimlanesAFlowFrameCovers(t *testing.T) {
 				}
 			})
 		}
+		// Following the notice, the frame and what it holds placed that much lower, clears it.
+		lower := regexp.MustCompile(`px\), the frame of LaneStacked::runA \(174×(\d+) px\); Layouts placing that frame and what it holds (\d+) px lower`).FindStringSubmatch(c.notice)
+		by, _ := strconv.ParseFloat(lower[2], 64)
+		placed, err := os.ReadFile(copied)
+		if err != nil {
+			t.Fatal(err)
+		}
+		inCloseView := regexp.MustCompile(`(Layout about (?:line::packer|LaneStacked::runB(?:::\w+)?) \{ x = [\d.]+; y = )([\d.]+)(;[^\n]*\n)`)
+		from := strings.Index(string(placed), "view closeView")
+		shifted := string(placed[:from]) + inCloseView.ReplaceAllStringFunc(string(placed[from:]), func(line string) string {
+			m := inCloseView.FindStringSubmatch(line)
+			y, _ := strconv.ParseFloat(m[2], 64)
+			return m[1] + strconv.FormatFloat(y+by, 'f', -1, 64) + m[3]
+		})
+		if err := os.WriteFile(copied, []byte(shifted), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		t.Run("cleared/"+c.name, func(t *testing.T) {
+			got := runFiles(t, binary, []string{copied}, "-render", "LaneStacked::closeView", "-render-form", "drawio")
+			if got.status != exitHolds || strings.Contains(got.stderr, "is drawn over") {
+				t.Errorf("the Layouts the notice asks for still draw the frame over the lane (status %d):\n%s", got.status, got.stderr)
+			}
+		})
 	}
 }
