@@ -1,13 +1,13 @@
 {
   "fixtures": 63,
-  "elements": 6690,
-  "invalidElements": 354,
+  "elements": 6710,
+  "invalidElements": 355,
   "missingRequired": {
     "actionDefinition": 7,
     "associationEnd": 5,
     "attributeDefinition": 13,
     "behavior": 9,
-    "bodyAction": 9,
+    "bodyAction": 10,
     "chainingFeature": 5,
     "connectionEnd": 4,
     "constraintDefinition": 2,
@@ -77,7 +77,7 @@
     "terminatedOccurrenceArgument": 2,
     "thenAction": 5,
     "type": 129,
-    "untilArgument": 6,
+    "untilArgument": 7,
     "usage": 34,
     "useCaseIncluded": 2,
     "valueExpression": 7,
@@ -85,7 +85,7 @@
     "view": 5,
     "viewCondition": 6,
     "viewRendering": 6,
-    "whileArgument": 6
+    "whileArgument": 7
   },
   "nonSchemaKeys": {},
   "invalidValues": {
