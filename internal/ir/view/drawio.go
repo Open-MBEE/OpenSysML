@@ -282,9 +282,12 @@ func (w *drawioWriter) notices(r *Rendering, options Options) []string {
 	return notices
 }
 
-// comment writes one leading XML comment; a comment holds no `--`.
+// comment writes one leading XML comment; a comment holds no `--`, however long the run of hyphens.
 func (w *drawioWriter) comment(text string) {
-	w.b.WriteString("<!-- " + strings.ReplaceAll(text, "--", "- -") + " -->\n")
+	for strings.Contains(text, "--") {
+		text = strings.ReplaceAll(text, "--", "- -")
+	}
+	w.b.WriteString("<!-- " + text + " -->\n")
 }
 
 // attr writes one attribute, its value escaped by encoding/xml.
