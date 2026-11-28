@@ -56,3 +56,30 @@ func TestReflectiveTypedActionNodeIsOneElement(t *testing.T) {
 		}
 	}
 }
+
+// An action a `perform`, `entry`, `do` or `exit` introduces is a PerformActionUsage, whatever statement it is written with.
+func TestReflectivePerformedActionNodeOwnsItsStatement(t *testing.T) {
+	const src = `package P {
+		part def PD { attribute w; }
+		part p : PD;
+		action def T;
+		action def A {
+			perform action plain assign p.w := 1;
+			perform action typed : T assign p.w := 1;
+			perform action cond : T if true { }
+		}
+		state def S {
+			entry action en assign p.w := 1;
+			do action during : T assign p.w := 1;
+			exit action ex if true { }
+		}
+	}`
+	for _, fixture := range reflectiveFixtures(t, "performed-action-nodes.sysml", source.KindSysML, src) {
+		for _, path := range []string{"P::A::plain", "P::A::typed", "P::A::cond", "P::S::en", "P::S::during", "P::S::ex"} {
+			sym := nestedSym(t, fixture.root, path)
+			if mc := fixture.model.MetaclassOf(sym); mc == nil || mc.Name != "PerformActionUsage" {
+				t.Errorf("%s metaclass = %v, want PerformActionUsage", path, mc)
+			}
+		}
+	}
+}

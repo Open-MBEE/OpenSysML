@@ -131,7 +131,8 @@ func DeclaredNameAndMembers(node ast.Node) (Name, []ast.Node) {
 // NodeStatement is the statement an action node is written as, which the node is whatever its declaration
 // says (`#M action a[1] : A assign x := y;` is one AssignmentActionUsage, SysML.xtext ActionNodePrefix), or nil.
 func NodeStatement(n *ast.Usage) ast.Node {
-	if n.Kind != ast.UsageAction || !n.IsActionNode || len(n.Members) != 1 {
+	// A `perform`, `entry`, `do` or `exit` action is a PerformActionUsage owning its statement.
+	if n.Kind != ast.UsageAction || !n.IsActionNode || len(n.Members) != 1 || n.PrefixKeyword != "" {
 		return nil
 	}
 	statement := n.Members[0]

@@ -355,7 +355,7 @@ func (m *Model) statementOperands(sym *symbols.Symbol) []*symbols.Symbol {
 // NodeStatementOf is the statement an action node is written as (`action a assign …`,
 // `action a : A if …`; SysML v2 §8.2.2.17 ActionNode), the rule the conversion reads (naming.NodeStatement).
 func NodeStatementOf(n *ast.Usage) ast.Node {
-	if n == nil {
+	if n == nil || n.PrefixKeyword != "" {
 		return nil
 	}
 	switch s := symbols.ActionNodeStatementOf(n).(type) {
