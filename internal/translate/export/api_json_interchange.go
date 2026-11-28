@@ -56,7 +56,8 @@ func apiJSONNormativeProperty(metaclass, name string) (ontology.Property, bool) 
 // one as [] or null. A derived property the evaluator declines stays absent.
 func (w *apiJSONElementWriter) interchangeElement(subject rdf.Term, metaclass string, element apiJSONObject) apiJSONObject {
 	if _, known := ontology.LookupClass(metaclass); !known {
-		return element
+		// The form writes no note, so an element the mapping types itself must not reference one.
+		return slices.DeleteFunc(element, func(member apiJSONMember) bool { return member.key == "sysx:"+xNote })
 	}
 	element = slices.DeleteFunc(element, func(member apiJSONMember) bool {
 		if member.key == "@id" || member.key == "@type" {
