@@ -105,6 +105,7 @@ not_in_nav: |
   project/expansion-regions.md
   project/bitwise-complement.md
   project/constraint-body-steps.md
+  project/constraint-body-metadata-equations.md
   project/exception-handlers.md
   project/pilot-differential.md
   project/api-json-differential.md
@@ -181,6 +182,7 @@ exclude_docs: |
   project/satellite-network-stress-test.md
   project/large-model-scaling-design.md
   project/native-compilation.md
+  project/test-gate-throughput.md
   project/releasing.md
   project/mdk-parity.md
   project/macos-distribution.md
@@ -216,6 +218,7 @@ exclude_docs: |
   project/protocol-state-machines.md
   project/lossless-library-records.md
   project/errata-overlay.md
+  project/indexed-connection-ends.md
   project/oosem-library.md
   project/mosa-library.md
   project/npr7123-library.md

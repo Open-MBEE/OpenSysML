@@ -480,3 +480,5 @@ download script first (each is idempotent and refuses to report success over an 
 
 CI sets all six — the PDF one in its `pdf-toolchain` job, with the script's exports set; see [pilot-corpora.md](../project/pilot-corpora.md) for the pin the downloads
 share and what the gates measure.
+
+Development-only variables govern how the local gate runs, not what it asserts. `OPENSYSML_TEST_BUDGET_SCALE` (default `1`) multiplies a handful of wall-clock deadlines in the tests on a contended host; unset and in CI, each deadline is its declared value, and no expected value or assertion moves. `OPENSYSML_GATE_CONCURRENCY`, `OPENSYSML_GATE_GOMAXPROCS` and `OPENSYSML_GATE_LOG_TAIL` override the runner's host-derived shard count, per-shard `GOMAXPROCS` and retained failure-log size. See [test gate throughput](https://github.com/Open-MBEE/OpenSysML/blob/develop/docs/project/test-gate-throughput.md).

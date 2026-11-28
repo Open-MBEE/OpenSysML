@@ -2754,6 +2754,8 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) (rdf.Term
 				return reference, err
 			}
 		}
+		// Keep the term the end's ReferenceSubsetting reaches, as reflection
+		// derives it; the selector stays on the end the connectorEnd links reach.
 		if !end.noCollapse {
 			related := end.targetTerm.Value == ""
 			e.connectorRelatedFeature(subject, reference, end.index, end.ends, related)
