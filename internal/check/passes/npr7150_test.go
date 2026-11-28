@@ -264,3 +264,27 @@ func TestNPR7150ChainedDispositionIsAudited(t *testing.T) {
 	w8dWantLines(t, src, CodeNPR7150SafetyCriticalNotApplied, 8)
 	w8dWantLines(t, src, CodeNPR7150MappingNoJustification, 9, 10)
 }
+
+// Every MappingKind literal read through a feature chain addresses its requirement.
+func TestNPR7150ChainedDispositionLiterals(t *testing.T) {
+	matrix := "\n\t\tpart def Matrix :> RequirementsMappingMatrix { :>> softwareClass = SoftwareClass::E; }\n\t\tpart matrix : Matrix;"
+	for _, literal := range []string{"fullyCompliant", "tailored", "notApplicable"} {
+		for name, config := range map[string]string{
+			"stated":    "\n\t\tpart cfg { attribute kind : MappingKind = MappingKind::" + literal + "; }",
+			"redefined": "\n\t\tpart def Config { attribute kind : MappingKind; }\n\t\tpart cfg : Config { :>> kind = MappingKind::" + literal + "; }",
+		} {
+			t.Run(literal+"/"+name, func(t *testing.T) {
+				src := npr7150Model(matrix + npr7150Entries(npr7150ClassE[1:]...) + config +
+					"\n\t\trequirement swe033 : SWE033 { @RequirementMapping { comply = cfg.kind; } }")
+				diags := w8dDiags(t, src)
+				if missing := only(diags, CodeNPR7150MatrixMissingRequirement); len(missing) != 0 {
+					t.Fatalf("got %v, want the requirement addressed", missing)
+				}
+				unjustified := len(only(diags, CodeNPR7150MappingNoJustification))
+				if want := literal != "fullyCompliant"; (unjustified == 1) != want {
+					t.Fatalf("got %d missing-justification finding(s), want one: %t", unjustified, want)
+				}
+			})
+		}
+	}
+}
