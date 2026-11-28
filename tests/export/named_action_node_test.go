@@ -318,11 +318,17 @@ func TestBodilessActionNodeKeepsItsDeclaredID(t *testing.T) {
 		{"name-only assignment", "action n assign p.w := 1;", "AssignmentActionUsage"},
 		{"name-only conditional", "action n if true {\n            action x;\n        }", "IfActionUsage"},
 		{"name-only while loop", "action n while true {\n            action x;\n        }", "WhileLoopActionUsage"},
+		{"typed send", "action n : Act send new Sig() to p;", "SendActionUsage"},
+		{"name-only send", "action n send new Sig() to p;", "SendActionUsage"},
+		{"typed send via a port", "action n : Act send new Sig() via p.pt;", "SendActionUsage"},
+		{"typed send via and to", "action n : Act send new Sig() via p.pt to p;", "SendActionUsage"},
+		{"name-only send via a port", "action n send new Sig() via p.pt;", "SendActionUsage"},
+		{"typed send with a body", "action n : Act send new Sig() to p {\n            action inner;\n        }", "SendActionUsage"},
 		{"in a then chain", "first start;\n        then action n : Act assign p.w := 1;\n        then done;", "AssignmentActionUsage"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			src := "package P {\n    @IdentityMetadata::ProjectRef { projectId = \"proj-1\"; }\n" +
-				"    part def PD { attribute w; }\n    part p : PD;\n    action def Act;\n    action def A {\n        " +
+				"    item def Sig;\n    port def PT;\n    part def PD { attribute w; port pt : PT; }\n    part p : PD;\n    action def Act;\n    action def A {\n        " +
 				tc.node + "\n        " + id + "\n    }\n}\n"
 			turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 			if err != nil {
@@ -348,6 +354,44 @@ func TestBodilessActionNodeKeepsItsDeclaredID(t *testing.T) {
 			}
 			if !strings.Contains(string(again), stated) {
 				t.Errorf("the node lost its metaclass or declared id on the way back:\n%s", again)
+			}
+			second, err := convert.Convert("m.ttl", withoutTriples(t, again, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
+			if err != nil {
+				t.Fatalf("second pass: %v", err)
+			}
+			if string(second) != string(back) {
+				t.Errorf("the notation is not a fixed point:\n%s\nthen\n%s", back, second)
+			}
+		})
+	}
+}
+
+// A member of a named conditional's branch is named through the statement the node is written as,
+// which has a place in the name and no element, so a reference to it is written back and checked.
+func TestReferenceInsideANamedConditionalConvertsBack(t *testing.T) {
+	for _, tc := range []struct{ name, node string }{
+		{"typed", "action n : Act if true {\n            action k;\n            action j subsets k;\n        }"},
+		{"name-only", "action n if true {\n            action k;\n            action j subsets k;\n        }"},
+		{"typed with an else", "action n : Act if true {\n            action k;\n        } else {\n            action k;\n            action j subsets k;\n        }"},
+		{"typed, an annotation about a member node", "action n : Act if true {\n            assign p.w := 1;\n            action k assign p.w := 2;\n" +
+			"            metadata IdentityMetadata::ElementId about k {\n                id = \"11111111-2222-3333-4444-555555555555\";\n            }\n        }"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			src := "package P {\n    part def PD { attribute w; }\n    part p : PD;\n    action def Act;\n    action def A {\n        " + tc.node + "\n    }\n}\n"
+			turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+			if err != nil {
+				t.Fatalf("to turtle: %v", err)
+			}
+			back, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
+			if err != nil {
+				t.Fatalf("back to notation: %v", err)
+			}
+			if !strings.Contains(string(back), "        "+tc.node+"\n") {
+				t.Errorf("the notation does not write the node as declared:\n%s", back)
+			}
+			again, err := convert.Convert("m.sysml", back, convert.FormatSysML, convert.FormatTurtle)
+			if err != nil {
+				t.Fatalf("the notation written back does not convert: %v\n%s", err, back)
 			}
 			second, err := convert.Convert("m.ttl", withoutTriples(t, again, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
 			if err != nil {

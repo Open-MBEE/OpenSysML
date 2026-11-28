@@ -1998,6 +1998,10 @@ func (d *decoder) printElement(b *strings.Builder, el *element, depth int) error
 		}
 		annotations = nil
 	}
+	if d.aboutWritten[el] {
+		// A send's body would hold the annotation at the position its payload has.
+		annotations = nil
+	}
 	about, err := d.memberNodeAnnotations(children)
 	if err != nil {
 		return err
@@ -2109,16 +2113,19 @@ func (d *decoder) headFeatureAnnotations(feature *element, what string) ([]strin
 // bodilessNodes names the action nodes whose notation takes no body of their own, as a refusal says them.
 var bodilessNodes = map[string]string{mAssignment: "assignment", mIfAction: "if action", mWhileLoop: "loop", mForLoop: "loop"}
 
-// memberNodeAnnotations writes the identity of each member node taking no body of its own `about` it,
+// memberNodeAnnotations writes the identity of each member node taking no body of its own, and of a named send, `about` it,
 // for the head of the body the members are in: between two members it would end their `then` chain.
 func (d *decoder) memberNodeAnnotations(members []*element) ([]string, error) {
 	var out []string
 	for _, member := range members {
 		form, bodiless := bodilessNodes[member.metaclass]
-		if !bodiless {
+		if !bodiless && member.metaclass != mSend {
 			continue
 		}
 		about, named := d.aboutAnnotations(member)
+		if !named && !bodiless {
+			continue
+		}
 		if !named {
 			return nil, d.behaviorUnannotatable(member, form)
 		}
@@ -4985,6 +4992,12 @@ func (d *decoder) spelledName(el *element) string {
 	for i, cur := len(segments)-1, el; i >= 0; i-- {
 		segment := segments[i]
 		name := identityName(segment)
+		if cur != nil && cur != el && len(naming.Segments(cur.qname)) <= i && strings.HasPrefix(el.qname, cur.qname+"::") {
+			// The statement a named conditional or loop node is written as has a
+			// place in the name and no element: the node is cur, one segment up.
+			spelled = append(spelled, segment)
+			continue
+		}
 		if cur != nil && naming.PositionalSegment(segment) {
 			effective, ok := d.effectiveName(cur)
 			if ok && effective != name {
