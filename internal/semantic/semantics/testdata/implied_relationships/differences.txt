@@ -86,7 +86,7 @@ model	rows.sysml	Specialization	R::Veh::eng/Multiplicity[0]	Base::naturals	defau
 model	rows.sysml	Specialization	R::Veh::mass/Multiplicity[0]	Base::naturals	default-multiplicity
 model	rows.sysml	Specialization	R::Veh::p/Multiplicity[0]	Base::naturals	default-multiplicity
 model	rows.sysml	TypeFeaturing	R::Acc::aa::receiver/FeatureReferenceExpression[0]	snapshots(R::Acc::aa)	value-featuring
-model	rows.sysml	TypeFeaturing	R::AccT::aw::payload/TriggerInvocationExpression[0]	snapshots(R::AccT::aw)	trigger-invocation
+model	rows.sysml	TypeFeaturing	R::AccT::aw::payload/TriggerInvocationExpression[0]	snapshots(R::AccT::aw)	value-featuring
 model	rows.sysml	TypeFeaturing	R::AccT::aw::receiver/FeatureReferenceExpression[0]	snapshots(R::AccT::aw)	value-featuring
 model	rows.sysml	TypeFeaturing	R::Asg::asg::replacementValues/FeatureReferenceExpression[0]	snapshots(R::Asg::asg)	value-featuring
 model	rows.sysml	TypeFeaturing	R::AsgC::ac::replacementValues/FeatureReferenceExpression[0]	snapshots(R::AsgC::ac)	value-featuring
@@ -121,6 +121,48 @@ model	rows.sysml	TypeFeaturing	R::Snd::sa::receiver/FeatureReferenceExpression[0
 model	rows.sysml	TypeFeaturing	R::Snd::sa::sender/FeatureReferenceExpression[0]	snapshots(R::Snd::sa)	value-featuring
 model	rows.sysml	TypeFeaturing	R::Ter::ta::terminatedOccurrence/FeatureReferenceExpression[0]	snapshots(R::Ter::ta)	value-featuring
 model	rows.sysml	TypeFeaturing	R::Veh::m2/FeatureReferenceExpression[0]	snapshots(R::Veh)	value-featuring
+model	rows.kerml	Specialization	K::CQ::s	Performances::Performance::enclosedPerformances	class-owned-step
+model	rows.sysml	BindingConnector	R::AccT::aw	R::AccT::aw::receiver = R::AccT::aw/BindingConnector[0]/Feature[1]/Feature[0]	trigger-receiver
+model	rows.sysml	FeatureChaining	R::AccT::aw/BindingConnector[0]/Feature[1]/Feature[0]	[0] R::AccT::aw::payload/TriggerInvocationExpression[0]	trigger-receiver
+model	rows.sysml	FeatureChaining	R::AccT::aw/BindingConnector[0]/Feature[1]/Feature[0]	[1] Triggers::TriggerWhen::receiver	trigger-receiver
+model	rows.sysml	Redefinition	R::AccT::aw/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing	trigger-receiver
+model	rows.sysml	Redefinition	R::AccT::aw/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing	trigger-receiver
+model	rows.sysml	Specialization	R::AccT::aw/BindingConnector[0]	Links::selfLinks	trigger-receiver
+model	rows.sysml	Specialization	R::AccT::aw/BindingConnector[0]/Feature[0]	R::AccT::aw::receiver	trigger-receiver
+model	rows.sysml	Specialization	R::AccT::aw/BindingConnector[0]/Feature[1]	R::AccT::aw/BindingConnector[0]/Feature[1]/Feature[0]	trigger-receiver
+model	rows.sysml	Specialization	R::AccT::aw/BindingConnector[0]/Feature[1]/Feature[0]	Base::things	trigger-receiver
+model	rows.sysml	TypeFeaturing	R::AccT::aw/BindingConnector[0]	R::AccT::aw	trigger-receiver
+model	rows.sysml	TypeFeaturing	R::AccT::aw/BindingConnector[0]/Feature[0]	R::AccT::aw/BindingConnector[0]	trigger-receiver
+model	rows.sysml	TypeFeaturing	R::AccT::aw/BindingConnector[0]/Feature[1]	R::AccT::aw/BindingConnector[0]	trigger-receiver
+model	triggers.sysml	BindingConnector	T::After::aaf	T::After::aaf::receiver = T::After::aaf/BindingConnector[0]/Feature[1]/Feature[0]	trigger-receiver
+model	triggers.sysml	BindingConnector	T::At::aat	Transfers::AcceptPerformance::receiver = T::At::aat/BindingConnector[0]/Feature[1]/Feature[0]	trigger-receiver
+model	triggers.sysml	FeatureChaining	T::After::aaf/BindingConnector[0]/Feature[1]/Feature[0]	[0] T::After::aaf::payload/TriggerInvocationExpression[0]	trigger-receiver
+model	triggers.sysml	FeatureChaining	T::After::aaf/BindingConnector[0]/Feature[1]/Feature[0]	[1] Triggers::TriggerAfter::receiver	trigger-receiver
+model	triggers.sysml	FeatureChaining	T::At::aat/BindingConnector[0]/Feature[1]/Feature[0]	[0] T::At::aat::payload/TriggerInvocationExpression[0]	trigger-receiver
+model	triggers.sysml	FeatureChaining	T::At::aat/BindingConnector[0]/Feature[1]/Feature[0]	[1] Triggers::TriggerAt::receiver	trigger-receiver
+model	triggers.sysml	Redefinition	T::After::aaf/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing	trigger-receiver
+model	triggers.sysml	Redefinition	T::After::aaf/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing	trigger-receiver
+model	triggers.sysml	Redefinition	T::At::aat/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing	trigger-receiver
+model	triggers.sysml	Redefinition	T::At::aat/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing	trigger-receiver
+model	triggers.sysml	Specialization	T::After::aaf/BindingConnector[0]	Links::selfLinks	trigger-receiver
+model	triggers.sysml	Specialization	T::After::aaf/BindingConnector[0]/Feature[0]	T::After::aaf::receiver	trigger-receiver
+model	triggers.sysml	Specialization	T::After::aaf/BindingConnector[0]/Feature[1]	T::After::aaf/BindingConnector[0]/Feature[1]/Feature[0]	trigger-receiver
+model	triggers.sysml	Specialization	T::After::aaf/BindingConnector[0]/Feature[1]/Feature[0]	Base::things	trigger-receiver
+model	triggers.sysml	Specialization	T::After::q	Occurrences::Occurrence::suboccurrences	suboccurrence
+model	triggers.sysml	Specialization	T::After::q/Multiplicity[0]	Base::naturals	default-multiplicity
+model	triggers.sysml	Specialization	T::At::aat/BindingConnector[0]	Links::selfLinks	trigger-receiver
+model	triggers.sysml	Specialization	T::At::aat/BindingConnector[0]/Feature[0]	Transfers::AcceptPerformance::receiver	trigger-receiver
+model	triggers.sysml	Specialization	T::At::aat/BindingConnector[0]/Feature[1]	T::At::aat/BindingConnector[0]/Feature[1]/Feature[0]	trigger-receiver
+model	triggers.sysml	Specialization	T::At::aat/BindingConnector[0]/Feature[1]/Feature[0]	Base::things	trigger-receiver
+model	triggers.sysml	TypeFeaturing	T::After::aaf/BindingConnector[0]	T::After::aaf	trigger-receiver
+model	triggers.sysml	TypeFeaturing	T::After::aaf/BindingConnector[0]/Feature[0]	T::After::aaf/BindingConnector[0]	trigger-receiver
+model	triggers.sysml	TypeFeaturing	T::After::aaf/BindingConnector[0]/Feature[1]	T::After::aaf/BindingConnector[0]	trigger-receiver
+model	triggers.sysml	TypeFeaturing	T::After::aaf::payload/TriggerInvocationExpression[0]	snapshots(T::After::aaf)	value-featuring
+model	triggers.sysml	TypeFeaturing	T::After::aaf::receiver/FeatureReferenceExpression[0]	snapshots(T::After::aaf)	value-featuring
+model	triggers.sysml	TypeFeaturing	T::At::aat/BindingConnector[0]	T::At::aat	trigger-receiver
+model	triggers.sysml	TypeFeaturing	T::At::aat/BindingConnector[0]/Feature[0]	T::At::aat/BindingConnector[0]	trigger-receiver
+model	triggers.sysml	TypeFeaturing	T::At::aat/BindingConnector[0]/Feature[1]	T::At::aat/BindingConnector[0]	trigger-receiver
+model	triggers.sysml	TypeFeaturing	T::At::aat::payload/TriggerInvocationExpression[0]	snapshots(T::At::aat)	value-featuring
 pilot	rows.kerml	BindingConnector	K::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]	K::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0] = K::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]	lazy-operand
 pilot	rows.kerml	BindingConnector	K::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]	K::E::d1 = K::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/Feature[0]	lazy-operand
 pilot	rows.kerml	BindingConnector	K::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]	K::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0] = K::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/Feature[0]	lazy-operand
@@ -201,8 +243,6 @@ pilot	rows.sysml	FeatureChaining	R::Loop::lp::seq/OperatorExpression[0]/Feature[
 pilot	rows.sysml	FeatureChaining	R::Loop::lp::seq/OperatorExpression[0]/Feature[1]/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	[1] Performances::LiteralIntegerEvaluation::result	sequence-nesting
 pilot	rows.sysml	FeatureChaining	R::Loop::lp::seq/OperatorExpression[0]/Feature[1]/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]	[0] R::Loop::lp::seq/OperatorExpression[0]/Feature[1]/OperatorExpression[0]/Feature[1]/LiteralInteger[0]	sequence-nesting
 pilot	rows.sysml	FeatureChaining	R::Loop::lp::seq/OperatorExpression[0]/Feature[1]/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]	[1] Performances::LiteralIntegerEvaluation::result	sequence-nesting
-pilot	rows.sysml	Redefinition	R::AccT::aw::payload/TriggerInvocationExpression[0]/Feature[0]	Triggers::TriggerWhen::condition	trigger-invocation
-pilot	rows.sysml	Redefinition	R::AccT::aw::payload/TriggerInvocationExpression[0]/Feature[1]	Triggers::TriggerWhen::changeSignal	trigger-invocation
 pilot	expressions.sysml	Redefinition	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing	lazy-operand
 pilot	expressions.sysml	Redefinition	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing	lazy-operand
 pilot	expressions.sysml	Redefinition	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/Feature[0]	Performances::Evaluation::result	lazy-operand
@@ -231,7 +271,6 @@ pilot	rows.sysml	Redefinition	R::W2::wm::whileTest::result	Performances::Evaluat
 pilot	rows.sysml	Redefinition	R::W::wl::untilTest::result	Performances::Evaluation::result	typed-feature-base
 pilot	rows.sysml	Redefinition	R::W::wl::whileTest::result	Performances::Evaluation::result	typed-feature-base
 pilot	rows.sysml	Specialization	R::Acc::p/Multiplicity[0]	Base::exactlyOne	default-multiplicity
-pilot	rows.sysml	Specialization	R::AccT::aw::payload/TriggerInvocationExpression[0]	Triggers::TriggerWhen	trigger-invocation
 pilot	rows.sysml	Specialization	R::AccT::q/Multiplicity[0]	Base::exactlyOne	default-multiplicity
 pilot	rows.sysml	Specialization	R::Asg::x/Multiplicity[0]	Base::exactlyOne	default-multiplicity
 pilot	rows.sysml	Specialization	R::AsgC::p/Multiplicity[0]	Base::exactlyOne	default-multiplicity
@@ -314,8 +353,7 @@ pilot	rows.sysml	Specialization	R::W2::wm::whileTest	Performances::evaluations	t
 pilot	rows.sysml	Specialization	R::W::wl::untilTest	Performances::evaluations	typed-feature-base
 pilot	rows.sysml	Specialization	R::W::wl::whileTest	Performances::evaluations	typed-feature-base
 pilot	rows.sysml	TypeFeaturing	R::Acc::aa::receiver/FeatureReferenceExpression[0]/BindingConnector[0]	R::Acc	binding-featuring
-pilot	rows.sysml	TypeFeaturing	R::AccT::aw::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]	R::AccT::aw::payload/TriggerInvocationExpression[0]	trigger-invocation
-pilot	rows.sysml	TypeFeaturing	R::AccT::aw::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/BindingConnector[0]	R::AccT	trigger-invocation
+pilot	rows.sysml	TypeFeaturing	R::AccT::aw::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/BindingConnector[0]	R::AccT	binding-featuring
 pilot	rows.sysml	TypeFeaturing	R::AccT::aw::receiver/FeatureReferenceExpression[0]/BindingConnector[0]	R::AccT	binding-featuring
 pilot	rows.sysml	TypeFeaturing	R::Asg::asg::replacementValues/FeatureReferenceExpression[0]/BindingConnector[0]	R::Asg	binding-featuring
 pilot	rows.sysml	TypeFeaturing	R::AsgC::ac::replacementValues/FeatureReferenceExpression[0]/BindingConnector[0]	R::AsgC	binding-featuring
@@ -388,8 +426,11 @@ pilot	rows.sysml	TypeFeaturing	R::Veh::m2/FeatureReferenceExpression[0]/BindingC
 pilot	rows.sysml	TypeFeaturing	R::W2::wm::whileTest/BindingConnector[0]	R::W2	binding-featuring
 pilot	rows.sysml	TypeFeaturing	R::W::wl::untilTest/BindingConnector[0]	R::W	binding-featuring
 pilot	rows.sysml	TypeFeaturing	R::W::wl::whileTest/BindingConnector[0]	R::W	binding-featuring
-model	rows.kerml	Specialization	K::CQ::s	Performances::Performance::enclosedPerformances	class-owned-step
 pilot	rows.kerml	Specialization	K::CQ::s	Performances::performances	class-owned-step
 pilot	rows.kerml	Specialization	K::E3::ed/InvocationExpression[0]	K::E3::ed/InvocationExpression[0]/Feature[0]	receiver-invocation
 pilot	rows.kerml	Specialization	K::E3::ed/InvocationExpression[0]/Feature[0]	Base::things	receiver-invocation
 pilot	rows.kerml	TypeFeaturing	K::E3::ed/InvocationExpression[0]/BindingConnector[0]	K::E3::ed/InvocationExpression[0]	binding-featuring
+pilot	triggers.sysml	Specialization	T::After::q/Multiplicity[0]	Base::exactlyOne	default-multiplicity
+pilot	triggers.sysml	TypeFeaturing	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]	T::After	binding-featuring
+pilot	triggers.sysml	TypeFeaturing	T::After::aaf::receiver/FeatureReferenceExpression[0]/BindingConnector[0]	T::After	binding-featuring
+pilot	triggers.sysml	TypeFeaturing	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]	T::At	binding-featuring

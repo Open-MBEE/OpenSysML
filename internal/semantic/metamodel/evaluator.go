@@ -1138,33 +1138,17 @@ func (e *Evaluator) instantiationExpressionProperty(element Element, name string
 				Detail:   "TriggerInvocationExpression::kind is unavailable",
 			})
 		}
-		triggerType := map[string]string{
-			"when":  "TriggerWhen",
-			"at":    "TriggerAt",
-			"after": "TriggerAfter",
-		}[kind.String]
-		if triggerType == "" {
+		if !slices.Contains([]string{"when", "at", "after"}, kind.String) {
 			return unsupported(Reason{
 				Category: ReasonNotApplicable,
 				Detail:   "TriggerInvocationExpression has an unsupported kind",
 			})
 		}
-		var scope *symbols.Scope
-		if element.Container != nil {
-			scope = element.Container.Scope
-		}
-		if scope == nil && element.Symbol != nil {
-			if owner := element.Symbol.Owner(); owner != nil {
-				scope = owner.Scope
-			}
-		}
-		name := ast.QualifiedNameOf("Triggers", triggerType)
-		name.Global = true
-		target, ok := e.resolver.ResolveQualified(scope, name)
-		if !ok || target == nil || !semantics.IsType(target) {
+		target := e.model.TriggerFunction(kind.String)
+		if target == nil || !semantics.IsType(target) {
 			return unsupported(Reason{
 				Category: ReasonUnresolvedReference,
-				Detail:   "Triggers::" + triggerType + " is unresolved",
+				Detail:   "the Triggers function of a '" + kind.String + "' trigger is unresolved",
 			})
 		}
 		return elementValue(ElementOf(target)), true

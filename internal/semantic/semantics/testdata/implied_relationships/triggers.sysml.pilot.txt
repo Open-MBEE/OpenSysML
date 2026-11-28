@@ -1,0 +1,136 @@
+BindingConnector	T::After::aaf::payload	T::After::aaf::payload/BindingConnector[0]/Feature[0]/Feature[0] = T::After::aaf::payload
+BindingConnector	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0] = T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]
+BindingConnector	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]	T::After::d = T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
+BindingConnector	T::After::aaf::receiver	T::After::aaf::receiver/BindingConnector[0]/Feature[0]/Feature[0] = T::After::aaf::receiver
+BindingConnector	T::After::aaf::receiver/FeatureReferenceExpression[0]	T::After::q = T::After::aaf::receiver/FeatureReferenceExpression[0]/Feature[0]
+BindingConnector	T::At::aat::payload	T::At::aat::payload/BindingConnector[0]/Feature[0]/Feature[0] = T::At::aat::payload
+BindingConnector	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0] = T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]
+BindingConnector	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]	T::At::t = T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
+FeatureChaining	T::After::aaf::payload/BindingConnector[0]/Feature[0]/Feature[0]	[0] T::After::aaf::payload/TriggerInvocationExpression[0]
+FeatureChaining	T::After::aaf::payload/BindingConnector[0]/Feature[0]/Feature[0]	[1] T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[1]
+FeatureChaining	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	[0] T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]
+FeatureChaining	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	[1] T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
+FeatureChaining	T::After::aaf::receiver/BindingConnector[0]/Feature[0]/Feature[0]	[0] T::After::aaf::receiver/FeatureReferenceExpression[0]
+FeatureChaining	T::After::aaf::receiver/BindingConnector[0]/Feature[0]/Feature[0]	[1] T::After::aaf::receiver/FeatureReferenceExpression[0]/Feature[0]
+FeatureChaining	T::At::aat::payload/BindingConnector[0]/Feature[0]/Feature[0]	[0] T::At::aat::payload/TriggerInvocationExpression[0]
+FeatureChaining	T::At::aat::payload/BindingConnector[0]/Feature[0]/Feature[0]	[1] T::At::aat::payload/TriggerInvocationExpression[0]/Feature[1]
+FeatureChaining	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	[0] T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]
+FeatureChaining	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	[1] T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
+FeatureTyping	T::After::aaf::payload/TriggerInvocationExpression[0]	Triggers::TriggerAfter
+FeatureTyping	T::At::aat::payload/TriggerInvocationExpression[0]	Triggers::TriggerAt
+Redefinition	T::After::aaf::payload	Actions::AcceptMessageAction::payload
+Redefinition	T::After::aaf::payload/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	T::After::aaf::payload/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]	Triggers::TriggerAfter::delay
+Redefinition	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]	Performances::Evaluation::result
+Redefinition	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[1]	Performances::Evaluation::result
+Redefinition	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[1]	Triggers::TriggerAfter::signal
+Redefinition	T::After::aaf::receiver	Transfers::AcceptPerformance::receiver
+Redefinition	T::After::aaf::receiver/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	T::After::aaf::receiver/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	T::After::aaf::receiver/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	T::After::aaf::receiver/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	T::After::aaf::receiver/FeatureReferenceExpression[0]/Feature[0]	Performances::Evaluation::result
+Redefinition	T::At::aat::payload	Actions::AcceptMessageAction::payload
+Redefinition	T::At::aat::payload/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	T::At::aat::payload/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]	Triggers::TriggerAt::timeInstant
+Redefinition	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]	Performances::Evaluation::result
+Redefinition	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[1]	Performances::Evaluation::result
+Redefinition	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[1]	Triggers::TriggerAt::timeSignal
+ReferenceSubsetting	T::After::aaf::payload/BindingConnector[0]/Feature[0]	T::After::aaf::payload/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	T::After::aaf::payload/BindingConnector[0]/Feature[1]	T::After::aaf::payload
+ReferenceSubsetting	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[1]	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]
+ReferenceSubsetting	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	T::After::d
+ReferenceSubsetting	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
+ReferenceSubsetting	T::After::aaf::receiver/BindingConnector[0]/Feature[0]	T::After::aaf::receiver/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	T::After::aaf::receiver/BindingConnector[0]/Feature[1]	T::After::aaf::receiver
+ReferenceSubsetting	T::After::aaf::receiver/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	T::After::q
+ReferenceSubsetting	T::After::aaf::receiver/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	T::After::aaf::receiver/FeatureReferenceExpression[0]/Feature[0]
+ReferenceSubsetting	T::At::aat::payload/BindingConnector[0]/Feature[0]	T::At::aat::payload/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	T::At::aat::payload/BindingConnector[0]/Feature[1]	T::At::aat::payload
+ReferenceSubsetting	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[1]	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]
+ReferenceSubsetting	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	T::At::t
+ReferenceSubsetting	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
+Subclassification	T::After	Actions::Action
+Subclassification	T::At	Actions::Action
+Subclassification	T::PQ	Parts::Part
+Subsetting	T::After::aaf	Actions::Action::acceptSubactions
+Subsetting	T::After::aaf::payload/BindingConnector[0]	Links::selfLinks
+Subsetting	T::After::aaf::payload/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	T::After::aaf::payload/TriggerInvocationExpression[0]	Performances::evaluations
+Subsetting	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]	Performances::evaluations
+Subsetting	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]	T::After::d
+Subsetting	T::After::aaf::receiver/BindingConnector[0]	Links::selfLinks
+Subsetting	T::After::aaf::receiver/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	T::After::aaf::receiver/FeatureReferenceExpression[0]	Performances::evaluations
+Subsetting	T::After::aaf::receiver/FeatureReferenceExpression[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	T::After::aaf::receiver/FeatureReferenceExpression[0]/Feature[0]	T::After::q
+Subsetting	T::After::d	Base::dataValues
+Subsetting	T::After::q	Parts::parts
+Subsetting	T::After::q/Multiplicity[0]	Base::exactlyOne
+Subsetting	T::At::aat	Actions::Action::acceptSubactions
+Subsetting	T::At::aat::payload/BindingConnector[0]	Links::selfLinks
+Subsetting	T::At::aat::payload/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	T::At::aat::payload/TriggerInvocationExpression[0]	Performances::evaluations
+Subsetting	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]	Performances::evaluations
+Subsetting	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]	T::At::t
+Subsetting	T::At::t	Base::dataValues
+TypeFeaturing	T::After::aaf	T::After
+TypeFeaturing	T::After::aaf::payload	snapshots(T::After::aaf)
+TypeFeaturing	T::After::aaf::payload/BindingConnector[0]	snapshots(T::After::aaf)
+TypeFeaturing	T::After::aaf::payload/BindingConnector[0]/Feature[0]	T::After::aaf::payload/BindingConnector[0]
+TypeFeaturing	T::After::aaf::payload/BindingConnector[0]/Feature[1]	T::After::aaf::payload/BindingConnector[0]
+TypeFeaturing	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]	T::After::aaf::payload/TriggerInvocationExpression[0]
+TypeFeaturing	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]/BindingConnector[0]	T::After::aaf::payload/TriggerInvocationExpression[0]
+TypeFeaturing	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]/BindingConnector[0]
+TypeFeaturing	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[1]	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]/BindingConnector[0]
+TypeFeaturing	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]	T::After::aaf::payload/TriggerInvocationExpression[0]
+TypeFeaturing	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]	T::After
+TypeFeaturing	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]
+TypeFeaturing	T::After::aaf::payload/TriggerInvocationExpression[0]/Feature[1]	T::After::aaf::payload/TriggerInvocationExpression[0]
+TypeFeaturing	T::After::aaf::receiver	snapshots(T::After::aaf)
+TypeFeaturing	T::After::aaf::receiver/BindingConnector[0]	snapshots(T::After::aaf)
+TypeFeaturing	T::After::aaf::receiver/BindingConnector[0]/Feature[0]	T::After::aaf::receiver/BindingConnector[0]
+TypeFeaturing	T::After::aaf::receiver/BindingConnector[0]/Feature[1]	T::After::aaf::receiver/BindingConnector[0]
+TypeFeaturing	T::After::aaf::receiver/FeatureReferenceExpression[0]/BindingConnector[0]	T::After
+TypeFeaturing	T::After::aaf::receiver/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	T::After::aaf::receiver/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	T::After::aaf::receiver/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	T::After::aaf::receiver/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	T::After::aaf::receiver/FeatureReferenceExpression[0]/Feature[0]	T::After::aaf::receiver/FeatureReferenceExpression[0]
+TypeFeaturing	T::After::d	snapshots(T::After)
+TypeFeaturing	T::After::q	snapshots(T::After)
+TypeFeaturing	T::After::q/Multiplicity[0]	snapshots(T::After)
+TypeFeaturing	T::At::aat	T::At
+TypeFeaturing	T::At::aat::payload	snapshots(T::At::aat)
+TypeFeaturing	T::At::aat::payload/BindingConnector[0]	snapshots(T::At::aat)
+TypeFeaturing	T::At::aat::payload/BindingConnector[0]/Feature[0]	T::At::aat::payload/BindingConnector[0]
+TypeFeaturing	T::At::aat::payload/BindingConnector[0]/Feature[1]	T::At::aat::payload/BindingConnector[0]
+TypeFeaturing	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]	T::At::aat::payload/TriggerInvocationExpression[0]
+TypeFeaturing	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]/BindingConnector[0]	T::At::aat::payload/TriggerInvocationExpression[0]
+TypeFeaturing	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]/BindingConnector[0]
+TypeFeaturing	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[1]	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]/BindingConnector[0]
+TypeFeaturing	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]	T::At::aat::payload/TriggerInvocationExpression[0]
+TypeFeaturing	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]	T::At
+TypeFeaturing	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]
+TypeFeaturing	T::At::aat::payload/TriggerInvocationExpression[0]/Feature[1]	T::At::aat::payload/TriggerInvocationExpression[0]
+TypeFeaturing	T::At::t	snapshots(T::At)

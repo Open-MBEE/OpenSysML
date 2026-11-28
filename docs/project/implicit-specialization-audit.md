@@ -232,7 +232,7 @@ supplies resolves from the usage.
 | `ViewUsage` | subview | `checkViewUsageSubviewSpecialization` (l. 25111)<br>`Views::View::subviews` | `ViewUsage` subview | `nested.go:302` Views::View::subviews | match | `nested.go` familyNestedFQN |
 | `MetadataDefinition` | base | `checkMetadataDefinitionSpecialization` (l. 25234)<br>`Metadata::MetadataItem` | `MetadataDefinition` base | `implicit.go:90` Metadata::MetadataItem | match |  |
 | `MetadataUsage` | base | `checkMetadataUsageSpecialization` (l. 25267)<br>`Metadata::metadataItems` | `MetadataUsage` base | `implicit.go:46` Metadata::metadataItems | match |  |
-| `TriggerInvocationExpression` | base | `checkTriggerInvocationExpressionSpecialization`<br>`Triggers::TriggerWhen`, `Triggers::TriggerAt`, `Triggers::TriggerAfter` | `TriggerInvocationExpression` when<br>`TriggerInvocationExpression` at<br>`TriggerInvocationExpression` after | — | missing | `when`/`at`/`after` triggers are typed by `check/passes/typecheck_trigger.go` and lowered (`ir/lower/state_graph.go`); expressions are not symbols, so no `Triggers::TriggerWhen` general |
+| `TriggerInvocationExpression` | base | `checkTriggerInvocationExpressionSpecialization`<br>`Triggers::TriggerWhen`, `Triggers::TriggerAt`, `Triggers::TriggerAfter` | `TriggerInvocationExpression` when<br>`TriggerInvocationExpression` at<br>`TriggerInvocationExpression` after | `semantics/implied_expressions.go` `TriggerFunction` | match | the function a trigger invokes, read by `ExpressionFunction` and by the `instantiatedType` of the metamodel evaluator |
 
 ## Pilot map entries keyed by role (pilot-only, or realising a spec row above)
 
@@ -338,9 +338,9 @@ Every `put(...)` of the pilot map whose target no §8.4 constraint names, plus t
 | `TerminateActionUsage` | subaction | `Actions::Action::terminateSubactions` | `nested.go:366` Actions::Action::terminateSubactions | see spec row | checkTerminateActionUsageSubactionSpecialization; **fixed here** |
 | `TransitionUsage` | actionTransition | `Actions::Action::decisionTransitions` | `nested.go:378` Actions::Action::decisionTransitions | see spec row | checkTransitionUsageActionSpecialization; **fixed here** |
 | `TransitionUsage` | stateTransition | `States::StateAction::stateTransitions` | `nested.go:375` States::StateAction::stateTransitions | see spec row | checkTransitionUsageStateSpecialization; **fixed here** |
-| `TriggerInvocationExpression` | when | `Triggers::TriggerWhen` | — | see spec row | checkTriggerInvocationExpressionSpecialization (not modelled) |
-| `TriggerInvocationExpression` | at | `Triggers::TriggerAt` | — | see spec row | as above |
-| `TriggerInvocationExpression` | after | `Triggers::TriggerAfter` | — | see spec row | as above |
+| `TriggerInvocationExpression` | when | `Triggers::TriggerWhen` | `implied_expressions.go` `TriggerFunction` | see spec row | checkTriggerInvocationExpressionSpecialization |
+| `TriggerInvocationExpression` | at | `Triggers::TriggerAt` | `implied_expressions.go` `TriggerFunction` | see spec row | as above |
+| `TriggerInvocationExpression` | after | `Triggers::TriggerAfter` | `implied_expressions.go` `TriggerFunction` | see spec row | as above |
 | `ViewUsage` | subpart | `Items::Item::subparts` | `nested.go:331` Items::Item::subparts | see spec row | as above (view usages) |
 | `ViewpointUsage` | satisfied | `Views::View::viewpointSatisfactions` | `nested.go:290` Views::View::viewpointSatisfactions | see spec row | checkViewpointUsageViewpointSatisfactionSpecialization; **fixed here** |
 | `WhileLoopActionUsage` | subaction | `Actions::Action::whileLoops` | — | see spec row | checkWhileLoopActionUsageSubactionSpecialization; **derived since** |

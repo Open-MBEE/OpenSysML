@@ -53,18 +53,10 @@ func (e *Evaluator) structureImpliedFeatureTypes(element Element) ([]Value, bool
 func (e *Evaluator) structureExpressionFunction(element Element) ([]Value, bool) {
 	var function *symbols.Symbol
 	switch node := expressionNodeOf(element).(type) {
-	case *ast.TimeEvent:
+	case *ast.TimeEvent, *ast.ChangeEvent:
 		// A trigger's argument wrapper shares the trigger's node; only the invocation is typed by it.
 		if e.structureIsTriggerInvocation(element) {
-			if node.Absolute {
-				function = e.librarySymbol("Triggers::TriggerAt")
-			} else {
-				function = e.librarySymbol("Triggers::TriggerAfter")
-			}
-		}
-	case *ast.ChangeEvent:
-		if e.structureIsTriggerInvocation(element) {
-			function = e.librarySymbol("Triggers::TriggerWhen")
+			function = e.model.TriggerFunction(semantics.TriggerKind(node))
 		}
 	case nil:
 		function = e.statedExpressionFunction(element)
@@ -120,14 +112,7 @@ func (e *Evaluator) statedExpressionFunction(element Element) *symbols.Symbol {
 		}
 	case "TriggerInvocationExpression":
 		if stated, ok := e.options.Structure.Attribute(element, "kind"); ok {
-			switch stated.Enum + stated.String {
-			case "after":
-				return e.librarySymbol("Triggers::TriggerAfter")
-			case "at":
-				return e.librarySymbol("Triggers::TriggerAt")
-			case "when":
-				return e.librarySymbol("Triggers::TriggerWhen")
-			}
+			return e.model.TriggerFunction(stated.Enum + stated.String)
 		}
 	}
 	return nil

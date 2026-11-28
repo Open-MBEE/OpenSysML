@@ -2888,7 +2888,7 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 		}
 	}
 	if feature == "kind" && isExpressionSymbol(sym) && sym.Expr.Role != symbols.ExpressionChangeWrapper {
-		if kind := triggerKind(sym.Decl); kind != "" {
+		if kind := TriggerKind(sym.Decl); kind != "" {
 			return m.enumLiteralValue(m.sysmlMetaclass("TriggerKind"), kind)
 		}
 	}
