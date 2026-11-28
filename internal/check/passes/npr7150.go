@@ -74,8 +74,8 @@ type npr7150Requirement struct {
 // npr7150Mapping is one @RequirementMapping entry of the document.
 type npr7150Mapping struct {
 	usage *symbols.Symbol
-	// comply is the MappingKind literal the entry states, written out or bound through
-	// attributes; empty when it states none, which leaves the row's Comply? cell empty.
+	// comply is the MappingKind literal the entry states, written out or read through
+	// attributes and feature chains; empty when it states none.
 	comply    string
 	justified bool
 }
@@ -205,91 +205,68 @@ func (a *npr7150Audit) safetyCritical(sym *symbols.Symbol) bool {
 // so one annotation's disposition or justification never stands in for another's.
 func (a *npr7150Audit) mappingEntries(sym *symbols.Symbol) []npr7150Mapping {
 	var entries []npr7150Mapping
-	for _, facts := range a.model.AnnotationFactsOf(sym) {
-		if !a.annotationIs(facts, npr7150RequirementMapping) {
+	for _, metadata := range a.model.ElementMetadataOf(sym) {
+		if def := a.defs[npr7150RequirementMapping]; metadata.Type != def && !a.model.Conforms(metadata.Type, def) {
 			continue
 		}
 		entry := npr7150Mapping{usage: sym}
-		for _, v := range facts.Values {
-			switch v.Feature {
+		for _, binding := range metadata.Bindings {
+			literal, text := a.stated(binding.Scope, binding.Value, map[*symbols.Symbol]bool{})
+			switch binding.Feature {
 			case "comply":
-				entry.comply = a.disposition(v.Value)
+				if semantics.EnumerationOwning(literal) == a.defs[npr7150MappingKind] {
+					entry.comply = literal.Name
+				}
 			case "justification":
-				entry.justified = v.Value.Kind == symbols.FilterValueString && v.Value.Str != ""
+				entry.justified = text != ""
 			}
-		}
-		if entry.comply == "" {
-			entry.comply = a.chainedDisposition(sym, facts.Span)
 		}
 		entries = append(entries, entry)
 	}
 	return entries
 }
 
-// chainedDisposition is the MappingKind literal the annotation of sym at span states through a
-// feature chain (`comply = config.kind`), which its facts carry no value for.
-func (a *npr7150Audit) chainedDisposition(sym *symbols.Symbol, span source.Span) string {
-	for _, metadata := range a.model.ElementMetadataOf(sym) {
-		if metadata.Node.Span() != span {
-			continue
-		}
-		for _, binding := range metadata.Bindings {
-			if chain, ok := binding.Value.(*ast.FeatureChainExpr); ok && binding.Feature == "comply" {
-				target, _ := a.ctx.Resolver().ResolveTarget(binding.Scope, chain)
-				return a.boundDisposition(target, map[*symbols.Symbol]bool{})
-			}
-		}
+// stated is what value, an expression in scope, states once every feature it names, by
+// reference or through a feature chain, is followed to its own value: the enumeration literal
+// it ends in, or the text of the string. A value that ends in `null`, in a feature bound to
+// nothing or in a cycle states neither.
+func (a *npr7150Audit) stated(scope *symbols.Scope, value ast.Node, seen map[*symbols.Symbol]bool) (*symbols.Symbol, string) {
+	switch value := value.(type) {
+	case *ast.LiteralString:
+		return nil, source.StringValue(value.Value)
+	case *ast.FeatureReference:
+		target, _ := a.ctx.Resolver().ResolveQualified(scope, value.Name)
+		return a.statedBy(target, seen)
+	case *ast.FeatureChainExpr:
+		target, _ := a.ctx.Resolver().ResolveTarget(scope, value)
+		return a.statedBy(target, seen)
 	}
-	return ""
+	return nil, ""
 }
 
-// disposition is the MappingKind literal a comply value states: the literal itself, or the
-// one the attribute it names is bound to, through any chain of attributes. A chain that ends
-// in `null`, in an attribute bound to nothing or in a cycle states none.
-func (a *npr7150Audit) disposition(value symbols.FilterValue) string {
-	if value.Kind != symbols.FilterValueRef {
-		return ""
-	}
-	if literal := npr7123Literal(value, npr7150MappingKind); literal != "" {
-		return literal
-	}
-	seen := map[*symbols.Symbol]bool{}
-	for _, feature := range a.ctx.Index.LookupQualified(value.RefFQN) {
-		if literal := a.boundDisposition(feature, seen); literal != "" {
-			return literal
-		}
-	}
-	return ""
-}
-
-// boundDisposition is the MappingKind literal feature is, or the one its value names; a feature
-// that writes no value has the value of the features it redefines.
-func (a *npr7150Audit) boundDisposition(feature *symbols.Symbol, seen map[*symbols.Symbol]bool) string {
+// statedBy is what feature states: itself when it is an enumeration literal, else what its
+// value states, or what the features it redefines state when it writes no value.
+func (a *npr7150Audit) statedBy(feature *symbols.Symbol, seen map[*symbols.Symbol]bool) (*symbols.Symbol, string) {
 	if feature == nil || seen[feature] {
-		return ""
+		return nil, ""
 	}
 	seen[feature] = true
-	if semantics.EnumerationOwning(feature) == a.defs[npr7150MappingKind] {
-		return feature.Name
+	if semantics.EnumerationOwning(feature) != nil {
+		return feature, ""
 	}
 	usage, _ := feature.Decl.(*ast.Usage)
 	if usage == nil || !feature.IsFeature() {
-		return ""
+		return nil, ""
 	}
-	var target *symbols.Symbol
-	switch value := usage.Value.(type) {
-	case nil:
-		for _, redefined := range a.model.RedefinedFeatures(feature) {
-			if literal := a.boundDisposition(redefined, seen); literal != "" {
-				return literal
-			}
+	if usage.Value != nil {
+		return a.stated(feature.OwnerScope, usage.Value, seen)
+	}
+	for _, redefined := range a.model.RedefinedFeatures(feature) {
+		if literal, text := a.statedBy(redefined, seen); literal != nil || text != "" {
+			return literal, text
 		}
-	case *ast.FeatureReference:
-		target, _ = a.ctx.Resolver().ResolveQualified(feature.OwnerScope, value.Name)
-	case *ast.FeatureChainExpr:
-		target, _ = a.ctx.Resolver().ResolveTarget(feature.OwnerScope, value)
 	}
-	return a.boundDisposition(target, seen)
+	return nil, ""
 }
 
 func (a *npr7150Audit) check(root *symbols.Scope) {

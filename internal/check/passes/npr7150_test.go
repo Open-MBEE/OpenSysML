@@ -233,12 +233,13 @@ func TestNPR7150ChainedDisposition(t *testing.T) {
 		comply  string
 		missing int
 	}{
-		"stated":    {config: "\n\t\tpart cfg { attribute kind : MappingKind = MappingKind::fullyCompliant; }"},
-		"redefined": {config: "\n\t\tpart def Config { attribute kind : MappingKind; }\n\t\tpart cfg : Config { :>> kind = MappingKind::fullyCompliant; }"},
-		"inherited": {config: "\n\t\tpart def Config { attribute kind : MappingKind = MappingKind::fullyCompliant; }\n\t\tpart cfg : Config;"},
-		"nested":    {config: "\n\t\tpart cfg { part sw { attribute kind : MappingKind = MappingKind::fullyCompliant; } }\n\t\tattribute projectKind : MappingKind = cfg.sw.kind;\n\t\tpart alias { attribute kind : MappingKind = projectKind; }", comply: "alias.kind"},
-		"blank":     {config: "\n\t\tpart cfg { attribute kind : MappingKind; }", missing: 1},
-		"null":      {config: "\n\t\tpart def Config { attribute kind : MappingKind = MappingKind::fullyCompliant; }\n\t\tpart cfg : Config { :>> kind = null; }", missing: 1},
+		"stated":     {config: "\n\t\tpart cfg { attribute kind : MappingKind = MappingKind::fullyCompliant; }"},
+		"redefined":  {config: "\n\t\tpart def Config { attribute kind : MappingKind; }\n\t\tpart cfg : Config { :>> kind = MappingKind::fullyCompliant; }"},
+		"inherited":  {config: "\n\t\tpart def Config { attribute kind : MappingKind = MappingKind::fullyCompliant; }\n\t\tpart cfg : Config;"},
+		"nested":     {config: "\n\t\tpart cfg { part sw { attribute kind : MappingKind = MappingKind::fullyCompliant; } }\n\t\tattribute projectKind : MappingKind = cfg.sw.kind;\n\t\tpart alias { attribute kind : MappingKind = projectKind; }", comply: "alias.kind"},
+		"redefining": {config: "\n\t\tpart def Config { attribute kind : MappingKind = MappingKind::fullyCompliant; }\n\t\tpart cfg : Config { attribute effective :>> kind; }", comply: "cfg.effective"},
+		"blank":      {config: "\n\t\tpart cfg { attribute kind : MappingKind; }", missing: 1},
+		"null":       {config: "\n\t\tpart def Config { attribute kind : MappingKind = MappingKind::fullyCompliant; }\n\t\tpart cfg : Config { :>> kind = null; }", missing: 1},
 	} {
 		t.Run(name, func(t *testing.T) {
 			comply := cmp.Or(tc.comply, "cfg.kind")
@@ -287,4 +288,24 @@ func TestNPR7150ChainedDispositionLiterals(t *testing.T) {
 			})
 		}
 	}
+}
+
+// A justification held by an attribute, or read through a feature chain, is one the entry gives;
+// one that ends in no text is not.
+func TestNPR7150BoundJustification(t *testing.T) {
+	src := npr7150Model(`
+		attribute rationale : ScalarValues::String = "Approved by the Technical Authority";
+		attribute relayed : ScalarValues::String = rationale;
+		part record { attribute text : ScalarValues::String = "Heritage executive"; }
+		part def Record { attribute text : ScalarValues::String = "Waived"; }
+		part filed : Record { attribute note :>> text; }
+		attribute empty : ScalarValues::String = "";
+		attribute unset : ScalarValues::String;
+		requirement a : SWE134 { @RequirementMapping { comply = MappingKind::tailored; justification = rationale; } }
+		requirement b : SWE032 { @RequirementMapping { comply = MappingKind::tailored; justification = relayed; } }
+		requirement c : SWE141 { @RequirementMapping { comply = MappingKind::tailored; justification = record.text; } }
+		requirement d : SWE033 { @RequirementMapping { comply = MappingKind::tailored; justification = filed.note; } }
+		requirement e : SWE013 { @RequirementMapping { comply = MappingKind::tailored; justification = empty; } }
+		requirement f : SWE042 { @RequirementMapping { comply = MappingKind::tailored; justification = unset; } }`)
+	w8dWantLines(t, src, CodeNPR7150MappingNoJustification, 15, 16)
 }

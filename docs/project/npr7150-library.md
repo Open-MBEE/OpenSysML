@@ -74,7 +74,8 @@ A mapping entry's disposition is the `MappingKind` literal its `comply` states: 
 (`comply = MappingKind::tailored`), held by an attribute (`comply = projectDefault`) or read
 through a feature chain (`comply = config.kind`), following each attribute's value and the
 features it redefines. One that ends in `null` or in no value states none, and its requirement
-counts as not addressed.
+counts as not addressed. A `justification` is read the same way, and one that ends in no text
+is not a justification.
 
 ## How OpenSysML serves the NPR
 
