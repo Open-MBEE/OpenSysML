@@ -10,6 +10,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // NPR7150Pass audits the elements a model classifies with the NPR7150 library against what
@@ -217,9 +218,29 @@ func (a *npr7150Audit) mappingEntries(sym *symbols.Symbol) []npr7150Mapping {
 				entry.justified = v.Value.Kind == symbols.FilterValueString && v.Value.Str != ""
 			}
 		}
+		if entry.comply == "" {
+			entry.comply = a.chainedDisposition(sym, facts.Span)
+		}
 		entries = append(entries, entry)
 	}
 	return entries
+}
+
+// chainedDisposition is the MappingKind literal the annotation of sym at span states through a
+// feature chain (`comply = config.kind`), which its facts carry no value for.
+func (a *npr7150Audit) chainedDisposition(sym *symbols.Symbol, span source.Span) string {
+	for _, metadata := range a.model.ElementMetadataOf(sym) {
+		if metadata.Node.Span() != span {
+			continue
+		}
+		for _, binding := range metadata.Bindings {
+			if chain, ok := binding.Value.(*ast.FeatureChainExpr); ok && binding.Feature == "comply" {
+				target, _ := a.ctx.Resolver().ResolveTarget(binding.Scope, chain)
+				return a.boundDisposition(target, map[*symbols.Symbol]bool{})
+			}
+		}
+	}
+	return ""
 }
 
 // disposition is the MappingKind literal a comply value states: the literal itself, or the
@@ -241,7 +262,8 @@ func (a *npr7150Audit) disposition(value symbols.FilterValue) string {
 	return ""
 }
 
-// boundDisposition is the MappingKind literal feature is, or the one its value names.
+// boundDisposition is the MappingKind literal feature is, or the one its value names; a feature
+// that writes no value has the value of the features it redefines.
 func (a *npr7150Audit) boundDisposition(feature *symbols.Symbol, seen map[*symbols.Symbol]bool) string {
 	if feature == nil || seen[feature] {
 		return ""
@@ -254,11 +276,19 @@ func (a *npr7150Audit) boundDisposition(feature *symbols.Symbol, seen map[*symbo
 	if usage == nil || !feature.IsFeature() {
 		return ""
 	}
-	ref, _ := usage.Value.(*ast.FeatureReference)
-	if ref == nil {
-		return ""
+	var target *symbols.Symbol
+	switch value := usage.Value.(type) {
+	case nil:
+		for _, redefined := range a.model.RedefinedFeatures(feature) {
+			if literal := a.boundDisposition(redefined, seen); literal != "" {
+				return literal
+			}
+		}
+	case *ast.FeatureReference:
+		target, _ = a.ctx.Resolver().ResolveQualified(feature.OwnerScope, value.Name)
+	case *ast.FeatureChainExpr:
+		target, _ = a.ctx.Resolver().ResolveTarget(feature.OwnerScope, value)
 	}
-	target, _ := a.ctx.Resolver().ResolveQualified(feature.OwnerScope, ref.Name)
 	return a.boundDisposition(target, seen)
 }
 

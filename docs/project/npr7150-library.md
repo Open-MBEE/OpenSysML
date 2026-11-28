@@ -70,6 +70,12 @@ uses the bundled library:
 The pass reads Table 2 off the library's annotations rather than a table of its own, and only
 for a document that states a mapping matrix or safety-critical software with mapping entries.
 
+A mapping entry's disposition is the `MappingKind` literal its `comply` states: written out
+(`comply = MappingKind::tailored`), held by an attribute (`comply = projectDefault`) or read
+through a feature chain (`comply = config.kind`), following each attribute's value and the
+features it redefines. One that ends in `null` or in no value states none, and its requirement
+counts as not addressed.
+
 ## How OpenSysML serves the NPR
 
 What the NPR asks a project to *show* — its software classification (SWE-020, SWE-176) and its

@@ -1,6 +1,7 @@
 package passes
 
 import (
+	"cmp"
 	"strings"
 	"testing"
 )
@@ -219,6 +220,47 @@ func TestNPR7150BoundDispositionIsAudited(t *testing.T) {
 		requirement a : SWE134 { @RequirementMapping { comply = waived; justification = "j"; } }
 		requirement b : SWE032 { @RequirementMapping { comply = projectDefault; } }
 		requirement c : SWE141 { @RequirementMapping { comply = waived; } }`)
+	w8dWantLines(t, src, CodeNPR7150SafetyCriticalNotApplied, 8)
+	w8dWantLines(t, src, CodeNPR7150MappingNoJustification, 9, 10)
+}
+
+// A disposition read through a feature chain is the literal the chain ends in, whether the
+// feature states it, redefines it or inherits it.
+func TestNPR7150ChainedDisposition(t *testing.T) {
+	matrix := "\n\t\tpart def Matrix :> RequirementsMappingMatrix { :>> softwareClass = SoftwareClass::E; }\n\t\tpart matrix : Matrix;"
+	for name, tc := range map[string]struct {
+		config  string
+		comply  string
+		missing int
+	}{
+		"stated":    {config: "\n\t\tpart cfg { attribute kind : MappingKind = MappingKind::fullyCompliant; }"},
+		"redefined": {config: "\n\t\tpart def Config { attribute kind : MappingKind; }\n\t\tpart cfg : Config { :>> kind = MappingKind::fullyCompliant; }"},
+		"inherited": {config: "\n\t\tpart def Config { attribute kind : MappingKind = MappingKind::fullyCompliant; }\n\t\tpart cfg : Config;"},
+		"nested":    {config: "\n\t\tpart cfg { part sw { attribute kind : MappingKind = MappingKind::fullyCompliant; } }\n\t\tattribute projectKind : MappingKind = cfg.sw.kind;\n\t\tpart alias { attribute kind : MappingKind = projectKind; }", comply: "alias.kind"},
+		"blank":     {config: "\n\t\tpart cfg { attribute kind : MappingKind; }", missing: 1},
+		"null":      {config: "\n\t\tpart def Config { attribute kind : MappingKind = MappingKind::fullyCompliant; }\n\t\tpart cfg : Config { :>> kind = null; }", missing: 1},
+	} {
+		t.Run(name, func(t *testing.T) {
+			comply := cmp.Or(tc.comply, "cfg.kind")
+			src := npr7150Model(matrix + npr7150Entries(npr7150ClassE[1:]...) + tc.config +
+				"\n\t\trequirement swe033 : SWE033 { @RequirementMapping { comply = " + comply + "; } }")
+			if diags := only(w8dDiags(t, src), CodeNPR7150MatrixMissingRequirement); len(diags) != tc.missing {
+				t.Fatalf("got %v, want %d finding(s)", diags, tc.missing)
+			}
+		})
+	}
+}
+
+// A disposition read through a feature chain is held to the same rules as one written as a literal.
+func TestNPR7150ChainedDispositionIsAudited(t *testing.T) {
+	src := npr7150Model(`
+		#softwareSystem part fsw { :>> softwareClass = SoftwareClass::B; :>> safetyCritical = true; }
+		part def Config { attribute kind : MappingKind; }
+		part waived : Config { :>> kind = MappingKind::notApplicable; }
+		part relaxed { attribute kind : MappingKind = MappingKind::tailored; }
+		requirement a : SWE134 { @RequirementMapping { comply = waived.kind; justification = "j"; } }
+		requirement b : SWE032 { @RequirementMapping { comply = relaxed.kind; } }
+		requirement c : SWE141 { @RequirementMapping { comply = waived.kind; } }`)
 	w8dWantLines(t, src, CodeNPR7150SafetyCriticalNotApplied, 8)
 	w8dWantLines(t, src, CodeNPR7150MappingNoJustification, 9, 10)
 }
