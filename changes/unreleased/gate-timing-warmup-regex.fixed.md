@@ -1,0 +1,1 @@
+- **The timing warmup now compiles both shards instead of aborting on a Make expansion error.** The compile-only regex is escaped in the shard recipe, where Make expands it once, and the warmup passes a boolean switch through the recursive targets, so the shell receives the complete `-run '^$'` argument for both the root and tools modules before either measurement starts.
