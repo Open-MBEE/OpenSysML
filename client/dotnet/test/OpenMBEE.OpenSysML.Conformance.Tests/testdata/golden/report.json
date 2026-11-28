@@ -1,0 +1,319 @@
+{
+  "service": "fake-service",
+  "total": 29,
+  "passed": 16,
+  "failed": 3,
+  "skipped": 4,
+  "errored": 6,
+  "without_capability": 1,
+  "configurations": [
+    {
+      "name": "default",
+      "total": 20,
+      "passed": 12,
+      "failed": 2,
+      "skipped": 2,
+      "errored": 4,
+      "without_capability": 0,
+      "protocols": [
+        {
+          "protocol": "fake-proto",
+          "service": "fake-service",
+          "capabilities": [
+            "evaluate",
+            "oslc_query",
+            "query",
+            "strict_conformance"
+          ],
+          "total": 10,
+          "passed": 6,
+          "failed": 1,
+          "skipped": 1,
+          "errored": 2,
+          "without_capability": 0,
+          "results": [
+            {
+              "id": "handshake/reports_its_capabilities",
+              "outcome": "pass",
+              "rpc": "GetServerInfo",
+              "status": "OK",
+              "duration_ms": 1.234
+            },
+            {
+              "id": "evaluate/a_real_agrees_within_tolerance",
+              "outcome": "pass",
+              "rpc": "Evaluate",
+              "status": "OK",
+              "duration_ms": 1.234
+            },
+            {
+              "id": "evaluate/a_different_real_disagrees",
+              "outcome": "fail",
+              "rpc": "Evaluate",
+              "failures": [
+                "result.real_value: 1500.0000000001, want 1200.0"
+              ],
+              "status": "OK",
+              "duration_ms": 1.234
+            },
+            {
+              "id": "instantiate/instances_are_labelled_by_first_appearance",
+              "outcome": "pass",
+              "rpc": "Instantiate",
+              "status": "OK",
+              "duration_ms": 1.234
+            },
+            {
+              "id": "parse/strict_conformance_is_refused_without_the_capability",
+              "outcome": "pass",
+              "rpc": "ParseFile",
+              "status": "OK",
+              "duration_ms": 1.234
+            },
+            {
+              "id": "query/oslc_needs_its_capability",
+              "outcome": "pass",
+              "rpc": "Query",
+              "status": "OK",
+              "duration_ms": 1.234
+            },
+            {
+              "id": "symbol/a_missing_symbol_is_not_found",
+              "outcome": "pass",
+              "rpc": "GetSymbol",
+              "status": "NOT_FOUND",
+              "duration_ms": 1.234
+            },
+            {
+              "id": "broken/an_unknown_rpc_is_an_error",
+              "outcome": "error",
+              "rpc": "Forecast",
+              "reason": "sysml.SysMLService has no RPC \"Forecast\"",
+              "status": "-",
+              "duration_ms": 1.234
+            },
+            {
+              "id": "broken/a_model_the_service_refuses_is_an_error",
+              "outcome": "error",
+              "rpc": "Evaluate",
+              "reason": "parsing fixture \"broken.sysml\": the fake service refuses this model",
+              "status": "-",
+              "duration_ms": 1.234
+            },
+            {
+              "id": "convert/an_unexpressible_request_is_skipped",
+              "outcome": "skip",
+              "rpc": "Convert",
+              "reason": "the fake client cannot express Convert",
+              "status": "-",
+              "duration_ms": 1.234
+            }
+          ]
+        },
+        {
+          "protocol": "fake-json",
+          "service": "fake-service",
+          "capabilities": [
+            "evaluate",
+            "oslc_query",
+            "query",
+            "strict_conformance"
+          ],
+          "total": 10,
+          "passed": 6,
+          "failed": 1,
+          "skipped": 1,
+          "errored": 2,
+          "without_capability": 0,
+          "results": [
+            {
+              "id": "handshake/reports_its_capabilities",
+              "outcome": "pass",
+              "rpc": "GetServerInfo",
+              "status": "OK",
+              "duration_ms": 1.234
+            },
+            {
+              "id": "evaluate/a_real_agrees_within_tolerance",
+              "outcome": "pass",
+              "rpc": "Evaluate",
+              "status": "OK",
+              "duration_ms": 1.234
+            },
+            {
+              "id": "evaluate/a_different_real_disagrees",
+              "outcome": "fail",
+              "rpc": "Evaluate",
+              "failures": [
+                "result.real_value: 1500.0000000001, want 1200.0"
+              ],
+              "status": "OK",
+              "duration_ms": 1.234
+            },
+            {
+              "id": "instantiate/instances_are_labelled_by_first_appearance",
+              "outcome": "pass",
+              "rpc": "Instantiate",
+              "status": "OK",
+              "duration_ms": 1.234
+            },
+            {
+              "id": "parse/strict_conformance_is_refused_without_the_capability",
+              "outcome": "pass",
+              "rpc": "ParseFile",
+              "status": "OK",
+              "duration_ms": 1.234
+            },
+            {
+              "id": "query/oslc_needs_its_capability",
+              "outcome": "pass",
+              "rpc": "Query",
+              "status": "OK",
+              "duration_ms": 1.234
+            },
+            {
+              "id": "symbol/a_missing_symbol_is_not_found",
+              "outcome": "pass",
+              "rpc": "GetSymbol",
+              "status": "NOT_FOUND",
+              "duration_ms": 1.234
+            },
+            {
+              "id": "broken/an_unknown_rpc_is_an_error",
+              "outcome": "error",
+              "rpc": "Forecast",
+              "reason": "sysml.SysMLService has no RPC \"Forecast\"",
+              "status": "-",
+              "duration_ms": 1.234
+            },
+            {
+              "id": "broken/a_model_the_service_refuses_is_an_error",
+              "outcome": "error",
+              "rpc": "Evaluate",
+              "reason": "parsing fixture \"broken.sysml\": the fake service refuses this model",
+              "status": "-",
+              "duration_ms": 1.234
+            },
+            {
+              "id": "convert/an_unexpressible_request_is_skipped",
+              "outcome": "skip",
+              "rpc": "Convert",
+              "reason": "the fake client cannot express Convert",
+              "status": "-",
+              "duration_ms": 1.234
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "without-strict_conformance-oslc_query",
+      "unavailable_capabilities": [
+        "strict_conformance",
+        "oslc_query"
+      ],
+      "total": 9,
+      "passed": 4,
+      "failed": 1,
+      "skipped": 2,
+      "errored": 2,
+      "without_capability": 1,
+      "protocols": [
+        {
+          "protocol": "fake-proto",
+          "service": "fake-service",
+          "capabilities": [
+            "evaluate",
+            "query"
+          ],
+          "total": 9,
+          "passed": 4,
+          "failed": 1,
+          "skipped": 2,
+          "errored": 2,
+          "without_capability": 1,
+          "results": [
+            {
+              "id": "evaluate/a_real_agrees_within_tolerance",
+              "outcome": "pass",
+              "rpc": "Evaluate",
+              "status": "OK",
+              "duration_ms": 1.234
+            },
+            {
+              "id": "evaluate/a_different_real_disagrees",
+              "outcome": "fail",
+              "rpc": "Evaluate",
+              "failures": [
+                "result.real_value: 1500.0000000001, want 1200.0"
+              ],
+              "status": "OK",
+              "duration_ms": 1.234
+            },
+            {
+              "id": "instantiate/instances_are_labelled_by_first_appearance",
+              "outcome": "pass",
+              "rpc": "Instantiate",
+              "status": "OK",
+              "duration_ms": 1.234
+            },
+            {
+              "id": "parse/strict_conformance_is_refused_without_the_capability",
+              "outcome": "pass",
+              "rpc": "ParseFile",
+              "reason": "the service does not report strict_conformance, so the without-capability expectation applies",
+              "status": "UNIMPLEMENTED",
+              "without_capability": true,
+              "missing_capabilities": [
+                "strict_conformance"
+              ],
+              "duration_ms": 1.234
+            },
+            {
+              "id": "query/oslc_needs_its_capability",
+              "outcome": "skip",
+              "rpc": "Query",
+              "reason": "the service does not report oslc_query",
+              "status": "-",
+              "missing_capabilities": [
+                "oslc_query"
+              ],
+              "duration_ms": 1.234
+            },
+            {
+              "id": "symbol/a_missing_symbol_is_not_found",
+              "outcome": "pass",
+              "rpc": "GetSymbol",
+              "status": "NOT_FOUND",
+              "duration_ms": 1.234
+            },
+            {
+              "id": "broken/an_unknown_rpc_is_an_error",
+              "outcome": "error",
+              "rpc": "Forecast",
+              "reason": "sysml.SysMLService has no RPC \"Forecast\"",
+              "status": "-",
+              "duration_ms": 1.234
+            },
+            {
+              "id": "broken/a_model_the_service_refuses_is_an_error",
+              "outcome": "error",
+              "rpc": "Evaluate",
+              "reason": "parsing fixture \"broken.sysml\": the fake service refuses this model",
+              "status": "-",
+              "duration_ms": 1.234
+            },
+            {
+              "id": "convert/an_unexpressible_request_is_skipped",
+              "outcome": "skip",
+              "rpc": "Convert",
+              "reason": "the fake client cannot express Convert",
+              "status": "-",
+              "duration_ms": 1.234
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

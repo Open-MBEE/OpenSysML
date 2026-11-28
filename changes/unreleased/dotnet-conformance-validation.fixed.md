@@ -1,0 +1,2 @@
+- The .NET conformance runner rejects missing flag values instead of consuming another option and silently running no scenarios; `-flag=value` preserves literal dash-prefixed values. JSON and JUnit destination failures now produce contextual diagnostics and exit 1 instead of an unhandled exception.
+- The .NET conformance differential validates every JUnit testcase's outcome against JSON, rejecting missing, incorrect, duplicate or conflicting failure, error and skip elements even when declared totals agree.

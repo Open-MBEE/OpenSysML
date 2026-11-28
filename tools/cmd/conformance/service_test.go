@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -19,9 +20,14 @@ func TestFreePortsAreDistinct(t *testing.T) {
 }
 
 func TestStartServiceReportsAProcessThatExits(t *testing.T) {
+	// false lives in /bin on Linux but only in /usr/bin on macOS.
+	exits, err := exec.LookPath("false")
+	if err != nil {
+		t.Fatalf("no false utility on PATH: %v", err)
+	}
 	logPath := filepath.Join(t.TempDir(), "service.log")
 	start := time.Now()
-	_, err := startService(context.Background(), "/bin/false", logPath, 4)
+	_, err = startService(context.Background(), exits, logPath, 4)
 	if err == nil {
 		t.Fatal("startService accepted a binary that exits immediately")
 	}

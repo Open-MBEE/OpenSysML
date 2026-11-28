@@ -1,0 +1,2 @@
+M:OpenMBEE.OpenSysML.Connection.CallAsync``2(System.String,``0,System.Threading.CancellationToken);the runner reaches the service through the typed API, so what it cannot express is skipped rather than sent raw
+T:OpenMBEE.OpenSysML.Wire.SysMLService.SysMLServiceClient;the runner reaches the service through the typed API, never the generated stub

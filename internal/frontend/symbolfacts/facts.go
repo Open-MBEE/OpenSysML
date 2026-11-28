@@ -162,7 +162,7 @@ func OfWith(sym *symbols.Symbol, sc *Context, opts Options) *Info {
 	sc.directionMetadata(sym, opts.MemberOf, info.Metadata)
 	// Add visibility to metadata
 	info.Metadata["visibility"] = visibilityToString(sym.Visibility)
-	info.ChildIds = sc.collectChildIDs(sc.ownedMembers(sym))
+	info.ChildIds = sc.symbolChildIDs(sym)
 	// Static type facts: the resolved type, the declared multiplicity and every
 	// generalization edge. These are what a client needs to reconstruct the
 	// element's type without re-deriving it from the metadata strings.
@@ -282,6 +282,39 @@ func (sc *Context) collectChildIDs(members []*symbols.Symbol) []string {
 			ids = append(ids, id)
 		}
 	}
+	return ids
+}
+
+// symbolChildIDs is collectChildIDs over the owned members of every document fragment
+// of a named namespace; a document root and any other symbol remain local.
+func (sc *Context) symbolChildIDs(sym *symbols.Symbol) []string {
+	idx := sc.Index
+	if sym.Scope == nil {
+		return nil
+	}
+	if sym.Name == "" || sym.Kind != symbols.SymbolPackage && sym.Kind != symbols.SymbolNamespace {
+		return sc.collectChildIDs(sc.ownedMembers(sym))
+	}
+	var fragments []*symbols.Symbol
+	for _, other := range idx.LookupQualified(idx.GetFQN(sym)) {
+		if other.Kind == sym.Kind && other.Scope != nil && idx.Library(other) == idx.Library(sym) {
+			fragments = append(fragments, other)
+		}
+	}
+	if len(fragments) <= 1 {
+		return sc.collectChildIDs(sc.ownedMembers(sym))
+	}
+	seen := make(map[string]bool)
+	var ids []string
+	for _, fragment := range fragments {
+		for _, id := range sc.collectChildIDs(sc.ownedMembers(fragment)) {
+			if !seen[id] {
+				seen[id] = true
+				ids = append(ids, id)
+			}
+		}
+	}
+	slices.Sort(ids)
 	return ids
 }
 

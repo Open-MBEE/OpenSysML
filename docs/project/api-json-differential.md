@@ -376,6 +376,12 @@ Re-recorded on the cast and extent result typing change (`x as T`, `x meta T`, `
 The per-root table, rendered from the baseline when the site builds.
 <!-- doc-counts:end apijson-roots -->
 
+The .NET client self-model additions keep the corpus at 935 files and add 53 matched elements in the
+`examples` root: the new client definition with its connection code and token option, instance,
+service connection and allocation, not a change to either exporter's treatment of the existing
+model. They add 2 ours-only elements there, the `sysx:Note` entries of the two `//` notes the
+client's definition carries, which the pilot has no counterpart for; no other root's elements move.
+
 **An `about` clause's Annotation** (re-recorded when the writer began stating one `Annotation`
 element per element an annotating element's `about` names — `@M about x, y;`, `metadata m : M
 about x;`, `comment about x` — owned by the annotating element after its typing and ahead of its

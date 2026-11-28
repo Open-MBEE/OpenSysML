@@ -9,9 +9,13 @@ client/node/src/generated/**                     linguist-generated=true
 client/python/opensysml/proto/**                 linguist-generated=true
 client/python/opensysml/metamodel/_generated.py  linguist-generated=true
 client/rust/opensysml/src/proto/**               linguist-generated=true
+client/dotnet/src/OpenMBEE.OpenSysML/Wire/**     linguist-generated=true
+client/dotnet/src/OpenMBEE.OpenSysML.Metamodel/Generated.cs linguist-generated=true
 client/rust/conformance/*.binpb                  linguist-generated=true -diff
 
 # Golden files and expected outputs
+client/dotnet/test/OpenMBEE.OpenSysML.Generate.Consumer/Golden/** linguist-generated=true
+client/dotnet/test/testdata/metamodel/*.golden.cs linguist-generated=true
 tests/**/*.golden.*                              linguist-generated=true
 tests/**/*.expected.json                         linguist-generated=true
 internal/**/testdata/**/*.golden.*               linguist-generated=true

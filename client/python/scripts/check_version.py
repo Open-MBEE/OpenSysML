@@ -14,7 +14,9 @@ Prints the version the tag names on success. With `--pre-release` it prints
 With `--node`, `--java` or `--rust` the version client/node/package.json,
 client/java/pom.xml or client/rust/opensysml/Cargo.toml declares is checked
 the same way and printed instead — all three clients are published from the
-same tag, at the SemVer spelling of the same version. `--editors` runs the
+same tag, at the SemVer spelling of the same version. `--dotnet` does the same
+for the Version client/dotnet/Directory.Build.props declares: the .NET client
+is not published, but its checkout carries the release's version. `--editors` runs the
 same check over every manifest an editor takes its version from: nothing
 publishes the editors, but their versions follow the core's, so a release
 still fails early when one disagrees. `--jupyter-kernel` checks the version
@@ -61,6 +63,7 @@ NODE_PACKAGE = os.path.join(REPO_ROOT, "client", "node", PACKAGE_JSON)
 MCP_PACKAGE = os.path.join(REPO_ROOT, "packaging", "npm", "sysml-mcp", PACKAGE_JSON)
 JAVA_POM = os.path.join(REPO_ROOT, "client", "java", "pom.xml")
 RUST_CARGO = os.path.join(REPO_ROOT, "client", "rust", "opensysml", "Cargo.toml")
+DOTNET_PROPS = os.path.join(REPO_ROOT, "client", "dotnet", "Directory.Build.props")
 KERNEL_VERSION_FILE = os.path.join(
     REPO_ROOT, "client", "jupyter-kernel", "jupyter_opensysml_kernel", "_version.py"
 )
@@ -364,6 +367,69 @@ def rust_version(declared=None, rust=None, tag=None):
     )
 
 
+def dotnet_declared_version(props=DOTNET_PROPS):
+    """The Version client/dotnet/Directory.Build.props declares.
+
+    Only an unconditional PropertyGroup counts: a conditional one could give
+    some builds another version.
+
+    Args:
+        props (str): Path to client/dotnet/Directory.Build.props
+
+    Returns:
+        str: The declared version
+
+    Raises:
+        VersionError: If the file declares no Version, more than one, or one
+            under a condition
+    """
+    project = ET.parse(props).getroot()
+    versions = []
+    for group in project.findall("PropertyGroup"):
+        for element in group.findall("Version"):
+            if "Condition" in group.attrib or "Condition" in element.attrib:
+                raise VersionError(
+                    f"{props} declares Version under a Condition; declare it once, unconditionally"
+                )
+            versions.append((element.text or "").strip())
+    if len(versions) != 1 or not versions[0]:
+        raise VersionError(
+            f"{props} declares {len(versions)} Version properties; it must declare exactly one"
+        )
+    return versions[0]
+
+
+def dotnet_version(declared=None, dotnet=None, tag=None):
+    """client/dotnet/Directory.Build.props's Version, checked against _version.py and, when given, the tag.
+
+    Args:
+        declared (str, optional): Version opensysml/_version.py declares; read
+            when omitted
+        dotnet (str, optional): Version client/dotnet/Directory.Build.props
+            declares; read when omitted
+        tag (str, optional): Core release tag the release runs from
+
+    Returns:
+        str: The .NET client's version, as Directory.Build.props declares
+
+    Raises:
+        VersionError: If Directory.Build.props and _version.py disagree, or the
+            tag does not spell the version Directory.Build.props declares
+    """
+    dotnet = dotnet_declared_version() if dotnet is None else dotnet
+    return _client_version(
+        "client/dotnet/Directory.Build.props",
+        "Directory.Build.props",
+        "the .NET client's release",
+        "The .NET client",
+        dotnet,
+        declared,
+        tag,
+        "set <Version> in client/dotnet/Directory.Build.props to the SemVer "
+        "spelling of that version.",
+    )
+
+
 def kernel_version(declared=None, kernel=None, tag=None):
     """jupyter-opensysml-kernel's version, checked against _version.py and, when given, the tag.
 
@@ -591,6 +657,11 @@ def main(argv=None):
         help="check and print client/rust/opensysml/Cargo.toml's version instead",
     )
     clients.add_argument(
+        "--dotnet",
+        action="store_true",
+        help="check and print client/dotnet/Directory.Build.props's version instead",
+    )
+    clients.add_argument(
         "--editors",
         action="store_true",
         help="check every editor manifest's version and print it instead",
@@ -615,6 +686,8 @@ def main(argv=None):
             version = java_version(declared=version, tag=args.tag)
         elif args.rust:
             version = rust_version(declared=version, tag=args.tag)
+        elif args.dotnet:
+            version = dotnet_version(declared=version, tag=args.tag)
         elif args.editors:
             version = editors_version(declared=version, tag=args.tag)
         elif args.jupyter_kernel:

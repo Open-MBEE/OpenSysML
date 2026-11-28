@@ -110,13 +110,19 @@ func PortCenter(box Box, port Port) Point {
 		if port.Side == South {
 			y = box.Y + box.Height
 		}
-		return Point{X: box.X + box.Width*port.Offset, Y: y}
+		return Point{X: box.X + along(box.Width, port.Offset), Y: y}
 	}
 	x := box.X
 	if port.Side == East {
 		x = box.X + box.Width
 	}
-	return Point{X: x, Y: box.Y + box.Height*port.Offset}
+	return Point{X: x, Y: box.Y + along(box.Height, port.Offset)}
+}
+
+// along is the distance a fraction of length lies along it, rounded before any sum it enters
+// so no architecture fuses it into a multiply-add and parts from the panel's arithmetic.
+func along(length, fraction float64) float64 {
+	return float64(length * fraction)
 }
 
 // PortFace is the outer face of the port square straddling the border.

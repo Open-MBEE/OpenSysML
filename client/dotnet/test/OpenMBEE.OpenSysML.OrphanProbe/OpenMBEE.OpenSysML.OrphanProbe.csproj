@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    An application the orphan tests start and then kill: it opens a private sysml-grpc through the
+    client, starts unrelated processes beside it, reports every process id and waits to be killed,
+    so the tests can watch what outlives it. See Program.cs for its modes.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>OpenMBEE.OpenSysML.OrphanProbe</AssemblyName>
+    <RootNamespace>OpenMBEE.OpenSysML.OrphanProbe</RootNamespace>
+    <!-- The tests start the native launcher, and the probe starts its siblings through it. -->
+    <UseAppHost>true</UseAppHost>
+    <!-- LibraryImport, for the leak control's handle duplication. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/OpenMBEE.OpenSysML/OpenMBEE.OpenSysML.csproj" />
+  </ItemGroup>
+</Project>

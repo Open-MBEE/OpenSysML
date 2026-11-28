@@ -1,0 +1,34 @@
+version: v2
+# C# message classes and the gRPC client stub for the .NET client in client/dotnet, committed
+# like the other clients' stubs so a checkout builds with neither buf nor network. Run via
+# `make proto-csharp` (which `make proto` includes).
+#
+# The plugin versions pair with the runtime packages client/dotnet/Directory.Packages.props
+# pins: protocolbuffers/csharp vN.M generates against Google.Protobuf 3.N.M, and grpc/csharp
+# against Grpc.Net.Client of the same version.
+#
+# Managed mode sets the namespace alone. It rewrites only the descriptor these plugins see,
+# so the Go stubs buf.gen.yaml writes are unaffected.
+managed:
+  enabled: true
+  disable:
+    - file_option: java_package
+    - file_option: java_multiple_files
+    - file_option: java_outer_classname
+    - file_option: java_string_check_utf8
+    - file_option: go_package
+    - file_option: objc_class_prefix
+    - file_option: php_namespace
+    - file_option: php_metadata_namespace
+    - file_option: ruby_package
+    - file_option: optimize_for
+    - file_option: cc_enable_arenas
+  override:
+    - file_option: csharp_namespace
+      value: OpenMBEE.OpenSysML.Wire
+plugins:
+  - remote: buf.build/protocolbuffers/csharp:v36.2
+    out: client/dotnet/src/OpenMBEE.OpenSysML/Wire
+  - remote: buf.build/grpc/csharp:v1.84.0
+    out: client/dotnet/src/OpenMBEE.OpenSysML/Wire
+    opt: no_server

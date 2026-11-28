@@ -1,0 +1,17 @@
+[
+  {
+    "sources": ["internal/frontend/repl/testdata/vehicle_package.sysml"],
+    "namespace": "OpenSysML.Golden.Vehicle",
+    "output": "client/dotnet/test/OpenMBEE.OpenSysML.Generate.Consumer/Golden/VehicleTypes.cs"
+  },
+  {
+    "sources": ["client/python/tests/fixtures/multifile"],
+    "namespace": "OpenSysML.Golden.Fleet",
+    "output": "client/dotnet/test/OpenMBEE.OpenSysML.Generate.Consumer/Golden/FleetTypes.cs"
+  },
+  {
+    "sources": ["client/dotnet/test/testdata/generate/cases"],
+    "namespace": "OpenSysML.Golden.Cases",
+    "output": "client/dotnet/test/OpenMBEE.OpenSysML.Generate.Consumer/Golden/CasesTypes.cs"
+  }
+]

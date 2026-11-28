@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="conformance" tests="29" failures="3" errors="6" skipped="4" time="0.035786000000000005">
+  <testsuite name="default/fake-proto" tests="10" failures="1" errors="2" skipped="1" time="0.012340000000000002">
+    <testcase name="handshake/reports_its_capabilities" classname="default/fake-proto" time="0.001234" />
+    <testcase name="evaluate/a_real_agrees_within_tolerance" classname="default/fake-proto" time="0.001234" />
+    <testcase name="evaluate/a_different_real_disagrees" classname="default/fake-proto" time="0.001234">
+      <failure>result.real_value: 1500.0000000001, want 1200.0</failure>
+    </testcase>
+    <testcase name="instantiate/instances_are_labelled_by_first_appearance" classname="default/fake-proto" time="0.001234" />
+    <testcase name="parse/strict_conformance_is_refused_without_the_capability" classname="default/fake-proto" time="0.001234" />
+    <testcase name="query/oslc_needs_its_capability" classname="default/fake-proto" time="0.001234" />
+    <testcase name="symbol/a_missing_symbol_is_not_found" classname="default/fake-proto" time="0.001234" />
+    <testcase name="broken/an_unknown_rpc_is_an_error" classname="default/fake-proto" time="0.001234">
+      <error message="sysml.SysMLService has no RPC &quot;Forecast&quot;" />
+    </testcase>
+    <testcase name="broken/a_model_the_service_refuses_is_an_error" classname="default/fake-proto" time="0.001234">
+      <error message="parsing fixture &quot;broken.sysml&quot;: the fake service refuses this model" />
+    </testcase>
+    <testcase name="convert/an_unexpressible_request_is_skipped" classname="default/fake-proto" time="0.001234">
+      <skipped message="the fake client cannot express Convert" />
+    </testcase>
+  </testsuite>
+  <testsuite name="default/fake-json" tests="10" failures="1" errors="2" skipped="1" time="0.012340000000000002">
+    <testcase name="handshake/reports_its_capabilities" classname="default/fake-json" time="0.001234" />
+    <testcase name="evaluate/a_real_agrees_within_tolerance" classname="default/fake-json" time="0.001234" />
+    <testcase name="evaluate/a_different_real_disagrees" classname="default/fake-json" time="0.001234">
+      <failure>result.real_value: 1500.0000000001, want 1200.0</failure>
+    </testcase>
+    <testcase name="instantiate/instances_are_labelled_by_first_appearance" classname="default/fake-json" time="0.001234" />
+    <testcase name="parse/strict_conformance_is_refused_without_the_capability" classname="default/fake-json" time="0.001234" />
+    <testcase name="query/oslc_needs_its_capability" classname="default/fake-json" time="0.001234" />
+    <testcase name="symbol/a_missing_symbol_is_not_found" classname="default/fake-json" time="0.001234" />
+    <testcase name="broken/an_unknown_rpc_is_an_error" classname="default/fake-json" time="0.001234">
+      <error message="sysml.SysMLService has no RPC &quot;Forecast&quot;" />
+    </testcase>
+    <testcase name="broken/a_model_the_service_refuses_is_an_error" classname="default/fake-json" time="0.001234">
+      <error message="parsing fixture &quot;broken.sysml&quot;: the fake service refuses this model" />
+    </testcase>
+    <testcase name="convert/an_unexpressible_request_is_skipped" classname="default/fake-json" time="0.001234">
+      <skipped message="the fake client cannot express Convert" />
+    </testcase>
+  </testsuite>
+  <testsuite name="without-strict_conformance-oslc_query/fake-proto" tests="9" failures="1" errors="2" skipped="2" time="0.011106000000000001">
+    <testcase name="evaluate/a_real_agrees_within_tolerance" classname="without-strict_conformance-oslc_query/fake-proto" time="0.001234" />
+    <testcase name="evaluate/a_different_real_disagrees" classname="without-strict_conformance-oslc_query/fake-proto" time="0.001234">
+      <failure>result.real_value: 1500.0000000001, want 1200.0</failure>
+    </testcase>
+    <testcase name="instantiate/instances_are_labelled_by_first_appearance" classname="without-strict_conformance-oslc_query/fake-proto" time="0.001234" />
+    <testcase name="parse/strict_conformance_is_refused_without_the_capability" classname="without-strict_conformance-oslc_query/fake-proto" time="0.001234" />
+    <testcase name="query/oslc_needs_its_capability" classname="without-strict_conformance-oslc_query/fake-proto" time="0.001234">
+      <skipped message="the service does not report oslc_query" />
+    </testcase>
+    <testcase name="symbol/a_missing_symbol_is_not_found" classname="without-strict_conformance-oslc_query/fake-proto" time="0.001234" />
+    <testcase name="broken/an_unknown_rpc_is_an_error" classname="without-strict_conformance-oslc_query/fake-proto" time="0.001234">
+      <error message="sysml.SysMLService has no RPC &quot;Forecast&quot;" />
+    </testcase>
+    <testcase name="broken/a_model_the_service_refuses_is_an_error" classname="without-strict_conformance-oslc_query/fake-proto" time="0.001234">
+      <error message="parsing fixture &quot;broken.sysml&quot;: the fake service refuses this model" />
+    </testcase>
+    <testcase name="convert/an_unexpressible_request_is_skipped" classname="without-strict_conformance-oslc_query/fake-proto" time="0.001234">
+      <skipped message="the fake client cannot express Convert" />
+    </testcase>
+  </testsuite>
+</testsuites>

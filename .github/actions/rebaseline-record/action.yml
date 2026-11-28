@@ -26,7 +26,7 @@ runs:
       shell: bash
       run: |
         make stdlib-snapshot
-        make proto-buf proto-ts proto-rust python-proto BUF=buf
+        make proto-buf proto-ts proto-rust python-proto proto-csharp BUF=buf
 
     # Our side alone is re-measured against the recorded pilot side. A merged baseline that reproduces is kept as it
     # is; one that does not is re-recorded, with the pilot only for a rule the recorded column does not hold.
