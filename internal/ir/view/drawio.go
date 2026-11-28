@@ -117,6 +117,11 @@ func (b drawioBox) relativeTo(parent drawioBox) drawioBox {
 func (b drawioBox) right() float64  { return b.X + b.Width }
 func (b drawioBox) bottom() float64 { return b.Y + b.Height }
 
+// overlaps reports whether b and o share an area.
+func (b drawioBox) overlaps(o drawioBox) bool {
+	return b.X < o.right() && o.X < b.right() && b.Y < o.bottom() && o.Y < b.bottom()
+}
+
 // contains reports whether o lies within b.
 func (b drawioBox) contains(o drawioBox) bool {
 	return o.X >= b.X && o.Y >= b.Y && o.right() <= b.right() && o.bottom() <= b.bottom()
@@ -234,12 +239,26 @@ func drawioDiagramID(view string) string {
 	return strings.NewReplacer("::", "-", " ", "_").Replace(view)
 }
 
+// LaneNotices says which flows of a view placing a swimlane are drawn over another flow's placed
+// swimlane and its steps, the Layouts stated nearer than the frame between them needs.
+func (r *Rendering) LaneNotices(options Options) []string {
+	if r.Kind != KindAction || !slices.ContainsFunc(drawioNodes(r.Roots), func(n *Node) bool { return n.Kind == swimlaneKind && n.Geometry.placed() }) {
+		return nil
+	}
+	_, w, err := r.drawioPrepare(options)
+	if err != nil {
+		return nil
+	}
+	return w.crowded
+}
+
 // notices are what the file does not represent, written as leading comments.
 func (w *drawioWriter) notices(r *Rendering, options Options) []string {
 	notices := append([]string(nil), r.notices()...)
 	if w.unrouted {
 		notices = append(notices, "edges not routed: this build runs no router; draw.io routes them when the file opens")
 	}
+	notices = append(notices, w.crowded...)
 	for _, i := range w.unroutable {
 		notices = append(notices, fmt.Sprintf("edge %s not routed: the router found no path at this layout; draw.io routes it when the file opens", w.edgeName(r.Edges[i])))
 	}
@@ -263,9 +282,12 @@ func (w *drawioWriter) notices(r *Rendering, options Options) []string {
 	return notices
 }
 
-// comment writes one leading XML comment; a comment holds no `--`.
+// comment writes one leading XML comment; a comment holds no `--`, however long the run of hyphens.
 func (w *drawioWriter) comment(text string) {
-	w.b.WriteString("<!-- " + strings.ReplaceAll(text, "--", "- -") + " -->\n")
+	for strings.Contains(text, "--") {
+		text = strings.ReplaceAll(text, "--", "- -")
+	}
+	w.b.WriteString("<!-- " + text + " -->\n")
 }
 
 // attr writes one attribute, its value escaped by encoding/xml.
