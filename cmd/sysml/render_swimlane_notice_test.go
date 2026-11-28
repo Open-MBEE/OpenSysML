@@ -164,3 +164,53 @@ func TestRenderSaysWhichStackedSwimlanesAFlowFrameCovers(t *testing.T) {
 		})
 	}
 }
+
+// A Layout may place a swimlane past the frame of its own flow: the notice names the frame only
+// when it is covered, and what it asks for clears the lane as well.
+func TestRenderClearsASwimlanePlacedPastItsFlowFrame(t *testing.T) {
+	binary := buildCLI(t)
+	source, err := os.ReadFile("../../internal/ir/view/testdata/action-swimlane-layout-stacked.sysml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	const robot = "is drawn over swimlane line.robot (142×"
+	for _, c := range []struct {
+		name   string
+		y      float64
+		notice string
+	}{
+		{"frame and lane", 130, robot + "44 px), the frame of LaneStacked::runA (174×10 px); Layouts placing that frame and what it holds 44 px lower keep them clear"},
+		{"lane alone", 150, robot + "24 px); Layouts placing that frame and what it holds 24 px lower keep them clear"},
+	} {
+		view := func(y float64) string {
+			at := strconv.FormatFloat(y, 'f', -1, 64)
+			lane := strconv.FormatFloat(y+100, 'f', -1, 64)
+			return "\tview pastView : ActionFlowView {\n\t\texpose runA;\n\t\texpose runB;\n" +
+				"\t\tmetadata Layout about runA { x = 300; y = 60; width = 200; height = 80; }\n" +
+				"\t\tmetadata Layout about line::robot { x = 320; y = 120; }\n" +
+				"\t\tmetadata Layout about runB { x = 304; y = " + at + "; }\n" +
+				"\t\tmetadata Layout about line::packer { x = 320; y = " + lane + "; }\n\t}\n}\n"
+		}
+		render := func(t *testing.T, y float64) string {
+			body := strings.TrimRight(string(source), "\n")
+			model := filepath.Join(t.TempDir(), "past.sysml")
+			if err := os.WriteFile(model, []byte(strings.TrimSuffix(body, "}")+view(y)), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			got := runFiles(t, binary, []string{model}, "-render", "LaneStacked::pastView", "-render-form", "text")
+			if got.status != exitHolds {
+				t.Fatalf("exit status = %d\n%s", got.status, got.output())
+			}
+			return got.stderr
+		}
+		t.Run(c.name, func(t *testing.T) {
+			if stderr := render(t, c.y); !strings.Contains(stderr, c.notice) {
+				t.Errorf("stderr does not say what clears the lane, want %q:\n%s", c.notice, stderr)
+			}
+			by, _ := strconv.ParseFloat(regexp.MustCompile(`holds (\d+) px lower`).FindStringSubmatch(c.notice)[1], 64)
+			if stderr := render(t, c.y+by); strings.Contains(stderr, "is drawn over") {
+				t.Errorf("the Layouts the notice asks for still draw the frame over the lane:\n%s", stderr)
+			}
+		})
+	}
+}

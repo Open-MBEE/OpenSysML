@@ -346,7 +346,9 @@ func (a *arranger) crowdedLanes(roots []*Node) []string {
 				}
 				covers := []string{fmt.Sprintf("swimlane %s (%s)", covered.Name, frame.shared(box))}
 				covers = append(covers, a.coveredSteps(frame, covered.Children)...)
-				covers = append(covers, fmt.Sprintf("the frame of %s (%s)", under.Name, frame.shared(a.boxes[under.ID])))
+				if around := a.boxes[under.ID]; frame.overlaps(around) {
+					covers = append(covers, fmt.Sprintf("the frame of %s (%s)", under.Name, frame.shared(around)))
+				}
 				if notice := a.crowdNotice(over, frame, covered, box, a.boxes[under.ID], strings.Join(covers, ", ")); notice != "" {
 					notices = append(notices, notice)
 				}
@@ -365,21 +367,22 @@ func (a *arranger) crowdNotice(over *Node, frame drawioBox, covered *Node, box, 
 		if lane.Kind != swimlaneKind || !lane.Geometry.placed() {
 			continue
 		}
+		// A Layout may place the lane covered past its own flow's frame, so both are cleared.
 		var stated, needed, shift float64
 		var axis, away string
 		switch {
 		case own.Y >= box.bottom():
 			stated, needed, axis, away = own.Y-box.bottom(), own.Y-frame.Y, "below", "lower"
-			shift = around.bottom() - frame.Y
+			shift = math.Max(around.bottom(), box.bottom()) - frame.Y
 		case own.bottom() <= box.Y:
 			stated, needed, axis, away = box.Y-own.bottom(), frame.bottom()-own.bottom(), "above", "higher"
-			shift = frame.bottom() - around.Y
+			shift = frame.bottom() - math.Min(around.Y, box.Y)
 		case own.X >= box.right():
 			stated, needed, axis, away = own.X-box.right(), own.X-frame.X, "right of", "further right"
-			shift = around.right() - frame.X
+			shift = math.Max(around.right(), box.right()) - frame.X
 		case own.right() <= box.X:
 			stated, needed, axis, away = box.X-own.right(), frame.right()-own.right(), "left of", "further left"
-			shift = frame.right() - around.X
+			shift = frame.right() - math.Min(around.X, box.X)
 		default:
 			continue // the two Layouts overlap as stated
 		}
