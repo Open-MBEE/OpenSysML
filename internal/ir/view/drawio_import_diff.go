@@ -914,15 +914,15 @@ func (m *drawioMatcher) framePlace(cell, base *DrawioCell, node *Node, sized boo
 	m.out.Edits = append(m.out.Edits, DrawioEdit{Kind: DrawioEditLayout, Cell: cell.ID, Label: cell.Label, FQN: name, Origin: origin, Within: within, Layout: layout})
 }
 
-// leftAlone reports whether the file shows the cell where the baseline drew it in its parent,
-// which the file may have moved.
+// leftAlone reports whether the file shows the cell as the baseline drew it, folded or not, at
+// the same place in its parent, which the file may have moved.
 func (m *drawioMatcher) leftAlone(cell, base *DrawioCell) bool {
 	was, is := fullBox(base), fullBox(cell)
 	if parent := m.base.Cell(base.Parent); parent != nil && parent.Vertex {
 		from, to := fullBox(parent), fullBox(m.editedOf(parent))
 		was.X, was.Y = was.X+to.X-from.X, was.Y+to.Y-from.Y
 	}
-	return sameBox(was, is)
+	return cell.Collapsed == base.Collapsed && sameBox(was, is)
 }
 
 // targetName is the name an annotation about the cell's element states: its

@@ -533,6 +533,17 @@ const unnamedStepPlainModel = `package N {
 }
 `
 
+const unnamedFoldModel = `package O {
+	private import DiagramLayout::*;
+	action runA { action load; then action { action inner; } then action weld; }
+	part robot { perform runA.load; }
+	view placed : StandardViewDefinitions::ActionFlowView {
+		expose runA;
+		metadata Layout about robot { x = 320; y = 120; }
+	}
+}
+`
+
 func drawioCounts(f *view.DrawioFile) (vertices, edges int) {
 	for i := range f.Cells {
 		switch c := &f.Cells[i]; {
@@ -564,5 +575,22 @@ func TestDrawioMoveInAViewPlacingNothingKeepsItsUnnamedStep(t *testing.T) {
 				t.Errorf("the view draws %d vertices and %d edges after the import, it drew %d and %d (notices %q)", v, e, wantV, wantE, imp.Notices)
 			}
 		})
+	}
+}
+
+// A step with no name the file folds is changed by the file, not left alone: its fold is
+// imported, in a view placing swimlanes alone too.
+func TestDrawioFoldedUnnamedStepIsImportedBesideAPlacedSwimlane(t *testing.T) {
+	_, rendering, options := drawioModel(t, unnamedFoldModel, "O::placed")
+	document, exported := drawioExport(t, rendering, options)
+	inner := cellNamed("O::runA::inner")(exported)
+	if inner == nil || exported.Cell(inner.Parent) == nil {
+		t.Fatal("the export does not draw the unnamed step around its content")
+	}
+	_, imp := drawioImport(t, drawioImporter(t, rendering, options), rendering.View, foldedIn(t, "1")(document, inner.Parent))
+	if !slices.ContainsFunc(imp.Edits, func(e view.DrawioEdit) bool {
+		return e.Kind == view.DrawioEditLayout && e.FQN == "" && e.Layout.Collapsed
+	}) {
+		t.Errorf("the import writes no fold on the unnamed step: %+v (notices %q)", imp.Edits, imp.Notices)
 	}
 }
