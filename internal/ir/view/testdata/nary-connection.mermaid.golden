@@ -34,7 +34,7 @@ flowchart LR
 **rightSpoke**`")
     n4@{ shape: f-circ, label: "" }
     n5@{ shape: f-circ, label: "" }
-    note0@{ shape: notch-rect, label: "three spokes" }
+    note0["three spokes"]@{ shape: notch-rect }
   end
   n4 ===|"hub"| n1
   n4 ===|"left"| n2

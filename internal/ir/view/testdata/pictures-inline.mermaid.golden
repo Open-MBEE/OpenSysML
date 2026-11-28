@@ -36,5 +36,5 @@ flowchart LR
     n2("`*«part»*
 **camera**`")
   end
-  picture0@{ img: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEUlEQVR4nGJigAI4AxAAAP//AEgABdCvTH4AAAAASUVORK5CYII=", label: "the bench, from above", w: 823, h: 577 }
-  picture1@{ img: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEUlEQVR4nGJigAI4AxAAAP//AEgABdCvTH4AAAAASUVORK5CYII=", label: "", w: 80, h: 40 }
+  picture0["the bench, from above"]@{ img: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEUlEQVR4nGJigAI4AxAAAP//AEgABdCvTH4AAAAASUVORK5CYII=", w: 823, h: 577 }
+  picture1[" "]@{ img: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEUlEQVR4nGJigAI4AxAAAP//AEgABdCvTH4AAAAASUVORK5CYII=", w: 80, h: 40 }

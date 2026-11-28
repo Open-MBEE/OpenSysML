@@ -54,7 +54,7 @@ func TestMermaidFlowchartShapes(t *testing.T) {
 		{"case", "analysis case def", false, StylePilot, `([`},
 		{"actor", "actor", false, StylePilot, `["`},
 		{"subject", "subject", false, StylePilot, `["`},
-		{"objective", "objective", false, StylePilot, `@{ shape: notch-rect, label:`},
+		{"objective", "objective", false, StylePilot, `["«objective»<br>objective"]@{ shape: notch-rect }`},
 		{"cameo", "part", false, StyleCameo, `["`},
 		{"start", startKind, true, StylePilot, `@{ shape: f-circ, label: "" }`},
 		{"initial", "initial", true, StylePilot, `@{ shape: f-circ, label: "" }`},
@@ -106,7 +106,7 @@ func TestMermaidQuotedLabelsUseMermaidEscaping(t *testing.T) {
 	}}, Notes: []Note{{Anchor: "fork", Text: `note "text"\path`}}}).Mermaid()
 	for _, want := range []string{
 		`@{ shape: fork, label: "split #quot;part#quot;\path" }`,
-		`label: "note #quot;text#quot;\path"`,
+		`["note #quot;text#quot;\path"]@{ shape: notch-rect }`,
 	} {
 		if !strings.Contains(source, want) {
 			t.Errorf("Mermaid literal %q missing:\n%s", want, source)
@@ -347,7 +347,7 @@ func TestMermaidNotesInEachGrammar(t *testing.T) {
 			{Text: "free"},
 		},
 	}).Mermaid()
-	if !strings.Contains(flow, `note0@{ shape: notch-rect, label: "first<br>second" }`) ||
+	if !strings.Contains(flow, `note0["first<br>second"]@{ shape: notch-rect }`) ||
 		strings.Count(flow, "note0 -.- a") != 2 {
 		t.Errorf("flowchart notes or anchor:\n%s", flow)
 	}
@@ -436,7 +436,7 @@ func TestMermaidNotesInEachGrammar(t *testing.T) {
 		Roots: []*Node{{ID: "a", Kind: "action", Name: "a"}, {ID: "b", Kind: "action", Name: "b"}},
 		Notes: []Note{{EdgeFrom: "a", EdgeTo: "b", Text: "edge note"}},
 	}).Mermaid()
-	if strings.Contains(undrawnEdgeNote, "note0@{") ||
+	if strings.Contains(undrawnEdgeNote, "note0[") ||
 		strings.Contains(undrawnEdgeNote, "note0 -.- a") ||
 		!strings.Contains(undrawnEdgeNote, "not represented: 1 note(s) not drawn because their edge is not drawn: a->b") {
 		t.Errorf("note with no drawn edge was not omitted and noticed:\n%s", undrawnEdgeNote)
@@ -445,7 +445,7 @@ func TestMermaidNotesInEachGrammar(t *testing.T) {
 		Notes: []Note{{EdgeFrom: "a", EdgeTo: "b", Text: "edge note"}},
 	}).Mermaid()
 	if !strings.Contains(undrawnEdgeNoteOnly, "empty[") ||
-		strings.Contains(undrawnEdgeNoteOnly, "note0@{") ||
+		strings.Contains(undrawnEdgeNoteOnly, "note0[") ||
 		!strings.Contains(undrawnEdgeNoteOnly, "not represented: 1 note(s) not drawn because their edge is not drawn: a->b") {
 		t.Errorf("undrawn edge note left an otherwise empty flowchart without a placeholder or notice:\n%s", undrawnEdgeNoteOnly)
 	}
@@ -454,7 +454,7 @@ func TestMermaidNotesInEachGrammar(t *testing.T) {
 		Edges: []Edge{{From: "b", To: "a", Kind: EdgeFlow}},
 		Notes: []Note{{EdgeFrom: "a", EdgeTo: "b", Text: "edge note"}},
 	}).Mermaid()
-	if strings.Contains(reversedEdgeNote, "note0@{") ||
+	if strings.Contains(reversedEdgeNote, "note0[") ||
 		!strings.Contains(reversedEdgeNote, "not represented: 1 note(s) not drawn because their edge is not drawn: a->b") {
 		t.Errorf("note matched an edge with the opposite direction:\n%s", reversedEdgeNote)
 	}
@@ -468,7 +468,7 @@ func TestMermaidNotesInEachGrammar(t *testing.T) {
 	}
 	emptyFlow := (&Rendering{Kind: KindTree, Notes: []Note{{Text: "free"}}}).Mermaid()
 	if strings.Contains(emptyFlow, "empty[") ||
-		!strings.Contains(emptyFlow, `note0@{ shape: notch-rect, label: "free" }`) {
+		!strings.Contains(emptyFlow, `note0["free"]@{ shape: notch-rect }`) {
 		t.Errorf("free note missing from an otherwise empty flowchart:\n%s", emptyFlow)
 	}
 }
@@ -579,12 +579,12 @@ func TestMermaidFlowchartNotesUseInnermostCommonBody(t *testing.T) {
 	sourceText := rendering.Mermaid()
 	innerAt := strings.Index(sourceText, "subgraph inner [")
 	leafAt := strings.Index(sourceText, "leaf(")
-	innerNoteAt := strings.Index(sourceText, "note0@{")
+	innerNoteAt := strings.Index(sourceText, "note0[")
 	firstEnd := strings.Index(sourceText[innerAt:], "\n    end\n")
-	outerNoteAt := strings.Index(sourceText, "note1@{")
+	outerNoteAt := strings.Index(sourceText, "note1[")
 	outerEnd := strings.Index(sourceText, "\n  end\n")
-	freeAt := strings.Index(sourceText, "note2@{")
-	sharedAt := strings.Index(sourceText, "note3@{")
+	freeAt := strings.Index(sourceText, "note2[")
+	sharedAt := strings.Index(sourceText, "note3[")
 	if innerAt < 0 || leafAt < innerAt || innerNoteAt < leafAt || firstEnd < 0 ||
 		innerNoteAt > innerAt+firstEnd || outerNoteAt < 0 || outerEnd < outerNoteAt ||
 		freeAt < outerEnd || sharedAt < outerEnd {
@@ -733,11 +733,21 @@ func TestMermaidPicturesAndNotices(t *testing.T) {
 		},
 	}
 	source := rendering.Mermaid()
-	if !strings.Contains(source, `picture0@{ img: "`+filepath.ToSlash(filepath.Join(dir, "local.png"))+`", label: "", w: 40, h: 30 }`) ||
+	if !strings.Contains(source, `picture0[" "]@{ img: "`+filepath.ToSlash(filepath.Join(dir, "local.png"))+`", w: 40, h: 30 }`) ||
 		!strings.Contains(source, "%% layout: picture0 x=10 y=20 w=40 h=30") ||
-		strings.Contains(source, "picture1@{") ||
+		strings.Contains(source, "picture1[") ||
 		!strings.Contains(source, "missing.png at (50, 60) size 20×10; the file does not read") {
 		t.Errorf("picture source, geometry or notice:\n%s", source)
+	}
+	const special = "plant`north#1;x.png"
+	if err := os.WriteFile(filepath.Join(dir, special), imageData.Bytes(), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	specialRendering := &Rendering{Kind: KindTree, Roots: rendering.Roots,
+		Pictures: []Picture{{Location: special, Dir: dir, Width: 2, Height: 2}}}
+	inlined := InlineMermaidImages(specialRendering.Mermaid(), dir)
+	if !strings.Contains(inlined, "data:image/png;base64,"+base64.StdEncoding.EncodeToString(imageData.Bytes())) {
+		t.Errorf("picture named %q is not inlined:\n%s", special, inlined)
 	}
 }
 
@@ -750,14 +760,14 @@ func TestInlineMermaidImages(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "local.png"), imageData.Bytes(), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	source := "---\nconfig:\n  theme: base\n---\n%% view: V\nflowchart LR\n  picture0@{ img: \"local.png\", label: \"alt\", w: 1, h: 1 }\n"
+	source := "---\nconfig:\n  theme: base\n---\n%% view: V\nflowchart LR\n  picture0[\"alt\"]@{ img: \"local.png\", w: 1, h: 1 }\n"
 	got := InlineMermaidImages(source, dir)
 	wantData := "data:image/png;base64," + base64.StdEncoding.EncodeToString(imageData.Bytes())
 	if !strings.Contains(got, wantData) || strings.Contains(got, `img: "local.png"`) {
 		t.Errorf("image is not inlined:\n%s", got)
 	}
 	missing := InlineMermaidImages(strings.ReplaceAll(source, "local.png", "missing.png"), dir)
-	if strings.Contains(missing, "picture0@{") ||
+	if strings.Contains(missing, "picture0[") ||
 		!strings.Contains(missing, "%% not represented: picture missing.png not drawn; the file does not read") {
 		t.Errorf("missing image is not dropped with a notice:\n%s", missing)
 	}
@@ -766,7 +776,7 @@ func TestInlineMermaidImages(t *testing.T) {
 		t.Fatal(err)
 	}
 	unsupported := InlineMermaidImages(strings.ReplaceAll(source, "local.png", "unsupported.img"), dir)
-	if strings.Contains(unsupported, "picture0@{") ||
+	if strings.Contains(unsupported, "picture0[") ||
 		!strings.Contains(unsupported, "the file is not a supported image") {
 		t.Errorf("unsupported image is not dropped with a notice:\n%s", unsupported)
 	}
@@ -790,7 +800,7 @@ func TestInlineMermaidImages(t *testing.T) {
 		t.Fatal(err)
 	}
 	overLimit := InlineMermaidImages(strings.ReplaceAll(source, "local.png", "large.png"), dir)
-	if strings.Contains(overLimit, "picture0@{") ||
+	if strings.Contains(overLimit, "picture0[") ||
 		!strings.Contains(overLimit, "inlining would exceed Mermaid's text ceiling") {
 		t.Errorf("over-limit image is not dropped with a notice:\n%s", overLimit)
 	}
@@ -803,11 +813,7 @@ func TestMermaidRendersWithInstalledMMDC(t *testing.T) {
 	}
 	pup := os.Getenv("OPENSYSML_MMDC_PUPPETEER")
 	cases := installedMermaidCases(t)
-	noHTML := filepath.Join(t.TempDir(), "nohtml.json")
-	if err := os.WriteFile(noHTML, []byte(`{"flowchart":{"htmlLabels":false}}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	for _, config := range []string{"", noHTML} {
+	for _, config := range []string{"", svgTextLabelsConfig(t)} {
 		config := config
 		t.Run(configName(config), func(t *testing.T) {
 			if err := renderInstalledMermaidBatch(binary, pup, config, cases); err != nil {
@@ -816,6 +822,56 @@ func TestMermaidRendersWithInstalledMMDC(t *testing.T) {
 					t.Fatalf("mmdc could not render the %s batch: %v", configName(config), err)
 				}
 				t.Fatalf("mmdc could not render %s: %v", bad.name, err)
+			}
+		})
+	}
+}
+
+// TestMermaidDrawsBacktickedTextWithInstalledMMDC checks the drawn text, which a source Mermaid
+// accepts can still lose: SVG text labels drop a span between backticks it reads as markdown. A
+// leading backtick is left out, its #96; drawn as written there (mermaid-js/mermaid#7015).
+func TestMermaidDrawsBacktickedTextWithInstalledMMDC(t *testing.T) {
+	binary := os.Getenv("OPENSYSML_MMDC")
+	if binary == "" {
+		return
+	}
+	labelled := &Rendering{Kind: KindInterconnection, Shown: Shown{ElementEdgeLabels: true}, Roots: []*Node{
+		{ID: "a", Kind: "part", Name: "a `NODE` b"},
+		{ID: "b", Kind: "part", Name: "b"},
+	}, Edges: []Edge{{From: "a", To: "b", Kind: EdgeConnection, Label: "c `EDGE` d"}},
+		Notes: []Note{{Text: "n `NOTE` o", Anchor: "a"}, {Text: "e `FREE` f"}}}
+	picturePath := filepath.Join(t.TempDir(), "picture.png")
+	if err := os.WriteFile(picturePath, twoByTwoPNG(t), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	labelled.Pictures = []Picture{{Location: picturePath, Alt: "p `ALT` q", Width: 20, Height: 20}}
+	commented := &Rendering{Kind: KindTree, Roots: []*Node{
+		{ID: "a", Kind: "part", Name: "a"},
+		{ID: "c", Kind: commentKind, Text: "c `COMMENT` d"},
+	}, Edges: []Edge{{From: "c", To: "a", Kind: EdgeAnchor}}}
+	sources := []string{InlineMermaidImages(labelled.Mermaid(), ""), commented.Mermaid()}
+	for _, config := range []string{"", svgTextLabelsConfig(t)} {
+		t.Run(configName(config), func(t *testing.T) {
+			var drawn strings.Builder
+			for i, source := range sources {
+				dir := t.TempDir()
+				input, output := filepath.Join(dir, "input.mmd"), filepath.Join(dir, "output.svg")
+				if err := os.WriteFile(input, []byte(source), 0o600); err != nil {
+					t.Fatal(err)
+				}
+				if err := runInstalledMermaid(binary, os.Getenv("OPENSYSML_MMDC_PUPPETEER"), config, input, output); err != nil {
+					t.Fatalf("mmdc could not render source %d:\n%s\n%v", i, source, err)
+				}
+				svg, err := os.ReadFile(output)
+				if err != nil {
+					t.Fatal(err)
+				}
+				drawn.Write(svg)
+			}
+			for _, want := range []string{"`NODE`", "`COMMENT`", "`EDGE`", "`NOTE`", "`FREE`", "`ALT`"} {
+				if !strings.Contains(drawn.String(), want) {
+					t.Errorf("drawing lacks %s; sources:\n%s", want, strings.Join(sources, "\n"))
+				}
 			}
 		})
 	}
@@ -887,6 +943,15 @@ func installedMermaidCases(t *testing.T) []installedMermaidCase {
 		Style: &Style{Text: "#00AA00", Font: "Times New Roman", FontSize: 22, Bold: true, Italic: true},
 	}}}
 	cases = append(cases, installedMermaidCase{name: "node and edge styles", source: styled.Mermaid()})
+	unlabeledItem := &Rendering{Kind: KindInterconnection, Shown: Shown{},
+		Roots: []*Node{{ID: "item", Kind: "flow", Arrow: arrowRight}}}
+	cases = append(cases, installedMermaidCase{name: "unlabeled item box", source: unlabeledItem.Mermaid()})
+	backtickItem := &Rendering{Kind: KindInterconnection, Shown: Shown{ElementEdgeLabels: true},
+		Roots: []*Node{{ID: "item", Kind: "flow", Name: "`sample", Arrow: arrowRight}}}
+	cases = append(cases, installedMermaidCase{
+		name: "item box with leading backtick", source: backtickItem.MermaidWith(Options{Style: StyleCameo}),
+	})
+	cases = append(cases, installedMermaidCase{name: "leading backticks", source: backtickLabels().Mermaid()})
 	dir := t.TempDir()
 	var imageData bytes.Buffer
 	if err := png.Encode(&imageData, image.NewRGBA(image.Rect(0, 0, 2, 2))); err != nil {
@@ -976,6 +1041,18 @@ func twoByTwoPNG(t *testing.T) []byte {
 	return data
 }
 
+// svgTextLabelsConfig is a Mermaid configuration drawing <text> labels where HTML labels are the
+// default, as the PDF form's does.
+func svgTextLabelsConfig(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "svg-text-labels.json")
+	config := `{"htmlLabels":false,"flowchart":{"htmlLabels":false},"class":{"htmlLabels":false}}`
+	if err := os.WriteFile(path, []byte(config), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
 func configName(config string) string {
 	if config == "" {
 		return "default"
@@ -1000,6 +1077,10 @@ func renderInstalledMermaidBatch(binary, puppeteer, config string, cases []insta
 	if err := os.WriteFile(input, []byte(markdown.String()), 0o600); err != nil {
 		return err
 	}
+	return runInstalledMermaid(binary, puppeteer, config, input, output)
+}
+
+func runInstalledMermaid(binary, puppeteer, config, input, output string) error {
 	args := []string{"-i", input, "-o", output}
 	if puppeteer != "" {
 		args = append(args, "-p", puppeteer)
@@ -1030,4 +1111,48 @@ func isolateInstalledMermaidFailure(binary, puppeteer, config string, cases []in
 		return isolateInstalledMermaidFailure(binary, puppeteer, config, cases[mid:])
 	}
 	return installedMermaidCase{}, false
+}
+
+// backtickLabels names a subgraph, a node and an edge with a backtick leading their labels and
+// a node with one inside its name.
+func backtickLabels() *Rendering {
+	return &Rendering{Kind: KindInterconnection, Shown: Shown{ElementEdgeLabels: true}, Roots: []*Node{
+		{ID: "outer", Kind: "part", Name: "`outer", Children: []*Node{{ID: "a", Kind: "part", Name: "`lead"}}},
+		{ID: "b", Kind: "part", Name: "ta`nk"},
+	}, Edges: []Edge{{From: "a", To: "b", Kind: EdgeConnection, Label: "`link"}}}
+}
+
+// A backtick opens a markdown string only straight after a label's opening quote.
+func TestMermaidEscapesOnlyALeadingBacktick(t *testing.T) {
+	source := backtickLabels().Mermaid()
+	for _, want := range []string{`["#96;outer"]`, `("#96;lead")`, "(\"ta`nk\")", `|"#96;link"|`} {
+		if !strings.Contains(source, want) {
+			t.Errorf("source lacks %s:\n%s", want, source)
+		}
+	}
+}
+
+// A carriage return reaches a label through a string's \r escape; Mermaid would break the line there.
+func TestMermaidWritesACarriageReturnAsASpace(t *testing.T) {
+	dir := t.TempDir()
+	data := twoByTwoPNG(t)
+	if err := os.WriteFile(filepath.Join(dir, "bench.png"), data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	flowchart := &Rendering{Kind: KindInterconnection, Shown: Shown{ElementEdgeLabels: true}, Roots: []*Node{
+		{ID: "a", Kind: "part", Name: "a"}, {ID: "b", Kind: "part", Name: "b"},
+	}, Edges: []Edge{{From: "a", To: "b", Kind: EdgeConnection, Label: "Front\rPanel"}},
+		Notes:    []Note{{Text: "Front\r\nPanel", Anchor: "a"}},
+		Pictures: []Picture{{Location: "bench.png", Dir: dir, Alt: "Front\r\nPanel", Width: 2, Height: 2}}}
+	sequence := &Rendering{Kind: KindSequence, Roots: []*Node{{ID: "a", Kind: "part", Name: "a"}},
+		Edges: []Edge{{From: "a", To: "a", Kind: EdgeFlow, Label: "Front\rPanel"}}}
+	for _, source := range []string{flowchart.Mermaid(), sequence.Mermaid()} {
+		if strings.Contains(source, "\r") {
+			t.Errorf("source carries a carriage return:\n%q", source)
+		}
+	}
+	inlined := InlineMermaidImages(flowchart.Mermaid(), dir)
+	if !strings.Contains(inlined, `["Front Panel"]@{ img: "data:image/png;base64,`+base64.StdEncoding.EncodeToString(data)+`"`) {
+		t.Errorf("picture with a carriage return in its alt text is not inlined:\n%s", inlined)
+	}
 }

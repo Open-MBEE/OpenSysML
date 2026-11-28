@@ -637,7 +637,7 @@ func (w *mermaidFlowWriter) edge(from, arrow, label, to string, style *Style, ki
 	if label == "" {
 		fmt.Fprintf(w.b, "  %s %s %s\n", from, arrow, to)
 	} else {
-		fmt.Fprintf(w.b, "  %s %s|\"%s\"| %s\n", from, arrow, mermaidText(label), to)
+		fmt.Fprintf(w.b, "  %s %s|%s| %s\n", from, arrow, mermaidQuoted(mermaidText(label)), to)
 	}
 	var props []string
 	if style != nil {
@@ -697,7 +697,7 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labe
 	nesting, nested := r.nestingEdges(), r.nestedInSubgraphs(used)
 	w.clusterAnchors = flowchart.flowchartClusterAnchors(portEnds, used, noteOwners, nested)
 	if r.blank() && len(r.Pictures) == 0 && len(flowchart.Notes) == 0 {
-		fmt.Fprintf(b, "  empty[\"%s\"]\n", mermaidText(r.blankReason(FormMermaid)))
+		fmt.Fprintf(b, "  empty[%s]\n", mermaidQuoted(mermaidText(r.blankReason(FormMermaid))))
 	} else {
 		ctx := flowchartContext{kind: r.Kind, flow: flow, labels: labels, options: options, ports: portDisplay, used: used, noteOwners: noteOwners}
 		for _, root := range r.Roots {
@@ -1192,7 +1192,7 @@ func (r *Rendering) writeFlowchartNode(w *mermaidFlowWriter, node *Node, depth i
 	}
 	for _, port := range ctx.ports.of(node) {
 		if ctx.used[node.ID][port.ID] {
-			fmt.Fprintf(w.b, "%s  %s[\"%s\"]\n", indent, flowchartPinID(node, port, ctx.ports), mermaidPinLabel(ctx.ports, port))
+			fmt.Fprintf(w.b, "%s  %s[%s]\n", indent, flowchartPinID(node, port, ctx.ports), mermaidQuoted(mermaidPinLabel(ctx.ports, port)))
 		}
 	}
 	for _, child := range node.Children {
@@ -1223,13 +1223,13 @@ func mermaidNodeShape(kind Kind, node *Node, labels labeller, options Options) s
 		case "actor", "subject":
 			return "[" + mermaidNodeLabel(node, labels) + "]"
 		case "objective":
-			return "@{ shape: notch-rect, label: \"" + labels.mermaid(node) + "\" }"
+			return mermaidCard(labels.mermaid(node))
 		}
 	}
 	switch node.Kind {
 	case commentKind, docKind, repKind:
 		// Mermaid's card is the nearest to the note's folded corner.
-		return "@{ shape: notch-rect, label: \"" + labels.mermaid(node) + "\" }"
+		return mermaidCard(labels.mermaid(node))
 	case startKind, "initial":
 		return `@{ shape: f-circ, label: "" }`
 	case "final":
@@ -1261,7 +1261,8 @@ func mermaidNodeShape(kind Kind, node *Node, labels labeller, options Options) s
 		return `(("H*"))`
 	}
 	if itemBox(node) {
-		return `@{ shape: text, label: ` + mermaidNodeLabel(node, labels) + ` }`
+		// A shape data label is not read as markdown (mermaid-js/mermaid#7012); a bracket label is.
+		return "[" + mermaidNodeLabel(node, labels) + "]@{ shape: text }"
 	}
 	var rounded bool
 	if options.Style == StyleCameo {
@@ -1287,9 +1288,9 @@ func mermaidLabel(node *Node, labels labeller, lines []string, title bool) strin
 	for _, line := range lines {
 		if !mermaidMarkdownSafe(line) {
 			if title {
-				return `"` + labels.mermaidTitle(node) + `"`
+				return mermaidQuoted(labels.mermaidTitle(node))
 			}
-			return `"` + labels.mermaid(node) + `"`
+			return mermaidQuoted(labels.mermaid(node))
 		}
 	}
 	markdown := make([]string, 0, len(lines))
@@ -1317,7 +1318,30 @@ func mermaidLabel(node *Node, labels labeller, lines []string, title bool) strin
 		}
 		markdown = append(markdown, entry.Text)
 	}
+	if len(markdown) == 0 {
+		// Mermaid rejects an empty markdown string in brackets.
+		return `" "`
+	}
 	return `"` + "`" + strings.Join(markdown, "\n") + "`" + `"`
+}
+
+// mermaidQuoted quotes a flowchart's bracket or edge label. Only a leading backtick is escaped: it
+// would open a markdown string, and SVG text labels draw an entity as written.
+func mermaidQuoted(label string) string {
+	if label == "" {
+		// Mermaid rejects an empty quoted label in brackets.
+		return `" "`
+	}
+	if rest, found := strings.CutPrefix(label, "`"); found {
+		label = "#96;" + rest
+	}
+	return `"` + label + `"`
+}
+
+// mermaidCard is a note's folded-corner card. Its label goes in brackets: under SVG text labels
+// Mermaid reads a shape data label as markdown and drops a backticked span (mermaid-js/mermaid#7013).
+func mermaidCard(label string) string {
+	return "[" + mermaidQuoted(label) + "]@{ shape: notch-rect }"
 }
 
 var mermaidMultiplicity = regexp.MustCompile(`\[[0-9.*]*\]`)
@@ -1463,7 +1487,7 @@ func (r *Rendering) writeNotes(b *strings.Builder, owners map[int]string, owner,
 				}
 			}
 		}
-		fmt.Fprintf(b, "%snote%d@{ shape: notch-rect, label: \"%s\" }\n", indent, i, strings.Join(lines, "<br>"))
+		fmt.Fprintf(b, "%snote%d%s\n", indent, i, mermaidCard(strings.Join(lines, "<br>")))
 	}
 }
 
@@ -1527,8 +1551,9 @@ func (r *Rendering) writePictures(b *strings.Builder) {
 		if !ok {
 			continue
 		}
-		fmt.Fprintf(b, "  picture%d@{ img: \"%s\", label: \"%s\", w: %s, h: %s }\n",
-			i, mermaidText(src), mermaidText(picture.Alt), formatCoord(picture.Width), formatCoord(picture.Height))
+		// A shape data label drops a backticked span under SVG text labels (mermaid-js/mermaid#7013).
+		fmt.Fprintf(b, "  picture%d[%s]@{ img: \"%s\", w: %s, h: %s }\n",
+			i, mermaidQuoted(mermaidText(picture.Alt)), src, formatCoord(picture.Width), formatCoord(picture.Height))
 	}
 }
 
@@ -1911,7 +1936,7 @@ func (r *Rendering) writeSequenceNote(b *strings.Builder, note Note, participant
 	}
 }
 
-var mermaidImagePattern = regexp.MustCompile(`^\s*picture[0-9]+@\{[^}\r\n]*img:\s*"([^"\r\n]*)"`)
+var mermaidImagePattern = regexp.MustCompile(`^\s*picture[0-9]+\["[^"\r\n]*"\]@\{[^}\r\n]*img:\s*"([^"\r\n]*)"`)
 
 // InlineMermaidImages embeds each readable local flowchart image in source.
 // base is the working directory used to resolve relative image paths.
@@ -2087,7 +2112,7 @@ func mermaidEdgeLabel(kind Kind, edge Edge) string {
 // ends a statement, which an unquoted label — a sequence participant or a
 // message — would be cut short by.
 func mermaidText(text string) string {
-	replacer := strings.NewReplacer("#", "#35;", "\"", "#quot;", "\n", " ", "<", "#lt;", ">", "#gt;", ";", "#59;")
+	replacer := strings.NewReplacer("#", "#35;", "\"", "#quot;", "\r\n", " ", "\n", " ", "\r", " ", "<", "#lt;", ">", "#gt;", ";", "#59;")
 	return replacer.Replace(text)
 }
 

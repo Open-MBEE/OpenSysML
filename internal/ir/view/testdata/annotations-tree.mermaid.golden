@@ -28,13 +28,13 @@ flowchart TD
 **Pump**`"]
     n1("`*«attribute»*
 **rate**`")
-    n2@{ shape: notch-rect, label: "«doc»<br>Moves fluid from the tank to the loop." }
-    n3@{ shape: notch-rect, label: "Sized for the nominal flow." }
-    n4@{ shape: notch-rect, label: "«comment»<br>Safety<br>locale #quot;en#quot;<br>Both are rated for the loop pressure." }
-    n5@{ shape: notch-rect, label: "«rep»<br>inline<br>language #quot;plantuml#quot;<br>component Pump" }
+    n2["«doc»<br>Moves fluid from the tank to the loop."]@{ shape: notch-rect }
+    n3["Sized for the nominal flow."]@{ shape: notch-rect }
+    n4["«comment»<br>Safety<br>locale #quot;en#quot;<br>Both are rated for the loop pressure."]@{ shape: notch-rect }
+    n5["«rep»<br>inline<br>language #quot;plantuml#quot;<br>component Pump"]@{ shape: notch-rect }
   n6["`*«part def»*
 **Tank**`"]
-    n7@{ shape: notch-rect, label: "«doc»<br>Capacity<br>locale #quot;en#quot;<br>Holds the working fluid." }
+    n7["«doc»<br>Capacity<br>locale #quot;en#quot;<br>Holds the working fluid."]@{ shape: notch-rect }
   n0 ---|"◇"| n1
   n2 -.- n0
   n3 -.- n0

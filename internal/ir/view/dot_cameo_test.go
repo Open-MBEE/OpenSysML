@@ -291,7 +291,7 @@ func TestNotesAcrossForms(t *testing.T) {
 	}
 	notice := "not represented: 4 note(s); the dot form draws notes"
 	mermaid, plantuml := rendering.Mermaid(), rendering.Text()
-	if !strings.Contains(mermaid, "note0@{ shape: notch-rect") || strings.Contains(mermaid, "not represented: 4 note(s)") {
+	if !strings.Contains(mermaid, "note0[") || !strings.Contains(mermaid, "]@{ shape: notch-rect }") || strings.Contains(mermaid, "not represented: 4 note(s)") {
 		t.Errorf("Mermaid does not draw the notes faithfully:\n%s", mermaid)
 	}
 	if puml, _ := rendering.PlantUML(); !strings.Contains(puml, "' "+notice) {

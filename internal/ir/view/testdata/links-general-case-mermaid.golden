@@ -32,7 +32,7 @@ flowchart LR
 **driver**`"]
   n3["`*«actor»*
 **passengers**`"]
-  n4@{ shape: notch-rect, label: "objective<br>Deliver the driver and passengers to their destination." }
+  n4["objective<br>Deliver the driver and passengers to their destination."]@{ shape: notch-rect }
   n5(["`*«include use case»*
 **addFuel**`"])
   n6["`*«subject»*

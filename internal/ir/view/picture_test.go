@@ -138,14 +138,14 @@ func TestUnsafePicturesAreOmittedInEveryViewForm(t *testing.T) {
 	for _, want := range []string{
 		"%% not represented: " + activeNotice,
 		"%% not represented: " + remoteNotice,
-		"picture2@{ img: \"" + locations[2] + "\"",
-		"picture3@{ img: \"" + locations[3] + "\"",
+		"picture2[\" \"]@{ img: \"" + locations[2] + "\"",
+		"picture3[\" \"]@{ img: \"" + locations[3] + "\"",
 	} {
 		if !strings.Contains(mermaid, want) {
 			t.Errorf("Mermaid lacks %q:\n%s", want, mermaid)
 		}
 	}
-	for _, omitted := range []string{"picture0@{", "picture1@{", "%% layout: picture0 ", "%% layout: picture1 "} {
+	for _, omitted := range []string{"picture0[", "picture1[", "%% layout: picture0 ", "%% layout: picture1 "} {
 		if strings.Contains(mermaid, omitted) {
 			t.Errorf("Mermaid includes refused picture marker %q:\n%s", omitted, mermaid)
 		}
@@ -208,23 +208,23 @@ func TestInlineMermaidImagesDropsUnsafePictures(t *testing.T) {
 	pngDataURL := "data:image/png;base64," + base64.StdEncoding.EncodeToString(pngData)
 	source := strings.Join([]string{
 		`flowchart LR`,
-		fmt.Sprintf(`  picture0@{ img: "%s", label: "", w: 1, h: 1 }`, locations[0]),
-		`  picture1@{ img: "https://example.org/a.png", label: "", w: 1, h: 1 }`,
-		fmt.Sprintf(`  picture2@{ img: "%s", label: "", w: 1, h: 1 }`, activeData),
-		fmt.Sprintf(`  picture3@{ img: "%s", label: "", w: 1, h: 1 }`, pngDataURL),
+		fmt.Sprintf(`  picture0[" "]@{ img: "%s", w: 1, h: 1 }`, locations[0]),
+		`  picture1[" "]@{ img: "https://example.org/a.png", w: 1, h: 1 }`,
+		fmt.Sprintf(`  picture2[" "]@{ img: "%s", w: 1, h: 1 }`, activeData),
+		fmt.Sprintf(`  picture3[" "]@{ img: "%s", w: 1, h: 1 }`, pngDataURL),
 	}, "\n")
 	got := InlineMermaidImages(source, filepath.Dir(locations[0]))
 	for _, want := range []string{
 		"%% not represented: picture " + locations[0] + " not drawn; the SVG has active content (<script>)",
 		"%% not represented: picture https://example.org/a.png not drawn; remote pictures are not drawn",
 		"%% not represented: picture " + activeData + " not drawn; the SVG has active content (<script>)",
-		`picture3@{ img: "` + pngDataURL + `"`,
+		`picture3[" "]@{ img: "` + pngDataURL + `"`,
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("inlined Mermaid lacks %q:\n%s", want, got)
 		}
 	}
-	for _, omitted := range []string{"picture0@{", "picture1@{", "picture2@{", `img: "` + locations[0] + `"`} {
+	for _, omitted := range []string{"picture0[", "picture1[", "picture2[", `img: "` + locations[0] + `"`} {
 		if strings.Contains(got, omitted) {
 			t.Errorf("inlined Mermaid contains refused content %q:\n%s", omitted, got)
 		}
@@ -379,7 +379,7 @@ func TestPictureOnlyViewIsNotEmpty(t *testing.T) {
 		t.Errorf("DOT calls the pictured view empty:\n%s", dot)
 	}
 	mermaidNotice := "not represented: 1 picture(s) not drawn: images/site.jpg at (0, 0) size 640×480; the file does not read"
-	if mermaid := rendering.Mermaid(); !strings.Contains(mermaid, "%% "+mermaidNotice) || strings.Contains(mermaid, "picture0@{") {
+	if mermaid := rendering.Mermaid(); !strings.Contains(mermaid, "%% "+mermaidNotice) || strings.Contains(mermaid, "picture0[") {
 		t.Errorf("Mermaid drops the picture silently:\n%s", mermaid)
 	}
 	puml, err := rendering.PlantUML()
