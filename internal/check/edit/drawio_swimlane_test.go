@@ -420,3 +420,39 @@ func TestDrawioMovedNodeKeepsTheFlowsAndLanesOfAViewPlacingSwimlanesAlone(t *tes
 		})
 	}
 }
+
+const twiceShownStepModel = `package D {
+	private import DiagramLayout::*;
+	action runA { action load; then action weld; }
+	action runB { action pack; then action ship; }
+	part robot { perform runA.load; }
+	view twice : StandardViewDefinitions::ActionFlowView {
+		expose runA;
+		expose runB;
+		expose runA::weld;
+		metadata Layout about robot { x = 320; y = 120; }
+	}
+}`
+
+// A step the view shows twice, in its flow and on its own, has one Layout: placing the flows
+// around a moved copy keeps the place the file moved it to.
+func TestDrawioMovedNodeShownTwiceKeepsItsMoveBesideAPlacedSwimlane(t *testing.T) {
+	const weld = "D::runA::weld"
+	alone := func(f *view.DrawioFile) *view.DrawioCell {
+		return drawioFirst(f, func(c *view.DrawioCell) bool {
+			parent := f.Cell(c.Parent)
+			return c.FQN == weld && (parent == nil || parent.FQN == "")
+		})
+	}
+	edited, imp, _ := swimlaneRoundTripOf(t, twiceShownStepModel, "D::twice", alone, shifted(t, 40, 30))
+	moved := alone(edited)
+	var layouts []view.DrawioEdit
+	for _, e := range imp.Edits {
+		if e.Kind == view.DrawioEditLayout && e.FQN == weld {
+			layouts = append(layouts, e)
+		}
+	}
+	if len(layouts) != 1 || layouts[0].Layout.X != moved.Geometry.X || layouts[0].Layout.Y != moved.Geometry.Y {
+		t.Errorf("the import writes %+v about %s, the file moved it to %+v", layouts, weld, moved.Geometry)
+	}
+}

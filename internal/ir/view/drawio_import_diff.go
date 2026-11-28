@@ -792,15 +792,29 @@ func (m *drawioMatcher) placeRoots() {
 	if m.positioned || !m.laneMoved() && !m.lanePlaced() {
 		return
 	}
-	placed := map[string]bool{}
+	placed, stated := map[string]bool{}, map[layoutTarget]bool{}
 	for _, e := range m.out.Edits {
 		if e.Kind == DrawioEditLayout && !e.Layout.Unplaced {
 			placed[e.Cell] = true
+		}
+		if e.Kind == DrawioEditLayout {
+			stated[layoutTargetOf(e)] = true
 		}
 	}
 	if len(placed) == 0 {
 		return
 	}
+	moved := len(m.out.Edits)
+	// A node drawn twice has one Layout: the one the file's own change states stands.
+	defer func() {
+		kept := m.out.Edits[:moved]
+		for _, e := range m.out.Edits[moved:] {
+			if e.Kind != DrawioEditLayout || !stated[layoutTargetOf(e)] {
+				kept = append(kept, e)
+			}
+		}
+		m.out.Edits = kept
+	}()
 	for i := range m.base.Cells {
 		root := &m.base.Cells[i]
 		node, edited := m.nodes[root.ID], m.editedOf(root)
@@ -819,6 +833,17 @@ func (m *drawioMatcher) placeRoots() {
 		m.framed[root.ID] = true
 		m.framePlace(edited, root, node, !node.Geometry.placed() || node.Geometry.HasSize)
 	}
+}
+
+// layoutTarget is what a Layout edit is about: the element and, for a swimlane, the nodes it is drawn in.
+type layoutTarget struct {
+	name, within string
+	origin       Origin
+}
+
+// layoutTargetOf is the target of the Layout edit e.
+func layoutTargetOf(e DrawioEdit) layoutTarget {
+	return layoutTarget{name: e.FQN, within: strings.Join(e.Within, "\x00"), origin: e.Origin}
 }
 
 // unnamedIn reports whether a node drawn in the baseline cell id's frame, at any depth, has no
