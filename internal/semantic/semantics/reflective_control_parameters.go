@@ -416,6 +416,14 @@ func (m *Model) nodeParameterName(owner, sym *symbols.Symbol) string {
 	if parts := m.controlPartsOf(owner); parts != nil {
 		return parts.names[sym]
 	}
+	if parts := m.transitionPartsOf(owner); parts != nil {
+		switch {
+		case len(parts.linkParameters) > 0 && parts.linkParameters[0] == sym:
+			return "transitionLinkSource"
+		case parts.transitionLink == sym:
+			return "transitionLink"
+		}
+	}
 	return ""
 }
 

@@ -32,6 +32,11 @@ func KeyOf(sym *Symbol) ElementKey {
 		key.ordinal = sym.Implicit.Ordinal + 1
 		key.form = int(sym.Implicit.Form)
 		return key
+	case sym.Inclusion != nil:
+		// A held element shares its owner's span, so its role and position tell it from its siblings.
+		key := KeyOf(sym.Inclusion.Owner)
+		key.part = fmt.Sprintf("%s/held:%d:%d", key.part, sym.Inclusion.Role, sym.Inclusion.Index)
+		return key
 	case sym.Chain != nil && sym.Chain.Flow != nil:
 		key := KeyOf(sym.Chain.Flow)
 		key.part = fmt.Sprintf("%s/flowEnd:%d", key.part, sym.Chain.End)

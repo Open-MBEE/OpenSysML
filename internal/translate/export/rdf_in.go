@@ -713,11 +713,13 @@ type decoder struct {
 	dupID map[string]bool
 	// memberships is keyed by membership IRI, and owningMembership by the IRI of
 	// the member each one owns.
-	memberships          map[string]membership
-	owningMembership     map[string]membership
-	nodeMemberships      map[string]membership
-	nodeMembership       map[string]bool
-	expressionNodes      map[string]bool
+	memberships      map[string]membership
+	owningMembership map[string]membership
+	nodeMemberships  map[string]membership
+	nodeMembership   map[string]bool
+	expressionNodes  map[string]bool
+	// openBodyMembers are the expression-body members being written, by IRI.
+	openBodyMembers      map[string]bool
 	featureValues        map[string]rdf.Term
 	portDefinitions      portDefinitionIndex
 	referenceSubsettings map[string][]rdf.Term

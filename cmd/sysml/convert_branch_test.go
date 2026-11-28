@@ -348,3 +348,25 @@ func TestConvertBranchNeedsTheToken(t *testing.T) {
 		t.Fatalf("a branch read without a token: exit %d:\n%s", code, out)
 	}
 }
+
+// -interchange applies to a branch read as it does to a file.
+func TestConvertReadsABranchAsTheInterchangeForm(t *testing.T) {
+	needs(t, syncFeature)
+	binary := buildCLI(t)
+	stack := newFakeStack(t, liveGraph(t, syncedModel))
+	outPath := filepath.Join(t.TempDir(), "out.json")
+	branch := "flexo://proj-1/main"
+
+	out, code := exitCode(t, branchCommand(stack, binary, branch, "-convert", "api-json", "-interchange", "-o", outPath, "-sync-state", filepath.Join(t.TempDir(), "s.json")))
+	if code != 0 {
+		t.Fatalf("read a branch as the interchange form: exit %d:\n%s", code, out)
+	}
+	written, err := os.ReadFile(outPath)
+	if err != nil || !strings.Contains(string(written), `"@type": "PartDefinition"`) || strings.Contains(string(written), `"sysx:`) {
+		t.Fatalf("the interchange form of a branch keeps the mapping's keys (err %v):\n%s", err, written)
+	}
+	out, code = exitCode(t, branchCommand(stack, binary, branch, "-convert", "ttl", "-interchange"))
+	if code == 0 || !strings.Contains(out, "-interchange requires -convert api-json") {
+		t.Fatalf("-interchange with -convert ttl: exit %d:\n%s", code, out)
+	}
+}
