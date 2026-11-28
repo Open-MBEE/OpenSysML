@@ -302,27 +302,50 @@ package P {
 	}
 }
 
-// TestParseLoopGuardDoesNotSeeBodyImport pins KerML 8.2.3.5.4 for a loop's `until` guard: it is the
-// loop's own expression, so it reads the body's declarations but not a name only the body imports.
-func TestParseLoopGuardDoesNotSeeBodyImport(t *testing.T) {
+// TestParseLoopGuardDoesNotSeeBody pins KerML 8.2.3.5.4 for a loop's conditions: they are the loop's
+// own expressions beside its body, so they read neither what a `{ … }` body imports nor what it declares.
+func TestParseLoopGuardDoesNotSeeBody(t *testing.T) {
 	srv := mustNewService(t, 10)
-	parsed, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{Source: &pb.ParseFileRequest_Content{
-		Content: `package Q { attribute flag : ScalarValues::Integer; }
+	parse := func(content string) []*pb.Diagnostic {
+		t.Helper()
+		parsed, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{Source: &pb.ParseFileRequest_Content{Content: content}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return parsed.GetDiagnostics()
+	}
+	for _, d := range parse(`package Q { attribute flag : ScalarValues::Integer; }
 package P {
     action def A {
         attribute flag : ScalarValues::Boolean;
         action l loop { private import Q::*; } until flag;
         loop { private import Q::*; } until flag;
+        loop { attribute flag : ScalarValues::Integer; } until flag;
+        while flag { attribute flag : ScalarValues::Integer; }
+        loop action body1 { attribute x : ScalarValues::Boolean; } until body1.x;
         attribute xs : ScalarValues::Integer[*];
         loop { private import Q::*; } until xs->ControlFunctions::exists { in x : ScalarValues::Integer; flag };
-        loop { private import Q::*; attribute done : ScalarValues::Boolean; } until done;
     }
-}`}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, d := range parsed.GetDiagnostics() {
+}`) {
 		t.Errorf("unexpected diagnostic: %s", d.GetMessage())
+	}
+	var messages []string
+	for _, d := range parse(`package P {
+    action def A {
+        loop { attribute inBlock : ScalarValues::Boolean; } until inBlock;
+        while inWhile { attribute inWhile : ScalarValues::Boolean; }
+        loop { action charging { out attribute finished : ScalarValues::Boolean; } } until charging.finished;
+        loop action body1 { attribute inNamed : ScalarValues::Boolean; } until inNamed;
+        attribute xs : ScalarValues::Integer[*];
+        loop { attribute inExpr : ScalarValues::Integer; } until xs->ControlFunctions::exists { in x : ScalarValues::Integer; x > inExpr };
+    }
+}`) {
+		messages = append(messages, d.GetMessage())
+	}
+	for _, name := range []string{"inBlock", "inWhile", "charging", "inNamed", "inExpr"} {
+		if !slices.ContainsFunc(messages, func(m string) bool { return strings.HasPrefix(m, "unresolved reference: "+name) }) {
+			t.Errorf("%s is not reported unresolved in %q", name, messages)
+		}
 	}
 }
 

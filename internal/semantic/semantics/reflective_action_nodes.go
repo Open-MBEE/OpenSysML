@@ -40,7 +40,7 @@ func (m *Model) statementNodes(sym *symbols.Symbol) []*symbols.Symbol {
 			}
 		}
 	}
-	if loop := loopStatementOf(sym); loop != nil && loopBodyParameter(loop) == nil {
+	if loop := loopStatementOf(sym); loop != nil && loop.BodyParameter() == nil {
 		// A loop owns its `{ … }` body as one action, which owns what the body writes
 		// (SysML.xtext ActionBodyParameterMember).
 		out = append(out, &symbols.Symbol{
@@ -139,29 +139,13 @@ func loopStatementOf(sym *symbols.Symbol) *ast.WhileLoopActionNode {
 	return loop
 }
 
-// loopBodyParameter is the action a loop's body is written as (`loop action a { … }`, SysML.xtext
-// ActionBodyParameter), which the symbol table declares; nil for a body written as a block.
-func loopBodyParameter(loop *ast.WhileLoopActionNode) *ast.Usage {
-	if len(loop.Body) != 1 {
-		return nil
-	}
-	member := loop.Body[0]
-	if wrapper, ok := member.(*ast.Membership); ok {
-		member = wrapper.Member
-	}
-	if usage, ok := member.(*ast.Usage); ok && usage.IsBodyParameter {
-		return usage
-	}
-	return nil
-}
-
-// isWrittenLoopBody reports whether sym is the action a loop's body is written as (loopBodyParameter).
+// isWrittenLoopBody reports whether sym is the action a loop's body is written as (ast.WhileLoopActionNode.BodyParameter).
 func isWrittenLoopBody(sym *symbols.Symbol) bool {
 	if sym == nil || sym.Expr != nil || sym.Implicit != nil || sym.OwnerScope == nil {
 		return false
 	}
 	loop, ok := sym.OwnerScope.Node().(*ast.WhileLoopActionNode)
-	return ok && loopBodyParameter(loop) == sym.Decl
+	return ok && loop.BodyParameter() == sym.Decl
 }
 
 // isLoopBody reports whether sym is the action a loop's body is (statementNodes).
