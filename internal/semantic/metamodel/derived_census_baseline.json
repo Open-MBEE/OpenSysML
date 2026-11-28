@@ -60,8 +60,8 @@
         "name": "examples",
         "dir": "examples",
         "origin": "ours",
-        "files": 69,
-        "digest": "sha256:9462ded1fdc328aa07ac526c8e8051136d8dc5dcb19005cab4877478607700f6"
+        "files": 70,
+        "digest": "sha256:b68ca89dc9b3312b5f458a514ea7ca2300eda5a3d1549f8184648d6542847370"
       },
       {
         "name": "probes",
@@ -81,11 +81,11 @@
         "name": "opensysml-libraries",
         "dir": "internal/workspace/libs/stdlib/OpenSysML Libraries",
         "origin": "ours",
-        "files": 18,
-        "digest": "sha256:8ef6d80c9983abb0af6edc68d26de9a25be15f16561ca3b9e9387ed2b070a7ec"
+        "files": 19,
+        "digest": "sha256:8b95c8cf9269086a83943b84227af41614f721e7e9ff2a667090f4718d27ed8d"
       }
     ],
-    "recorded": "2026-11-24"
+    "recorded": "2026-11-27"
   },
   "structure": "metamodel.SymbolStructure (symbol-backed; metamodel.New over metamodel.NewSymbolStructure)",
   "policy": [
@@ -171,13 +171,13 @@
     {
       "name": "examples",
       "dir": "examples",
-      "files": 69,
+      "files": 70,
       "rejected": 0,
-      "elements": 55047,
-      "implied": 31931,
-      "pilotElements": 57536,
+      "elements": 56678,
+      "implied": 32969,
+      "pilotElements": 59174,
       "pilotImplied": 0,
-      "pilotDuplicates": 102027,
+      "pilotDuplicates": 102097,
       "pilotFailed": 0
     },
     {
@@ -205,5 +205,5 @@
       "pilotFailed": 0
     }
   ],
-  "pilotRecords": "sha256:130bf2bd807e0f9dd3b3c4d1f3336a716aaed647656379e57310472599b78cfa"
+  "pilotRecords": "sha256:01308d6a3e65f5e6345efd1ca500fa9bca43ecbcdea72c7e4cd376c452449b6f"
 }
