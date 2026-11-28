@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -356,5 +357,72 @@ func TestAPIJSONInterchangeLeavesOutWhatTheSchemaDoesNotDeclare(t *testing.T) {
 	}
 	if _, elements := interchangeElementsOf(t, interchangeDerivedSource, export.APIJSONOptions{}); !hasNote(elements) {
 		t.Error("the default form lost its sysx:Note")
+	}
+}
+
+// SysML 8.3.19.3 and 8.3.20.4: a CalculationUsage and a ConstraintUsage are never
+// model-level evaluable, whatever their result expression.
+func TestAPIJSONInterchangeUsagesAreNotModelLevelEvaluable(t *testing.T) {
+	t.Parallel()
+	const source = `package P {
+	calc c { 1 }
+	constraint k { true }
+}
+`
+	_, elements := interchangeElementsOf(t, source, export.APIJSONOptions{Interchange: true})
+	for _, metaclass := range []string{"CalculationUsage", "ConstraintUsage"} {
+		usages := interchangeTyped(t, elements, metaclass)
+		if len(usages) != 1 {
+			t.Fatalf("%d %s elements, want 1", len(usages), metaclass)
+		}
+		if got := string(usages[0]["isModelLevelEvaluable"]); got != "false" {
+			t.Errorf("%s.isModelLevelEvaluable = %q, want false", metaclass, got)
+		}
+	}
+}
+
+// A referent many expressions share is walked once: a chain of bindings that each read
+// the one before twice exports in time linear in its length.
+func TestAPIJSONInterchangeSharedReferentsAreWalkedOnce(t *testing.T) {
+	t.Parallel()
+	var source strings.Builder
+	source.WriteString("package P {\n\tattribute a0 = 1;\n")
+	const bindings = 60
+	for i := 1; i <= bindings; i++ {
+		fmt.Fprintf(&source, "\tattribute a%d = a%d + a%d;\n", i, i-1, i-1)
+	}
+	source.WriteString("}\n")
+	_, elements := interchangeElementsOf(t, source.String(), export.APIJSONOptions{Interchange: true})
+	operators := interchangeTyped(t, elements, "OperatorExpression")
+	if len(operators) != bindings {
+		t.Fatalf("%d OperatorExpression elements, want %d", len(operators), bindings)
+	}
+	for _, operator := range operators {
+		if got := string(operator["isModelLevelEvaluable"]); got != "true" {
+			t.Errorf("OperatorExpression.isModelLevelEvaluable = %q, want true over package-level bindings", got)
+		}
+	}
+}
+
+// The interchange form writes no note, so no element of it references one.
+func TestAPIJSONInterchangeReferencesNoNote(t *testing.T) {
+	t.Parallel()
+	const source = `package P {
+	state def S {
+		entry; then fork1;
+		fork fork1; // split
+		state a;
+	}
+}
+`
+	document, _ := interchangeElementsOf(t, source, export.APIJSONOptions{Interchange: true})
+	if !bytes.Contains(document, []byte(`"sysx:Pseudostate"`)) {
+		t.Fatal("the fixture states no pseudostate")
+	}
+	if bytes.Contains(document, []byte(`"sysx:note"`)) {
+		t.Error("an element of the interchange form references a note")
+	}
+	if document, _ := interchangeElementsOf(t, source, export.APIJSONOptions{}); !bytes.Contains(document, []byte(`"sysx:note"`)) {
+		t.Error("the default form states no note for the pseudostate")
 	}
 }

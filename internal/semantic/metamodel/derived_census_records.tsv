@@ -763,13 +763,13 @@ Expression::function	testdata	215	215	0	0	230	230	0	0	0
 Expression::function	examples	5828	5828	0	0	5870	5870	0	0	0
 Expression::function	probes	3	3	0	0	3	3	0	0	0
 Expression::function	manual-examples	1249	1249	0	0	1280	1280	0	0	0
-Expression::isModelLevelEvaluable	training	851	789	0	62	838	838	0	0	0
-Expression::isModelLevelEvaluable	pilot-examples	3657	2969	0	688	3634	3634	0	0	0
-Expression::isModelLevelEvaluable	pilot-validation	1146	976	0	170	1124	1124	0	0	0
+Expression::isModelLevelEvaluable	training	851	792	0	59	838	838	0	0	0
+Expression::isModelLevelEvaluable	pilot-examples	3657	2976	0	681	3634	3634	0	0	0
+Expression::isModelLevelEvaluable	pilot-validation	1146	982	0	164	1124	1124	0	0	0
 Expression::isModelLevelEvaluable	kerml-examples	773	757	0	16	796	796	0	0	0
 Expression::isModelLevelEvaluable	spec-examples	949	648	0	301	1060	1060	0	0	0
 Expression::isModelLevelEvaluable	testdata	215	189	0	26	230	230	0	0	0
-Expression::isModelLevelEvaluable	examples	5828	5475	0	353	5870	5870	0	0	0
+Expression::isModelLevelEvaluable	examples	5828	5481	0	347	5870	5870	0	0	0
 Expression::isModelLevelEvaluable	probes	3	1	0	2	3	3	0	0	0
 Expression::isModelLevelEvaluable	manual-examples	1249	1237	0	12	1280	1280	0	0	0
 Expression::result	training	851	848	0	3	838	838	0	0	0

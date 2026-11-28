@@ -207,7 +207,7 @@ root examples/sysml-v2-training: models 100, skipped 0, matched 11485, unmatched
   Element::shortName: equal 11479, different 0, symbol-missing 0, symbol-extra 6
   EnumerationUsage::enumerationDefinition: equal 0, different 11, symbol-missing 0, symbol-extra 0
   Expression::function: equal 815, different 28, symbol-missing 0, symbol-extra 8
-  Expression::isModelLevelEvaluable: equal 833, different 2, symbol-missing 0, symbol-extra 16
+  Expression::isModelLevelEvaluable: equal 835, different 0, symbol-missing 0, symbol-extra 16
   Expression::result: equal 849, different 0, symbol-missing 0, symbol-extra 2
   Feature::chainingFeature: equal 4251, different 1, symbol-missing 0, symbol-extra 0
   Feature::direction: equal 4250, different 2, symbol-missing 0, symbol-extra 0
@@ -316,7 +316,7 @@ root examples/pilot-corpora: models 213, skipped 0, matched 62125, unmatched 83
   Element::shortName: equal 62110, different 9, symbol-missing 0, symbol-extra 6
   EnumerationUsage::enumerationDefinition: equal 6, different 42, symbol-missing 0, symbol-extra 0
   Expression::function: equal 5385, different 161, symbol-missing 0, symbol-extra 30
-  Expression::isModelLevelEvaluable: equal 5450, different 0, symbol-missing 0, symbol-extra 126
+  Expression::isModelLevelEvaluable: equal 5449, different 1, symbol-missing 0, symbol-extra 126
   Expression::result: equal 5574, different 1, symbol-missing 1, symbol-extra 0
   Feature::chainingFeature: equal 23034, different 25, symbol-missing 0, symbol-extra 10
   Feature::direction: equal 23051, different 18, symbol-missing 0, symbol-extra 0

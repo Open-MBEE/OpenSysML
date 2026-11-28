@@ -52,7 +52,7 @@ AnalysisCaseUsage::calculationDefinition	2	symbol-45
 AnalysisCaseUsage::caseDefinition	13	symbol-45
 AnalysisCaseUsage::definition	2	symbol-37
 AnalysisCaseUsage::function	2	symbol-25
-AnalysisCaseUsage::isModelLevelEvaluable	14	symbol-45
+AnalysisCaseUsage::isModelLevelEvaluable	15	symbol-45
 AnalysisCaseUsage::nestedCase	1	symbol-45
 AnalysisCaseUsage::objectiveRequirement	12	symbol-45
 AnalysisCaseUsage::occurrenceDefinition	2	symbol-41
@@ -65,7 +65,7 @@ AssertConstraintUsage::behavior	30	symbol-26
 AssertConstraintUsage::constraintDefinition	30	symbol-32
 AssertConstraintUsage::definition	30	symbol-37
 AssertConstraintUsage::function	30	symbol-25
-AssertConstraintUsage::isModelLevelEvaluable	27	symbol-45
+AssertConstraintUsage::isModelLevelEvaluable	36	symbol-45
 AssertConstraintUsage::occurrenceDefinition	30	symbol-41
 AssertConstraintUsage::parameter	3	symbol-27
 AssertConstraintUsage::predicate	33	symbol-45
@@ -266,7 +266,7 @@ ConstraintUsage::featureMembership	2	symbol-15
 ConstraintUsage::function	127	symbol-25
 ConstraintUsage::inheritedFeature	2	symbol-51
 ConstraintUsage::inheritedMembership	2	symbol-51
-ConstraintUsage::isModelLevelEvaluable	114	symbol-45
+ConstraintUsage::isModelLevelEvaluable	134	symbol-45
 ConstraintUsage::member	2	symbol-51
 ConstraintUsage::membership	2	symbol-51
 ConstraintUsage::name	2	symbol-47

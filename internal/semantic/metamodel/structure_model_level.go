@@ -8,7 +8,7 @@ import (
 // structureExpressionModelLevelEvaluable derives Expression::isModelLevelEvaluable as
 // modelLevelEvaluable(Set{}) over the element's structure (KerML 8.3.4.7.3).
 func (e *Evaluator) structureExpressionModelLevelEvaluable(element Element) (Value, bool, bool) {
-	evaluable, ok := e.structureModelLevelEvaluable(element, map[ElementKey]bool{})
+	evaluable, ok := e.structureModelLevelEvaluable(element, &modelLevelWalk{visited: map[ElementKey]bool{}, settled: map[ElementKey]bool{}})
 	if !ok {
 		e.recordUnsupportedReason(element, "Expression", "isModelLevelEvaluable", Reason{
 			Category: ReasonIncompleteStructure,
@@ -41,9 +41,17 @@ func (e *Evaluator) structureFunctionModelLevelEvaluable(element Element) (Value
 	return booleanValue(semantics.ModelLevelFunction(name.String)), true, true
 }
 
+// modelLevelWalk is one evaluation of modelLevelEvaluable: the features on the current path,
+// and the answers of the referents already walked, so a shared referent is walked once.
+type modelLevelWalk struct {
+	visited map[ElementKey]bool
+	settled map[ElementKey]bool
+	cycles  int
+}
+
 // structureModelLevelEvaluable is Expression::modelLevelEvaluable(visited) and its
 // redefinitions; it reports false when a value the operation reads is not settled.
-func (e *Evaluator) structureModelLevelEvaluable(expression Element, visited map[ElementKey]bool) (evaluable, ok bool) {
+func (e *Evaluator) structureModelLevelEvaluable(expression Element, walk *modelLevelWalk) (evaluable, ok bool) {
 	is := func(metaclass string) bool {
 		matches, known := e.isMetaclass(expression, metaclass)
 		ok = ok && known
@@ -53,21 +61,24 @@ func (e *Evaluator) structureModelLevelEvaluable(expression Element, visited map
 	switch {
 	case is("LiteralExpression"), is("NullExpression"), is("MetadataAccessExpression"):
 		return true, ok
+	// SysML 8.3.19.3 CalculationUsage and 8.3.20.4 ConstraintUsage redefine the operation as false.
+	case is("CalculationUsage"), is("ConstraintUsage"):
+		return false, ok
 	case is("FeatureReferenceExpression"):
 		if !ok {
 			return false, false
 		}
-		return e.structureReferenceModelLevelEvaluable(expression, visited)
+		return e.structureReferenceModelLevelEvaluable(expression, walk)
 	case is("ConstructorExpression"):
 		if !ok {
 			return false, false
 		}
-		return e.structureArgumentsModelLevelEvaluable(expression, visited)
+		return e.structureArgumentsModelLevelEvaluable(expression, walk)
 	case is("InvocationExpression"):
 		if !ok {
 			return false, false
 		}
-		evaluable, ok = e.structureArgumentsModelLevelEvaluable(expression, visited)
+		evaluable, ok = e.structureArgumentsModelLevelEvaluable(expression, walk)
 		if !ok || !evaluable {
 			return false, ok
 		}
@@ -85,10 +96,10 @@ func (e *Evaluator) structureModelLevelEvaluable(expression Element, visited map
 	if !ok {
 		return false, false
 	}
-	return e.structureBodyModelLevelEvaluable(expression, visited)
+	return e.structureBodyModelLevelEvaluable(expression, walk)
 }
 
-func (e *Evaluator) structureArgumentsModelLevelEvaluable(expression Element, visited map[ElementKey]bool) (evaluable, ok bool) {
+func (e *Evaluator) structureArgumentsModelLevelEvaluable(expression Element, walk *modelLevelWalk) (evaluable, ok bool) {
 	arguments, ok := e.Property(expression, "InstantiationExpression", "argument")
 	if !ok || arguments.Kind != SequenceValue {
 		return false, false
@@ -97,7 +108,7 @@ func (e *Evaluator) structureArgumentsModelLevelEvaluable(expression Element, vi
 		if argument.Kind != ElementValue {
 			return false, false
 		}
-		if evaluable, ok := e.structureModelLevelEvaluable(argument.Element, visited); !ok || !evaluable {
+		if evaluable, ok := e.structureModelLevelEvaluable(argument.Element, walk); !ok || !evaluable {
 			return false, ok
 		}
 	}
@@ -105,7 +116,7 @@ func (e *Evaluator) structureArgumentsModelLevelEvaluable(expression Element, vi
 }
 
 // structureReferenceModelLevelEvaluable is FeatureReferenceExpression::modelLevelEvaluable (KerML 8.3.4.8.5).
-func (e *Evaluator) structureReferenceModelLevelEvaluable(expression Element, visited map[ElementKey]bool) (evaluable, ok bool) {
+func (e *Evaluator) structureReferenceModelLevelEvaluable(expression Element, walk *modelLevelWalk) (evaluable, ok bool) {
 	referent, ok := e.Property(expression, "FeatureReferenceExpression", "referent")
 	if !ok || referent.Kind != ElementValue {
 		return false, false
@@ -116,17 +127,35 @@ func (e *Evaluator) structureReferenceModelLevelEvaluable(expression Element, vi
 		return false, false
 	}
 	key := e.structureFeatureKey(feature)
-	if self || visited[key] {
-		return self, true
+	if self {
+		return true, true
 	}
-	visited[key] = true
-	defer delete(visited, key)
+	if walk.visited[key] {
+		walk.cycles++
+		return false, true
+	}
+	if evaluable, settled := walk.settled[key]; settled {
+		return evaluable, true
+	}
+	walk.visited[key] = true
+	cycles := walk.cycles
+	evaluable, ok = e.structureReferentModelLevelEvaluable(feature, walk)
+	delete(walk.visited, key)
+	// A false that met a feature on the path holds for this path only.
+	if ok && (evaluable || walk.cycles == cycles) {
+		walk.settled[key] = evaluable
+	}
+	return evaluable, ok
+}
+
+// structureReferentModelLevelEvaluable is the part of that operation that reads the referent.
+func (e *Evaluator) structureReferentModelLevelEvaluable(feature Element, walk *modelLevelWalk) (evaluable, ok bool) {
 	isExpression, known := e.isMetaclass(feature, "Expression")
 	if !known {
 		return false, false
 	}
 	if isExpression {
-		if evaluable, ok := e.structureModelLevelEvaluable(feature, visited); !ok || evaluable {
+		if evaluable, ok := e.structureModelLevelEvaluable(feature, walk); !ok || evaluable {
 			return evaluable, ok
 		}
 	}
@@ -160,7 +189,7 @@ func (e *Evaluator) structureReferenceModelLevelEvaluable(expression Element, vi
 		if value.Kind != ElementValue {
 			return false, false
 		}
-		if evaluable, ok := e.structureModelLevelEvaluable(value.Element, visited); !ok || !evaluable {
+		if evaluable, ok := e.structureModelLevelEvaluable(value.Element, walk); !ok || !evaluable {
 			return false, ok
 		}
 	}
@@ -194,7 +223,7 @@ func (e *Evaluator) structureConformsToSelf(feature Element, visited map[Element
 // structureBodyModelLevelEvaluable is Expression::modelLevelEvaluable for an Expression no
 // redefinition covers: no stated specialization, and only bare in or result parameters and
 // a model-level evaluable result Expression as owned features (KerML 8.3.4.7.3).
-func (e *Evaluator) structureBodyModelLevelEvaluable(expression Element, visited map[ElementKey]bool) (evaluable, ok bool) {
+func (e *Evaluator) structureBodyModelLevelEvaluable(expression Element, walk *modelLevelWalk) (evaluable, ok bool) {
 	specializations, handled, ok := e.structureOwnedFilter(expression, "Specialization", false)
 	if !handled || !ok {
 		return false, false
@@ -234,7 +263,7 @@ func (e *Evaluator) structureBodyModelLevelEvaluable(expression Element, visited
 		}
 		for _, feature := range members {
 			if resultExpression {
-				if evaluable, ok := e.structureModelLevelEvaluable(feature, visited); !ok || !evaluable {
+				if evaluable, ok := e.structureModelLevelEvaluable(feature, walk); !ok || !evaluable {
 					return false, ok
 				}
 				continue
