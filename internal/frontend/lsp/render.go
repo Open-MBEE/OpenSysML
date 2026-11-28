@@ -499,7 +499,8 @@ func (s *Server) Render(params *RenderParams) (*RenderResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	data := rendering.DataWith(view.Options{Ports: ports, Compartments: compartments, Show: shown})
+	options := view.Options{Ports: ports, Compartments: compartments, Show: shown}
+	data := rendering.DataWith(options)
 	out := &RenderResult{
 		View:     data.View,
 		Kind:     string(data.Kind),
@@ -511,7 +512,7 @@ func (s *Server) Render(params *RenderParams) (*RenderResult, error) {
 		Nodes:    make([]RenderNode, 0, len(data.Nodes)),
 		Edges:    make([]RenderEdge, 0, len(data.Edges)),
 		Columns:  data.Columns,
-		Notices:  data.Notices,
+		Notices:  slices.Concat(data.Notices, rendering.LaneNotices(options)),
 		Palette:  palette(data.Kind, source.KindOf(name)),
 		Version:  doc.Version,
 	}

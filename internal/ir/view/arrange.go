@@ -27,7 +27,9 @@ type arranger struct {
 	unrouted   bool                  // this build has no router; the form routes on opening
 	routed     map[int]bool          // the edges (by index) the router gave their route
 	unroutable []int                 // the edges (by index) the router found no path for
+	crowded    []string              // what a flow drawn around its placed swimlanes covers of another's, each a notice
 	inward     map[int]drawioEnds    // per edge, the ends that lead into the port's owner
+	beside     map[string]bool       // the flows whose free nodes sit beside their placed swimlanes, not under
 	grid       int                   // nodes and notes laid on the grid for want of a position
 	extent     drawioBox             // the bounds of everything placed
 }
@@ -35,23 +37,44 @@ type arranger struct {
 // newArranger is an arranger with nothing settled yet, sizing boxes by labels
 // and drawing the ports of ports.
 func newArranger(labels labeller, ports portView) arranger {
-	return arranger{labels: labels, ports: ports, boxes: map[string]drawioBox{}, routed: map[int]bool{}, inward: map[int]drawioEnds{}}
+	return arranger{labels: labels, ports: ports, boxes: map[string]drawioBox{}, beside: map[string]bool{}, routed: map[int]bool{}, inward: map[int]drawioEnds{}}
 }
 
 // layout settles a box for every node: the stated one, or one fitted to the
 // label and the children, on a deterministic grid when nothing places it.
 func (a *arranger) layout(r *Rendering) {
 	var placed, unplaced []*Node
+	// Swimlanes placed alone pin no node, yet each is drawn where its Layout says: the flow
+	// no Layout places is drawn around them.
+	lanesAlone := !placeRendering(r).pinned
+	around := map[string]drawioBox{}
 	for _, root := range r.Roots {
-		if root.Geometry.placed() {
+		at, framesLanes := a.aroundLanes(root)
+		switch {
+		case root.Geometry.placed():
+			around[root.ID] = drawioBox{X: root.Geometry.X, Y: root.Geometry.Y}
 			placed = append(placed, root)
-		} else {
+		case lanesAlone && framesLanes:
+			around[root.ID] = at
+			placed = append(placed, root)
+		default:
 			unplaced = append(unplaced, root)
 		}
 	}
 	for _, root := range placed {
-		a.settle(root, drawioBox{X: root.Geometry.X, Y: root.Geometry.Y})
-		a.extend(a.boxes[root.ID])
+		at := around[root.ID]
+		if _, framesLanes := a.aroundLanes(root); lanesAlone && framesLanes {
+			// Its free nodes go beside its lanes when under them they cover more of another flow's lanes.
+			if under := a.coversOtherLanes(root, at, r.Roots); under > 0 {
+				a.beside[root.ID] = true
+				if a.coversOtherLanes(root, at, r.Roots) >= under {
+					delete(a.beside, root.ID)
+				}
+			}
+		}
+		a.settle(root, at)
+		// A Layout may place what a root holds past its frame: the grid starts under that too.
+		a.extend(a.drawnAround(root))
 	}
 	for _, picture := range r.Pictures {
 		a.extend(drawioBox{X: picture.X, Y: picture.Y, Width: picture.Width, Height: picture.Height})
@@ -80,6 +103,7 @@ func (a *arranger) layout(r *Rendering) {
 		a.settle(gridded[i], box)
 		a.extend(box)
 	}
+	a.crowded = a.crowdedLanes(r.Roots)
 }
 
 // settlePositioned settles the nodes the layered layout placed where it put
@@ -173,6 +197,14 @@ func (a *arranger) settleChildren(node *Node, box drawioBox) {
 			origin.Y = math.Max(origin.Y, a.boxes[child.ID].bottom()+gap)
 		}
 	}
+	if a.beside[node.ID] {
+		origin = drawioBox{X: box.X + drawioNestedPad, Y: box.Y + a.headroom(node) + gap}
+		for _, child := range node.Children {
+			if child.Geometry.placed() || holdsPlaced(child) {
+				origin.X = math.Max(origin.X, a.boxes[child.ID].right()+gap)
+			}
+		}
+	}
 	origin.Y = a.settleLanes(lanes, origin, gap)
 	for i, child := range drawioGrid(sizes, origin, gap) {
 		a.settle(unplaced[i], child)
@@ -264,6 +296,190 @@ func (a *arranger) settleLanes(lanes []*Node, origin drawioBox, gap float64) flo
 	return origin.Y + height + gap
 }
 
+// aroundLanes is the corner putting an unplaced container's placed swimlanes where their
+// Layouts say, when swimlanes are all it holds placed.
+func (a *arranger) aroundLanes(node *Node) (drawioBox, bool) {
+	minX, minY, found := math.Inf(1), math.Inf(1), false
+	for _, child := range node.Children {
+		switch {
+		case child.Geometry.placed() && child.Kind == swimlaneKind:
+			minX, minY, found = math.Min(minX, child.Geometry.X), math.Min(minY, child.Geometry.Y), true
+		case child.Geometry.placed() || holdsPlaced(child):
+			return drawioBox{}, false
+		}
+	}
+	if !found || node.Geometry.placed() {
+		return drawioBox{}, false
+	}
+	return drawioBox{X: minX - drawioNestedPad, Y: minY - a.headroom(node) - drawioNestedGap}, true
+}
+
+// lanesFrame is the least box an unplaced container draws around its placed swimlanes, from
+// the corner aroundLanes gives it.
+func (a *arranger) lanesFrame(node *Node, at drawioBox) drawioBox {
+	right, bottom := at.X, at.Y
+	for _, child := range node.Children {
+		if child.Geometry.placed() && child.Kind == swimlaneKind {
+			size := a.fitted(child)
+			right, bottom = math.Max(right, child.Geometry.X+size.Width), math.Max(bottom, child.Geometry.Y+size.Height)
+		}
+	}
+	return drawioBox{X: at.X, Y: at.Y, Width: right + drawioNestedPad - at.X, Height: bottom + drawioNestedPad - at.Y}
+}
+
+// crowdedLanes says, for each placed swimlane of a flow in roots that another flow's frame is
+// drawn over, which of that flow's lanes is stated too near it and the gap that clears it.
+func (a *arranger) crowdedLanes(roots []*Node) []string {
+	var notices []string
+	for _, over := range roots {
+		frame, drawn := a.boxes[over.ID]
+		if !drawn {
+			continue
+		}
+		for _, under := range roots {
+			if _, drawn := a.boxes[under.ID]; under == over || !drawn {
+				continue
+			}
+			for _, covered := range under.Children {
+				box := a.boxes[covered.ID]
+				if covered.Kind != swimlaneKind || !covered.Geometry.placed() || !frame.overlaps(box) {
+					continue
+				}
+				covers := []string{fmt.Sprintf("swimlane %s (%s)", covered.Name, frame.shared(box))}
+				covers = append(covers, a.coveredSteps(frame, covered.Children)...)
+				if around := a.boxes[under.ID]; frame.overlaps(around) {
+					covers = append(covers, fmt.Sprintf("the frame of %s (%s)", under.Name, frame.shared(around)))
+				}
+				if notice := a.crowdNotice(over, frame, covered, box, a.drawnAround(under), strings.Join(covers, ", ")); notice != "" {
+					notices = append(notices, notice)
+				}
+			}
+		}
+	}
+	return notices
+}
+
+// crowdNotice names the placed swimlane of the flow over nearest the swimlane covered, which
+// over's frame is drawn across, and what keeps the frame clear of past, all its flow draws.
+func (a *arranger) crowdNotice(over *Node, frame drawioBox, covered *Node, box, past drawioBox, covers string) string {
+	// How far the frame moves each way to leave past behind it.
+	lower, higher := past.bottom()-frame.Y, frame.bottom()-past.Y
+	right, left := past.right()-frame.X, frame.right()-past.X
+	moved := fmt.Sprintf("the swimlanes of %s", over.Name)
+	held := ""
+	if over.Geometry.placed() {
+		// A Layout holds the frame where it is, so moving the lanes alone leaves it over the other.
+		moved, held = "that frame and what it holds", ", which its Layout places,"
+	}
+	notice, least := "", math.Inf(1)
+	for _, lane := range over.Children {
+		own := a.boxes[lane.ID]
+		if lane.Kind != swimlaneKind || !lane.Geometry.placed() {
+			continue
+		}
+		var stated, needed, shift float64
+		var axis, away string
+		switch {
+		case own.Y >= box.bottom():
+			stated, shift, axis, away = own.Y-box.bottom(), lower, "below", "lower"
+			needed = stated + lower
+		case own.bottom() <= box.Y:
+			stated, shift, axis, away = box.Y-own.bottom(), higher, "above", "higher"
+			needed = stated + higher
+		case own.X >= box.right():
+			stated, shift, axis, away = own.X-box.right(), right, "right of", "further right"
+			needed = stated + right
+		case own.right() <= box.X:
+			stated, shift, axis, away = box.X-own.right(), left, "left of", "further left"
+			needed = stated + left
+		default:
+			// The two Layouts overlap as stated: the shortest move apart clears them.
+			stated, shift, away = -1, lower, "lower"
+			for _, way := range []struct {
+				by   float64
+				away string
+			}{{higher, "higher"}, {right, "further right"}, {left, "further left"}} {
+				if way.by < shift {
+					shift, away = way.by, way.away
+				}
+			}
+		}
+		if stated >= least {
+			continue
+		}
+		least = stated
+		drawn := fmt.Sprintf("the frame of %s%s is drawn over %s; Layouts placing %s %g px %s keep them clear",
+			over.Name, held, covers, moved, math.Ceil(shift), away)
+		switch {
+		case stated < 0:
+			notice = fmt.Sprintf("swimlane %s is placed over swimlane %s (%s), in another flow: %s", lane.Name, covered.Name, own.shared(box), drawn)
+		case over.Geometry.placed() && stated == 0:
+			notice = fmt.Sprintf("swimlane %s is placed directly %s swimlane %s, in another flow: %s", lane.Name, axis, covered.Name, drawn)
+		case over.Geometry.placed():
+			notice = fmt.Sprintf("swimlane %s is placed %g px %s swimlane %s, in another flow: %s", lane.Name, stated, axis, covered.Name, drawn)
+		case stated == 0:
+			notice = fmt.Sprintf("swimlane %s is placed directly %s swimlane %s, in another flow: the frame of %s needs %g px there and is drawn over %s; a Layout that far apart keeps them clear",
+				lane.Name, axis, covered.Name, over.Name, math.Ceil(needed), covers)
+		default:
+			notice = fmt.Sprintf("swimlane %s is placed %g px %s swimlane %s, in another flow: the frame of %s needs %g px there and is drawn over %s; a Layout that far apart keeps them clear",
+				lane.Name, stated, axis, covered.Name, over.Name, math.Ceil(needed), covers)
+		}
+	}
+	return notice
+}
+
+// drawnAround is the box around node and all that is drawn under it.
+func (a *arranger) drawnAround(node *Node) drawioBox {
+	box := a.boxes[node.ID]
+	for _, child := range node.Children {
+		if _, drawn := a.boxes[child.ID]; !drawn {
+			continue
+		}
+		o := a.drawnAround(child)
+		x, y := math.Min(box.X, o.X), math.Min(box.Y, o.Y)
+		box = drawioBox{X: x, Y: y, Width: math.Max(box.right(), o.right()) - x, Height: math.Max(box.bottom(), o.bottom()) - y}
+	}
+	return box
+}
+
+// shared is the size of what b and o both cover, as a notice states it.
+func (b drawioBox) shared(o drawioBox) string {
+	return fmt.Sprintf("%g×%g px", math.Min(b.right(), o.right())-math.Max(b.X, o.X), math.Min(b.bottom(), o.bottom())-math.Max(b.Y, o.Y))
+}
+
+// coveredSteps names the nodes under nodes, a swimlane's, that frame is drawn over, and by how much.
+func (a *arranger) coveredSteps(frame drawioBox, nodes []*Node) []string {
+	var names []string
+	for _, node := range nodes {
+		if box, drawn := a.boxes[node.ID]; drawn && frame.overlaps(box) {
+			names = append(names, fmt.Sprintf("its step %s (%s)", node.Name, frame.shared(box)))
+		}
+		names = append(names, a.coveredSteps(frame, node.Children)...)
+	}
+	return names
+}
+
+// coversOtherLanes is the area root, drawn from at, covers of the frames the other roots draw
+// around their placed swimlanes.
+func (a *arranger) coversOtherLanes(root *Node, at drawioBox, roots []*Node) float64 {
+	size := a.fitted(root)
+	box := drawioBox{X: at.X, Y: at.Y, Width: size.Width, Height: size.Height}
+	area := 0.0
+	for _, other := range roots {
+		corner, framesLanes := a.aroundLanes(other)
+		if other == root || !framesLanes {
+			continue
+		}
+		frame := a.lanesFrame(other, corner)
+		width := math.Min(box.right(), frame.right()) - math.Max(box.X, frame.X)
+		height := math.Min(box.bottom(), frame.bottom()) - math.Max(box.Y, frame.Y)
+		if width > 0 && height > 0 {
+			area += width * height
+		}
+	}
+	return area
+}
+
 // childShift is what a container's placed children move by: nothing when the
 // container is placed too, else the offset putting their bounds under its header.
 func (a *arranger) childShift(node *Node, box drawioBox) drawioBox {
@@ -341,7 +557,7 @@ func (a *arranger) fitted(node *Node) drawioBox {
 // probe is an arranger sizing and placing as a does, with nothing settled,
 // for measuring a container's children before they are settled under it.
 func (a *arranger) probe() *arranger {
-	return &arranger{labels: a.labels, ports: a.ports, positions: a.positions, side: a.side, portRoom: a.portRoom, pixelPins: a.pixelPins, boxes: map[string]drawioBox{}}
+	return &arranger{labels: a.labels, ports: a.ports, positions: a.positions, side: a.side, portRoom: a.portRoom, pixelPins: a.pixelPins, beside: a.beside, boxes: map[string]drawioBox{}}
 }
 
 // headroom is the height of a node's header and compartments, under which its
