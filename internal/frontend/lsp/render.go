@@ -238,7 +238,9 @@ type RenderNode struct {
 	Width           *float64        `json:"width,omitzero"`
 	Height          *float64        `json:"height,omitzero"`
 	Collapsed       bool            `json:"collapsed,omitzero"`
-	Verdict         string          `json:"verdict,omitempty"`
+	// Fitted marks a swimlane the Layout about its performer does not place, being another lane's.
+	Fitted  bool   `json:"fitted,omitzero"`
+	Verdict string `json:"verdict,omitempty"`
 	// Included marks a node the request's `include` drew rather than the view.
 	Included bool `json:"included,omitzero"`
 }
@@ -497,7 +499,8 @@ func (s *Server) Render(params *RenderParams) (*RenderResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	data := rendering.DataWith(view.Options{Ports: ports, Compartments: compartments, Show: shown})
+	options := view.Options{Ports: ports, Compartments: compartments, Show: shown}
+	data := rendering.DataWith(options)
 	out := &RenderResult{
 		View:     data.View,
 		Kind:     string(data.Kind),
@@ -509,7 +512,7 @@ func (s *Server) Render(params *RenderParams) (*RenderResult, error) {
 		Nodes:    make([]RenderNode, 0, len(data.Nodes)),
 		Edges:    make([]RenderEdge, 0, len(data.Edges)),
 		Columns:  data.Columns,
-		Notices:  data.Notices,
+		Notices:  slices.Concat(data.Notices, rendering.LaneNotices(options)),
 		Palette:  palette(data.Kind, source.KindOf(name)),
 		Version:  doc.Version,
 	}
@@ -581,6 +584,7 @@ func (s *Server) renderNodes(out *RenderResult, snapshot *model.Snapshot, nodes 
 			Border:          fills[node.ID].Border,
 			Style:           wireStyle(node.Style),
 			Verdict:         node.Verdict,
+			Fitted:          node.Fitted,
 			Included:        node.Parent == "" && slices.Contains(included, node.Origin),
 		}
 		for _, port := range node.Ports {

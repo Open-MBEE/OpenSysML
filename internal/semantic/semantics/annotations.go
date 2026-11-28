@@ -1118,6 +1118,13 @@ func (m *Model) metaclassOf(sym *symbols.Symbol) *symbols.Symbol {
 	if sym.Chain != nil {
 		return m.kermlMetaclass("Feature")
 	}
+	// An element held for an implied relationship: its connector, or a Feature.
+	if sym.Inclusion != nil {
+		if sym.Inclusion.Role == symbols.InclusionBindingConnector {
+			return m.kermlMetaclass("BindingConnector")
+		}
+		return m.kermlMetaclass("Feature")
+	}
 	// A relationship written as notation is classified by the metaclass its
 	// kind and owner's classification select.
 	if sym.Implicit != nil {
@@ -2441,6 +2448,9 @@ func (m *Model) connectorRelatedFeatures(sym *symbols.Symbol, feature string) []
 // references, by end position, nil for an end referencing none; relatedFeature
 // is these without the nils, and a library record keeps them by position.
 func (m *Model) ConnectorRelatedFeaturesByEnd(sym *symbols.Symbol) []*symbols.Symbol {
+	if _, related, ok := m.ImpliedBinding(sym); ok {
+		return related[:]
+	}
 	if m == nil || sym == nil || !m.reflectiveMetaclassConforms(sym, "Connector") {
 		return nil
 	}

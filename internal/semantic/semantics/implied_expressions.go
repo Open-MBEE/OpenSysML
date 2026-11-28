@@ -143,20 +143,15 @@ func (m *Model) expressionElementGenerals(sym *symbols.Symbol) []*symbols.Symbol
 	case "FeatureReferenceExpression":
 		// checkFeatureReferenceExpressionResultSpecialization: the referent.
 		return m.expressionReferencedElements(expr, "referent")
+	case "FeatureChainExpression":
+		// checkFeatureChainExpressionResultSpecialization: the chain's last feature redefines the target feature.
+		return m.expressionReferencedElements(expr, "targetFeature")
 	case "ConstructorExpression":
 		// checkConstructorExpressionResultSpecialization: the instantiated type.
 		return m.constructorResultTypes(sym)
 	case "InvocationExpression":
 		// checkInvocationExpressionBehaviorResultSpecialization: an instantiated type that is no function.
-		var out []*symbols.Symbol
-		for _, instantiated := range m.expressionReferencedElements(expr, "function") {
-			if instantiated == nil || m.reflectiveMetaclassConforms(instantiated, "Function") ||
-				len(m.FunctionTypes(instantiated)) > 0 {
-				continue
-			}
-			out = append(out, instantiated)
-		}
-		return out
+		return m.invocationBehaviors(expr)
 	case "SelectExpression", "IndexExpression":
 		// checkSelectExpressionResultSpecialization, checkIndexExpressionResultSpecialization.
 		arguments := m.ExpressionArguments(expr)
@@ -214,4 +209,30 @@ func expressionParameterPosition(param *symbols.Symbol) int {
 		}
 	}
 	return param.Expr.Index
+}
+
+// invocationBehaviors returns the types an InvocationExpression instantiates that are neither a
+// Function nor a Feature typed by one, which its result then specializes and is bound to; nil otherwise.
+func (m *Model) invocationBehaviors(expr *symbols.Symbol) []*symbols.Symbol {
+	if !isExpressionSymbol(expr) || expressionElementMetaclassName(expr) != "InvocationExpression" {
+		return nil
+	}
+	var out []*symbols.Symbol
+	for _, instantiated := range m.expressionReferencedElements(expr, "function") {
+		if instantiated == nil || m.reflectiveMetaclassConforms(instantiated, "Function") ||
+			len(m.FunctionTypes(instantiated)) > 0 {
+			continue
+		}
+		out = append(out, instantiated)
+	}
+	// A call reached through a receiver instantiates its chain, a behavior where it ends at no function.
+	if parts := m.expressionPartsOf(expr); parts != nil && parts.chain != nil && parts.chain.Expr.Slot != "referent" {
+		// A chain owns no chaining for a link that resolves to nothing, so its last one is the callee only when all resolve.
+		_, written, _ := m.expressionChainOf(expr)
+		links := m.ChainingFeatures(parts.chain)
+		if n := len(links); n > 0 && n == len(written) && !m.reflectiveMetaclassConforms(links[n-1], "Function") && len(m.FunctionTypes(links[n-1])) == 0 {
+			out = append(out, parts.chain)
+		}
+	}
+	return out
 }

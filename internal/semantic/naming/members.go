@@ -128,15 +128,11 @@ func DeclaredNameAndMembers(node ast.Node) (Name, []ast.Node) {
 	return Name{}, nil
 }
 
-// NodeStatement is the statement an action node is written as, which the node
-// is (`action s send x to r;` is one SendActionUsage named s, SysML.xtext
-// SendNode; `action a assign x := y;` one AssignmentActionUsage,
-// AssignmentNode), or nil for any other usage: a node chaining further
-// statements with `then`, or one whose declaration says more than its
-// visibility and name (`#M action a : A assign …`), which the statement's
-// notation cannot write back and so keeps the action it is declared as.
+// NodeStatement is the statement an action node is written as, which the node is whatever its declaration
+// says (`#M action a[1] : A assign x := y;` is one AssignmentActionUsage, SysML.xtext ActionNodePrefix), or nil.
 func NodeStatement(n *ast.Usage) ast.Node {
-	if n.Kind != ast.UsageAction || !n.IsActionNode || len(n.Members) != 1 || !PlainNodeHead(n) {
+	// A `perform`, `entry`, `do` or `exit` action is a PerformActionUsage owning its statement.
+	if n.Kind != ast.UsageAction || !n.IsActionNode || len(n.Members) != 1 || n.PrefixKeyword != "" {
 		return nil
 	}
 	statement := n.Members[0]
@@ -150,16 +146,6 @@ func NodeStatement(n *ast.Usage) ast.Node {
 		return s
 	}
 	return nil
-}
-
-// PlainNodeHead reports whether an action node declares nothing but its visibility
-// and name: no prefix, modifier, specialization, multiplicity or value.
-func PlainNodeHead(n *ast.Usage) bool {
-	return len(n.Prefixes) == 0 && n.PrefixKeyword == "" && len(n.Relationships) == 0 &&
-		n.Multiplicity == nil && n.CrossFeature == nil && n.Value == nil &&
-		!n.IsAbstract && !n.IsVariation && !n.IsVariant && !n.IsReference && !n.IsVariable &&
-		!n.IsIndividual && n.Portion == ast.PortionNone && !n.IsPortion && n.Direction == ast.DirNone &&
-		!n.IsEnd && !n.IsConstant && !n.IsDerived && !n.IsOrdered && !n.IsNonunique && !n.IsParallel
 }
 
 // BehaviorNameAndMembers returns the name a behavioral node declares and the

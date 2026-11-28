@@ -68,6 +68,9 @@ type DrawioEdit struct {
 	// Note or Picture — was declared.
 	FQN    string
 	Origin Origin
+	// Within are the qualified names of the nodes a swimlane's cell is drawn in, outermost
+	// first, on the Layout of its performer: which of the performer's lanes the edit was read from.
+	Within []string
 	// Edge is set for an edit on an edge: the ends it joins and its kind.
 	Edge *DrawioEdgeKey
 	// Index is a note's or picture's position in the rendering's list.
@@ -139,6 +142,8 @@ type DrawioImporter struct {
 	base  *DrawioFile
 	nodes map[string]*Node
 	ports map[string]Port
+	// positioned is whether the rendering states a place for anything it draws.
+	positioned bool
 }
 
 // DrawioImporter prepares the baseline that Import diffs edited files of this
@@ -156,7 +161,7 @@ func (r *Rendering) DrawioImporter(options Options) (*DrawioImporter, error) {
 	if err != nil {
 		return nil, err
 	}
-	importer := &DrawioImporter{norm: norm, drawn: r.drawn, w: w, base: base, nodes: map[string]*Node{}, ports: map[string]Port{}}
+	importer := &DrawioImporter{norm: norm, drawn: r.drawn, w: w, base: base, positioned: placeRendering(r).positioned(), nodes: map[string]*Node{}, ports: map[string]Port{}}
 	for _, node := range drawioNodes(norm.Roots) {
 		importer.nodes[node.ID] = node
 		for _, port := range node.Ports {
@@ -173,11 +178,28 @@ func (i *DrawioImporter) Import(file *DrawioFile) (*DrawioImport, error) {
 		return nil, &DrawioViewError{View: i.norm.View, Pages: []string{file.View}}
 	}
 	out := &DrawioImport{View: i.norm.View}
-	m := &drawioMatcher{norm: i.norm, drawn: i.drawn, w: i.w, base: i.base, file: file, out: out, nodes: i.nodes, ports: i.ports, framed: map[string]bool{}, paired: map[string]*DrawioCell{}}
+	m := &drawioMatcher{norm: i.norm, drawn: i.drawn, w: i.w, base: i.base, file: file, out: out, nodes: i.nodes, ports: i.ports, positioned: i.positioned, framed: map[string]bool{}, unnamed: map[string]bool{}, paired: map[string]*DrawioCell{}}
 	m.match()
+	out.Notices = append(out.Notices, m.crowdedStill()...)
 	m.canvas()
 	m.resolveRenames()
 	return out, nil
+}
+
+// crowdedStill is what the baseline says of flows drawn over another's placed swimlane, when
+// the file left its swimlanes and the frames of its flows where they were: it shows them so still.
+func (m *drawioMatcher) crowdedStill() []string {
+	for i := range m.base.Cells {
+		base := &m.base.Cells[i]
+		node := m.nodes[base.ID]
+		if node == nil || sameBox(fullBox(m.editedOf(base)), fullBox(base)) {
+			continue
+		}
+		if parent := m.base.Cell(base.Parent); node.Kind == swimlaneKind || parent == nil || !parent.Vertex {
+			return nil
+		}
+	}
+	return m.w.crowded
 }
 
 // drawioNodes lists every node of the trees rooted at roots, parents first.
@@ -207,7 +229,11 @@ type drawioMatcher struct {
 	// framed are the cells whose Layout pinning a container already wrote;
 	// paired is the file's cell for each baseline cell matched so far.
 	framed map[string]bool
-	paired map[string]*DrawioCell
+	// unnamed are the frames holding a node with no name the import left unplaced, each noticed once.
+	unnamed map[string]bool
+	paired  map[string]*DrawioCell
+	// positioned is whether the rendering states a place for anything it draws.
+	positioned bool
 }
 
 // match pairs the file's semantic cells with the baseline's — by the exported
@@ -270,6 +296,7 @@ func (m *drawioMatcher) match() {
 			m.diff(cell, base, baseKeys)
 		}
 	}
+	m.placeRoots()
 	m.deleted()
 }
 
@@ -448,6 +475,13 @@ func (m *drawioMatcher) edgeLabel(cell *DrawioCell, f *DrawioFile) string {
 // diffVertex imports a moved, resized, folded or restyled node; a port's
 // position is drawn on its owner's border, so only its style is read.
 func (m *drawioMatcher) diffVertex(cell, base *DrawioCell) {
+	if performer, name, ok := m.placedLane(base.ID); ok {
+		// Its label and colours are the performer's own, drawn elsewhere too: only its place is read.
+		if layout := m.layoutDiff(cell, base); layout != nil {
+			m.out.Edits = append(m.out.Edits, DrawioEdit{Kind: DrawioEditLayout, Cell: cell.ID, Label: cell.Label, FQN: name, Origin: performer, Within: m.laneHolders(performer), Layout: layout})
+		}
+		return
+	}
 	origin, isPort := m.originOf(base.ID)
 	if !isPort && base.FQN == "" && cell.FQN == "" && !origin.Located() {
 		return // a section of a node's box (a loop body), standing for no declaration
@@ -629,7 +663,30 @@ func (m *drawioMatcher) originOf(id string) (Origin, bool) {
 	if node := m.nodes[id]; node != nil && node.Kind != swimlaneKind {
 		return node.Origin, false
 	}
-	return Origin{}, false // a swimlane is no element: its link names the performer, which no edit of the lane reaches
+	return Origin{}, false // a swimlane is no element: its link names the performer, which only its Layout reaches
+}
+
+// placedLane is the performer whose Layout places the swimlane of the baseline cell id, by
+// origin and name: a lane a Layout places is the node the view draws for its performer.
+func (m *drawioMatcher) placedLane(id string) (Origin, string, bool) {
+	node := m.nodes[id]
+	if node == nil || node.Kind != swimlaneKind || !node.Geometry.placed() {
+		return Origin{}, "", false
+	}
+	return node.Origin, m.w.siteName(node.Origin), true
+}
+
+// laneHolders are the qualified names of the nodes the rendering draws the placed swimlane
+// of performer in, outermost first and empty for a node with none, drawn in the file or not.
+func (m *drawioMatcher) laneHolders(performer Origin) []string {
+	if m.drawn == nil || len(m.drawn.lanes[performer]) == 0 {
+		return nil
+	}
+	var names []string
+	for _, holder := range m.drawn.lanes[performer][0].Holders {
+		names = append(names, m.w.siteName(holder))
+	}
+	return names
 }
 
 // layoutDiff is the Layout a node needs for the file's box, nil when the box
@@ -717,7 +774,8 @@ func (m *drawioMatcher) frameOf(base *DrawioCell) string {
 }
 
 // pin places a container the model does not place, and every child drawn in its
-// frame, at the box the file shows, a child container pinned in turn.
+// frame, the nodes of its swimlanes with them, at the box the file shows, a child
+// container pinned in turn.
 func (m *drawioMatcher) pin(id string) {
 	if m.framed[id] {
 		return
@@ -731,7 +789,7 @@ func (m *drawioMatcher) pin(id string) {
 	for i := range m.base.Cells {
 		child := &m.base.Cells[i]
 		node := m.nodes[child.ID]
-		if child.Parent != id || !child.Vertex || child.Relative || node == nil || m.framed[child.ID] {
+		if m.frameOf(child) != id || !child.Vertex || child.Relative || node == nil || m.framed[child.ID] {
 			continue
 		}
 		if !node.Geometry.placed() && m.framesChildren(child.ID) {
@@ -746,6 +804,89 @@ func (m *drawioMatcher) pin(id string) {
 	}
 }
 
+// placesEveryRoot reports whether the import places every root the file shows: the view places
+// nothing but swimlanes, or the file moved one.
+func (m *drawioMatcher) placesEveryRoot() bool {
+	return !m.positioned && (m.laneMoved() || m.lanePlaced())
+}
+
+// placeRoots places every root of a view placing nothing but swimlanes, once the file moves a
+// swimlane or a node beside a placed one and so places a node: a view placing some nodes
+// leaves the rest undrawn, and the file shows all.
+func (m *drawioMatcher) placeRoots() {
+	if !m.placesEveryRoot() {
+		return
+	}
+	placed, stated := map[string]bool{}, map[layoutTarget]bool{}
+	for _, e := range m.out.Edits {
+		if e.Kind == DrawioEditLayout && !e.Layout.Unplaced {
+			placed[e.Cell] = true
+		}
+		if e.Kind == DrawioEditLayout {
+			stated[layoutTargetOf(e)] = true
+		}
+	}
+	if len(placed) == 0 {
+		return
+	}
+	moved := len(m.out.Edits)
+	// A node drawn twice has one Layout: the one the file's own change states stands.
+	defer func() {
+		kept := m.out.Edits[:moved]
+		for _, e := range m.out.Edits[moved:] {
+			if e.Kind != DrawioEditLayout || !stated[layoutTargetOf(e)] {
+				kept = append(kept, e)
+			}
+		}
+		m.out.Edits = kept
+	}()
+	for i := range m.base.Cells {
+		root := &m.base.Cells[i]
+		node, edited := m.nodes[root.ID], m.editedOf(root)
+		if node == nil || !root.Vertex || root.Relative || m.nodes[m.frameOf(root)] != nil || m.framed[root.ID] || placed[edited.ID] {
+			continue
+		}
+		if m.framesChildren(root.ID) {
+			m.pin(root.ID)
+			continue
+		}
+		m.framed[root.ID] = true
+		m.framePlace(edited, root, node, !node.Geometry.placed() || node.Geometry.HasSize)
+	}
+}
+
+// layoutTarget is what a Layout edit is about: the element and, for a swimlane, the nodes it is drawn in.
+type layoutTarget struct {
+	name, within string
+	origin       Origin
+}
+
+// layoutTargetOf is the target of the Layout edit e.
+func layoutTargetOf(e DrawioEdit) layoutTarget {
+	return layoutTarget{name: e.FQN, within: strings.Join(e.Within, "\x00"), origin: e.Origin}
+}
+
+// lanePlaced reports whether a Layout places a swimlane of the rendering.
+func (m *drawioMatcher) lanePlaced() bool {
+	for _, node := range m.nodes {
+		if node.Kind == swimlaneKind && node.Geometry.placed() {
+			return true
+		}
+	}
+	return false
+}
+
+// laneMoved reports whether the file has a swimlane at another box than the baseline's.
+func (m *drawioMatcher) laneMoved() bool {
+	for i := range m.base.Cells {
+		base := &m.base.Cells[i]
+		if node := m.nodes[base.ID]; node != nil && node.Kind == swimlaneKind && !sameBox(fullBox(m.editedOf(base)), fullBox(base)) {
+			return true
+		}
+	}
+	return false
+}
+
 // editedOf is the file's cell paired with a baseline cell, the baseline's own
 // when the file dropped it.
 func (m *drawioMatcher) editedOf(base *DrawioCell) *DrawioCell {
@@ -758,8 +899,26 @@ func (m *drawioMatcher) editedOf(base *DrawioCell) *DrawioCell {
 // framePlace writes a Layout putting node at its page box, as the file has it.
 func (m *drawioMatcher) framePlace(cell, base *DrawioCell, node *Node, sized bool) {
 	origin, _ := m.originOf(base.ID)
+	name := m.targetName(cell, base)
+	var within []string
+	if performer, performerName, ok := m.placedLane(base.ID); ok {
+		origin, name, within = performer, performerName, m.laneHolders(performer)
+	}
 	if base.FQN == "" && cell.FQN == "" && !origin.Located() {
 		return // a section of a node's box, standing for no declaration
+	}
+	if name == "" && m.placesEveryRoot() && m.leftAlone(cell, base) {
+		// Only a Layout on its declaration places a node with no name, in every view; the file left
+		// it alone, and it is placed here only because the import places every root.
+		if frame := m.frameOf(base); !m.unnamed[frame] {
+			m.unnamed[frame] = true
+			holder := "the view"
+			if parent := m.base.Cell(frame); parent != nil && parent.FQN != "" {
+				holder = parent.FQN
+			}
+			m.out.Notices = append(m.out.Notices, fmt.Sprintf("%s: holds a node with no name, which only a Layout on its declaration places, in every view; the file left it alone, so it is not placed and the view leaves it undrawn", holder))
+		}
+		return
 	}
 	box := fullBox(cell)
 	layout := &semantics.Layout{X: box.X - m.frameShift(base).X, Y: box.Y - m.frameShift(base).Y, Collapsed: cell.Collapsed}
@@ -769,7 +928,18 @@ func (m *drawioMatcher) framePlace(cell, base *DrawioCell, node *Node, sized boo
 	if node.Geometry != nil {
 		layout.Hidden = node.Geometry.Hidden
 	}
-	m.out.Edits = append(m.out.Edits, DrawioEdit{Kind: DrawioEditLayout, Cell: cell.ID, Label: cell.Label, FQN: m.targetName(cell, base), Origin: origin, Layout: layout})
+	m.out.Edits = append(m.out.Edits, DrawioEdit{Kind: DrawioEditLayout, Cell: cell.ID, Label: cell.Label, FQN: name, Origin: origin, Within: within, Layout: layout})
+}
+
+// leftAlone reports whether the file shows the cell as the baseline drew it, folded or not, at
+// the same place in its parent, which the file may have moved.
+func (m *drawioMatcher) leftAlone(cell, base *DrawioCell) bool {
+	was, is := fullBox(base), fullBox(cell)
+	if parent := m.base.Cell(base.Parent); parent != nil && parent.Vertex {
+		from, to := fullBox(parent), fullBox(m.editedOf(parent))
+		was.X, was.Y = was.X+to.X-from.X, was.Y+to.Y-from.Y
+	}
+	return cell.Collapsed == base.Collapsed && sameBox(was, is)
 }
 
 // targetName is the name an annotation about the cell's element states: its

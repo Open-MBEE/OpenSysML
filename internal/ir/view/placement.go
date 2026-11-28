@@ -15,6 +15,7 @@ type placement struct {
 	count    int
 	pictures int     // pictures drawn, each at stated bounds
 	ends     []*Node // the unplaced start and final nodes, candidates for a derived place
+	pinned   bool    // a node other than a swimlane is placed in its own right
 }
 
 // placeRendering classifies every node of r. A rendering no Layout or Route
@@ -50,6 +51,11 @@ func placeRendering(r *Rendering) *placement {
 	}
 	for _, root := range r.Roots {
 		p.place(root, r.Kind == KindTree, routed)
+	}
+	// A swimlane frames the nodes of its performer, so swimlanes placed alone
+	// position nothing: the nodes they frame are still laid out and drawn.
+	if !p.pinned {
+		p.placed, p.extent, p.count, p.ends = map[string]bool{}, map[string]bool{}, 0, nil
 	}
 	if p.count > 0 {
 		p.deriveEnds(r.Edges)
@@ -126,6 +132,9 @@ func (p *placement) place(node *Node, tree bool, routed map[string]bool) {
 	}
 	p.placed[node.ID] = true
 	p.count++
+	if node.Kind != swimlaneKind && (node.Geometry.placed() || routed[node.ID]) {
+		p.pinned = true
+	}
 }
 
 // positioned reports whether anything in the rendering has a stated place, a

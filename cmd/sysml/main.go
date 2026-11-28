@@ -122,6 +122,7 @@ var (
 	libraryReferencesPath       string
 	includeLibraryStubs         bool
 	inheritedMembers            bool
+	interchangeForm             bool
 	keepLineBreaks              bool
 	conversionLibraryReferences []export.APIJSONLibraryReference
 	stdlibModel                 bool
@@ -674,8 +675,8 @@ func runCLI() int {
 		fmt.Fprintln(os.Stderr, "sysml: -convert and -migrate are mutually exclusive: a SysML v1 model is migrated, a v2 model or an RDF graph converted; ask for one per run")
 		return 2
 	}
-	if (flagGiven("library-references") || includeLibraryStubs || inheritedMembers) && convertFormat == "" {
-		fmt.Fprintln(os.Stderr, "sysml: -library-references, -include-library-stubs and -inherited-members require -convert api-json")
+	if (flagGiven("library-references") || includeLibraryStubs || inheritedMembers || interchangeForm) && convertFormat == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -library-references, -include-library-stubs, -inherited-members and -interchange require -convert api-json")
 		return 2
 	}
 	if keepLineBreaks && convertFormat == "" {

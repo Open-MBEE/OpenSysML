@@ -1,0 +1,1039 @@
+BindingConnector	X::E::cc	X::E::cc/OperatorExpression[0]/Feature[2] = Performances::BooleanEvaluation::result
+BindingConnector	X::E::cc/OperatorExpression[0]/Feature[0]	X::E::cc/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0] = X::E::cc/OperatorExpression[0]/Feature[0]
+BindingConnector	X::E::cc/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]	X::E::d1 = X::E::cc/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
+BindingConnector	X::E::cc/OperatorExpression[0]/Feature[1]	X::E::cc/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0] = X::E::cc/OperatorExpression[0]/Feature[1]
+BindingConnector	X::E::cc/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]	X::E::d2 = X::E::cc/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]
+BindingConnector	X::E::cu::a	X::E::cu::a/BindingConnector[0]/Feature[0]/Feature[0] = X::E::cu::a
+BindingConnector	X::E::cu::a/FeatureReferenceExpression[0]	X::E::d1 = X::E::cu::a/FeatureReferenceExpression[0]/Feature[0]
+BindingConnector	X::E::cu::b	X::E::cu::b/BindingConnector[0]/Feature[0]/Feature[0] = X::E::cu::b
+BindingConnector	X::E::cu::b/FeatureReferenceExpression[0]	X::E::d2 = X::E::cu::b/FeatureReferenceExpression[0]/Feature[0]
+BindingConnector	X::E::echain	X::E::echain/BindingConnector[0]/Feature[0]/Feature[0] = X::E::echain
+BindingConnector	X::E::echain/FeatureChainExpression[0]/Feature[0]	X::E::echain/FeatureChainExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0] = X::E::echain/FeatureChainExpression[0]/Feature[0]
+BindingConnector	X::E::echain/FeatureChainExpression[0]/Feature[0]/FeatureReferenceExpression[0]	X::E::ps = X::E::echain/FeatureChainExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
+BindingConnector	X::E::ecol	X::E::ecol/BindingConnector[0]/Feature[0]/Feature[0] = X::E::ecol
+BindingConnector	X::E::ecol/CollectExpression[0]/Feature[0]	X::E::ecol/CollectExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0] = X::E::ecol/CollectExpression[0]/Feature[0]
+BindingConnector	X::E::ecol/CollectExpression[0]/Feature[0]/FeatureReferenceExpression[0]	X::E::d1 = X::E::ecol/CollectExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
+BindingConnector	X::E::ecol/CollectExpression[0]/Feature[1]	X::E::ecol/CollectExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0] = X::E::ecol/CollectExpression[0]/Feature[1]
+BindingConnector	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0] = X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]
+BindingConnector	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/FeatureReferenceExpression[0]/Feature[0] = Performances::Evaluation::result
+BindingConnector	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/FeatureReferenceExpression[0]	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/ReferenceUsage[0] = X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/FeatureReferenceExpression[0]/Feature[0]
+BindingConnector	X::E::econd	X::E::econd/BindingConnector[0]/Feature[0]/Feature[0] = X::E::econd
+BindingConnector	X::E::econd/OperatorExpression[0]/Feature[0]	X::E::econd/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0] = X::E::econd/OperatorExpression[0]/Feature[0]
+BindingConnector	X::E::econd/OperatorExpression[0]/Feature[1]	X::E::econd/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0] = X::E::econd/OperatorExpression[0]/Feature[1]
+BindingConnector	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0] = X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]
+BindingConnector	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]	X::E::d1 = X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/Feature[0]
+BindingConnector	X::E::econd/OperatorExpression[0]/Feature[2]	X::E::econd/OperatorExpression[0]/Feature[2]/BindingConnector[0]/Feature[0]/Feature[0] = X::E::econd/OperatorExpression[0]/Feature[2]
+BindingConnector	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0] = X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/Feature[0]
+BindingConnector	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]	X::E::d2 = X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/Feature[0]
+BindingConnector	X::E::eidx	X::E::eidx/BindingConnector[0]/Feature[0]/Feature[0] = X::E::eidx
+BindingConnector	X::E::eidx/IndexExpression[0]/Feature[0]	X::E::eidx/IndexExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0] = X::E::eidx/IndexExpression[0]/Feature[0]
+BindingConnector	X::E::eidx/IndexExpression[0]/Feature[0]/FeatureReferenceExpression[0]	X::E::d1 = X::E::eidx/IndexExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
+BindingConnector	X::E::eidx/IndexExpression[0]/Feature[1]	X::E::eidx/IndexExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0] = X::E::eidx/IndexExpression[0]/Feature[1]
+BindingConnector	X::E::einv	X::E::einv/BindingConnector[0]/Feature[0]/Feature[0] = X::E::einv
+BindingConnector	X::E::einv/InvocationExpression[0]/Feature[0]	X::E::einv/InvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0] = X::E::einv/InvocationExpression[0]/Feature[0]
+BindingConnector	X::E::einv/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]	X::E::d1 = X::E::einv/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
+BindingConnector	X::E::einv/InvocationExpression[0]/Feature[1]	X::E::einv/InvocationExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0] = X::E::einv/InvocationExpression[0]/Feature[1]
+BindingConnector	X::E::einv/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]	X::E::d2 = X::E::einv/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]
+BindingConnector	X::E::elit	X::E::elit/BindingConnector[0]/Feature[0]/Feature[0] = X::E::elit
+BindingConnector	X::E::enest	X::E::enest/BindingConnector[0]/Feature[0]/Feature[0] = X::E::enest
+BindingConnector	X::E::enest/InvocationExpression[0]/Feature[0]	X::E::enest/InvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0] = X::E::enest/InvocationExpression[0]/Feature[0]
+BindingConnector	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0] = X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]
+BindingConnector	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]	X::E::d1 = X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
+BindingConnector	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0] = X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]
+BindingConnector	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]	X::E::d2 = X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]
+BindingConnector	X::E::enest/InvocationExpression[0]/Feature[1]	X::E::enest/InvocationExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0] = X::E::enest/InvocationExpression[0]/Feature[1]
+BindingConnector	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0] = X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]
+BindingConnector	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]	X::E::d1 = X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
+BindingConnector	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0] = X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]
+BindingConnector	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]	X::E::d2 = X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]
+BindingConnector	X::E::enew	X::E::enew/BindingConnector[0]/Feature[0]/Feature[0] = X::E::enew
+BindingConnector	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0] = X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]
+BindingConnector	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]/FeatureReferenceExpression[0]	X::E::d1 = X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
+BindingConnector	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0] = X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]
+BindingConnector	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]/FeatureReferenceExpression[0]	X::E::d2 = X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]
+BindingConnector	X::E::eop	X::E::eop/BindingConnector[0]/Feature[0]/Feature[0] = X::E::eop
+BindingConnector	X::E::eop/OperatorExpression[0]/Feature[0]	X::E::eop/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0] = X::E::eop/OperatorExpression[0]/Feature[0]
+BindingConnector	X::E::eop/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]	X::E::d1 = X::E::eop/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
+BindingConnector	X::E::eop/OperatorExpression[0]/Feature[1]	X::E::eop/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0] = X::E::eop/OperatorExpression[0]/Feature[1]
+BindingConnector	X::E::eop/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]	X::E::d2 = X::E::eop/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]
+BindingConnector	X::E::esel	X::E::esel/BindingConnector[0]/Feature[0]/Feature[0] = X::E::esel
+BindingConnector	X::E::esel/SelectExpression[0]/Feature[0]	X::E::esel/SelectExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0] = X::E::esel/SelectExpression[0]/Feature[0]
+BindingConnector	X::E::esel/SelectExpression[0]/Feature[0]/FeatureReferenceExpression[0]	X::E::d1 = X::E::esel/SelectExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
+BindingConnector	X::E::esel/SelectExpression[0]/Feature[1]	X::E::esel/SelectExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0] = X::E::esel/SelectExpression[0]/Feature[1]
+BindingConnector	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0] = X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]
+BindingConnector	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]	Performances::LiteralBooleanEvaluation::result = Performances::Evaluation::result
+FeatureChaining	X::E::cc/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	[0] X::E::cc/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]
+FeatureChaining	X::E::cc/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	[1] X::E::cc/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
+FeatureChaining	X::E::cc/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]	[0] X::E::cc/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]
+FeatureChaining	X::E::cc/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]	[1] X::E::cc/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]
+FeatureChaining	X::E::cu::a/BindingConnector[0]/Feature[0]/Feature[0]	[0] X::E::cu::a/FeatureReferenceExpression[0]
+FeatureChaining	X::E::cu::a/BindingConnector[0]/Feature[0]/Feature[0]	[1] X::E::cu::a/FeatureReferenceExpression[0]/Feature[0]
+FeatureChaining	X::E::cu::b/BindingConnector[0]/Feature[0]/Feature[0]	[0] X::E::cu::b/FeatureReferenceExpression[0]
+FeatureChaining	X::E::cu::b/BindingConnector[0]/Feature[0]/Feature[0]	[1] X::E::cu::b/FeatureReferenceExpression[0]/Feature[0]
+FeatureChaining	X::E::echain/BindingConnector[0]/Feature[0]/Feature[0]	[0] X::E::echain/FeatureChainExpression[0]
+FeatureChaining	X::E::echain/BindingConnector[0]/Feature[0]/Feature[0]	[1] X::E::echain/FeatureChainExpression[0]/Feature[1]
+FeatureChaining	X::E::echain/FeatureChainExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	[0] X::E::echain/FeatureChainExpression[0]/Feature[0]/FeatureReferenceExpression[0]
+FeatureChaining	X::E::echain/FeatureChainExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	[1] X::E::echain/FeatureChainExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
+FeatureChaining	X::E::echain/FeatureChainExpression[0]/Feature[1]/Feature[0]	[0] X::E::echain/FeatureChainExpression[0]/Feature[0]
+FeatureChaining	X::E::echain/FeatureChainExpression[0]/Feature[1]/Feature[0]	[1] X::E::echain/FeatureChainExpression[0]/Feature[0]/Feature[0]
+FeatureChaining	X::E::ecol/BindingConnector[0]/Feature[0]/Feature[0]	[0] X::E::ecol/CollectExpression[0]
+FeatureChaining	X::E::ecol/BindingConnector[0]/Feature[0]/Feature[0]	[1] X::E::ecol/CollectExpression[0]/Feature[2]
+FeatureChaining	X::E::ecol/CollectExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	[0] X::E::ecol/CollectExpression[0]/Feature[0]/FeatureReferenceExpression[0]
+FeatureChaining	X::E::ecol/CollectExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	[1] X::E::ecol/CollectExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
+FeatureChaining	X::E::ecol/CollectExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]	[0] X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]
+FeatureChaining	X::E::ecol/CollectExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]	[1] X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]
+FeatureChaining	X::E::ecol/Feature[0]	[0] X::E::ecol/CollectExpression[0]
+FeatureChaining	X::E::ecol/Feature[0]	[1] X::E::ecol/CollectExpression[0]/Feature[2]
+FeatureChaining	X::E::econd/BindingConnector[0]/Feature[0]/Feature[0]	[0] X::E::econd/OperatorExpression[0]
+FeatureChaining	X::E::econd/BindingConnector[0]/Feature[0]/Feature[0]	[1] X::E::econd/OperatorExpression[0]/Feature[3]
+FeatureChaining	X::E::econd/Feature[0]	[0] X::E::econd/OperatorExpression[0]
+FeatureChaining	X::E::econd/Feature[0]	[1] X::E::econd/OperatorExpression[0]/Feature[3]
+FeatureChaining	X::E::econd/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	[0] X::E::econd/OperatorExpression[0]/Feature[0]/LiteralBoolean[0]
+FeatureChaining	X::E::econd/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	[1] Performances::LiteralBooleanEvaluation::result
+FeatureChaining	X::E::econd/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]	[0] X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]
+FeatureChaining	X::E::econd/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]	[1] X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]
+FeatureChaining	X::E::econd/OperatorExpression[0]/Feature[2]/BindingConnector[0]/Feature[0]/Feature[0]	[0] X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]
+FeatureChaining	X::E::econd/OperatorExpression[0]/Feature[2]/BindingConnector[0]/Feature[0]/Feature[0]	[1] X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/Feature[0]
+FeatureChaining	X::E::eidx/BindingConnector[0]/Feature[0]/Feature[0]	[0] X::E::eidx/IndexExpression[0]
+FeatureChaining	X::E::eidx/BindingConnector[0]/Feature[0]/Feature[0]	[1] X::E::eidx/IndexExpression[0]/Feature[2]
+FeatureChaining	X::E::eidx/Feature[0]	[0] X::E::eidx/IndexExpression[0]
+FeatureChaining	X::E::eidx/Feature[0]	[1] X::E::eidx/IndexExpression[0]/Feature[2]
+FeatureChaining	X::E::eidx/IndexExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	[0] X::E::eidx/IndexExpression[0]/Feature[0]/FeatureReferenceExpression[0]
+FeatureChaining	X::E::eidx/IndexExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	[1] X::E::eidx/IndexExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
+FeatureChaining	X::E::eidx/IndexExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]	[0] X::E::eidx/IndexExpression[0]/Feature[1]/LiteralInteger[0]
+FeatureChaining	X::E::eidx/IndexExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]	[1] Performances::LiteralIntegerEvaluation::result
+FeatureChaining	X::E::einv/BindingConnector[0]/Feature[0]/Feature[0]	[0] X::E::einv/InvocationExpression[0]
+FeatureChaining	X::E::einv/BindingConnector[0]/Feature[0]/Feature[0]	[1] X::E::einv/InvocationExpression[0]/Feature[2]
+FeatureChaining	X::E::einv/InvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	[0] X::E::einv/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]
+FeatureChaining	X::E::einv/InvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	[1] X::E::einv/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
+FeatureChaining	X::E::einv/InvocationExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]	[0] X::E::einv/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]
+FeatureChaining	X::E::einv/InvocationExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]	[1] X::E::einv/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]
+FeatureChaining	X::E::elit/BindingConnector[0]/Feature[0]/Feature[0]	[0] X::E::elit/LiteralInteger[0]
+FeatureChaining	X::E::elit/BindingConnector[0]/Feature[0]/Feature[0]	[1] Performances::LiteralIntegerEvaluation::result
+FeatureChaining	X::E::elit/Feature[0]	[0] X::E::elit/LiteralInteger[0]
+FeatureChaining	X::E::elit/Feature[0]	[1] Performances::LiteralIntegerEvaluation::result
+FeatureChaining	X::E::enest/BindingConnector[0]/Feature[0]/Feature[0]	[0] X::E::enest/InvocationExpression[0]
+FeatureChaining	X::E::enest/BindingConnector[0]/Feature[0]/Feature[0]	[1] X::E::enest/InvocationExpression[0]/Feature[2]
+FeatureChaining	X::E::enest/InvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	[0] X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]
+FeatureChaining	X::E::enest/InvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	[1] X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[2]
+FeatureChaining	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	[0] X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]
+FeatureChaining	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	[1] X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
+FeatureChaining	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]	[0] X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]
+FeatureChaining	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]	[1] X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]
+FeatureChaining	X::E::enest/InvocationExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]	[0] X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]
+FeatureChaining	X::E::enest/InvocationExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]	[1] X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[2]
+FeatureChaining	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	[0] X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]
+FeatureChaining	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	[1] X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
+FeatureChaining	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]	[0] X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]
+FeatureChaining	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]	[1] X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]
+FeatureChaining	X::E::enew/BindingConnector[0]/Feature[0]/Feature[0]	[0] X::E::enew/ConstructorExpression[0]
+FeatureChaining	X::E::enew/BindingConnector[0]/Feature[0]/Feature[0]	[1] X::E::enew/ConstructorExpression[0]/Feature[0]
+FeatureChaining	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	[0] X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]/FeatureReferenceExpression[0]
+FeatureChaining	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	[1] X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
+FeatureChaining	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]	[0] X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]/FeatureReferenceExpression[0]
+FeatureChaining	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]	[1] X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]
+FeatureChaining	X::E::eop/BindingConnector[0]/Feature[0]/Feature[0]	[0] X::E::eop/OperatorExpression[0]
+FeatureChaining	X::E::eop/BindingConnector[0]/Feature[0]/Feature[0]	[1] X::E::eop/OperatorExpression[0]/Feature[2]
+FeatureChaining	X::E::eop/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	[0] X::E::eop/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]
+FeatureChaining	X::E::eop/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	[1] X::E::eop/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
+FeatureChaining	X::E::eop/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]	[0] X::E::eop/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]
+FeatureChaining	X::E::eop/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]	[1] X::E::eop/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]
+FeatureChaining	X::E::esel/BindingConnector[0]/Feature[0]/Feature[0]	[0] X::E::esel/SelectExpression[0]
+FeatureChaining	X::E::esel/BindingConnector[0]/Feature[0]/Feature[0]	[1] X::E::esel/SelectExpression[0]/Feature[2]
+FeatureChaining	X::E::esel/Feature[0]	[0] X::E::esel/SelectExpression[0]
+FeatureChaining	X::E::esel/Feature[0]	[1] X::E::esel/SelectExpression[0]/Feature[2]
+FeatureChaining	X::E::esel/SelectExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	[0] X::E::esel/SelectExpression[0]/Feature[0]/FeatureReferenceExpression[0]
+FeatureChaining	X::E::esel/SelectExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	[1] X::E::esel/SelectExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
+FeatureChaining	X::E::esel/SelectExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]	[0] X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]
+FeatureChaining	X::E::esel/SelectExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]	[1] X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]
+FeatureTyping	X::E::cc/OperatorExpression[0]	BaseFunctions::'=='
+FeatureTyping	X::E::echain/FeatureChainExpression[0]	ControlFunctions::'.'
+FeatureTyping	X::E::ecol/CollectExpression[0]	ControlFunctions::collect
+FeatureTyping	X::E::econd/OperatorExpression[0]	ControlFunctions::if
+FeatureTyping	X::E::eidx/IndexExpression[0]	BaseFunctions::'#'
+FeatureTyping	X::E::einv/InvocationExpression[0]	X::G2
+FeatureTyping	X::E::enest/InvocationExpression[0]	X::G2
+FeatureTyping	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]	DataFunctions::'+'
+FeatureTyping	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]	X::G2
+FeatureTyping	X::E::enew/ConstructorExpression[0]/Feature[0]	X::P2
+FeatureTyping	X::E::eop/OperatorExpression[0]	DataFunctions::'+'
+FeatureTyping	X::E::esel/SelectExpression[0]	ControlFunctions::select
+Redefinition	X::E::cc/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::cc/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::cc/OperatorExpression[0]/Feature[0]	BaseFunctions::'=='::x
+Redefinition	X::E::cc/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::cc/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::cc/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::cc/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::cc/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]	Performances::Evaluation::result
+Redefinition	X::E::cc/OperatorExpression[0]/Feature[1]	BaseFunctions::'=='::y
+Redefinition	X::E::cc/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::cc/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::cc/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::cc/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::cc/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]	Performances::Evaluation::result
+Redefinition	X::E::cc/OperatorExpression[0]/Feature[2]	BaseFunctions::'=='::result
+Redefinition	X::E::cc/OperatorExpression[0]/Feature[2]	Performances::Evaluation::result
+Redefinition	X::E::cu::a	X::G2::a
+Redefinition	X::E::cu::a/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::cu::a/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::cu::a/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::cu::a/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::cu::a/FeatureReferenceExpression[0]/Feature[0]	Performances::Evaluation::result
+Redefinition	X::E::cu::b	X::G2::b
+Redefinition	X::E::cu::b/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::cu::b/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::cu::b/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::cu::b/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::cu::b/FeatureReferenceExpression[0]/Feature[0]	Performances::Evaluation::result
+Redefinition	X::E::echain/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::echain/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::echain/FeatureChainExpression[0]/Feature[0]	ControlFunctions::'.'::source
+Redefinition	X::E::echain/FeatureChainExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::echain/FeatureChainExpression[0]/Feature[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::echain/FeatureChainExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::echain/FeatureChainExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::echain/FeatureChainExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]	Performances::Evaluation::result
+Redefinition	X::E::echain/FeatureChainExpression[0]/Feature[0]/Feature[0]	ControlFunctions::'.'::source::target
+Redefinition	X::E::echain/FeatureChainExpression[0]/Feature[0]/Feature[0]	X::P2::px
+Redefinition	X::E::echain/FeatureChainExpression[0]/Feature[1]	Performances::Evaluation::result
+Redefinition	X::E::ecol/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::ecol/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::ecol/CollectExpression[0]/Feature[0]	ControlFunctions::collect::collection
+Redefinition	X::E::ecol/CollectExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::ecol/CollectExpression[0]/Feature[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::ecol/CollectExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::ecol/CollectExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::ecol/CollectExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]	Performances::Evaluation::result
+Redefinition	X::E::ecol/CollectExpression[0]/Feature[1]	ControlFunctions::collect::mapper
+Redefinition	X::E::ecol/CollectExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::ecol/CollectExpression[0]/Feature[1]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/FeatureReferenceExpression[0]/Feature[0]	Performances::Evaluation::result
+Redefinition	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]	Performances::Evaluation::result
+Redefinition	X::E::ecol/CollectExpression[0]/Feature[2]	ControlFunctions::collect::result
+Redefinition	X::E::ecol/CollectExpression[0]/Feature[2]	Performances::Evaluation::result
+Redefinition	X::E::econd/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::econd/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::econd/OperatorExpression[0]/Feature[0]	ControlFunctions::if::test
+Redefinition	X::E::econd/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::econd/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::econd/OperatorExpression[0]/Feature[1]	ControlFunctions::if::thenValue
+Redefinition	X::E::econd/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::econd/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/Feature[0]	Performances::Evaluation::result
+Redefinition	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]	Performances::Evaluation::result
+Redefinition	X::E::econd/OperatorExpression[0]/Feature[2]	ControlFunctions::if::elseValue
+Redefinition	X::E::econd/OperatorExpression[0]/Feature[2]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::econd/OperatorExpression[0]/Feature[2]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/Feature[0]	Performances::Evaluation::result
+Redefinition	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/Feature[0]	Performances::Evaluation::result
+Redefinition	X::E::econd/OperatorExpression[0]/Feature[3]	ControlFunctions::if::result
+Redefinition	X::E::econd/OperatorExpression[0]/Feature[3]	Performances::Evaluation::result
+Redefinition	X::E::eidx/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::eidx/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::eidx/IndexExpression[0]/Feature[0]	BaseFunctions::'#'::seq
+Redefinition	X::E::eidx/IndexExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::eidx/IndexExpression[0]/Feature[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::eidx/IndexExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::eidx/IndexExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::eidx/IndexExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]	Performances::Evaluation::result
+Redefinition	X::E::eidx/IndexExpression[0]/Feature[1]	BaseFunctions::'#'::index
+Redefinition	X::E::eidx/IndexExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::eidx/IndexExpression[0]/Feature[1]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::eidx/IndexExpression[0]/Feature[2]	BaseFunctions::'#'::result
+Redefinition	X::E::eidx/IndexExpression[0]/Feature[2]	Performances::Evaluation::result
+Redefinition	X::E::einv/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::einv/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::einv/InvocationExpression[0]/Feature[0]	X::G2::a
+Redefinition	X::E::einv/InvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::einv/InvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::einv/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::einv/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::einv/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]	Performances::Evaluation::result
+Redefinition	X::E::einv/InvocationExpression[0]/Feature[1]	X::G2::b
+Redefinition	X::E::einv/InvocationExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::einv/InvocationExpression[0]/Feature[1]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::einv/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::einv/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::einv/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]	Performances::Evaluation::result
+Redefinition	X::E::einv/InvocationExpression[0]/Feature[2]	Performances::Evaluation::result
+Redefinition	X::E::einv/InvocationExpression[0]/Feature[2]	X::G2::r
+Redefinition	X::E::elit/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::elit/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::enest/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::enest/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::enest/InvocationExpression[0]/Feature[0]	X::G2::a
+Redefinition	X::E::enest/InvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::enest/InvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]	DataFunctions::'+'::x
+Redefinition	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]	Performances::Evaluation::result
+Redefinition	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]	DataFunctions::'+'::y
+Redefinition	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]	Performances::Evaluation::result
+Redefinition	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[2]	DataFunctions::'+'::result
+Redefinition	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[2]	Performances::Evaluation::result
+Redefinition	X::E::enest/InvocationExpression[0]/Feature[1]	X::G2::b
+Redefinition	X::E::enest/InvocationExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::enest/InvocationExpression[0]/Feature[1]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]	X::G2::a
+Redefinition	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]	Performances::Evaluation::result
+Redefinition	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]	X::G2::b
+Redefinition	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]	Performances::Evaluation::result
+Redefinition	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[2]	Performances::Evaluation::result
+Redefinition	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[2]	X::G2::r
+Redefinition	X::E::enest/InvocationExpression[0]/Feature[2]	Performances::Evaluation::result
+Redefinition	X::E::enest/InvocationExpression[0]/Feature[2]	X::G2::r
+Redefinition	X::E::enew/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::enew/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::enew/ConstructorExpression[0]/Feature[0]	Performances::constructorEvaluations::result
+Redefinition	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]	X::P2::px
+Redefinition	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]	Performances::Evaluation::result
+Redefinition	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]	X::P2::py
+Redefinition	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]	Performances::Evaluation::result
+Redefinition	X::E::eop/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::eop/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::eop/OperatorExpression[0]/Feature[0]	DataFunctions::'+'::x
+Redefinition	X::E::eop/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::eop/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::eop/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::eop/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::eop/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]	Performances::Evaluation::result
+Redefinition	X::E::eop/OperatorExpression[0]/Feature[1]	DataFunctions::'+'::y
+Redefinition	X::E::eop/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::eop/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::eop/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::eop/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::eop/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]	Performances::Evaluation::result
+Redefinition	X::E::eop/OperatorExpression[0]/Feature[2]	DataFunctions::'+'::result
+Redefinition	X::E::eop/OperatorExpression[0]/Feature[2]	Performances::Evaluation::result
+Redefinition	X::E::esel/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::esel/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::esel/SelectExpression[0]/Feature[0]	ControlFunctions::select::collection
+Redefinition	X::E::esel/SelectExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::esel/SelectExpression[0]/Feature[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::esel/SelectExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::esel/SelectExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::esel/SelectExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]	Performances::Evaluation::result
+Redefinition	X::E::esel/SelectExpression[0]/Feature[1]	ControlFunctions::select::selector
+Redefinition	X::E::esel/SelectExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::esel/SelectExpression[0]/Feature[1]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/BindingConnector[0]/Feature[0]	Links::selfLinks::thisThing
+Redefinition	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/BindingConnector[0]/Feature[1]	Links::selfLinks::sameThing
+Redefinition	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]	Performances::Evaluation::result
+Redefinition	X::E::esel/SelectExpression[0]/Feature[2]	ControlFunctions::select::result
+Redefinition	X::E::esel/SelectExpression[0]/Feature[2]	Performances::Evaluation::result
+Redefinition	X::G2::r	Performances::Evaluation::result
+ReferenceSubsetting	X::E::cc/BindingConnector[0]/Feature[0]	X::E::cc/OperatorExpression[0]/Feature[2]
+ReferenceSubsetting	X::E::cc/BindingConnector[0]/Feature[1]	Performances::BooleanEvaluation::result
+ReferenceSubsetting	X::E::cc/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	X::E::cc/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	X::E::cc/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[1]	X::E::cc/OperatorExpression[0]/Feature[0]
+ReferenceSubsetting	X::E::cc/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::d1
+ReferenceSubsetting	X::E::cc/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::cc/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
+ReferenceSubsetting	X::E::cc/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]	X::E::cc/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	X::E::cc/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[1]	X::E::cc/OperatorExpression[0]/Feature[1]
+ReferenceSubsetting	X::E::cc/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::d2
+ReferenceSubsetting	X::E::cc/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::cc/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]
+ReferenceSubsetting	X::E::cu::a/BindingConnector[0]/Feature[0]	X::E::cu::a/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	X::E::cu::a/BindingConnector[0]/Feature[1]	X::E::cu::a
+ReferenceSubsetting	X::E::cu::a/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::d1
+ReferenceSubsetting	X::E::cu::a/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::cu::a/FeatureReferenceExpression[0]/Feature[0]
+ReferenceSubsetting	X::E::cu::b/BindingConnector[0]/Feature[0]	X::E::cu::b/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	X::E::cu::b/BindingConnector[0]/Feature[1]	X::E::cu::b
+ReferenceSubsetting	X::E::cu::b/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::d2
+ReferenceSubsetting	X::E::cu::b/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::cu::b/FeatureReferenceExpression[0]/Feature[0]
+ReferenceSubsetting	X::E::echain/BindingConnector[0]/Feature[0]	X::E::echain/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	X::E::echain/BindingConnector[0]/Feature[1]	X::E::echain
+ReferenceSubsetting	X::E::echain/FeatureChainExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	X::E::echain/FeatureChainExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	X::E::echain/FeatureChainExpression[0]/Feature[0]/BindingConnector[0]/Feature[1]	X::E::echain/FeatureChainExpression[0]/Feature[0]
+ReferenceSubsetting	X::E::echain/FeatureChainExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::ps
+ReferenceSubsetting	X::E::echain/FeatureChainExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::echain/FeatureChainExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
+ReferenceSubsetting	X::E::ecol/BindingConnector[0]/Feature[0]	X::E::ecol/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	X::E::ecol/BindingConnector[0]/Feature[1]	X::E::ecol
+ReferenceSubsetting	X::E::ecol/CollectExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	X::E::ecol/CollectExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	X::E::ecol/CollectExpression[0]/Feature[0]/BindingConnector[0]/Feature[1]	X::E::ecol/CollectExpression[0]/Feature[0]
+ReferenceSubsetting	X::E::ecol/CollectExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::d1
+ReferenceSubsetting	X::E::ecol/CollectExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::ecol/CollectExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
+ReferenceSubsetting	X::E::ecol/CollectExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]	X::E::ecol/CollectExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	X::E::ecol/CollectExpression[0]/Feature[1]/BindingConnector[0]/Feature[1]	X::E::ecol/CollectExpression[0]/Feature[1]
+ReferenceSubsetting	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]
+ReferenceSubsetting	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]
+ReferenceSubsetting	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/BindingConnector[0]/Feature[0]	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/FeatureReferenceExpression[0]/Feature[0]
+ReferenceSubsetting	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/BindingConnector[0]/Feature[1]	Performances::Evaluation::result
+ReferenceSubsetting	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/ReferenceUsage[0]
+ReferenceSubsetting	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/FeatureReferenceExpression[0]/Feature[0]
+ReferenceSubsetting	X::E::econd/BindingConnector[0]/Feature[0]	X::E::econd/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	X::E::econd/BindingConnector[0]/Feature[1]	X::E::econd
+ReferenceSubsetting	X::E::econd/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	X::E::econd/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	X::E::econd/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[1]	X::E::econd/OperatorExpression[0]/Feature[0]
+ReferenceSubsetting	X::E::econd/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]	X::E::econd/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	X::E::econd/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[1]	X::E::econd/OperatorExpression[0]/Feature[1]
+ReferenceSubsetting	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]
+ReferenceSubsetting	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]
+ReferenceSubsetting	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::d1
+ReferenceSubsetting	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/Feature[0]
+ReferenceSubsetting	X::E::econd/OperatorExpression[0]/Feature[2]/BindingConnector[0]/Feature[0]	X::E::econd/OperatorExpression[0]/Feature[2]/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	X::E::econd/OperatorExpression[0]/Feature[2]/BindingConnector[0]/Feature[1]	X::E::econd/OperatorExpression[0]/Feature[2]
+ReferenceSubsetting	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]
+ReferenceSubsetting	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/Feature[0]
+ReferenceSubsetting	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::d2
+ReferenceSubsetting	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/Feature[0]
+ReferenceSubsetting	X::E::eidx/BindingConnector[0]/Feature[0]	X::E::eidx/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	X::E::eidx/BindingConnector[0]/Feature[1]	X::E::eidx
+ReferenceSubsetting	X::E::eidx/IndexExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	X::E::eidx/IndexExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	X::E::eidx/IndexExpression[0]/Feature[0]/BindingConnector[0]/Feature[1]	X::E::eidx/IndexExpression[0]/Feature[0]
+ReferenceSubsetting	X::E::eidx/IndexExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::d1
+ReferenceSubsetting	X::E::eidx/IndexExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::eidx/IndexExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
+ReferenceSubsetting	X::E::eidx/IndexExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]	X::E::eidx/IndexExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	X::E::eidx/IndexExpression[0]/Feature[1]/BindingConnector[0]/Feature[1]	X::E::eidx/IndexExpression[0]/Feature[1]
+ReferenceSubsetting	X::E::einv/BindingConnector[0]/Feature[0]	X::E::einv/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	X::E::einv/BindingConnector[0]/Feature[1]	X::E::einv
+ReferenceSubsetting	X::E::einv/InvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	X::E::einv/InvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	X::E::einv/InvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[1]	X::E::einv/InvocationExpression[0]/Feature[0]
+ReferenceSubsetting	X::E::einv/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::d1
+ReferenceSubsetting	X::E::einv/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::einv/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
+ReferenceSubsetting	X::E::einv/InvocationExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]	X::E::einv/InvocationExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	X::E::einv/InvocationExpression[0]/Feature[1]/BindingConnector[0]/Feature[1]	X::E::einv/InvocationExpression[0]/Feature[1]
+ReferenceSubsetting	X::E::einv/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::d2
+ReferenceSubsetting	X::E::einv/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::einv/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]
+ReferenceSubsetting	X::E::elit/BindingConnector[0]/Feature[0]	X::E::elit/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	X::E::elit/BindingConnector[0]/Feature[1]	X::E::elit
+ReferenceSubsetting	X::E::enest/BindingConnector[0]/Feature[0]	X::E::enest/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	X::E::enest/BindingConnector[0]/Feature[1]	X::E::enest
+ReferenceSubsetting	X::E::enest/InvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	X::E::enest/InvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	X::E::enest/InvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[1]	X::E::enest/InvocationExpression[0]/Feature[0]
+ReferenceSubsetting	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[1]	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]
+ReferenceSubsetting	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::d1
+ReferenceSubsetting	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
+ReferenceSubsetting	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[1]	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]
+ReferenceSubsetting	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::d2
+ReferenceSubsetting	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]
+ReferenceSubsetting	X::E::enest/InvocationExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]	X::E::enest/InvocationExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	X::E::enest/InvocationExpression[0]/Feature[1]/BindingConnector[0]/Feature[1]	X::E::enest/InvocationExpression[0]/Feature[1]
+ReferenceSubsetting	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[1]	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]
+ReferenceSubsetting	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::d1
+ReferenceSubsetting	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
+ReferenceSubsetting	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]/BindingConnector[0]/Feature[1]	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]
+ReferenceSubsetting	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::d2
+ReferenceSubsetting	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]
+ReferenceSubsetting	X::E::enew/BindingConnector[0]/Feature[0]	X::E::enew/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	X::E::enew/BindingConnector[0]/Feature[1]	X::E::enew
+ReferenceSubsetting	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]/BindingConnector[0]/Feature[0]	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]/BindingConnector[0]/Feature[1]	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::d1
+ReferenceSubsetting	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
+ReferenceSubsetting	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]/BindingConnector[0]/Feature[0]	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]/BindingConnector[0]/Feature[1]	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]
+ReferenceSubsetting	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::d2
+ReferenceSubsetting	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]
+ReferenceSubsetting	X::E::eop/BindingConnector[0]/Feature[0]	X::E::eop/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	X::E::eop/BindingConnector[0]/Feature[1]	X::E::eop
+ReferenceSubsetting	X::E::eop/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	X::E::eop/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	X::E::eop/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[1]	X::E::eop/OperatorExpression[0]/Feature[0]
+ReferenceSubsetting	X::E::eop/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::d1
+ReferenceSubsetting	X::E::eop/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::eop/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
+ReferenceSubsetting	X::E::eop/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]	X::E::eop/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	X::E::eop/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[1]	X::E::eop/OperatorExpression[0]/Feature[1]
+ReferenceSubsetting	X::E::eop/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::d2
+ReferenceSubsetting	X::E::eop/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::eop/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]
+ReferenceSubsetting	X::E::esel/BindingConnector[0]/Feature[0]	X::E::esel/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	X::E::esel/BindingConnector[0]/Feature[1]	X::E::esel
+ReferenceSubsetting	X::E::esel/SelectExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	X::E::esel/SelectExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	X::E::esel/SelectExpression[0]/Feature[0]/BindingConnector[0]/Feature[1]	X::E::esel/SelectExpression[0]/Feature[0]
+ReferenceSubsetting	X::E::esel/SelectExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::d1
+ReferenceSubsetting	X::E::esel/SelectExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::esel/SelectExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
+ReferenceSubsetting	X::E::esel/SelectExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]	X::E::esel/SelectExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]
+ReferenceSubsetting	X::E::esel/SelectExpression[0]/Feature[1]/BindingConnector[0]/Feature[1]	X::E::esel/SelectExpression[0]/Feature[1]
+ReferenceSubsetting	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]
+ReferenceSubsetting	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]
+ReferenceSubsetting	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/BindingConnector[0]/Feature[0]	Performances::LiteralBooleanEvaluation::result
+ReferenceSubsetting	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/BindingConnector[0]/Feature[1]	Performances::Evaluation::result
+Subclassification	X::AD	Base::DataValue
+Subclassification	X::E	Parts::Part
+Subclassification	X::G2	Calculations::Calculation
+Subclassification	X::P2	Parts::Part
+Subsetting	X::E::cc	Items::Item::checkedConstraints
+Subsetting	X::E::cc/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::cc/OperatorExpression[0]	Performances::Performance::enclosedPerformances
+Subsetting	X::E::cc/OperatorExpression[0]	Performances::evaluations
+Subsetting	X::E::cc/OperatorExpression[0]/Feature[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::cc/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	X::E::cc/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]	Performances::evaluations
+Subsetting	X::E::cc/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::cc/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]	X::E::d1
+Subsetting	X::E::cc/OperatorExpression[0]/Feature[1]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::cc/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	X::E::cc/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]	Performances::evaluations
+Subsetting	X::E::cc/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::cc/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]	X::E::d2
+Subsetting	X::E::cu	Calculations::calculations
+Subsetting	X::E::cu	Parts::Part::ownedActions
+Subsetting	X::E::cu::a/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::cu::a/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	X::E::cu::a/FeatureReferenceExpression[0]	Performances::evaluations
+Subsetting	X::E::cu::a/FeatureReferenceExpression[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::cu::a/FeatureReferenceExpression[0]/Feature[0]	X::E::d1
+Subsetting	X::E::cu::b/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::cu::b/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	X::E::cu::b/FeatureReferenceExpression[0]	Performances::evaluations
+Subsetting	X::E::cu::b/FeatureReferenceExpression[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::cu::b/FeatureReferenceExpression[0]/Feature[0]	X::E::d2
+Subsetting	X::E::d1	Base::dataValues
+Subsetting	X::E::d1/Multiplicity[0]	Base::exactlyOne
+Subsetting	X::E::d2	Base::dataValues
+Subsetting	X::E::d2/Multiplicity[0]	Base::exactlyOne
+Subsetting	X::E::echain	Base::dataValues
+Subsetting	X::E::echain/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::echain/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	X::E::echain/FeatureChainExpression[0]	Performances::evaluations
+Subsetting	X::E::echain/FeatureChainExpression[0]/Feature[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::echain/FeatureChainExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	X::E::echain/FeatureChainExpression[0]/Feature[0]/FeatureReferenceExpression[0]	Performances::evaluations
+Subsetting	X::E::echain/FeatureChainExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::echain/FeatureChainExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]	X::E::ps
+Subsetting	X::E::echain/FeatureChainExpression[0]/Feature[1]	X::E::echain/FeatureChainExpression[0]/Feature[1]/Feature[0]
+Subsetting	X::E::echain/Multiplicity[0]	Base::exactlyOne
+Subsetting	X::E::ecol	Base::dataValues
+Subsetting	X::E::ecol	X::E::ecol/Feature[0]
+Subsetting	X::E::ecol/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::ecol/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	X::E::ecol/CollectExpression[0]	Performances::evaluations
+Subsetting	X::E::ecol/CollectExpression[0]/Feature[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::ecol/CollectExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	X::E::ecol/CollectExpression[0]/Feature[0]/FeatureReferenceExpression[0]	Performances::evaluations
+Subsetting	X::E::ecol/CollectExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::ecol/CollectExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]	X::E::d1
+Subsetting	X::E::ecol/CollectExpression[0]/Feature[1]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::ecol/CollectExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]	Performances::evaluations
+Subsetting	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]	Performances::Performance::enclosedPerformances
+Subsetting	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]	Performances::evaluations
+Subsetting	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/FeatureReferenceExpression[0]	Performances::Performance::enclosedPerformances
+Subsetting	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/FeatureReferenceExpression[0]	Performances::evaluations
+Subsetting	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/FeatureReferenceExpression[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/FeatureReferenceExpression[0]/Feature[0]	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/ReferenceUsage[0]
+Subsetting	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/ReferenceUsage[0]	Base::dataValues
+Subsetting	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]
+Subsetting	X::E::ecol/Multiplicity[0]	Base::exactlyOne
+Subsetting	X::E::econd	Base::dataValues
+Subsetting	X::E::econd	X::E::econd/Feature[0]
+Subsetting	X::E::econd/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::econd/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	X::E::econd/Multiplicity[0]	Base::exactlyOne
+Subsetting	X::E::econd/OperatorExpression[0]	Performances::evaluations
+Subsetting	X::E::econd/OperatorExpression[0]/Feature[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::econd/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	X::E::econd/OperatorExpression[0]/Feature[0]/LiteralBoolean[0]	Performances::literalBooleanEvaluations
+Subsetting	X::E::econd/OperatorExpression[0]/Feature[1]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::econd/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]	Performances::evaluations
+Subsetting	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]	Performances::Performance::enclosedPerformances
+Subsetting	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]	Performances::evaluations
+Subsetting	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/Feature[0]	X::E::d1
+Subsetting	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]
+Subsetting	X::E::econd/OperatorExpression[0]/Feature[2]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::econd/OperatorExpression[0]/Feature[2]/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]	Performances::evaluations
+Subsetting	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]	Performances::Performance::enclosedPerformances
+Subsetting	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]	Performances::evaluations
+Subsetting	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/Feature[0]	X::E::d2
+Subsetting	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/Feature[0]	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]
+Subsetting	X::E::eidx	X::E::eidx/Feature[0]
+Subsetting	X::E::eidx/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::eidx/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	X::E::eidx/IndexExpression[0]	Performances::evaluations
+Subsetting	X::E::eidx/IndexExpression[0]/Feature[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::eidx/IndexExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	X::E::eidx/IndexExpression[0]/Feature[0]/FeatureReferenceExpression[0]	Performances::evaluations
+Subsetting	X::E::eidx/IndexExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::eidx/IndexExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]	X::E::d1
+Subsetting	X::E::eidx/IndexExpression[0]/Feature[1]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::eidx/IndexExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	X::E::eidx/IndexExpression[0]/Feature[1]/LiteralInteger[0]	Performances::literalIntegerEvaluations
+Subsetting	X::E::eidx/IndexExpression[0]/Feature[2]	X::E::eidx/IndexExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
+Subsetting	X::E::eidx/Multiplicity[0]	Base::exactlyOne
+Subsetting	X::E::einv	Base::dataValues
+Subsetting	X::E::einv/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::einv/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	X::E::einv/InvocationExpression[0]	Performances::evaluations
+Subsetting	X::E::einv/InvocationExpression[0]/Feature[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::einv/InvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	X::E::einv/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]	Performances::evaluations
+Subsetting	X::E::einv/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::einv/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]	X::E::d1
+Subsetting	X::E::einv/InvocationExpression[0]/Feature[1]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::einv/InvocationExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	X::E::einv/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]	Performances::evaluations
+Subsetting	X::E::einv/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::einv/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]	X::E::d2
+Subsetting	X::E::einv/Multiplicity[0]	Base::exactlyOne
+Subsetting	X::E::elit	X::E::elit/Feature[0]
+Subsetting	X::E::elit/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::elit/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	X::E::elit/LiteralInteger[0]	Performances::literalIntegerEvaluations
+Subsetting	X::E::elit/Multiplicity[0]	Base::exactlyOne
+Subsetting	X::E::enest	Base::dataValues
+Subsetting	X::E::enest/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::enest/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	X::E::enest/InvocationExpression[0]	Performances::evaluations
+Subsetting	X::E::enest/InvocationExpression[0]/Feature[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::enest/InvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]	Performances::evaluations
+Subsetting	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]	Performances::evaluations
+Subsetting	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]	X::E::d1
+Subsetting	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]	Performances::evaluations
+Subsetting	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]	X::E::d2
+Subsetting	X::E::enest/InvocationExpression[0]/Feature[1]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::enest/InvocationExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]	Performances::evaluations
+Subsetting	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]	Performances::evaluations
+Subsetting	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]	X::E::d1
+Subsetting	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]	Performances::evaluations
+Subsetting	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]	X::E::d2
+Subsetting	X::E::enest/Multiplicity[0]	Base::exactlyOne
+Subsetting	X::E::enew	Items::Item::subparts
+Subsetting	X::E::enew/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::enew/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	X::E::enew/ConstructorExpression[0]	Performances::constructorEvaluations
+Subsetting	X::E::enew/ConstructorExpression[0]/Feature[0]	Objects::objects
+Subsetting	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]/FeatureReferenceExpression[0]	Performances::evaluations
+Subsetting	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]	X::E::d1
+Subsetting	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]/FeatureReferenceExpression[0]	Performances::evaluations
+Subsetting	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]	X::E::d2
+Subsetting	X::E::enew/Multiplicity[0]	Base::exactlyOne
+Subsetting	X::E::eop	Base::dataValues
+Subsetting	X::E::eop/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::eop/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	X::E::eop/Multiplicity[0]	Base::exactlyOne
+Subsetting	X::E::eop/OperatorExpression[0]	Performances::evaluations
+Subsetting	X::E::eop/OperatorExpression[0]/Feature[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::eop/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	X::E::eop/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]	Performances::evaluations
+Subsetting	X::E::eop/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::eop/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]	X::E::d1
+Subsetting	X::E::eop/OperatorExpression[0]/Feature[1]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::eop/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	X::E::eop/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]	Performances::evaluations
+Subsetting	X::E::eop/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::eop/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]	X::E::d2
+Subsetting	X::E::esel	X::E::esel/Feature[0]
+Subsetting	X::E::esel/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::esel/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	X::E::esel/Multiplicity[0]	Base::exactlyOne
+Subsetting	X::E::esel/SelectExpression[0]	Performances::evaluations
+Subsetting	X::E::esel/SelectExpression[0]/Feature[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::esel/SelectExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	X::E::esel/SelectExpression[0]/Feature[0]/FeatureReferenceExpression[0]	Performances::evaluations
+Subsetting	X::E::esel/SelectExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::esel/SelectExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]	X::E::d1
+Subsetting	X::E::esel/SelectExpression[0]/Feature[1]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::esel/SelectExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]/Feature[0]	Base::things
+Subsetting	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]	Performances::evaluations
+Subsetting	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]	Performances::Performance::enclosedPerformances
+Subsetting	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]	Performances::evaluations
+Subsetting	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/BindingConnector[0]	Links::selfLinks
+Subsetting	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/LiteralBoolean[0]	Performances::Performance::enclosedPerformances
+Subsetting	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/LiteralBoolean[0]	Performances::literalBooleanEvaluations
+Subsetting	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/ReferenceUsage[0]	Base::dataValues
+Subsetting	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]
+Subsetting	X::E::esel/SelectExpression[0]/Feature[2]	X::E::esel/SelectExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]
+Subsetting	X::E::ps	Items::Item::subparts
+Subsetting	X::E::ps/Multiplicity[0]	Base::exactlyOne
+Subsetting	X::G2::a	Base::dataValues
+Subsetting	X::G2::b	Base::dataValues
+Subsetting	X::G2::r	Base::dataValues
+Subsetting	X::P2::px	Base::dataValues
+Subsetting	X::P2::px/Multiplicity[0]	Base::exactlyOne
+Subsetting	X::P2::py	Base::dataValues
+Subsetting	X::P2::py/Multiplicity[0]	Base::exactlyOne
+TypeFeaturing	X::E::cc	snapshots(X::E)
+TypeFeaturing	X::E::cc/BindingConnector[0]	X::E::cc
+TypeFeaturing	X::E::cc/BindingConnector[0]/Feature[0]	X::E::cc/BindingConnector[0]
+TypeFeaturing	X::E::cc/BindingConnector[0]/Feature[1]	X::E::cc/BindingConnector[0]
+TypeFeaturing	X::E::cc/OperatorExpression[0]	X::E::cc
+TypeFeaturing	X::E::cc/OperatorExpression[0]/Feature[0]	X::E::cc/OperatorExpression[0]
+TypeFeaturing	X::E::cc/OperatorExpression[0]/Feature[0]/BindingConnector[0]	X::E::cc/OperatorExpression[0]
+TypeFeaturing	X::E::cc/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	X::E::cc/OperatorExpression[0]/Feature[0]/BindingConnector[0]
+TypeFeaturing	X::E::cc/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[1]	X::E::cc/OperatorExpression[0]/Feature[0]/BindingConnector[0]
+TypeFeaturing	X::E::cc/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]	X::E::cc/OperatorExpression[0]
+TypeFeaturing	X::E::cc/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]	snapshots(X::E)
+TypeFeaturing	X::E::cc/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::cc/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::cc/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::cc/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::cc/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]	X::E::cc/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]
+TypeFeaturing	X::E::cc/OperatorExpression[0]/Feature[1]	X::E::cc/OperatorExpression[0]
+TypeFeaturing	X::E::cc/OperatorExpression[0]/Feature[1]/BindingConnector[0]	X::E::cc/OperatorExpression[0]
+TypeFeaturing	X::E::cc/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]	X::E::cc/OperatorExpression[0]/Feature[1]/BindingConnector[0]
+TypeFeaturing	X::E::cc/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[1]	X::E::cc/OperatorExpression[0]/Feature[1]/BindingConnector[0]
+TypeFeaturing	X::E::cc/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]	X::E::cc/OperatorExpression[0]
+TypeFeaturing	X::E::cc/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]	snapshots(X::E)
+TypeFeaturing	X::E::cc/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::cc/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::cc/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::cc/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::cc/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]	X::E::cc/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]
+TypeFeaturing	X::E::cc/OperatorExpression[0]/Feature[2]	X::E::cc/OperatorExpression[0]
+TypeFeaturing	X::E::cu	X::E
+TypeFeaturing	X::E::cu::a	snapshots(X::E::cu)
+TypeFeaturing	X::E::cu::a/BindingConnector[0]	snapshots(X::E::cu)
+TypeFeaturing	X::E::cu::a/BindingConnector[0]/Feature[0]	X::E::cu::a/BindingConnector[0]
+TypeFeaturing	X::E::cu::a/BindingConnector[0]/Feature[1]	X::E::cu::a/BindingConnector[0]
+TypeFeaturing	X::E::cu::a/FeatureReferenceExpression[0]/BindingConnector[0]	X::E
+TypeFeaturing	X::E::cu::a/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::cu::a/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::cu::a/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::cu::a/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::cu::a/FeatureReferenceExpression[0]/Feature[0]	X::E::cu::a/FeatureReferenceExpression[0]
+TypeFeaturing	X::E::cu::b	snapshots(X::E::cu)
+TypeFeaturing	X::E::cu::b/BindingConnector[0]	snapshots(X::E::cu)
+TypeFeaturing	X::E::cu::b/BindingConnector[0]/Feature[0]	X::E::cu::b/BindingConnector[0]
+TypeFeaturing	X::E::cu::b/BindingConnector[0]/Feature[1]	X::E::cu::b/BindingConnector[0]
+TypeFeaturing	X::E::cu::b/FeatureReferenceExpression[0]/BindingConnector[0]	X::E
+TypeFeaturing	X::E::cu::b/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::cu::b/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::cu::b/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::cu::b/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::cu::b/FeatureReferenceExpression[0]/Feature[0]	X::E::cu::b/FeatureReferenceExpression[0]
+TypeFeaturing	X::E::d1	snapshots(X::E)
+TypeFeaturing	X::E::d1/Multiplicity[0]	snapshots(X::E)
+TypeFeaturing	X::E::d2	snapshots(X::E)
+TypeFeaturing	X::E::d2/Multiplicity[0]	snapshots(X::E)
+TypeFeaturing	X::E::echain	snapshots(X::E)
+TypeFeaturing	X::E::echain/BindingConnector[0]	snapshots(X::E)
+TypeFeaturing	X::E::echain/BindingConnector[0]/Feature[0]	X::E::echain/BindingConnector[0]
+TypeFeaturing	X::E::echain/BindingConnector[0]/Feature[1]	X::E::echain/BindingConnector[0]
+TypeFeaturing	X::E::echain/FeatureChainExpression[0]/Feature[0]	X::E::echain/FeatureChainExpression[0]
+TypeFeaturing	X::E::echain/FeatureChainExpression[0]/Feature[0]/BindingConnector[0]	X::E::echain/FeatureChainExpression[0]
+TypeFeaturing	X::E::echain/FeatureChainExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	X::E::echain/FeatureChainExpression[0]/Feature[0]/BindingConnector[0]
+TypeFeaturing	X::E::echain/FeatureChainExpression[0]/Feature[0]/BindingConnector[0]/Feature[1]	X::E::echain/FeatureChainExpression[0]/Feature[0]/BindingConnector[0]
+TypeFeaturing	X::E::echain/FeatureChainExpression[0]/Feature[0]/FeatureReferenceExpression[0]	X::E::echain/FeatureChainExpression[0]
+TypeFeaturing	X::E::echain/FeatureChainExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]	snapshots(X::E)
+TypeFeaturing	X::E::echain/FeatureChainExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::echain/FeatureChainExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::echain/FeatureChainExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::echain/FeatureChainExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::echain/FeatureChainExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]	X::E::echain/FeatureChainExpression[0]/Feature[0]/FeatureReferenceExpression[0]
+TypeFeaturing	X::E::echain/FeatureChainExpression[0]/Feature[0]/Feature[0]	X::E::echain/FeatureChainExpression[0]/Feature[0]
+TypeFeaturing	X::E::echain/FeatureChainExpression[0]/Feature[1]	X::E::echain/FeatureChainExpression[0]
+TypeFeaturing	X::E::echain/Multiplicity[0]	snapshots(X::E)
+TypeFeaturing	X::E::ecol	snapshots(X::E)
+TypeFeaturing	X::E::ecol/BindingConnector[0]	snapshots(X::E)
+TypeFeaturing	X::E::ecol/BindingConnector[0]/Feature[0]	X::E::ecol/BindingConnector[0]
+TypeFeaturing	X::E::ecol/BindingConnector[0]/Feature[1]	X::E::ecol/BindingConnector[0]
+TypeFeaturing	X::E::ecol/CollectExpression[0]/Feature[0]	X::E::ecol/CollectExpression[0]
+TypeFeaturing	X::E::ecol/CollectExpression[0]/Feature[0]/BindingConnector[0]	X::E::ecol/CollectExpression[0]
+TypeFeaturing	X::E::ecol/CollectExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	X::E::ecol/CollectExpression[0]/Feature[0]/BindingConnector[0]
+TypeFeaturing	X::E::ecol/CollectExpression[0]/Feature[0]/BindingConnector[0]/Feature[1]	X::E::ecol/CollectExpression[0]/Feature[0]/BindingConnector[0]
+TypeFeaturing	X::E::ecol/CollectExpression[0]/Feature[0]/FeatureReferenceExpression[0]	X::E::ecol/CollectExpression[0]
+TypeFeaturing	X::E::ecol/CollectExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]	snapshots(X::E)
+TypeFeaturing	X::E::ecol/CollectExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::ecol/CollectExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::ecol/CollectExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::ecol/CollectExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::ecol/CollectExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]	X::E::ecol/CollectExpression[0]/Feature[0]/FeatureReferenceExpression[0]
+TypeFeaturing	X::E::ecol/CollectExpression[0]/Feature[1]	X::E::ecol/CollectExpression[0]
+TypeFeaturing	X::E::ecol/CollectExpression[0]/Feature[1]/BindingConnector[0]	X::E::ecol/CollectExpression[0]
+TypeFeaturing	X::E::ecol/CollectExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]	X::E::ecol/CollectExpression[0]/Feature[1]/BindingConnector[0]
+TypeFeaturing	X::E::ecol/CollectExpression[0]/Feature[1]/BindingConnector[0]/Feature[1]	X::E::ecol/CollectExpression[0]/Feature[1]/BindingConnector[0]
+TypeFeaturing	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]	X::E::ecol/CollectExpression[0]
+TypeFeaturing	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]
+TypeFeaturing	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]
+TypeFeaturing	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/BindingConnector[0]	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/FeatureReferenceExpression[0]
+TypeFeaturing	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/BindingConnector[0]/Feature[0]	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/BindingConnector[0]
+TypeFeaturing	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/BindingConnector[0]/Feature[1]	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/BindingConnector[0]
+TypeFeaturing	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/FeatureReferenceExpression[0]	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]
+TypeFeaturing	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/FeatureReferenceExpression[0]/BindingConnector[0]	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]
+TypeFeaturing	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/FeatureReferenceExpression[0]/Feature[0]	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/FeatureReferenceExpression[0]
+TypeFeaturing	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/ReferenceUsage[0]	snapshots(X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0])
+TypeFeaturing	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]	X::E::ecol/CollectExpression[0]/Feature[1]/FeatureReferenceExpression[0]
+TypeFeaturing	X::E::ecol/CollectExpression[0]/Feature[2]	X::E::ecol/CollectExpression[0]
+TypeFeaturing	X::E::ecol/Multiplicity[0]	snapshots(X::E)
+TypeFeaturing	X::E::econd	snapshots(X::E)
+TypeFeaturing	X::E::econd/BindingConnector[0]	snapshots(X::E)
+TypeFeaturing	X::E::econd/BindingConnector[0]/Feature[0]	X::E::econd/BindingConnector[0]
+TypeFeaturing	X::E::econd/BindingConnector[0]/Feature[1]	X::E::econd/BindingConnector[0]
+TypeFeaturing	X::E::econd/Multiplicity[0]	snapshots(X::E)
+TypeFeaturing	X::E::econd/OperatorExpression[0]/Feature[0]	X::E::econd/OperatorExpression[0]
+TypeFeaturing	X::E::econd/OperatorExpression[0]/Feature[0]/BindingConnector[0]	X::E::econd/OperatorExpression[0]
+TypeFeaturing	X::E::econd/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	X::E::econd/OperatorExpression[0]/Feature[0]/BindingConnector[0]
+TypeFeaturing	X::E::econd/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[1]	X::E::econd/OperatorExpression[0]/Feature[0]/BindingConnector[0]
+TypeFeaturing	X::E::econd/OperatorExpression[0]/Feature[0]/LiteralBoolean[0]	X::E::econd/OperatorExpression[0]
+TypeFeaturing	X::E::econd/OperatorExpression[0]/Feature[1]	X::E::econd/OperatorExpression[0]
+TypeFeaturing	X::E::econd/OperatorExpression[0]/Feature[1]/BindingConnector[0]	X::E::econd/OperatorExpression[0]
+TypeFeaturing	X::E::econd/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]	X::E::econd/OperatorExpression[0]/Feature[1]/BindingConnector[0]
+TypeFeaturing	X::E::econd/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[1]	X::E::econd/OperatorExpression[0]/Feature[1]/BindingConnector[0]
+TypeFeaturing	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]	X::E::econd/OperatorExpression[0]
+TypeFeaturing	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]
+TypeFeaturing	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]
+TypeFeaturing	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/BindingConnector[0]	snapshots(X::E)
+TypeFeaturing	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/Feature[0]	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]
+TypeFeaturing	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]	X::E::econd/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]
+TypeFeaturing	X::E::econd/OperatorExpression[0]/Feature[2]	X::E::econd/OperatorExpression[0]
+TypeFeaturing	X::E::econd/OperatorExpression[0]/Feature[2]/BindingConnector[0]	X::E::econd/OperatorExpression[0]
+TypeFeaturing	X::E::econd/OperatorExpression[0]/Feature[2]/BindingConnector[0]/Feature[0]	X::E::econd/OperatorExpression[0]/Feature[2]/BindingConnector[0]
+TypeFeaturing	X::E::econd/OperatorExpression[0]/Feature[2]/BindingConnector[0]/Feature[1]	X::E::econd/OperatorExpression[0]/Feature[2]/BindingConnector[0]
+TypeFeaturing	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]	X::E::econd/OperatorExpression[0]
+TypeFeaturing	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/BindingConnector[0]	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]
+TypeFeaturing	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]
+TypeFeaturing	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/BindingConnector[0]	snapshots(X::E)
+TypeFeaturing	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]/Feature[0]	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/FeatureReferenceExpression[0]
+TypeFeaturing	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]/Feature[0]	X::E::econd/OperatorExpression[0]/Feature[2]/FeatureReferenceExpression[0]
+TypeFeaturing	X::E::econd/OperatorExpression[0]/Feature[3]	X::E::econd/OperatorExpression[0]
+TypeFeaturing	X::E::eidx	snapshots(X::E)
+TypeFeaturing	X::E::eidx/BindingConnector[0]	snapshots(X::E)
+TypeFeaturing	X::E::eidx/BindingConnector[0]/Feature[0]	X::E::eidx/BindingConnector[0]
+TypeFeaturing	X::E::eidx/BindingConnector[0]/Feature[1]	X::E::eidx/BindingConnector[0]
+TypeFeaturing	X::E::eidx/IndexExpression[0]/Feature[0]	X::E::eidx/IndexExpression[0]
+TypeFeaturing	X::E::eidx/IndexExpression[0]/Feature[0]/BindingConnector[0]	X::E::eidx/IndexExpression[0]
+TypeFeaturing	X::E::eidx/IndexExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	X::E::eidx/IndexExpression[0]/Feature[0]/BindingConnector[0]
+TypeFeaturing	X::E::eidx/IndexExpression[0]/Feature[0]/BindingConnector[0]/Feature[1]	X::E::eidx/IndexExpression[0]/Feature[0]/BindingConnector[0]
+TypeFeaturing	X::E::eidx/IndexExpression[0]/Feature[0]/FeatureReferenceExpression[0]	X::E::eidx/IndexExpression[0]
+TypeFeaturing	X::E::eidx/IndexExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]	snapshots(X::E)
+TypeFeaturing	X::E::eidx/IndexExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::eidx/IndexExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::eidx/IndexExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::eidx/IndexExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::eidx/IndexExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]	X::E::eidx/IndexExpression[0]/Feature[0]/FeatureReferenceExpression[0]
+TypeFeaturing	X::E::eidx/IndexExpression[0]/Feature[1]	X::E::eidx/IndexExpression[0]
+TypeFeaturing	X::E::eidx/IndexExpression[0]/Feature[1]/BindingConnector[0]	X::E::eidx/IndexExpression[0]
+TypeFeaturing	X::E::eidx/IndexExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]	X::E::eidx/IndexExpression[0]/Feature[1]/BindingConnector[0]
+TypeFeaturing	X::E::eidx/IndexExpression[0]/Feature[1]/BindingConnector[0]/Feature[1]	X::E::eidx/IndexExpression[0]/Feature[1]/BindingConnector[0]
+TypeFeaturing	X::E::eidx/IndexExpression[0]/Feature[1]/LiteralInteger[0]	X::E::eidx/IndexExpression[0]
+TypeFeaturing	X::E::eidx/IndexExpression[0]/Feature[2]	X::E::eidx/IndexExpression[0]
+TypeFeaturing	X::E::eidx/Multiplicity[0]	snapshots(X::E)
+TypeFeaturing	X::E::einv	snapshots(X::E)
+TypeFeaturing	X::E::einv/BindingConnector[0]	snapshots(X::E)
+TypeFeaturing	X::E::einv/BindingConnector[0]/Feature[0]	X::E::einv/BindingConnector[0]
+TypeFeaturing	X::E::einv/BindingConnector[0]/Feature[1]	X::E::einv/BindingConnector[0]
+TypeFeaturing	X::E::einv/InvocationExpression[0]/Feature[0]	X::E::einv/InvocationExpression[0]
+TypeFeaturing	X::E::einv/InvocationExpression[0]/Feature[0]/BindingConnector[0]	X::E::einv/InvocationExpression[0]
+TypeFeaturing	X::E::einv/InvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	X::E::einv/InvocationExpression[0]/Feature[0]/BindingConnector[0]
+TypeFeaturing	X::E::einv/InvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[1]	X::E::einv/InvocationExpression[0]/Feature[0]/BindingConnector[0]
+TypeFeaturing	X::E::einv/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]	X::E::einv/InvocationExpression[0]
+TypeFeaturing	X::E::einv/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]	snapshots(X::E)
+TypeFeaturing	X::E::einv/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::einv/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::einv/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::einv/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::einv/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]	X::E::einv/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]
+TypeFeaturing	X::E::einv/InvocationExpression[0]/Feature[1]	X::E::einv/InvocationExpression[0]
+TypeFeaturing	X::E::einv/InvocationExpression[0]/Feature[1]/BindingConnector[0]	X::E::einv/InvocationExpression[0]
+TypeFeaturing	X::E::einv/InvocationExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]	X::E::einv/InvocationExpression[0]/Feature[1]/BindingConnector[0]
+TypeFeaturing	X::E::einv/InvocationExpression[0]/Feature[1]/BindingConnector[0]/Feature[1]	X::E::einv/InvocationExpression[0]/Feature[1]/BindingConnector[0]
+TypeFeaturing	X::E::einv/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]	X::E::einv/InvocationExpression[0]
+TypeFeaturing	X::E::einv/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]	snapshots(X::E)
+TypeFeaturing	X::E::einv/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::einv/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::einv/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::einv/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::einv/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]	X::E::einv/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]
+TypeFeaturing	X::E::einv/InvocationExpression[0]/Feature[2]	X::E::einv/InvocationExpression[0]
+TypeFeaturing	X::E::einv/Multiplicity[0]	snapshots(X::E)
+TypeFeaturing	X::E::elit	snapshots(X::E)
+TypeFeaturing	X::E::elit/BindingConnector[0]	snapshots(X::E)
+TypeFeaturing	X::E::elit/BindingConnector[0]/Feature[0]	X::E::elit/BindingConnector[0]
+TypeFeaturing	X::E::elit/BindingConnector[0]/Feature[1]	X::E::elit/BindingConnector[0]
+TypeFeaturing	X::E::elit/Multiplicity[0]	snapshots(X::E)
+TypeFeaturing	X::E::enest	snapshots(X::E)
+TypeFeaturing	X::E::enest/BindingConnector[0]	snapshots(X::E)
+TypeFeaturing	X::E::enest/BindingConnector[0]/Feature[0]	X::E::enest/BindingConnector[0]
+TypeFeaturing	X::E::enest/BindingConnector[0]/Feature[1]	X::E::enest/BindingConnector[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[0]	X::E::enest/InvocationExpression[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[0]/BindingConnector[0]	X::E::enest/InvocationExpression[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	X::E::enest/InvocationExpression[0]/Feature[0]/BindingConnector[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[1]	X::E::enest/InvocationExpression[0]/Feature[0]/BindingConnector[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]	X::E::enest/InvocationExpression[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]/BindingConnector[0]	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]/BindingConnector[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[1]	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]/BindingConnector[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]	snapshots(X::E)
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]/BindingConnector[0]	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]/BindingConnector[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[1]	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]/BindingConnector[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]	snapshots(X::E)
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]/Feature[2]	X::E::enest/InvocationExpression[0]/Feature[0]/OperatorExpression[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[1]	X::E::enest/InvocationExpression[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[1]/BindingConnector[0]	X::E::enest/InvocationExpression[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]	X::E::enest/InvocationExpression[0]/Feature[1]/BindingConnector[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[1]/BindingConnector[0]/Feature[1]	X::E::enest/InvocationExpression[0]/Feature[1]/BindingConnector[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]	X::E::enest/InvocationExpression[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]/BindingConnector[0]	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]/BindingConnector[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]/BindingConnector[0]/Feature[1]	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]/BindingConnector[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]	snapshots(X::E)
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[0]/FeatureReferenceExpression[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]/BindingConnector[0]	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]/BindingConnector[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]/BindingConnector[0]/Feature[1]	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]/BindingConnector[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]	snapshots(X::E)
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[1]/FeatureReferenceExpression[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]/Feature[2]	X::E::enest/InvocationExpression[0]/Feature[1]/InvocationExpression[0]
+TypeFeaturing	X::E::enest/InvocationExpression[0]/Feature[2]	X::E::enest/InvocationExpression[0]
+TypeFeaturing	X::E::enest/Multiplicity[0]	snapshots(X::E)
+TypeFeaturing	X::E::enew	snapshots(X::E)
+TypeFeaturing	X::E::enew/BindingConnector[0]	snapshots(X::E)
+TypeFeaturing	X::E::enew/BindingConnector[0]/Feature[0]	X::E::enew/BindingConnector[0]
+TypeFeaturing	X::E::enew/BindingConnector[0]/Feature[1]	X::E::enew/BindingConnector[0]
+TypeFeaturing	X::E::enew/ConstructorExpression[0]/Feature[0]	X::E::enew/ConstructorExpression[0]
+TypeFeaturing	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]	X::E::enew/ConstructorExpression[0]/Feature[0]
+TypeFeaturing	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]/BindingConnector[0]	X::E::enew/ConstructorExpression[0]/Feature[0]
+TypeFeaturing	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]/BindingConnector[0]/Feature[0]	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]/BindingConnector[0]
+TypeFeaturing	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]/BindingConnector[0]/Feature[1]	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]/BindingConnector[0]
+TypeFeaturing	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]/FeatureReferenceExpression[0]	X::E::enew/ConstructorExpression[0]/Feature[0]
+TypeFeaturing	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]	snapshots(X::E)
+TypeFeaturing	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[0]/FeatureReferenceExpression[0]
+TypeFeaturing	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]	X::E::enew/ConstructorExpression[0]/Feature[0]
+TypeFeaturing	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]/BindingConnector[0]	X::E::enew/ConstructorExpression[0]/Feature[0]
+TypeFeaturing	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]/BindingConnector[0]/Feature[0]	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]/BindingConnector[0]
+TypeFeaturing	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]/BindingConnector[0]/Feature[1]	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]/BindingConnector[0]
+TypeFeaturing	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]/FeatureReferenceExpression[0]	X::E::enew/ConstructorExpression[0]/Feature[0]
+TypeFeaturing	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]	snapshots(X::E)
+TypeFeaturing	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]	X::E::enew/ConstructorExpression[0]/Feature[0]/Feature[1]/FeatureReferenceExpression[0]
+TypeFeaturing	X::E::enew/Multiplicity[0]	snapshots(X::E)
+TypeFeaturing	X::E::eop	snapshots(X::E)
+TypeFeaturing	X::E::eop/BindingConnector[0]	snapshots(X::E)
+TypeFeaturing	X::E::eop/BindingConnector[0]/Feature[0]	X::E::eop/BindingConnector[0]
+TypeFeaturing	X::E::eop/BindingConnector[0]/Feature[1]	X::E::eop/BindingConnector[0]
+TypeFeaturing	X::E::eop/Multiplicity[0]	snapshots(X::E)
+TypeFeaturing	X::E::eop/OperatorExpression[0]/Feature[0]	X::E::eop/OperatorExpression[0]
+TypeFeaturing	X::E::eop/OperatorExpression[0]/Feature[0]/BindingConnector[0]	X::E::eop/OperatorExpression[0]
+TypeFeaturing	X::E::eop/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	X::E::eop/OperatorExpression[0]/Feature[0]/BindingConnector[0]
+TypeFeaturing	X::E::eop/OperatorExpression[0]/Feature[0]/BindingConnector[0]/Feature[1]	X::E::eop/OperatorExpression[0]/Feature[0]/BindingConnector[0]
+TypeFeaturing	X::E::eop/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]	X::E::eop/OperatorExpression[0]
+TypeFeaturing	X::E::eop/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]	snapshots(X::E)
+TypeFeaturing	X::E::eop/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::eop/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::eop/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::eop/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::eop/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]	X::E::eop/OperatorExpression[0]/Feature[0]/FeatureReferenceExpression[0]
+TypeFeaturing	X::E::eop/OperatorExpression[0]/Feature[1]	X::E::eop/OperatorExpression[0]
+TypeFeaturing	X::E::eop/OperatorExpression[0]/Feature[1]/BindingConnector[0]	X::E::eop/OperatorExpression[0]
+TypeFeaturing	X::E::eop/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]	X::E::eop/OperatorExpression[0]/Feature[1]/BindingConnector[0]
+TypeFeaturing	X::E::eop/OperatorExpression[0]/Feature[1]/BindingConnector[0]/Feature[1]	X::E::eop/OperatorExpression[0]/Feature[1]/BindingConnector[0]
+TypeFeaturing	X::E::eop/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]	X::E::eop/OperatorExpression[0]
+TypeFeaturing	X::E::eop/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]	snapshots(X::E)
+TypeFeaturing	X::E::eop/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::eop/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::eop/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::eop/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::eop/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]	X::E::eop/OperatorExpression[0]/Feature[1]/FeatureReferenceExpression[0]
+TypeFeaturing	X::E::eop/OperatorExpression[0]/Feature[2]	X::E::eop/OperatorExpression[0]
+TypeFeaturing	X::E::esel	snapshots(X::E)
+TypeFeaturing	X::E::esel/BindingConnector[0]	snapshots(X::E)
+TypeFeaturing	X::E::esel/BindingConnector[0]/Feature[0]	X::E::esel/BindingConnector[0]
+TypeFeaturing	X::E::esel/BindingConnector[0]/Feature[1]	X::E::esel/BindingConnector[0]
+TypeFeaturing	X::E::esel/Multiplicity[0]	snapshots(X::E)
+TypeFeaturing	X::E::esel/SelectExpression[0]/Feature[0]	X::E::esel/SelectExpression[0]
+TypeFeaturing	X::E::esel/SelectExpression[0]/Feature[0]/BindingConnector[0]	X::E::esel/SelectExpression[0]
+TypeFeaturing	X::E::esel/SelectExpression[0]/Feature[0]/BindingConnector[0]/Feature[0]	X::E::esel/SelectExpression[0]/Feature[0]/BindingConnector[0]
+TypeFeaturing	X::E::esel/SelectExpression[0]/Feature[0]/BindingConnector[0]/Feature[1]	X::E::esel/SelectExpression[0]/Feature[0]/BindingConnector[0]
+TypeFeaturing	X::E::esel/SelectExpression[0]/Feature[0]/FeatureReferenceExpression[0]	X::E::esel/SelectExpression[0]
+TypeFeaturing	X::E::esel/SelectExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]	snapshots(X::E)
+TypeFeaturing	X::E::esel/SelectExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::esel/SelectExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::esel/SelectExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::esel/SelectExpression[0]/Feature[0]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::esel/SelectExpression[0]/Feature[0]/FeatureReferenceExpression[0]/Feature[0]	X::E::esel/SelectExpression[0]/Feature[0]/FeatureReferenceExpression[0]
+TypeFeaturing	X::E::esel/SelectExpression[0]/Feature[1]	X::E::esel/SelectExpression[0]
+TypeFeaturing	X::E::esel/SelectExpression[0]/Feature[1]/BindingConnector[0]	X::E::esel/SelectExpression[0]
+TypeFeaturing	X::E::esel/SelectExpression[0]/Feature[1]/BindingConnector[0]/Feature[0]	X::E::esel/SelectExpression[0]/Feature[1]/BindingConnector[0]
+TypeFeaturing	X::E::esel/SelectExpression[0]/Feature[1]/BindingConnector[0]/Feature[1]	X::E::esel/SelectExpression[0]/Feature[1]/BindingConnector[0]
+TypeFeaturing	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]	X::E::esel/SelectExpression[0]
+TypeFeaturing	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]
+TypeFeaturing	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[0]	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]/Feature[1]	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/BindingConnector[0]
+TypeFeaturing	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]
+TypeFeaturing	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/BindingConnector[0]	Performances::LiteralBooleanEvaluation
+TypeFeaturing	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/BindingConnector[0]/Feature[0]	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/BindingConnector[0]
+TypeFeaturing	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/BindingConnector[0]/Feature[1]	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/BindingConnector[0]
+TypeFeaturing	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/LiteralBoolean[0]	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]
+TypeFeaturing	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0]/ReferenceUsage[0]	snapshots(X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Expression[0])
+TypeFeaturing	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]/Feature[0]	X::E::esel/SelectExpression[0]/Feature[1]/FeatureReferenceExpression[0]
+TypeFeaturing	X::E::esel/SelectExpression[0]/Feature[2]	X::E::esel/SelectExpression[0]
+TypeFeaturing	X::E::ps	snapshots(X::E)
+TypeFeaturing	X::E::ps/Multiplicity[0]	snapshots(X::E)
+TypeFeaturing	X::G2::a	snapshots(X::G2)
+TypeFeaturing	X::G2::b	snapshots(X::G2)
+TypeFeaturing	X::G2::r	snapshots(X::G2)
+TypeFeaturing	X::P2::px	snapshots(X::P2)
+TypeFeaturing	X::P2::px/Multiplicity[0]	snapshots(X::P2)
+TypeFeaturing	X::P2::py	snapshots(X::P2)
+TypeFeaturing	X::P2::py/Multiplicity[0]	snapshots(X::P2)

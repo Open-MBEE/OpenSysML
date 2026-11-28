@@ -3949,21 +3949,20 @@ func backFromTheGraphAloneAs(t *testing.T, name, turtle string) string {
 	return string(back)
 }
 
-// A loop's condition is read in the loop's own scope, so it links the actions
-// its body declares; a `while` condition reaches the enclosing body's members too.
-func TestLoopConditionsLinkTheLoopBodysActions(t *testing.T) {
+// A loop owns its conditions beside its body, so they link the enclosing body's
+// members and a body written as an action, by its name.
+func TestLoopConditionsLinkTheEnclosingBodyAndNamedLoopBody(t *testing.T) {
 	turtle := toTurtle(t, filepath.Join("testdata", "convert", "loop_scopes.sysml"))
-	for _, want := range []string{
-		"sysml:referent elmt:Loops__Charge___401__charging ;",
-		"sysml:referent elmt:Loops__Charge__prep ;",
-		"sysml:referent elmt:Loops__Charge___402__pace ;",
+	for want, count := range map[string]int{
+		"sysml:referent elmt:Loops__Charge___403__cycle ;": 1,
+		"sysml:referent elmt:Loops__Charge__prep ;":        3,
 	} {
-		if !strings.Contains(turtle, want) {
-			t.Errorf("the graph should carry %q\n%s", want, turtle)
+		if got := strings.Count(turtle, want); got != count {
+			t.Errorf("the graph carries %q %d times, want %d\n%s", want, got, count, turtle)
 		}
 	}
 	back := backFromTheGraphAlone(t, turtle)
-	for _, want := range []string{"} until charging.done;", "while prep.done {", "} until pace.done;"} {
+	for _, want := range []string{"} until cycle.done;", "while prep.done {", "} until prep.done;"} {
 		if !strings.Contains(back, want) {
 			t.Errorf("the notation should read %q\n%s", want, back)
 		}

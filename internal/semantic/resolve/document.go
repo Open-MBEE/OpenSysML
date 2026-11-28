@@ -1926,13 +1926,8 @@ func (r *Resolver) getUsageType(scope *symbols.Scope, usage *ast.Usage) *symbols
 // declared specialization, direction or `default`, the usage specializes its value's result (KerML
 // 1.0 §8.3.3.3.4 checkFeatureValuationSpecialization; a behavior's `T(…)` and `new T(…)` instance T).
 func (r *Resolver) valueType(scope *symbols.Scope, usage *ast.Usage) *symbols.Symbol {
-	if usage.Value == nil || usage.ValueIsDefault || usage.Direction != ast.DirNone || r.valuesInProgress[usage] {
+	if !ValuationSpecializes(usage) || r.valuesInProgress[usage] {
 		return nil
-	}
-	for _, rel := range usage.Relationships {
-		if rel != nil && specializationKind(rel.Kind) {
-			return nil
-		}
 	}
 	r.valuesInProgress[usage] = true
 	defer delete(r.valuesInProgress, usage)
@@ -2024,4 +2019,18 @@ func specializationKind(k ast.RelationshipKind) bool {
 		return true
 	}
 	return false
+}
+
+// ValuationSpecializes reports whether usage specializes the result of its value: it has one that
+// is no `default`, and declares no specialization or direction (KerML checkFeatureValuationSpecialization).
+func ValuationSpecializes(usage *ast.Usage) bool {
+	if usage == nil || usage.Value == nil || usage.ValueIsDefault || usage.Direction != ast.DirNone {
+		return false
+	}
+	for _, rel := range usage.Relationships {
+		if rel != nil && specializationKind(rel.Kind) {
+			return false
+		}
+	}
+	return true
 }

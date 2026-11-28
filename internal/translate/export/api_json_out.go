@@ -25,6 +25,9 @@ type APIJSONOptions struct {
 	// InheritedMembers completes the derived families that repeat inherited members
 	// on every Namespace and Type (apiJSONInheritedFamilies); off, an element carries its owned structure.
 	InheritedMembers bool
+	// Interchange writes each element as the normative SysML.json requires (KerML 10.4.1, 10.4.5):
+	// see apiJSONElementWriter.interchangeElement. It implies InheritedMembers.
+	Interchange bool
 }
 
 const (
@@ -119,6 +122,9 @@ func apiJSONElementsWithOptions(graph *rdf.Graph, options APIJSONOptions) ([]api
 // apiJSONEachElement hands visit the element object of every subject in order;
 // the object is visit's to keep, and nothing here holds it afterwards.
 func apiJSONEachElement(graph *rdf.Graph, options APIJSONOptions, visit func(apiJSONObject) error) error {
+	if options.Interchange {
+		options.InheritedMembers = true
+	}
 	wrapped, err := withRootNamespace(graph)
 	if err != nil {
 		return err
@@ -544,6 +550,9 @@ func (w *apiJSONElementWriter) element(subject rdf.Term) (apiJSONObject, error) 
 				value: graphOrder,
 			})
 		}
+	}
+	if w.options.Interchange {
+		element = w.interchangeElement(subject, metaclass, element)
 	}
 	return element, nil
 }

@@ -223,9 +223,14 @@ type Model struct {
 	transitionParts         map[*symbols.Symbol]*transitionParts
 	sendParts               map[*symbols.Symbol]*sendParts
 	controlParts            map[*symbols.Symbol]*controlParts
-	ownedAnnotations        map[*symbols.Symbol][]*symbols.Symbol
-	annotatingRels          map[*symbols.Symbol][]*symbols.Symbol
-	ownedImports            map[*symbols.Symbol][]*symbols.Symbol
+	// impliedBindings, bindingOfConnector and impliedChains hold the elements implied binding connectors need.
+	impliedBindings    map[*symbols.Symbol][]*impliedBinding
+	bindingOfConnector map[*symbols.Symbol]*impliedBinding
+	impliedChains      map[*symbols.Symbol]*impliedChain
+	impliedFeatures    map[*symbols.Symbol]*impliedFeatures
+	ownedAnnotations   map[*symbols.Symbol][]*symbols.Symbol
+	annotatingRels     map[*symbols.Symbol][]*symbols.Symbol
+	ownedImports       map[*symbols.Symbol][]*symbols.Symbol
 	// rootNamespaces memoizes each document's reflected RootNamespace (see reflective_root.go).
 	rootNamespaces map[string]*symbols.Symbol
 }
@@ -460,6 +465,9 @@ func bodyParamRelationships(body *ast.BodyExpr, name string) []*ast.Relationship
 func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym == nil {
 		return nil
+	}
+	if sym.Inclusion != nil {
+		return m.inclusionSupertypes(sym)
 	}
 	defer m.own(sym).LeaveDoc()
 	// An assumption answers every query under it, which it cuts short so nothing is memoized.
@@ -1087,7 +1095,7 @@ func (m *Model) FeatureTypeSet(sym *symbols.Symbol) []*symbols.Symbol {
 		return nil
 	}
 	if types := m.TypedFeatureTypes(sym); len(types) > 0 {
-		return types
+		return m.withUntypedResultGenerals(sym, types)
 	}
 	var types []*symbols.Symbol
 	// The definition its kind implies types the usage before the base feature's
@@ -1114,6 +1122,29 @@ func (m *Model) FeatureTypeSet(sym *symbols.Symbol) []*symbols.Symbol {
 		return []*symbols.Symbol{base}
 	}
 	return nil
+}
+
+// withUntypedResultGenerals narrows an expression result's types by those of each untyped feature
+// it specializes: that feature's kind types it, which no typing the result reaches says.
+func (m *Model) withUntypedResultGenerals(sym *symbols.Symbol, types []*symbols.Symbol) []*symbols.Symbol {
+	if sym.Expr == nil || sym.Expr.Role != symbols.ExpressionResult {
+		return types
+	}
+	all := types
+	for _, general := range m.expressionElementGenerals(sym) {
+		if general == nil || general == sym || !general.IsFeature() || len(m.TypedFeatureTypes(general)) > 0 {
+			continue
+		}
+		for _, typ := range m.FeatureTypeSet(general) {
+			if !containsElement(all, typ) {
+				all = append(slices.Clip(all), typ)
+			}
+		}
+	}
+	if len(all) == len(types) {
+		return types
+	}
+	return m.mostSpecificTypes(all)
 }
 
 // TypedFeatureTypes is FeatureTypeSet without the kind's base: the most specific types a

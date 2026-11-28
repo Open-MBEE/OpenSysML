@@ -9,9 +9,15 @@
 
 ;;; Code:
 
+(require 'cl-lib)
 (require 'ert)
+(require 'ert-x)
 (require 'imenu)
 (require 'sysml-mode)
+
+;; No test reads or writes the answers of whoever runs the suite.
+(setq sysml-project-builds-file
+      (expand-file-name "builds.eld" (make-temp-file "sysml-test" t)))
 
 (defconst sysml-test--dir
   (file-name-directory (or load-file-name buffer-file-name))
@@ -237,9 +243,283 @@
     (should (equal (sysml-run-paths "/otherwise/m.sysml" folders) '("/otherwise/m.sysml")))
     (should (equal (sysml-run-paths "/ws/m.sysml" nil) '("/ws/m.sysml")))))
 
+;;;; Project builds
+
+(defmacro sysml-test--with-project-build (root &rest body)
+  "Run BODY with ROOT bound to a new project holding `bin/sysml-lsp' and `bin/sysml'.
+No answer is on record for it, and nothing else names a server or tool."
+  (declare (indent 1))
+  `(let* ((,root (file-name-as-directory (make-temp-file "proj" t)))
+          (sysml-project-builds nil)
+          (sysml-project-builds-file (expand-file-name "answers/builds.eld" ,root))
+          (sysml--project-build-answers nil)
+          (sysml-lsp-server-path nil)
+          (exec-path nil))
+     (unwind-protect
+         (progn
+           (make-directory (expand-file-name "bin" ,root))
+           (dolist (f '("bin/sysml-lsp" "bin/sysml"))
+             (write-region "" nil (expand-file-name f ,root))
+             (set-file-modes (expand-file-name f ,root) #o755))
+           ,@body)
+       (delete-directory ,root t))))
+
+(defmacro sysml-test--answering (answer asked saved &rest body)
+  "Run BODY as an interactive session whose user answers ANSWER to a question.
+ASKED is bound to the questions put, newest first.  SAVED is a function
+returning the answers `sysml-project-builds-file' holds for later
+sessions.  Nothing may be saved through Custom, whose file holds the
+user's other settings."
+  (declare (indent 3))
+  `(let ((noninteractive nil) ,asked)
+     (cl-letf (((symbol-function 'y-or-n-p)
+                (lambda (prompt) (push prompt ,asked) ,answer))
+               ((symbol-function 'customize-save-variable)
+                (lambda (&rest _) (ert-fail "saved through Custom")))
+               ((symbol-function 'custom-save-all)
+                (lambda (&rest _) (ert-fail "saved through Custom"))))
+       (cl-flet ((,saved () (sysml-test--saved-builds)))
+         ,@body))))
+
+(defun sysml-test--saved-builds ()
+  "Return the answers `sysml-project-builds-file' holds, or nil when it is absent."
+  (when (file-exists-p sysml-project-builds-file)
+    (with-temp-buffer
+      (insert-file-contents sysml-project-builds-file)
+      (read (current-buffer)))))
+
+(ert-deftest sysml-mode-asks-once-before-running-a-project-build ()
+  (sysml-test--with-project-build root
+    (sysml-test--answering t asked saved
+      (should (equal (sysml--find-server root) (expand-file-name "bin/sysml-lsp" root)))
+      (should (equal (sysml-find-tool nil root) (expand-file-name "bin/sysml" root)))
+      (should (equal (sysml--find-server root) (expand-file-name "bin/sysml-lsp" root)))
+      (should (= (length asked) 1))
+      (should (string-search root (car asked)))
+      (should (equal (saved) (list (cons root t))))
+      (should-not sysml-project-builds))))
+
+(ert-deftest sysml-mode-remembers-a-refused-project-build ()
+  (sysml-test--with-project-build root
+    (sysml-test--answering nil asked saved
+      (should-not (sysml--find-server root))
+      (should-not (sysml-find-tool nil root))
+      (should-not (sysml--find-server root))
+      (should (= (length asked) 1))
+      (should (equal (saved) (list (cons root nil)))))))
+
+(ert-deftest sysml-mode-keeps-an-answer-it-cannot-save-for-the-session ()
+  (sysml-test--with-project-build root
+    ;; A file stands where the directory of the answers would be made.
+    (write-region "" nil (expand-file-name "answers" root))
+    (sysml-test--answering t asked saved
+      (should (sysml--find-server root))
+      (should (sysml-find-tool nil root))
+      (should (= (length asked) 1))
+      (should-not (saved)))))
+
+(ert-deftest sysml-mode-keeps-the-answers-another-session-saved ()
+  (sysml-test--with-project-build root
+    (sysml-test--answering t asked saved
+      (should (sysml--find-server root))
+      ;; Another Emacs answers for its own checkouts after this one read the file.
+      (make-directory (file-name-directory sysml-project-builds-file) t)
+      (write-region (prin1-to-string (list '("/other/a/" . t) (cons root t) '("/other/b/" . nil)))
+                    nil sysml-project-builds-file)
+      (let ((second (file-name-as-directory (make-temp-file "proj" t))))
+        (unwind-protect
+            (progn
+              (make-directory (expand-file-name "bin" second))
+              (write-region "" nil (expand-file-name "bin/sysml-lsp" second))
+              (set-file-modes (expand-file-name "bin/sysml-lsp" second) #o755)
+              (should (sysml--find-server second))
+              (should (= (length asked) 2))
+              (should (equal (sort (saved) (lambda (a b) (string< (car a) (car b))))
+                             (sort (list '("/other/a/" . t) '("/other/b/" . nil)
+                                         (cons root t) (cons second t))
+                                   (lambda (a b) (string< (car a) (car b)))))))
+          (delete-directory second t))))))
+
+(ert-deftest sysml-mode-sees-an-answer-another-session-changed ()
+  (sysml-test--with-project-build root
+    (sysml-test--answering t asked saved
+      (should (sysml--find-server root))
+      (write-region (prin1-to-string (list (cons root nil))) nil sysml-project-builds-file)
+      (should-not (sysml--find-server root))
+      (should (= (length asked) 1)))))
+
+(ert-deftest sysml-mode-leaves-answers-it-cannot-read-alone ()
+  (sysml-test--with-project-build root
+    (make-directory (file-name-directory sysml-project-builds-file) t)
+    (write-region "((\"/other/a/\" . t" nil sysml-project-builds-file)
+    (sysml-test--answering t asked saved
+      (should (sysml--find-server root))
+      (should (sysml-find-tool nil root))
+      (should (= (length asked) 1))
+      (should (equal (with-temp-buffer
+                       (insert-file-contents sysml-project-builds-file)
+                       (buffer-string))
+                     "((\"/other/a/\" . t")))))
+
+(ert-deftest sysml-mode-puts-the-option-before-a-saved-answer ()
+  (sysml-test--with-project-build root
+    (dolist (answer '(t nil))
+      (make-directory (file-name-directory sysml-project-builds-file) t)
+      (write-region (prin1-to-string (list (cons root (not answer)))) nil
+                    sysml-project-builds-file)
+      (let ((sysml-project-builds (list (cons root answer))))
+        (sysml-test--answering (not answer) asked saved
+          (should (eq (and (sysml--find-server root) t) answer))
+          (should-not asked)
+          (should (equal (saved) (list (cons root (not answer))))))))))
+
+(ert-deftest sysml-mode-refuses-a-project-build-it-cannot-ask-about ()
+  (sysml-test--with-project-build root
+    (let ((noninteractive t))
+      (cl-letf (((symbol-function 'y-or-n-p)
+                 (lambda (&rest _) (ert-fail "asked in a batch session"))))
+        (should-not (sysml--find-server root))
+        (should-not (sysml-find-tool nil root))
+        (should-not sysml-project-builds)))))
+
+(ert-deftest sysml-mode-runs-a-project-build-allowed-earlier ()
+  (sysml-test--with-project-build root
+    ;; The answer is on record under the root however the caller spells it.
+    (let ((sysml-project-builds (list (cons root t))))
+      (should (equal (sysml--find-server (directory-file-name root))
+                     (expand-file-name "bin/sysml-lsp" root)))
+      (should (equal (sysml-find-tool nil root) (expand-file-name "bin/sysml" root))))))
+
+(ert-deftest sysml-mode-asks-nothing-without-a-project-build ()
+  (let ((root (file-name-as-directory (make-temp-file "proj" t)))
+        (sysml-project-builds nil)
+        (sysml-lsp-server-path nil)
+        (exec-path nil))
+    (unwind-protect
+        (sysml-test--answering t asked saved
+          (should-not (sysml--find-server root))
+          (should-not (sysml-find-tool nil root))
+          (should-not asked)
+          (should-not (saved)))
+      (delete-directory root t))))
+
+(ert-deftest sysml-mode-asks-nothing-when-a-server-is-configured ()
+  (sysml-test--with-project-build root
+    (let ((sysml-lsp-server-path (expand-file-name "bin/sysml-lsp" root)))
+      (sysml-test--answering t asked saved
+        (should (equal (sysml--find-server root) sysml-lsp-server-path))
+        (should-not asked)
+        (should-not (saved))))))
+
+(ert-deftest sysml-mode-keeps-answers-apart-by-checkout ()
+  ;; A checkout on another host is another checkout, under its full name.
+  (let* ((root "/work/model/")
+         (remote (concat "/ssh:host:" root))
+         (sysml-project-builds (list (cons remote nil) (cons root t))))
+    (should (sysml--project-build-allowed-p root))
+    (should-not (sysml--project-build-allowed-p remote))))
+
+(ert-deftest sysml-mode-finds-an-answer-recorded-without-the-trailing-slash ()
+  (sysml-test--with-project-build root
+    (dolist (answer '(t nil))
+      (let ((sysml-project-builds (list (cons (directory-file-name root) answer))))
+        (sysml-test--answering (not answer) asked saved
+          (should (equal (sysml--find-server root)
+                         (and answer (expand-file-name "bin/sysml-lsp" root))))
+          (should (equal (sysml-find-tool nil root)
+                         (and answer (expand-file-name "bin/sysml" root))))
+          (should-not asked)
+          (should-not (saved)))))))
+
+(ert-deftest sysml-mode-finds-a-remote-answer-recorded-without-the-trailing-slash ()
+  (dolist (answer '(t nil))
+    (let ((sysml-project-builds (list (cons "/ssh:host:/work/model" answer)
+                                      (cons "/work/model" (not answer)))))
+      (sysml-test--answering (not answer) asked saved
+        (should (eq (sysml--project-build-allowed-p "/ssh:host:/work/model/") answer))
+        (should (eq (sysml--project-build-allowed-p "/work/model/") (not answer)))
+        (should-not asked)
+        (should-not (saved))))))
+
+(ert-deftest sysml-mode-names-the-build-it-may-not-run-when-no-server-is-found ()
+  (sysml-test--with-project-build root
+    ;; Never asked about in a batch session, and refused earlier.
+    (dolist (sysml-project-builds (list nil (list (cons root nil))))
+      (let* ((noninteractive t)
+             (message (cadr (should-error (sysml--server-command root) :type 'user-error))))
+        (should (string-search (expand-file-name "bin/" root) message))
+        (should (string-search "not allowed" message))
+        (should (string-search "sysml-project-builds" message))))))
+
+(ert-deftest sysml-mode-names-no-build-when-the-project-holds-none ()
+  (let ((root (file-name-as-directory (make-temp-file "proj" t)))
+        (sysml-project-builds nil)
+        (sysml-lsp-server-path nil)
+        (exec-path nil)
+        (noninteractive t))
+    (unwind-protect
+        (let ((message (cadr (should-error (sysml--server-command root) :type 'user-error))))
+          (should-not (string-search "sysml-project-builds" message))
+          (should (string-search "make build" message)))
+      (delete-directory root t))))
+
+(ert-deftest sysml-mode-says-when-it-passes-over-a-build-for-exec-path ()
+  (sysml-test--with-project-build root
+    (let* ((elsewhere (file-name-as-directory (make-temp-file "path" t)))
+           (exec-path (list elsewhere))
+           (noninteractive t))
+      (unwind-protect
+          (progn
+            (dolist (f '("sysml-lsp" "sysml"))
+              (write-region "" nil (expand-file-name f elsewhere))
+              (set-file-modes (expand-file-name f elsewhere) #o755))
+            (dolist (case `((,(lambda () (sysml--find-server root)) "sysml-lsp")
+                            (,(lambda () (sysml-find-tool nil root)) "sysml")))
+              (ert-with-message-capture said
+                (should (equal (funcall (car case)) (expand-file-name (cadr case) elsewhere)))
+                (should (string-search (expand-file-name (concat "bin/" (cadr case)) root) said))
+                (should (string-search (expand-file-name (cadr case) elsewhere) said))
+                (should (string-search "sysml-project-builds" said))
+                (should (= (length (split-string said "\n" t)) 1)))
+              ;; Nothing was passed over when the build may be run.
+              (let ((sysml-project-builds (list (cons root t))))
+                (ert-with-message-capture said
+                  (should (equal (funcall (car case))
+                                 (expand-file-name (concat "bin/" (cadr case)) root)))
+                  (should (string-empty-p said))))))
+        (delete-directory elsewhere t)))))
+
+(ert-deftest sysml-mode-says-nothing-of-builds-when-the-project-holds-none ()
+  (let* ((root (file-name-as-directory (make-temp-file "proj" t)))
+         (sysml-project-builds nil)
+         (sysml-lsp-server-path nil)
+         (exec-path (list root))
+         (noninteractive t))
+    (unwind-protect
+        (progn
+          (write-region "" nil (expand-file-name "sysml-lsp" root))
+          (set-file-modes (expand-file-name "sysml-lsp" root) #o755)
+          (ert-with-message-capture said
+            (should (sysml--find-server root))
+            (should (string-empty-p said))))
+      (delete-directory root t))))
+
+(ert-deftest sysml-mode-names-the-build-it-may-not-run-when-no-tool-is-found ()
+  (sysml-test--with-project-build root
+    (let* ((noninteractive t)
+           (file (expand-file-name "m.sysml" root))
+           (message (cadr (should-error
+                           (sysml-run-element "action" "P::a" (list file)
+                                              (sysml-find-tool nil root) root)
+                           :type 'user-error))))
+      (should (string-search (expand-file-name "bin/" root) message))
+      (should (string-search "not allowed" message))
+      (should (string-search "sysml-project-builds" message)))))
+
 (ert-deftest sysml-mode-finds-the-tool-beside-the-server-then-in-the-project ()
   (let* ((root (file-name-as-directory (make-temp-file "root" t)))
          (beside (file-name-as-directory (make-temp-file "bin" t)))
+         (sysml-project-builds (list (cons root t)))
          (exec-path nil))
     (unwind-protect
         (progn

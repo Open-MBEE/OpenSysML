@@ -18,6 +18,9 @@ func (m *Model) ImpliedRedefinitions(sym *symbols.Symbol) []*symbols.Symbol {
 	if m == nil || sym == nil {
 		return nil
 	}
+	if sym.Inclusion != nil {
+		return m.inclusionRedefinitions(sym)
+	}
 	var out []*symbols.Symbol
 	add := func(features []*symbols.Symbol) {
 		for _, feature := range features {
