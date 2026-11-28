@@ -991,11 +991,18 @@ func (e *goEmitter) stmt(s Stmt) {
 	case While:
 		e.linef("for sysmlAfter(sysmlStep(1), %s) {", e.expr(s.Cond))
 		e.indent++
-		e.block(s.Body)
 		if s.Until != nil {
+			// The body is a block of its own: what it declares does not hide a name the condition reads.
+			e.linef("{")
+			e.indent++
+			e.block(s.Body)
+			e.indent--
+			e.linef("}")
 			e.linef("if %s {", e.expr(s.Until))
 			e.linef("\tbreak")
 			e.linef("}")
+		} else {
+			e.block(s.Body)
 		}
 		e.indent--
 		e.linef("}")

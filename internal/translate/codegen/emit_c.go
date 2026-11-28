@@ -1004,11 +1004,18 @@ func (e *cEmitter) stmt(s Stmt) {
 		mark := e.arenaMark()
 		e.linef("while ((sysml_step(1), %s)) {", e.expr(s.Cond))
 		e.indent++
-		e.block(s.Body)
 		until := ""
 		if s.Until != nil {
+			// The body is a block of its own: what it declares does not hide a name the condition reads.
+			e.linef("{")
+			e.indent++
+			e.block(s.Body)
+			e.indent--
+			e.linef("}")
 			e.linef("bool sysml_until = %s;", e.expr(s.Until))
 			until = "sysml_until"
+		} else {
+			e.block(s.Body)
 		}
 		e.compact(escapingSeqs(s), mark)
 		if until != "" {

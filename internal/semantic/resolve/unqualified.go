@@ -30,9 +30,7 @@ func (r *Resolver) LookupName(scope *symbols.Scope, name string) (*symbols.Symbo
 // imports are still consulted, so a perform statement's borrowed name does not
 // hide the action its owner inherits from its type.
 func (r *Resolver) walkUnqualifiedHiding(scope *symbols.Scope, name string, hide *refFilter) resolution {
-	// A loop's condition is the loop's own expression, so the body's imports do not reach it.
-	fromGuard := false
-	for s := scope; s != nil; fromGuard, s = s.GuardView(), s.Parent() {
+	for s := scope; s != nil; s = s.Parent() {
 		if sym, ok := r.localBinding(s, name, hide); ok {
 			return resolution{sym: sym, ok: true}
 		}
@@ -55,7 +53,7 @@ func (r *Resolver) walkUnqualifiedHiding(scope *symbols.Scope, name string, hide
 
 		// A loop body or if branch has no owner symbol to ask for its imported members, and
 		// they are found before the search moves outward (KerML 8.2.3.5.4).
-		if importingBody(s, fromGuard) {
+		if importingBody(s) {
 			if sym, ok := r.lookupImports(s, name); ok && !hide.hides(sym) {
 				return resolution{sym: sym, ok: true}
 			}
@@ -65,9 +63,6 @@ func (r *Resolver) walkUnqualifiedHiding(scope *symbols.Scope, name string, hide
 			return resolution{sym: sym, ok: true}
 		}
 
-		if fromGuard {
-			continue
-		}
 		if sym, ok := r.lookupImports(s, name); ok && !hide.hides(sym) {
 			return resolution{sym: sym, ok: true}
 		}
@@ -87,13 +82,11 @@ func (r *Resolver) walkUnqualifiedHiding(scope *symbols.Scope, name string, hide
 	return resolution{}
 }
 
-// importingBody reports whether s is a loop body or if branch read from inside it: a scope
-// with no owner symbol whose imports the walk reads itself. A loop's guard is outside its body.
-func importingBody(s *symbols.Scope, fromGuard bool) bool {
+// importingBody reports whether s is a loop body or if branch: a scope with no owner symbol
+// whose imports the walk reads itself. A loop's conditions are not resolved in a `{ … }` body (Scope.LoopGuard).
+func importingBody(s *symbols.Scope) bool {
 	switch s.Node().(type) {
-	case *ast.WhileLoopActionNode:
-		return !fromGuard
-	case *ast.IfBranchNode:
+	case *ast.WhileLoopActionNode, *ast.IfBranchNode:
 		return true
 	}
 	return false

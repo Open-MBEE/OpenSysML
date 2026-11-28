@@ -1,0 +1,8 @@
+{
+  "libraries": true,
+  "type": "calc",
+  "result": {"type": "Sequence", "elements": [{
+      "type": "Integer",
+      "value": 1
+    }]}
+}

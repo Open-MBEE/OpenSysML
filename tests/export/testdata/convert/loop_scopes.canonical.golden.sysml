@@ -3,9 +3,12 @@ package Loops {
         action prep;
         loop {
             action charging;
-        } until charging.done;
+        } until prep.done;
         while prep.done {
             action pace;
-        } until pace.done;
+        } until prep.done;
+        loop action cycle {
+            action 'step';
+        } until cycle.done;
     }
 }
