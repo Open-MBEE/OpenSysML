@@ -346,7 +346,10 @@ func (a *arranger) crowdedLanes(roots []*Node) []string {
 				if covered.Kind != swimlaneKind || !covered.Geometry.placed() || !frame.overlaps(box) {
 					continue
 				}
-				if notice := a.crowdNotice(over, frame, covered, box); notice != "" {
+				covers := []string{fmt.Sprintf("swimlane %s (%s)", covered.Name, frame.shared(box))}
+				covers = append(covers, a.coveredSteps(frame, covered.Children)...)
+				covers = append(covers, fmt.Sprintf("the frame of %s (%s)", under.Name, frame.shared(a.boxes[under.ID])))
+				if notice := a.crowdNotice(over, frame, covered, box, strings.Join(covers, ", ")); notice != "" {
 					notices = append(notices, notice)
 				}
 			}
@@ -357,7 +360,7 @@ func (a *arranger) crowdedLanes(roots []*Node) []string {
 
 // crowdNotice names the placed swimlane of the flow over nearest the swimlane covered, which
 // over's frame is drawn across, and the gap between the two that keeps the frame clear of it.
-func (a *arranger) crowdNotice(over *Node, frame drawioBox, covered *Node, box drawioBox) string {
+func (a *arranger) crowdNotice(over *Node, frame drawioBox, covered *Node, box drawioBox, covers string) string {
 	notice, least := "", math.Inf(1)
 	for _, lane := range over.Children {
 		own := a.boxes[lane.ID]
@@ -380,11 +383,28 @@ func (a *arranger) crowdNotice(over *Node, frame drawioBox, covered *Node, box d
 		}
 		if stated < least {
 			least = stated
-			notice = fmt.Sprintf("swimlane %s is placed %g px %s swimlane %s, in another flow: the frame of %s needs %g px there and is drawn over that swimlane; a Layout that far apart keeps them clear",
-				lane.Name, stated, axis, covered.Name, over.Name, math.Ceil(needed))
+			notice = fmt.Sprintf("swimlane %s is placed %g px %s swimlane %s, in another flow: the frame of %s needs %g px there and is drawn over %s; a Layout that far apart keeps them clear",
+				lane.Name, stated, axis, covered.Name, over.Name, math.Ceil(needed), covers)
 		}
 	}
 	return notice
+}
+
+// shared is the size of what b and o both cover, as a notice states it.
+func (b drawioBox) shared(o drawioBox) string {
+	return fmt.Sprintf("%g×%g px", math.Min(b.right(), o.right())-math.Max(b.X, o.X), math.Min(b.bottom(), o.bottom())-math.Max(b.Y, o.Y))
+}
+
+// coveredSteps names the nodes under nodes, a swimlane's, that frame is drawn over, and by how much.
+func (a *arranger) coveredSteps(frame drawioBox, nodes []*Node) []string {
+	var names []string
+	for _, node := range nodes {
+		if box, drawn := a.boxes[node.ID]; drawn && frame.overlaps(box) {
+			names = append(names, fmt.Sprintf("its step %s (%s)", node.Name, frame.shared(box)))
+		}
+		names = append(names, a.coveredSteps(frame, node.Children)...)
+	}
+	return names
 }
 
 // coversOtherLanes is the area root, drawn from at, covers of the frames the other roots draw

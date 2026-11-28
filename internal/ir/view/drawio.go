@@ -239,6 +239,19 @@ func drawioDiagramID(view string) string {
 	return strings.NewReplacer("::", "-", " ", "_").Replace(view)
 }
 
+// LaneNotices says which flows of a view placing swimlanes alone are drawn over another flow's
+// placed swimlane and its steps, the Layouts stated nearer than the frame between them needs.
+func (r *Rendering) LaneNotices(options Options) []string {
+	if r.Kind != KindAction || !slices.ContainsFunc(drawioNodes(r.Roots), func(n *Node) bool { return n.Kind == swimlaneKind && n.Geometry.placed() }) {
+		return nil
+	}
+	_, w, err := r.drawioPrepare(options)
+	if err != nil {
+		return nil
+	}
+	return w.crowded
+}
+
 // notices are what the file does not represent, written as leading comments.
 func (w *drawioWriter) notices(r *Rendering, options Options) []string {
 	notices := append([]string(nil), r.notices()...)

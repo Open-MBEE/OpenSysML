@@ -40,4 +40,25 @@ package LaneStacked {
         metadata Layout about line::robot { x = 320; y = 120; }
         metadata Layout about line::packer { x = 320; y = 330; }
     }
+
+	action runAll {
+		action load;
+		action pack;
+		first load then pack;
+	}
+	part cell {
+		part robot {
+			perform runAll.load;
+		}
+		part packer {
+			perform runAll.pack;
+		}
+	}
+
+	// One flow holding both lanes, as close: no frame comes between them.
+	view oneFlowView : ActionFlowView {
+		expose runAll;
+		metadata Layout about cell::robot { x = 320; y = 120; }
+		metadata Layout about cell::packer { x = 320; y = 330; }
+	}
 }

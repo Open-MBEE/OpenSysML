@@ -180,9 +180,26 @@ func (i *DrawioImporter) Import(file *DrawioFile) (*DrawioImport, error) {
 	out := &DrawioImport{View: i.norm.View}
 	m := &drawioMatcher{norm: i.norm, drawn: i.drawn, w: i.w, base: i.base, file: file, out: out, nodes: i.nodes, ports: i.ports, positioned: i.positioned, framed: map[string]bool{}, unnamed: map[string]bool{}, paired: map[string]*DrawioCell{}}
 	m.match()
+	out.Notices = append(out.Notices, m.crowdedStill()...)
 	m.canvas()
 	m.resolveRenames()
 	return out, nil
+}
+
+// crowdedStill is what the baseline says of flows drawn over another's placed swimlane, when
+// the file left its swimlanes and the frames of its flows where they were: it shows them so still.
+func (m *drawioMatcher) crowdedStill() []string {
+	for i := range m.base.Cells {
+		base := &m.base.Cells[i]
+		node := m.nodes[base.ID]
+		if node == nil || sameBox(fullBox(m.editedOf(base)), fullBox(base)) {
+			continue
+		}
+		if parent := m.base.Cell(base.Parent); node.Kind == swimlaneKind || parent == nil || !parent.Vertex {
+			return nil
+		}
+	}
+	return m.w.crowded
 }
 
 // drawioNodes lists every node of the trees rooted at roots, parents first.
