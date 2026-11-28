@@ -18,7 +18,7 @@ func TestRenderSaysWhichStackedSwimlanesAFlowFrameCovers(t *testing.T) {
 		t.Fatal(err)
 	}
 	const notice = "swimlane line.packer is placed 48 px below swimlane line.robot, in another flow: " +
-		"the frame of LaneStacked::runB needs 92 px there and is drawn over swimlane line.robot (142×44 px), " +
+		"the frame of LaneStacked::runB needs 108 px there and is drawn over swimlane line.robot (142×44 px), " +
 		"its step load (64×28 px), the frame of LaneStacked::runA (174×60 px)"
 	for _, form := range []string{"text", "mermaid", "dot", "plantuml", "d2", "drawio"} {
 		for _, c := range []struct {
@@ -191,7 +191,7 @@ func TestRenderClearsSwimlanesPlacedPastAFrameOrOverEachOther(t *testing.T) {
 			"swimlane line.packer is placed over swimlane line.robot (142×2 px), in another flow: the frame of LaneStacked::runB " +
 				"is drawn over swimlane line.robot (142×94 px), the frame of LaneStacked::runA (174×110 px); Layouts placing the swimlanes of LaneStacked::runB 110 px lower keep them clear"},
 		{"lanes against each other", "x = 320; y = 120; width = 142; height = 210;", "", 0, 330,
-			"swimlane line.packer is placed directly below swimlane line.robot, in another flow: the frame of LaneStacked::runB needs 92 px there " +
+			"swimlane line.packer is placed directly below swimlane line.robot, in another flow: the frame of LaneStacked::runB needs 108 px there " +
 				"and is drawn over swimlane line.robot (142×92 px), the frame of LaneStacked::runA (174×108 px); a Layout that far apart keeps them clear"},
 	} {
 		render := func(t *testing.T, lower float64) string {
@@ -255,5 +255,85 @@ func TestRenderGridsAFlowUnderASwimlanePlacedPastItsFrame(t *testing.T) {
 		if strings.Contains(got.stderr, "is drawn over") {
 			t.Errorf("%s: the flow on the grid is drawn over a placed swimlane:\n%s", form, got.stderr)
 		}
+	}
+}
+
+// The gap a notice asks for between two swimlanes no flow frame is placed around clears all
+// it names, the other flow's frame too, whichever lane's notice is followed.
+func TestRenderClearsFlowFramesAtTheSwimlaneGapANoticeAsksFor(t *testing.T) {
+	binary := buildCLI(t)
+	source, err := os.ReadFile("../../internal/ir/view/testdata/action-swimlane-layout-stacked.sysml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := strings.TrimSuffix(strings.TrimRight(string(source), "\n"), "}")
+	frame := regexp.MustCompile(`label="«action»&#xA;run[AB]"[^>]*>\s*<mxCell[^>]*>\s*<mxGeometry x="([-\d.]+)" y="([-\d.]+)" width="([\d.]+)" height="([\d.]+)"`)
+	asked := regexp.MustCompile(`swimlane line\.(\w+) is placed (?:([\d.]+) px|directly) (below|above|right of|left of) [^\n]* needs ([\d.]+) px there`)
+	// render draws the two flows with the packer lane at x, y and returns the notices and how far the flow frames cross.
+	render := func(t *testing.T, robot string, x, y float64) (string, float64, float64) {
+		at := func(v float64) string { return strconv.FormatFloat(v, 'f', -1, 64) }
+		view := "\tview gapView : ActionFlowView {\n\t\texpose runA;\n\t\texpose runB;\n" +
+			"\t\tmetadata Layout about line::robot { " + robot + " }\n" +
+			"\t\tmetadata Layout about line::packer { x = " + at(x) + "; y = " + at(y) + "; }\n\t}\n}\n"
+		model := filepath.Join(t.TempDir(), "gap.sysml")
+		if err := os.WriteFile(model, []byte(body+view), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		got := runFiles(t, binary, []string{model}, "-render", "LaneStacked::gapView", "-render-form", "drawio")
+		if got.status != exitHolds {
+			t.Fatalf("exit status = %d\n%s", got.status, got.output())
+		}
+		frames := frame.FindAllStringSubmatch(got.stdout, -1)
+		if len(frames) != 2 {
+			t.Fatalf("drawn flow frames = %d, want 2:\n%s", len(frames), got.stdout)
+		}
+		var box [2][4]float64
+		for i, f := range frames {
+			for j := range box[i] {
+				box[i][j], _ = strconv.ParseFloat(f[j+1], 64)
+			}
+		}
+		a, b := box[0], box[1]
+		wide := min(a[0]+a[2], b[0]+b[2]) - max(a[0], b[0])
+		high := min(a[1]+a[3], b[1]+b[3]) - max(a[1], b[1])
+		return got.stderr, wide, high
+	}
+	for _, c := range []struct {
+		name    string
+		robot   string
+		x, y    float64
+		notices int
+	}{
+		{"below", "x = 320; y = 120;", 320, 330, 1},
+		{"directly below, a notice for each frame", "x = 320; y = 120; width = 142; height = 210;", 320, 330, 2},
+		{"above", "x = 320; y = 120;", 320, -80, 1},
+		{"right of", "x = 320; y = 120;", 480, 120, 1},
+		{"right of, a notice for each frame", "x = 320; y = 120;", 470, 200, 2},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			stderr, _, _ := render(t, c.robot, c.x, c.y)
+			notices := asked.FindAllStringSubmatch(stderr, -1)
+			if len(notices) != c.notices {
+				t.Fatalf("notices asking for a gap = %d, want %d:\n%s", len(notices), c.notices, stderr)
+			}
+			for _, n := range notices {
+				stated, _ := strconv.ParseFloat(n[2], 64)
+				needed, _ := strconv.ParseFloat(n[4], 64)
+				by := needed - stated
+				// The packer lane moves away from the robot lane, whichever of the two the notice is about.
+				way := map[string][2]float64{"below": {0, by}, "above": {0, -by}, "right of": {by, 0}, "left of": {-by, 0}}[n[3]]
+				dx, dy := way[0], way[1]
+				if n[1] == "robot" {
+					dx, dy = -dx, -dy
+				}
+				stderr, wide, high := render(t, c.robot, c.x+dx, c.y+dy)
+				if strings.Contains(stderr, "is drawn over") {
+					t.Errorf("%g px apart, as the notice for %s asks, a frame is still drawn over a lane:\n%s", needed, n[1], stderr)
+				}
+				if wide > 0 && high > 0 {
+					t.Errorf("%g px apart, as the notice for %s asks, the flow frames cross by %g×%g px", needed, n[1], wide, high)
+				}
+			}
+		})
 	}
 }

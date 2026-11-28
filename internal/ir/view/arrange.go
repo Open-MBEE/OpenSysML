@@ -362,7 +362,6 @@ func (a *arranger) crowdedLanes(roots []*Node) []string {
 // crowdNotice names the placed swimlane of the flow over nearest the swimlane covered, which
 // over's frame is drawn across, and what keeps the frame clear of past, all its flow draws.
 func (a *arranger) crowdNotice(over *Node, frame drawioBox, covered *Node, box, past drawioBox, covers string) string {
-	deep := a.drawnAround(covered)
 	// How far the frame moves each way to leave past behind it.
 	lower, higher := past.bottom()-frame.Y, frame.bottom()-past.Y
 	right, left := past.right()-frame.X, frame.right()-past.X
@@ -383,16 +382,16 @@ func (a *arranger) crowdNotice(over *Node, frame drawioBox, covered *Node, box, 
 		switch {
 		case own.Y >= box.bottom():
 			stated, shift, axis, away = own.Y-box.bottom(), lower, "below", "lower"
-			needed = stated + deep.bottom() - frame.Y
+			needed = stated + lower
 		case own.bottom() <= box.Y:
 			stated, shift, axis, away = box.Y-own.bottom(), higher, "above", "higher"
-			needed = stated + frame.bottom() - deep.Y
+			needed = stated + higher
 		case own.X >= box.right():
 			stated, shift, axis, away = own.X-box.right(), right, "right of", "further right"
-			needed = stated + deep.right() - frame.X
+			needed = stated + right
 		case own.right() <= box.X:
 			stated, shift, axis, away = box.X-own.right(), left, "left of", "further left"
-			needed = stated + frame.right() - deep.X
+			needed = stated + left
 		default:
 			// The two Layouts overlap as stated: the shortest move apart clears them.
 			stated, shift, away = -1, lower, "lower"
