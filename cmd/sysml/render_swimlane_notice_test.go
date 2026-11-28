@@ -165,36 +165,46 @@ func TestRenderSaysWhichStackedSwimlanesAFlowFrameCovers(t *testing.T) {
 	}
 }
 
-// A Layout may place a swimlane past the frame of its own flow: the notice names the frame only
-// when it is covered, and what it asks for clears the lane as well.
-func TestRenderClearsASwimlanePlacedPastItsFlowFrame(t *testing.T) {
+// Swimlanes placed past their flow's frame, against each other or over each other: the notice
+// names what is covered, states no size of zero or less, and what it asks for clears the lane.
+func TestRenderClearsSwimlanesPlacedPastAFrameOrOverEachOther(t *testing.T) {
 	binary := buildCLI(t)
 	source, err := os.ReadFile("../../internal/ir/view/testdata/action-swimlane-layout-stacked.sysml")
 	if err != nil {
 		t.Fatal(err)
 	}
-	const robot = "is drawn over swimlane line.robot (142×"
+	const pinnedA = "\t\tmetadata Layout about runA { x = 300; y = 60; width = 200; height = 80; }\n"
 	for _, c := range []struct {
 		name   string
-		y      float64
+		robot  string  // the Layout of the lane covered
+		frameA string  // the Layout of its flow, if any
+		frameB float64 // the y of the covering flow's Layout, if any
+		packer float64 // the y of the covering flow's lane
 		notice string
 	}{
-		{"frame and lane", 130, robot + "44 px), the frame of LaneStacked::runA (174×10 px); Layouts placing that frame and what it holds 44 px lower keep them clear"},
-		{"lane alone", 150, robot + "24 px); Layouts placing that frame and what it holds 24 px lower keep them clear"},
+		{"placed frame over the lane and its frame", "x = 320; y = 120;", pinnedA, 130, 230,
+			"swimlane line.packer is placed 56 px below swimlane line.robot, in another flow: the frame of LaneStacked::runB, which its Layout places, " +
+				"is drawn over swimlane line.robot (142×44 px), the frame of LaneStacked::runA (174×10 px); Layouts placing that frame and what it holds 44 px lower keep them clear"},
+		{"placed frame over the lane alone", "x = 320; y = 120;", pinnedA, 150, 250,
+			"is drawn over swimlane line.robot (142×24 px); Layouts placing that frame and what it holds 24 px lower keep them clear"},
+		{"lanes over each other", "x = 320; y = 120; width = 142; height = 212;", "", 0, 330,
+			"swimlane line.packer is placed over swimlane line.robot (142×2 px), in another flow: the frame of LaneStacked::runB " +
+				"is drawn over swimlane line.robot (142×94 px), the frame of LaneStacked::runA (174×110 px); Layouts placing the swimlanes of LaneStacked::runB 110 px lower keep them clear"},
+		{"lanes against each other", "x = 320; y = 120; width = 142; height = 210;", "", 0, 330,
+			"swimlane line.packer is placed directly below swimlane line.robot, in another flow: the frame of LaneStacked::runB needs 92 px there " +
+				"and is drawn over swimlane line.robot (142×92 px), the frame of LaneStacked::runA (174×108 px); a Layout that far apart keeps them clear"},
 	} {
-		view := func(y float64) string {
-			at := strconv.FormatFloat(y, 'f', -1, 64)
-			lane := strconv.FormatFloat(y+100, 'f', -1, 64)
-			return "\tview pastView : ActionFlowView {\n\t\texpose runA;\n\t\texpose runB;\n" +
-				"\t\tmetadata Layout about runA { x = 300; y = 60; width = 200; height = 80; }\n" +
-				"\t\tmetadata Layout about line::robot { x = 320; y = 120; }\n" +
-				"\t\tmetadata Layout about runB { x = 304; y = " + at + "; }\n" +
-				"\t\tmetadata Layout about line::packer { x = 320; y = " + lane + "; }\n\t}\n}\n"
-		}
-		render := func(t *testing.T, y float64) string {
-			body := strings.TrimRight(string(source), "\n")
+		render := func(t *testing.T, lower float64) string {
+			y := func(at float64) string { return strconv.FormatFloat(at+lower, 'f', -1, 64) }
+			view := "\tview pastView : ActionFlowView {\n\t\texpose runA;\n\t\texpose runB;\n" + c.frameA +
+				"\t\tmetadata Layout about line::robot { " + c.robot + " }\n"
+			if c.frameB != 0 {
+				view += "\t\tmetadata Layout about runB { x = 304; y = " + y(c.frameB) + "; }\n"
+			}
+			view += "\t\tmetadata Layout about line::packer { x = 320; y = " + y(c.packer) + "; }\n\t}\n}\n"
 			model := filepath.Join(t.TempDir(), "past.sysml")
-			if err := os.WriteFile(model, []byte(strings.TrimSuffix(body, "}")+view(y)), 0o600); err != nil {
+			body := strings.TrimSuffix(strings.TrimRight(string(source), "\n"), "}")
+			if err := os.WriteFile(model, []byte(body+view), 0o600); err != nil {
 				t.Fatal(err)
 			}
 			got := runFiles(t, binary, []string{model}, "-render", "LaneStacked::pastView", "-render-form", "text")
@@ -204,11 +214,15 @@ func TestRenderClearsASwimlanePlacedPastItsFlowFrame(t *testing.T) {
 			return got.stderr
 		}
 		t.Run(c.name, func(t *testing.T) {
-			if stderr := render(t, c.y); !strings.Contains(stderr, c.notice) {
+			stderr := render(t, 0)
+			if !strings.Contains(stderr, c.notice) {
 				t.Errorf("stderr does not say what clears the lane, want %q:\n%s", c.notice, stderr)
 			}
-			by, _ := strconv.ParseFloat(regexp.MustCompile(`holds (\d+) px lower`).FindStringSubmatch(c.notice)[1], 64)
-			if stderr := render(t, c.y+by); strings.Contains(stderr, "is drawn over") {
+			if none := regexp.MustCompile(`(^|[^\d.])(-[\d.]+|0) px`).FindString(stderr); none != "" {
+				t.Errorf("a notice states a size of zero or less (%q):\n%s", none, stderr)
+			}
+			by, _ := strconv.ParseFloat(regexp.MustCompile(`(\d+) px (?:lower|there)`).FindStringSubmatch(c.notice)[1], 64)
+			if stderr := render(t, by); strings.Contains(stderr, "is drawn over") {
 				t.Errorf("the Layouts the notice asks for still draw the frame over the lane:\n%s", stderr)
 			}
 		})

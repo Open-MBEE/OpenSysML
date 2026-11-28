@@ -349,7 +349,7 @@ func (a *arranger) crowdedLanes(roots []*Node) []string {
 				if around := a.boxes[under.ID]; frame.overlaps(around) {
 					covers = append(covers, fmt.Sprintf("the frame of %s (%s)", under.Name, frame.shared(around)))
 				}
-				if notice := a.crowdNotice(over, frame, covered, box, a.boxes[under.ID], strings.Join(covers, ", ")); notice != "" {
+				if notice := a.crowdNotice(over, frame, covered, box, a.drawnAround(under), strings.Join(covers, ", ")); notice != "" {
 					notices = append(notices, notice)
 				}
 			}
@@ -359,47 +359,87 @@ func (a *arranger) crowdedLanes(roots []*Node) []string {
 }
 
 // crowdNotice names the placed swimlane of the flow over nearest the swimlane covered, which
-// over's frame is drawn across, and the gap between the two that keeps the frame clear of it.
-func (a *arranger) crowdNotice(over *Node, frame drawioBox, covered *Node, box, around drawioBox, covers string) string {
+// over's frame is drawn across, and what keeps the frame clear of past, all its flow draws.
+func (a *arranger) crowdNotice(over *Node, frame drawioBox, covered *Node, box, past drawioBox, covers string) string {
+	deep := a.drawnAround(covered)
+	// How far the frame moves each way to leave past behind it.
+	lower, higher := past.bottom()-frame.Y, frame.bottom()-past.Y
+	right, left := past.right()-frame.X, frame.right()-past.X
+	moved := fmt.Sprintf("the swimlanes of %s", over.Name)
+	held := ""
+	if over.Geometry.placed() {
+		// A Layout holds the frame where it is, so moving the lanes alone leaves it over the other.
+		moved, held = "that frame and what it holds", ", which its Layout places,"
+	}
 	notice, least := "", math.Inf(1)
 	for _, lane := range over.Children {
 		own := a.boxes[lane.ID]
 		if lane.Kind != swimlaneKind || !lane.Geometry.placed() {
 			continue
 		}
-		// A Layout may place the lane covered past its own flow's frame, so both are cleared.
 		var stated, needed, shift float64
 		var axis, away string
 		switch {
 		case own.Y >= box.bottom():
-			stated, needed, axis, away = own.Y-box.bottom(), own.Y-frame.Y, "below", "lower"
-			shift = math.Max(around.bottom(), box.bottom()) - frame.Y
+			stated, shift, axis, away = own.Y-box.bottom(), lower, "below", "lower"
+			needed = stated + deep.bottom() - frame.Y
 		case own.bottom() <= box.Y:
-			stated, needed, axis, away = box.Y-own.bottom(), frame.bottom()-own.bottom(), "above", "higher"
-			shift = frame.bottom() - math.Min(around.Y, box.Y)
+			stated, shift, axis, away = box.Y-own.bottom(), higher, "above", "higher"
+			needed = stated + frame.bottom() - deep.Y
 		case own.X >= box.right():
-			stated, needed, axis, away = own.X-box.right(), own.X-frame.X, "right of", "further right"
-			shift = math.Max(around.right(), box.right()) - frame.X
+			stated, shift, axis, away = own.X-box.right(), right, "right of", "further right"
+			needed = stated + deep.right() - frame.X
 		case own.right() <= box.X:
-			stated, needed, axis, away = box.X-own.right(), frame.right()-own.right(), "left of", "further left"
-			shift = frame.right() - math.Min(around.X, box.X)
+			stated, shift, axis, away = box.X-own.right(), left, "left of", "further left"
+			needed = stated + frame.right() - deep.X
 		default:
-			continue // the two Layouts overlap as stated
+			// The two Layouts overlap as stated: the shortest move apart clears them.
+			stated, shift, away = -1, lower, "lower"
+			for _, way := range []struct {
+				by   float64
+				away string
+			}{{higher, "higher"}, {right, "further right"}, {left, "further left"}} {
+				if way.by < shift {
+					shift, away = way.by, way.away
+				}
+			}
 		}
 		if stated >= least {
 			continue
 		}
 		least = stated
-		if over.Geometry.placed() {
-			// A Layout holds the frame where it is, so moving the lane alone leaves it over the other.
-			notice = fmt.Sprintf("swimlane %s is placed %g px %s swimlane %s, in another flow: the frame of %s, which its Layout places, is drawn over %s; Layouts placing that frame and what it holds %g px %s keep them clear",
-				lane.Name, stated, axis, covered.Name, over.Name, covers, math.Ceil(shift), away)
-			continue
+		drawn := fmt.Sprintf("the frame of %s%s is drawn over %s; Layouts placing %s %g px %s keep them clear",
+			over.Name, held, covers, moved, math.Ceil(shift), away)
+		switch {
+		case stated < 0:
+			notice = fmt.Sprintf("swimlane %s is placed over swimlane %s (%s), in another flow: %s", lane.Name, covered.Name, own.shared(box), drawn)
+		case over.Geometry.placed() && stated == 0:
+			notice = fmt.Sprintf("swimlane %s is placed directly %s swimlane %s, in another flow: %s", lane.Name, axis, covered.Name, drawn)
+		case over.Geometry.placed():
+			notice = fmt.Sprintf("swimlane %s is placed %g px %s swimlane %s, in another flow: %s", lane.Name, stated, axis, covered.Name, drawn)
+		case stated == 0:
+			notice = fmt.Sprintf("swimlane %s is placed directly %s swimlane %s, in another flow: the frame of %s needs %g px there and is drawn over %s; a Layout that far apart keeps them clear",
+				lane.Name, axis, covered.Name, over.Name, math.Ceil(needed), covers)
+		default:
+			notice = fmt.Sprintf("swimlane %s is placed %g px %s swimlane %s, in another flow: the frame of %s needs %g px there and is drawn over %s; a Layout that far apart keeps them clear",
+				lane.Name, stated, axis, covered.Name, over.Name, math.Ceil(needed), covers)
 		}
-		notice = fmt.Sprintf("swimlane %s is placed %g px %s swimlane %s, in another flow: the frame of %s needs %g px there and is drawn over %s; a Layout that far apart keeps them clear",
-			lane.Name, stated, axis, covered.Name, over.Name, math.Ceil(needed), covers)
 	}
 	return notice
+}
+
+// drawnAround is the box around node and all that is drawn under it.
+func (a *arranger) drawnAround(node *Node) drawioBox {
+	box := a.boxes[node.ID]
+	for _, child := range node.Children {
+		if _, drawn := a.boxes[child.ID]; !drawn {
+			continue
+		}
+		o := a.drawnAround(child)
+		x, y := math.Min(box.X, o.X), math.Min(box.Y, o.Y)
+		box = drawioBox{X: x, Y: y, Width: math.Max(box.right(), o.right()) - x, Height: math.Max(box.bottom(), o.bottom()) - y}
+	}
+	return box
 }
 
 // shared is the size of what b and o both cover, as a notice states it.
