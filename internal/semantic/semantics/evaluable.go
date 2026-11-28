@@ -210,10 +210,15 @@ var modelLevelFunctions = map[string]bool{
 	"ControlFunctions::collect": true, "ControlFunctions::select": true,
 }
 
+// ModelLevelFunction reports whether the library function of that qualified name is one of those.
+func ModelLevelFunction(qualifiedName string) bool {
+	return modelLevelFunctions[strings.ReplaceAll(qualifiedName, "'", "")]
+}
+
 // modelLevelFunction reports whether sym is one of those functions.
 func (m *Model) modelLevelFunction(sym *symbols.Symbol) bool {
 	if sym == nil {
 		return false
 	}
-	return modelLevelFunctions[strings.ReplaceAll(m.fqnOf(sym), "'", "")]
+	return ModelLevelFunction(m.fqnOf(sym))
 }

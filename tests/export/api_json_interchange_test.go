@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -25,8 +26,13 @@ const interchangeSource = `package Garage {
 
 func interchangeElements(t *testing.T, options export.APIJSONOptions) ([]byte, []map[string]json.RawMessage) {
 	t.Helper()
+	return interchangeElementsOf(t, interchangeSource, options)
+}
+
+func interchangeElementsOf(t *testing.T, source string, options export.APIJSONOptions) ([]byte, []map[string]json.RawMessage) {
+	t.Helper()
 	graph, err := convert.ModelGraph(
-		[]convert.Input{{Name: "garage.sysml", Data: []byte(interchangeSource)}}, convert.Options{ID: export.IDUUID})
+		[]convert.Input{{Name: "garage.sysml", Data: []byte(source)}}, convert.Options{ID: export.IDUUID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -132,5 +138,291 @@ func TestAPIJSONInterchangeExpressionBodyCycleIsRefused(t *testing.T) {
 				t.Fatalf("expected an UnsupportedError, got %v", err)
 			}
 		})
+	}
+}
+
+const interchangeDerivedSource = `package Derived {
+	private import ScalarValues::*;
+	// a note of the source layout
+	metadata def Reviewed;
+	part def Engine {
+		attribute mass : Integer;
+		attribute doubled = mass * 2;
+		attribute fixed = 2 + 3;
+		constraint light { mass < 5 }
+		assert light;
+		action run { action step; }
+		perform run;
+		@Reviewed;
+	}
+	action def Drive { action steer; }
+	calc def Twice { in x : Integer; calc inner : Twice; x * 2 }
+	package Selected {
+		public import Derived::*;
+		filter @Reviewed;
+	}
+}
+`
+
+// interchangeTyped returns the elements of one metaclass, in document order.
+func interchangeTyped(t *testing.T, elements []map[string]json.RawMessage, metaclass string) []map[string]json.RawMessage {
+	t.Helper()
+	var typed []map[string]json.RawMessage
+	for _, element := range elements {
+		if string(element["@type"]) == `"`+metaclass+`"` {
+			typed = append(typed, element)
+		}
+	}
+	if len(typed) == 0 {
+		t.Fatalf("the document holds no %s", metaclass)
+	}
+	return typed
+}
+
+// interchangeNamed maps each element's @id to its declaredName, "" for an unnamed one.
+func interchangeNamed(t *testing.T, elements []map[string]json.RawMessage) map[string]string {
+	t.Helper()
+	names := map[string]string{}
+	for _, element := range elements {
+		var id string
+		if err := json.Unmarshal(element["@id"], &id); err != nil {
+			t.Fatal(err)
+		}
+		var name *string
+		if raw, stated := element["declaredName"]; stated {
+			if err := json.Unmarshal(raw, &name); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if name != nil {
+			names[id] = *name
+		} else {
+			names[id] = ""
+		}
+	}
+	return names
+}
+
+// interchangeReferences reads a property as the names of the document's elements it
+// references; a reference out of the document reads as "<library>".
+func interchangeReferences(t *testing.T, names map[string]string, raw json.RawMessage) []string {
+	t.Helper()
+	type reference struct {
+		ID string `json:"@id"`
+	}
+	var many []reference
+	if err := json.Unmarshal(raw, &many); err != nil {
+		var one *reference
+		if err := json.Unmarshal(raw, &one); err != nil {
+			t.Fatalf("%s is no reference: %v", raw, err)
+		}
+		if one != nil {
+			many = []reference{*one}
+		}
+	}
+	var out []string
+	for _, ref := range many {
+		name, held := names[ref.ID]
+		if !held {
+			name = "<library>"
+		}
+		out = append(out, name)
+	}
+	return out
+}
+
+// KerML 8.3.4.7.3: an Expression of the interchange form states whether it is model-level
+// evaluable: a literal and an operator over literals are, a reference to a feature of a type is not.
+func TestAPIJSONInterchangeStatesModelLevelEvaluability(t *testing.T) {
+	t.Parallel()
+	_, elements := interchangeElementsOf(t, interchangeDerivedSource, export.APIJSONOptions{Interchange: true})
+	for _, literal := range interchangeTyped(t, elements, "LiteralInteger") {
+		if got := string(literal["isModelLevelEvaluable"]); got != "true" {
+			t.Errorf("LiteralInteger.isModelLevelEvaluable = %q, want true", got)
+		}
+	}
+	for _, reference := range interchangeTyped(t, elements, "FeatureReferenceExpression") {
+		if got := string(reference["isModelLevelEvaluable"]); got != "false" {
+			t.Errorf("FeatureReferenceExpression.isModelLevelEvaluable = %q, want false for a feature of a type", got)
+		}
+	}
+	evaluable := map[string]int{}
+	for _, operator := range interchangeTyped(t, elements, "OperatorExpression") {
+		var name string
+		if err := json.Unmarshal(operator["operator"], &name); err != nil {
+			t.Fatal(err)
+		}
+		if string(operator["instantiatedType"]) == "" || string(operator["instantiatedType"]) == "null" {
+			t.Errorf("OperatorExpression %s states no instantiatedType", name)
+		}
+		evaluable[name+" "+string(operator["isModelLevelEvaluable"])]++
+	}
+	want := map[string]int{"+ true": 1, "* false": 2, "< false": 1, "@ true": 1}
+	if len(evaluable) != len(want) {
+		t.Fatalf("OperatorExpression evaluability = %v, want %v", evaluable, want)
+	}
+	for key, count := range want {
+		if evaluable[key] != count {
+			t.Errorf("OperatorExpression evaluability = %v, want %v", evaluable, want)
+		}
+	}
+	for _, calculation := range interchangeTyped(t, elements, "CalculationDefinition") {
+		if got := string(calculation["isModelLevelEvaluable"]); got != "false" {
+			t.Errorf("CalculationDefinition.isModelLevelEvaluable = %q, want false outside the Kernel Function Library", got)
+		}
+	}
+}
+
+// The usages that reference another state it under the property their metaclass
+// declares, and a definition states the steps and calculations it features.
+func TestAPIJSONInterchangeStatesDerivedReferences(t *testing.T) {
+	t.Parallel()
+	_, elements := interchangeElementsOf(t, interchangeDerivedSource, export.APIJSONOptions{Interchange: true})
+	names := interchangeNamed(t, elements)
+	single := func(metaclass, property, want string) {
+		t.Helper()
+		for _, element := range interchangeTyped(t, elements, metaclass) {
+			got := interchangeReferences(t, names, element[property])
+			if len(got) != 1 || got[0] != want {
+				t.Errorf("%s.%s = %v, want %s", metaclass, property, got, want)
+			}
+		}
+	}
+	single("PerformActionUsage", "performedAction", "run")
+	single("PerformActionUsage", "eventOccurrence", "run")
+	single("AssertConstraintUsage", "assertedConstraint", "light")
+	single("MetadataUsage", "metaclass", "Reviewed")
+	contains := func(metaclass, name, property, want string) {
+		t.Helper()
+		for _, element := range interchangeTyped(t, elements, metaclass) {
+			if string(element["declaredName"]) != `"`+name+`"` {
+				continue
+			}
+			for _, got := range interchangeReferences(t, names, element[property]) {
+				if got == want {
+					return
+				}
+			}
+			t.Errorf("%s %s.%s = %s, want a reference to %s", metaclass, name, property, element[property], want)
+			return
+		}
+		t.Errorf("the document holds no %s %s", metaclass, name)
+	}
+	contains("ActionDefinition", "Drive", "action", "steer")
+	contains("CalculationDefinition", "Twice", "calculation", "inner")
+	for _, element := range interchangeTyped(t, elements, "Package") {
+		if string(element["declaredName"]) != `"Selected"` {
+			continue
+		}
+		var conditions []json.RawMessage
+		if err := json.Unmarshal(element["filterCondition"], &conditions); err != nil || len(conditions) != 1 {
+			t.Errorf("Package.filterCondition = %s, want its one filter expression", element["filterCondition"])
+		}
+	}
+	for _, constraint := range interchangeTyped(t, elements, "ConstraintUsage") {
+		if _, stated := constraint["predicate"]; !stated {
+			t.Error("ConstraintUsage states no predicate")
+		}
+	}
+	for _, metadata := range interchangeTyped(t, elements, "MetadataUsage") {
+		if _, stated := metadata["owningAnnotatingRelationship"]; !stated {
+			t.Error("MetadataUsage states no owningAnnotatingRelationship")
+		}
+	}
+}
+
+// The normative SysML.json declares neither InvocationExpression::operand nor a note of
+// the source layout: the interchange form states neither, and the default form keeps its notes.
+func TestAPIJSONInterchangeLeavesOutWhatTheSchemaDoesNotDeclare(t *testing.T) {
+	t.Parallel()
+	hasNote := func(elements []map[string]json.RawMessage) bool {
+		for _, element := range elements {
+			if string(element["@type"]) == `"sysx:Note"` {
+				return true
+			}
+		}
+		return false
+	}
+	_, elements := interchangeElementsOf(t, interchangeDerivedSource, export.APIJSONOptions{Interchange: true})
+	if hasNote(elements) {
+		t.Error("the interchange form writes a sysx:Note")
+	}
+	for _, operator := range interchangeTyped(t, elements, "OperatorExpression") {
+		if _, stated := operator["operand"]; stated {
+			t.Error("an OperatorExpression of the interchange form states operand")
+		}
+		if _, stated := operator["argument"]; !stated {
+			t.Error("an OperatorExpression of the interchange form states no argument")
+		}
+	}
+	if _, elements := interchangeElementsOf(t, interchangeDerivedSource, export.APIJSONOptions{}); !hasNote(elements) {
+		t.Error("the default form lost its sysx:Note")
+	}
+}
+
+// SysML 8.3.19.3 and 8.3.20.4: a CalculationUsage and a ConstraintUsage are never
+// model-level evaluable, whatever their result expression.
+func TestAPIJSONInterchangeUsagesAreNotModelLevelEvaluable(t *testing.T) {
+	t.Parallel()
+	const source = `package P {
+	calc c { 1 }
+	constraint k { true }
+}
+`
+	_, elements := interchangeElementsOf(t, source, export.APIJSONOptions{Interchange: true})
+	for _, metaclass := range []string{"CalculationUsage", "ConstraintUsage"} {
+		usages := interchangeTyped(t, elements, metaclass)
+		if len(usages) != 1 {
+			t.Fatalf("%d %s elements, want 1", len(usages), metaclass)
+		}
+		if got := string(usages[0]["isModelLevelEvaluable"]); got != "false" {
+			t.Errorf("%s.isModelLevelEvaluable = %q, want false", metaclass, got)
+		}
+	}
+}
+
+// A referent many expressions share is walked once: a chain of bindings that each read
+// the one before twice exports in time linear in its length.
+func TestAPIJSONInterchangeSharedReferentsAreWalkedOnce(t *testing.T) {
+	t.Parallel()
+	var source strings.Builder
+	source.WriteString("package P {\n\tattribute a0 = 1;\n")
+	const bindings = 60
+	for i := 1; i <= bindings; i++ {
+		fmt.Fprintf(&source, "\tattribute a%d = a%d + a%d;\n", i, i-1, i-1)
+	}
+	source.WriteString("}\n")
+	_, elements := interchangeElementsOf(t, source.String(), export.APIJSONOptions{Interchange: true})
+	operators := interchangeTyped(t, elements, "OperatorExpression")
+	if len(operators) != bindings {
+		t.Fatalf("%d OperatorExpression elements, want %d", len(operators), bindings)
+	}
+	for _, operator := range operators {
+		if got := string(operator["isModelLevelEvaluable"]); got != "true" {
+			t.Errorf("OperatorExpression.isModelLevelEvaluable = %q, want true over package-level bindings", got)
+		}
+	}
+}
+
+// The interchange form writes no note, so no element of it references one.
+func TestAPIJSONInterchangeReferencesNoNote(t *testing.T) {
+	t.Parallel()
+	const source = `package P {
+	state def S {
+		entry; then fork1;
+		fork fork1; // split
+		state a;
+	}
+}
+`
+	document, _ := interchangeElementsOf(t, source, export.APIJSONOptions{Interchange: true})
+	if !bytes.Contains(document, []byte(`"sysx:Pseudostate"`)) {
+		t.Fatal("the fixture states no pseudostate")
+	}
+	if bytes.Contains(document, []byte(`"sysx:note"`)) {
+		t.Error("an element of the interchange form references a note")
+	}
+	if document, _ := interchangeElementsOf(t, source, export.APIJSONOptions{}); !bytes.Contains(document, []byte(`"sysx:note"`)) {
+		t.Error("the default form states no note for the pseudostate")
 	}
 }

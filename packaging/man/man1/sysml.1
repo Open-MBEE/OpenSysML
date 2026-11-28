@@ -278,11 +278,11 @@ describes it (KerML 10.4): only the properties of its metaclass, every derived
 one stated (an empty one as [] or null), the inherited members included, and
 uuid ids for a model in the notation unless \-id says otherwise (a graph read
 from Turtle, API JSON or a repository branch keeps its ids); the mapping's own
-sysx: keys are left out, except on an element the mapping types outside the
-metamodel (a // note as sysx:Note, a pseudostate as sysx:Pseudostate), which
-is written as the default form writes it, so the document is for exchange, not
-for reading back as written. A property this implementation does not derive
-stays absent (default off)
+sysx: keys are left out, a source note (sysx:Note) is not written, and a
+pseudostate, which the mapping types outside the metamodel as
+sysx:Pseudostate, is written as the default form writes it, so the document is
+for exchange, not for reading back as written. A property this implementation
+does not derive stays absent (default off)
 .TP
 .B \-keep\-line\-breaks
 With \-convert sysml or kerml, keep the author's line breaks and fix

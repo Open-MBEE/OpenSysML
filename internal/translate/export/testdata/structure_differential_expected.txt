@@ -3,12 +3,15 @@
 #   go test ./internal/translate/export -run TestSymbolStructureMatchesGraphStructure -update-structure-differential
 # after adjudicating every movement; the downloaded roots need their corpora present.
 root examples: models 69, skipped 0, matched 54893, unmatched 22
+  ActionDefinition::action: equal 145, different 2, symbol-missing 0, symbol-extra 0
   ActionUsage::actionDefinition: equal 211, different 815, symbol-missing 0, symbol-extra 11
   AllocationUsage::allocationDefinition: equal 1, different 64, symbol-missing 0, symbol-extra 0
   AnalysisCaseUsage::analysisCaseDefinition: equal 9, different 1, symbol-missing 0, symbol-extra 0
   AnnotatingElement::annotation: equal 569, different 2, symbol-missing 0, symbol-extra 0
+  AnnotatingElement::owningAnnotatingRelationship: equal 569, different 2, symbol-missing 0, symbol-extra 0
   AttributeUsage::attributeDefinition: equal 1612, different 102, symbol-missing 0, symbol-extra 275
   Behavior::step: equal 220, different 2, symbol-missing 0, symbol-extra 0
+  BooleanExpression::predicate: equal 196, different 156, symbol-missing 0, symbol-extra 13
   CalculationUsage::calculationDefinition: equal 70, different 14, symbol-missing 0, symbol-extra 8
   CaseUsage::caseDefinition: equal 32, different 2, symbol-missing 0, symbol-extra 0
   ConnectionUsage::connectionDefinition: equal 65, different 84, symbol-missing 0, symbol-extra 0
@@ -30,6 +33,7 @@ root examples: models 69, skipped 0, matched 54893, unmatched 22
   Element::shortName: equal 54891, different 2, symbol-missing 0, symbol-extra 0
   EnumerationUsage::enumerationDefinition: equal 0, different 30, symbol-missing 0, symbol-extra 0
   Expression::function: equal 5637, different 170, symbol-missing 0, symbol-extra 21
+  Expression::isModelLevelEvaluable: equal 5769, different 3, symbol-missing 0, symbol-extra 56
   Feature::direction: equal 22012, different 14, symbol-missing 0, symbol-extra 0
   Feature::featuringType: equal 22021, different 5, symbol-missing 0, symbol-extra 0
   Feature::isComposite: equal 22005, different 21, symbol-missing 0, symbol-extra 0
@@ -105,6 +109,7 @@ root examples: models 69, skipped 0, matched 54893, unmatched 22
 root tests/testdata: models 42, skipped 0, matched 2675, unmatched 0
   ActionUsage::actionDefinition: equal 7, different 39, symbol-missing 0, symbol-extra 2
   AttributeUsage::attributeDefinition: equal 63, different 4, symbol-missing 0, symbol-extra 3
+  BooleanExpression::predicate: equal 2, different 8, symbol-missing 0, symbol-extra 0
   Classifier::ownedSubclassification: equal 140, different 1, symbol-missing 0, symbol-extra 0
   ConnectionUsage::connectionDefinition: equal 0, different 1, symbol-missing 0, symbol-extra 0
   Connector::association: equal 11, different 5, symbol-missing 0, symbol-extra 0
@@ -174,10 +179,12 @@ root tests/testdata: models 42, skipped 0, matched 2675, unmatched 0
   Usage::usage: equal 346, different 14, symbol-missing 0, symbol-extra 8
   ViewUsage::viewDefinition: equal 0, different 1, symbol-missing 0, symbol-extra 0
 root examples/sysml-v2-training: models 100, skipped 0, matched 11485, unmatched 14
+  ActionDefinition::action: equal 72, different 3, symbol-missing 0, symbol-extra 0
   ActionUsage::actionDefinition: equal 88, different 177, symbol-missing 0, symbol-extra 11
   AllocationUsage::allocationDefinition: equal 1, different 2, symbol-missing 0, symbol-extra 0
   AttributeUsage::attributeDefinition: equal 87, different 17, symbol-missing 0, symbol-extra 16
   Behavior::step: equal 82, different 3, symbol-missing 0, symbol-extra 0
+  BooleanExpression::predicate: equal 14, different 25, symbol-missing 0, symbol-extra 6
   CalculationUsage::calculationDefinition: equal 14, different 3, symbol-missing 0, symbol-extra 2
   CaseUsage::caseDefinition: equal 7, different 2, symbol-missing 0, symbol-extra 1
   ConcernUsage::concernDefinition: equal 0, different 2, symbol-missing 0, symbol-extra 2
@@ -200,6 +207,7 @@ root examples/sysml-v2-training: models 100, skipped 0, matched 11485, unmatched
   Element::shortName: equal 11479, different 0, symbol-missing 0, symbol-extra 6
   EnumerationUsage::enumerationDefinition: equal 0, different 11, symbol-missing 0, symbol-extra 0
   Expression::function: equal 815, different 28, symbol-missing 0, symbol-extra 8
+  Expression::isModelLevelEvaluable: equal 835, different 0, symbol-missing 0, symbol-extra 16
   Expression::result: equal 849, different 0, symbol-missing 0, symbol-extra 2
   Feature::chainingFeature: equal 4251, different 1, symbol-missing 0, symbol-extra 0
   Feature::direction: equal 4250, different 2, symbol-missing 0, symbol-extra 0
@@ -214,6 +222,7 @@ root examples/sysml-v2-training: models 100, skipped 0, matched 11485, unmatched
   Flow::interaction: equal 7, different 32, symbol-missing 0, symbol-extra 0
   FlowUsage::flowDefinition: equal 7, different 32, symbol-missing 0, symbol-extra 0
   Import::importedElement: equal 47, different 0, symbol-missing 0, symbol-extra 78
+  InstantiationExpression::instantiatedType: equal 284, different 0, symbol-missing 0, symbol-extra 1
   InterfaceUsage::interfaceDefinition: equal 2, different 1, symbol-missing 0, symbol-extra 0
   InvocationExpression::operand: equal 9, different 267, symbol-missing 0, symbol-extra 0
   ItemUsage::itemDefinition: equal 263, different 110, symbol-missing 0, symbol-extra 9
@@ -267,16 +276,19 @@ root examples/sysml-v2-training: models 100, skipped 0, matched 11485, unmatched
   ViewUsage::viewDefinition: equal 3, different 1, symbol-missing 0, symbol-extra 1
   ViewpointUsage::viewpointDefinition: equal 0, different 1, symbol-missing 0, symbol-extra 0
 root examples/pilot-corpora: models 213, skipped 0, matched 62125, unmatched 83
+  ActionDefinition::action: equal 140, different 1, symbol-missing 0, symbol-extra 0
   ActionUsage::actionDefinition: equal 273, different 646, symbol-missing 0, symbol-extra 84
   AllocationUsage::allocationDefinition: equal 4, different 11, symbol-missing 0, symbol-extra 0
   AnalysisCaseUsage::analysisCaseDefinition: equal 29, different 3, symbol-missing 0, symbol-extra 0
   AnnotatingElement::annotatedElement: equal 671, different 0, symbol-missing 0, symbol-extra 1
   AnnotatingElement::annotation: equal 670, different 1, symbol-missing 0, symbol-extra 1
   AnnotatingElement::ownedAnnotatingRelationship: equal 671, different 0, symbol-missing 0, symbol-extra 1
+  AnnotatingElement::owningAnnotatingRelationship: equal 671, different 1, symbol-missing 0, symbol-extra 0
   Annotation::annotatedElement: equal 15, different 0, symbol-missing 0, symbol-extra 1
   Annotation::owningAnnotatedElement: equal 15, different 0, symbol-missing 0, symbol-extra 1
   AttributeUsage::attributeDefinition: equal 824, different 126, symbol-missing 0, symbol-extra 465
   Behavior::step: equal 238, different 2, symbol-missing 0, symbol-extra 0
+  BooleanExpression::predicate: equal 145, different 139, symbol-missing 0, symbol-extra 19
   CalculationUsage::calculationDefinition: equal 56, different 21, symbol-missing 0, symbol-extra 11
   CaseUsage::caseDefinition: equal 47, different 15, symbol-missing 0, symbol-extra 4
   Classifier::ownedSubclassification: equal 1421, different 1, symbol-missing 0, symbol-extra 0
@@ -304,6 +316,7 @@ root examples/pilot-corpora: models 213, skipped 0, matched 62125, unmatched 83
   Element::shortName: equal 62110, different 9, symbol-missing 0, symbol-extra 6
   EnumerationUsage::enumerationDefinition: equal 6, different 42, symbol-missing 0, symbol-extra 0
   Expression::function: equal 5385, different 161, symbol-missing 0, symbol-extra 30
+  Expression::isModelLevelEvaluable: equal 5449, different 1, symbol-missing 0, symbol-extra 126
   Expression::result: equal 5574, different 1, symbol-missing 1, symbol-extra 0
   Feature::chainingFeature: equal 23034, different 25, symbol-missing 0, symbol-extra 10
   Feature::direction: equal 23051, different 18, symbol-missing 0, symbol-extra 0
@@ -328,6 +341,7 @@ root examples/pilot-corpora: models 213, skipped 0, matched 62125, unmatched 83
   Import::importOwningNamespace: equal 591, different 8, symbol-missing 0, symbol-extra 0
   Import::importedElement: equal 86, different 0, symbol-missing 0, symbol-extra 513
   InstantiationExpression::argument: equal 1670, different 1, symbol-missing 0, symbol-extra 0
+  InstantiationExpression::instantiatedType: equal 1668, different 0, symbol-missing 0, symbol-extra 3
   InterfaceUsage::interfaceDefinition: equal 31, different 9, symbol-missing 0, symbol-extra 0
   InvocationExpression::operand: equal 39, different 1546, symbol-missing 0, symbol-extra 0
   ItemUsage::itemDefinition: equal 1004, different 348, symbol-missing 0, symbol-extra 98
@@ -399,15 +413,18 @@ root examples/pilot-corpora: models 213, skipped 0, matched 62125, unmatched 83
   ViewUsage::viewDefinition: equal 6, different 2, symbol-missing 0, symbol-extra 1
   ViewpointUsage::viewpointDefinition: equal 1, different 1, symbol-missing 0, symbol-extra 0
 root examples/spec-examples: models 473, skipped 38, matched 12781, unmatched 41
+  ActionDefinition::action: equal 86, different 7, symbol-missing 0, symbol-extra 0
   ActionUsage::actionDefinition: equal 96, different 196, symbol-missing 0, symbol-extra 50
   AllocationUsage::allocationDefinition: equal 2, different 1, symbol-missing 0, symbol-extra 1
   AnalysisCaseUsage::analysisCaseDefinition: equal 1, different 0, symbol-missing 0, symbol-extra 1
   AnnotatingElement::annotatedElement: equal 50, different 12, symbol-missing 0, symbol-extra 0
   AnnotatingElement::annotation: equal 50, different 12, symbol-missing 0, symbol-extra 0
+  AnnotatingElement::owningAnnotatingRelationship: equal 50, different 12, symbol-missing 0, symbol-extra 0
   Annotation::annotatedElement: equal 6, different 0, symbol-missing 0, symbol-extra 9
   Annotation::owningAnnotatedElement: equal 6, different 0, symbol-missing 0, symbol-extra 9
   AttributeUsage::attributeDefinition: equal 250, different 8, symbol-missing 0, symbol-extra 9
   Behavior::step: equal 136, different 7, symbol-missing 0, symbol-extra 0
+  BooleanExpression::predicate: equal 35, different 21, symbol-missing 0, symbol-extra 19
   CalculationUsage::calculationDefinition: equal 17, different 2, symbol-missing 0, symbol-extra 16
   CaseUsage::caseDefinition: equal 9, different 2, symbol-missing 0, symbol-extra 12
   Classifier::ownedSubclassification: equal 357, different 1, symbol-missing 0, symbol-extra 0
@@ -439,6 +456,7 @@ root examples/spec-examples: models 473, skipped 38, matched 12781, unmatched 41
   Element::shortName: equal 12758, different 0, symbol-missing 4, symbol-extra 19
   EnumerationUsage::enumerationDefinition: equal 1, different 6, symbol-missing 0, symbol-extra 0
   Expression::function: equal 889, different 23, symbol-missing 0, symbol-extra 35
+  Expression::isModelLevelEvaluable: equal 934, different 0, symbol-missing 0, symbol-extra 13
   Expression::result: equal 945, different 2, symbol-missing 0, symbol-extra 0
   Feature::direction: equal 4147, different 2, symbol-missing 0, symbol-extra 0
   Feature::featuringType: equal 4136, different 13, symbol-missing 0, symbol-extra 0

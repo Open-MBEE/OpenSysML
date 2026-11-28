@@ -85,7 +85,7 @@
         "digest": "sha256:8ef6d80c9983abb0af6edc68d26de9a25be15f16561ca3b9e9387ed2b070a7ec"
       }
     ],
-    "recorded": "2026-11-24"
+    "recorded": "2026-11-28"
   },
   "structure": "metamodel.SymbolStructure (symbol-backed; metamodel.New over metamodel.NewSymbolStructure)",
   "policy": [
@@ -205,5 +205,5 @@
       "pilotFailed": 0
     }
   ],
-  "pilotRecords": "sha256:130bf2bd807e0f9dd3b3c4d1f3336a716aaed647656379e57310472599b78cfa"
+  "pilotRecords": "sha256:7b97d83e28507e1f51681e0f7bcea9b3e9778b843172e79cea0e0de85513be2d"
 }
