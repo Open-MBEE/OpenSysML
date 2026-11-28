@@ -206,6 +206,13 @@ go test -v -run TestRuntimeRobustness -timeout 60s ./internal/exec/runtime
 go test ./...
 ```
 
+When more than one worktree runs the gate on the same host, use the bounded
+shard runner (`go run -C tools ./cmd/gate-runner`) and one warm shared
+`GOCACHE`/`GOTMPDIR` instead of concurrent whole-tree runs; see
+[test gate throughput](https://github.com/Open-MBEE/OpenSysML/blob/develop/docs/project/test-gate-throughput.md). The opt-in
+`OPENSYSML_TEST_BUDGET_SCALE` stretches wall-clock deadlines only, never an
+assertion, and is not set in CI.
+
 **Run tests with coverage:**
 ```bash
 go test -cover ./internal/...
