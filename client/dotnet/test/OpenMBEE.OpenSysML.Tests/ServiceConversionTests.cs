@@ -229,7 +229,7 @@ public sealed class ServiceConversionTests(ServiceFixture services) : IClassFixt
         var written = await migration.WriteAsync(path, cancellationToken: Token);
         var again = await Assert.ThrowsAsync<UnwritableException>(() => migration.WriteAsync(path, cancellationToken: Token));
         await migration.WriteAsync(path, new SaveOptions { Overwrite = true }, Token);
-        Assert.Throws<ArgumentException>(() => MigrateSource.FromFile(Path.GetRelativePath(Environment.CurrentDirectory, v1)));
+        Assert.Throws<ArgumentException>(() => MigrateSource.FromFile(Path.GetFileName(v1)));
         var fromFile = await connection.MigrateAsync(MigrateSource.FromFile(Path.Combine(directory, ".", "Vehicle.xmi")), "sysml", cancellationToken: Token);
         var itself = await Assert.ThrowsAsync<UnwritableException>(() => fromFile.WriteAsync(v1, new SaveOptions { Overwrite = true }, Token));
 

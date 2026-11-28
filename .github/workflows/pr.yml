@@ -2140,6 +2140,9 @@ jobs:
     env:
       DOTNET_NOLOGO: "1"
       DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      # No solver is installed on these runners, so the one solver-backed test skips
+      # here; the Linux job installs z3 and requires its answer.
+      OPENSYSML_REQUIRE_SMT: "0"
     steps:
       - name: Keep line endings as committed
         run: git config --global core.autocrlf false

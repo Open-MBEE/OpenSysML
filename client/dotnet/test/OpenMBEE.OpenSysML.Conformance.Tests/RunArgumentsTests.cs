@@ -60,7 +60,7 @@ public sealed class RunArgumentsTests : IDisposable
             "-mutate", "rewrite-strings",
             "-v")!;
 
-        Assert.Equal(Path.GetFullPath("/suite"), options.Directory);
+        Assert.Equal(Path.GetFullPath("/suite", Path.Combine(checkout.Path, "sub", "dir")), options.Directory);
         Assert.Equal(Path.Combine(checkout.Path, "sub", "dir", "skips.json"), options.ExpectedSkips);
         Assert.Equal("localhost:50051", options.Service);
         Assert.Null(options.Binary);
@@ -198,7 +198,7 @@ public sealed class RunArgumentsTests : IDisposable
         var named = RunArguments.Parse(["-binary", "/b", "-dir", "/suite", "-expected-skips", "/skips.json"], elsewhere.Path)!;
 
         Assert.StartsWith("no checkout holding conformance/scenarios above ", refused.Message, StringComparison.Ordinal);
-        Assert.Equal(Path.GetFullPath("/suite"), named.Directory);
+        Assert.Equal(Path.GetFullPath("/suite", elsewhere.Path), named.Directory);
     }
 
     [Fact]
