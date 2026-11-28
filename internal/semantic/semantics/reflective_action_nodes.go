@@ -40,7 +40,7 @@ func (m *Model) statementNodes(sym *symbols.Symbol) []*symbols.Symbol {
 			}
 		}
 	}
-	if loop := loopStatementOf(sym); loop != nil && loopBodyParameter(loop) == nil {
+	if loop := loopStatementOf(sym); loop != nil && loop.BodyParameter() == nil {
 		// A loop owns its `{ … }` body as one action, which owns what the body writes
 		// (SysML.xtext ActionBodyParameterMember).
 		out = append(out, &symbols.Symbol{
@@ -139,29 +139,13 @@ func loopStatementOf(sym *symbols.Symbol) *ast.WhileLoopActionNode {
 	return loop
 }
 
-// loopBodyParameter is the action a loop's body is written as (`loop action a { … }`, SysML.xtext
-// ActionBodyParameter), which the symbol table declares; nil for a body written as a block.
-func loopBodyParameter(loop *ast.WhileLoopActionNode) *ast.Usage {
-	if len(loop.Body) != 1 {
-		return nil
-	}
-	member := loop.Body[0]
-	if wrapper, ok := member.(*ast.Membership); ok {
-		member = wrapper.Member
-	}
-	if usage, ok := member.(*ast.Usage); ok && usage.IsBodyParameter {
-		return usage
-	}
-	return nil
-}
-
-// isWrittenLoopBody reports whether sym is the action a loop's body is written as (loopBodyParameter).
+// isWrittenLoopBody reports whether sym is the action a loop's body is written as (ast.WhileLoopActionNode.BodyParameter).
 func isWrittenLoopBody(sym *symbols.Symbol) bool {
 	if sym == nil || sym.Expr != nil || sym.Implicit != nil || sym.OwnerScope == nil {
 		return false
 	}
 	loop, ok := sym.OwnerScope.Node().(*ast.WhileLoopActionNode)
-	return ok && loopBodyParameter(loop) == sym.Decl
+	return ok && loop.BodyParameter() == sym.Decl
 }
 
 // isLoopBody reports whether sym is the action a loop's body is (statementNodes).
@@ -352,10 +336,10 @@ func (m *Model) statementOperands(sym *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
-// NodeStatementOf is the statement a plain-headed action node is written as (`action a assign …`,
-// `action a if …`; SysML v2 §8.2.2.17 ActionNode), the rule the conversion reads (naming.NodeStatement).
+// NodeStatementOf is the statement an action node is written as (`action a assign …`,
+// `action a : A if …`; SysML v2 §8.2.2.17 ActionNode), the rule the conversion reads (naming.NodeStatement).
 func NodeStatementOf(n *ast.Usage) ast.Node {
-	if n == nil || !PlainNodeHead(n) {
+	if n == nil || n.PrefixKeyword != "" {
 		return nil
 	}
 	switch s := symbols.ActionNodeStatementOf(n).(type) {
@@ -363,16 +347,6 @@ func NodeStatementOf(n *ast.Usage) ast.Node {
 		return s
 	}
 	return nil
-}
-
-// PlainNodeHead reports whether an action node declares nothing but its visibility
-// and name: no prefix, modifier, specialization, multiplicity or value.
-func PlainNodeHead(n *ast.Usage) bool {
-	return len(n.Prefixes) == 0 && n.PrefixKeyword == "" && len(n.Relationships) == 0 &&
-		n.Multiplicity == nil && n.CrossFeature == nil && n.Value == nil &&
-		!n.IsAbstract && !n.IsVariation && !n.IsVariant && !n.IsReference && !n.IsVariable &&
-		!n.IsIndividual && n.Portion == ast.PortionNone && !n.IsPortion && n.Direction == ast.DirNone &&
-		!n.IsEnd && !n.IsConstant && !n.IsDerived && !n.IsOrdered && !n.IsNonunique && !n.IsParallel
 }
 
 // nodeStatementOf is NodeStatementOf for any declaration.
@@ -421,7 +395,7 @@ func (m *Model) statementParts(sym *symbols.Symbol) []*symbols.Symbol {
 }
 
 // statementOf is the statement sym is: the node synthesized for it, or the usage written as it
-// with a plain head; nil where the statement is a node nested in the usage, and for anything else.
+// (its declaration's typing and prefix included); nil where the statement is a node nested in the usage, and for anything else.
 func statementOf(sym *symbols.Symbol) ast.Node {
 	if sym == nil || sym.Expr != nil || sym.Implicit != nil || IsLoopVariable(sym) {
 		return nil

@@ -362,7 +362,7 @@ func buildStateNode(scope *Scope, d *ast.StateNode, vis ast.Visibility, trivia [
 // buildLoopNode gives a loop its anonymous action namespace, declaring a `for` loop's iteration variable in it.
 func buildLoopNode(scope *Scope, d *ast.WhileLoopActionNode) {
 	// A loop is an anonymous action namespace: its body's declarations (and a
-	// `for` iteration variable) are members visible to the body and condition.
+	// `for` iteration variable) are members visible to the body; its conditions read LoopGuard.
 	child := NewScope(scope, d)
 	child.markBodyLocal()
 	scope.AddChild(child)

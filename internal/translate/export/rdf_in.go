@@ -741,12 +741,14 @@ type decoder struct {
 	// printed and usedExpr are written as source text in this pass and rebuilt
 	// canonically; demoted and demotedExpr had their text proved stale earlier.
 	// holders answers blame's reverse lookups over graph for one demoteStale pass.
-	holders     holderIndex
-	printed     map[*element]bool
-	rebuilt     map[*element]bool
-	demoted     map[*element]bool
-	usedExpr    map[string]bool
-	demotedExpr map[string]bool
+	holders holderIndex
+	printed map[*element]bool
+	// aboutWritten are the nodes whose identity the body they are a member of states about them.
+	aboutWritten map[*element]bool
+	rebuilt      map[*element]bool
+	demoted      map[*element]bool
+	usedExpr     map[string]bool
+	demotedExpr  map[string]bool
 	// folded maps a succession written as the `then` ahead of its target to
 	// that target, whose notation states it.
 	folded map[*element]*element
@@ -1945,6 +1947,20 @@ func (d *decoder) printElement(b *strings.Builder, el *element, depth int) error
 			if err != nil {
 				return err
 			}
+			// The text is the head alone, so a member written from the graph has its identity stated here.
+			var rebuilt []*element
+			for _, child := range children {
+				if _, ok := d.verbatim(child); !ok {
+					rebuilt = append(rebuilt, child)
+				}
+			}
+			about, err := d.memberNodeAnnotations(rebuilt)
+			if err != nil {
+				return err
+			}
+			for _, line := range about {
+				b.WriteString(indent + "    " + line + d.nl)
+			}
 			for _, child := range children {
 				if err := d.print(b, child, depth+1); err != nil {
 					return err
@@ -1991,6 +2007,22 @@ func (d *decoder) printElement(b *strings.Builder, el *element, depth int) error
 	// follow it, so a parallel state with none has no notation.
 	parallel := d.boolOf(el, rdf.SysML+"isParallel")
 	annotations := d.identityAnnotations(el)
+	if el.metaclass == mAssignment {
+		// An assignment takes no body: the body it is a member of states its identity.
+		if err := d.identityStatedByOwner(el, "assignment"); err != nil {
+			return err
+		}
+		annotations = nil
+	}
+	if d.aboutWritten[el] {
+		// A send's body would hold the annotation at the position its payload has.
+		annotations = nil
+	}
+	about, err := d.memberNodeAnnotations(children)
+	if err != nil {
+		return err
+	}
+	annotations = append(annotations, about...)
 	if cross := d.ownedCrossFeature(el); cross != nil {
 		about, err := d.headFeatureAnnotations(cross, "cross feature")
 		if err != nil {
@@ -2084,25 +2116,69 @@ func (d *decoder) identityAnnotations(el *element) []string {
 // payload — as `about` annotations in the owner's body, naming it by its name
 // or, failing that, its short name. what names the feature in a refusal.
 func (d *decoder) headFeatureAnnotations(feature *element, what string) ([]string, error) {
-	identity := d.identityOf(feature)
-	if len(identity) == 0 {
-		return nil, nil
-	}
-	name, ok := d.nameOf(feature, rdf.SysML+pDeclaredName)
-	if !ok {
-		name, ok = d.nameOf(feature, rdf.SysML+pDeclaredShortName)
-	}
-	if !ok {
+	out, named := d.aboutAnnotations(feature)
+	if !named {
 		return nil, &UnsupportedError{
 			What: fmt.Sprintf("the %s <%s>", what, feature.iri),
 			Note: "its identity is annotated `about` it in the body of the element whose head writes it, and it declares no name for the annotation to say",
 		}
 	}
+	return out, nil
+}
+
+// bodilessNodes names the action nodes whose notation takes no body of their own, as a refusal says them.
+var bodilessNodes = map[string]string{mAssignment: "assignment", mIfAction: "if action", mWhileLoop: "loop", mForLoop: "loop"}
+
+// memberNodeAnnotations writes the identity of each member node taking no body of its own, and of a named send, `about` it,
+// for the head of the body the members are in: between two members it would end their `then` chain.
+func (d *decoder) memberNodeAnnotations(members []*element) ([]string, error) {
 	var out []string
+	for _, member := range members {
+		form, bodiless := bodilessNodes[member.metaclass]
+		if !bodiless && member.metaclass != mSend {
+			continue
+		}
+		about, named := d.aboutAnnotations(member)
+		if !named && !bodiless {
+			continue
+		}
+		if !named {
+			return nil, d.behaviorUnannotatable(member, form)
+		}
+		if len(about) > 0 {
+			d.aboutWritten[member] = true
+			out = append(out, about...)
+		}
+	}
+	return out, nil
+}
+
+// identityStatedByOwner refuses a node taking no body of its own whose identity no enclosing body states.
+func (d *decoder) identityStatedByOwner(el *element, form string) error {
+	if len(d.identityOf(el)) > 0 && !d.aboutWritten[el] {
+		return d.behaviorUnannotatable(el, form)
+	}
+	return nil
+}
+
+// aboutAnnotations writes an element's identity as `about` annotations naming it by its name or,
+// failing that, its short name; named is false where it has an identity to state and neither name.
+func (d *decoder) aboutAnnotations(el *element) (out []string, named bool) {
+	identity := d.identityOf(el)
+	if len(identity) == 0 {
+		return nil, true
+	}
+	name, ok := d.nameOf(el, rdf.SysML+pDeclaredName)
+	if !ok {
+		name, ok = d.nameOf(el, rdf.SysML+pDeclaredShortName)
+	}
+	if !ok {
+		return nil, false
+	}
 	for _, a := range identity {
 		out = append(out, a.about(nameText(name)))
 	}
-	return out, nil
+	return out, true
 }
 
 // identityOf is the identity the notation must declare: a ProjectRef on a scope root,
@@ -2462,6 +2538,15 @@ func (d *decoder) enumeratedValue(el *element) bool {
 }
 
 func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
+	canonicalKeyword := usageKeyword(kind)
+	if written, ok := kermlTypeKeyword[el.metaclass]; ok {
+		canonicalKeyword = written
+	}
+	return d.usageHeadAs(el, kind, d.keywordOr(el, canonicalKeyword))
+}
+
+// usageHeadAs writes the head of a usage declared with the given kind keyword.
+func (d *decoder) usageHeadAs(el *element, kind ast.UsageKind, keyword string) (string, error) {
 	// A head that binds ends is written from the form it states; one relating
 	// ends without a form is refused rather than written back without them.
 	endForm, hasEnds := d.stringOf(el, rdf.OpenSysML+xEndForm)
@@ -2499,11 +2584,6 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		// without the word, which only an explicit direction earns.
 		words = append(words, direction)
 	}
-	canonicalKeyword := usageKeyword(kind)
-	if written, ok := kermlTypeKeyword[el.metaclass]; ok {
-		canonicalKeyword = written
-	}
-	keyword := d.keywordOr(el, canonicalKeyword)
 	// A `message` is the flow whose ends are event occurrences it owns as
 	// parameters; their metaclass says `message` where the graph states none.
 	if kind == ast.UsageFlow && keyword == usageKeyword(kind) {
@@ -3024,6 +3104,10 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		head += " terminate"
 	}
 	value, hasValue := d.stringOf(el, rdf.SysML+pValue)
+	// An assignment stating no sysx:assignedValue is an older graph's, whose value is the operand after `:=`.
+	if _, assigned := d.stringOf(el, rdf.OpenSysML+xAssignedValue); el.metaclass == mAssignment && !assigned {
+		hasValue = false
+	}
 	// `assert c;`, `assert c[1]` and `assert c { … }` name the `c` they refer to;
 	// a declared `c` is read only where a typing, specialization or value follows.
 	if asserted && len(identWords) > 0 && !strings.HasPrefix(identWords[0], "<") &&
@@ -4924,6 +5008,12 @@ func (d *decoder) spelledName(el *element) string {
 	for i, cur := len(segments)-1, el; i >= 0; i-- {
 		segment := segments[i]
 		name := identityName(segment)
+		if cur != nil && cur != el && len(naming.Segments(cur.qname)) <= i && strings.HasPrefix(el.qname, cur.qname+"::") {
+			// The statement a named conditional or loop node is written as has a
+			// place in the name and no element: the node is cur, one segment up.
+			spelled = append(spelled, segment)
+			continue
+		}
 		if cur != nil && naming.PositionalSegment(segment) {
 			effective, ok := d.effectiveName(cur)
 			if ok && effective != name {

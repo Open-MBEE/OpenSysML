@@ -57,7 +57,7 @@ func runRender(files []string) error {
 	if err != nil {
 		return err
 	}
-	reportRenderNotices(rendering)
+	reportRenderNotices(rendering, options)
 	return writeArtifact(artifact, form)
 }
 
@@ -122,6 +122,9 @@ func runRenderAll(files []string) error {
 			writtenForm = rendering.Kind.MachineForm()
 		}
 		reportRenderNoticesFrom(rendering, info.Name)
+		for _, notice := range rendering.LaneNotices(options) {
+			fmt.Fprintf(os.Stderr, "%s: note: %s\n", info.Name, notice)
+		}
 		artifact, err := rendering.WriteWith(writtenForm, options)
 		if err != nil {
 			if errors.Is(err, view.ErrWrongForm) {
@@ -415,11 +418,11 @@ func formList() string { return view.FormNames(view.ViewForms()) }
 
 // reportRenderNotices reports on stderr what the rendering says about itself: an
 // empty artifact, and every element it could not represent.
-func reportRenderNotices(rendering *view.Rendering) {
+func reportRenderNotices(rendering *view.Rendering, options view.Options) {
 	if rendering.Empty() {
 		fmt.Fprintf(os.Stderr, "note: %s renders empty\n", rendering.View)
 	}
-	for _, notice := range rendering.Notices {
+	for _, notice := range slices.Concat(rendering.Notices, rendering.LaneNotices(options)) {
 		fmt.Fprintf(os.Stderr, "note: %s\n", notice)
 	}
 }

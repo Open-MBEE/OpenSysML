@@ -1,7 +1,7 @@
 {
   "fixtures": 63,
-  "elements": 6691,
-  "invalidElements": 1037,
+  "elements": 6711,
+  "invalidElements": 1040,
   "missingRequired": {
     "action": 97,
     "actionDefinition": 7,
@@ -9,7 +9,7 @@
     "associationEnd": 5,
     "attributeDefinition": 13,
     "behavior": 9,
-    "bodyAction": 9,
+    "bodyAction": 10,
     "calculation": 31,
     "chainingFeature": 5,
     "connectionEnd": 4,
@@ -41,7 +41,7 @@
     "input": 37,
     "instantiatedType": 75,
     "interfaceEnd": 3,
-    "isModelLevelEvaluable": 521,
+    "isModelLevelEvaluable": 523,
     "itemDefinition": 12,
     "member": 38,
     "memberElement": 3,
@@ -83,7 +83,7 @@
     "terminatedOccurrenceArgument": 2,
     "thenAction": 5,
     "type": 129,
-    "untilArgument": 6,
+    "untilArgument": 7,
     "usage": 34,
     "useCaseIncluded": 2,
     "valueExpression": 7,
@@ -91,10 +91,10 @@
     "view": 5,
     "viewCondition": 6,
     "viewRendering": 6,
-    "whileArgument": 6
+    "whileArgument": 7
   },
   "nonSchemaKeys": {
-    "operand": 114
+    "operand": 115
   },
   "invalidValues": {
     "enumerationDefinition type": 9,
