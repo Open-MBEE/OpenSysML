@@ -228,3 +228,32 @@ func TestRenderClearsSwimlanesPlacedPastAFrameOrOverEachOther(t *testing.T) {
 		})
 	}
 }
+
+// A flow no Layout places goes on the grid, which no Layout moves: it starts under all a
+// placed flow draws, so its frame is never over a lane placed past that flow's frame.
+func TestRenderGridsAFlowUnderASwimlanePlacedPastItsFrame(t *testing.T) {
+	binary := buildCLI(t)
+	source, err := os.ReadFile("../../internal/ir/view/testdata/action-swimlane-layout-stacked.sysml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	view := "\tview gridView : ActionFlowView {\n\t\texpose runA;\n\t\texpose runB;\n" +
+		"\t\tmetadata Layout about runA { x = 20; y = 60; width = 200; height = 80; }\n" +
+		"\t\tmetadata Layout about line::robot { x = 40; y = 120; width = 142; height = 120; }\n" +
+		"\t\tmetadata Layout about line::packer { x = 40; y = 330; }\n" +
+		"\t\tmetadata Layout about runB::post { x = 60; y = 480; }\n\t}\n}\n"
+	model := filepath.Join(t.TempDir(), "grid.sysml")
+	body := strings.TrimSuffix(strings.TrimRight(string(source), "\n"), "}")
+	if err := os.WriteFile(model, []byte(body+view), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, form := range []string{"text", "drawio"} {
+		got := runFiles(t, binary, []string{model}, "-render", "LaneStacked::gridView", "-render-form", form)
+		if got.status != exitHolds {
+			t.Fatalf("%s: exit status = %d\n%s", form, got.status, got.output())
+		}
+		if strings.Contains(got.stderr, "is drawn over") {
+			t.Errorf("%s: the flow on the grid is drawn over a placed swimlane:\n%s", form, got.stderr)
+		}
+	}
+}

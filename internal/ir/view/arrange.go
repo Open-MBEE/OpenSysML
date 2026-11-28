@@ -73,7 +73,8 @@ func (a *arranger) layout(r *Rendering) {
 			}
 		}
 		a.settle(root, at)
-		a.extend(a.boxes[root.ID])
+		// A Layout may place what a root holds past its frame: the grid starts under that too.
+		a.extend(a.drawnAround(root))
 	}
 	for _, picture := range r.Pictures {
 		a.extend(drawioBox{X: picture.X, Y: picture.Y, Width: picture.Width, Height: picture.Height})
