@@ -82,4 +82,57 @@ func TestRenderSaysWhichStackedSwimlanesAFlowFrameCovers(t *testing.T) {
 			}
 		})
 	}
+	// A flow frame still over a swimlane after an import placed the flows is reported by every render.
+	for _, c := range []struct {
+		name, cell, axis string
+		by               float64
+		notice           string
+	}{
+		{"post", "LaneStacked::runB::post", "x", 8, notice},
+		{"runB", "LaneStacked::runB", "y", 10, "swimlane line.packer is placed 58 px below swimlane line.robot, in another flow: " +
+			"the frame of LaneStacked::runB needs 92 px there and is drawn over swimlane line.robot (142×34 px), " +
+			"its step load (64×18 px), the frame of LaneStacked::runA (174×50 px)"},
+	} {
+		dir := t.TempDir()
+		source, err := os.ReadFile(model)
+		if err != nil {
+			t.Fatal(err)
+		}
+		copied := filepath.Join(dir, "stacked.sysml")
+		if err := os.WriteFile(copied, source, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		file := filepath.Join(dir, "view.drawio")
+		if got := runFiles(t, binary, []string{copied}, "-render", "LaneStacked::closeView", "-render-form", "drawio", "-o", file); got.status != exitHolds {
+			t.Fatalf("export: exit status = %d\n%s", got.status, got.output())
+		}
+		data, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		cell := regexp.MustCompile(`(?s)(<object id="[^"]*" [^>]*fqn="` + c.cell + `"[^>]*>.*?<mxGeometry [^>]*\b` + c.axis + `=")([^"]*)(")`)
+		m := cell.FindStringSubmatch(string(data))
+		if m == nil {
+			t.Fatalf("no cell of %s in the export:\n%s", c.cell, data)
+		}
+		at, _ := strconv.ParseFloat(m[2], 64)
+		moved := cell.ReplaceAllString(string(data), "${1}"+strconv.FormatFloat(at+c.by, 'f', -1, 64)+"${3}")
+		if err := os.WriteFile(file, []byte(moved), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if got := runFiles(t, binary, []string{copied}, "-import-diagram", file); got.status != exitHolds {
+			t.Fatalf("import: exit status = %d\n%s", got.status, got.output())
+		}
+		for _, form := range []string{"text", "mermaid", "dot", "plantuml", "d2", "drawio"} {
+			t.Run("imported/"+c.name+"/"+form, func(t *testing.T) {
+				got := runFiles(t, binary, []string{copied}, "-render", "LaneStacked::closeView", "-render-form", form)
+				if got.status != exitHolds {
+					t.Fatalf("exit status = %d\n%s", got.status, got.output())
+				}
+				if !strings.Contains(got.stderr, "note: "+c.notice) {
+					t.Errorf("stderr does not name the lane, step and frame still covered:\n%s", got.stderr)
+				}
+			})
+		}
+	}
 }

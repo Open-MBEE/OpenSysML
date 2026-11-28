@@ -75,9 +75,6 @@ func (a *arranger) layout(r *Rendering) {
 		a.settle(root, at)
 		a.extend(a.boxes[root.ID])
 	}
-	if lanesAlone {
-		a.crowded = a.crowdedLanes(placed)
-	}
 	for _, picture := range r.Pictures {
 		a.extend(drawioBox{X: picture.X, Y: picture.Y, Width: picture.Width, Height: picture.Height})
 	}
@@ -105,6 +102,7 @@ func (a *arranger) layout(r *Rendering) {
 		a.settle(gridded[i], box)
 		a.extend(box)
 	}
+	a.crowded = a.crowdedLanes(r.Roots)
 }
 
 // settlePositioned settles the nodes the layered layout placed where it put
@@ -328,17 +326,17 @@ func (a *arranger) lanesFrame(node *Node, at drawioBox) drawioBox {
 	return drawioBox{X: at.X, Y: at.Y, Width: right + drawioNestedPad - at.X, Height: bottom + drawioNestedPad - at.Y}
 }
 
-// crowdedLanes says, for each swimlane a flow in roots frames that another flow's frame is
+// crowdedLanes says, for each placed swimlane of a flow in roots that another flow's frame is
 // drawn over, which of that flow's lanes is stated too near it and the gap that clears it.
 func (a *arranger) crowdedLanes(roots []*Node) []string {
 	var notices []string
 	for _, over := range roots {
-		if _, framesLanes := a.aroundLanes(over); !framesLanes {
+		frame, drawn := a.boxes[over.ID]
+		if !drawn {
 			continue
 		}
-		frame := a.boxes[over.ID]
 		for _, under := range roots {
-			if _, framesLanes := a.aroundLanes(under); under == over || !framesLanes {
+			if _, drawn := a.boxes[under.ID]; under == over || !drawn {
 				continue
 			}
 			for _, covered := range under.Children {
