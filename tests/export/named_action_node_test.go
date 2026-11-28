@@ -403,3 +403,61 @@ func TestReferenceInsideANamedConditionalConvertsBack(t *testing.T) {
 		})
 	}
 }
+
+// A node taking no body of its own that is written from the graph, inside a body written from its
+// source text, has its declared id stated about it in that body.
+func TestRebuiltBodilessNodeInARetainedBodyKeepsItsDeclaredID(t *testing.T) {
+	const id = `metadata : IdentityMetadata::ElementId about n { id = "11111111-2222-3333-4444-555555555555"; }`
+	for _, tc := range []struct{ name, node, metaclass string }{
+		{"typed assignment", "action n : Act assign p.w := 1;", "AssignmentActionUsage"},
+		{"typed conditional", "action n : Act if true {\n            action x;\n        }", "IfActionUsage"},
+		{"typed while loop", "action n : Act while true {\n            action x;\n        }", "WhileLoopActionUsage"},
+		{"name-only while loop", "action n while true {\n            action x;\n        }", "WhileLoopActionUsage"},
+		{"typed send", "action n : Act send new Sig() to p;", "SendActionUsage"},
+	} {
+		for _, place := range []struct{ name, before, after string }{
+			{"annotation in the text of the next member", "", "        " + id + "\n"},
+			{"annotation in the text of the node", "        " + id + "\n", ""},
+		} {
+			t.Run(tc.name+", "+place.name, func(t *testing.T) {
+				src := "package P {\n    @IdentityMetadata::ProjectRef { projectId = \"proj-1\"; }\n" +
+					"    item def Sig;\n    part def PD { attribute w; }\n    part p : PD;\n    action def Act;\n    action def A {\n" +
+					place.before + "        " + tc.node + "\n" + place.after + "        action z;\n    }\n}\n"
+				turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+				if err != nil {
+					t.Fatalf("to turtle: %v", err)
+				}
+				stated := "<urn:sysmlv2:element:11111111-2222-3333-4444-555555555555>\n    a sysml:" + tc.metaclass + " ;"
+				if !strings.Contains(string(turtle), stated) {
+					t.Fatalf("the graph does not state the node as one %s with its declared id:\n%s", tc.metaclass, turtle)
+				}
+				var kept []string
+				dropped := 0
+				for _, line := range strings.Split(string(turtle), "\n") {
+					if strings.HasPrefix(line, "    sysx:sourceText ") && strings.Contains(line, "action n") && strings.HasSuffix(line, ";") {
+						dropped++
+						continue
+					}
+					kept = append(kept, line)
+				}
+				if dropped != 1 {
+					t.Fatalf("%d triples state the node's source text, want 1:\n%s", dropped, turtle)
+				}
+				back, err := convert.Convert("m.ttl", []byte(strings.Join(kept, "\n")), convert.FormatTurtle, convert.FormatSysML)
+				if err != nil {
+					t.Fatalf("back to notation: %v", err)
+				}
+				if !strings.Contains(string(back), "    action def A {\n        "+id+"\n") {
+					t.Errorf("the body does not open with the node's id:\n%s", back)
+				}
+				again, err := convert.Convert("m.sysml", back, convert.FormatSysML, convert.FormatTurtle)
+				if err != nil {
+					t.Fatalf("the notation written back does not convert: %v\n%s", err, back)
+				}
+				if !strings.Contains(string(again), stated) {
+					t.Errorf("the node lost its metaclass or declared id on the way back:\n%s", again)
+				}
+			})
+		}
+	}
+}

@@ -1947,6 +1947,20 @@ func (d *decoder) printElement(b *strings.Builder, el *element, depth int) error
 			if err != nil {
 				return err
 			}
+			// The text is the head alone, so a member written from the graph has its identity stated here.
+			var rebuilt []*element
+			for _, child := range children {
+				if _, ok := d.verbatim(child); !ok {
+					rebuilt = append(rebuilt, child)
+				}
+			}
+			about, err := d.memberNodeAnnotations(rebuilt)
+			if err != nil {
+				return err
+			}
+			for _, line := range about {
+				b.WriteString(indent + "    " + line + d.nl)
+			}
 			for _, child := range children {
 				if err := d.print(b, child, depth+1); err != nil {
 					return err
