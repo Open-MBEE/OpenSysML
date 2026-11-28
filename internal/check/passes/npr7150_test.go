@@ -238,6 +238,9 @@ func TestNPR7150ChainedDisposition(t *testing.T) {
 		"inherited":  {config: "\n\t\tpart def Config { attribute kind : MappingKind = MappingKind::fullyCompliant; }\n\t\tpart cfg : Config;"},
 		"nested":     {config: "\n\t\tpart cfg { part sw { attribute kind : MappingKind = MappingKind::fullyCompliant; } }\n\t\tattribute projectKind : MappingKind = cfg.sw.kind;\n\t\tpart alias { attribute kind : MappingKind = projectKind; }", comply: "alias.kind"},
 		"redefining": {config: "\n\t\tpart def Config { attribute kind : MappingKind = MappingKind::fullyCompliant; }\n\t\tpart cfg : Config { attribute effective :>> kind; }", comply: "cfg.effective"},
+		"sibling":    {config: "\n\t\tpart def Config { attribute policy : MappingKind; attribute kind : MappingKind = policy; }\n\t\tpart cfg : Config { :>> policy = MappingKind::fullyCompliant; }"},
+		"unset":      {config: "\n\t\tpart def Config { attribute policy : MappingKind default MappingKind::fullyCompliant; attribute kind : MappingKind = policy; }\n\t\tpart cfg : Config { :>> policy = null; }", missing: 1},
+		"empty":      {config: "\n\t\tattribute def Config { attribute kind : MappingKind = MappingKind::fullyCompliant; }\n\t\tattribute cfg : Config[0..1] = null;", missing: 1},
 		"blank":      {config: "\n\t\tpart cfg { attribute kind : MappingKind; }", missing: 1},
 		"null":       {config: "\n\t\tpart def Config { attribute kind : MappingKind = MappingKind::fullyCompliant; }\n\t\tpart cfg : Config { :>> kind = null; }", missing: 1},
 	} {

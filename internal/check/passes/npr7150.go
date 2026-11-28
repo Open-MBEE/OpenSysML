@@ -2,6 +2,7 @@ package passes
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -211,7 +212,7 @@ func (a *npr7150Audit) mappingEntries(sym *symbols.Symbol) []npr7150Mapping {
 		}
 		entry := npr7150Mapping{usage: sym}
 		for _, binding := range metadata.Bindings {
-			literal, text := a.stated(binding.Scope, binding.Value, map[*symbols.Symbol]bool{})
+			literal, text := a.stated(npr7150Read{binding.Scope, binding.Value}, nil, map[*symbols.Symbol]bool{})
 			switch binding.Feature {
 			case "comply":
 				if semantics.EnumerationOwning(literal) == a.defs[npr7150MappingKind] {
@@ -226,27 +227,39 @@ func (a *npr7150Audit) mappingEntries(sym *symbols.Symbol) []npr7150Mapping {
 	return entries
 }
 
-// stated is what value, an expression in scope, states once every feature it names, by
-// reference or through a feature chain, is followed to its own value: the enumeration literal
-// it ends in, or the text of the string. A value that ends in `null`, in a feature bound to
-// nothing or in a cycle states neither.
-func (a *npr7150Audit) stated(scope *symbols.Scope, value ast.Node, seen map[*symbols.Symbol]bool) (*symbols.Symbol, string) {
-	switch value := value.(type) {
+// npr7150Read is an expression and the scope it is written in.
+type npr7150Read struct {
+	scope *symbols.Scope
+	expr  ast.Node
+}
+
+// stated is what read states once every feature it names, by reference or through a feature
+// chain, is followed to its own value: the enumeration literal it ends in, or the text of the
+// string. owner is the chain operand the value is being read from, whose redefinitions stand
+// for the features they redefine. A value that ends in `null`, in a feature bound to nothing,
+// in a member of an operand that is `null` or in a cycle states neither.
+func (a *npr7150Audit) stated(read npr7150Read, owner *npr7150Read, seen map[*symbols.Symbol]bool) (*symbols.Symbol, string) {
+	switch value := read.expr.(type) {
 	case *ast.LiteralString:
 		return nil, source.StringValue(value.Value)
-	case *ast.FeatureReference:
-		target, _ := a.ctx.Resolver().ResolveQualified(scope, value.Name)
-		return a.statedBy(target, seen)
-	case *ast.FeatureChainExpr:
-		target, _ := a.ctx.Resolver().ResolveTarget(scope, value)
-		return a.statedBy(target, seen)
+	case *ast.FeatureReference, *ast.FeatureChainExpr:
+		read = a.readFrom(owner, read)
+		if chain, ok := read.expr.(*ast.FeatureChainExpr); ok {
+			holder := chainHolder(read.scope, chain)
+			if a.empty(holder) {
+				return nil, ""
+			}
+			owner = &holder
+		}
+		target, _ := a.ctx.Resolver().ResolveTarget(read.scope, read.expr)
+		return a.statedBy(target, owner, seen)
 	}
 	return nil, ""
 }
 
 // statedBy is what feature states: itself when it is an enumeration literal, else what its
 // value states, or what the features it redefines state when it writes no value.
-func (a *npr7150Audit) statedBy(feature *symbols.Symbol, seen map[*symbols.Symbol]bool) (*symbols.Symbol, string) {
+func (a *npr7150Audit) statedBy(feature *symbols.Symbol, owner *npr7150Read, seen map[*symbols.Symbol]bool) (*symbols.Symbol, string) {
 	if feature == nil || seen[feature] {
 		return nil, ""
 	}
@@ -259,14 +272,85 @@ func (a *npr7150Audit) statedBy(feature *symbols.Symbol, seen map[*symbols.Symbo
 		return nil, ""
 	}
 	if usage.Value != nil {
-		return a.stated(feature.OwnerScope, usage.Value, seen)
+		return a.stated(npr7150Read{feature.OwnerScope, usage.Value}, owner, seen)
 	}
 	for _, redefined := range a.model.RedefinedFeatures(feature) {
-		if literal, text := a.statedBy(redefined, seen); literal != nil || text != "" {
+		if literal, text := a.statedBy(redefined, owner, seen); literal != nil || text != "" {
 			return literal, text
 		}
 	}
 	return nil, ""
+}
+
+// readFrom is read as a member of owner where it names one: a sibling an inherited value
+// reads is the feature owner has for it, which may redefine the one the value was written by.
+func (a *npr7150Audit) readFrom(owner *npr7150Read, read npr7150Read) npr7150Read {
+	if owner == nil {
+		return read
+	}
+	switch value := read.expr.(type) {
+	case *ast.FeatureReference:
+		if value.Name == nil || len(value.Name.Parts) != 1 {
+			return read
+		}
+		written, _ := a.ctx.Resolver().ResolveQualified(read.scope, value.Name)
+		member := &ast.QualifiedName{NodeBase: value.Name.NodeBase, Parts: slices.Clone(value.Name.Parts)}
+		chain := &ast.FeatureChainExpr{NodeBase: value.NodeBase, Operand: owner.expr, Member: member}
+		owned, _ := a.ctx.Resolver().ResolveTarget(owner.scope, chain)
+		if owned != nil && (owned == written || slices.Contains(a.model.AllRedefinedFeatures(owned), written)) {
+			return npr7150Read{owner.scope, chain}
+		}
+	case *ast.FeatureChainExpr:
+		if operand := a.readFrom(owner, npr7150Read{read.scope, value.Operand}); operand.expr != value.Operand {
+			return npr7150Read{operand.scope, &ast.FeatureChainExpr{NodeBase: value.NodeBase, Operand: operand.expr, Member: value.Member}}
+		}
+	}
+	return read
+}
+
+// chainHolder is what the last member of chain is read from.
+func chainHolder(scope *symbols.Scope, chain *ast.FeatureChainExpr) npr7150Read {
+	if chain.Member == nil || len(chain.Member.Parts) < 2 {
+		return npr7150Read{scope, chain.Operand}
+	}
+	parts := chain.Member.Parts
+	member := &ast.QualifiedName{NodeBase: chain.Member.NodeBase, Parts: slices.Clone(parts[:len(parts)-1])}
+	return npr7150Read{scope, &ast.FeatureChainExpr{NodeBase: chain.NodeBase, Operand: chain.Operand, Member: member}}
+}
+
+// empty reports whether read names a feature bound to `null`, or a member of one: nothing can
+// be read from it.
+func (a *npr7150Audit) empty(read npr7150Read) bool {
+	target, _ := a.ctx.Resolver().ResolveTarget(read.scope, read.expr)
+	if a.boundToNull(target, map[*symbols.Symbol]bool{}) {
+		return true
+	}
+	chain, ok := read.expr.(*ast.FeatureChainExpr)
+	return ok && a.empty(chainHolder(read.scope, chain))
+}
+
+// boundToNull reports whether feature's value, its own or the one it redefines, ends in `null`.
+func (a *npr7150Audit) boundToNull(feature *symbols.Symbol, seen map[*symbols.Symbol]bool) bool {
+	if feature == nil || seen[feature] {
+		return false
+	}
+	seen[feature] = true
+	usage, _ := feature.Decl.(*ast.Usage)
+	if usage == nil {
+		return false
+	}
+	switch value := usage.Value.(type) {
+	case nil:
+		return slices.ContainsFunc(a.model.RedefinedFeatures(feature), func(redefined *symbols.Symbol) bool {
+			return a.boundToNull(redefined, seen)
+		})
+	case *ast.NullExpr:
+		return true
+	case *ast.FeatureReference, *ast.FeatureChainExpr:
+		target, _ := a.ctx.Resolver().ResolveTarget(feature.OwnerScope, value)
+		return a.boundToNull(target, seen)
+	}
+	return false
 }
 
 func (a *npr7150Audit) check(root *symbols.Scope) {
