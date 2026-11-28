@@ -219,16 +219,17 @@ func TestDrawioMovedSwimlaneBesideItsFoldedPlacedLane(t *testing.T) {
 }
 
 // The placed lane of a performer with another lane in a nested flow, moved in the file, is
-// named by the flow it is drawn in, whether or not a Layout places that flow.
+// named by the flow it is drawn in, which is pinned with it when no Layout places that flow.
 func TestDrawioMovedPlacedSwimlaneBesideANestedLane(t *testing.T) {
 	lane := func(f *view.DrawioFile) *view.DrawioCell {
 		return drawioFirst(f, func(c *view.DrawioCell) bool { return c.Vertex && strings.Contains(c.Label, "arm") })
 	}
 	edited, imp, re := swimlaneRoundTrip(t, "PlacedLane::nestedView", lane, shifted(t, 40, 30))
-	if len(imp.Edits) != 1 || imp.Edits[0].Kind != view.DrawioEditLayout || imp.Edits[0].FQN != "PlacedLane::arm" {
-		t.Fatalf("edits = %+v, want one Layout about PlacedLane::arm", imp.Edits)
+	about := slices.IndexFunc(imp.Edits, func(e view.DrawioEdit) bool { return e.Kind == view.DrawioEditLayout && e.FQN == "PlacedLane::arm" })
+	if about < 0 || !slices.Equal(imp.Edits[about].Within, []string{"PlacedLane::assemble"}) {
+		t.Fatalf("edits = %+v, want a Layout about PlacedLane::arm within PlacedLane::assemble", imp.Edits)
 	}
-	if layout := imp.Edits[0].Layout; layout.X != 360 || layout.Y != 150 {
+	if layout := imp.Edits[about].Layout; layout.X != 360 || layout.Y != 150 {
 		t.Errorf("layout = %+v, want 360,150", layout)
 	}
 	if was, again := lane(edited), lane(re); again == nil || !drawioSameBox(was.Geometry, again.Geometry) {
@@ -265,5 +266,331 @@ func TestDrawioMovedPlacedSwimlaneInsideAnUnnamedPerformersLane(t *testing.T) {
 	}
 	if was, again := lane(edited), lane(re); again == nil || !drawioSameBox(was.Geometry, again.Geometry) {
 		t.Errorf("swimlane was at %+v, re-exported at %+v", was.Geometry, again)
+	}
+}
+
+const twoFlowLaneModel = `package T {
+	private import DiagramLayout::*;
+	action runA { action load; then action ship; }
+	action runB { action pack; then action post; }
+	part line {
+		part robot { perform runA.load; }
+		part packer { perform runB.pack; }
+	}
+	view both : StandardViewDefinitions::ActionFlowView {
+		expose runA;
+		expose runB;
+		metadata Layout about line::robot { x = 320; y = 120; width = 220; height = 180; }
+		metadata Layout about line::packer { x = 700; y = 120; width = 220; height = 180; }
+	}
+	view one : StandardViewDefinitions::ActionFlowView {
+		expose runA;
+		expose runB;
+		metadata Layout about line::robot { x = 320; y = 120; width = 220; height = 180; }
+	}
+	view free : StandardViewDefinitions::ActionFlowView {
+		expose runA;
+		expose T::idle;
+		metadata Layout about line::robot { x = 320; y = 120; width = 220; height = 180; }
+	}
+	view bare : StandardViewDefinitions::ActionFlowView {
+		expose runA;
+		expose runB;
+	}
+	action idle { action rest; then action wake; }
+}
+`
+
+// A lane moved in the file of a view placing no node places every flow the file shows: the
+// re-export leaves no other flow undrawn, with or without a Layout about a performer.
+func TestDrawioMovedSwimlaneKeepsTheOtherFlowsOfAViewPlacingNoNode(t *testing.T) {
+	count := func(f *view.DrawioFile) (vertices, edges int) {
+		for i := range f.Cells {
+			switch c := &f.Cells[i]; {
+			case c.Vertex && !c.Relative:
+				vertices++
+			case c.Edge:
+				edges++
+			}
+		}
+		return vertices, edges
+	}
+	for _, name := range []string{"T::both", "T::one", "T::free", "T::bare"} {
+		t.Run(name, func(t *testing.T) {
+			edited, _, re := swimlaneRoundTripOf(t, twoFlowLaneModel, name, laneOf("T::runA::load"), shifted(t, 40, 30))
+			wantV, wantE := count(edited)
+			if v, e := count(re); v != wantV || e != wantE {
+				t.Errorf("re-exported %d vertices and %d edges, the file had %d and %d", v, e, wantV, wantE)
+			}
+			for _, fqn := range []string{"T::runA::ship", "T::runB::post", "T::idle::wake"} {
+				was, again := cellNamed(fqn)(edited), cellNamed(fqn)(re)
+				if was != nil && (again == nil || !drawioSameBox(was.Geometry, again.Geometry)) {
+					t.Errorf("%s was at %+v, re-exported at %+v", fqn, was.Geometry, again)
+				}
+			}
+		})
+	}
+}
+
+const unnamedStepLaneModel = `package U {
+	action runA { action load; then action ship; }
+	action runB { action pack; then action; then action post; }
+	part robot { perform runA.load; }
+	view both : StandardViewDefinitions::ActionFlowView {
+		expose runA;
+		expose runB;
+	}
+	view other : StandardViewDefinitions::ActionFlowView {
+		expose runB;
+	}
+}
+`
+
+// A lane moved in a view placing no node writes nothing on the declaration of a step the
+// file left alone: a step with no name in another flow stays unplaced, and so does every
+// other view drawing it.
+func TestDrawioMovedSwimlaneWritesNoLayoutOnAnUntouchedUnnamedStep(t *testing.T) {
+	m, rendering, options := drawioModel(t, unnamedStepLaneModel, "U::both")
+	document, exported := drawioExport(t, rendering, options)
+	lane := laneOf("U::runA::load")(exported)
+	if lane == nil {
+		t.Fatal("the export has no swimlane")
+	}
+	_, imp := drawioImport(t, drawioImporter(t, rendering, options), rendering.View, shifted(t, 40, 30)(document, lane.ID))
+	for _, e := range imp.Edits {
+		if e.Kind == view.DrawioEditLayout && e.FQN == "" {
+			t.Errorf("a Layout is written on a declaration no name reaches: %+v", e)
+		}
+	}
+	res, err := Apply(m, DrawioOperations(imp, false))
+	if err != nil {
+		t.Fatalf("apply %+v: %v", imp.Edits, err)
+	}
+	count := func(content string) (vertices, edges int) {
+		_, r, o := drawioModel(t, content, "U::other")
+		_, f := drawioExport(t, r, o)
+		for i := range f.Cells {
+			switch c := &f.Cells[i]; {
+			case c.Vertex && !c.Relative:
+				vertices++
+			case c.Edge:
+				edges++
+			}
+		}
+		return vertices, edges
+	}
+	wantV, wantE := count(unnamedStepLaneModel)
+	if v, e := count(string(res.Content)); v != wantV || e != wantE {
+		t.Errorf("U::other draws %d vertices and %d edges after the import into U::both, it drew %d and %d", v, e, wantV, wantE)
+	}
+}
+
+// A node moved in the file of a view whose only Layouts are about performers places every
+// flow the file shows: the re-export leaves none undrawn and each placed lane where it was.
+func TestDrawioMovedNodeKeepsTheFlowsAndLanesOfAViewPlacingSwimlanesAlone(t *testing.T) {
+	count := func(f *view.DrawioFile) (vertices, edges int) {
+		for i := range f.Cells {
+			switch c := &f.Cells[i]; {
+			case c.Vertex && !c.Relative:
+				vertices++
+			case c.Edge:
+				edges++
+			}
+		}
+		return vertices, edges
+	}
+	for _, c := range []struct{ view, moved string }{
+		{"T::both", "T::runB::pack"}, {"T::both", "T::runA::ship"},
+		{"T::one", "T::runA::load"}, {"T::one", "T::runB::post"},
+		{"T::free", "T::idle::rest"}, {"T::free", "T::runA::load"},
+	} {
+		t.Run(c.view+" "+c.moved, func(t *testing.T) {
+			edited, imp, re := swimlaneRoundTripOf(t, twoFlowLaneModel, c.view, cellNamed(c.moved), shifted(t, 40, 30))
+			wantV, wantE := count(edited)
+			if v, e := count(re); v != wantV || e != wantE {
+				t.Errorf("re-exported %d vertices and %d edges, the file had %d and %d (edits %+v)", v, e, wantV, wantE, imp.Edits)
+			}
+			lane := laneOf("T::runA::load")
+			if was, again := lane(edited), lane(re); was == nil || again == nil || was.Geometry.X != again.Geometry.X || was.Geometry.Y != again.Geometry.Y {
+				t.Errorf("the lane of line.robot was at %+v, re-exported at %+v", was, again)
+			}
+			if was, again := cellNamed(c.moved)(edited), cellNamed(c.moved)(re); again == nil || !drawioSameBox(was.Geometry, again.Geometry) {
+				t.Errorf("%s was at %+v, re-exported at %+v", c.moved, was.Geometry, again)
+			}
+		})
+	}
+}
+
+const twiceShownStepModel = `package D {
+	private import DiagramLayout::*;
+	action runA { action load; then action weld; }
+	action runB { action pack; then action ship; }
+	part robot { perform runA.load; }
+	view twice : StandardViewDefinitions::ActionFlowView {
+		expose runA;
+		expose runB;
+		expose runA::weld;
+		metadata Layout about robot { x = 320; y = 120; }
+	}
+}`
+
+// A step the view shows twice, in its flow and on its own, has one Layout: placing the flows
+// around a moved copy keeps the place the file moved it to.
+func TestDrawioMovedNodeShownTwiceKeepsItsMoveBesideAPlacedSwimlane(t *testing.T) {
+	const weld = "D::runA::weld"
+	alone := func(f *view.DrawioFile) *view.DrawioCell {
+		return drawioFirst(f, func(c *view.DrawioCell) bool {
+			parent := f.Cell(c.Parent)
+			return c.FQN == weld && (parent == nil || parent.FQN == "")
+		})
+	}
+	edited, imp, _ := swimlaneRoundTripOf(t, twiceShownStepModel, "D::twice", alone, shifted(t, 40, 30))
+	moved := alone(edited)
+	var layouts []view.DrawioEdit
+	for _, e := range imp.Edits {
+		if e.Kind == view.DrawioEditLayout && e.FQN == weld {
+			layouts = append(layouts, e)
+		}
+	}
+	if len(layouts) != 1 || layouts[0].Layout.X != moved.Geometry.X || layouts[0].Layout.Y != moved.Geometry.Y {
+		t.Errorf("the import writes %+v about %s, the file moved it to %+v", layouts, weld, moved.Geometry)
+	}
+}
+
+const unnamedStepOwnFlowModel = `package G {
+	private import DiagramLayout::*;
+	action runA { action load; then action; then action weld; }
+	action runB { action pack; then action ship; }
+	part robot { perform runA.load; }
+	part packer { perform runB.pack; }
+	view both : StandardViewDefinitions::ActionFlowView {
+		expose runA;
+		expose runB;
+		metadata Layout about robot { x = 320; y = 120; }
+	}
+	view onlyA : StandardViewDefinitions::ActionFlowView {
+		expose runA;
+	}
+}
+`
+
+// A move in the flow holding a step with no name writes nothing on that step's declaration,
+// whichever of the flow's cells the file moved: the import says so, and a view drawing the
+// flow alone draws it as before.
+func TestDrawioMoveInAFlowWritesNoLayoutOnItsUntouchedUnnamedStep(t *testing.T) {
+	count := func(content string) (vertices, edges int) {
+		_, r, o := drawioModel(t, content, "G::onlyA")
+		_, f := drawioExport(t, r, o)
+		for i := range f.Cells {
+			switch c := &f.Cells[i]; {
+			case c.Vertex && !c.Relative:
+				vertices++
+			case c.Edge:
+				edges++
+			}
+		}
+		return vertices, edges
+	}
+	wantV, wantE := count(unnamedStepOwnFlowModel)
+	for name, pick := range map[string]func(*view.DrawioFile) *view.DrawioCell{
+		"lane":  laneOf("G::runA::load"),
+		"node":  cellNamed("G::runA::load"),
+		"step":  cellNamed("G::runA::weld"),
+		"frame": cellNamed("G::runA"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			m, rendering, options := drawioModel(t, unnamedStepOwnFlowModel, "G::both")
+			document, exported := drawioExport(t, rendering, options)
+			cell := pick(exported)
+			if cell == nil {
+				t.Fatal("the export has no cell to move")
+			}
+			_, imp := drawioImport(t, drawioImporter(t, rendering, options), rendering.View, shifted(t, 40, 30)(document, cell.ID))
+			for _, e := range imp.Edits {
+				if e.Kind == view.DrawioEditLayout && e.FQN == "" {
+					t.Errorf("a Layout is written on a declaration no name reaches: %+v", e)
+				}
+			}
+			if !slices.ContainsFunc(imp.Notices, func(n string) bool { return strings.Contains(n, "G::runA: holds a node with no name") }) {
+				t.Errorf("the import does not say it left the unnamed step unplaced: %q", imp.Notices)
+			}
+			res, err := Apply(m, DrawioOperations(imp, false))
+			if err != nil {
+				t.Fatalf("apply %+v: %v", imp.Edits, err)
+			}
+			if v, e := count(string(res.Content)); v != wantV || e != wantE {
+				t.Errorf("G::onlyA draws %d vertices and %d edges after the import into G::both, it drew %d and %d", v, e, wantV, wantE)
+			}
+		})
+	}
+}
+
+const unnamedStepPlainModel = `package N {
+	action runA { action load; then action; then action weld; }
+	view plain : StandardViewDefinitions::ActionFlowView {
+		expose runA;
+	}
+}
+`
+
+const unnamedFoldModel = `package O {
+	private import DiagramLayout::*;
+	action runA { action load; then action { action inner; } then action weld; }
+	part robot { perform runA.load; }
+	view placed : StandardViewDefinitions::ActionFlowView {
+		expose runA;
+		metadata Layout about robot { x = 320; y = 120; }
+	}
+}
+`
+
+func drawioCounts(f *view.DrawioFile) (vertices, edges int) {
+	for i := range f.Cells {
+		switch c := &f.Cells[i]; {
+		case c.Vertex && !c.Relative:
+			vertices++
+		case c.Edge:
+			edges++
+		}
+	}
+	return vertices, edges
+}
+
+// A move in a view placing nothing keeps the step with no name of the moved flow drawn: the
+// import places it as it always did, the rule sparing it being for an import placing every
+// root.
+func TestDrawioMoveInAViewPlacingNothingKeepsItsUnnamedStep(t *testing.T) {
+	for name, pick := range map[string]func(*view.DrawioFile) *view.DrawioCell{
+		"node":  cellNamed("N::runA::weld"),
+		"frame": cellNamed("N::runA"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			var exported *view.DrawioFile
+			_, imp, re := swimlaneRoundTripOf(t, unnamedStepPlainModel, "N::plain", func(f *view.DrawioFile) *view.DrawioCell {
+				exported = f
+				return pick(f)
+			}, shifted(t, 40, 30))
+			wantV, wantE := drawioCounts(exported)
+			if v, e := drawioCounts(re); v != wantV || e != wantE {
+				t.Errorf("the view draws %d vertices and %d edges after the import, it drew %d and %d (notices %q)", v, e, wantV, wantE, imp.Notices)
+			}
+		})
+	}
+}
+
+// A step with no name the file folds is changed by the file, not left alone: its fold is
+// imported, in a view placing swimlanes alone too.
+func TestDrawioFoldedUnnamedStepIsImportedBesideAPlacedSwimlane(t *testing.T) {
+	_, rendering, options := drawioModel(t, unnamedFoldModel, "O::placed")
+	document, exported := drawioExport(t, rendering, options)
+	inner := cellNamed("O::runA::inner")(exported)
+	if inner == nil || exported.Cell(inner.Parent) == nil {
+		t.Fatal("the export does not draw the unnamed step around its content")
+	}
+	_, imp := drawioImport(t, drawioImporter(t, rendering, options), rendering.View, foldedIn(t, "1")(document, inner.Parent))
+	if !slices.ContainsFunc(imp.Edits, func(e view.DrawioEdit) bool {
+		return e.Kind == view.DrawioEditLayout && e.FQN == "" && e.Layout.Collapsed
+	}) {
+		t.Errorf("the import writes no fold on the unnamed step: %+v (notices %q)", imp.Edits, imp.Notices)
 	}
 }

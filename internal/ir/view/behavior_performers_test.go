@@ -429,3 +429,136 @@ func TestSwimlaneLayoutPlacesOneLaneOutsideAView(t *testing.T) {
 		}
 	}
 }
+
+// A Layout about a performer alone places its swimlane and pins no node: every
+// form still draws the whole flow, as it does for a view with no Layout.
+func TestSwimlanePlacedAloneLeavesNoNodeUndrawn(t *testing.T) {
+	for _, view := range []string{"LaneAlone::cornerView", "LaneAlone::sizedView"} {
+		rendering := render(t, "action-swimlane-layout-alone.sysml", view)
+		if lane := laneOf(t, rendering, "load"); lane == nil || !lane.Geometry.placed() {
+			t.Fatalf("%s: the lane of load is not placed by the Layout about line::robot", view)
+		}
+		if p := placeRendering(rendering); p.positioned() {
+			t.Errorf("%s: %d of %d nodes pinned, want none by a swimlane alone", view, p.count, p.nodes)
+		}
+		for _, form := range []Form{FormDot, FormMermaid, FormPlantUML, FormD2, FormDrawio} {
+			out, err := rendering.Write(form)
+			if err != nil {
+				t.Fatalf("%s: write %s: %v", view, form, err)
+			}
+			if strings.Contains(out, "left undrawn") {
+				t.Errorf("%s: %s leaves nodes undrawn", view, form)
+			}
+			for _, want := range []string{"load", "weld", "ship", "line.robot", "line.welder"} {
+				if !strings.Contains(out, want) {
+					t.Errorf("%s: %s lacks %q", view, form, want)
+				}
+			}
+		}
+	}
+}
+
+// The draw.io form draws a swimlane placed alone where its Layout says, at the stated size
+// when it states one, with the flow no Layout places drawn around it.
+func TestSwimlanePlacedAloneKeepsItsStatedPlaceInDrawio(t *testing.T) {
+	for view, sized := range map[string]bool{"LaneAlone::cornerView": false, "LaneAlone::sizedView": true} {
+		rendering := render(t, "action-swimlane-layout-alone.sysml", view)
+		out, err := rendering.Write(FormDrawio)
+		if err != nil {
+			t.Fatalf("%s: write drawio: %v", view, err)
+		}
+		file, err := ReadDrawio([]byte(out), view)
+		if err != nil {
+			t.Fatalf("%s: read drawio: %v", view, err)
+		}
+		var lane *DrawioCell
+		edges := 0
+		for i := range file.Cells {
+			switch cell := &file.Cells[i]; {
+			case cell.Vertex && strings.Contains(cell.Label, "line.robot"):
+				lane = cell
+			case cell.Edge:
+				edges++
+			}
+		}
+		if lane == nil {
+			t.Fatalf("%s: no swimlane of line.robot:\n%s", view, out)
+		}
+		if box := lane.Geometry; box.X != 320 || box.Y != 120 {
+			t.Errorf("%s: lane drawn at %v,%v, its Layout says 320,120", view, box.X, box.Y)
+		}
+		if box := lane.Geometry; sized && (box.Width != 220 || box.Height != 180) {
+			t.Errorf("%s: lane drawn %vx%v, its Layout says 220x180", view, box.Width, box.Height)
+		}
+		if edges < 2 {
+			t.Errorf("%s: %d edges drawn, want the two successions of the flow", view, edges)
+		}
+	}
+}
+
+// Two flows whose swimlanes are placed one under the other are drawn apart: the nodes of
+// the upper flow no Layout places sit beside its lane, not under it where the lower flow is.
+func TestSwimlanesPlacedAloneKeepTheirFlowsApartInDrawio(t *testing.T) {
+	overlap := func(a, b DrawioBox) bool {
+		return a.X < b.X+b.Width && b.X < a.X+a.Width &&
+			a.Y < b.Y+b.Height && b.Y < a.Y+a.Height
+	}
+	// apart is whether the lanes leave the second flow's header room under the first lane.
+	for _, c := range []struct {
+		view  string
+		y     float64
+		apart bool
+	}{{"LaneStacked::stackedView", 420, true}, {"LaneStacked::closeView", 330, false}} {
+		t.Run(c.view, func(t *testing.T) {
+			out, err := render(t, "action-swimlane-layout-stacked.sysml", c.view).Write(FormDrawio)
+			if err != nil {
+				t.Fatalf("write drawio: %v", err)
+			}
+			file, err := ReadDrawio([]byte(out), c.view)
+			if err != nil {
+				t.Fatalf("read drawio: %v", err)
+			}
+			named := func(fqn string) DrawioBox {
+				for i := range file.Cells {
+					if file.Cells[i].FQN == fqn {
+						return file.Cells[i].Geometry
+					}
+				}
+				t.Fatalf("no cell of %s:\n%s", fqn, out)
+				return DrawioBox{}
+			}
+			lanes := map[string]DrawioBox{}
+			for i := range file.Cells {
+				for _, performer := range []string{"line.robot", "line.packer"} {
+					if cell := &file.Cells[i]; cell.Vertex && strings.Contains(cell.Label, performer) {
+						lanes[performer] = cell.Geometry
+					}
+				}
+			}
+			if at := lanes["line.robot"]; at.X != 320 || at.Y != 120 {
+				t.Errorf("lane of line.robot drawn at %v,%v, its Layout says 320,120", at.X, at.Y)
+			}
+			if at := lanes["line.packer"]; at.X != 320 || at.Y != c.y {
+				t.Errorf("lane of line.packer drawn at %v,%v, its Layout says 320,%v", at.X, at.Y, c.y)
+			}
+			// Stated nearer than the lower flow's header is tall, the lanes cannot both be kept clear: the file says so.
+			const crowded = "swimlane line.packer is placed 48 px below swimlane line.robot, in another flow: the frame of LaneStacked::runB needs 108 px there and is drawn over swimlane line.robot (142×44 px), its step load (64×28 px), the frame of LaneStacked::runA (174×60 px)"
+			if said := strings.Contains(out, crowded); said == c.apart {
+				t.Errorf("notice of a frame drawn over a swimlane: %v, want %v:\n%s", said, !c.apart, out)
+			}
+			if c.apart && strings.Contains(out, "is drawn over") {
+				t.Errorf("lanes drawn clear of each other are noticed as covered:\n%s", out)
+			}
+			runA, runB := named("LaneStacked::runA"), named("LaneStacked::runB")
+			if c.apart && overlap(runA, runB) {
+				t.Errorf("flow runA at %+v overlaps flow runB at %+v", runA, runB)
+			}
+			for _, step := range []string{"weld", "grind", "paint"} {
+				box := named("LaneStacked::runA::" + step)
+				if overlap(box, lanes["line.packer"]) || overlap(box, runB) {
+					t.Errorf("%s at %+v is covered by flow runB at %+v, its lane at %+v", step, box, runB, lanes["line.packer"])
+				}
+			}
+		})
+	}
+}

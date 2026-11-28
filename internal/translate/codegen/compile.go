@@ -1069,11 +1069,11 @@ func (fc *funcCompiler) compileLoop(s lower.Loop) (Stmt, error) {
 		}
 		loop.Cond = c
 	}
-	// The post-condition is tested after the body, in its scope, so it can
-	// read attributes the body declares.
+	// The post-condition is tested after the body but is the loop's own, beside the body:
+	// it does not read what the body declares.
 	fc.env.push()
-	defer fc.env.pop()
 	body, err := fc.compileSteps(s.Body)
+	fc.env.pop()
 	if err != nil {
 		return nil, err
 	}

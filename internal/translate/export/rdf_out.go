@@ -1501,7 +1501,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		}
 		e.ident(subject, n.Ident)
 		e.flags(subject, []boolProperty{{pIsStandard, n.IsStandard}})
-		if err := e.prefixes(subject, fqn, n.Prefixes, n.Members); err != nil {
+		if err := e.prefixes(subject, fqn, n.Prefixes, len(e.names.Kept(n.Members))); err != nil {
 			return err
 		}
 		e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(n.HasBody))
@@ -1510,7 +1510,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 	case *ast.Namespace:
 		head(rdf.SysMLTerm("Namespace"))
 		e.ident(subject, n.Ident)
-		if err := e.prefixes(subject, fqn, n.Prefixes, n.Members); err != nil {
+		if err := e.prefixes(subject, fqn, n.Prefixes, len(e.names.Kept(n.Members))); err != nil {
 			return err
 		}
 		e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(n.HasBody))
@@ -1542,7 +1542,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			{"isIndividual", n.IsIndividual},
 			{"isParallel", n.IsParallel},
 		})
-		if err := e.prefixes(subject, fqn, n.Prefixes, n.Members); err != nil {
+		if err := e.prefixes(subject, fqn, n.Prefixes, len(e.names.Kept(n.Members))); err != nil {
 			return err
 		}
 		e.relationships(subject, owner, n.Relationships)
@@ -1722,7 +1722,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		if n.HasConjugatedTyping() {
 			e.graph.Add(subject, e.sysx(xConjugatedTyping), rdf.Bool(true))
 		}
-		if err := e.prefixes(subject, fqn, n.Prefixes, naming.BodyMembers(n)); err != nil {
+		if err := e.prefixes(subject, fqn, n.Prefixes, e.names.PrefixIndex(n)); err != nil {
 			return err
 		}
 		if trigger || n.IsAccept {
@@ -1880,7 +1880,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		for _, supplier := range n.Suppliers {
 			e.graph.Add(subject, e.sysml(pSupplier), e.reference(supplier))
 		}
-		if err := e.prefixes(subject, fqn, n.Prefixes, n.Body); err != nil {
+		if err := e.prefixes(subject, fqn, n.Prefixes, len(e.names.Kept(n.Body))); err != nil {
 			return err
 		}
 		e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(n.HasBody))
@@ -2018,7 +2018,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 				{"mayTimeVary", e.ids.model.UsageMayTimeVary(sym)},
 			})
 		}
-		if err := e.prefixes(subject, fqn, n.Prefixes, n.Body); err != nil {
+		if err := e.prefixes(subject, fqn, n.Prefixes, len(e.names.Kept(n.Body))); err != nil {
 			return err
 		}
 		if n.TypeRef != nil {
@@ -2458,7 +2458,7 @@ func (e *encoder) requirementCondition(subject rdf.Term, fqn, owner string, n re
 	if n.expression == nil && n.reference == nil {
 		e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String("constraint"))
 	}
-	if err := e.prefixes(subject, fqn, n.prefixes, n.body); err != nil {
+	if err := e.prefixes(subject, fqn, n.prefixes, len(e.names.Kept(n.body))); err != nil {
 		return err
 	}
 	e.relationships(subject, owner, n.relationships)
@@ -3140,8 +3140,7 @@ func (e *encoder) nonunique(subject rdf.Term, nonunique bool) {
 
 // prefixes maps the `#M` annotations ahead of a declaration as metadata usages
 // it owns after its body members (PrefixMetadataMember), keyed `#` for the writer.
-func (e *encoder) prefixes(subject rdf.Term, fqn string, prefixes []*ast.PrefixMetadata, members []ast.Node) error {
-	index := len(e.names.Kept(members))
+func (e *encoder) prefixes(subject rdf.Term, fqn string, prefixes []*ast.PrefixMetadata, index int) error {
 	for _, prefix := range prefixes {
 		if prefix == nil || e.names.Skip(prefix) {
 			continue
