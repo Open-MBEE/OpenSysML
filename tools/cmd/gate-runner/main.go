@@ -427,7 +427,7 @@ func logTailBytes(value string) (int, error) {
 	if err != nil || n == 0 || n > uint64(math.MaxInt32)/multiplier {
 		return 0, fmt.Errorf("%s=%q: want a positive size with K, M or G suffix", logTailEnv, value)
 	}
-	return int(n * multiplier), nil
+	return int(n * multiplier), nil // #nosec G115 -- bounded by math.MaxInt32 above
 }
 
 func snapshotCommand() []string {
@@ -635,7 +635,7 @@ func childEnv(p, procs int, flags string) []string {
 
 func processExecutor(root string, p, procs int, flags string) executor {
 	return func(ctx context.Context, command []string, out io.Writer) error {
-		cmd := exec.CommandContext(ctx, command[0], command[1:]...)
+		cmd := exec.CommandContext(ctx, command[0], command[1:]...) // #nosec G204 -- the shard command the runner itself composed
 		cmd.Dir = root
 		cmd.Env = childEnv(p, procs, flags)
 		cmd.Stdout, cmd.Stderr = out, out
